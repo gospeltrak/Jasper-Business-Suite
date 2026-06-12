@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="emeraldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <linearGradient id="slateGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <filter id="subtleShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.15" />
+    </filter>
+  </defs>
+  
+  <!-- Outer Rounded Background -->
+  <rect width="512" height="512" rx="112" fill="url(#slateGradient)" />
+  
+  <!-- Outer Glow Ring -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="url(#emeraldGradient)" stroke-width="4" stroke-opacity="0.3" />
+  
+  <!-- Geometric Logo Icon Centered -->
+  <g transform="translate(128, 112)" filter="url(#subtleShadow)">
+    <!-- Main Stylized J Letter Intertwined with Progress Bar -->
+    <!-- J Curve Backing -->
+    <path d="M176,32 L224,32 L224,208 C224,243.3 195.3,272 160,272 C124.7,272 96,243.3 96,208 L144,208 C144,216.8 151.2,224 160,224 C168.8,224 176,216.8 176,208 L176,32 Z" fill="url(#emeraldGradient)" />
+    
+    <!-- ERP Shield Motif Backing -->
+    <path d="M48,32 L160,32 L160,80 L80,80 L80,160 L48,160 Z" fill="#ffffff" opacity="0.9" />
+    
+    <!-- Accent Spark/Dot representing Retail/Cashier transaction dot -->
+    <circle cx="160" cy="144" r="20" fill="#34d399" />
+    <circle cx="80" cy="208" r="16" fill="#10b981" />
+  </g>
+</svg>

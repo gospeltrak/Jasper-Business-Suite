@@ -1,0 +1,167 @@
+60-  account,
+61-  isAffiliate,
+62-  onExit
+63-}: SuperSaaSMirrorDashboardProps) {
+64-  // 12 Sidebar Menu tabs
+65:  const [activeMenu, setActiveMenu] = useState<string>('sales');
+66-
+67-  // Lock and edit system states
+68-  const [isEditUnlocked, setIsEditUnlocked] = useState<boolean>(false);
+69-  const [showPinModal, setShowPinModal] = useState<boolean>(false);
+70-  const [pinInputValue, setPinInputValue] = useState<string>('');
+--
+460-                { id: 'sync', label: 'Offline Sync Hub', icon: WifiOff },
+461-                { id: 'branding', label: 'White-Label Branding', icon: Award },
+462-                { id: 'settings', label: 'System Settings', icon: Settings },
+463-              ].map(item => {
+464-                const IconComp = item.icon;
+465:                const isItemActive = activeMenu === item.id;
+466-                return (
+467-                  <button
+468-                    key={item.id}
+469-                    onClick={() => setActiveMenu(item.id)}
+470-                    className={`w-full flex items-center space-x-3 px-3.5 py-2.5 text-xs font-semibold rounded-xl tracking-wide transition-all ${isItemActive ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black shadow-lg shadow-indigo-500/10' : 'text-slate-400 hover:bg-slate-850/50 hover:text-slate-200'}`}
+--
+497-        <div className="lg:col-span-9 bg-slate-900/40 p-6 space-y-6">
+498-          
+499-          {/* ==================================================== */}
+500-          {/* 1. SALES LIST VIEW */}
+501-          {/* ==================================================== */}
+502:          {activeMenu === 'sales' && (
+503-            <div className="space-y-4 animate-fade-in">
+504-              <div className="flex justify-between items-center bg-slate-950 p-4 rounded-2xl border border-slate-850">
+505-                <div>
+506-                  <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">📦 Customer Sales Transaction Ledgers</h3>
+507-                  <p className="text-xs text-slate-400">Review, search, filter, and append sales transaction nodes for this user platform.</p>
+--
+672-          )}
+673-
+674-          {/* ==================================================== */}
+675-          {/* 2. PURCHASES LIST VIEW */}
+676-          {/* ==================================================== */}
+677:          {activeMenu === 'purchases' && (
+678-            <div className="space-y-4 animate-fade-in">
+679-              <div className="flex justify-between items-center bg-slate-950 p-4 rounded-2xl border border-slate-850">
+680-                <div>
+681-                  <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">🛒 Supply Inventory & Purchase Stocks History</h3>
+682-                  <p className="text-xs text-slate-400">View real-time stock-up inventory purchase logs and supplier payments recorded by this user.</p>
+--
+736-          )}
+737-
+738-          {/* ==================================================== */}
+739-          {/* 3. DELIVERIES MENU VIEW */}
+740-          {/* ==================================================== */}
+741:          {activeMenu === 'deliveries' && (
+742-            <div className="space-y-4 animate-fade-in">
+743-              <div className="flex justify-between items-center bg-slate-950 p-4 rounded-2xl border border-slate-850">
+744-                <div>
+745-                  <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">🚚 Delivery Chains & Logistic Nodes</h3>
+746-                  <p className="text-xs text-slate-400">Monitor transit, dispatch status, and expected arrivals of client inventories.</p>
+--
+795-          )}
+796-
+797-          {/* ==================================================== */}
+798-          {/* 4. OPERATING EXPENSES */}
+799-          {/* ==================================================== */}
+800:          {activeMenu === 'expenses' && (
+801-            <div className="space-y-4 animate-fade-in">
+802-              <div className="flex justify-between items-center bg-slate-950 p-4 rounded-2xl border border-slate-850">
+803-                <div>
+804-                  <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">💸 Operating Expenses Ledgers</h3>
+805-                  <p className="text-xs text-slate-400">Observe breakdown, monthly totals, and category splits recorded under this account instance.</p>
+--
+914-          )}
+915-
+916-          {/* ==================================================== */}
+917-          {/* 5. SKU STOCK VALUATIONS */}
+918-          {/* ==================================================== */}
+919:          {activeMenu === 'stock' && (
+920-            <div className="space-y-4 animate-fade-in">
+921-              <div className="flex justify-between items-center bg-slate-950 p-4 rounded-2xl border border-slate-850">
+922-                <div>
+923-                  <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">💾 Real-Time Stock Valuations</h3>
+924-                  <p className="text-xs text-slate-400">Total volume of physical stocks, buying prices, sell pricing ratios, and calculated total valuation margins.</p>
+--
+996-          )}
+997-
+998-          {/* ==================================================== */}
+999-          {/* 6. AI STOCK FORECAST */}
+1000-          {/* ==================================================== */}
+1001:          {activeMenu === 'forecast' && (
+1002-            <div className="space-y-4 animate-fade-in">
+1003-              <div className="flex justify-between items-center bg-slate-950 p-4 rounded-2xl border border-slate-850">
+1004-                <div>
+1005-                  <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">🧠 AI-powered Inventory Runout & Forecast Predictions</h3>
+1006-                  <p className="text-xs text-slate-400">Heuristics predictive analysis calculated using client's historic sales frequency run ratios.</p>
+--
+1044-          )}
+1045-
+1046-          {/* ==================================================== */}
+1047-          {/* 7. SKU PRODUCTS CATALOG */}
+1048-          {/* ==================================================== */}
+1049:          {activeMenu === 'catalog' && (
+1050-            <div className="space-y-4 animate-fade-in">
+1051-              <div className="flex justify-between items-center bg-slate-950 p-4 rounded-2xl border border-slate-850">
+1052-                <div>
+1053-                  <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">📂 Digital Shop Product Catalog</h3>
+1054-                  <p className="text-xs text-slate-400">Registered items, categories, pricing, and system condition status.</p>
+--
+1113-          )}
+1114-
+1115-          {/* ==================================================== */}
+1116-          {/* 8. PARTNERS DIRECTORY */}
+1117-          {/* ==================================================== */}
+1118:          {activeMenu === 'partners' && (
+1119-            <div className="space-y-4 animate-fade-in">
+1120-              <div className="flex justify-between items-center bg-slate-950 p-4 rounded-2xl border border-slate-850">
+1121-                <div>
+1122-                  <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">🤝 Business Allies & Supply Partners Directory</h3>
+1123-                  <p className="text-xs text-slate-400">Full catalog ledger of suppliers, logistical distributors, and transaction details.</p>
+--
+1145-          )}
+1146-
+1147-          {/* ==================================================== */}
+1148-          {/* 9. REPORTS & AUDITS */}
+1149-          {/* ==================================================== */}
+1150:          {activeMenu === 'reports' && (
+1151-            <div className="space-y-4 animate-fade-in">
+1152-              <div className="flex justify-between items-center bg-slate-950 p-4 rounded-2xl border border-slate-850">
+1153-                <div>
+1154-                  <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">📊 Reports & Operational Audit Ledger</h3>
+1155-                  <p className="text-xs text-slate-400">Generate real-time business performance indexes and track systemic audit records.</p>
+--
+1211-          )}
+1212-
+1213-          {/* ==================================================== */}
+1214-          {/* 10. OFFLINE SYNC HUB */}
+1215-          {/* ==================================================== */}
+1216:          {activeMenu === 'sync' && (
+1217-            <div className="space-y-4 animate-fade-in">
+1218-              <div className="flex justify-between items-center bg-slate-950 p-4 rounded-2xl border border-slate-850">
+1219-                <div>
+1220-                  <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">📴 Offline Synchronizations Center</h3>
+1221-                  <p className="text-xs text-slate-400">Offline operations history, auto-reconnect ledger sync logs, and active conflict checkpoints.</p>
+--
+1278-          )}
+1279-
+1280-          {/* ==================================================== */}
+1281-          {/* 11. WHITE-LABEL BRANDING */}
+1282-          {/* ==================================================== */}
+1283:          {activeMenu === 'branding' && (
+1284-            <div className="space-y-4 animate-fade-in text-xs font-mono">
+1285-              <div className="flex justify-between items-center bg-slate-950 p-4 rounded-2xl border border-slate-850">
+1286-                <div>
+1287-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">🎨 White-Label Interface & Branding Settings</h3>
+1288-                  <p className="text-xs text-slate-400">Alter logo texts, system core business naming, and visual color styles for their app.</p>
+--
+1397-          )}
+1398-
+1399-          {/* ==================================================== */}
+1400-          {/* 12. SYSTEM SETTINGS */}
+1401-          {/* ==================================================== */}
+1402:          {activeMenu === 'settings' && (
+1403-            <div className="space-y-4 animate-fade-in text-xs font-mono text-left">
+1404-              <div className="flex justify-between items-center bg-slate-950 p-4 rounded-2xl border border-slate-850">
+1405-                <div>
+1406-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">⚙️ System Configuration & Business Controls</h3>
+1407-                  <p className="text-xs text-slate-400">Directly regulate register codes, VAT settings, staff credentials, and notification triggers.</p>

@@ -1,0 +1,3308 @@
+import React, { useState, useRef, useMemo, FormEvent } from 'react';
+import { Tenant, Product } from '../types';
+import { 
+  Plus, 
+  Package, 
+  Trash2, 
+  AlertCircle, 
+  TrendingUp, 
+  Sparkles, 
+  Check, 
+  ArrowLeftRight, 
+  X, 
+  Upload, 
+  Download, 
+  Printer, 
+  Wifi, 
+  Bluetooth, 
+  Search, 
+  FileSpreadsheet, 
+  Layers, 
+  Camera, 
+  Database, 
+  RefreshCw,
+  Sliders,
+  CheckCircle,
+  HelpCircle,
+  MoreVertical,
+  Eye,
+  Edit
+} from 'lucide-react';
+import CachedImage from './CachedImage';
+
+interface DashboardProductsProps {
+  activeTenant: Tenant;
+  products: Product[];
+  systemSettings?: any; // Added systemSettings prop
+  onAddProduct: (prod: Product) => void;
+  onDeleteProduct: (id: string) => void;
+  onUpdateProducts: (updatedProducts: Product[]) => void;
+  subscriptionStatus?: any;
+  onTriggerUpgrade?: (limitType: 'products' | 'stores' | 'staff' | 'expired') => void;
+}
+
+export interface ProductBrand {
+  name: string;
+  logo?: string;
+}
+
+export default function DashboardProducts({ 
+  activeTenant, 
+  products,
+  systemSettings,
+  onAddProduct,
+  onDeleteProduct,
+  onUpdateProducts,
+  subscriptionStatus,
+  onTriggerUpgrade
+}: DashboardProductsProps) {
+  const currency = activeTenant.currency;
+  
+  // Tab selector: 'catalog' list vs 'labels' station
+  const [viewTab, setViewTab] = useState<'catalog' | 'category' | 'brand' | 'labels'>('catalog');
+
+  // Dropdown / Custom Categories & Brands states
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Product>>({});
+  
+  const [brand, setBrand] = useState(''); // New Brand input field for manual product creation
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
+
+  const [customBrands, setCustomBrands] = useState<ProductBrand[]>([
+    { name: 'Coca Cola', logo: '' },
+    { name: 'Nestle', logo: '' },
+    { name: 'Unilever', logo: '' },
+    { name: 'Jasper Foods', logo: '' },
+  ]);
+  const [selectedBrandFilter, setSelectedBrandFilter] = useState<string | null>(null);
+  const [newBrandName, setNewBrandName] = useState('');
+  const [newBrandLogo, setNewBrandLogo] = useState('');
+
+  // Self-healing, reactive list of categories that merges pre-loaded products and custom ones, and user settings
+  const categoriesList = useMemo(() => {
+    const defaultCats = systemSettings?.productForm?.categories && systemSettings.productForm.categories.length > 0
+      ? systemSettings.productForm.categories
+      : ['Groceries', 'Beverages', 'Dairy', 'Cooking Oils', 'Household', 'Consumer Electronics', 'Apparel'];
+    const set = new Set(defaultCats);
+    products.forEach(p => {
+      if (p.category) set.add(p.category);
+    });
+    customCategories.forEach(c => set.add(c));
+    return Array.from(set) as string[];
+  }, [products, customCategories, systemSettings]);
+
+  const unitsList = useMemo(() => {
+    return systemSettings?.productForm?.units && systemSettings.productForm.units.length > 0
+      ? systemSettings.productForm.units
+      : ['Pcs', 'Kgs', 'Ltrs', 'Boxes', 'Cartons'];
+  }, [systemSettings]);
+
+  // Self-healing, reactive list of brands that merges pre-loaded product brands and custom registered brands
+  const brandsList = useMemo(() => {
+    const brandsMap = new Map<string, ProductBrand>();
+    
+    // Add defaults
+    customBrands.forEach(b => {
+      brandsMap.set(b.name.toLowerCase(), b);
+    });
+
+    // Extract from existing products
+    products.forEach(p => {
+      if (p.brand && !brandsMap.has(p.brand.toLowerCase())) {
+        brandsMap.set(p.brand.toLowerCase(), { name: p.brand, logo: '' });
+      }
+    });
+
+    return Array.from(brandsMap.values());
+  }, [products, customBrands]);
+
+  const handleBeginEdit = (prod: Product) => {
+    setEditingProduct(prod);
+    setEditForm({ ...prod });
+  };
+
+  const handleSaveProductEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editForm.name) return;
+    
+    // Find product in products
+    const updated = products.map(p => {
+      if (p.id === editingProduct?.id) {
+        const costPrice = editForm.costPrice ?? 0;
+        const sellPrice = editForm.sellInRetail !== false ? (editForm.sellingPrice ?? 0) : 0;
+        const b = editForm.barcode ? editForm.barcode.trim() : p.barcode;
+        return {
+          ...p,
+          name: editForm.name || '',
+          brand: editForm.brand ? editForm.brand.trim() : undefined,
+          category: editForm.category || '',
+          unit: editForm.unit || '',
+          barcode: b,
+          costPrice: costPrice,
+          sellingPrice: sellPrice,
+          stockQty: (editForm.shopStockQty ?? 0) + (editForm.storeStockQty ?? 0),
+          shopStockQty: editForm.shopStockQty ?? 0,
+          storeStockQty: editForm.storeStockQty ?? 0,
+          alertQty: editForm.alertQty ?? 5,
+          image: editForm.image,
+          sellInRetail: editForm.sellInRetail !== false,
+          sellInWholesale: !!editForm.sellInWholesale,
+          wholesalePrice: editForm.sellInWholesale ? (editForm.wholesalePrice ?? 0) : undefined,
+          minWholesaleQty: editForm.sellInWholesale ? (editForm.minWholesaleQty ?? 10) : undefined,
+          sku: b
+        } as Product;
+      }
+      return p;
+    });
+
+    onUpdateProducts(updated);
+    setEditingProduct(null);
+    setEditForm({});
+  };
+
+  const handleBrandLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setNewBrandLogo(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Search filter
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Add Product Panel state
+  const [isOpen, setIsOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [barcode, setBarcode] = useState('');
+  const [category, setCategory] = useState(categoriesList[0] || 'Groceries');
+  const [unit, setUnit] = useState(unitsList[0] || 'Pcs');
+  const [costPrice, setCostPrice] = useState(0);
+  const [sellingPrice, setSellingPrice] = useState(0);
+  const [shopStockQty, setShopStockQty] = useState(5);
+  const [storeStockQty, setStoreStockQty] = useState(10);
+  const [alertQty, setAlertQty] = useState(5);
+  const [productImage, setProductImage] = useState<string>('');
+
+  // Image Processing state
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('');
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // Form notifications
+  const [formSuccess, setFormSuccess] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Retail & Wholesale Form states
+  const [sellInRetail, setSellInRetail] = useState(true);
+  const [sellInWholesale, setSellInWholesale] = useState(false);
+  const [wholesalePrice, setWholesalePrice] = useState(0);
+  const [minWholesaleQty, setMinWholesaleQty] = useState(10);
+
+  // Scanner Simulator modal in form
+  const [isFormScannerOpen, setIsFormScannerOpen] = useState(false);
+  const [simulatedScanValue, setSimulatedScanValue] = useState('');
+
+  // Bulk Import state
+  const [csvUploadError, setCsvUploadError] = useState<string | null>(null);
+  const [csvUploadSuccess, setCsvUploadSuccess] = useState<string | null>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+
+  // Stock Transfer Modal state
+  const [transferProduct, setTransferProduct] = useState<Product | null>(null);
+  const [transferQty, setTransferQty] = useState<number>(1);
+  const [transferDirection, setTransferDirection] = useState<'store_to_shop' | 'shop_to_store'>('store_to_shop');
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const [transferSuccess, setTransferSuccess] = useState<boolean>(false);
+
+  // Barcode Printing Station States
+  const [selectedLabels, setSelectedLabels] = useState<Record<string, boolean>>({});
+  const [printQuantities, setPrintQuantities] = useState<Record<string, number>>({});
+  const [labelSize, setLabelSize] = useState<'thermal' | 'a4'>('thermal');
+  const [printLayoutOption, setPrintLayoutOption] = useState<'name_price' | 'name_barcode' | 'only_barcode'>('name_price');
+  const [labelSearchQuery, setLabelSearchQuery] = useState('');
+  const [connectionType, setConnectionType] = useState<'usb' | 'wifi' | 'bluetooth'>('usb');
+  
+  // Printer config variables
+  const [selectedUsbPort, setSelectedUsbPort] = useState('COM3 (XP-365B Thermal Label printer)');
+  const [selectedBtDevice, setSelectedBtDevice] = useState('RP85 Mobile Printer (paired)');
+  const [wifiIpAddress, setWifiIpAddress] = useState('192.168.1.120');
+  const [wifiPort, setWifiPort] = useState('9100');
+  const [isConnectingPrinter, setIsConnectingPrinter] = useState(false);
+  const [isPrinterConnected, setIsPrinterConnected] = useState(true);
+  const [showTestPrintModal, setShowTestPrintModal] = useState(false);
+  const [isPrintingJob, setIsPrintingJob] = useState(false);
+  const [printJobSuccess, setPrintJobSuccess] = useState(false);
+
+  // Profit/Telemetry calculations
+  const profit = sellingPrice - costPrice;
+  const markup = costPrice > 0 ? (profit / costPrice) * 100 : 0;
+  const margin = sellingPrice > 0 ? (profit / sellingPrice) * 100 : 0;
+
+  // Filter products matching print label query
+  const labelSearchResults = useMemo(() => {
+    if (!labelSearchQuery.trim()) return [];
+    const query = labelSearchQuery.toLowerCase();
+    return products.filter(p => 
+      p.name.toLowerCase().includes(query) || 
+      p.barcode.toLowerCase().includes(query)
+    );
+  }, [products, labelSearchQuery]);
+
+  // Flattened labels list to represent duplicate copies in preview
+  const flattenedLabelsForPreview = useMemo(() => {
+    const list: Product[] = [];
+    products.forEach(p => {
+      if (selectedLabels[p.id]) {
+        const count = printQuantities[p.id] || 0;
+        for (let i = 0; i < count; i++) {
+          list.push(p);
+        }
+      }
+    });
+    return list;
+  }, [products, selectedLabels, printQuantities]);
+
+  // Initialize labels state when switching tabs
+  const handleTabSwitch = (tab: 'catalog' | 'category' | 'brand' | 'labels') => {
+    setViewTab(tab);
+    if (tab === 'labels') {
+      const initialSelected: Record<string, boolean> = {};
+      const initialQty: Record<string, number> = {};
+      // default pre-populate first 3 products for initial preview visibility
+      products.slice(0, 3).forEach(p => {
+        initialSelected[p.id] = true;
+        initialQty[p.id] = 5; // default print qty
+      });
+      setSelectedLabels(initialSelected);
+      setPrintQuantities(initialQty);
+      setLabelSearchQuery('');
+    }
+  };
+
+  // 1. DYNAMIC IMAGE PROCESSING CANVAS ENGINE
+  // Compresses, crop/fit on 500x500 box, separates foreground, and aligns standard catalog branding
+  const handleProductImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessingImage(true);
+    setProcessingStatus('Reading image asset...');
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        setProcessingStatus('Isolating background features...');
+        setTimeout(() => {
+          setProcessingStatus('Forcing aspect correct dimensions on 500x500 PNG...');
+          
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 500;
+            canvas.height = 500;
+            const ctx = canvas.getContext('2d');
+            
+            if (ctx) {
+              // Ensure background is fully transparent (no white fill)
+              ctx.clearRect(0, 0, 500, 500);
+
+              // Calculate aspect-ratio fitting centered inside the 500x500 canvas
+              const maxDim = 460; // 20px padding for beautiful visual display bounds
+              let w = img.width;
+              let h = img.height;
+              
+              if (w > h) {
+                h = (h / w) * maxDim;
+                w = maxDim;
+              } else {
+                w = (w / h) * maxDim;
+                h = maxDim;
+              }
+
+              const x = (500 - w) / 2;
+              const y = (500 - h) / 2;
+              
+              ctx.drawImage(img, x, y, w, h);
+
+              // Remove solid/light/white backgrounds to isolate the object (Transparency)
+              try {
+                const imgData = ctx.getImageData(0, 0, 500, 500);
+                const data = imgData.data;
+                
+                // Sample corner pixel as the background color (top-left) to automatically key it out
+                const bgR = data[0];
+                const bgG = data[1];
+                const bgB = data[2];
+                const bgA = data[3];
+
+                const threshold = 40; // Sensitivity for color matching
+
+                if (bgA > 50) {
+                  for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i+1];
+                    const b = data[i+2];
+                    const a = data[i+3];
+
+                    // Distance from sampled background color
+                    const dist = Math.sqrt(
+                      Math.pow(r - bgR, 2) +
+                      Math.pow(g - bgG, 2) +
+                      Math.pow(b - bgB, 2)
+                    );
+
+                    // Also automatically key out near-whites/light grays
+                    const isNearWhite = (r > 230 && g > 230 && b > 230);
+
+                    if (dist < threshold || isNearWhite) {
+                      data[i+3] = 0; // Set pixel to fully transparent
+                    }
+                  }
+                } else {
+                  // If background is already transparent, still remove any other near-white background mattes
+                  for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i+1];
+                    const b = data[i+2];
+                    if (r > 230 && g > 230 && b > 230) {
+                      data[i+3] = 0;
+                    }
+                  }
+                }
+                ctx.putImageData(imgData, 0, 0);
+              } catch (bgErr) {
+                console.error('Background removal filter failure', bgErr);
+              }
+              
+              // Export as transparent PNG base64 representation to preserve "no background"
+              const transparentBase64 = canvas.toDataURL('image/png');
+              setProductImage(transparentBase64);
+              setProcessingStatus('Transparent 500x500 asset generated!');
+            }
+          } catch (err) {
+            console.error('Canvas manipulation failure', err);
+          }
+          
+          setTimeout(() => {
+            setIsProcessingImage(false);
+            setProcessingStatus('');
+          }, 600);
+        }, 600);
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // 2. BARCODE VALUE GENERATOR OR SCAN ACTIONS
+  const generateManualBarcodeValue = () => {
+    const random8 = Math.floor(10000000 + Math.random() * 90000000);
+    setBarcode(`${random8}`);
+  };
+
+  // Handle Create Product
+  const handleCreateProduct = (e: FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    if (!name) {
+      setFormError('Product Name is required.');
+      return;
+    }
+
+    if (!sellInRetail && !sellInWholesale) {
+      setFormError('Please enable at least one channel (Retail or Wholesale).');
+      return;
+    }
+
+    const finalSellingPrice = sellInRetail ? sellingPrice : 0;
+    const finalWholesalePrice = sellInWholesale ? wholesalePrice : 0;
+    const finalMinWholesaleQty = sellInWholesale ? minWholesaleQty : 0;
+
+    if (sellInRetail && finalSellingPrice <= 0) {
+      setFormError('Retail price must be greater than zero when selling in retail.');
+      return;
+    }
+
+    if (sellInWholesale) {
+      if (finalWholesalePrice <= 0) {
+        setFormError('Wholesale price must be greater than zero when selling in wholesale.');
+        return;
+      }
+      if (finalMinWholesaleQty <= 0) {
+        setFormError('Minimum wholesale quantity must be greater than zero.');
+        return;
+      }
+      if (sellInRetail && finalWholesalePrice >= finalSellingPrice) {
+        setFormError('Wholesale price must be strictly lower than the retail price.');
+        return;
+      }
+    }
+
+    if (subscriptionStatus) {
+      if (subscriptionStatus.isExpired) {
+        onTriggerUpgrade?.('expired');
+        return;
+      }
+      if (products.length >= subscriptionStatus.plan.maxProducts) {
+        onTriggerUpgrade?.('products');
+        return;
+      }
+    }
+
+    // Use barcode, or automatically generate one if left blank
+    const finalizedBarcode = barcode.trim() || `${Math.floor(10000000 + Math.random() * 90000000)}`;
+
+    const newProd: Product = {
+      id: 'p-' + Math.random().toString(36).substr(2, 9),
+      name,
+      sku: finalizedBarcode, // sku is populated behind the scenes with barcode to avoid breaking standard VM integrations
+      barcode: finalizedBarcode,
+      category,
+      unit,
+      costPrice: costPrice,
+      sellingPrice: finalSellingPrice,
+      stockQty: shopStockQty + storeStockQty,
+      shopStockQty: shopStockQty,
+      storeStockQty: storeStockQty,
+      alertQty: alertQty,
+      image: productImage || undefined,
+      brand: brand.trim() || undefined,
+      sellInRetail,
+      sellInWholesale,
+      wholesalePrice: sellInWholesale ? finalWholesalePrice : undefined,
+      minWholesaleQty: sellInWholesale ? finalMinWholesaleQty : undefined,
+    };
+
+    onAddProduct(newProd);
+    setFormSuccess(true);
+    
+    setTimeout(() => {
+      // Reset Registry form
+      setName('');
+      setBrand('');
+      setBarcode('');
+      setCategory('Groceries');
+      setCostPrice(0);
+      setSellingPrice(0);
+      setShopStockQty(5);
+      setStoreStockQty(10);
+      setAlertQty(5);
+      setProductImage('');
+      setSellInRetail(true);
+      setSellInWholesale(false);
+      setWholesalePrice(0);
+      setMinWholesaleQty(10);
+      setIsOpen(false);
+      setFormSuccess(false);
+      setFormError(null);
+    }, 1100);
+  };
+
+  // Stock Transfer Actions
+  const handleExecuteTransfer = () => {
+    if (!transferProduct) return;
+    const qty = transferQty;
+    if (qty <= 0) {
+      setTransferError('Please specify a positive unit quantity.');
+      return;
+    }
+    
+    const shopQty = transferProduct.shopStockQty ?? 0;
+    const storeQty = transferProduct.storeStockQty ?? 0;
+    
+    let nextShop = shopQty;
+    let nextStore = storeQty;
+    
+    if (transferDirection === 'store_to_shop') {
+      if (qty > storeQty) {
+        setTransferError(`Insufficient backroom warehouse stock. Max available: ${storeQty} units.`);
+        return;
+      }
+      nextShop += qty;
+      nextStore -= qty;
+    } else {
+      if (qty > shopQty) {
+        setTransferError(`Insufficient shop floor stock. Max available: ${shopQty} units.`);
+        return;
+      }
+      nextShop -= qty;
+      nextStore += qty;
+    }
+    
+    const updatedProducts = products.map(p => {
+      if (p.id === transferProduct.id) {
+        return {
+          ...p,
+          shopStockQty: nextShop,
+          storeStockQty: nextStore,
+          stockQty: nextShop + nextStore
+        };
+      }
+      return p;
+    });
+    
+    onUpdateProducts(updatedProducts);
+    setTransferSuccess(true);
+    setTransferError(null);
+    
+    setTimeout(() => {
+      setTransferProduct(null);
+      setTransferSuccess(false);
+      setTransferQty(1);
+    }, 1200);
+  };
+
+  // 3. GOOGLE FORM TEMPLATE SHEET CSV EXPORTER / IMPORTER
+  const downloadCsvTemplate = () => {
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + "Product Name,Barcode,Category,Brand,Cost Price,Selling Price,Shop Stock,Store Stock,Alert Level,Sell Retail,Sell Wholesale,Wholesale Price,Min Wholesale Qty\r\n"
+      + "Premium Rice (5kg),6153094850239,Groceries,Jasper Foods,4500,5500,20,50,5,Yes,No,0,10\r\n"
+      + "Spaghetti Bolognese,39185012,Groceries,Jasper Foods,800,1200,15,30,8,Yes,Yes,1100,50\r\n"
+      + "Organic Coconut Milk,,Beverages,Nestle,1100,1600,10,25,3,Yes,No,0,10\r\n"; // Empty barcode tested inside
+      
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "jasper_bulk_products_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvUploadError(null);
+    setCsvUploadSuccess(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+        
+        if (lines.length <= 1) {
+          setCsvUploadError('The selected spreadsheet template is empty or contains only column headers.');
+          return;
+        }
+
+        const importedItems: Product[] = [];
+        let skippedRows = 0;
+
+        // Skip headers line 0
+        for (let i = 1; i < lines.length; i++) {
+          const columns = lines[i].split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
+          
+          if (columns.length < 5 || !columns[0]) {
+            skippedRows++;
+            continue;
+          }
+
+          const rawName = columns[0];
+          const rawBarcode = columns[1] || `${Math.floor(10000000 + Math.random() * 90000000)}`;
+          const rawCategory = columns[2] || 'Groceries';
+          const rawBrand = columns[3] || '';
+          const rawCost = parseFloat(columns[4]) || 0;
+          const rawSell = parseFloat(columns[5]) || 0;
+          const rawShopQty = parseInt(columns[6]) || 0;
+          const rawStoreQty = parseInt(columns[7]) || 0;
+          const rawAlert = parseInt(columns[8]) || 5;
+
+          // Parse Sell Retail (default to true if empty or yes/true/1)
+          const sellRetailStr = (columns[9] || '').toLowerCase();
+          const rawSellRetail = sellRetailStr === '' ? true : (sellRetailStr === 'yes' || sellRetailStr === 'true' || sellRetailStr === '1' || sellRetailStr === 'y');
+
+          // Parse Sell Wholesale (default to false unless yes/true/1/ticked)
+          const sellWholesaleStr = (columns[10] || '').toLowerCase();
+          const rawSellWholesale = sellWholesaleStr === 'yes' || sellWholesaleStr === 'true' || sellWholesaleStr === '1' || sellWholesaleStr === 'y' || sellWholesaleStr === 'ticked';
+
+          const rawWholesalePrice = parseFloat(columns[11]) || 0;
+          const rawMinWholesaleQty = parseInt(columns[12]) || 10;
+
+          const importedProd: Product = {
+            id: 'p-' + Math.random().toString(36).substr(2, 9),
+            name: rawName,
+            sku: rawBarcode, // populate behind the scenes to avoid code discrepancies
+            barcode: rawBarcode,
+            category: rawCategory,
+            brand: rawBrand,
+            costPrice: rawCost,
+            sellingPrice: rawSell,
+            stockQty: rawShopQty + rawStoreQty,
+            shopStockQty: rawShopQty,
+            storeStockQty: rawStoreQty,
+            alertQty: rawAlert,
+            sellInRetail: rawSellRetail,
+            sellInWholesale: rawSellWholesale,
+            wholesalePrice: rawWholesalePrice,
+            minWholesaleQty: rawMinWholesaleQty
+          };
+
+          importedItems.push(importedProd);
+        }
+
+        if (importedItems.length === 0) {
+          setCsvUploadError('No valid rows could be imported. Please verify that column order is preserved exactly.');
+          return;
+        }
+
+        if (subscriptionStatus) {
+          if (subscriptionStatus.isExpired) {
+            onTriggerUpgrade?.('expired');
+            return;
+          }
+          if (products.length + importedItems.length > subscriptionStatus.plan.maxProducts) {
+            onTriggerUpgrade?.('products');
+            return;
+          }
+        }
+
+        // Add imports directly to the system
+        importedItems.forEach(item => onAddProduct(item));
+        setCsvUploadSuccess(`Spreadsheet uploaded successfully! Imported ${importedItems.length} products. (Skipped ${skippedRows} rows).`);
+        
+        if (csvInputRef.current) {
+          csvInputRef.current.value = '';
+        }
+      } catch (err) {
+        setCsvUploadError('Failed to parse file. Ensure it is a valid CSV spreadsheet formatted according to the Downloadable Template.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Filter products catalog
+  const filteredProducts = products.filter(p => 
+    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    p.barcode.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  // Connection trigger simulator
+  const handleConnectHardware = () => {
+    setIsConnectingPrinter(true);
+    setTimeout(() => {
+      setIsConnectingPrinter(false);
+      setIsPrinterConnected(true);
+    }, 1200);
+  };
+
+  // Trigger print queue
+  const handleTriggerPrintLabels = () => {
+    const chosenCount = Object.keys(selectedLabels).filter(k => selectedLabels[k]).length;
+    if (chosenCount === 0) return;
+
+    setIsPrintingJob(true);
+    setTimeout(() => {
+      setIsPrintingJob(false);
+      setPrintJobSuccess(true);
+      setTimeout(() => {
+        setPrintJobSuccess(false);
+      }, 3000);
+    }, 1500);
+  };
+
+  // Download printable A4 sticker sheet
+  const handleDownloadA4StickerSheet = () => {
+    const chosenLabels = flattenedLabelsForPreview;
+    if (chosenLabels.length === 0) return;
+
+    // Split chosenLabels into groups of 24 (A4 labels limit per sheet)
+    const pages: Product[][] = [];
+    for (let i = 0; i < chosenLabels.length; i += 24) {
+      pages.push(chosenLabels.slice(i, i + 24));
+    }
+
+    const generateBarcodeHtmlString = (code: string) => {
+      const hash = code.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + 7;
+      let barsHtml = '';
+      for (let i = 0; i < 59; i++) {
+        const isBlack = (i % 2 === 0);
+        const isGuard = i < 3 || (i >= 28 && i <= 30) || i > 55;
+        let width = '2px';
+        if (isGuard) {
+          width = '1.5px';
+        } else {
+          const widthSeed = (hash * (i + 17)) % 10;
+          if (widthSeed < 4) {
+            width = '1.5px';
+          } else if (widthSeed < 7) {
+            width = '2.5px';
+          } else if (widthSeed < 9) {
+            width = '3.8px';
+          } else {
+            width = '5px';
+          }
+        }
+        barsHtml += `<div style="height: 38px; flex-shrink: 0; background-color: ${isBlack ? '#090d16' : 'transparent'}; width: ${width};"></div>`;
+      }
+      return `<div style="display: flex; justify-content: center; align-items: flex-end; width: 100%; overflow: hidden; margin-top: 4px;">${barsHtml}</div>`;
+    };
+
+    let htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Jasper - A4 Printable Sticker Sheet</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f1f5f9;
+      margin: 0;
+      padding: 20px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .controls {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px 24px;
+      margin-bottom: 24px;
+      width: 210mm;
+      box-sizing: border-box;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+    .btn-print {
+      background-color: #0f172a;
+      color: #ffffff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-print:hover {
+      background-color: #1e293b;
+    }
+    .a4-page {
+      background: #ffffff;
+      width: 210mm;
+      height: 297mm;
+      padding: 15mm 10mm;
+      box-sizing: border-box;
+      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+      margin-bottom: 15mm;
+      page-break-after: always;
+      position: relative;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: 42mm;
+      grid-gap: 4mm;
+      height: 100%;
+    }
+    .sticker {
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 8px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      background: #ffffff;
+    }
+    .placeholder-sticker {
+      border: 1px dashed #e2e8f0;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      font-size: 11px;
+      font-style: italic;
+      background: #fafafa;
+    }
+    .prod-name {
+      font-weight: 800;
+      font-size: 11px;
+      text-align: center;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 0;
+    }
+    .price-tag {
+      text-align: center;
+      margin-top: 3px;
+    }
+    .price-badge {
+      background-color: #f1f5f9;
+      color: #0f172a;
+      font-weight: 900;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+    .barcode-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .barcode-num {
+      font-family: monospace;
+      font-size: 9px;
+      font-weight: bold;
+      color: #475569;
+      margin: 2px 0 0 0;
+      letter-spacing: 0.5px;
+    }
+    .footer-stamp {
+      position: absolute;
+      bottom: 5mm;
+      left: 10mm;
+      right: 10mm;
+      display: flex;
+      justify-content: space-between;
+      font-size: 8px;
+      color: #94a3b8;
+      border-top: 1px solid #f1f5f9;
+      padding-top: 4px;
+    }
+    @media print {
+      body {
+        background: transparent;
+        padding: 0;
+        margin: 0;
+      }
+      .controls {
+        display: none !important;
+      }
+      .a4-page {
+        box-shadow: none !important;
+        margin-bottom: 0 !important;
+        page-break-after: always;
+      }
+      .sticker {
+        border-color: #e2e8f0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="controls">
+    <div>
+      <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #0f172a;">Jasper A4 Printable Stickers</h3>
+      <p style="margin: 0; font-size: 11px; color: #64748b;">Ready to print sheet containing ${chosenLabels.length} labels in standard 24 labels format (4x6 grid)</p>
+    </div>
+    <button class="btn-print" onclick="window.print()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+      Print Stickers Sheet
+    </button>
+  </div>
+
+`;
+
+    pages.forEach((pageItems, pageIdx) => {
+      htmlContent += `  <div class="a4-page">\n    <div class="grid">\n`;
+      
+      for (let slot = 0; slot < 24; slot++) {
+        const item = pageItems[slot];
+        if (item) {
+          const onlyBarcode = printLayoutOption === 'only_barcode';
+          const withPrice = printLayoutOption === 'name_price';
+          
+          htmlContent += `      <div class="sticker">\n`;
+          if (!onlyBarcode) {
+            htmlContent += `        <p class="prod-name">${escapeHtml(item.name)}</p>\n`;
+            if (withPrice) {
+              htmlContent += `        <div class="price-tag"><span class="price-badge">${currency}${item.sellingPrice.toLocaleString()}</span></div>\n`;
+            }
+          }
+          
+          htmlContent += `        <div class="barcode-container">\n`;
+          htmlContent += `          ${generateBarcodeHtmlString(item.barcode)}\n`;
+          htmlContent += `          <p class="barcode-num">${item.barcode}</p>\n`;
+          htmlContent += `        </div>\n`;
+          htmlContent += `      </div>\n`;
+        } else {
+          htmlContent += `      <div class="sticker placeholder-sticker">\n        Empty Slot\n      </div>\n`;
+        }
+      }
+      
+      htmlContent += `    </div>\n`;
+      htmlContent += `    <div class="footer-stamp">\n`;
+      htmlContent += `      <span>Jasper Business Suite &copy; 2026</span>\n`;
+      htmlContent += `      <span>Page ${pageIdx + 1} of ${pages.length}</span>\n`;
+      htmlContent += `      <span>Standard A4 Sticker Sheet (4x6 Grid)</span>\n`;
+      htmlContent += `    </div>\n`;
+      htmlContent += `  </div>\n`;
+    });
+
+    htmlContent += `</body>\n</html>`;
+
+    // Trigger local download
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `jasper_a4_stickers_sheet_${new Date().toISOString().split('T')[0]}.html`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Quick HTML escape helper
+  const escapeHtml = (unsafe: string) => {
+    return unsafe
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  };
+
+  // Stylized Barcode dynamic CSS line bars sequence mapping
+  const renderDynamicCssBarcode = (code: string) => {
+    // Generate a highly realistic EAN-13 / Code-128 standard barcode simulation
+    const hash = code.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + 7;
+    const bars = [];
+    
+    // Total count of bars (standard retail barcodes have ~55 alternating black/white modules)
+    const numBars = 59;
+    
+    for (let i = 0; i < numBars; i++) {
+      // Alternating black and white/transparent. 
+      // i % 2 === 0 is black, i % 2 === 1 is white
+      const isBlack = (i % 2 === 0);
+      
+      // Determine width representing custom symbology patterns
+      // Guard patterns at the start (0-3), middle (28-30), and end (55-58) of the label
+      const isGuard = i < 3 || (i >= 28 && i <= 30) || i > 55;
+      
+      let widthClass = 'w-[2px]';
+      if (isGuard) {
+        widthClass = 'w-[1.5px]'; // guard lines are consistently thin
+      } else {
+        // Pseudo-random widths of 1.5px, 2.5px, 3.8px, or 5px based on hash for standard pattern representation
+        const widthSeed = (hash * (i + 17)) % 10;
+        if (widthSeed < 4) {
+          widthClass = 'w-[1.5px]';
+        } else if (widthSeed < 7) {
+          widthClass = 'w-[2.5px]';
+        } else if (widthSeed < 9) {
+          widthClass = 'w-[3.8px]';
+        } else {
+          widthClass = 'w-[5px]';
+        }
+      }
+
+      // Uniform height across all barcode lines as requested
+      const heightClass = 'h-9';
+
+      bars.push(
+        <div 
+          key={i} 
+          className={`${heightClass} shrink-0 ${isBlack ? 'bg-slate-950' : 'bg-transparent'} ${widthClass}`} 
+        />
+      );
+    }
+    
+    return (
+      <div className="flex justify-center items-start h-9 bg-white px-1 select-none pointer-events-none w-full overflow-hidden">
+        <div className="flex items-start justify-center">
+          {bars}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div id="products-view" className="space-y-6">
+      
+      {/* Top Navigation Tabs */}
+      <div className="flex border-b border-slate-200 overflow-x-auto">
+        <button
+          onClick={() => handleTabSwitch('catalog')}
+          className={`py-3.5 px-6 font-mono text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${
+            viewTab === 'catalog'
+              ? 'border-emerald-500 text-slate-800'
+              : 'border-transparent text-slate-400 hover:text-slate-700'
+          }`}
+        >
+          📋 Product Catalogue
+        </button>
+        <button
+          onClick={() => handleTabSwitch('category')}
+          className={`py-3.5 px-6 font-mono text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${
+            viewTab === 'category'
+              ? 'border-emerald-500 text-slate-800'
+              : 'border-transparent text-slate-400 hover:text-slate-700'
+          }`}
+        >
+          📁 Product Category
+        </button>
+        <button
+          onClick={() => handleTabSwitch('brand')}
+          className={`py-3.5 px-6 font-mono text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${
+            viewTab === 'brand'
+              ? 'border-emerald-500 text-slate-800'
+              : 'border-transparent text-slate-400 hover:text-slate-700'
+          }`}
+        >
+          🏷️ Product Brand
+        </button>
+        <button
+          onClick={() => handleTabSwitch('labels')}
+          className={`py-3.5 px-6 font-mono text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 flex items-center space-x-2 ${
+            viewTab === 'labels'
+              ? 'border-emerald-500 text-slate-800'
+              : 'border-transparent text-slate-400 hover:text-slate-700'
+          }`}
+        >
+          <Printer className="w-3.5 h-3.5" />
+          <span>🏷️ Barcode & label station</span>
+        </button>
+      </div>
+
+      {/* VIEW A: STORE ITEM CATALOG TAB */}
+      {viewTab === 'catalog' && (
+        <div className="space-y-6 animate-fade-in">
+          
+          {/* Action Header & Bulk Loader Control */}
+          <div className="bg-white border border-slate-205 p-6 rounded-3xl shadow-xs space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <h4 className="text-sm font-bold text-slate-800">Unified Stock Registry Desk</h4>
+                <p className="text-[11px] font-medium text-slate-400">
+                  Branch Code: <span className="text-slate-500 font-bold font-mono">{activeTenant.name} ({activeTenant.city})</span> | Catalog Search and barcode assignment active.
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setIsOpen(!isOpen)}
+                  className="bg-emerald-600 hover:bg-emerald-505 text-white px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center space-x-1.5 cursor-pointer shadow-md shadow-emerald-505/10 transition-all active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{isOpen ? 'Collapse Form' : 'Register New Product'}</span>
+                </button>
+                
+                <button
+                  onClick={downloadCsvTemplate}
+                  className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-220 px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs transition-colors cursor-pointer"
+                  title="Download CSV Form Template to register products easily"
+                >
+                  <Download className="w-4 h-4 text-emerald-600" />
+                  <span>Download Spreadsheet Template</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Bulk Loader Drawer */}
+            <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs">
+              <div className="flex items-center space-x-2.5">
+                <FileSpreadsheet className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div>
+                  <p className="font-bold text-slate-850">Bulk Product Feed Import</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Select your Excel or CSV spreadsheet file to feed catalog items instantly.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 flex-shrink-0">
+                <div className="relative">
+                  <input 
+                    type="file" 
+                    accept=".csv"
+                    ref={csvInputRef}
+                    onChange={handleCsvImport}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                  />
+                  <button className="px-4 py-2 bg-slate-900 text-white rounded-xl font-bold font-mono text-[11px] uppercase tracking-wider shadow-sm flex items-center space-x-1.5 cursor-pointer">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload CSV Ledger</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Bulk loader feedback alerts */}
+            {csvUploadError && (
+              <div id="csv-error-alert" className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold flex items-center space-x-2 font-mono">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                <span>Error: {csvUploadError}</span>
+              </div>
+            )}
+            {csvUploadSuccess && (
+              <div id="csv-success-alert" className="p-3 bg-emerald-50 border border-emerald-150 text-emerald-800 rounded-xl text-xs font-semibold flex items-center space-x-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{csvUploadSuccess}</span>
+              </div>
+            )}
+
+          </div>
+
+          {/* Creation Form expansion */}
+          {isOpen && (
+            <form onSubmit={handleCreateProduct} className="bg-white border border-slate-200 p-6 rounded-3xl relative space-y-6 shadow-md animate-fade-in text-xs font-sans">
+              {formError && (
+                <div className="bg-red-50 text-red-700 border border-red-200 p-3.5 rounded-2xl font-semibold flex items-center space-x-2 animate-pulse text-[11px] font-mono">
+                  <span>⚠️ {formError}</span>
+                </div>
+              )}
+              <div className="absolute top-0 right-6 -translate-y-1/2 bg-emerald-50 text-emerald-800 border border-emerald-100 px-3 py-1 rounded-full text-[10px] font-bold flex items-center space-x-1">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                <span>UNIFORM BRANDS CONTROLS ACTIVE</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                {/* Column 1: Core Title, Category and Daymode Compression Upload */}
+                <div className="space-y-4">
+                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">1. Descriptor & Visual Assets</h5>
+                  
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Name / Title</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="e.g. Pure Groundnut Oil (5 Litre)"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 transition-all outline-none font-semibold"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Category</label>
+                      <select
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-750 transition-all outline-none font-semibold truncate"
+                      >
+                        {categoriesList.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Units</label>
+                      <select
+                        value={unit}
+                        onChange={(e) => setUnit(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-750 transition-all outline-none font-semibold"
+                      >
+                        {unitsList.map(u => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Brand</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Pepsi, Unilever, or type brand..."
+                      list="brands-suggestions"
+                      value={brand}
+                      onChange={(e) => setBrand(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 transition-all outline-none font-semibold"
+                    />
+                    <datalist id="brands-suggestions">
+                      {brandsList.map(b => (
+                        <option key={b.name} value={b.name} />
+                      ))}
+                    </datalist>
+                  </div>
+
+                  {/* Canvas Compression image module */}
+                  <div className="space-y-2 pt-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Image</label>
+                    
+                    <div className="border border-dashed border-slate-200 rounded-xl p-3 bg-slate-50/50 flex items-center space-x-3.5">
+                      {productImage ? (
+                        <div className="w-14 h-14 rounded-lg bg-white border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center p-0.5 shadow-xs">
+                          <img src={productImage} alt="Product Base64 Preview" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 rounded-lg bg-slate-100 border border-slate-200 text-slate-450 flex flex-col items-center justify-center text-[8px] font-mono font-bold leading-tight flex-shrink-0 select-none">
+                          <span>NO IMAGE</span>
+                        </div>
+                      )}
+
+                      <div className="space-y-1.5 flex-grow">
+                        <div className="relative inline-block">
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            ref={imageInputRef}
+                            onChange={handleProductImageUpload}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                          />
+                          <button type="button" className="py-1.5 px-3 bg-white hover:bg-slate-50 border border-slate-220 rounded-lg text-[11px] font-bold text-slate-700 flex items-center space-x-1 shadow-2xs">
+                            <Upload className="w-3 h-3 text-slate-500" />
+                            <span>Upload Product Image</span>
+                          </button>
+                        </div>
+                        <p className="text-[9px] text-slate-400">Fits images & separates background instantly.</p>
+                      </div>
+                    </div>
+
+                    {isProcessingImage && (
+                      <div className="bg-emerald-50 text-emerald-800 border border-emerald-100 rounded-xl p-2.5 text-[10px] font-mono leading-none flex items-center space-x-2">
+                        <RefreshCw className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+                        <span>Canvas Processing: <b>{processingStatus}</b></span>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+                {/* Column 2: Barcode Actions & Stock level details */}
+                <div className="space-y-4">
+                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-450 border-b border-slate-100 pb-1.5">2. Barcode Controls & Stock</h5>
+                  
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase block font-bold">
+                      <label>Retail Scan Barcode (Acts as SKU Item Code)</label>
+                      <div className="flex items-center space-x-2 text-[9px] font-bold text-emerald-600 font-mono normal-case">
+                        <button type="button" onClick={generateManualBarcodeValue} className="hover:underline">
+                          [Generate]
+                        </button>
+                        <span>|</span>
+                        <button type="button" onClick={() => setIsFormScannerOpen(true)} className="hover:underline flex items-center space-x-0.5">
+                          <Camera className="w-2.5 h-2.5" />
+                          <span>[Scanner Beam]</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 615010291402 or Click Generate"
+                      value={barcode}
+                      onChange={(e) => setBarcode(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono tracking-wide transition-all outline-none"
+                    />
+                    <p className="text-[9px] text-slate-400">No barcode? Leave it blank and the system will automatically allocate a tag on commit which will be used as the Product SKU.</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5 border-b border-dashed border-slate-100 pb-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Shop Shelf stock (Units)</label>
+                      <input 
+                        type="number" 
+                        min="0"
+                        value={shopStockQty}
+                        onChange={(e) => setShopStockQty(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Warehouse Storage (Units)</label>
+                      <input 
+                        type="number" 
+                        min="0"
+                        value={storeStockQty}
+                        onChange={(e) => setStoreStockQty(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-505 uppercase block">Low Stock Alert Level</label>
+                    <p className="text-[9px] text-slate-400 leading-tight">This is where users put what number of product remaining should trigger stock alerts.</p>
+                    <input 
+                      type="number" 
+                      min="1"
+                      value={alertQty}
+                      onChange={(e) => setAlertQty(Math.max(1, parseInt(e.target.value) || 0))}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none mt-1"
+                    />
+                  </div>
+                </div>
+
+                {/* Column 3: Telemetry Ledger Sells & Costs */}
+                <div className="space-y-4">
+                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">3. Channel Rules & Costs</h5>
+                  
+                  {/* Channel Toggles Section */}
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 space-y-2">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Active Selling Channels</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300">
+                        <input 
+                          type="checkbox" 
+                          checked={sellInRetail} 
+                          onChange={(e) => {
+                            setSellInRetail(e.target.checked);
+                            if (!e.target.checked) {
+                              setSellingPrice(0);
+                            }
+                          }}
+                          className="accent-teal-600 w-3.5 h-3.5"
+                        />
+                        <span className="font-semibold text-[11px] text-slate-700">Sell Retail</span>
+                      </label>
+                      <label className="flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300">
+                        <input 
+                          type="checkbox" 
+                          checked={sellInWholesale} 
+                          onChange={(e) => setSellInWholesale(e.target.checked)}
+                          className="accent-teal-600 w-3.5 h-3.5"
+                        />
+                        <span className="font-semibold text-[11px] text-slate-700">Sell Wholesale</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Cost Buy Price</label>
+                      <input 
+                        type="number" 
+                        min="0"
+                        value={costPrice || ''}
+                        onChange={(e) => setCostPrice(Math.max(0, parseFloat(e.target.value) || 0))}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-505 uppercase block">
+                        Retail Price {!sellInRetail && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
+                      </label>
+                      <input 
+                        type="number" 
+                        min="1"
+                        disabled={!sellInRetail}
+                        value={sellInRetail ? (sellingPrice || '') : 0}
+                        onChange={(e) => setSellingPrice(Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder={!sellInRetail ? "Inactive" : "0"}
+                        className={`w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none font-bold ${!sellInRetail ? 'opacity-50 cursor-not-allowed bg-slate-100' : ''}`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Wholesale Pricing & Minimum Quantity */}
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">
+                        Wholesale Price {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
+                      </label>
+                      <input 
+                        type="number" 
+                        min="1"
+                        disabled={!sellInWholesale}
+                        value={sellInWholesale ? (wholesalePrice || '') : 0}
+                        onChange={(e) => setWholesalePrice(Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder={!sellInWholesale ? "Inactive" : "0"}
+                        className={`w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none font-bold ${!sellInWholesale ? 'opacity-50 cursor-not-allowed bg-slate-100' : ''}`}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-505 uppercase block">
+                        Min Wholesale Qty {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
+                      </label>
+                      <input 
+                        type="number" 
+                        min="1"
+                        disabled={!sellInWholesale}
+                        value={sellInWholesale ? (minWholesaleQty || '') : 10}
+                        onChange={(e) => setMinWholesaleQty(Math.max(1, parseInt(e.target.value) || 0))}
+                        placeholder={!sellInWholesale ? "Inactive" : "10"}
+                        className={`w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none font-semibold ${!sellInWholesale ? 'opacity-50 cursor-not-allowed bg-slate-100' : ''}`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 font-mono text-[11px] p-4 rounded-2xl border border-slate-150 space-y-1.5 text-slate-500">
+                    <div className="flex justify-between items-center text-xs border-b border-slate-200 pb-1 mb-1 text-slate-700 font-sans font-bold">
+                      <span>Ledger Margin metrics:</span>
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                    </div>
+                    <div className="flex justify-between font-mono">
+                      <span>Product Markup:</span>
+                      <span className="text-slate-800 font-bold">{markup.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between font-mono">
+                      <span>Profit Margin:</span>
+                      <span className="text-emerald-600 font-bold">{margin.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between font-sans font-bold text-slate-805 pt-1 mt-0.5 border-t border-slate-200">
+                      <span>Margin Gain per Unit:</span>
+                      <span>{currency}{Math.round(profit).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Commit Trigger */}
+              <button
+                type="submit"
+                disabled={formSuccess || isProcessingImage}
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-505 disabled:bg-slate-150 disabled:text-slate-400 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-md shadow-emerald-550/10"
+              >
+                {formSuccess ? (
+                  <>
+                    <Check className="w-4 h-4 text-white animate-pulse" />
+                    <span className="text-white font-bold">SAVING ON BRAND LEDGER...</span>
+                  </>
+                ) : (
+                  <span>Add Product</span>
+                )}
+              </button>
+            </form>
+          )}
+
+          {/* Catalog Filter and Table */}
+          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs space-y-4">
+            
+            <div className="p-5 border-b border-slate-150/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="relative w-full sm:max-w-xs">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input 
+                  type="text" 
+                  placeholder="Filter by product name, barcode, or category..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 pl-9 py-2 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-800 transition-all font-semibold"
+                />
+              </div>
+
+              <div className="text-[11px] font-mono text-slate-450 font-bold shrink-0">
+                ACTIVE UNIQUE ITEM CODES: <span className="text-slate-800">{filteredProducts.length} items listed</span>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/75 text-[10px] text-slate-455 font-bold uppercase tracking-wider border-b border-slate-150 font-mono">
+                    <th className="py-4 px-5">Product Name</th>
+                    <th className="py-4 px-4">Barcode</th>
+                    <th className="py-4 px-4">Category</th>
+                    <th className="py-4 px-4">Brand</th>
+                    <th className="py-4 px-4 text-right">Cost Price</th>
+                    <th className="py-4 px-4 text-right">Retail Price</th>
+                    <th className="py-4 px-4 text-right">Wholesale Price / Min Qty</th>
+                    <th className="py-4 px-4 text-center">In Shop</th>
+                    <th className="py-4 px-4 text-center">In Store</th>
+                    <th className="py-4 px-4 text-center">Total Stock</th>
+                    <th className="py-4 px-4 text-center">Status</th>
+                    <th className="py-4 px-5 text-center font-mono uppercase">Ledger Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-150/50 text-slate-600 text-xs font-sans">
+                  {filteredProducts.map(prod => {
+                    const shopQty = prod.shopStockQty ?? 0;
+                    const storeQty = prod.storeStockQty ?? 0;
+                    const totalQty = prod.stockQty ?? (shopQty + storeQty);
+                    
+                    const isOutOfStock = totalQty <= 0;
+                    const isLow = !isOutOfStock && shopQty <= prod.alertQty;
+                    
+                    const canSellRetail = prod.sellInRetail !== false;
+                    const canSellWholesale = !!prod.sellInWholesale;
+                    const minWholesaleVal = prod.minWholesaleQty ?? 0;
+                    const wholesaleVal = prod.wholesalePrice ?? 0;
+
+                    return (
+                      <tr key={prod.id} className="hover:bg-slate-50/40 transition-colors">
+                        <td className="py-4 px-5">
+                          <div className="flex items-center space-x-3">
+                            {prod.image ? (
+                              <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
+                                <CachedImage src={prod.image} alt={prod.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                              </div>
+                            ) : (
+                              <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 flex flex-col items-center justify-center font-mono text-[7px] font-black leading-none flex-shrink-0 select-none">
+                                <span>No image</span>
+                              </div>
+                            )}
+
+                            <div className="space-y-0.5">
+                              <p className="font-bold text-slate-800 text-[12.5px] leading-tight">
+                                {prod.name}
+                                {prod.unit && <span className="ml-2 font-mono text-slate-400 font-semibold bg-slate-100 px-1.5 py-0.5 rounded leading-none text-[10px]">({prod.unit})</span>}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 font-mono font-bold text-slate-700 tracking-wide text-[11px]">
+                          {prod.barcode}
+                        </td>
+                        <td className="py-4 px-4 font-bold text-[10px] tracking-wider text-slate-400 select-none uppercase font-mono">
+                          {prod.category}
+                        </td>
+                        <td className="py-4 px-4 font-semibold text-slate-600 text-[11px]">
+                          {prod.brand || <span className="text-slate-350 font-normal">—</span>}
+                        </td>
+                        <td className="py-4 px-4 font-mono text-right text-slate-505 font-semibold">
+                          {currency}{prod.costPrice.toLocaleString()}
+                        </td>
+                        <td className="py-4 px-4 font-mono text-right">
+                          {canSellRetail ? (
+                            <div className="flex flex-col items-end">
+                              <span className="text-slate-805 font-extrabold text-[12.5px]">
+                                {currency}{prod.sellingPrice.toLocaleString()}
+                              </span>
+                              {!canSellWholesale && (
+                                <span className="text-[8px] bg-sky-50 text-sky-600 font-bold px-1.5 py-0.2 rounded mt-0.5 uppercase tracking-wide">
+                                  Retail Only
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[9.5px] font-mono font-bold bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded-lg select-none">
+                              Not for Retail
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-4 px-4 font-mono text-right">
+                          {canSellWholesale ? (
+                            <div className="flex flex-col items-end">
+                              <span className="text-teal-700 font-extrabold text-[12.5px]">
+                                {currency}{wholesaleVal.toLocaleString()}
+                              </span>
+                              <span className="text-[9px] text-slate-400 mt-0.5">
+                                Min Qty: <strong className="text-slate-700">{minWholesaleVal}</strong>
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[9.5px] font-mono font-bold bg-slate-100 text-slate-400 border border-slate-200 px-2 py-0.5 rounded-lg select-none">
+                              Not for Wholesale
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className={`font-mono text-[11px] px-2.5 py-1 rounded-full font-bold bg-slate-50 border border-slate-200 ${
+                            isLow ? 'text-amber-600 bg-amber-50/50 border-amber-200' : 'text-slate-600'
+                          }`}>
+                            {shopQty} units
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className="font-mono text-[11px] px-2.5 py-1 rounded-full font-bold bg-slate-50 border border-slate-200 text-slate-600">
+                            {storeQty} units
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center font-black text-slate-750 font-mono text-xs">
+                          {totalQty}
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          {isOutOfStock ? (
+                            <span className="inline-block bg-red-50 text-red-600 border border-red-105 font-extrabold font-mono text-[9.5px] uppercase tracking-wider px-2 py-0.5 rounded-full">
+                              Out of stock
+                            </span>
+                          ) : isLow ? (
+                            <span className="inline-block bg-amber-50 text-amber-600 border border-amber-150 font-extrabold font-mono text-[9.5px] uppercase tracking-wider px-2 py-0.5 rounded-full">
+                              Low stock
+                            </span>
+                          ) : (
+                            <span className="inline-block bg-emerald-50 text-emerald-700 border border-emerald-100 font-extrabold font-mono text-[9.5px] uppercase tracking-wider px-2 py-0.5 rounded-full">
+                              In stock
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-4 px-5 text-center relative">
+                          <div className="flex items-center justify-center space-x-1">
+                            <button
+                              onClick={() => {
+                                setTransferProduct(prod);
+                                setTransferQty(1);
+                                setTransferDirection('store_to_shop');
+                                setTransferError(null);
+                                setTransferSuccess(false);
+                              }}
+                              className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg cursor-pointer transition-colors"
+                              title="Transfer Warehouse Stock"
+                            >
+                              <ArrowLeftRight className="w-4 h-4" />
+                            </button>
+
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenDropdownId(openDropdownId === prod.id ? null : prod.id);
+                                }}
+                                className="p-1.5 hover:bg-slate-100 text-slate-450 hover:text-slate-700 rounded-lg cursor-pointer transition-colors flex items-center justify-center"
+                                title="Item Options"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+
+                              {openDropdownId === prod.id && (
+                                <>
+                                  {/* Backdrop layer */}
+                                  <div className="fixed inset-0 z-40" onClick={() => setOpenDropdownId(null)}></div>
+                                  <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-45 animate-fade-in text-left">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setViewingProduct(prod);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center space-x-2 transition-colors"
+                                    >
+                                      <Eye className="w-3.5 h-3.5 text-slate-400" />
+                                      <span>View Details</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleBeginEdit(prod);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center space-x-2 transition-colors"
+                                    >
+                                      <Edit className="w-3.5 h-3.5 text-slate-400" />
+                                      <span>Edit Item</span>
+                                    </button>
+                                    <div className="border-t border-slate-100 my-1"></div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        onDeleteProduct(prod.id);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full px-3 py-2 text-red-650 hover:bg-red-50 text-xs font-bold flex items-center space-x-2 transition-colors"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                                      <span>Delete Item</span>
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredProducts.length === 0 && (
+                    <tr>
+                      <td colSpan={12} className="py-12 text-center text-slate-400 font-medium bg-slate-50/50">
+                        No active stock items match the filter keywords.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* VIEW B: BARCODE PRINTING & THERMAL DRIVER STATION */}
+      {viewTab === 'labels' && (
+        <div className="space-y-6 animate-fade-in text-xs font-sans">
+          
+          {/* Section 1: Connection Drivers setup box for Thermal and hardware models */}
+          <div className="bg-slate-900 text-white rounded-3xl p-6 border border-slate-800 shadow-xl space-y-5 relative overflow-hidden">
+            <div className="absolute right-0 top-0 translate-y-1/3 translate-x-1/3 bg-emerald-500/10 w-96 h-96 rounded-full blur-3xl pointer-events-none" />
+            
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10 border-b border-slate-800 pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <Printer className="w-5 h-5 text-emerald-400" />
+                  <h4 className="font-black text-sm uppercase tracking-wide">Jasper Print Driver Engine</h4>
+                </div>
+                <p className="text-[11px] text-slate-400 max-w-xl leading-relaxed">
+                  This station connects directly to your Jasper thermal printer. Link your Jasper device via USB, Bluetooth, or local network to print barcodes and labels instantly.
+                </p>
+              </div>
+
+              {/* Status lights */}
+              <div className="flex items-center space-x-3 bg-slate-950/60 p-3 rounded-2xl border border-slate-800">
+                <div className="flex items-center space-x-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${isPrinterConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
+                  <span className="font-mono text-[10px] font-bold text-slate-350">
+                    {isPrinterConnected ? 'CONNECTION STATUS: ACTIVE' : 'NO DEVICE CONNECTED'}
+                  </span>
+                </div>
+                <span>|</span>
+                <button
+                  onClick={() => setShowTestPrintModal(true)}
+                  className="px-3 py-1 bg-slate-800 hover:bg-slate-705 border border-slate-700 text-[10px] uppercase font-bold tracking-wider rounded-lg text-slate-100 transition-colors cursor-pointer"
+                >
+                  Trigger Test Page
+                </button>
+              </div>
+                        {/* Connection configuration matrix */}
+            <div className="grid grid-cols-1 gap-5 relative z-10">
+              
+              {/* Status and Diagnostics Print Area */}
+              <div className="space-y-2 bg-slate-950/40 p-4 rounded-2xl border border-slate-850">
+                <span className="text-[10px] font-mono tracking-wider font-extrabold text-slate-400 uppercase block">Link & print diagnostics</span>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl">
+                    <span className="block text-[8px] uppercase text-slate-500 font-bold tracking-widest leading-none">Status Link</span>
+                    <span className="text-[10px] font-bold text-emerald-400 mt-1.5 block">ACTIVE LINK</span>
+                  </div>
+                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl">
+                    <span className="block text-[8px] uppercase text-slate-500 font-bold tracking-widest leading-none">Paper Size</span>
+                    <span className="text-[10px] font-bold text-slate-300 mt-1.5 block">50MM ROLL</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>  </div>
+
+          </div>
+
+          {/* Section 2: Assemble Print Jobs list selecting products and setting ticket count */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Left Queue: Selectable catalog list */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-4 lg:col-span-2">
+              <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row items-center justify-between gap-2">
+                <span className="font-bold text-slate-800">1. Product print queue selection</span>
+                <span className="text-[10px] italic text-slate-400 font-medium">Search and select items to print barcodes for</span>
+              </div>
+
+              {/* Product search box */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                  <Search className="w-3.5 h-3.5 text-slate-400" />
+                </div>
+                <input
+                  type="text"
+                  value={labelSearchQuery}
+                  onChange={(e) => setLabelSearchQuery(e.target.value)}
+                  placeholder="Type product name or barcode to add..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white transition-all font-sans font-medium text-slate-700 placeholder-slate-400"
+                />
+                
+                {/* Search Results Dropdown/Box if query is present */}
+                {labelSearchQuery.trim().length > 0 && (
+                  <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-lg z-25 max-h-60 overflow-y-auto divide-y divide-slate-100">
+                    {labelSearchResults.length === 0 ? (
+                      <div className="p-4 text-center text-slate-400 text-xs font-medium">
+                        No matching products found.
+                      </div>
+                    ) : (
+                      labelSearchResults.map(p => (
+                        <div 
+                          key={p.id}
+                          onClick={() => {
+                            setSelectedLabels(prev => ({ ...prev, [p.id]: true }));
+                            setPrintQuantities(prev => ({ ...prev, [p.id]: prev[p.id] || 5 })); // default copies of 5
+                            setLabelSearchQuery(''); // clear search input after selection
+                          }}
+                          className="p-3 hover:bg-slate-50/80 flex items-center justify-between cursor-pointer transition-colors"
+                        >
+                          <div className="space-y-0.5 text-left">
+                            <p className="font-bold text-slate-800 text-xs">{p.name}</p>
+                            <span className="font-mono text-[9px] text-slate-400">Barcode: {p.barcode}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="text-[10px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                          >
+                            + Add to Queue
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Active Print Queue List */}
+              <div className="space-y-2.5 pt-1">
+                <div className="flex justify-between items-center text-[10px] uppercase font-bold text-slate-400 tracking-wider px-2">
+                  <span>Selected Print Queue</span>
+                  <span>{products.filter(p => selectedLabels[p.id]).length} products</span>
+                </div>
+
+                <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2">
+                  {products.filter(p => selectedLabels[p.id]).length === 0 ? (
+                    <div className="p-12 text-center text-slate-400 text-xs bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                      Print queue is empty. Use the search box above to add products!
+                    </div>
+                  ) : (
+                    products.filter(p => selectedLabels[p.id]).map(p => {
+                      const count = printQuantities[p.id] || 0;
+
+                      return (
+                        <div 
+                          key={p.id} 
+                          className="flex items-center justify-between p-3 border border-slate-150 rounded-2xl bg-white shadow-2xs hover:border-slate-250 transition-colors"
+                        >
+                          <div className="flex items-center space-x-3 max-w-[55%]">
+                            <div className="space-y-0.5 truncate text-left">
+                              <p className="font-bold text-slate-805 truncate text-[12px]">{p.name}</p>
+                              <span className="font-mono text-[9px] text-slate-400 block">Barcode: {p.barcode}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-3 shrink-0">
+                            {/* Copies count controller */}
+                            <div className="flex items-center space-x-1.5 bg-slate-50 border border-slate-205 px-2.5 py-1 rounded-xl">
+                              <label className="text-[9px] uppercase font-mono font-bold text-slate-400 shrink-0">Copies:</label>
+                              <button
+                                type="button"
+                                onClick={() => setPrintQuantities(prev => ({ ...prev, [p.id]: Math.max(1, (prev[p.id] || 1) - 1) }))}
+                                className="w-5 h-5 rounded bg-white hover:bg-slate-100 border border-slate-200/60 flex items-center justify-center font-bold text-xs cursor-pointer"
+                              >
+                                -
+                              </button>
+                              <input 
+                                type="number"
+                                min="1"
+                                value={count}
+                                onChange={(e) => {
+                                  const val = Math.max(1, parseInt(e.target.value) || 1);
+                                  setPrintQuantities(prev => ({ ...prev, [p.id]: val }));
+                                }}
+                                className="w-8 text-center bg-transparent border-none py-0.5 font-mono font-bold text-xs outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setPrintQuantities(prev => ({ ...prev, [p.id]: (prev[p.id] || 1) + 1 }))}
+                                className="w-5 h-5 rounded bg-white hover:bg-slate-100 border border-slate-200/60 flex items-center justify-center font-bold text-xs cursor-pointer"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            {/* Remove button */}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedLabels(prev => ({ ...prev, [p.id]: false }))}
+                              className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg bg-slate-50 hover:bg-red-50/50 border border-slate-200 hover:border-red-100 transition-all cursor-pointer"
+                              title="Remove item"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Right Settings & Preview parameters */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-4">
+              <span className="font-bold text-slate-880 block border-b border-slate-100 pb-3">2. Label Paper & Output</span>
+              
+              {/* Paper selector */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-slate-450 block">Output format roll size</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setLabelSize('thermal')}
+                    className={`py-2 px-2.5 rounded-xl border text-[11px] font-bold uppercase transition-all flex flex-col items-center justify-center cursor-pointer ${
+                      labelSize === 'thermal'
+                        ? 'border-emerald-500 bg-emerald-50/20 text-emerald-700 font-extrabold shadow-2xs'
+                        : 'border-slate-200 hover:border-slate-350 text-slate-500'
+                    }`}
+                  >
+                    <span>⚡ Thermal Roll</span>
+                    <span className="text-[8px] lowercase font-normal text-slate-400 mt-0.5">50mm x 30mm Roll</span>
+                  </button>
+                  <button
+                    onClick={() => setLabelSize('a4')}
+                    className={`py-2 px-2.5 rounded-xl border text-[11px] font-bold uppercase transition-all flex flex-col items-center justify-center cursor-pointer ${
+                      labelSize === 'a4'
+                        ? 'border-emerald-500 bg-emerald-50/20 text-emerald-700 font-extrabold shadow-2xs'
+                        : 'border-slate-200 hover:border-slate-350 text-slate-500'
+                    }`}
+                  >
+                    <span>📄 A4 Sticker sheet</span>
+                    <span className="text-[8px] lowercase font-normal text-slate-400 mt-0.5">24 labels / A4 page</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Barcode Appearance Layout selection */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-[10px] uppercase font-bold text-slate-450 block">Barcode label layout option</label>
+                <div className="flex flex-col space-y-2">
+                  <label className={`flex items-center space-x-2.5 p-2.5 border rounded-2xl cursor-pointer transition-all ${printLayoutOption === 'name_price' ? 'border-emerald-500 bg-emerald-50/20 text-emerald-800' : 'border-slate-200 text-slate-600 bg-white hover:border-slate-300'}`}>
+                    <input 
+                      type="radio" 
+                      name="printLayoutOption" 
+                      value="name_price" 
+                      checked={printLayoutOption === 'name_price'} 
+                      onChange={() => setPrintLayoutOption('name_price')}
+                      className="accent-emerald-600 h-3.5 w-3.5"
+                    />
+                    <div className="text-left font-sans">
+                      <p className="text-[11px] font-bold">With Name & Price</p>
+                      <p className="text-[9px] text-slate-400 leading-tight">Shows Name, Price & Barcode</p>
+                    </div>
+                  </label>
+                  
+                  <label className={`flex items-center space-x-2.5 p-2.5 border rounded-2xl cursor-pointer transition-all ${printLayoutOption === 'name_barcode' ? 'border-emerald-500 bg-emerald-50/20 text-emerald-800' : 'border-slate-200 text-slate-600 bg-white hover:border-slate-300'}`}>
+                    <input 
+                      type="radio" 
+                      name="printLayoutOption" 
+                      value="name_barcode" 
+                      checked={printLayoutOption === 'name_barcode'} 
+                      onChange={() => setPrintLayoutOption('name_barcode')}
+                      className="accent-emerald-600 h-3.5 w-3.5"
+                    />
+                    <div className="text-left font-sans">
+                      <p className="text-[11px] font-bold">With Name & Barcode</p>
+                      <p className="text-[9px] text-slate-400 leading-tight">Shows Name & Barcode Text (No Price)</p>
+                    </div>
+                  </label>
+                  
+                  <label className={`flex items-center space-x-2.5 p-2.5 border rounded-2xl cursor-pointer transition-all ${printLayoutOption === 'only_barcode' ? 'border-emerald-500 bg-emerald-50/20 text-emerald-800' : 'border-slate-200 text-slate-600 bg-white hover:border-slate-300'}`}>
+                    <input 
+                      type="radio" 
+                      name="printLayoutOption" 
+                      value="only_barcode" 
+                      checked={printLayoutOption === 'only_barcode'} 
+                      onChange={() => setPrintLayoutOption('only_barcode')}
+                      className="accent-emerald-600 h-3.5 w-3.5"
+                    />
+                    <div className="text-left font-sans">
+                      <p className="text-[11px] font-bold">Only Barcode</p>
+                      <p className="text-[9px] text-slate-400 leading-tight">Shows only the scan barcode bars</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Printable stats summary */}
+              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-2 font-mono text-[10.5px] text-slate-500">
+                <div className="flex justify-between font-sans font-bold text-slate-705 border-b border-slate-200 pb-1.5 mb-1 text-xs">
+                  <span>Queue Totals</span>
+                  <Sliders className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex justify-between">
+                  <span>Selected Products:</span>
+                  <span className="font-bold text-slate-800">
+                    {Object.keys(selectedLabels).filter(k => selectedLabels[k]).length} items
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Total ticket copies:</span>
+                  <span className="font-bold text-slate-800">
+                    {Object.keys(selectedLabels).filter(k => selectedLabels[k]).reduce((acc, k) => acc + (printQuantities[k] || 0), 0)} tags
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Output Paper:</span>
+                  <span className="font-bold text-slate-800 truncate">
+                    {labelSize === 'thermal' ? 'Thermal adhesive roll' : 'Standard flat A4 sheet (24-grid)'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Feedback messages */}
+              {printJobSuccess && (
+                <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-center border border-emerald-100 font-bold text-[10px] uppercase tracking-wide animate-pulse">
+                  ✓ Print job successfully transmitted to Jasper printer. Check feed.
+                </div>
+              )}
+
+              {/* Trigger Print Button */}
+              {labelSize === 'thermal' ? (
+                <div className="space-y-1.5">
+                  <button
+                    onClick={handleTriggerPrintLabels}
+                    disabled={isPrintingJob || Object.keys(selectedLabels).filter(k => selectedLabels[k]).length === 0}
+                    className="w-full py-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white font-mono text-[11px] uppercase tracking-wider font-extrabold rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4 text-emerald-400 animate-pulse" />
+                    <span>Print via Jasper Thermal Printer</span>
+                  </button>
+                  <p className="text-[9.5px] text-slate-400 text-center font-mono">
+                    Direct transmit. Fully configured with 50x30mm thermal driver calibration.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <button
+                    onClick={handleDownloadA4StickerSheet}
+                    disabled={Object.keys(selectedLabels).filter(k => selectedLabels[k]).length === 0}
+                    className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-mono text-[11px] uppercase tracking-wider font-extrabold rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 text-white" />
+                    <span>Download A4 Sticker Sheet</span>
+                  </button>
+                  <p className="text-[9.5px] text-slate-400 text-center font-sans font-medium">
+                    Exports standalone print-ready HTML template with perfect 4x6 grid alignments.
+                  </p>
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* Section 3: Genuine physical layout print preview mockup sheet */}
+          <div className="bg-slate-100 border border-slate-250 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="border-b border-slate-205 pb-3">
+              <span className="font-bold text-xs uppercase font-mono tracking-wider text-slate-500">
+                🔎 Print Layout Preview (WYSIWYG layout simulation)
+              </span>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                This preview layout shows exact dimensions that will be burned onto your adhesive thermals. Perfect calibration.
+              </p>
+            </div>
+
+            {/* Print roll display */}
+            <div className={`p-6 border border-dashed border-slate-350 bg-slate-50 rounded-2xl flex items-center justify-center ${labelSize === 'a4' ? 'min-h-[400px]' : ''}`}>
+              
+              {/* Thermal continuous stickers roll */}
+              {labelSize === 'thermal' && (
+                <div className="flex flex-col space-y-4 w-full max-w-xs bg-white text-slate-900 p-5 rounded-3xl shadow-lg border border-slate-200 select-none">
+                  <div className="text-center font-mono text-[9px] uppercase font-black text-slate-400 tracking-wider flex items-center justify-center space-x-1 border-b border-dashed border-slate-200 pb-2 mb-2">
+                    <Printer className="w-3 h-3" />
+                    <span>Thermal Continuous Sticker (50mm x 30mm)</span>
+                  </div>
+
+                  {flattenedLabelsForPreview.slice(0, 3).map((p, index) => (
+                    <div key={`${p.id}-${index}`} className="bg-white p-3 border border-slate-200 rounded-2xl relative shadow-2xs space-y-0.5 font-sans overflow-hidden">
+                      {printLayoutOption === 'only_barcode' ? (
+                        <div className="py-1 flex flex-col items-center justify-center space-y-0.5 bg-white">
+                          {renderDynamicCssBarcode(p.barcode)}
+                          <p className="font-mono text-[9.5px] font-bold text-slate-700">{p.barcode}</p>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Product Name placed centered in the middle */}
+                          <div className="text-center font-sans">
+                            <p className="font-extrabold text-slate-850 truncate text-[11px] leading-tight">{p.name}</p>
+                          </div>
+
+                          {/* Price display if selected, placed below product name */}
+                          {printLayoutOption === 'name_price' && (
+                            <div className="text-center select-none pointer-events-none mt-0.5">
+                              <span className="bg-slate-105 text-slate-900 font-mono font-black text-[10px] px-2 py-0.5 rounded inline-block">
+                                {currency}{p.sellingPrice.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Visual Barcode bars details */}
+                          <div className="pt-0.5 text-center space-y-0.5 bg-white select-none pointer-events-none">
+                            {renderDynamicCssBarcode(p.barcode)}
+                            <p className="font-mono text-[8.5px] font-bold text-slate-600">{p.barcode}</p>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Side tear label mock */}
+                      <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-slate-50 rounded-full border-r border-slate-200" />
+                      <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-slate-50 rounded-full border-l border-slate-200" />
+                    </div>
+                  ))}
+
+                  {flattenedLabelsForPreview.length > 3 && (
+                    <p className="text-[10px] text-slate-400 italic text-center pt-2">
+                      + {flattenedLabelsForPreview.length - 3} more sticker items in the active queue.
+                    </p>
+                  )}
+
+                  {flattenedLabelsForPreview.length === 0 && (
+                    <div className="p-12 text-center text-slate-400 italic">
+                      No label rows are selected. Search and add products inside the print selector to preview thermals.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* A4 Sheet grid visualizer */}
+              {labelSize === 'a4' && (
+                <div className="bg-white border border-slate-300 w-full max-w-3xl min-h-[480px] p-6 text-slate-900 rounded-xl shadow-xl flex flex-col space-y-4">
+                  <div className="border-b border-dashed border-slate-205 pb-3 flex items-center justify-between text-slate-500 font-mono select-none">
+                    <div className="text-left">
+                      <span className="font-bold text-[11px] block">📄 A4 Label Sheet Outline (4 x 6 = 24 Labels layout)</span>
+                      <span className="text-[9px] text-slate-400 font-sans">Ready for direct printing or local downloads.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleDownloadA4StickerSheet}
+                      disabled={flattenedLabelsForPreview.length === 0}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-sans font-bold text-[10px] uppercase rounded-xl tracking-wide shadow-xs transition-all flex items-center space-x-1.5 cursor-pointer active:scale-95"
+                    >
+                      <Download className="w-3.5 h-3.5 text-white" />
+                      <span>Download A4 Sheet</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2">
+                    {flattenedLabelsForPreview.slice(0, 12).map((p, index) => (
+                      <div key={`${p.id}-${index}`} className="p-3 bg-white border border-slate-200 rounded-xl space-y-0.5 shadow-2xs font-sans text-left relative overflow-hidden select-none pointer-events-none">
+                        {printLayoutOption === 'only_barcode' ? (
+                          <div className="py-1 flex flex-col items-center justify-center space-y-0.5 bg-white h-full min-h-[85px]">
+                            {renderDynamicCssBarcode(p.barcode)}
+                            <p className="font-mono text-[8.5px] text-slate-800 font-bold">{p.barcode}</p>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Product name centered in the middle */}
+                            <div className="text-center truncate">
+                              <p className="font-bold text-slate-850 truncate text-[10px] leading-tight">{p.name}</p>
+                            </div>
+
+                            {/* Price display below product name, if selected */}
+                            {printLayoutOption === 'name_price' && (
+                              <div className="text-center select-none pointer-events-none mt-0.5">
+                                <span className="bg-slate-100 text-slate-900 font-mono font-black text-[9px] px-1.5 py-0.5 rounded leading-none inline-block">
+                                  {currency}{p.sellingPrice.toLocaleString()}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {/* Centered Barcode bars and code */}
+                            <div className="pt-0.5 text-center bg-white space-y-0.5 select-none pointer-events-none">
+                              {renderDynamicCssBarcode(p.barcode)}
+                              <p className="font-mono text-[7.5px] text-slate-500 font-bold">{p.barcode}</p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {flattenedLabelsForPreview.length > 12 && (
+                    <p className="text-[10px] text-slate-450 italic text-center pt-2">
+                      + {flattenedLabelsForPreview.length - 12} more sticker items populated on following print sheets.
+                    </p>
+                  )}
+
+                  {flattenedLabelsForPreview.length === 0 && (
+                    <div className="p-24 text-center text-slate-400 italic">
+                      No label rows are selected. Search and add products inside the print selector to preview sticker sheet patterns.
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* MODAL I: CAMERA/SCANNER OVERLAY SIMULATOR MODAL (IN FORM) */}
+      {isFormScannerOpen && (
+        <div id="modal-form-scanner" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
+            
+            <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center space-x-1.5">
+                <Camera className="w-4 h-4 text-emerald-400 animate-pulse" />
+                <span className="text-xs font-bold uppercase tracking-wider font-mono">Barcode Scanner Laser</span>
+              </div>
+              <button onClick={() => setIsFormScannerOpen(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div className="relative h-44 bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden flex flex-col items-center justify-center text-center">
+                <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 shadow-[0_0_12px_rgba(239,68,68,1)] z-10 animate-pulse" />
+                <div className="absolute inset-x-12 inset-y-8 border-2 border-emerald-500/30 rounded-xl pointer-events-none" />
+                
+                <Camera className="w-8 h-8 text-slate-600 animate-pulse mb-1.5" />
+                <p className="font-mono text-[10px] text-slate-450 uppercase tracking-widest">Awaiting Laser Feed...</p>
+                <p className="text-[9px] text-slate-500 max-w-[180px] leading-relaxed mt-1">Camera lens aligns standard 1D products. Click a tag below to scan mock trigger.</p>
+              </div>
+
+              {/* Sample codes to scan */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono font-black uppercase text-slate-400 block tracking-widest">Available Mock Barcode labels</span>
+                <div className="grid grid-cols-2 gap-2 font-mono text-[10.5px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBarcode('6153091040851');
+                      setIsFormScannerOpen(false);
+                      try {
+                        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                        const osc = audioCtx.createOscillator();
+                        osc.connect(audioCtx.destination);
+                        osc.start();
+                        setTimeout(() => { osc.stop(); audioCtx.close(); }, 80);
+                      } catch(e){}
+                    }}
+                    className="p-2 bg-slate-100 hover:bg-emerald-50 hover:border-emerald-500 border border-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer transition-colors text-center"
+                  >
+                    6153091040851
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBarcode('83910485');
+                      setIsFormScannerOpen(false);
+                      try {
+                        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                        const osc = audioCtx.createOscillator();
+                        osc.connect(audioCtx.destination);
+                        osc.start();
+                        setTimeout(() => { osc.stop(); audioCtx.close(); }, 80);
+                      } catch(e){}
+                    }}
+                    className="p-2 bg-slate-100 hover:bg-emerald-50 hover:border-emerald-500 border border-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer transition-colors text-center"
+                  >
+                    83910485
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 px-5 py-3 border-t border-slate-200 text-center text-[10px] text-slate-400">
+              Closes scanner window immediately on successful read lock.
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* MODAL II: THERMAL HARDWARE SUCCESS DIAGNOSTIC TEST PAGE */}
+      {showTestPrintModal && (
+        <div id="modal-test-print" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-mono text-[11px] text-slate-900 select-none">
+          <div className="bg-white border border-slate-350 rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden flex flex-col relative">
+            
+            {/* Header tab */}
+            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
+              <span className="font-bold text-[10px] tracking-widest uppercase">Thermal Device diagnostics</span>
+              <button onClick={() => setShowTestPrintModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Simulated Receipt Page */}
+            <div className="p-6 space-y-4 bg-white font-mono text-center relative border-dashed border-b border-slate-300">
+              <span className="text-[9px] font-black text-slate-400 font-bold block">*** PHYSICAL PRINT FEEDOUT ***</span>
+              
+              <div className="space-y-1">
+                <p className="font-sans font-black text-xs uppercase text-slate-800">JASPER HARDWARE LABS</p>
+                <p className="text-[10px] text-slate-500">Port-Link diagnostics output</p>
+                <p className="text-[9px] text-slate-505 font-medium leading-tight">Server-Ingress: Active node</p>
+              </div>
+
+              <div className="border-t border-b border-dashed border-slate-250 py-3 space-y-1.5 text-left text-[10px]">
+                <div className="flex justify-between">
+                  <span>Interface Link:</span>
+                  <span className="font-bold uppercase text-slate-800">{connectionType}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Target driver:</span>
+                  <span className="font-bold text-slate-800">
+                    {connectionType === 'usb' ? 'XP-365B' : connectionType === 'bluetooth' ? 'RP85 Beacon' : `${wifiIpAddress}:${wifiPort}`}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Print queue status:</span>
+                  <span className="text-emerald-600 font-bold">READY (OK-0)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Calibration:</span>
+                  <span className="font-bold">50mm x 300dpi</span>
+                </div>
+              </div>
+
+              {/* Grid outline representation */}
+              <div className="pt-0.5 text-center space-y-0.5">
+                {renderDynamicCssBarcode('JSP-TEST-PAGE')}
+                <p className="text-[9px] text-slate-700 font-bold tracking-widest">JSP-DIAGNOSTIC-OK</p>
+              </div>
+
+              <div className="text-[9.5px] italic text-slate-450 leading-relaxed pt-2">
+                "Printed successfully via active Jasper software. Live printer triggers are compatible with unified Windows PRN controllers & mobile thermal Bluetooth devices."
+              </div>
+
+              {/* Tear outline mocks */}
+              <div className="absolute -left-1.5 top-[230px] w-3 h-3 bg-slate-100 rounded-full border-r border-slate-300" />
+              <div className="absolute -right-1.5 top-[230px] w-3 h-3 bg-slate-100 rounded-full border-l border-slate-300" />
+            </div>
+
+            <div className="bg-slate-50 p-3 text-center">
+              <button 
+                onClick={() => setShowTestPrintModal(false)}
+                className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg text-[10px] uppercase cursor-pointer"
+              >
+                Close Diagnostic View
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* METAMODAL: INVENTORY TRANSFER HUB */}
+      {transferProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col uppercase text-xs">
+            
+            {/* Header */}
+            <div className="px-5 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <ArrowLeftRight className="w-4 h-4 text-emerald-650" />
+                <h4 className="font-bold text-slate-800 text-xs tracking-wide">Internal Stock Transfer</h4>
+              </div>
+              <button onClick={() => setTransferProduct(null)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Product Info */}
+              <div className="space-y-0.5 normal-case font-medium">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{transferProduct.category}</p>
+                <h5 className="text-xs font-bold text-slate-900 leading-snug">{transferProduct.name}</h5>
+                <p className="text-[10px] font-mono text-slate-500">Barcode: {transferProduct.barcode}</p>
+              </div>
+
+              {/* Current Balances */}
+              <div className="grid grid-cols-2 gap-3 pb-1">
+                <div className="bg-emerald-50 border border-emerald-100 p-3.5 rounded-xl text-center space-y-0.5">
+                  <span className="text-[9px] font-bold text-emerald-600 tracking-wider">In Shop layout</span>
+                  <p className="text-xl font-mono font-black text-emerald-700">{transferProduct.shopStockQty ?? 0}</p>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-center space-y-0.5">
+                  <span className="text-[9px] font-bold text-slate-550 tracking-wider">In store rooms</span>
+                  <p className="text-xl font-mono font-black text-slate-700">{transferProduct.storeStockQty ?? 0}</p>
+                </div>
+              </div>
+
+              {transferSuccess ? (
+                <div className="p-3 bg-emerald-50 text-emerald-800 text-center rounded-xl border border-emerald-150 font-bold text-[10px] tracking-wide animate-pulse">
+                  ✓ STOCK TRANSFER COMPLETED SUCCESSFULLY!
+                </div>
+              ) : (
+                <div className="space-y-3.5">
+                  {/* Direction Switcher */}
+                  <div className="space-y-1.5">
+                    <label className="text-[9.5px] font-bold text-slate-400 block tracking-wider col-span-2">Transfer path</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setTransferDirection('store_to_shop'); setTransferError(null); }}
+                        className={`py-2 px-2 rounded-xl text-[10.5px] font-bold transition-all flex flex-col items-center justify-center border cursor-pointer ${
+                          transferDirection === 'store_to_shop'
+                            ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-extrabold'
+                            : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
+                        }`}
+                      >
+                        <span>Store ➔ Shop</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setTransferDirection('shop_to_store'); setTransferError(null); }}
+                        className={`py-2 px-2 rounded-xl text-[10.5px] font-bold transition-all flex flex-col items-center justify-center border cursor-pointer ${
+                          transferDirection === 'shop_to_store'
+                            ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-extrabold'
+                            : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
+                        }`}
+                      >
+                        <span>Shop ➔ Store</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Qty input */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center text-[9.5px] font-bold text-slate-400">
+                      <label>Qty units to move</label>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const maxQty = transferDirection === 'store_to_shop' 
+                            ? (transferProduct.storeStockQty ?? 0) 
+                            : (transferProduct.shopStockQty ?? 0);
+                          setTransferQty(maxQty);
+                        }}
+                        className="text-emerald-600 hover:underline font-mono"
+                      >
+                        [Max Qty]
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      min="1"
+                      value={transferQty}
+                      onChange={(e) => {
+                        setTransferQty(Math.max(1, parseInt(e.target.value) || 0));
+                        setTransferError(null);
+                      }}
+                      className="w-full text-center bg-slate-50 border border-slate-200 focus:border-emerald-500 px-3 py-2.5 rounded-xl font-mono text-lg text-slate-800 font-extrabold"
+                    />
+                  </div>
+
+                  {transferError && (
+                    <div className="p-2.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-[10.5px] font-bold text-center leading-normal">
+                      ⚠ {transferError}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleExecuteTransfer}
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-505 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer"
+                  >
+                    Commit Stock Move
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW B: PRODUCT CATEGORIES DIRECTORIES */}
+      {viewTab === 'category' && (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 animate-fade-in text-xs font-sans">
+          {/* Left Panel: Category registration and filter list */}
+          <div className="md:col-span-4 space-y-6">
+            {/* Create Category Registration form card */}
+            <div className="bg-white border border-slate-200 p-5 rounded-3xl shadow-xs space-y-4">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <h4 className="font-bold text-slate-800 text-xs">Register New Category</h4>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Category Name</label>
+                  <input 
+                    type="text"
+                    placeholder="e.g. Toiletries, Pharmacy"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 transition-all outline-none font-semibold"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const trimmed = newCategoryName.trim();
+                    if (!trimmed) return;
+                    if (categoriesList.map(c => c.toLowerCase()).includes(trimmed.toLowerCase())) {
+                      alert('This category is already registered!');
+                      return;
+                    }
+                    setCustomCategories(prev => [...prev, trimmed]);
+                    setNewCategoryName('');
+                  }}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-505 text-white rounded-xl font-bold uppercase text-[10.5px] transition-all cursor-pointer"
+                >
+                  Create Category
+                </button>
+              </div>
+            </div>
+
+            {/* Interactive category listings */}
+            <div className="bg-white border border-slate-200 p-5 rounded-3xl shadow-xs space-y-4">
+              <h4 className="font-bold text-slate-800 text-xs border-b border-slate-100 pb-2">Category Directories</h4>
+              
+              <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
+                <button
+                  onClick={() => setSelectedCategoryFilter(null)}
+                  className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between font-medium cursor-pointer ${
+                    selectedCategoryFilter === null
+                      ? 'bg-slate-900 border-slate-900 text-white font-bold shadow-md shadow-slate-950/10'
+                      : 'bg-slate-50 border-slate-150 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <span>All Registered Items</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono leading-none ${
+                    selectedCategoryFilter === null ? 'bg-slate-805 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {products.length}
+                  </span>
+                </button>
+
+                {categoriesList.map(cat => {
+                  const count = products.filter(p => p.category === cat).length;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategoryFilter(cat)}
+                      className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between font-medium cursor-pointer ${
+                        selectedCategoryFilter === cat
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-bold shadow-xs'
+                          : 'bg-slate-50 border-slate-150 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span className="truncate pr-2">{cat}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono leading-none flex-shrink-0 ${
+                        selectedCategoryFilter === cat ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-200 text-slate-700 font-semibold'
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Panel: Products under Category filtered list */}
+          <div className="md:col-span-8 bg-white border border-slate-200 p-6 rounded-3xl shadow-xs space-y-5 flex flex-col min-h-[450px]">
+            <div className="border-b border-slate-150 pb-3 flex items-center justify-between">
+              <div className="space-y-0.5">
+                <h4 className="font-bold text-slate-805 text-sm uppercase font-mono">
+                  {selectedCategoryFilter || 'All Categories'} Catalogue
+                </h4>
+                <p className="text-[11px] text-slate-400">
+                  Showing active stock units categorized under the chosen ledger segment.
+                </p>
+              </div>
+              <span className="font-mono text-[11px] font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-650">
+                {products.filter(p => !selectedCategoryFilter || p.category === selectedCategoryFilter).length} matches
+              </span>
+            </div>
+
+            {/* List products for active Category */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-y-auto max-h-[500px]">
+              {products
+                .filter(p => !selectedCategoryFilter || p.category === selectedCategoryFilter)
+                .map(prod => {
+                  const shopQty = prod.shopStockQty ?? 0;
+                  const storeQty = prod.storeStockQty ?? 0;
+                  return (
+                    <div key={prod.id} className="bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-start space-x-3 transition-all relative">
+                      {prod.image ? (
+                        <div className="w-12 h-12 bg-white border border-slate-150 rounded-xl overflow-hidden flex-shrink-0 p-0.5 flex items-center justify-center">
+                          <CachedImage src={prod.image} alt={prod.name} className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 bg-slate-100 border border-slate-200 text-slate-400 font-mono text-[7px] font-black rounded-xl flex items-center justify-center uppercase leading-none text-center flex-shrink-0">
+                          No img
+                        </div>
+                      )}
+                      
+                      <div className="space-y-1 min-w-0 flex-grow">
+                        <h5 className="font-bold text-slate-805 text-[12.5px] truncate leading-snug">{prod.name}</h5>
+                        <p className="text-[10px] text-slate-400 font-mono tracking-wider">Barcode: <span className="font-semibold text-slate-700">{prod.barcode}</span></p>
+                        <p className="text-[10px] text-slate-400 font-semibold">Brand: <span className="text-slate-700">{prod.brand || '—'}</span></p>
+                        <div className="flex items-center space-x-3 pt-1.5 font-mono text-[10.5px]">
+                          <span className="text-emerald-700 font-bold font-mono">Cost: {currency}{prod.costPrice}</span>
+                          <span className="text-slate-350">|</span>
+                          <span className="text-slate-800 font-mono font-extrabold">Price: {currency}{prod.sellingPrice}</span>
+                        </div>
+                        <div className="pt-2">
+                          <span className="inline-block bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-mono text-[9.5px]">
+                            Shop: {shopQty} / Store: {storeQty}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+              {products.filter(p => !selectedCategoryFilter || p.category === selectedCategoryFilter).length === 0 && (
+                <div className="col-span-full py-16 text-center text-slate-400">
+                  <Package className="w-8 h-8 text-slate-300 mx-auto mb-2 animate-bounce" />
+                  <p className="font-semibold text-xs">No active store items match this category classifications.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW C: PRODUCT BRANDS DIRECTORIES */}
+      {viewTab === 'brand' && (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 animate-fade-in text-xs font-sans">
+          {/* Left Panel: Brand registration and logo upload, interactive listings */}
+          <div className="md:col-span-4 space-y-6">
+            {/* Create Brand Registration form card */}
+            <div className="bg-white border border-slate-200 p-5 rounded-3xl shadow-xs space-y-4">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
+                  <Sparkles className="w-4 h-4 text-emerald-600" />
+                </div>
+                <h4 className="font-bold text-slate-800 text-xs">Register New Brand</h4>
+              </div>
+
+              <div className="space-y-3.5">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Brand Name</label>
+                  <input 
+                    type="text"
+                    placeholder="e.g. Nestle, Unilever"
+                    value={newBrandName}
+                    onChange={(e) => setNewBrandName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 transition-all outline-none font-semibold"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Brand Logo / Visual Mark</label>
+                  <div className="border border-dashed border-slate-220 rounded-xl p-3 bg-slate-50/50 flex items-center space-x-3">
+                    {newBrandLogo ? (
+                      <div className="w-11 h-11 bg-white border border-slate-200 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center p-0.5">
+                        <img src={newBrandLogo} alt="Brand Logo Preview" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                      </div>
+                    ) : (
+                      <div className="w-11 h-11 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-[8px] font-mono text-slate-400 font-bold leading-none text-center uppercase flex-shrink-0">
+                        No logo
+                      </div>
+                    )}
+                    <div className="relative inline-block overflow-hidden">
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={handleBrandLogoUpload}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                      />
+                      <button type="button" className="py-1 px-2.5 bg-white border border-slate-220 rounded-lg font-bold text-[10.5px] text-slate-700 flex items-center space-x-1 hover:bg-slate-50 shadow-2xs cursor-pointer">
+                        <Upload className="w-3 h-3 text-slate-400" />
+                        <span>Upload Logo</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const trimmed = newBrandName.trim();
+                    if (!trimmed) return;
+                    if (brandsList.map(b => b.name.toLowerCase()).includes(trimmed.toLowerCase())) {
+                      alert('This brand name is already registered!');
+                      return;
+                    }
+                    const nextBrand = {
+                      name: trimmed,
+                      logo: newBrandLogo || undefined
+                    };
+                    setCustomBrands(prev => [...prev, nextBrand]);
+                    setNewBrandName('');
+                    setNewBrandLogo('');
+                  }}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-505 text-white rounded-xl font-bold uppercase text-[10.5px] transition-all cursor-pointer"
+                >
+                  Save Product Brand
+                </button>
+              </div>
+            </div>
+
+            {/* Interactive brand directories */}
+            <div className="bg-white border border-slate-200 p-5 rounded-3xl shadow-xs space-y-4">
+              <h4 className="font-bold text-slate-800 text-xs border-b border-slate-100 pb-2">Product Brand Directories</h4>
+              
+              <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
+                <button
+                  onClick={() => setSelectedBrandFilter(null)}
+                  className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between font-medium cursor-pointer ${
+                    selectedBrandFilter === null
+                      ? 'bg-slate-900 border-slate-900 text-white font-bold shadow-md shadow-slate-950/10'
+                      : 'bg-slate-50 border-slate-150 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2.5">
+                    <span className="w-5 h-5 rounded-full bg-slate-700 text-white font-black flex items-center justify-center text-[8px] font-mono leading-none">ALL</span>
+                    <span>All Brands</span>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono leading-none ${
+                    selectedBrandFilter === null ? 'bg-slate-805 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {products.length}
+                  </span>
+                </button>
+
+                {brandsList.map(b => {
+                  const count = products.filter(p => p.brand?.toLowerCase() === b.name.toLowerCase()).length;
+                  const initials = b.name.slice(0, 2).toUpperCase();
+                  return (
+                    <button
+                      key={b.name}
+                      onClick={() => setSelectedBrandFilter(b.name)}
+                      className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between font-medium cursor-pointer ${
+                        selectedBrandFilter?.toLowerCase() === b.name.toLowerCase()
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-bold shadow-xs'
+                          : 'bg-slate-50 border-slate-150 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5 min-w-0">
+                        {b.logo ? (
+                          <div className="w-5 h-5 bg-white border border-slate-200 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center p-0.5">
+                            <img src={b.logo} alt={b.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                          </div>
+                        ) : (
+                          <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-black flex items-center justify-center text-[7.5px] font-mono leading-none flex-shrink-0 uppercase">
+                            {initials}
+                          </span>
+                        )}
+                        <span className="truncate pr-1">{b.name}</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono leading-none flex-shrink-0 ${
+                        selectedBrandFilter?.toLowerCase() === b.name.toLowerCase() ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-200 text-slate-700 font-semibold'
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Panel: Products under Brand filtered list */}
+          <div className="md:col-span-8 bg-white border border-slate-200 p-6 rounded-3xl shadow-xs space-y-5 flex flex-col min-h-[450px]">
+            <div className="border-b border-slate-150 pb-3 flex items-center justify-between">
+              <div className="space-y-0.5">
+                <h4 className="font-bold text-slate-850 text-sm uppercase font-mono flex items-center space-x-2">
+                  <span>{selectedBrandFilter || 'All Brands'} Products Grid</span>
+                </h4>
+                <p className="text-[11px] text-slate-400">
+                  Showing active system registry lines under selected brand house labels.
+                </p>
+              </div>
+              <span className="font-mono text-[11px] font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-650">
+                {products.filter(p => !selectedBrandFilter || p.brand?.toLowerCase() === selectedBrandFilter.toLowerCase()).length} matches
+              </span>
+            </div>
+
+            {/* List products for active Brand */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-y-auto max-h-[500px]">
+              {products
+                .filter(p => !selectedBrandFilter || p.brand?.toLowerCase() === selectedBrandFilter.toLowerCase())
+                .map(prod => {
+                  const shopQty = prod.shopStockQty ?? 0;
+                  const storeQty = prod.storeStockQty ?? 0;
+                  return (
+                    <div key={prod.id} className="bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-start space-x-3 transition-all">
+                      {prod.image ? (
+                        <div className="w-12 h-12 bg-white border border-slate-150 rounded-xl overflow-hidden flex-shrink-0 p-0.5 flex items-center justify-center">
+                          <CachedImage src={prod.image} alt={prod.name} className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 bg-slate-100 border border-slate-200 text-slate-400 font-mono text-[7px] font-black rounded-xl flex items-center justify-center uppercase leading-none text-center flex-shrink-0">
+                          No img
+                        </div>
+                      )}
+                      
+                      <div className="space-y-1 min-w-0 flex-grow">
+                        <h5 className="font-bold text-slate-805 text-[12.5px] truncate leading-snug">{prod.name}</h5>
+                        <p className="text-[10px] text-slate-400 font-mono tracking-wider">Barcode: <span className="font-semibold text-slate-700">{prod.barcode}</span></p>
+                        <p className="text-[10px] text-slate-400 font-semibold">
+                          Category: <span className="text-slate-700">{prod.category}</span>
+                          {prod.unit && <span className="ml-2 font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded leading-none">Unit: {prod.unit}</span>}
+                        </p>
+                        <div className="flex items-center space-x-3 pt-1.5 font-mono text-[10.5px]">
+                          <span className="text-emerald-700 font-bold font-mono">Cost: {currency}{prod.costPrice}</span>
+                          <span className="text-slate-350">|</span>
+                          <span className="text-slate-800 font-mono font-extrabold">Price: {currency}{prod.sellingPrice}</span>
+                        </div>
+                        <div className="pt-2">
+                          <span className="inline-block bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-mono text-[9.5px]">
+                            Shop: {shopQty} / Store: {storeQty}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+              {products.filter(p => !selectedBrandFilter || p.brand?.toLowerCase() === selectedBrandFilter.toLowerCase()).length === 0 && (
+                <div className="col-span-full py-16 text-center text-slate-400">
+                  <Package className="w-8 h-8 text-slate-300 mx-auto mb-2 animate-bounce" />
+                  <p className="font-semibold text-xs">No active stock lines linked with this brand label found.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW MODAL */}
+      {viewingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                <h4 className="font-bold text-slate-850 text-xs uppercase tracking-wider font-mono">Product View-Details Desk</h4>
+              </div>
+              <button type="button" onClick={() => setViewingProduct(null)} className="text-slate-450 hover:text-slate-700 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 text-xs text-slate-600 uppercase">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Visual Block & Classification summary */}
+                <div className="space-y-4">
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">1. Descriptor & Image</h5>
+                  
+                  <div className="space-y-1.5 normal-case font-semibold text-xs">
+                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Product Name / Title</label>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold">
+                      {viewingProduct.name}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Category Classification</label>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold font-mono">
+                      {viewingProduct.category}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Product Brand</label>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold font-mono">
+                      {viewingProduct.brand || "—"}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-1 font-mono">
+                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Asset Image Preview</label>
+                    <div className="border border-slate-205 rounded-xl p-4 bg-slate-50 flex items-center justify-center">
+                      {viewingProduct.image ? (
+                        <CachedImage src={viewingProduct.image} alt={viewingProduct.name} className="max-h-36 object-contain" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="text-slate-400 font-extrabold text-[9px] p-8 text-center bg-slate-50 w-full rounded">
+                          NO ACTIVE PRODUCT IMAGE
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stock levels block */}
+                <div className="space-y-4">
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">2. Barcode & Stocking</h5>
+                  
+                  <div className="space-y-1.5 font-mono">
+                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Retail barcode (SKU)</label>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold font-mono tracking-wide">
+                      {viewingProduct.barcode}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pb-1 font-mono">
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Shop shelf (Units)</label>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold">
+                        {viewingProduct.shopStockQty ?? 0}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">store rooms (Units)</label>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold font-mono">
+                        {viewingProduct.storeStockQty ?? 0}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 font-mono">
+                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Low alert Level threshold</label>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold font-mono">
+                      {viewingProduct.alertQty ?? 5} units
+                    </div>
+                  </div>
+
+                  <div className="bg-teal-50/50 border border-teal-150 p-4 rounded-2xl items-center font-mono">
+                    <span className="text-[9.5px] font-bold text-teal-650 uppercase block">Overall ledger balance</span>
+                    <p className="text-2xl font-black text-teal-800 mt-1">{(viewingProduct.shopStockQty ?? 0) + (viewingProduct.storeStockQty ?? 0)} units</p>
+                  </div>
+                </div>
+
+                {/* Sells & Margin statistics */}
+                <div className="space-y-4 font-mono">
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">3. Financial Margin metrics</h5>
+                  
+                  <div className="grid grid-cols-2 gap-3 pb-1">
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Cost Buy pricing</label>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-emerald-700 font-extrabold">
+                        {currency}{(viewingProduct.costPrice ?? 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Retail pricing</label>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-855 font-extrabold">
+                        {viewingProduct.sellInRetail !== false ? `${currency}${(viewingProduct.sellingPrice ?? 0).toLocaleString()}` : 'LOCKED'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 border-b border-dashed border-slate-150 pb-3">
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Wholesale pricing</label>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-805 font-bold">
+                        {viewingProduct.sellInWholesale ? `${currency}${(viewingProduct.wholesalePrice ?? 0).toLocaleString()}` : 'LOCKED'}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Wholesale Min qty</label>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-805 font-bold">
+                        {viewingProduct.sellInWholesale ? `${viewingProduct.minWholesaleQty ?? 10} units` : 'LOCKED'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Profit calculations */}
+                  {viewingProduct.sellInRetail !== false && viewingProduct.sellingPrice > 0 && (
+                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl space-y-1.5 text-slate-500">
+                      <div className="flex justify-between">
+                        <span>Markup Factor:</span>
+                        <span className="text-slate-800 font-bold">
+                          {(((viewingProduct.sellingPrice - viewingProduct.costPrice) / (viewingProduct.costPrice || 1)) * 105).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Earned Profit Margin:</span>
+                        <span className="text-emerald-600 font-bold">
+                          {(((viewingProduct.sellingPrice - viewingProduct.costPrice) / (viewingProduct.sellingPrice || 1)) * 105).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between font-sans font-bold text-slate-850 pt-1 border-t border-slate-200">
+                        <span>Margin Gain / Unit:</span>
+                        <span className="text-emerald-700">{currency}{(viewingProduct.sellingPrice - viewingProduct.costPrice).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 p-4 flex justify-end">
+              <button 
+                type="button"
+                onClick={() => setViewingProduct(null)} 
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-850 text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+              >
+                Close View desk
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT PRODUCT MODAL */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+          <form 
+            onSubmit={handleSaveProductEdit}
+            className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col uppercase text-xs"
+          >
+            {/* Header */}
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Edit className="w-4 h-4 text-emerald-600 animate-pulse" />
+                <h4 className="font-bold text-slate-850 text-xs uppercase tracking-wider font-mono">Adjust Product details desk</h4>
+              </div>
+              <button type="button" onClick={() => setEditingProduct(null)} className="text-slate-450 hover:text-slate-700 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 text-xs text-slate-600">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Visual Block & Classification summary */}
+                <div className="space-y-4">
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">1. Descriptor & Image</h5>
+                  
+                  <div className="space-y-1.5 normal-case font-semibold text-xs">
+                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Product Name / Title</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={editForm.name || ''}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div className="space-y-1.5">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Category Classification</label>
+                      <select
+                        value={editForm.category || ''}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, category: e.target.value }))}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-750 font-bold outline-none"
+                      >
+                        {categoriesList.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Units</label>
+                      <select
+                        value={editForm.unit || ''}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, unit: e.target.value }))}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-750 font-bold outline-none"
+                      >
+                        <option value="">-- No Unit --</option>
+                        {unitsList.map(u => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Product Brand</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Nestle, Sprite"
+                      list="brands-suggestions-edit"
+                      value={editForm.brand || ''}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, brand: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none font-semibold"
+                    />
+                    <datalist id="brands-suggestions-edit">
+                      {brandsList.map(b => (
+                        <option key={b.name} value={b.name} />
+                      ))}
+                    </datalist>
+                  </div>
+
+                  <div className="space-y-2 pt-1 font-mono">
+                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Asset Image Preview</label>
+                    
+                    <div className="border border-dashed border-slate-220 rounded-xl p-3 bg-slate-50 flex items-center space-x-3">
+                      {editForm.image ? (
+                        <div className="w-12 h-12 bg-white border border-slate-200 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center p-0.5">
+                          <img src={editForm.image} alt="Product logo preview" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-[7.5px] text-slate-400 font-extrabold text-center uppercase flex-shrink-0">
+                          NO IMG
+                        </div>
+                      )}
+                      
+                      <div className="relative inline-block overflow-hidden flex-grow">
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                setEditForm(prev => ({ ...prev, image: event.target?.result as string }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                        />
+                        <button type="button" className="py-1.5 px-2.5 bg-white border border-slate-220 rounded-lg text-[10.5px] font-bold text-slate-700 flex items-center space-x-1 hover:bg-slate-50 shadow-2xs cursor-pointer">
+                          <Upload className="w-3 h-3 text-slate-400" />
+                          <span>Replace image</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stock levels block */}
+                <div className="space-y-4">
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">2. Barcode & Stocking</h5>
+                  
+                  <div className="space-y-1.5 font-mono">
+                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Retail barcode (SKU)</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={editForm.barcode || ''}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, barcode: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none font-mono tracking-wide"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pb-1 font-mono">
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Shop shelf (Units)</label>
+                      <input 
+                        type="number" 
+                        min="0"
+                        value={editForm.shopStockQty ?? 0}
+                        onChange={(e) => {
+                          const val = Math.max(0, parseInt(e.target.value) || 0);
+                          setEditForm(prev => ({ ...prev, shopStockQty: val }));
+                        }}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-mono outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">store rooms (Units)</label>
+                      <input 
+                        type="number" 
+                        min="0"
+                        value={editForm.storeStockQty ?? 0}
+                        onChange={(e) => {
+                          const val = Math.max(0, parseInt(e.target.value) || 0);
+                          setEditForm(prev => ({ ...prev, storeStockQty: val }));
+                        }}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-mono outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 font-mono">
+                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Low alert Level threshold</label>
+                    <input 
+                      type="number" 
+                      min="1"
+                      value={editForm.alertQty ?? 5}
+                      onChange={(e) => {
+                        const val = Math.max(1, parseInt(e.target.value) || 1);
+                        setEditForm(prev => ({ ...prev, alertQty: val }));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-mono outline-none"
+                    />
+                  </div>
+
+                  <div className="bg-teal-50/50 border border-teal-150 p-4 rounded-2xl items-center font-mono">
+                    <span className="text-[9.5px] font-bold text-teal-650 uppercase block">Overall ledger balance</span>
+                    <p className="text-2xl font-black text-teal-800 mt-1">{(editForm.shopStockQty ?? 0) + (editForm.storeStockQty ?? 0)} units</p>
+                  </div>
+                </div>
+
+                {/* Sells & Margin statistics */}
+                <div className="space-y-4 font-mono">
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">3. Financial Margin metrics</h5>
+                  
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 space-y-2">
+                    <span className="text-[10px] font-bold text-slate-450 uppercase block tracking-wider font-mono">Active Selling Channels</span>
+                    <div className="grid grid-cols-2 gap-2 font-sans font-bold leading-none text-slate-700">
+                      <label className="flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-205 cursor-pointer hover:border-slate-300">
+                        <input 
+                          type="checkbox" 
+                          checked={editForm.sellInRetail !== false} 
+                          onChange={(e) => {
+                            setEditForm(prev => ({ ...prev, sellInRetail: e.target.checked }));
+                          }}
+                          className="accent-teal-600 w-3.5 h-3.5"
+                        />
+                        <span className="font-semibold text-[11px] text-slate-700">Sell Retail</span>
+                      </label>
+                      <label className="flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-205 cursor-pointer hover:border-slate-300">
+                        <input 
+                          type="checkbox" 
+                          checked={!!editForm.sellInWholesale} 
+                          onChange={(e) => setEditForm(prev => ({ ...prev, sellInWholesale: e.target.checked }))}
+                          className="accent-teal-600 w-3.5 h-3.5"
+                        />
+                        <span className="font-semibold text-[11px] text-slate-700">Sell Wholesale</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Cost buy Price</label>
+                      <input 
+                        type="number" 
+                        min="0"
+                        value={editForm.costPrice ?? 0}
+                        onChange={(e) => {
+                          const val = Math.max(0, parseFloat(e.target.value) || 0);
+                          setEditForm(prev => ({ ...prev, costPrice: val }));
+                        }}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Retail price</label>
+                      <input 
+                        type="number" 
+                        min="1"
+                        disabled={editForm.sellInRetail === false}
+                        value={editForm.sellInRetail !== false ? (editForm.sellingPrice ?? 0) : 0}
+                        onChange={(e) => {
+                          const val = Math.max(0, parseFloat(e.target.value) || 0);
+                          setEditForm(prev => ({ ...prev, sellingPrice: val }));
+                        }}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 border-b border-dashed border-slate-150 pb-3">
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Wholesale price</label>
+                      <input 
+                        type="number" 
+                        min="1"
+                        disabled={!editForm.sellInWholesale}
+                        value={editForm.sellInWholesale ? (editForm.wholesalePrice ?? 0) : 0}
+                        onChange={(e) => {
+                          const val = Math.max(0, parseFloat(e.target.value) || 0);
+                          setEditForm(prev => ({ ...prev, wholesalePrice: val }));
+                        }}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Wholesale Min Qty</label>
+                      <input 
+                        type="number" 
+                        min="1"
+                        disabled={!editForm.sellInWholesale}
+                        value={editForm.sellInWholesale ? (editForm.minWholesaleQty ?? 10) : 10}
+                        onChange={(e) => {
+                          const val = Math.max(1, parseInt(e.target.value) || 1);
+                          setEditForm(prev => ({ ...prev, minWholesaleQty: val }));
+                        }}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 p-4 flex justify-end space-x-2">
+              <button 
+                type="button" 
+                onClick={() => setEditingProduct(null)} 
+                className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+              >
+                Cancel Adjustments
+              </button>
+              <button 
+                type="submit" 
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-505 text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}

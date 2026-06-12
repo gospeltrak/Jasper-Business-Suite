@@ -1,0 +1,517 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Custom high-contrast color definitions for previously uncompiled class names */
+  --color-slate-150: #cbd5e1;
+  --color-slate-250: #94a3b8;
+  --color-slate-350: #64748b;
+  --color-slate-405: #475569;
+  --color-slate-450: #475569;
+  --color-slate-505: #334155;
+  --color-slate-550: #1e293b;
+  --color-slate-650: #0f172a;
+  --color-slate-705: #090d16;
+  --color-slate-755: #05070a;
+  --color-slate-805: #0c121d;
+  --color-slate-850: #131b2e;
+  --color-slate-905: #0b111e;
+  --color-slate-955: #05080e;
+
+  --color-emerald-450: #10b981;
+  --color-emerald-505: #059669;
+  --color-emerald-550: #047857;
+  --color-emerald-755: #064e3b;
+
+  --color-indigo-405: #818cf8;
+  --color-indigo-955: #1e1b4b;
+
+  --color-rose-450: #f43f5e;
+  --color-rose-850: #9f1239;
+
+  --color-teal-50: #f0fdfa;
+  --color-teal-250: #5eead4;
+  --color-teal-650: #0d9488;
+  --color-teal-850: #115e59;
+
+  --color-sky-750: #0369a1;
+  --color-sky-850: #0c4a6e;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 30s linear infinite;
+}
+
+@keyframes slide-up-fade {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up-fade {
+  animation: slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out forwards;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Mobile-Native Styling Classes from jasper_admin_dashboard_mobile_v2.html */
+.phone {
+  background: #f0f2f5;
+  border-radius: 24px;
+  padding: 12px;
+  max-width: 440px;
+  margin: 1.5rem auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 4px solid #1e293b;
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .phone {
+    margin: 0;
+    padding: 0;
+    max-width: 100%;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .phone {
+    margin: 0;
+    padding: 0;
+    max-width: 100%;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+}
+
+.screen {
+  background: #f0f2f5;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 48px);
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .screen {
+    border-radius: 0;
+    min-height: 100vh;
+  }
+}
+
+@media (min-width: 768px) {
+  .screen {
+    border-radius: 0;
+    min-height: 100vh;
+  }
+}
+
+.topbar {
+  background: #0f1923;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo {
+  width: 32px;
+  height: 32px;
+  background: #1D9E75;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.branch {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.sub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 1px;
+}
+
+.tr {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1D9E75;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.notif {
+  position: relative;
+  cursor: pointer;
+}
+
+.dot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  background: #E24B4A;
+  border-radius: 50%;
+  border: 1.5px solid #0f1923;
+}
+
+.hero {
+  background: #0f1923;
+  padding: 16px 16px 24px;
+}
+
+.hero-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.hero-val {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 2px;
+  letter-spacing: -0.5px;
+}
+
+.hero-sub {
+  font-size: 11px;
+  color: #1D9E75;
+  font-weight: 500;
+}
+
+.date-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.date-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.date-chip.active {
+  background: #1D9E75;
+  color: #ffffff;
+}
+
+.body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sc {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 12px;
+  border: 0.5px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  transition: transform 0.2s ease;
+}
+
+.sc:active {
+  transform: scale(0.98);
+}
+
+.sc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.sc-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+}
+
+.sc-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.up {
+  background: #E1F5EE;
+  color: #0F6E56;
+}
+
+.down {
+  background: #FCEBEB;
+  color: #A32D2D;
+}
+
+.sc-label {
+  font-size: 11px;
+  color: #888888;
+  margin-bottom: 2px;
+}
+
+.sc-val {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: -0.3px;
+}
+
+.sc-val.g {
+  color: #0F6E56;
+}
+
+.sc-val.a {
+  color: #854F0B;
+}
+
+.sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.sec-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.see-all {
+  font-size: 11px;
+  color: #1D9E75;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chart-wrap {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 14px;
+  border: 0.5px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.chart-legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.leg {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #888888;
+}
+
+.leg-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 0.5px solid rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.05);
+}
+
+.list-row:last-child {
+  border-bottom: none;
+}
+
+.row-l {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ri {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.rn {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.rt {
+  font-size: 10px;
+  color: #aaaaaa;
+  margin-top: 1px;
+}
+
+.ra {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status {
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-weight: 620;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.paid {
+  background: #E1F5EE;
+  color: #0F6E56;
+}
+
+.pend {
+  background: #FAEEDA;
+  color: #854F0B;
+}
+
+/* ------------------------------------------------------------- */
+/* AUDIT REPORT PRINTING & PDF EXPORT LAYOUT RULES */
+/* ------------------------------------------------------------- */
+@media print {
+  /* Hide the entire app UI wrapper and layout details */
+  body * {
+    visibility: hidden !important;
+  }
+  
+  /* Selectively make the print portal visible and full page width */
+  .printable-area, .printable-area * {
+    visibility: visible !important;
+  }
+  
+  .printable-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 1.5rem !important;
+    font-size: 10.5px !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Prevent elements from being cut off during pagination list splits */
+  tr, p, div, h1, h2, h3, h4, table {
+    page-break-inside: avoid !important;
+  }
+
+  /* Force display of tables, metrics cards to span full width */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  th, td {
+    padding: 6px 8px !important;
+    border-bottom: 0.5px solid #e2e8f0 !important;
+  }
+
+  /* Hide custom UI actions, buttons and interactive form blocks within print area */
+  .no-print, button, select, input {
+    display: none !important;
+  }
+}
+
+
+
+

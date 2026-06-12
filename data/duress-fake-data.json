@@ -1,0 +1,131 @@
+{
+  "earnings": {
+    "summary": {
+      "today": "45,000 TZS",
+      "week": "287,000 TZS",
+      "month": "890,000 TZS",
+      "year": "7,240,000 TZS",
+      "allTime": "18,450,000 TZS"
+    },
+    "history": [
+      { "month": "January", "amount": "720,000 TZS" },
+      { "month": "February", "amount": "680,000 TZS" },
+      { "month": "March", "amount": "810,000 TZS" },
+      { "month": "April", "amount": "750,000 TZS" },
+      { "month": "May", "amount": "890,000 TZS" },
+      { "month": "June", "amount": "920,000 TZS" }
+    ],
+    "stats": {
+      "active": 10,
+      "expired": 5,
+      "suspended": 3,
+      "totalEver": 124,
+      "mrr": "505,000 TZS"
+    }
+  },
+  "subscribers": [
+    { "name": "Juma Rashid", "business": "Juma General Store", "package": "Basic", "amount": "25,000 TZS/month", "status": "Active ✅", "daysLeft": "18 days", "source": "Website" },
+    { "name": "Amina Salehe", "business": "Amina Fashion House", "package": "Standard", "amount": "45,000 TZS/month", "status": "Active ✅", "daysLeft": "7 days", "source": "Affiliate" },
+    { "name": "Baraka Mselem", "business": "Baraka Restaurant", "package": "Standard", "amount": "45,000 TZS/month", "status": "Active ✅", "daysLeft": "23 days", "source": "Website" },
+    { "name": "Neema Chande", "business": "Neema Boutique", "package": "Basic", "amount": "25,000 TZS/month", "status": "Active ✅", "daysLeft": "3 days ⚠️", "source": "Affiliate" },
+    { "name": "Hassan Mwamba", "business": "Hassan Electronics", "package": "Premium", "amount": "85,000 TZS/month", "status": "Active ✅", "daysLeft": "14 days", "source": "Website" },
+    { "name": "Fatuma Ally", "business": "Fatuma Pharmacy", "package": "Standard", "amount": "45,000 TZS/month", "status": "Active ✅", "daysLeft": "9 days", "source": "Affiliate" },
+    { "name": "Omari Khamis", "business": "Kilimani Guest House", "package": "Premium", "amount": "85,000 TZS/month", "status": "Active ✅", "daysLeft": "21 days", "source": "Website" },
+    { "name": "Safia Msangi", "business": "Safia Wholesale", "package": "Basic", "amount": "25,000 TZS/month", "status": "Active ✅", "daysLeft": "11 days", "source": "Affiliate" },
+    { "name": "Daudi Kombo", "business": "Kombo Hardware", "package": "Standard", "amount": "45,000 TZS/month", "status": "Active ✅", "daysLeft": "27 days", "source": "Website" },
+    { "name": "Rehema Juma", "business": "Rehema Catering", "package": "Basic", "amount": "25,000 TZS/month", "status": "Active ✅", "daysLeft": "5 days ⚠️", "source": "Affiliate" },
+    { "name": "Salim Bwana", "business": "Salim Traders", "package": "Basic", "amount": "25,000 TZS/month", "status": "Expired ⚠️", "daysLeft": "Expired: 12 days ago", "source": "Website" },
+    { "name": "Zuhura Hassan", "business": "Zuhura Salon", "package": "Standard", "amount": "45,000 TZS/month", "status": "Expired ⚠️", "daysLeft": "Expired: 3 days ago", "source": "Affiliate" },
+    { "name": "Mwanajuma Ali", "business": "Ali Mini Market", "package": "Basic", "amount": "25,000 TZS/month", "status": "Expired ⚠️", "daysLeft": "Expired: 25 days ago", "source": "Website" },
+    { "name": "Khalid Suleiman", "business": "Khalid Auto Parts", "package": "Standard", "amount": "45,000 TZS/month", "status": "Expired ⚠️", "daysLeft": "Expired: 8 days ago", "source": "Website" },
+    { "name": "Mariam Bakari", "business": "Mariam Boutique", "package": "Basic", "amount": "25,000 TZS/month", "status": "Expired ⚠️", "daysLeft": "Expired: 17 days ago", "source": "Affiliate" },
+    { "name": "Upendo Mgeni", "business": "Upendo Pharmacy", "package": "Premium", "amount": "85,000 TZS/month", "status": "Suspended 🔴", "daysLeft": "Payment failed 3 times", "source": "Website" },
+    { "name": "Safari Kimani", "business": "Safari Electronics", "package": "Standard", "amount": "45,000 TZS/month", "status": "Suspended 🔴", "daysLeft": "Violation of terms", "source": "Affiliate" },
+    { "name": "Tatu Mwangi", "business": "Tatu General Shop", "package": "Basic", "amount": "25,000 TZS/month", "status": "Suspended 🔴", "daysLeft": "Payment overdue", "source": "Website" }
+  ],
+  "traffic": {
+    "directCount": 9,
+    "directPercent": "50%",
+    "affiliateCount": 9,
+    "affiliatePercent": "50%",
+    "affiliateTable": [
+      { "name": "Peter Otieno", "count": 3 },
+      { "name": "Hamisi Juma", "count": 2 },
+      { "name": "Grace Wanjiku", "count": 2 },
+      { "name": "Zuhura Salim", "count": 1 },
+      { "name": "Unknown/Other", "count": 1 }
+    ]
+  },
+  "affiliateSummary": {
+    "total": 4,
+    "active": 3,
+    "inactive": 1,
+    "owedThisMonth": "37,500 TZS",
+    "paidEver": "216,250 TZS"
+  },
+  "affiliates": [
+    {
+      "name": "Peter Otieno",
+      "performance": "⭐ Top Performer",
+      "status": "Active",
+      "referred": "4 total (3 active)",
+      "revenue": "175,000 TZS",
+      "rate": "15%",
+      "owed": "26,250 TZS",
+      "paid": "145,000 TZS",
+      "pending": "26,250 TZS 🔴 (unpaid)",
+      "activeTime": "Today"
+    },
+    {
+      "name": "Hamisi Juma",
+      "performance": "",
+      "status": "Active",
+      "referred": "2 total (2 active)",
+      "revenue": "50,000 TZS",
+      "rate": "15%",
+      "owed": "7,500 TZS",
+      "paid": "49,500 TZS",
+      "pending": "7,500 TZS 🔴 (unpaid)",
+      "activeTime": "4 days ago"
+    },
+    {
+      "name": "Grace Wanjiku",
+      "performance": "",
+      "status": "Active",
+      "referred": "2 total (1 active)",
+      "revenue": "25,000 TZS",
+      "rate": "15%",
+      "owed": "3,750 TZS",
+      "paid": "18,000 TZS",
+      "pending": "3,750 TZS 🔴 (unpaid)",
+      "activeTime": "3 weeks ago"
+    },
+    {
+      "name": "Zuhura Salim",
+      "performance": "",
+      "status": "Inactive",
+      "referred": "1 total (0 active)",
+      "revenue": "0 TZS",
+      "rate": "15%",
+      "owed": "0 TZS",
+      "paid": "3,750 TZS",
+      "pending": "0 TZS",
+      "activeTime": "2 months ago"
+    }
+  ],
+  "adMaterials": [
+    { "id": "ad-1", "file": "Jasper_Banner_728x90.jpg", "category": "WEBSITE BANNERS", "size": "Leaderboard (728x90)", "uploaded": "2 weeks ago", "downloads": 12 },
+    { "id": "ad-2", "file": "Jasper_Banner_300x250.jpg", "category": "WEBSITE BANNERS", "size": "Medium Rectangle (300x250)", "uploaded": "2 weeks ago", "downloads": 8 },
+    { "id": "ad-3", "file": "Jasper_Banner_300x600.jpg", "category": "WEBSITE BANNERS", "size": "Half Page (300x600)", "uploaded": "1 month ago", "downloads": 5 },
+    { "id": "ad-4", "file": "Jasper_Instagram_1080x1080.jpg", "category": "SOCIAL MEDIA", "size": "Instagram Post (1080x1080)", "uploaded": "1 week ago", "downloads": 23 },
+    { "id": "ad-5", "file": "Jasper_Story_1080x1920.jpg", "category": "SOCIAL MEDIA", "size": "Story/TikTok (1080x1920)", "uploaded": "1 week ago", "downloads": 19 },
+    { "id": "ad-6", "file": "Jasper_Facebook_1920x1080.jpg", "category": "SOCIAL MEDIA", "size": "Facebook/YouTube (1920x1080)", "uploaded": "3 weeks ago", "downloads": 7 }
+  ],
+  "historyMessages": [
+    { "id": "msg-1", "subject": "Subscription renewal reminder", "target": "All Subscribers", "time": "5 days ago", "delivered": 10 },
+    { "id": "msg-2", "subject": "New marketing materials uploaded", "target": "All Affiliates", "time": "2 weeks ago", "delivered": 4 },
+    { "id": "msg-3", "subject": "Commission paid for last month", "target": "All Affiliates", "time": "3 weeks ago", "delivered": 4 },
+    { "id": "msg-4", "subject": "System maintenance tonight 11pm", "target": "All Subscribers", "time": "1 month ago", "delivered": 13 },
+    { "id": "msg-5", "subject": "Welcome to Jasper! 🎉", "target": "Juma Rashid (Direct)", "time": "1 month ago", "delivered": 1 }
+  ]
+}

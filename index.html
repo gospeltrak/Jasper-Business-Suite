@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Patch window.fetch writable to prevent TypeError when other scripts/extensions try to mock/assign it in read-only iframe environments -->
+    <script>
+      (function() {
+        try {
+          var originalFetch = window.fetch;
+          
+          var descriptor = {
+            configurable: true,
+            enumerable: true,
+            get: function() {
+              return originalFetch;
+            },
+            set: function(val) {
+              originalFetch = val;
+            }
+          };
+
+          // Try patching window itself
+          try {
+            Object.defineProperty(window, 'fetch', descriptor);
+          } catch (e1) {
+            console.warn("[System] Failed to patch fetch on window directly:", e1);
+          }
+
+          // Try patching Window.prototype
+          if (typeof Window !== 'undefined' && Window.prototype) {
+            try {
+              Object.defineProperty(Window.prototype, 'fetch', descriptor);
+            } catch (e2) {
+              console.warn("[System] Failed to patch fetch on Window.prototype:", e2);
+            }
+          }
+
+          // Try patching window.__proto__
+          if (window.__proto__) {
+            try {
+              Object.defineProperty(window.__proto__, 'fetch', descriptor);
+            } catch (e3) {
+              console.warn("[System] Failed to patch fetch on window.__proto__:", e3);
+            }
+          }
+        } catch (e) {
+          console.warn("[System] General fetch patch failed:", e);
+        }
+      })();
+    </script>
+    <!-- Progressive Web App Theme Styling & Branding -->
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Jasper" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Google Identity Services client for real Google login -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <title>Jasper</title>
+    <style>
+      :root {
+        --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+        --ease-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        --duration-fast: 150ms;
+        --duration-mid: 220ms;
+      }
+
+      /* BUTTONS & CTAs */
+      button, a[role="button"], input[type="submit"] {
+        will-change: transform;
+        transition: transform var(--duration-mid) var(--ease-spring), box-shadow var(--duration-mid) var(--ease-spring), background-color var(--duration-mid) var(--ease-spring), border-color var(--duration-mid) var(--ease-spring) !important;
+      }
+      button:hover, a[role="button"]:hover, input[type="submit"]:hover {
+        transform: scale(1.03);
+      }
+      button:active, a[role="button"]:active, input[type="submit"]:active {
+        transform: scale(0.97);
+        transition: transform 100ms ease !important;
+      }
+
+      /* NAVIGATION LINKS */
+      nav a, nav button, header a {
+        position: relative;
+        will-change: transform;
+        transition: transform var(--duration-fast) var(--ease-spring);
+        text-decoration: none !important;
+      }
+      nav a:hover, nav button:hover, header a:hover {
+        transform: translateY(-2px);
+      }
+      nav a:active, nav button:active, header a:active {
+        transform: translateY(0px);
+      }
+      nav a::after, nav button::after, header a::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background-color: currentColor;
+        transform: scaleX(0);
+        transform-origin: center;
+        transition: transform var(--duration-mid) var(--ease-smooth);
+      }
+      nav a:hover::after, nav button:hover::after, header a:hover::after {
+        transform: scaleX(1);
+      }
+
+      /* CARDS & PANELS */
+      .bg-white.rounded-xl, .bg-white.rounded-2xl, .bg-slate-900.rounded-xl, .bg-slate-900.rounded-2xl, .bg-slate-950.rounded-xl {
+        will-change: transform;
+        transition: transform var(--duration-mid) var(--ease-spring), box-shadow var(--duration-mid) var(--ease-spring);
+      }
+      .bg-white.rounded-xl:hover, .bg-white.rounded-2xl:hover, .bg-slate-900.rounded-xl:hover, .bg-slate-900.rounded-2xl:hover, .bg-slate-950.rounded-xl:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      }
+
+      /* INPUT FIELDS */
+      input[type="text"], input[type="email"], input[type="password"], input[type="number"], select, textarea {
+        will-change: transform;
+        transition: transform var(--duration-fast) var(--ease-smooth), border-color var(--duration-fast) var(--ease-smooth), box-shadow var(--duration-fast) var(--ease-smooth);
+      }
+      input:focus, select:focus, textarea:focus, .focus-within\:ring-2:focus-within {
+        transform: scale(1.01);
+      }
+
+      /* TOGGLE & SWITCH ELEMENTS */
+      [role="switch"], button[aria-checked] {
+        transition: background-color var(--duration-mid) var(--ease-smooth);
+      }
+      [role="switch"] > span, button[aria-checked] > span {
+        transition: transform var(--duration-mid) var(--ease-spring) !important;
+      }
+      [role="switch"] svg, button[aria-checked] svg {
+        transition: transform var(--duration-mid) var(--ease-smooth);
+      }
+      [role="switch"][aria-checked="true"] svg, button[aria-checked="true"] svg {
+        transform: rotateZ(180deg);
+      }
+
+      /* BADGES & PILLS */
+      .rounded-full.px-2.py-1, .rounded-full.px-3.py-1, span.text-xs.font-mono {
+        will-change: transform;
+        transition: transform var(--duration-fast) var(--ease-spring);
+        display: inline-block;
+      }
+      .rounded-full.px-2.py-1:hover, .rounded-full.px-3.py-1:hover, span.text-xs.font-mono:hover {
+        transform: scale(1.05) translateY(-1px);
+      }
+
+      /* FLOATING ELEMENTS */
+      @keyframes floatGentle {
+        0%, 100% { transform: translateY(0px) scale(1); }
+        50% { transform: translateY(-5px) scale(1); }
+      }
+      #jasper-ai-floating-trigger {
+        animation: floatGentle 3s infinite ease-in-out !important;
+        will-change: transform;
+        transition: transform var(--duration-mid) var(--ease-spring) !important;
+      }
+      #jasper-ai-floating-trigger:hover {
+        animation-play-state: paused !important;
+        transform: translateY(-2px) scale(1.05) !important;
+      }
+
+      /* SCROLL ENTRANCE */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(20px);
+        will-change: opacity, transform;
+        transition: opacity 400ms var(--ease-smooth), transform 400ms var(--ease-smooth) !important;
+      }
+      .reveal-on-scroll.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- PWA Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('Jasper PWA Service Worker registered securely with scope:', registration.scope);
+            })
+            .catch((error) => {
+              console.error('Service Worker registration failed:', error);
+            });
+        });
+      }
+    </script>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const observerOptions = {
+          root: null,
+          rootMargin: '0px',
+          threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries, observer) => {
+          let delayIndex = 0;
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              setTimeout(() => {
+                entry.target.classList.add('is-visible');
+              }, delayIndex * 60);
+              delayIndex++;
+              observer.unobserve(entry.target);
+            }
+          });
+        }, observerOptions);
+
+        const observeElements = () => {
+          const selectors = 'h1, h2, h3, h4, .rounded-xl, .rounded-2xl, .bg-white.border';
+          const targets = document.querySelectorAll(selectors);
+          targets.forEach(target => {
+            // Keep interactive elements and modals exempt if they are constantly changing
+            if (!target.classList.contains('reveal-on-scroll') && !target.classList.contains('is-visible')) {
+              // Avoid chat drawer or highly dynamic floating elements for scroll entrance
+              if (target.closest('#jasper-ai-chat-drawer') || target.tagName === 'BUTTON') return;
+              target.classList.add('reveal-on-scroll');
+              observer.observe(target);
+            }
+          });
+        };
+
+        // Handle React dynamic DOM updates
+        const mutationObserver = new MutationObserver((mutations) => {
+          let shouldObserve = false;
+          for (const mutation of mutations) {
+            if (mutation.addedNodes.length > 0) {
+              shouldObserve = true;
+              break;
+            }
+          }
+          if (shouldObserve) {
+            requestAnimationFrame(() => observeElements());
+          }
+        });
+
+        mutationObserver.observe(document.body, { childList: true, subtree: true });
+        observeElements();
+      });
+    </script>
+  </body>
+</html>
+

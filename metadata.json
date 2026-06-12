@@ -1,0 +1,6 @@
+{
+  "name": "Jasper",
+  "description": "A Next.js 14 inspired African retail POS and ERP suite, built with premium Tailwind CSS layout, offline-first sync, multi-tenant dashboards, and mobile money payment integrations.",
+  "requestFramePermissions": ["camera", "microphone", "identity-credentials-get"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

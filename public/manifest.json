@@ -1,0 +1,24 @@
+{
+  "short_name": "Jasper",
+  "name": "Jasper",
+  "description": "Premium African retail POS, dine-in, pharmacy, and hotel ERP workspace.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "48x48 72x72 96x96 128x128 144x144 192x192 256x256 384x384 512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "theme_color": "#0f172a",
+  "orientation": "any"
+}
