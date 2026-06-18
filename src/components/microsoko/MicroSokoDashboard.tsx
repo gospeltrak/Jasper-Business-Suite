@@ -10,7 +10,7 @@ import { MicroSokoExpenses } from './MicroSokoExpenses';
 import { MicroSokoDelivery } from './MicroSokoDelivery';
 import { MicroSokoReports } from './MicroSokoReports';
 import { MicroSokoSettings } from './MicroSokoSettings';
-import { Store, Factory, Activity, Calculator, LayoutDashboard, LogOut, Package, Receipt, Truck, BarChart3, Settings } from 'lucide-react';
+import { Store, Factory, Activity, Calculator, LayoutDashboard, LogOut, Package, Receipt, Truck, BarChart3, Settings, ShoppingCart } from 'lucide-react';
 
 export const MicroSokoDashboard: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('admin');
@@ -28,7 +28,7 @@ export const MicroSokoDashboard: React.FC<{ onLogout: () => void }> = ({ onLogou
             {[
               { id: 'admin', icon: LayoutDashboard, label: 'Dashboard' },
               { id: 'pos', icon: Store, label: 'Fast POS' },
-              { id: 'sourcing', icon: Calculator, label: 'Purchases' },
+              { id: 'sourcing', icon: ShoppingCart, label: 'Purchases' },
               { id: 'batch', icon: Factory, label: 'Batch Wizard' },
               { id: 'inventory', icon: Package, label: 'Inventory List' },
               { id: 'performance', icon: Activity, label: 'Performance' },

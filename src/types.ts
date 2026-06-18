@@ -405,6 +405,61 @@ export interface PaymentChannel {
   accountNumber?: string;
 }
 
+export interface JasperNotificationSettings {
+  id: string;
+  tenantId: string;
+  ownerPhone: string;
+  ownerWhatsapp?: string;
+  ownerEmail?: string;
+  timezone: string;
+  enabledModules: string[]; // 'all', 'wholesale', 'microsoko', 'pharmacy'
+  enableSaleNotifications: boolean;
+  enableMorningSummary: boolean;
+  enableEndDayProfitLoss: boolean;
+  enableEndDayExpenses: boolean;
+  enableWeeklySummary: boolean;
+  enableMonthlySummary: boolean;
+  morningSummaryTime: string; // '07:00'
+  endDayReportTime: string; // '21:00'
+  weeklySummaryDay: string; // 'Monday'
+  monthlySummaryDay: string; // '1'
+  enableInApp: boolean;
+  enableEmail: boolean;
+  enableSms: boolean;
+  enableWhatsapp: boolean;
+  enablePush: boolean;
+}
+
+export interface JasperNotification {
+  id: string;
+  tenantId: string;
+  moduleName: string;
+  title: string;
+  message: string;
+  notificationType: 'sale' | 'daily_summary' | 'weekly_summary' | 'monthly_summary' | 'profit_loss_report' | 'expense_report' | 'low_stock' | 'price_alert' | 'cash_alert' | 'stock_alert' | 'system_alert';
+  reportPeriodStart?: string;
+  reportPeriodEnd?: string;
+  deliveryChannel: string;
+  status: 'pending' | 'sent' | 'failed' | 'pending_configuration';
+  isRead: boolean;
+  relatedReportId?: string;
+  createdAt: string;
+  sentAt?: string;
+}
+
+export interface JasperScheduledReport {
+  id: string;
+  tenantId: string;
+  reportType: 'daily_summary' | 'profit_loss' | 'expenses' | 'weekly_summary' | 'monthly_summary';
+  moduleScope: string;
+  periodStart: string;
+  periodEnd: string;
+  summaryDataJson: string;
+  status: 'pending' | 'sent' | 'failed';
+  createdAt: string;
+  sentAt?: string;
+}
+
 export interface LedgerEntry {
   id: string;
   tenantId: string;

@@ -22,6 +22,7 @@ import {
   Sliders, 
   Sun, 
   Moon, 
+  Bell,
   Eye, 
   EyeOff, 
   Percent, 
@@ -36,6 +37,7 @@ import {
   DollarSign,
   Truck
 } from 'lucide-react';
+import { DashboardNotificationsSettings } from './DashboardNotificationsSettings';
 
 export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
   {
@@ -280,7 +282,7 @@ export default function DashboardSettings({
   const { isDark, toggleTheme } = useTheme();
   const { setLogoUrl } = useTenantLogo();
   // Navigation tabs for Settings
-  const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'hrm' | 'roles'>('company');
+  const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'hrm' | 'roles' | 'notifications'>('company');
   
   // Temporary states for local forms to avoid writing directly to parent state until saved
   const [companyForm, setCompanyForm] = useState<CompanySettings>(systemSettings.company);
@@ -857,6 +859,18 @@ export default function DashboardSettings({
           >
             <ShieldCheck className="w-4 h-4 text-slate-500" />
             <span>Custom Roles & Permissions</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('notifications')}
+            className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+              activeSubTab === 'notifications'
+                ? 'bg-slate-100 text-slate-800 font-bold border-l-2 border-emerald-500'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+            }`}
+          >
+            <Bell className="w-4 h-4 text-slate-500" />
+            <span>Notifications & Auto Reports</span>
           </button>
         </div>
 
@@ -2250,6 +2264,11 @@ export default function DashboardSettings({
               </div>
             );
           })()}
+
+          {/* TAB 6: NOTIFICATIONS & AUTO REPORTS */}
+          {activeSubTab === 'notifications' && (
+             <DashboardNotificationsSettings />
+          )}
 
         </div>
       </div>

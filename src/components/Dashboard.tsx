@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../LanguageContext';
 import { useTenantLogo } from '../TenantLogoContext';
+import { useJasperNotifications } from '../JasperNotificationContext';
 import { User, Tenant, Product, Sale, SyncLog, Supplier, Expense, Purchase, Delivery, DeliveryRider, SystemSettings, CustomRole, SaleItem } from '../types';
 import { 
   DEFAULT_TENANTS, 
@@ -162,10 +163,14 @@ interface DashboardProps {
   onToggleTheme?: () => void;
 }
 
+import { NotificationCenterModal } from './NotificationCenterModal';
+
 export default function Dashboard({ user, onLogout, onNavigate, isDark = false, onToggleTheme }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
   const { logoUrl, getFallbackInitials } = useTenantLogo();
+  const { addSaleNotification, unreadCount } = useJasperNotifications();
   const [showDashLangMenu, setShowDashLangMenu] = useState(false);
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
 
   // Load standard + custom registered tenants dynamically
   const [tenantsList] = useState<Tenant[]>(() => {
@@ -920,6 +925,30 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         [activeTenant.id]: [sale, ...currentTenantSales]
       };
     });
+
+    // Handle Global Owner Sale Notification
+    try {
+       // Estimate total cost of sale to determine profit
+       let totalCost = 0;
+       const summaryStrings = [];
+       sale.items.forEach(item => {
+          totalCost += ((item.costPriceAtSale || 0) * item.qty);
+          summaryStrings.push(\`\${item.qty}x \${item.productName}\`);
+       });
+       const estimatedProfit = sale.total - totalCost;
+
+       addSaleNotification({
+          tenantId: sale.tenantId,
+          moduleName: activeTenant.businessType === 'pharmacy' ? 'pharmacy' : (sale.channel === 'wholesale' ? 'wholesale' : 'retail'),
+          amount: sale.total,
+          profit: estimatedProfit,
+          paymentMethod: sale.paymentMethod,
+          cashierName: sale.cashierName || user.name,
+          itemsSummary: summaryStrings.join(', ')
+       });
+    } catch(e) {
+       console.error("Failed to parse sale notification event", e);
+    }
 
     // Queue in IndexedDB for Background Sync if pending (offline mode)
     if (sale.syncStatus === 'pending') {
@@ -1750,12 +1779,13 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               <div 
                 className="relative p-2 text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800"
                 onClick={() => {
-                  setActiveTab('sync');
+                  setIsNotificationCenterOpen(true);
                   setMoreMenuOpen(false);
                 }}
               >
                 <Bell className="w-4 h-4" />
-                {offlinePendingCount > 0 && <div className="absolute top-1 right-1 w-2 h-2 bg-[#ef4444] rounded-full border border-white" />}
+                {unreadCount > 0 && <div className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full border border-white" />}
+                {offlinePendingCount > 0 && unreadCount === 0 && <div className="absolute top-1 right-1 w-2 h-2 bg-[#ef4444] rounded-full border border-white" />}
               </div>
 
               {/* User Avatar Circle */}
@@ -1874,10 +1904,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
               <div 
                 className="relative p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer"
-                onClick={() => setActiveTab('sync')}
+                onClick={() => setIsNotificationCenterOpen(true)}
               >
                 <Bell className="w-4.5 h-4.5" />
-                {offlinePendingCount > 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900" />}
+                {unreadCount > 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900" />}
+                {offlinePendingCount > 0 && unreadCount === 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#ef4444] rounded-full border-2 border-white dark:border-slate-900" />}
               </div>
             </div>
           </header>
@@ -2578,6 +2609,15 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </div>
         </div>
       )}
+      
+      <NotificationCenterModal 
+        isOpen={isNotificationCenterOpen} 
+        onClose={() => setIsNotificationCenterOpen(false)} 
+        onNavigateToReports={() => {
+           setActiveTab('reports');
+           setIsNotificationCenterOpen(false);
+        }} 
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ export const MicroSokoInventory: React.FC = () => {
   
   const [name, setName] = useState('');
   const [type, setType] = useState<MsItem['type']>('raw_material');
+  const [category, setCategory] = useState('');
   const [unitId, setUnitId] = useState('');
   const [sellingPrice, setSellingPrice] = useState('0');
   const [lowStockAlert, setLowStockAlert] = useState('10');
@@ -20,10 +21,21 @@ export const MicroSokoInventory: React.FC = () => {
 
   // Edit states
   const [editName, setEditName] = useState('');
+  const [editCategory, setEditCategory] = useState('');
   const [editSellingPrice, setEditSellingPrice] = useState('0');
   const [editShowOnPos, setEditShowOnPos] = useState(false);
   const [editLowStockAlert, setEditLowStockAlert] = useState('0');
   const [editSellingMethod, setEditSellingMethod] = useState<MsItem['sellingMethod']>('fifo');
+
+  // Filter state
+  const [filterCategory, setFilterCategory] = useState('');
+
+  const uniqueCategories = Array.from(new Set(items.map(i => i.category).filter(Boolean))) as string[];
+
+  const filteredItems = items.filter(i => {
+    if(filterCategory && i.category !== filterCategory) return false;
+    return true;
+  });
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +44,7 @@ export const MicroSokoInventory: React.FC = () => {
     addItem({
       id: Math.random().toString(36).substr(2, 9),
       name,
+      category,
       type,
       unitId,
       stock: 0,
@@ -45,12 +58,13 @@ export const MicroSokoInventory: React.FC = () => {
     });
     
     setShowAddForm(false);
-    setName(''); setSellingPrice('0'); setShowOnPos(false);
+    setName(''); setCategory(''); setSellingPrice('0'); setShowOnPos(false);
   };
 
   const startEdit = (item: MsItem) => {
     setEditingItem(item.id);
     setEditName(item.name);
+    setEditCategory(item.category || '');
     setEditSellingPrice(item.sellingPrice.toString());
     setEditShowOnPos(item.showOnPos);
     setEditLowStockAlert(item.lowStockAlert.toString());
@@ -60,6 +74,7 @@ export const MicroSokoInventory: React.FC = () => {
   const saveEdit = (item: MsItem) => {
     updateItem(item.id, {
       name: editName,
+      category: editCategory,
       sellingPrice: Number(editSellingPrice),
       showOnPos: editShowOnPos,
       lowStockAlert: Number(editLowStockAlert),
@@ -83,10 +98,17 @@ export const MicroSokoInventory: React.FC = () => {
       {showAddForm && (
         <form onSubmit={handleAddItem} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
            <h3 className="font-bold text-slate-800 border-b pb-3">Create New Item Structure</h3>
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                  <label className="block text-xs font-bold text-slate-500 mb-1">Item Name</label>
                  <input required type="text" value={name} onChange={e=>setName(e.target.value)} className="w-full border p-2 rounded-lg" />
+              </div>
+              <div>
+                 <label className="block text-xs font-bold text-slate-500 mb-1">Category (Optional)</label>
+                 <input type="text" list="categories" value={category} onChange={e=>setCategory(e.target.value)} placeholder="e.g. Beverages" className="w-full border p-2 rounded-lg" />
+                 <datalist id="categories">
+                   {uniqueCategories.map(c => <option key={c} value={c} />)}
+                 </datalist>
               </div>
               <div>
                  <label className="block text-xs font-bold text-slate-500 mb-1">Type</label>
@@ -130,11 +152,25 @@ export const MicroSokoInventory: React.FC = () => {
         </form>
       )}
 
+      {uniqueCategories.length > 0 && (
+        <div className="flex space-x-2 overflow-x-auto pb-2 hide-scrollbar">
+          <button onClick={() => setFilterCategory('')} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filterCategory === '' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+             All Categories
+          </button>
+          {uniqueCategories.map(c => (
+             <button key={c} onClick={() => setFilterCategory(c)} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filterCategory === c ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                {c}
+             </button>
+          ))}
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
          <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 font-bold text-slate-500 border-b border-slate-200">
                <tr>
                   <th className="p-4">Name</th>
+                  <th className="p-4">Category</th>
                   <th className="p-4">Type</th>
                   <th className="p-4">Stock</th>
                   <th className="p-4">Avg Cost</th>
@@ -144,12 +180,15 @@ export const MicroSokoInventory: React.FC = () => {
                </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-               {items.map(i => (
+               {filteredItems.map(i => (
                   <React.Fragment key={i.id}>
                   {editingItem === i.id ? (
                      <tr className="bg-indigo-50/50">
                         <td className="p-4">
                            <input type="text" value={editName} onChange={e=>setEditName(e.target.value)} className="w-full border p-2 rounded" />
+                        </td>
+                        <td className="p-4">
+                           <input type="text" list="categories" value={editCategory} onChange={e=>setEditCategory(e.target.value)} className="w-full border p-2 rounded" placeholder="Category" />
                         </td>
                         <td className="p-4 uppercase text-[10px] font-bold text-slate-500">{i.type.replace('_',' ')}</td>
                         <td className="p-4 font-black text-indigo-600">{i.stock} {units.find(u=>u.id===i.unitId)?.name}</td>
@@ -180,6 +219,7 @@ export const MicroSokoInventory: React.FC = () => {
                         {i.name}
                         {i.stock <= i.lowStockAlert && <span className="ml-2 text-[10px] bg-rose-200 text-rose-800 px-1 py-0.5 rounded uppercase">Low</span>}
                      </td>
+                     <td className="p-4 text-xs font-bold text-slate-500 bg-slate-50 rounded-lg">{i.category || '-'}</td>
                      <td className="p-4 uppercase text-[10px] font-bold text-slate-500">{i.type.replace('_',' ')}</td>
                      <td className="p-4 font-black text-indigo-600">{i.stock} {units.find(u=>u.id===i.unitId)?.name}</td>
                      <td className="p-4 font-mono">TZS {Math.round(i.averageCost).toLocaleString()}</td>
@@ -199,7 +239,7 @@ export const MicroSokoInventory: React.FC = () => {
                   )}
                   {expandedBatches === i.id && (
                      <tr>
-                        <td colSpan={7} className="p-0 border-b border-slate-100">
+                        <td colSpan={8} className="p-0 border-b border-slate-100">
                            <div className="bg-slate-50 p-4 inner-shadow flex flex-col space-y-4">
                               <h4 className="font-bold text-sm text-slate-600">Batch History</h4>
                               {i.batches.length === 0 ? (
@@ -230,7 +270,7 @@ export const MicroSokoInventory: React.FC = () => {
                   )}
                   </React.Fragment>
                ))}
-               {items.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-slate-400">No items configured. Please add an item.</td></tr>}
+               {items.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400">No items configured. Please add an item.</td></tr>}
             </tbody>
          </table>
       </div>
