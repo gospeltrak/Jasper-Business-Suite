@@ -6,80 +6,184 @@
 /* GLOBAL SOLID STATE DARK THEME OVERRIDES */
 .dark {
   color-scheme: dark;
+}
 
-  /* 1. Layout backgrounds (prevent white flash or gaps) */
-  body, .screen, #jasper-app-root, .bg-[#f5f6fa], .bg-slate-[50], .bg-slate-50, .bg-[#f2f4f8], .bg-gray-50, .bg-[#f5f6f6], .bg-[#f0f2f5] {
-    background-color: var(--color-slate-955) !important;
-  }
-  
-  /* 2. Elevated Cards and Sub-Panels */
-  .bg-white, .bg-slate-0, .card, .chart-wrap, .sc {
-    background-color: var(--color-slate-905) !important;
-  }
-  
-  /* 3. Mild Secondary Elements */
-  .bg-slate-100, .bg-gray-100, .bg-slate-50\/40, .bg-slate-50\/50, .bg-slate-100\/50, .bg-gray-100\/50 {
-    background-color: #0c121d !important;
-  }
-  .bg-slate-200, .bg-gray-200, .bg-slate-150 {
-    background-color: #1a2436 !important;
-  }
-  .bg-slate-300, .bg-gray-300 {
-    background-color: #334155 !important;
-  }
+/* Hardened flat selectors for dashboard surfaces that use literal light utilities. */
+.dark {
+  color-scheme: dark;
+}
 
-  /* 4. Contrast Typography Override (Leaves colorful text like green/red alone) */
-  .text-slate-900, .text-slate-850, .text-slate-800, .text-slate-755, .text-slate-705, .text-gray-950, .text-gray-900, .text-gray-800, .text-black {
-    color: #f1f5f9 !important;
-  }
-  
-  .text-slate-700, .text-slate-650, .text-slate-600, .text-slate-555, .text-slate-550, .text-slate-505, .text-gray-700, .text-gray-650, .text-gray-600 {
-    color: #cbd5e1 !important;
-  }
-  
-  .text-slate-400, .text-slate-500, .text-slate-450, .text-slate-350, .text-slate-250, .text-gray-400, .text-gray-500 {
-    color: #94a3b8 !important;
-  }
+.dark body,
+.dark #jasper-app-root,
+.dark .screen,
+.dark .bg-\[\#f5f6fa\],
+.dark .bg-\[\#f8fafc\],
+.dark .bg-\[\#f2f4f8\],
+.dark .bg-\[\#f5f6f6\],
+.dark .bg-\[\#f0f2f5\],
+.dark .bg-slate-50,
+.dark .bg-slate-50\/75,
+.dark .bg-gray-50 {
+  background-color: var(--color-slate-955) !important;
+}
 
-  /* 5. Precise Borders and Structural Dividers */
-  .border,
-  .border-b,
-  .border-t,
-  .border-l,
-  .border-r,
-  .border-slate-105, .border-slate-100, .border-slate-200, .border-slate-150, .border-slate-205, .border-gray-100, .border-gray-200, hr, .divide-y, .divide-x {
-    border-color: #1a2436 !important;
-  }
-  
-  .divide-slate-100 > *, .divide-slate-200 > *, .divide-gray-100 > *, .divide-gray-200 > * {
-    border-color: #1a2436 !important;
-  }
+.dark .bg-white,
+.dark .bg-white\/65,
+.dark .bg-white\/80,
+.dark .bg-white\/85,
+.dark .bg-white\/90,
+.dark .bg-slate-0,
+.dark .card,
+.dark .chart-wrap,
+.dark .sc,
+.dark table,
+.dark tbody {
+  background-color: var(--color-slate-905) !important;
+}
 
-  /* 6. Form Inputs & Control Selectors */
-  input, select, textarea, .custom-select, select.custom-select {
-    &:not([type="submit"]):not([type="button"]):not(.bg-transparent) {
-      background-color: #0d1527 !important;
-      color: #f1f5f9 !important;
-      border-color: #1a2436 !important;
-    }
-    
-    &::placeholder {
-      color: #475569 !important;
-    }
-  }
+.dark .bg-slate-50,
+.dark .bg-slate-50\/20,
+.dark .bg-slate-50\/40,
+.dark .bg-slate-50\/50,
+.dark .bg-slate-50\/55,
+.dark .bg-slate-50\/75,
+.dark .bg-slate-50\/80,
+.dark .bg-slate-100,
+.dark .bg-slate-100\/50,
+.dark .bg-gray-100,
+.dark .bg-gray-100\/50,
+.dark thead tr,
+.dark tr.bg-slate-50\/75 {
+  background-color: #0c121d !important;
+}
 
-  /* 7. Hover and Selected States */
-  tr, li, .list-row, .hover\:bg-gray-50, .hover\:bg-slate-50, .hover\:bg-slate-50\/40, .hover\:bg-slate-50\/50, .hover\:bg-slate-100 {
-    &.hover\:bg-gray-50:hover, &.hover\:bg-slate-50:hover, &.hover\:bg-slate-50\/40:hover, &.hover\:bg-slate-50\/50:hover, &.hover\:bg-slate-100:hover, &.hover\:bg-slate-50\/50:hover {
-      background-color: #1a2436 !important;
-    }
-  }
+.dark .bg-slate-105,
+.dark .bg-slate-150,
+.dark .bg-slate-200,
+.dark .bg-gray-200,
+.dark .bg-indigo-50,
+.dark .bg-indigo-50\/50,
+.dark .bg-emerald-50,
+.dark .bg-emerald-50\/20,
+.dark .bg-red-50,
+.dark .bg-rose-50\/40 {
+  background-color: #111a2a !important;
+}
 
-  /* 8. Neutral Badges and Overlays */
-  .bg-slate-100.text-slate-800, .bg-gray-100.text-gray-800, .bg-slate-100.text-slate-755, .bg-slate-200.text-slate-700 {
-    background-color: #1a2436 !important;
-    color: #f1f5f9 !important;
-  }
+.dark .bg-slate-300,
+.dark .bg-gray-300 {
+  background-color: #334155 !important;
+}
+
+.dark .text-slate-950,
+.dark .text-slate-900,
+.dark .text-slate-855,
+.dark .text-slate-850,
+.dark .text-slate-805,
+.dark .text-slate-800,
+.dark .text-slate-755,
+.dark .text-slate-750,
+.dark .text-slate-705,
+.dark .text-slate-702,
+.dark .text-gray-950,
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-black {
+  color: #f1f5f9 !important;
+}
+
+.dark .text-slate-700,
+.dark .text-slate-650,
+.dark .text-slate-600,
+.dark .text-slate-555,
+.dark .text-slate-550,
+.dark .text-slate-505,
+.dark .text-slate-455,
+.dark .text-slate-450,
+.dark .text-slate-405,
+.dark .text-gray-700,
+.dark .text-gray-650,
+.dark .text-gray-600 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-slate-500,
+.dark .text-slate-455,
+.dark .text-slate-450,
+.dark .text-slate-400,
+.dark .text-slate-350,
+.dark .text-slate-300,
+.dark .text-slate-250,
+.dark .text-gray-500,
+.dark .text-gray-400 {
+  color: #94a3b8 !important;
+}
+
+.dark .placeholder-slate-400::placeholder,
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+.dark .border,
+.dark .border-t,
+.dark .border-r,
+.dark .border-b,
+.dark .border-l,
+.dark .border-slate-100,
+.dark .border-slate-105,
+.dark .border-slate-150,
+.dark .border-slate-200,
+.dark .border-slate-205,
+.dark .border-slate-210,
+.dark .border-slate-220,
+.dark .border-slate-250,
+.dark .border-slate-300,
+.dark .border-slate-350,
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark hr {
+  border-color: #1a2436 !important;
+}
+
+.dark .divide-slate-100 > *,
+.dark .divide-slate-150 > *,
+.dark .divide-slate-150\/50 > *,
+.dark .divide-slate-200 > *,
+.dark .divide-gray-100 > *,
+.dark .divide-gray-200 > * {
+  border-color: #1a2436 !important;
+}
+
+.dark input:not([type="submit"]):not([type="button"]):not(.bg-transparent),
+.dark select:not(.bg-transparent),
+.dark textarea:not(.bg-transparent),
+.dark .custom-select,
+.dark select.custom-select {
+  background-color: #0d1527 !important;
+  color: #f1f5f9 !important;
+  border-color: #1a2436 !important;
+}
+
+.dark tr.hover\:bg-slate-50\/40:hover,
+.dark tr.hover\:bg-slate-50\/50:hover,
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-50\/40:hover,
+.dark .hover\:bg-slate-50\/50:hover,
+.dark .hover\:bg-slate-50\/55:hover,
+.dark .hover\:bg-slate-50\/80:hover,
+.dark .hover\:bg-slate-100:hover,
+.dark .hover\:bg-gray-50:hover {
+  background-color: #1a2436 !important;
+}
+
+.dark .bg-slate-100.text-slate-800,
+.dark .bg-slate-100.text-slate-755,
+.dark .bg-slate-200.text-slate-700,
+.dark .bg-slate-50.text-slate-600,
+.dark .bg-gray-100.text-gray-800 {
+  background-color: #1a2436 !important;
+  color: #f1f5f9 !important;
 }
 
 /* Hardened dark-mode safety layer for dashboard surfaces using literal light utilities. */
