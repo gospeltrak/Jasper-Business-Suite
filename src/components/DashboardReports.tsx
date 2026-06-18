@@ -33,6 +33,10 @@ import {
   Plus, 
   Search,
   CheckCircle,
+  AlertCircle,
+  Smartphone,
+  AlertTriangle,
+  Archive,
   FileText,
   Image,
   UploadCloud,
@@ -40,7 +44,13 @@ import {
   ShieldAlert,
   Download,
   Printer,
-  Truck
+  Truck,
+  ChevronDown,
+  ChevronUp,
+  MinusCircle,
+  ShoppingCart,
+  ArrowLeft,
+  ArrowRight
 } from 'lucide-react';
 
 interface DashboardReportsProps {
@@ -116,6 +126,8 @@ export default function DashboardReports({
     }
   }, [selectedMonitoredProductId]);
 
+  const [mobileView, setMobileView] = useState<'menu' | 'report'>('menu');
+
   const setPresetDateRange = (preset: 'today' | 'this-week' | 'this-month' | 'last-30') => {
     const today = new Date();
     const endStr = today.toISOString().split('T')[0];
@@ -147,6 +159,7 @@ export default function DashboardReports({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [velocitySortOrder, setVelocitySortOrder] = useState<'desc' | 'asc'>('desc');
   const [searchTerm, setSearchTerm] = useState('');
+  const [mobileSelectorOpen, setMobileSelectorOpen] = useState(false);
 
   // Additional Sales Report local filters
   const [salesSearch, setSalesSearch] = useState('');
@@ -499,6 +512,11 @@ export default function DashboardReports({
   // -------------------------------------------------------------
   // Gross sales receipts
   const totalSalesRevenue = filteredSales.reduce((acc, s) => acc + s.total, 0);
+
+  // Compute total gross sales before discounts or VAT
+  const totalGrossSales = filteredSales.reduce((sum, s) => {
+    return sum + s.items.reduce((iSum, item) => iSum + (item.price * item.qty), 0);
+  }, 0);
 
   // Compute Cost of Goods Sold (COGS) for completed sales
   // Find COGS by fetching the target product's costPrice * quantity sold
@@ -990,13 +1008,132 @@ export default function DashboardReports({
 
   const supplierProfiles = getSupplierReportProfiles();
 
+  const getTabMeta = (tabId: string) => {
+    switch (tabId) {
+      case 'p&l':
+        return {
+          label: 'Profit & Loss',
+          desc: 'Branches consolidated balance statement & margin logs.',
+          icon: BarChart3,
+          colorClass: 'bg-purple-100 text-purple-650 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-200/50',
+          color: 'purple'
+        };
+      case 'sales-report':
+        return {
+          label: 'Sales Report',
+          desc: 'Historical transactional journals & checkout audits.',
+          icon: TrendingUp,
+          colorClass: 'bg-emerald-100 text-emerald-650 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/50',
+          color: 'emerald'
+        };
+      case 'dual-channel':
+        return {
+          label: 'Dual Channel Report',
+          desc: 'Wholesale vs retail margin logs and split channel analysis.',
+          icon: ShieldAlert,
+          colorClass: 'bg-indigo-150 text-indigo-650 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-200/50',
+          color: 'indigo'
+        };
+      case 'inventory':
+        return {
+          label: 'Inventory Report',
+          desc: 'Storehouse vs active sales floor valuation metrics.',
+          icon: Package,
+          colorClass: 'bg-blue-100 text-blue-650 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200/50',
+          color: 'blue'
+        };
+      case 'payments':
+        return {
+          label: 'Payments Report',
+          desc: 'Detailed breakdown of cash, cards, and mobile money splits.',
+          icon: DollarSign,
+          colorClass: 'bg-amber-100 text-amber-650 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/50',
+          color: 'amber'
+        };
+      case 'product-monitoring':
+        return {
+          label: 'Product Profitability',
+          desc: 'Top moving inventory performance & high contribution lines.',
+          icon: Tag,
+          colorClass: 'bg-teal-105 text-teal-650 dark:bg-teal-950/40 dark:text-teal-400 border border-teal-200/50',
+          color: 'teal'
+        };
+      case 'users':
+        return {
+          label: 'Partners & Customers',
+          desc: 'Demographic spent ledgers & custom client rankings.',
+          icon: Users,
+          colorClass: 'bg-rose-100 text-rose-650 dark:bg-rose-950/40 dark:text-rose-450 border border-rose-200/50',
+          color: 'rose'
+        };
+      case 'expenses':
+        return {
+          label: 'Expense Report',
+          desc: 'Audited log of operating cash outflows & booked receipts.',
+          icon: MinusCircle,
+          colorClass: 'bg-red-105 text-red-650 dark:bg-red-950/40 dark:text-red-400 border border-red-200/50',
+          color: 'red'
+        };
+      case 'velocity':
+        return {
+          label: 'Sales Velocity',
+          desc: 'Daily unit sales speed and run-rate forecast metrics.',
+          icon: ShoppingBag,
+          colorClass: 'bg-cyan-100 text-cyan-650 dark:bg-cyan-950/40 dark:text-cyan-400 border border-cyan-200/50',
+          color: 'cyan'
+        };
+      case 'deliveries':
+        return {
+          label: 'Deliveries Report',
+          desc: 'Logistics fulfillment times & delivery rider receipts.',
+          icon: Truck,
+          colorClass: 'bg-orange-100 text-orange-650 dark:bg-orange-950/40 dark:text-orange-400 border border-orange-200/50',
+          color: 'orange'
+        };
+      default:
+        return {
+          label: 'System Report',
+          desc: 'General workspace analytical records and logs.',
+          icon: FileText,
+          colorClass: 'bg-slate-100 text-slate-650 dark:bg-slate-900 dark:text-slate-400 border border-slate-205',
+          color: 'slate'
+        };
+    }
+  };
+
+  // Helper date-preset triggers for the mobile quick action pills
+  const getTodayRange = () => new Date().toISOString().split('T')[0];
+  const getYesterdayRange = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  };
+  const getLast7DaysRange = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().split('T')[0];
+  };
+  const checkActivePreset = () => {
+    const today = getTodayRange();
+    const yesterday = getYesterdayRange();
+    const last7 = getLast7DaysRange();
+    if (startDateStr === today && endDateStr === today) return 'today';
+    if (startDateStr === yesterday && endDateStr === yesterday) return 'yesterday';
+    if (startDateStr === last7 && endDateStr === today) return 'last7';
+    if (startDateStr === '2020-01-01' && endDateStr === today) return 'all';
+    return 'custom';
+  };
+
   return (
-    <div className="space-y-8 animate-fade-in" id="reports-view-root">
+    <div className="space-y-8 animate-fade-in pb-20" id="reports-view-root">
+      
+      {/* DESKTOP-ONLY INTERFACE CONTAINER */}
+      <div className="hidden md:block space-y-8">
       
       {/* ------------------------------------------------------------- */}
-      {/* HEADER CONTROLS SECTION */}
+      {/* DESKTOP-ONLY HEADER CONTROLS SECTION */}
       {/* ------------------------------------------------------------- */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="hidden md:flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
             <BarChart3 className="w-5 h-5 text-emerald-600" />
@@ -1055,10 +1192,104 @@ export default function DashboardReports({
         </div>
       </div>
 
+      {/* ============================================================= */}
+      {/* MOBILE HEADER & DATE ROW (FIX 1) (375px - 430px) */}
+      {/* ============================================================= */}
+      <div className="block md:hidden bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 rounded-3xl shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <BarChart3 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <h2 className="text-base font-black tracking-tight text-slate-800 dark:text-slate-100">Branch Reports</h2>
+          </div>
+          
+          {/* Quick Exports */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleDownloadActiveTabCSV}
+              className="w-10 h-10 flex items-center justify-center bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 rounded-xl hover:bg-emerald-100 cursor-pointer transition-colors"
+              title="Export CSV"
+            >
+              <Download className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="w-10 h-10 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-100 cursor-pointer transition-colors"
+              title="Print PDF"
+            >
+              <Printer className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Date Row (FIX 1) */}
+        <div className="flex flex-row gap-2 items-center w-full">
+          {/* Start date */}
+          <div className="flex-1 flex items-center bg-slate-50 dark:bg-slate-950 rounded-xl px-2.5 py-2 border border-slate-205 dark:border-slate-800 min-h-[44px]">
+            <Calendar className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+            <input
+              type="date"
+              value={startDateStr}
+              onChange={(e) => setStartDateStr(e.target.value)}
+              className="bg-transparent border-none text-slate-800 dark:text-slate-200 font-bold outline-none font-sans focus:ring-0 text-xs w-full cursor-pointer p-0"
+              style={{ colorScheme: 'dark' }}
+            />
+          </div>
+
+          <span className="text-[10px] text-slate-400 font-black font-mono">TO</span>
+
+          {/* End date */}
+          <div className="flex-1 flex items-center bg-slate-50 dark:bg-slate-950 rounded-xl px-2.5 py-2 border border-slate-205 dark:border-slate-800 min-h-[44px]">
+            <Calendar className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+            <input
+              type="date"
+              value={endDateStr}
+              onChange={(e) => setEndDateStr(e.target.value)}
+              className="bg-transparent border-none text-slate-800 dark:text-slate-200 font-bold outline-none font-sans focus:ring-0 text-xs w-full cursor-pointer p-0"
+              style={{ colorScheme: 'dark' }}
+            />
+          </div>
+
+          {/* Search/Apply button */}
+          <button
+            type="button"
+            onClick={() => {}}
+            className="w-11 h-11 shrink-0 bg-emerald-600 hover:bg-emerald-700 active:scale-95 flex items-center justify-center rounded-xl cursor-pointer text-white shadow-xs transition-all font-bold"
+          >
+            <CheckCircle className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Quick Filter Pills (FIX 1) */}
+        <div className="flex flex-row items-center gap-1.5 overflow-x-auto scrollbar-none py-1 flex-nowrap whitespace-nowrap">
+          {[
+            { id: 'today', label: 'Today', range: () => { setStartDateStr(getTodayRange()); setEndDateStr(getTodayRange()); } },
+            { id: 'yesterday', label: 'Yesterday', range: () => { setStartDateStr(getYesterdayRange()); setEndDateStr(getYesterdayRange()); } },
+            { id: 'last7', label: 'Last 7 Days', range: () => { setStartDateStr(getLast7DaysRange()); setEndDateStr(getTodayRange()); } },
+            { id: 'all', label: 'All Time', range: () => { setStartDateStr('2020-01-01'); setEndDateStr(getTodayRange()); } }
+          ].map(p => {
+            const isActive = checkActivePreset() === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={p.range}
+                className={`min-h-[44px] px-3.5 rounded-full text-xs font-semibold tracking-tight transition-all cursor-pointer border flex items-center justify-center ${
+                  isActive
+                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs font-bold'
+                    : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800/80 text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* ------------------------------------------------------------- */}
-      {/* FINANCIAL HIGH-LEVEL STATEMENT CARDS */}
+      {/* DESKTOP-ONLY FINANCIAL STATEMENT CARDS */}
       {/* ------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         
         {/* Gross Sales */}
         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center space-x-4">
@@ -1130,11 +1361,106 @@ export default function DashboardReports({
         </div>
       </div>
 
+      {/* ============================================================= */}
+      {/* MOBILE KEY METRICS GRID (FIX 2) (2 columns x 2 rows grid) */}
+      {/* ============================================================= */}
+      <div className="grid md:hidden grid-cols-2 gap-3" id="mobile-metrics-cards-grid">
+        {/* Gross Sales */}
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-emerald-500 flex flex-col justify-between min-h-[92px]">
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-emerald-50 dark:bg-emerald-955 text-emerald-600 rounded-lg shrink-0">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Gross Sales</span>
+          </div>
+          <div className="mt-1">
+            <h4 className="text-sm font-black text-slate-850 dark:text-slate-100 font-sans">
+              {currency}{Math.round(totalGrossSales).toLocaleString()}
+            </h4>
+            <p className="text-[9px] text-slate-400 font-mono leading-none mt-0.5">{filteredSales.length} receipts</p>
+          </div>
+        </div>
+
+        {/* Revenue */}
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-blue-500 flex flex-col justify-between min-h-[92px]">
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-blue-50 dark:bg-blue-955 text-blue-600 rounded-lg shrink-0">
+              <DollarSign className="w-4 h-4" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Revenue</span>
+          </div>
+          <div className="mt-1">
+            <h4 className="text-sm font-black text-slate-850 dark:text-slate-100 font-sans">
+              {currency}{Math.round(totalSalesRevenue).toLocaleString()}
+            </h4>
+            <p className="text-[9px] text-slate-400 font-mono leading-none mt-0.5">Net receipts</p>
+          </div>
+        </div>
+
+        {/* COGS */}
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-amber-500 flex flex-col justify-between min-h-[92px]">
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-amber-50 dark:bg-amber-955 text-amber-600 rounded-lg shrink-0">
+              <Package className="w-4 h-4" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">COGS</span>
+          </div>
+          <div className="mt-1">
+            <h4 className="text-sm font-black text-slate-850 dark:text-slate-100 font-sans">
+              {currency}{Math.round(totalCOGS).toLocaleString()}
+            </h4>
+            <p className="text-[9px] text-slate-400 font-mono leading-none mt-0.5">
+              Margin: {totalSalesRevenue > 0 ? Math.round(((totalSalesRevenue - totalCOGS)/totalSalesRevenue) * 100) : 0}%
+            </p>
+          </div>
+        </div>
+
+        {/* Expenses */}
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-rose-500 flex flex-col justify-between min-h-[92px]">
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-rose-50 dark:bg-rose-955 text-rose-600 rounded-lg shrink-0">
+              <MinusCircle className="w-4 h-4" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Expenses</span>
+          </div>
+          <div className="mt-1">
+            <h4 className="text-sm font-black text-rose-650 dark:text-rose-450 font-sans">
+              {currency}{Math.round(totalExpensesCharged).toLocaleString()}
+            </h4>
+            <button 
+              type="button"
+              onClick={() => setIsExpenseModalOpen(true)}
+              className="text-[9px] text-rose-500 font-bold hover:underline cursor-pointer font-sans transition-all block text-left shrink-0 mt-0.5"
+            >
+              + Book Expense
+            </button>
+          </div>
+        </div>
+
+        {/* Net Profit (Centered as 5th item) */}
+        <div className="col-span-2 bg-white dark:bg-slate-900 p-3.5 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-purple-500 flex flex-col items-center justify-center text-center space-y-2 min-h-[100px]">
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-purple-50 dark:bg-purple-955 text-purple-600 rounded-lg shrink-0">
+              <BarChart3 className="w-4 h-4" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Net Profit</span>
+          </div>
+          <div className="mt-1">
+            <h4 className={`text-base font-black font-sans ${netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-450' : 'text-rose-650 dark:text-rose-450'}`}>
+              {netProfit < 0 ? '-' : ''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}
+            </h4>
+            <div className={`inline-flex items-center text-[9px] font-semibold uppercase mt-1 px-2.5 py-0.5 rounded-full ${netProfit >= 0 ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400'}`}>
+              {netProfit >= 0 ? 'Surplus' : 'Deficit'}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ------------------------------------------------------------- */}
-      {/* TAB SYSTEM NAVIGATIONS */}
+      {/* DESKTOP-ONLY TAB SYSTEM NAVIGATIONS */}
       {/* ------------------------------------------------------------- */}
       {(!defaultTab || defaultTab !== 'expenses') && (
-        <div className="border-b border-slate-200 flex flex-wrap gap-2 pt-2">
+        <div className="hidden md:flex border-b border-slate-200 flex-wrap gap-2 pt-2">
           {[
             { id: 'p&l', label: 'Profit & Loss Report', icon: FileText, reqPerm: 'reportsProfitCogs' },
             { id: 'sales-report', label: 'Sales Report', icon: TrendingUp, reqPerm: 'reportsSalesExpenses' },
@@ -1165,6 +1491,115 @@ export default function DashboardReports({
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* ============================================================= */}
+      {/* MOBILE TAB TYPE SELECTOR - DROPDOWN WITH ICONS (FIX 3) */}
+      {/* ============================================================= */}
+      {(!defaultTab || defaultTab !== 'expenses') && (
+        <div className="block md:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileSelectorOpen(true)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-semibold text-sm text-slate-800 dark:text-slate-100 cursor-pointer min-h-[44px] shadow-xs hover:bg-slate-50 transition-colors"
+          >
+            <div className="flex items-center space-x-2.5">
+              {(() => {
+                const meta = getTabMeta(reportTab);
+                const Icon = meta.icon;
+                return (
+                  <>
+                    <div className={`p-1.5 rounded-lg ${meta.colorClass}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span>{meta.label}</span>
+                  </>
+                );
+              })()}
+            </div>
+            <ChevronDown className="w-4.5 h-4.5 text-slate-400" />
+          </button>
+
+          {/* DROP DOWN BOTTOM SHEET LIST (When Opened) */}
+          <div 
+            className={`fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs transition-opacity duration-300 ${
+              mobileSelectorOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+            }`}
+            onClick={() => setMobileSelectorOpen(false)}
+          >
+            <div 
+              className={`absolute bottom-0 left-0 right-0 max-h-[80vh] bg-white dark:bg-slate-900 rounded-t-3xl border-t border-slate-200 dark:border-slate-850 flex flex-col select-none transition-transform duration-300 transform ${
+                mobileSelectorOpen ? 'translate-y-0 shadow-[-5px_-5px_30px_rgba(0,0,0,0.15)]' : 'translate-y-full'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-850 shrink-0">
+                <h3 className="text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">Select Report Type</h3>
+                <button 
+                  onClick={() => setMobileSelectorOpen(false)}
+                  className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-650 dark:text-slate-300 font-bold hover:text-slate-850 cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              {/* List options container */}
+              <div className="flex-grow overflow-y-auto px-4 py-3 pb-12 space-y-2">
+                {[
+                  { id: 'p&l', label: 'Profit & Loss', icon: BarChart3, reqPerm: 'reportsProfitCogs' },
+                  { id: 'sales-report', label: 'Sales Report', icon: TrendingUp, reqPerm: 'reportsSalesExpenses' },
+                  { id: 'dual-channel', label: 'Dual Channel Report', icon: ShieldAlert, reqPerm: 'reportsSalesExpenses' },
+                  { id: 'inventory', label: 'Inventory Report', icon: Package, reqPerm: 'reportsSalesExpenses' },
+                  { id: 'payments', label: 'Payments Report', icon: DollarSign, reqPerm: 'reportsSalesExpenses' },
+                  { id: 'product-monitoring', label: 'Product Profitability', icon: Tag, reqPerm: 'reportsSalesExpenses' },
+                  { id: 'users', label: 'Partners & Customers', icon: Users, reqPerm: 'reportsSalesExpenses' }
+                ].filter(tab => {
+                  if (!rolePermissions) return true;
+                  const permGroup = (rolePermissions as any)[tab.reqPerm];
+                  return permGroup === undefined || permGroup.read;
+                }).map((tab) => {
+                  const meta = getTabMeta(tab.id);
+                  const IconComp = meta.icon;
+                  const isActive = reportTab === tab.id;
+
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setReportTab(tab.id as any);
+                        setMobileSelectorOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer min-h-[56px] text-left ${
+                        isActive 
+                          ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs font-bold' 
+                          : 'bg-white hover:bg-slate-50 dark:bg-slate-905 dark:hover:bg-slate-850 border-slate-100 dark:border-slate-800/80 text-slate-705 dark:text-slate-305'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3.5">
+                        <div className={`p-2 rounded-xl shrink-0 ${
+                          isActive 
+                            ? 'bg-white/20 text-white border border-white/10' 
+                            : meta.colorClass
+                        }`}>
+                          <IconComp className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-0.5">
+                          <span className={`text-sm font-black tracking-tight block ${isActive ? 'text-white' : 'text-slate-800 dark:text-slate-200'}`}>
+                            {meta.label}
+                          </span>
+                          <span className={`text-[10px] block leading-tight max-w-[210px] ${isActive ? 'text-emerald-100' : 'text-slate-400'}`}>
+                            {meta.desc}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1448,14 +1883,19 @@ export default function DashboardReports({
               </div>
 
               {/* Filtering summary stats metrics grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
                 {/* Total Sales Orders */}
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between">
-                  <div>
-                    <p className="text-[9px] font-mono uppercase tracking-wider text-slate-400 font-bold">Total Sales Orders</p>
-                    <h4 className="text-base font-black text-slate-800 mt-1">{totalSalesOrdersCount} Tickets</h4>
+                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
+                  <div className="flex items-start space-x-2">
+                    <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600 shrink-0">
+                      <ShoppingBag className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase text-slate-500 font-medium tracking-tight">Total Sales Orders</p>
+                      <h4 className="text-lg font-black text-slate-800 mt-1">{totalSalesOrdersCount} Tickets</h4>
+                    </div>
                   </div>
-                  <div className="w-full bg-slate-200 h-1 rounded-full mt-3 overflow-hidden">
+                  <div className="w-full bg-slate-100 h-1 rounded-full mt-3 overflow-hidden">
                     <div 
                       className="bg-emerald-500 h-full" 
                       style={{ width: `${filteredSales.length > 0 ? (recordsFilteredSales.length / filteredSales.length) * 100 : 0}%` }}
@@ -1464,39 +1904,59 @@ export default function DashboardReports({
                 </div>
  
                 {/* Revenue Generated */}
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between">
-                  <div>
-                    <p className="text-[9px] font-mono uppercase tracking-wider text-slate-450 font-bold text-slate-600">Revenue Generated</p>
-                    <h4 className="text-base font-black text-slate-900 mt-1">{currency}{Math.round(totalSalesRevenueVal).toLocaleString()}</h4>
+                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
+                  <div className="flex items-start space-x-2">
+                    <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase text-slate-500 font-medium tracking-tight">Revenue Generated</p>
+                      <h4 className="text-lg font-black text-slate-900 mt-1">{currency}{Math.round(totalSalesRevenueVal).toLocaleString()}</h4>
+                    </div>
                   </div>
-                  <p className="text-[9px] text-slate-400 font-mono mt-1 pt-2 border-t border-slate-100">VAT: {currency}{Math.round(totalRecordsTax).toLocaleString()} | Avg: {currency}{Math.round(avgTicketSize).toLocaleString()}</p>
+                  <p className="text-xs text-slate-400 font-sans mt-3 border-t border-slate-100 pt-2 leading-tight">VAT: {currency}{Math.round(totalRecordsTax).toLocaleString()} | Avg: {currency}{Math.round(avgTicketSize).toLocaleString()}</p>
                 </div>
 
                 {/* Paid Transactions Info */}
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between">
-                  <div>
-                    <p className="text-[9px] font-mono uppercase tracking-wider text-slate-455 font-bold text-emerald-600">Paid orders</p>
-                    <h4 className="text-base font-black text-emerald-800 mt-1">{currency}{Math.round(paidSalesRevenueVal).toLocaleString()}</h4>
+                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
+                  <div className="flex items-start space-x-2">
+                    <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
+                      <CheckCircle className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase text-slate-500 font-medium tracking-tight">Paid orders</p>
+                      <h4 className="text-lg font-black text-emerald-800 mt-1">{currency}{Math.round(paidSalesRevenueVal).toLocaleString()}</h4>
+                    </div>
                   </div>
-                  <p className="text-[9.5px] font-semibold text-slate-500 font-sans mt-1 pt-2 border-t border-slate-100">{paidSalesCount} orders paid & cleared</p>
+                  <p className="text-xs text-slate-500 font-sans mt-3 border-t border-slate-100 pt-2 leading-tight">{paidSalesCount} orders paid & cleared</p>
                 </div>
 
                 {/* Unpaid / Credit Info */}
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between">
-                  <div>
-                    <p className="text-[9px] font-mono uppercase tracking-wider text-slate-455 font-bold text-amber-600">Unpaid orders</p>
-                    <h4 className="text-base font-black text-amber-700 mt-1">{currency}{Math.round(unpaidSalesRevenueVal).toLocaleString()}</h4>
+                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
+                  <div className="flex items-start space-x-2">
+                    <div className="p-1.5 rounded-lg bg-rose-50 text-rose-600 shrink-0">
+                      <AlertCircle className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase text-slate-500 font-medium tracking-tight">Unpaid orders</p>
+                      <h4 className="text-lg font-bold text-amber-700 mt-1">{currency}{Math.round(unpaidSalesRevenueVal).toLocaleString()}</h4>
+                    </div>
                   </div>
-                  <p className="text-[9.5px] font-semibold text-slate-500 font-sans mt-1 pt-2 border-t border-slate-100">{unpaidSalesCount} on-credit outstanding</p>
+                  <p className="text-xs text-slate-500 font-sans mt-3 border-t border-slate-100 pt-2 leading-tight">{unpaidSalesCount} on-credit outstanding</p>
                 </div>
 
                 {/* Profit Generated */}
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between">
-                  <div>
-                    <p className="text-[9px] font-mono uppercase tracking-wider text-slate-455 font-bold text-indigo-600">Profit generated</p>
-                    <h4 className="text-base font-black text-indigo-700 mt-1">{currency}{Math.round(totalSalesProfitVal).toLocaleString()}</h4>
+                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[108px] text-left col-span-2 lg:col-span-1">
+                  <div className="flex items-start space-x-2">
+                    <div className="p-1.5 rounded-lg bg-purple-50 text-purple-600 shrink-0">
+                      <BarChart3 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase text-slate-500 font-medium tracking-tight">Profit generated</p>
+                      <h4 className="text-lg font-black text-indigo-700 mt-1">{currency}{Math.round(totalSalesProfitVal).toLocaleString()}</h4>
+                    </div>
                   </div>
-                  <p className="text-[9px] text-slate-400 font-mono mt-1 pt-2 border-t border-slate-100">Margin: {totalSalesRevenueVal > 0 ? Math.round((totalSalesProfitVal / totalSalesRevenueVal) * 100) : 0}% of sales</p>
+                  <p className="text-xs text-slate-400 font-sans mt-3 border-t border-slate-100 pt-2 leading-tight">Margin: {totalSalesRevenueVal > 0 ? Math.round((totalSalesProfitVal / totalSalesRevenueVal) * 100) : 0}% of sales</p>
                 </div>
               </div>
 
@@ -3124,6 +3584,1039 @@ export default function DashboardReports({
           );
         })()}
 
+      </div>
+      </div>
+
+      {/* ============================================================= */}
+      {/* MOBILE-ONLY BRAND REDESIGNED REPORTS LAYOUT (md:hidden) */}
+      {/* ============================================================= */}
+      <div className="block md:hidden pb-20 select-none">
+        {mobileView === 'menu' ? (
+          <div className="space-y-5">
+            {/* Mobile Header for Selector */}
+            <div className="flex flex-col space-y-1 pb-3 border-b border-slate-150">
+              <span className="text-[10px] font-black tracking-widest text-slate-400 font-mono uppercase">Reporting Terminal</span>
+              <h2 className="text-xl font-black text-slate-800 tracking-tight text-left">Intelligence & Auditing</h2>
+              <p className="text-xs text-slate-500 font-medium text-left">Select an audited branch segment to inspect.</p>
+            </div>
+
+            {/* Quick Overview Cards for Mobile */}
+            <div className="grid grid-cols-2 gap-3 pb-2">
+              <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-xl flex flex-col justify-between min-h-[76px] text-left">
+                <span className="text-[9px] font-bold text-slate-400 font-mono uppercase tracking-wider block">Branch Yield</span>
+                <span className="text-sm font-black text-slate-800 tracking-tight block mt-1">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</span>
+              </div>
+              <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-xl flex flex-col justify-between min-h-[76px] text-left">
+                <span className="text-[9px] font-bold text-slate-400 font-mono uppercase tracking-wider block">Active Stock</span>
+                <span className="text-sm font-black text-indigo-650 tracking-tight block mt-1">{products.length} SKUs</span>
+              </div>
+            </div>
+
+            {/* List of Reports Cards with Icons */}
+            <div className="grid grid-cols-1 gap-3.5">
+              {[
+                { id: 'p&l', label: 'Profit & Loss', icon: BarChart3, desc: 'View summary accounting statement of gross & net margins', colorClass: 'bg-emerald-50 text-emerald-605 border border-emerald-100', reqPerm: 'reportsProfitCogs' },
+                { id: 'sales-report', label: 'Sales Report', icon: TrendingUp, desc: 'Detailed transactions audit, payment channels and daily VAT tickets', colorClass: 'bg-indigo-50 text-indigo-605 border border-indigo-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'dual-channel', label: 'Dual Channel Report', icon: ShieldAlert, desc: 'Analyze retail vs wholesale channel distributions and pricing', colorClass: 'bg-teal-50 text-teal-605 border border-teal-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'inventory', label: 'Inventory Report', icon: Package, desc: 'Sku-level valuations, storefront vs warehouse stock and assets index', colorClass: 'bg-amber-50 text-amber-605 border border-amber-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'payments', label: 'Payments Report', icon: DollarSign, desc: 'Analyze aggregated collections across mobile money, cards, and bank till', colorClass: 'bg-green-50 text-green-605 border border-green-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'product-monitoring', label: 'Product Profitability', icon: Tag, desc: 'Drilldown rankings of product item margins, units sold and gross revenues', colorClass: 'bg-rose-50 text-rose-605 border border-rose-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'users', label: 'Partners & Customers', icon: Users, desc: 'Customer loyalty tracking, accrued spends and branch staff sales journal', colorClass: 'bg-blue-50 text-blue-605 border border-blue-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'expenses', label: 'Branch Expenses', icon: MinusCircle, desc: 'Operating expenses categories, logs of receipt slips and petty cash balances', colorClass: 'bg-red-50 text-red-655 border border-red-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'deliveries', label: 'Fleet & Logistics', icon: Truck, desc: 'Recent dispatch statuses, rider assignments, delivery fees and fuel costs', colorClass: 'bg-violet-50 text-violet-605 border border-violet-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'velocity', label: 'Velocity Report', icon: ArrowUpDown, desc: 'Monitor inventory sales speed, item turnover rates, and velocity ranks', colorClass: 'bg-orange-50 text-orange-605 border border-orange-100', reqPerm: 'reportsSalesExpenses' }
+              ].filter(tab => {
+                if (!rolePermissions) return true;
+                const permGroup = (rolePermissions as any)[tab.reqPerm];
+                return permGroup === undefined || permGroup.read;
+              }).map((tab) => {
+                const IconComp = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setReportTab(tab.id as any);
+                      setMobileView('report');
+                    }}
+                    className="w-full flex items-center justify-between p-4 bg-white border border-slate-150 rounded-2xl shadow-xs text-left hover:bg-slate-50 transition-all cursor-pointer min-h-[72px]"
+                  >
+                    <div className="flex items-center space-x-3.5">
+                      <div className={`p-2.5 rounded-xl shrink-0 ${tab.colorClass}`}>
+                        <IconComp className="w-5 h-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm font-bold text-slate-800 block leading-none text-left">
+                          {tab.label}
+                        </span>
+                        <span className="text-[11px] block leading-tight text-slate-455 line-clamp-1 max-w-[220px] text-left">
+                          {tab.desc}
+                        </span>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-slate-400 shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-5 pb-10">
+            {/* Header pattern matching other screens */}
+            <div className="sticky top-0 z-30 flex items-center justify-between h-14 bg-white/95 backdrop-blur-md px-4 border-b border-slate-200 shadow-xs -mx-4 -mt-2">
+              <div className="flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setMobileView('menu')}
+                  className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100 transition-all cursor-pointer border border-slate-150"
+                  aria-label="Back to menu"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <span className="text-base font-extrabold text-slate-800 tracking-tight text-left">
+                  {reportTab === 'p&l' ? 'Profit & Loss' :
+                   reportTab === 'sales-report' ? 'Sales Report' :
+                   reportTab === 'dual-channel' ? 'Dual Channel Report' :
+                   reportTab === 'inventory' ? 'Inventory Report' :
+                   reportTab === 'payments' ? 'Payments Report' :
+                   reportTab === 'product-monitoring' ? 'Product Profitability' :
+                   reportTab === 'users' ? 'Partners & Customers' :
+                   reportTab === 'expenses' ? 'Branch Expenses' :
+                   reportTab === 'deliveries' ? 'Fleet Logistics' : 'Velocity Report'}
+                </span>
+              </div>
+              
+              {/* Call active tab export natively */}
+              <button
+                type="button"
+                onClick={handleDownloadActiveTabCSV}
+                className="w-11 h-11 flex items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100 transition-all cursor-pointer"
+                title="Export Spreadsheet"
+              >
+                <Download className="w-4.5 h-4.5" />
+              </button>
+            </div>
+
+            {/* Side-by-side date inputs with quick presets row - matching other screens */}
+            <div className="space-y-3 bg-white border border-slate-200 p-4 rounded-2xl shadow-xs">
+              <div className="flex flex-row gap-2 w-full">
+                {/* FROM Input */}
+                <div className="flex-1 flex flex-col bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl relative">
+                  <span className="text-[10px] uppercase font-mono font-bold text-slate-400 mb-0.5 leading-none text-left">FROM</span>
+                  <input
+                    type="date"
+                    value={startDateStr}
+                    onChange={(e) => setStartDateStr(e.target.value)}
+                    className="bg-transparent border-none text-slate-800 font-bold outline-none font-sans focus:ring-0 text-sm w-full p-0 cursor-pointer mt-0.5 h-5"
+                  />
+                </div>
+
+                {/* TO Input */}
+                <div className="flex-1 flex flex-col bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl relative">
+                  <span className="text-[10px] uppercase font-mono font-bold text-slate-400 mb-0.5 leading-none text-left">TO</span>
+                  <input
+                    type="date"
+                    value={endDateStr}
+                    onChange={(e) => setEndDateStr(e.target.value)}
+                    className="bg-transparent border-none text-slate-800 font-bold outline-none font-sans focus:ring-0 text-sm w-full p-0 cursor-pointer mt-0.5 h-5"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Preset Pills Row */}
+              <div className="flex flex-row items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 flex-nowrap whitespace-nowrap">
+                {[
+                  { id: 'today', label: 'Today', range: () => { setStartDateStr(getTodayRange()); setEndDateStr(getTodayRange()); } },
+                  { id: 'yesterday', label: 'Yesterday', range: () => { setStartDateStr(getYesterdayRange()); setEndDateStr(getYesterdayRange()); } },
+                  { id: 'last7', label: 'Last 7 Days', range: () => { setStartDateStr(getLast7DaysRange()); setEndDateStr(getTodayRange()); } },
+                  { id: 'all', label: 'All Time', range: () => { setStartDateStr('2020-01-01'); setEndDateStr(getTodayRange()); } }
+                ].map(p => {
+                  const isActive = checkActivePreset() === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={p.range}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-tight transition-all cursor-pointer border min-h-[36px] flex items-center justify-center ${
+                        isActive
+                          ? 'bg-slate-900 border-slate-900 text-white font-bold'
+                          : 'bg-slate-100 border-slate-200 text-slate-500'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ACTIVE REPORT CANVAS */}
+            <div className="space-y-5 animate-fade-in">
+              {reportTab === 'p&l' && (
+                <div className="space-y-5">
+                  {/* Summary Metrics Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                      <div className="flex items-center space-x-1.5 text-emerald-600">
+                        <TrendingUp className="w-4 h-4" />
+                        <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider font-mono">Gross Sales</span>
+                      </div>
+                      <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                      <div className="flex items-center space-x-1.5 text-amber-500">
+                        <Package className="w-4 h-4" />
+                        <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider font-mono">Total COGS</span>
+                      </div>
+                      <span className="text-sm font-black text-slate-800 font-sans mt-2">{currency}{Math.round(totalCOGS).toLocaleString()}</span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                      <div className="flex items-center space-x-1.5 text-rose-500">
+                        <Receipt className="w-4 h-4" />
+                        <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider font-mono">Operating Exp</span>
+                      </div>
+                      <span className="text-sm font-black text-rose-600 font-sans mt-2">{currency}{Math.round(totalExpensesCharged).toLocaleString()}</span>
+                    </div>
+
+                    <div className={`p-3 rounded-xl border shadow-xs flex flex-col justify-between min-h-[84px] text-left ${netProfit >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                      <div className={`flex items-center space-x-1.5 ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <DollarSign className="w-4 h-4" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider font-mono">Net Profit</span>
+                      </div>
+                      <span className={`text-sm font-black font-sans mt-2 ${netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {netProfit < 0 ? '-' : ''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Charts with horizontal scroll and max height 200px */}
+                  <div className="bg-white border border-slate-150 p-4 rounded-xl shadow-xs space-y-2 text-left">
+                    <h4 className="text-sm font-bold text-slate-800">Consolidated Margin Curve</h4>
+                    <div className="w-full overflow-x-auto scrollbar-none">
+                      <div className="min-w-[340px] h-[180px]">
+                        <ResponsiveContainer width="105%" height="100%">
+                          <LineChart data={pAndLGraphData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                            <XAxis dataKey="label" stroke="#94a3b8" fontSize={9} tickLine={false} />
+                            <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} />
+                            <Tooltip />
+                            <Line type="monotone" dataKey="salesRevenue" name="Sales" stroke="#10b981" strokeWidth={1.5} dot={false} />
+                            <Line type="monotone" dataKey="profit" name="Profit" stroke="#a855f7" strokeWidth={1.5} dot={false} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Statement card list */}
+                  <div className="space-y-2 text-left">
+                    <h4 className="text-xs font-semibold text-slate-800 font-sans px-1">Statement Line Items</h4>
+                    <div className="space-y-2.5">
+                      {[
+                        { label: 'Total Sales Revenue', value: totalSalesRevenue, type: 'plus' },
+                        { label: 'Cost of Goods Sold (COGS)', value: totalCOGS, type: 'minus' },
+                        { label: 'Gross Operating Profit', value: grossProfit, type: 'summary' },
+                        { label: 'Operating Expenses Burden', value: totalExpensesCharged, type: 'minus' },
+                        { label: 'Consolidated Net Profit/Loss', value: netProfit, type: 'net' }
+                      ].map((item, idx) => (
+                        <div key={idx} className={`flex items-center justify-between px-4 py-3 rounded-xl border border-slate-150 bg-white text-left ${
+                          item.type === 'summary' ? 'bg-emerald-50 border-emerald-200' :
+                          item.type === 'net' ? (item.value >= 0 ? 'bg-emerald-100 border-emerald-300' : 'bg-rose-50 border-rose-250') : 'bg-white'
+                        }`}>
+                          <div>
+                            <span className="text-xs font-bold text-slate-800 block">{item.label}</span>
+                            <span className="text-[10px] text-slate-450 block mt-0.5">
+                              {item.type === 'minus' ? 'Debit/Expense' : item.type === 'plus' ? 'Gross Credit' : 'Accounting Margin'}
+                            </span>
+                          </div>
+                          <span className={`text-sm font-extrabold font-mono ${
+                            item.type === 'minus' ? 'text-rose-600' : 
+                            item.type === 'plus' ? 'text-emerald-600' : 
+                            item.type === 'summary' ? 'text-emerald-700' : 
+                            (item.value >= 0 ? 'text-emerald-800' : 'text-rose-700')
+                          }`}>
+                            {item.type === 'minus' ? '-' : ''}{currency}{Math.abs(Math.round(item.value)).toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {reportTab === 'sales-report' && (
+                <div className="space-y-4">
+                  {/* Summary Metrics Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                      <div className="flex items-center space-x-1.5 text-indigo-505">
+                        <ShoppingBag className="w-4 h-4" />
+                        <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Sales Count</span>
+                      </div>
+                      <span className="text-sm font-black text-slate-800 font-sans mt-2">{salesReportMetrics.totalOrders} Tickets</span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                      <div className="flex items-center space-x-1.5 text-emerald-600">
+                        <DollarSign className="w-4 h-4" />
+                        <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Gross Revenue</span>
+                      </div>
+                      <span className="text-sm font-black text-emerald-650 font-sans mt-2">{currency}{Math.round(salesReportMetrics.totalRevenue).toLocaleString()}</span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                      <div className="flex items-center space-x-1.5 text-emerald-505">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="text-[10px] font-bold text-emerald-650 uppercase tracking-wider font-mono">Paid Channel</span>
+                      </div>
+                      <span className="text-sm font-black text-emerald-700 font-sans mt-2">{currency}{Math.round(salesReportMetrics.paidRevenue).toLocaleString()}</span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                      <div className="flex items-center space-x-1.5 text-rose-500">
+                        <ShieldAlert className="w-4 h-4" />
+                        <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider font-mono">Credit Due</span>
+                      </div>
+                      <span className="text-sm font-black text-rose-650 font-sans mt-2">{currency}{Math.round(salesReportMetrics.unpaidRevenue).toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Search Bar for Mobile */}
+                  <div className="relative">
+                    <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search transactions..."
+                      value={salesSearch}
+                      onChange={(e) => setSalesSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 min-h-[44px]"
+                    />
+                  </div>
+
+                  {/* Transaction card list */}
+                  <div className="space-y-2.5 animate-fade-in text-left">
+                    <div className="flex justify-between items-center px-1">
+                      <h4 className="text-xs font-bold text-slate-800">Audit Journal Rows</h4>
+                      <span className="text-[10px] font-mono text-slate-450">{recordsFilteredSales.length} records</span>
+                    </div>
+
+                    {recordsFilteredSales.length === 0 ? (
+                      <div className="bg-white border border-slate-150 p-6 rounded-2xl flex flex-col items-center justify-center text-center">
+                        <ShoppingBag className="w-10 h-10 text-slate-355 mb-2" />
+                        <h4 className="text-sm font-semibold text-slate-700">No data available</h4>
+                        <p className="text-xs text-slate-400 mt-1 max-w-[180px]">No sales transactions found in selected period.</p>
+                      </div>
+                    ) : (
+                      recordsFilteredSales.slice(0, 30).map((sale) => (
+                        <div key={sale.id} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs space-y-2 text-left">
+                          <div className="flex justify-between items-start">
+                            <div className="text-left">
+                              <span className="text-sm font-bold text-slate-800 block">
+                                {sale.customerName || 'Walk-In Customer'}
+                              </span>
+                              <span className="text-[10px] font-mono font-bold text-slate-400 block mt-0.5">
+                                Ref: <span className="text-indigo-600">#{sale.id}</span> | {new Date(sale.timestamp).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <span className="text-sm font-black font-mono text-slate-800">
+                              {currency}{sale.total.toFixed(1)}
+                            </span>
+                          </div>
+
+                          <div className="border-t border-slate-100 pt-2 flex flex-col gap-1 text-[11px] text-slate-500">
+                            <p className="truncate text-left"><strong className="text-slate-700">Items:</strong> {sale.items.map(it => `${it.qty}x ${it.productName}`).join(', ')}</p>
+                            <div className="flex justify-between items-center text-[10px] mt-1 font-mono uppercase font-bold text-slate-400">
+                              <span>Mode: {sale.paymentMethod}</span>
+                              <span>Staff: {sale.cashierName || 'Operator'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {reportTab === 'payments' && (
+                <div className="space-y-4">
+                  {/* Summary Metrics Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                      <div className="flex items-center space-x-1.5 text-emerald-600">
+                        <DollarSign className="w-4 h-4" />
+                        <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Cash Vault</span>
+                      </div>
+                      <span className="text-sm font-black text-emerald-600 mt-2">{currency}{paymentBreakdown.Cash.toLocaleString()}</span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                      <div className="flex items-center space-x-1.5 text-indigo-500">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Cards & Paystack</span>
+                      </div>
+                      <span className="text-sm font-black text-slate-800 mt-2">{currency}{paymentBreakdown.CardAndOnline.toLocaleString()}</span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                      <div className="flex items-center space-x-1.5 text-amber-500">
+                        <Smartphone className="w-4 h-4" />
+                        <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Mobile Money</span>
+                      </div>
+                      <span className="text-sm font-black text-slate-805 mt-2">{currency}{paymentBreakdown.MobileMoney.toLocaleString()}</span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                      <div className="flex items-center space-x-1.5 text-rose-500">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Acquired Credit</span>
+                      </div>
+                      <span className="text-sm font-black text-rose-650 mt-2">{currency}{paymentBreakdown.Credit.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Channel weights summary cards */}
+                  <div className="space-y-2.5 text-left">
+                    <h4 className="text-xs font-semibold text-slate-800 font-sans px-1">Payment Modes Weight Proportions</h4>
+                    <div className="space-y-2">
+                      {(() => {
+                        const totalSum = Object.values(paymentBreakdown).reduce((a, b) => a + b, 0);
+                        return Object.entries(paymentBreakdown).map(([channel, amount]) => {
+                          const pct = totalSum > 0 ? (amount / totalSum) * 100 : 0;
+                          return (
+                            <div key={channel} className="bg-white border border-slate-150 px-4 py-3 rounded-xl shadow-xs flex items-center justify-between text-left">
+                              <div>
+                                <span className="text-sm font-bold text-slate-800 block">
+                                  {channel === 'CardAndOnline' ? 'Card & Paystack Gateway' :
+                                   channel === 'MobileMoney' ? 'Mobile Money Wallets' : channel}
+                                </span>
+                                <span className="text-xs text-slate-400 block mt-0.5 mt-0.5">Cleared settlement channel</span>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="text-sm font-extrabold text-slate-900 block">{currency}{amount.toLocaleString()}</span>
+                                <span className="text-[11px] text-emerald-600 font-bold block mt-0.5">{pct.toFixed(1)}% weight</span>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {reportTab === 'inventory' && (
+                <div className="space-y-4">
+                  {/* Summary Metrics Grid */}
+                  {(() => {
+                    const totalShopVal = products.reduce((acc, curr) => acc + (curr.shopStockQty || 0) * curr.costPrice, 0);
+                    const totalStoreVal = products.reduce((acc, curr) => acc + (curr.storeStockQty || 0) * curr.costPrice, 0);
+                    const totalAssetVal = products.reduce((acc, curr) => acc + (curr.stockQty || 0) * curr.costPrice, 0);
+                    return (
+                      <>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-indigo-500">
+                              <Package className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Shop Stock</span>
+                            </div>
+                            <span className="text-sm font-black text-slate-800 mt-2">{currency}{Math.round(totalShopVal).toLocaleString()}</span>
+                          </div>
+
+                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-amber-500">
+                              <Archive className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Backroom Store</span>
+                            </div>
+                            <span className="text-sm font-black text-slate-800 mt-2">{currency}{Math.round(totalStoreVal).toLocaleString()}</span>
+                          </div>
+
+                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-blue-500">
+                              <Tag className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Catalog SKUs</span>
+                            </div>
+                            <span className="text-sm font-black text-blue-600 mt-2">{products.length} Products</span>
+                          </div>
+
+                          <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-emerald-600">
+                              <Package className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Total Assets</span>
+                            </div>
+                            <span className="text-sm font-black text-emerald-800 mt-2">{currency}{Math.round(totalAssetVal).toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        {/* List replacements */}
+                        <div className="space-y-2.5 text-left">
+                          <div className="flex justify-between items-center px-1">
+                            <h4 className="text-xs font-semibold text-slate-800 font-sans">Valuations Journal Listings</h4>
+                            <span className="text-[10px] font-mono text-slate-400">{products.length} products</span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {products.map((p) => {
+                              const totalQty = p.stockQty || 0;
+                              const valAmount = totalQty * p.costPrice;
+                              return (
+                                <div key={p.id} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs flex justify-between items-center text-left">
+                                  <div>
+                                    <span className="text-sm font-bold text-slate-800 block">{p.name}</span>
+                                    <span className="text-xs text-slate-400 block mt-0.5">
+                                      SKU: {p.sku || 'N/A'} • Cost: {currency}{p.costPrice.toFixed(1)} • Shop: {p.shopStockQty || 0}
+                                    </span>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <span className="text-sm font-extrabold text-slate-900 block">{totalQty} units</span>
+                                    <span className="text-[11px] text-indigo-600 font-bold block mt-0.5">{currency}{Math.round(valAmount).toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {reportTab === 'users' && (
+                <div className="space-y-4">
+                  {(() => {
+                    const custMap: Record<string, { count: number; spend: number }> = {};
+                    const staffMap: Record<string, { count: number; sales: number }> = {};
+                    filteredSales.forEach(s => {
+                      const cName = s.customerName || "Walk-In Customer";
+                      if (!custMap[cName]) {
+                        custMap[cName] = { count: 0, spend: 0 };
+                      }
+                      custMap[cName].count++;
+                      custMap[cName].spend += s.total;
+
+                      const stF = s.cashierName || "System Operator";
+                      if (!staffMap[stF]) {
+                        staffMap[stF] = { count: 0, sales: 0 };
+                      }
+                      staffMap[stF].count++;
+                      staffMap[stF].sales += s.total;
+                    });
+
+                    return (
+                      <div className="space-y-4 text-left">
+                        {/* Summary Metrics Grid */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-blue-500">
+                              <Users className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Loyal Clients</span>
+                            </div>
+                            <span className="text-sm font-black text-slate-800 mt-2">{Object.keys(custMap).length} Profiles</span>
+                          </div>
+
+                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-emerald-500">
+                              <Users className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Active Staff</span>
+                            </div>
+                            <span className="text-sm font-black text-slate-800 mt-2">{Object.keys(staffMap).length} Operators</span>
+                          </div>
+                        </div>
+
+                        {/* Customer spend segment */}
+                        <div className="space-y-2.5">
+                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono px-1">Customer Spend Ledger</h4>
+                          <div className="space-y-2 animate-fade-in">
+                            {Object.entries(custMap).map(([name, sum]) => (
+                              <div key={name} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs text-left flex justify-between items-center">
+                                <div>
+                                  <span className="text-sm font-bold text-slate-800 block text-left">{name}</span>
+                                  <span className="text-xs text-slate-400 block mt-0.5 mt-0.5 text-left">{sum.count} transactions</span>
+                                </div>
+                                <span className="text-sm font-extrabold text-indigo-650">
+                                  {currency}{Math.round(sum.spend).toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Staff list */}
+                        <div className="space-y-2.5 pt-2">
+                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono px-1">Staff Sales Performance</h4>
+                          <div className="space-y-2 animate-fade-in">
+                            {Object.entries(staffMap).map(([name, sum]) => (
+                              <div key={name} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs text-left flex justify-between items-center">
+                                <div>
+                                  <span className="text-sm font-bold text-slate-800 block text-left">{name}</span>
+                                  <span className="text-xs text-slate-400 block mt-0.5 text-left">Approved transactions: {sum.count}</span>
+                                </div>
+                                <span className="text-sm font-extrabold text-emerald-700">
+                                  {currency}{Math.round(sum.sales).toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {reportTab === 'expenses' && (
+                <div className="space-y-4">
+                  {(() => {
+                    const totalSpent = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+                    return (
+                      <div className="space-y-4 text-left">
+                        {/* Summary Metrics Grid */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-rose-500">
+                              <Receipt className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Expense Logs</span>
+                            </div>
+                            <span className="text-sm font-black text-rose-600 mt-2">{filteredExpenses.length} Receipts</span>
+                          </div>
+
+                          <div className="bg-rose-50 border border-rose-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-rose-600">
+                              <DollarSign className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider font-mono">Aggregate Outflow</span>
+                            </div>
+                            <span className="text-sm font-black text-rose-800 mt-2">{currency}{Math.round(totalSpent).toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        {/* List representations */}
+                        <div className="space-y-2.5">
+                          <div className="flex justify-between items-center px-1">
+                            <h4 className="text-xs font-semibold text-slate-800">Operating Outflow Logs</h4>
+                            <span className="text-[10px] font-mono text-slate-400">{filteredExpenses.length} entries</span>
+                          </div>
+
+                          {filteredExpenses.length === 0 ? (
+                            <div className="bg-white border border-slate-150 p-6 rounded-2xl flex flex-col items-center justify-center text-center">
+                              <Receipt className="w-10 h-10 text-slate-355 mb-2" />
+                              <h4 className="text-sm font-semibold text-slate-700">No logs found</h4>
+                              <p className="text-xs text-slate-400 mt-1 max-w-[180px]">No operating expenses recorded within selected range.</p>
+                            </div>
+                          ) : (
+                            filteredExpenses.slice(0, 30).map((e) => (
+                              <div key={e.id} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs text-left space-y-2">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <span className="text-sm font-bold text-slate-800 block">{e.category}</span>
+                                    <span className="text-[10px] text-slate-400 font-mono block mt-0.5">#{e.id} | {new Date(e.timestamp).toLocaleDateString()}</span>
+                                  </div>
+                                  <span className="text-sm font-extrabold font-mono text-rose-600">
+                                    {currency}{e.amount.toLocaleString(undefined, {minimumFractionDigits: 1})}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-500 border-t border-slate-100 pt-2 leading-tight">
+                                  <strong className="text-slate-700">Debit details:</strong> {e.description}
+                                </p>
+                                <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 pt-1">
+                                  <span>Checked by: {e.staffName || 'Admin Operator'}</span>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {reportTab === 'product-monitoring' && (
+                <div className="space-y-4">
+                  {(() => {
+                    const prodPerfMap: Record<string, { name: string; sku: string; cost: number; price: number; margin: number; sold: number; rev: number; profit: number }> = {};
+                    filteredSales.forEach(s => {
+                      s.items.forEach(it => {
+                        if (!prodPerfMap[it.productId]) {
+                          const match = products.find(p => p.id === it.productId);
+                          prodPerfMap[it.productId] = {
+                            name: it.productName,
+                            sku: match?.sku || '',
+                            cost: match?.costPrice ?? 0,
+                            price: it.price,
+                            margin: it.price - (match?.costPrice ?? 0),
+                            sold: 0,
+                            rev: 0,
+                            profit: 0
+                          };
+                        }
+                        prodPerfMap[it.productId].sold += it.qty;
+                        prodPerfMap[it.productId].rev += it.qty * it.price;
+                        prodPerfMap[it.productId].profit += it.qty * (it.price - prodPerfMap[it.productId].cost);
+                      });
+                    });
+                    const list = Object.values(prodPerfMap).sort((a,b) => b.sold - a.sold);
+
+                    return (
+                      <div className="space-y-4 text-left">
+                        {/* Dropdown filter */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono text-left">Filter by specific Product:</label>
+                          <select
+                            value={selectedMonitoredProductId}
+                            onChange={(e) => setSelectedMonitoredProductId(e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-705 outline-none cursor-pointer"
+                          >
+                            <option value="all">Compare All Products</option>
+                            {products.map(p => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                         {/* Summary Metrics Grid */}
+                        {(() => {
+                          const isAll = selectedMonitoredProductId === 'all';
+                          const matchItems = isAll ? list : list.filter(item => {
+                            const pObj = products.find(p => p.id === selectedMonitoredProductId);
+                            return item.name === pObj?.name;
+                          });
+
+                          const totalUnits = matchItems.reduce((sum, item) => sum + item.sold, 0);
+                          const totalRevenue = matchItems.reduce((sum, item) => sum + item.rev, 0);
+                          const totalProfit = matchItems.reduce((sum, item) => sum + item.profit, 0);
+                          const avgMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+                          return (
+                            <>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                                  <div className="flex items-center space-x-1.5 text-indigo-505">
+                                    <ShoppingBag className="w-4 h-4" />
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Units Sold</span>
+                                  </div>
+                                  <span className="text-sm font-black text-slate-800 font-sans mt-2">{totalUnits} units</span>
+                                </div>
+
+                                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                                  <div className="flex items-center space-x-1.5 text-emerald-600">
+                                    <DollarSign className="w-4 h-4" />
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Gross Income</span>
+                                  </div>
+                                  <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(totalRevenue).toLocaleString()}</span>
+                                </div>
+
+                                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                                  <div className="flex items-center space-x-1.5 text-indigo-505">
+                                    <Percent className="w-4 h-4" />
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Average Margin</span>
+                                  </div>
+                                  <span className="text-sm font-black text-indigo-700 mt-2">{Math.round(avgMargin)}%</span>
+                                </div>
+
+                                <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                                  <div className="flex items-center space-x-1.5 text-emerald-600">
+                                    <TrendingUp className="w-4 h-4" />
+                                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Net Gross Profit</span>
+                                  </div>
+                                  <span className="text-sm font-black text-emerald-800 mt-2">{currency}{Math.round(totalProfit).toLocaleString()}</span>
+                                </div>
+                              </div>
+
+                              {/* Catalog Rankings list */}
+                              <div className="space-y-2.5">
+                                <h4 className="text-xs font-semibold text-slate-800 font-sans px-1 text-left">Profitability Rankings Contributions</h4>
+                                <div className="space-y-2">
+                                  {matchItems.length === 0 ? (
+                                    <p className="text-center text-slate-400 italic text-xs py-10 bg-white border border-slate-150 rounded-xl text-center">No stats found for product list.</p>
+                                  ) : (
+                                    matchItems.map((item, idx) => (
+                                      <div key={idx} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs text-left flex justify-between items-center animate-fade-in">
+                                        <div>
+                                          <div className="flex items-center space-x-1.5 justify-start">
+                                            <span className="text-[10px] font-mono font-bold text-indigo-650 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">Rank #{idx + 1}</span>
+                                            <span className="text-sm font-bold text-slate-800 block truncate max-w-[130px]">{item.name}</span>
+                                          </div>
+                                          <span className="text-[11px] text-slate-400 font-mono block mt-1.5 text-left">
+                                            SKU: {item.sku || 'N/A'} • Price: {currency}{item.price.toFixed(1)}
+                                          </span>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                          <span className="text-xs font-black text-slate-800 block font-mono">{item.sold} sold</span>
+                                          <span className="text-[11px] text-emerald-600 font-extrabold block font-mono mt-0.5">+{currency}{Math.round(item.profit).toLocaleString()}</span>
+                                        </div>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {reportTab === 'dual-channel' && (
+                <div className="space-y-4">
+                  {(() => {
+                    let retailRevenue = 0;
+                    let wholesaleRevenue = 0;
+                    let retailCogs = 0;
+                    let wholesaleCogs = 0;
+                    let retailOrders = 0;
+                    let wholesaleOrders = 0;
+
+                    filteredSales.forEach(sale => {
+                      const isWholesaleChannel = sale.channel === 'wholesale';
+                      if (isWholesaleChannel) {
+                        wholesaleOrders++;
+                      } else {
+                        retailOrders++;
+                      }
+
+                      sale.items.forEach(item => {
+                        const matchedProduct = products.find(p => p.id === item.productId);
+                        if (!matchedProduct) return;
+
+                        const qty = item.qty;
+                        const cost = matchedProduct.costPrice || 0;
+                        const revenue = qty * item.price;
+                        const cogs = qty * cost;
+
+                        if (isWholesaleChannel) {
+                          wholesaleRevenue += revenue;
+                          wholesaleCogs += cogs;
+                        } else {
+                          retailRevenue += revenue;
+                          retailCogs += cogs;
+                        }
+                      });
+                    });
+
+                    const retailProfit = retailRevenue - retailCogs;
+                    const wholesaleProfit = wholesaleRevenue - wholesaleCogs;
+
+                    return (
+                      <div className="space-y-4 font-sans text-left">
+                        {/* Summary Metrics Grid */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-indigo-500">
+                              <ShoppingBag className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Retail Sales</span>
+                            </div>
+                            <span className="text-sm font-black text-slate-820 mt-1">{retailOrders} checkouts</span>
+                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">{currency}{Math.round(retailRevenue).toLocaleString()}</span>
+                          </div>
+
+                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-amber-500">
+                              <Archive className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Wholesale Sales</span>
+                            </div>
+                            <span className="text-sm font-black text-slate-820 mt-1">{wholesaleOrders} checkouts</span>
+                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">{currency}{Math.round(wholesaleRevenue).toLocaleString()}</span>
+                          </div>
+
+                          <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-emerald-600">
+                              <TrendingUp className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Retail Margin</span>
+                            </div>
+                            <span className="text-sm font-black text-emerald-800 mt-1">{currency}{Math.round(retailProfit).toLocaleString()}</span>
+                          </div>
+
+                          <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-emerald-600">
+                              <TrendingUp className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Wholesale Margin</span>
+                            </div>
+                            <span className="text-sm font-black text-emerald-800 mt-1">{currency}{Math.round(wholesaleProfit).toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        {/* Store Catalog product price comparison listing */}
+                        <div className="space-y-2.5">
+                          <h4 className="text-xs font-semibold text-slate-800 px-1 font-sans text-left">Active Split Wholesale/Retail Profiles</h4>
+                          <div className="space-y-2 animate-fade-in">
+                            {products.map((p) => (
+                              <div key={p.id} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs text-left space-y-2">
+                                <div className="flex justify-between items-center text-left">
+                                  <span className="text-sm font-bold text-slate-800 truncate block max-w-[180px]">{p.name}</span>
+                                  <span className="text-[10px] text-slate-400 font-mono">{p.sku || 'N/A'}</span>
+                                </div>
+                                <div className="border-t border-slate-100 pt-2 grid grid-cols-2 text-[11px] gap-2">
+                                  <div className="text-left">
+                                    <span className="text-slate-400 block">Retail Price:</span>
+                                    <strong className="text-slate-800 font-mono">{currency}{p.sellingPrice.toFixed(1)}</strong>
+                                    <span className="block text-emerald-600 font-extrabold text-[10px] mt-0.5">{p.sellInRetail !== false ? '✓ Enabled' : '✖ Disabled'}</span>
+                                  </div>
+                                  <div className="border-l border-slate-100 pl-3 text-left">
+                                    <span className="text-slate-400 block">Wholesale Price:</span>
+                                    <strong className="text-slate-800 font-mono">{currency}{(p.wholesalePrice || p.sellingPrice * 0.9).toFixed(1)}</strong>
+                                    <span className="block text-emerald-600 font-extrabold text-[10px] mt-0.5">{p.sellInWholesale ? '✓ Enabled' : '✖ Disabled'}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {reportTab === 'deliveries' && (
+                <div className="space-y-4">
+                  {(() => {
+                    const validDeliveries = deliveries.filter(d => d.status !== 'Cancelled');
+                    const deliveryIncome = validDeliveries.reduce((sum, d) => sum + (Number(d.deliveryCost) || 0), 0);
+                    const deliveryExpensesList = expenses.filter(e => e.category === 'Delivery Expense' || e.category === 'Delivery Maintainance');
+                    const totalDeliveryExpenses = deliveryExpensesList.reduce((sum, e) => sum + e.amount, 0);
+                    const netDeliveryProfit = deliveryIncome - totalDeliveryExpenses;
+
+                    return (
+                      <div className="space-y-4 font-sans text-left">
+                        {/* Summary Metrics Grid */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-slate-500">
+                              <Truck className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider font-mono">Fulfillments</span>
+                            </div>
+                            <span className="text-sm font-black text-slate-800 mt-1">{validDeliveries.length} orders</span>
+                          </div>
+
+                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-indigo-500">
+                              <DollarSign className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider font-mono">Logistics Rev</span>
+                            </div>
+                            <span className="text-sm font-black text-slate-800 mt-1">{currency}{deliveryIncome.toLocaleString()}</span>
+                          </div>
+
+                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div className="flex items-center space-x-1.5 text-rose-500">
+                              <Receipt className="w-4 h-4" />
+                              <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider font-mono">Fleet Outflow</span>
+                            </div>
+                            <span className="text-sm font-black text-rose-600 mt-1">{currency}{totalDeliveryExpenses.toLocaleString()}</span>
+                          </div>
+
+                          <div className={`p-3 rounded-xl border shadow-xs flex flex-col justify-between min-h-[84px] text-left ${netDeliveryProfit >= 0 ? 'bg-emerald-50 border-emerald-150' : 'bg-rose-50 border-rose-150'}`}>
+                            <div className="flex items-center space-x-1.5">
+                              <TrendingUp className={`w-4 h-4 ${netDeliveryProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`} />
+                              <span className={`text-[10px] font-bold uppercase tracking-wider font-mono block ${netDeliveryProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>Net value margin</span>
+                            </div>
+                            <span className={`text-sm font-black mt-1 ${netDeliveryProfit >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>
+                              {netDeliveryProfit >= 0 ? '+' : ''}{currency}{netDeliveryProfit.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* List replacements */}
+                        <div className="space-y-2.5 animate-fade-in text-left">
+                          <div className="flex justify-between items-center px-1">
+                            <h4 className="text-xs font-semibold text-slate-805">Active Logistics List</h4>
+                            <span className="text-[10px] font-mono text-slate-400">{validDeliveries.length} entries</span>
+                          </div>
+
+                          {validDeliveries.length === 0 ? (
+                            <div className="bg-white border border-slate-150 text-center py-10 rounded-xl">
+                              <span className="block text-slate-350 text-2xl mb-2">🚚</span>
+                              <p className="text-xs text-slate-455 italic">No logistics delivery transactions logged yet.</p>
+                            </div>
+                          ) : (
+                            validDeliveries.slice(0, 30).map((del) => (
+                              <div key={del.id} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs space-y-2 text-left">
+                                <div className="flex justify-between items-start text-left">
+                                  <div>
+                                    <span className="text-sm font-bold text-slate-800 block truncate max-w-[140px] text-left">{del.customerName}</span>
+                                    <span className="text-[10px] font-mono text-slate-400 block mt-0.5 text-left">ID: #{del.id}</span>
+                                  </div>
+                                  <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider shrink-0 ${
+                                    del.status === 'Delivered' ? 'bg-emerald-100 text-emerald-800' :
+                                    del.status === 'Dispatched' ? 'bg-amber-100 text-amber-800' :
+                                    'bg-slate-100 text-slate-800'
+                                  }`}>
+                                    {del.status}
+                                  </span>
+                                </div>
+
+                                <div className="border-t border-slate-100 pt-2 grid grid-cols-2 text-[10px] text-slate-500 gap-1.5 leading-none">
+                                  <div className="text-left">
+                                    <span>Rider/Driver:</span>
+                                    <p className="font-bold text-slate-850 mt-1">{del.riderDetails?.name || del.riderId || 'Unassigned'}</p>
+                                  </div>
+                                  <div className="border-l border-slate-100 pl-3 text-right">
+                                    <span>Assigned Fee:</span>
+                                    <p className="font-mono font-bold text-indigo-700 mt-1">{currency}{Math.round(del.deliveryCost || 0).toLocaleString()}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {reportTab === 'velocity' && (
+                <div className="space-y-4">
+                  {(() => {
+                    const prodSells: Record<string, { name: string; sku: string; barcode: string; cat: string; qty: number }> = {};
+                    products.forEach(p => {
+                      prodSells[p.id] = { name: p.name, sku: p.sku || '', barcode: p.barcode || '', cat: p.category || '', qty: 0 };
+                    });
+                    filteredSales.forEach(s => {
+                      s.items.forEach(it => {
+                        if (prodSells[it.productId]) {
+                          prodSells[it.productId].qty += it.qty;
+                        }
+                      });
+                    });
+                    const sorted = Object.values(prodSells).sort((a,b) => b.qty - a.qty);
+                    return (
+                      <div className="space-y-4 text-left">
+                        <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="flex items-center space-x-1.5 text-indigo-500">
+                            <TrendingUp className="w-4 h-4" />
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Top Velocity SKU</span>
+                          </div>
+                          <span className="text-sm font-black text-slate-800 mt-2">{sorted[0]?.name || 'N/A'}</span>
+                          <span className="text-[10px] text-slate-400 font-mono mt-0.5">{sorted[0]?.qty || 0} unit sales recently</span>
+                        </div>
+
+                        <div className="space-y-2.5 text-left">
+                          <h4 className="text-xs font-semibold text-slate-800 px-1 font-sans text-left">Relative Unit Sales Speed (30 Days)</h4>
+                          <div className="space-y-2 animate-fade-in">
+                            {sorted.map((item, idx) => (
+                              <div key={idx} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs text-left flex justify-between items-center">
+                                <div>
+                                  <span className="text-sm font-bold text-slate-800 block truncate max-w-[170px]">{item.name}</span>
+                                  <span className="text-xs text-slate-400 block mt-1">Barcode: {item.barcode || 'N/A'} • Doc: {item.sku || 'N/A'}</span>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="text-sm font-extrabold text-slate-900 block">{item.qty} units</span>
+                                  <span className="text-[11px] text-emerald-600 font-extrabold block mt-0.5">{(item.qty / 30).toFixed(2)} / day</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ------------------------------------------------------------- */}

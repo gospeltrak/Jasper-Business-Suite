@@ -250,7 +250,7 @@ export default function DashboardForecasting({
   // Track success states of local simulation restocks
   const [restockedSkus, setRestockedSkus] = useState<Record<string, boolean>>({});
 
-  // Lucy AI Chat Assistant Section States
+  // Lucy Chat Assistant Section States
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
@@ -258,9 +258,9 @@ export default function DashboardForecasting({
 
   const categories = ['All', ...Array.from(new Set(products.map(p => p.category)))];
 
-  // Initialize Lucy AI Greeting
+  // Initialize Lucy Greeting
   useEffect(() => {
-    const enGreeting = `Hi! I am Lucy, your dedicated Business & Forecasting AI Companion. I have fully analyzed your system configuration, local branch settings, catalog records and cash ledger summaries. Ask me custom forecasting questions, trend analysis, or suggest products to add around your niche!`;
+    const enGreeting = `Hi! I am Lucy, your dedicated Business & Forecasting Companion. I have fully analyzed your system configuration, local branch settings, catalog records and cash ledger summaries. Ask me custom forecasting questions, trend analysis, or suggest products to add around your niche!`;
     
     setChatMessages([
       {
@@ -496,7 +496,7 @@ export default function DashboardForecasting({
       if (isGeneralKnowledgeOut) {
         setTimeout(() => {
           const swText = `Samahani sana, mimi kama Lucy msaidizi wako wa biashara, ninaruhusiwa tu kusaidia masuala ya kiutawala, usimamizi wa stoki, makadirio ya fedha na mauzo ya duka lako. Kwa maswali mengine ya kawaida yaliyo nje ya biashara, nakushauri utumie mtandao wa Google au mifumo mingine.`;
-          const enText = `I apologize, but as Lucy, your dedicated Business AI assistant, my boundaries are strictly focused on shop management, inventory metrics, and financial forecasting. For queries outside of business administration, I recommend consulting general web search engines like Google or appropriate public references.`;
+          const enText = `I apologize, but as Lucy, your dedicated Business assistant, my boundaries are strictly focused on shop management, inventory metrics, and financial forecasting. For queries outside of business administration, I recommend consulting general web search engines like Google or appropriate public references.`;
           
           setChatMessages(prev => [
             ...prev,
@@ -581,7 +581,7 @@ export default function DashboardForecasting({
             <h2 className="text-xl font-bold tracking-tight text-slate-800">Advanced Business Projections & Catalog Trends</h2>
           </div>
           <p className="text-xs text-slate-450 leading-relaxed font-sans">
-            Lucy AI analyzes historical transactions ledger, category curves, and cash-flow reserves to project 1-month, 3-month, and annual forecasting.
+            Lucy analyzes historical transactions ledger, category curves, and cash-flow reserves to project 1-month, 3-month, and annual forecasting.
           </p>
         </div>
 
@@ -591,7 +591,7 @@ export default function DashboardForecasting({
           className="bg-slate-900 hover:bg-slate-800 text-white font-sans text-xs px-4 py-2.5 rounded-xl flex items-center justify-center space-x-2 border-none cursor-pointer transition-all active:scale-95 disabled:opacity-50 select-none shadow-sm"
         >
           <RefreshCw className={`w-4 h-4 text-emerald-400 ${loading ? 'animate-spin' : ''}`} />
-          <span>{forecastData ? 'Re-Analyze System Projections' : 'Run Lucy AI Projections'}</span>
+          <span>{forecastData ? 'Re-Analyze System Projections' : 'Run Lucy Projections'}</span>
         </button>
       </div>
 
@@ -613,7 +613,7 @@ export default function DashboardForecasting({
             <Sparkles className="w-8 h-8 text-slate-400 animate-pulse" />
           </div>
           <div className="space-y-1.5">
-            <h4 className="text-sm font-bold text-slate-800">Lucy AI Diagnostics Standby</h4>
+            <h4 className="text-sm font-bold text-slate-800">Lucy Diagnostics Standby</h4>
             <p className="text-xs text-slate-450 font-sans leading-relaxed">
               No predictive modeling has been compiled yet. Click the button below to generate full sales demand, expenses projections, best sellers suggestions, and industry expansions for the active <b>{activeTenant.name}</b> branch in <b>{activeTenant.city} ({activeTenant.businessType})</b>.
             </p>
@@ -623,7 +623,7 @@ export default function DashboardForecasting({
             className="inline-flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-3 rounded-xl border-none cursor-pointer shadow transition-all active:scale-95"
           >
             <Sparkles className="w-4 h-4" />
-            <span>Generate Projections with Lucy AI</span>
+            <span>Generate Projections with Lucy</span>
           </button>
         </div>
       )}
@@ -1121,7 +1121,7 @@ export default function DashboardForecasting({
 
           </div>
 
-          {/* RIGHT: DEDICATED LUCY AI COMPANION chat box */}
+          {/* RIGHT: DEDICATED LUCY COMPANION chat box */}
           <div className="space-y-6 flex-1">
 
             {/* CONVERSATIONAL MODERN MESSENGER */}
@@ -1139,7 +1139,7 @@ export default function DashboardForecasting({
                   </div>
                   <div>
                     <div className="flex items-center space-x-1.5">
-                      <h4 className="text-sm font-bold text-slate-900 tracking-tight">Lucy AI Companion</h4>
+                      <h4 className="text-sm font-bold text-slate-900 tracking-tight">Lucy Companion</h4>
                       <span className="bg-emerald-50 text-emerald-700 text-[8px] font-mono font-black px-1 py-0.5 rounded uppercase tracking-wider scale-95 border border-emerald-100">
                         ACTIVE
                       </span>

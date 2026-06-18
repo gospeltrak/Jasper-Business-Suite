@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from '../LanguageContext';
+import PrivacyAndTermsModals from './PrivacyAndTermsModals';
 import { 
   Store, 
   ShoppingCart, 
@@ -31,9 +33,9 @@ import {
   Youtube,
   Instagram,
   Facebook,
-  Twitter,
   Sun,
-  Moon
+  Moon,
+  Menu
 } from 'lucide-react';
 
 const TRANSLATIONS: Record<string, Record<string, string>> = {
@@ -78,14 +80,14 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     advancedDesc: "Simple solutions to keep your cash registers working always.",
     featOfflineTitle: "Offline Cashier Desk",
     featOfflineDesc: "No internet or power goes out? No problem. Keep selling as normal and sync when network is restored.",
-    featLedgerTitle: "Multi-Country Currency",
-    featLedgerDesc: "Supports TZS, KES, and NGN currencies with local tax rates easily.",
+    featLedgerTitle: "Stock & Expiry Alerts",
+    featLedgerDesc: "Track stock quantities, receive automatic low-stock notifications, and monitor medicine/product expiry dates easily.",
     featGatewayTitle: "Mobile Money Check",
     featGatewayDesc: "Invoices connect directly with M-Pesa, Tigo, and Airtel Money to verify transactions quickly.",
     testimonialHeader: "Successful Businesses",
     testimonialSub: "What other shop owners say",
     mustafaSay: "We were losing sales when the internet was down. Since starting with Jasper's offline cashier, sales never stop.",
-    kwameSay: "Managing medicine lists was hard. Then we got Jasper—Lucy AI sorted everything out easily. Perfect.",
+    kwameSay: "Managing medicine lists was hard. Then we got Jasper—Lucy sorted everything out easily. Perfect.",
     fatumaSay: "The hotel room booking works wonderfully. Our local receptionist team learned to use it in five minutes.",
     mustafaRole: "Restaurant Owner • Dar es Salaam",
     kwameRole: "Dispensary Director • Kisumu",
@@ -107,14 +109,19 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     limitPremium: "Unlimited Products • 10 Stores • Unlimited Users",
     featureReport: "Standard POS transaction reports",
     featureNoExpiry: "Expiry date tracker & alerts",
-    featureAiHelp: "Direct Lucy AI assistance",
+    featureAiHelp: "Direct Lucy assistance",
     featureVip: "VIP priority assistance support",
     choosePlan: "Choose Plan",
     startFree: "Start Trial Free",
     faqHeader: "Common Questions",
     aboutCompany: "Company Info",
     contactSupport: "Contact Us",
-    callLucy: "Ask Lucy AI",
+    callLucy: "Ask Lucy",
+    getInTouch: "Get In Touch",
+    directAssistance: "Direct Assistance & On-Site Deployments",
+    contactDesc: "Need on-site installation, hardware mapping, or personalized training? Contact our local regional agents immediately to deploy an deployment installer to your desk.",
+    callLocalAgent: "Call Local Agent",
+    contactDeployments: "Contact Deployments",
     privacyText: "Privacy Policy",
     privacyModalTitle: "Jasper Suite Privacy Policy",
     privacyIntro: "We protect your business data under strict legal rules:",
@@ -149,30 +156,30 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     stockDesc: "Fuatilia idadi ya bidhaa zako na upate taarifa zikiisha.",
     offlineTitle: "Inafanya Kazi Bure Bila Internet",
     offlineDesc: "Inafanya kazi 100% bila internet. Pokea malipo ya simu haraka.",
-    meetLucy: "Kutana na Malika Lucy AI",
-    lucyDesc: "Msaidizi wako rafiki wa AI atakayejibu maswali na kukuza biashara.",
+    meetLucy: "Kutana na Lucy",
+    lucyDesc: "msaidizi na rafiki yako wa karibu atakayekusaidia kutumia mfumo na kukuza biashara yako",
     creed: "Jasper inasaidia biashara yako kukua zaidi!",
     getStarted: "Anza Sasa - Ni Bure",
     offlineMetric: "Bila Mtandao",
     syncMetric: "Sawazisha Haraka",
     aiMetric: "Msaidizi wa AI",
-    aboutTitle: "Usaidizi Bila Mtandao kwa Biashara Zote",
-    aboutDesc: "Tuliunda Jasper ili mtandao mbaya usizue mauzo yako. Iwe upo Dar, Mbeya, au Nairobi, keshdroo yako itaendelea kufanya kazi.",
-    aboutSupport: "Ofisi halisi za karibu",
+    aboutTitle: "usaidizi wa biashara yako bila mtandao",
+    aboutDesc: "jasper imeundwa ili kukusaidia kusimimamia na kukuza biashara yako popote ulipo. jasper inarahisisha iwe upo dar mbeya au nairobi biashara yako iko mikononi mwako.",
+    aboutSupport: "msaada wa haraka unapokwama",
     aboutCurrency: "Marekebisho rahisi ya kodi",
-    aboutEndpoints: "Zaidi ya maduka 2,400+ yanayotumia",
+    aboutEndpoints: "zaidi ya maduka 1000+ yanayotumia",
     advancedCapabilities: "Vipengele Muhimu",
     advancedDesc: "Njia rahisi za kuhakikisha mashine za mauzo zinafanya kazi kila wakati.",
-    featOfflineTitle: "Keshia ya Bila Mtandao",
+    featOfflineTitle: "mauzo bil ya mtandao",
     featOfflineDesc: "Je, hakuna internet au umeme ikikatika? Hakuna shida. Mauzo yanaendelea na kujisawazisha mtandao ukirudi.",
-    featLedgerTitle: "Sarafu za Nchi Tofauti",
-    featLedgerDesc: "Inasaidia sarafu za TZS, KES, na NGN pamoja na viwango vya kodi kwa urahisi.",
+    featLedgerTitle: "Usimamizi wa Stoki & Taarifa za Bidhaa",
+    featLedgerDesc: "Fuatilia idadi ya bidhaa zako kwa urahisi, pokea taarifa stoki inapopungua, na uzuie hasara kwa kufuatilia tarehe za kuharibika kwa bidhaa.",
     featGatewayTitle: "Hakiki Malipo ya Simu",
     featGatewayDesc: "Inaungana moja kwa moja na M-Pesa, Tigo Pesa, na Airtel Money ili kuhakiki malipo kwa sekunde chache.",
     testimonialHeader: "Biashara Zinazofanikiwa",
     testimonialSub: "Maudhui kutoka kwa wamiliki wa maduka",
     mustafaSay: "Tulipoteza mauzo mtandao ulipokatika. Tangu tuanze kutumia keshia ya bila mtandao ya Jasper, mauzo hayajawahi kusimama.",
-    kwameSay: "Kupanga orodha za dawa ilikuwa ngumu sana. Baada ya kupata Jasper, Lucy AI alimaliza tatizo huo kwa urahisi. Safi kabisa.",
+    kwameSay: "Kupanga orodha za dawa ilikuwa ngumu sana. Baada ya kupata Jasper, Lucy alimaliza tatizo huo kwa urahisi. Safi kabisa.",
     fatumaSay: "Mfumo wa vyumba vya hoteli unafanya kazi vizuri. Wafanyakazi wetu walijifunza kuutumia kwa dakika tano tu.",
     mustafaRole: "Mmiliki wa Mgahawa • Dar es Salaam",
     kwameRole: "Mkurugenzi wa Famasia • Kisumu",
@@ -194,18 +201,23 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     limitPremium: "Idadi ya Bidhaa Bila Kikomo • Maduka 10",
     featureReport: "Ripoti za Mauzo za Kawaida",
     featureNoExpiry: "Kufuatilia tarehe ya mwisho wa bidhaa",
-    featureAiHelp: "Usaidizi wa Lucy AI",
+    featureAiHelp: "Usaidizi wa Lucy",
     featureVip: "Msaada maalum kwanza",
     choosePlan: "Chagua Kifurushi",
     startFree: "Anza Majaribio Bure",
     faqHeader: "Maswali ya Mara kwa Mara",
     aboutCompany: "Maelezo ya Kampuni",
     contactSupport: "Wasiliana nasi",
-    callLucy: "Ongea na Lucy AI",
+    callLucy: "Ongea na Lucy",
+    getInTouch: "Wasiliana Nasi",
+    directAssistance: "Msaada wa Moja kwa Moja na Huduma za Kukufikia Ulipo",
+    contactDesc: "Unahitaji kuunganishwa, kusaidiwa kutumia mfumo, au mafunzo ya moja kwa moja? Wasiliana na mawakala wetu wa karibu tukufikie na kukusaidia mpaka ofisini kwako.",
+    callLocalAgent: "Piga Simu kwa Wakala wa Karibu",
+    contactDeployments: "Wasiliana kwa Huduma ya Ufungaji",
     privacyText: "Sera ya Faragha",
     privacyModalTitle: "Sera ya Faragha ya Jasper Suite",
     privacyIntro: "Tunalinda data zako za biashara kwa sheria zifuatazo:",
-    privacyPoint1: "Faragha ya Kifaa: Mauzo yako ya siku yanahifadhiwa kwa usiri mkubwa ndani ya kifaa chako mwenyewe.",
+    privacyPoint1: "Faragha ya Kifaa: Mauzo yako ya siku yanahifadhiwa kwa usiri mkubwa ndani ya kifaa chako mwenwe.",
     privacyPoint2: "Usaidizi wa Mtandao: Data inayotumwa kwenye mtandao inalindwa kwa njia salama za kisasa.",
     privacyPoint3: "Hakuna Kushiriki Data: Kamwe hatuuzi au kugawa ripoti zako za mauzo kwa kampuni nyingine.",
     privacyPoint4: "Haki ya Kufuta: Unaweza kufuta kabisa data zako zote kwenye mtandao na kwenye kifaa chako wakati wowote.",
@@ -236,7 +248,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     stockDesc: "Sigue tus productos con alertas de bajo nivel de stock.",
     offlineTitle: "Funciona Sin Internet",
     offlineDesc: "Funciona 100% sin internet. Recibe pagos móviles al instante.",
-    meetLucy: "Conoce a Lucy AI",
+    meetLucy: "Conoce a Lucy",
     lucyDesc: "Tu asesora inteligente lista para responder preguntas y ayudarte a crecer.",
     creed: "¡Jasper ayuda a que tu negocio crezca más!",
     getStarted: "Comienza Gratis",
@@ -259,7 +271,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     testimonialHeader: "Clientes Felices",
     testimonialSub: "Lo que dicen los dueños de tiendas",
     mustafaSay: "Perdíamos ventas cuando se caía el internet. Desde que usamos Jasper sin conexión, las ventas nunca se detienen.",
-    kwameSay: "Controlar las medicinas era difícil. Lucy AI de Jasper ordenó todo fácilmente. Excelente.",
+    kwameSay: "Controlar las medicinas era difícil. Lucy de Jasper ordenó todo fácilmente. Excelente.",
     fatumaSay: "El sistema de reservas de hotel funciona genial. Las recepcionistas aprendieron en cinco minutos.",
     mustafaRole: "Dueño de Restaurante • Dar es Salaam",
     kwameRole: "Director de Farmacia • Kisumu",
@@ -281,14 +293,14 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     limitPremium: "Productos Ilimitados • 10 Tiendas • Personal Ilimitado",
     featureReport: "Informes estándar de ventas",
     featureNoExpiry: "Control de fechas de vencimiento",
-    featureAiHelp: "Asistencia de Lucy AI",
+    featureAiHelp: "Asistencia de Lucy",
     featureVip: "Atención prioritaria y rápida",
     choosePlan: "Elegir Plan",
     startFree: "Probar Gratis",
     faqHeader: "Preguntas Frecuentes",
     aboutCompany: "Información de la Empresa",
     contactSupport: "Escríbenos",
-    callLucy: "Pregúntale a Lucy AI",
+    callLucy: "Pregúntale a Lucy",
     privacyText: "Política de Privacidad",
     privacyModalTitle: "Política de Privacidad de Jasper Suite",
     privacyIntro: "Protegemos tus datos comerciales bajo reglas legales estrictas:",
@@ -323,7 +335,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     stockDesc: "Faites le point de vos stocks avec des alertes simples de baisse.",
     offlineTitle: "Fonctionne Sans Connexion",
     offlineDesc: "Marche à 100% sans internet. Reçoit les paiements mobiles de suite.",
-    meetLucy: "Découvrez Lucy AI",
+    meetLucy: "Découvrez Lucy",
     lucyDesc: "Votre assistante intelligente qui répond à vos questions et vous aide à grandir.",
     creed: "Jasper aide votre commerce à grandir plus haut !",
     getStarted: "Commencer Gratuitement",
@@ -346,7 +358,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     testimonialHeader: "Commerçants Heureux",
     testimonialSub: "Ce que disent les propriétaires",
     mustafaSay: "On perdait des ventes en cas de coupure réseau. Depuis qu'on a Jasper sans internet, la caisse n'arrête pas.",
-    kwameSay: "L'inventaire des remèdes était fatiguant. Notre assistante IA Lucy a tout réglé avec plaisir.",
+    kwameSay: "L'inventaire des remèdes était fatiguant. Notre assistante Lucy a tout réglé avec plaisir.",
     fatumaSay: "Le planning des chambres d'hôtel est super. Nos agents ont appris à l'utiliser en cinq minutes seulement.",
     mustafaRole: "Chef de Restaurant • Dar es Salaam",
     kwameRole: "Gérant de Pharmacie • Kisumu",
@@ -368,14 +380,14 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     limitPremium: "Produits illimités • 10 Boutiques • Personnel illimité",
     featureReport: "Rapports de caisse réguliers",
     featureNoExpiry: "Alertes sur les dates d'expiration",
-    featureAiHelp: "Soutien direct de Lucy AI",
+    featureAiHelp: "Soutien direct de Lucy",
     featureVip: "Assistance VIP rapide",
     choosePlan: "Choisir ce Plan",
     startFree: "Essayer Gratuitement",
     faqHeader: "Questions Fréquentes",
     aboutCompany: "Infos de l'Entreprise",
     contactSupport: "Nous Contacter",
-    callLucy: "Consulter Lucy AI",
+    callLucy: "Consulter Lucy",
     privacyText: "Règles de Confidentialité",
     privacyModalTitle: "Confidentialité de Jasper Suite",
     privacyIntro: "Nous protégeons rigoureusement vos données de vente :",
@@ -410,7 +422,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     stockDesc: "Tieni il conto del magazzino e ricevi avvisi quando il prodotto scarseggia.",
     offlineTitle: "Funziona Senza Internet",
     offlineDesc: "Attivo al 100% senza rete. Ricevi i pagamenti dei cellulari sul momento.",
-    meetLucy: "Incontra Lucy AI",
+    meetLucy: "Incontra Lucy",
     lucyDesc: "La tua aiutante intelligente pronta a rispondere e a far crescere i tuoi affari.",
     creed: "Jasper spinge la tua attività ancora più in alto!",
     getStarted: "Comincia Gratis",
@@ -433,7 +445,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     testimonialHeader: "Commercianti Felici",
     testimonialSub: "Cosa dicono i nostri clienti",
     mustafaSay: "Perdevamo soldi quando saltava la rete. Grazie alla cassa offline di Jasper, adesso vendiamo senza sosta.",
-    kwameSay: "Organizzare l'elenco dei farmaci era un tormento. Lucy AI di Jasper ha sistemato tutto in modo facile.",
+    kwameSay: "Organizzare l'elenco dei farmaci era un tormento. Lucy di Jasper ha sistemato tutto in modo facile.",
     fatumaSay: "Il sistema di prenotazione camere funziona molto bene. I dipendenti hanno imparato la cassa in cinque minuti.",
     mustafaRole: "Proprietario Ristorante • Dar es Salaam",
     kwameRole: "Direttore di Farmacia • Kisumu",
@@ -455,14 +467,14 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     limitPremium: "Articoli illimitati • 10 Negozi • Staff illimitato",
     featureReport: "Statistiche e resoconti cassa",
     featureNoExpiry: "Verifica date di scadenza dei lotti",
-    featureAiHelp: "Supporto diretto di Lucy AI",
+    featureAiHelp: "Supporto diretto di Lucy",
     featureVip: "Assistenza VIP immediata",
     choosePlan: "Scegli questo Piano",
     startFree: "Inizia Prova Gratis",
     faqHeader: "Domande Comuni",
     aboutCompany: "Informazioni Azienda",
     contactSupport: "Parla con Noi",
-    callLucy: "Chiedi a Lucy AI",
+    callLucy: "Chiedi a Lucy",
     privacyText: "Norme Sulla Privacy",
     privacyModalTitle: "Informativa sulla Privacy Jasper Suite",
     privacyIntro: "Rispettiamo e proteggiamo i tuoi dati di vendita con cura:",
@@ -542,7 +554,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     limitPremium: "منتجات بلا حدود • ١٠ فروع • موظفين بلا قيود",
     featureReport: "تقارير حسابات مبيعات قياسية",
     featureNoExpiry: "متابعة تواريخ انتهاء الصلاحية",
-    featureAiHelp: "مساعدة مخصصة عبر الذكاء لوسي",
+    featureAiHelp: "مساعدة مخصصة عبر لوسي",
     featureVip: "أولوية دعم فني سريع للغاية VIP",
     choosePlan: "اختر هذه الخطة",
     startFree: "ابدأ التجربة مجاناً",
@@ -585,7 +597,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     offlineTitle: "不依赖网络运行",
     offlineDesc: "100% 支持离线操作。即使停网断电，也能瞬间完成收款。",
     meetLucy: "与智能助手 Lucy 相识",
-    lucyDesc: "您的友好 AI 助手，随时解答疑问并提供业务优化建议。",
+    lucyDesc: "您的友好助手，随时解答疑问并提供业务优化建议。",
     creed: "Jasper 助您的生意蓬勃发展，更上一层楼！",
     getStarted: "免费开始使用",
     offlineMetric: "离线结账支持",
@@ -607,7 +619,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     testimonialHeader: "成功的商家",
     testimonialSub: "听听其他店主怎么说",
     mustafaSay: "以前网络不稳定时，我们的美食广场每天至少损失15%的生意。使用 Jasper 的离线功能后，收银从未中断过！",
-    kwameSay: "药店以前药品的繁杂管理耗费了我们很多精力。有了 Jasper，人工智能助理 Lucy 帮我们打理得有言不虚。太好用了！",
+    kwameSay: "药店以前药品的繁杂管理耗费了我们很多精力。有了 Jasper，智能助理 Lucy 帮我们打理得有言不虚。太好用了！",
     fatumaSay: "酒店房间预订系统运行十分顺畅。前台人员都在短短五分钟内轻松学会使用了。",
     mustafaRole: "餐厅老板 • 达累斯萨拉姆",
     kwameRole: "药房总监 • 基苏木",
@@ -671,8 +683,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     stockDesc: "सामान की संख्या पर नज़र रखें और खत्म होने पर तुरंत जानें.",
     offlineTitle: "बिना इंटरनेट चलेगा",
     offlineDesc: "बिजली या इंटरनेट न होने पर भी 100% चलेगा. तुरंत पेमेंट लें.",
-    meetLucy: "मिलिए लकी AI से",
-    lucyDesc: "आपकी मददगार AI साथी जो सवाल के जवाब देती है और व्यापार बढ़ाती है.",
+    meetLucy: "मिलिए लकी से",
+    lucyDesc: "आपकी मददगार साथी जो सवाल के जवाब देती है और व्यापार बढ़ाती है.",
     creed: "जैस्पर आपके व्यापार को और आगे बढ़ाएगा!",
     getStarted: "मुफ़्त शुरू करें",
     offlineMetric: "बिना इंटरनेट",
@@ -694,7 +706,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     testimonialHeader: "सफल दुकानदार",
     testimonialSub: "बाकी दुकानदारों की जुबानी",
     mustafaSay: "इंटरनेट बंद होने पर हमारा नुकसान होता था. जब से हमने जैविक जैस्पर शुरू किया है, बिक्री कभी नहीं रुकती.",
-    kwameSay: "दवाइयों की लिस्ट बनाना बहुत कठिन था. जैस्पर की AI लकी ने सब कुछ चुटकियों में आसान कर दिया.",
+    kwameSay: "दवाइयों की लिस्ट बनाना बहुत कठिन था. जैस्पर की लकी ने सब कुछ चुटकियों में आसान कर दिया.",
     fatumaSay: "हलांकि होटल के कमरों की बुकिंग कमाल की है. हमारे कर्मचारियों ने इसे सिर्फ पांच मिनट में सीख लिया.",
     mustafaRole: "रेस्टोरेंट मालिक • दार एस सलाम",
     kwameRole: "फार्मेसी डायरेक्टर • किसुमू",
@@ -716,14 +728,14 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     limitPremium: "असीमित सामान • 10 दुकानें • असीमित स्टाफ",
     featureReport: "आसान बिक्री रिपोर्ट",
     featureNoExpiry: "दवा खत्म होने की तारीख",
-    featureAiHelp: "AI लकी की मदद",
+    featureAiHelp: "लकी की मदद",
     featureVip: "VIP वीआईपी तुरंत मदद",
     choosePlan: "प्लान चुनें",
     startFree: "फ्री में शुरू करें",
     faqHeader: "सवाल और जवाब",
     aboutCompany: "कंपनी की जानकारी",
     contactSupport: "हमसे बात करें",
-    callLucy: "AI लकी से बात करें",
+    callLucy: "लकी से बात करें",
     privacyText: "गोपनीयता नीति",
     privacyModalTitle: "जैस्पर सुइट गोपनीयता सुरक्षा नियम",
     privacyIntro: "हम आपके व्यापार का डेटा इन कड़े नियमों के तहत सुरक्षित रखते हैं:",
@@ -743,20 +755,10 @@ interface LandingPageProps {
 
 export default function LandingPage({ onNavigate, isDark = false, onToggleTheme }: LandingPageProps) {
   const [currency, setCurrency] = useState<'TZS' | 'KES' | 'NGN'>('TZS');
-  const [lang, setLang] = useState<'en' | 'sw' | 'ar' | 'fr'>(() => {
-    const cached = localStorage.getItem('jasper_lang');
-    return (cached && ['en', 'sw', 'ar', 'fr'].includes(cached))
-      ? (cached as any)
-      : 'en';
-  });
+  const { lang, setLang } = useTranslation();
 
+  // 1. Fast fallback geo detection using browser timezone and navigator settings
   useEffect(() => {
-    localStorage.setItem('jasper_lang', lang);
-    window.dispatchEvent(new CustomEvent('jasper_lang_changed', { detail: lang }));
-  }, [lang]);
-
-  useEffect(() => {
-    // 1. Fast fallback geo detection using browser timezone and navigator settings
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       if (tz) {
@@ -782,9 +784,19 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
     }
 
     // 2. High-precision dynamic IP location lookup
-    fetch('https://ipapi.co/json/')
-      .then(res => res.json())
-      .then(data => {
+    const detectLocation = async () => {
+      try {
+        const res = await fetch('https://ipapi.co/json/');
+        if (!res.ok) {
+          setCurrency('TZS');
+          return;
+        }
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          setCurrency('TZS');
+          return;
+        }
+        const data = await res.json();
         if (data && data.country_code) {
           const code = data.country_code.toUpperCase();
           if (code === 'KE') {
@@ -795,13 +807,16 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             setCurrency('TZS');
           }
         }
-      })
-      .catch(err => {
-        console.warn("Dynamic geolocation lookup failed (using timezone fallback):", err);
-      });
+      } catch (err) {
+        // Silently fall back to default timezone (Africa/Dar_es_Salaam -> TZS) without throwing any error or warning
+        setCurrency('TZS');
+      }
+    };
+    detectLocation();
   }, []);
 
   const [showLangMenu, setShowLangMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   
   // Custom landing values state loaded from localstorage
   const [customValues, setCustomValues] = useState<Record<string, string>>(() => {
@@ -843,14 +858,14 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           color: "emerald"
         },
         {
-          quote: "Integrating generic classification drugs generic names inside Kisumu used to occupy our pharmacists for days. Then we launched Jasper—Lucy AI resolved everything automatically. Highly recommended!",
+          quote: "Integrating generic classification drugs generic names inside Kisumu used to occupy our pharmacists for days. Then we launched Jasper—Lucy resolved everything automatically. Highly recommended!",
           name: "Dr. Kwame Osei",
           role: "Dispensary Director • Kisumu Pharmacy",
           initials: "KO",
           color: "teal"
         },
         {
-          quote: "Jasper's Hotel suite PMS checked-in our room listings flawlessly. Seasonal rates surge works with zero configuration, and having direct support in Swahili inside checkout from AI assistant makes training receptionist very easy.",
+          quote: "Jasper's Hotel suite PMS checked-in our room listings flawlessly. Seasonal rates surge works with zero configuration, and having direct support in Swahili inside checkout from assistant makes training receptionist very easy.",
           name: "Fatuma Mrisho",
           role: "Managing Director • Arusha Lodge",
           initials: "FM",
@@ -903,14 +918,18 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
   // Custom interactive tab for the right column section of the hero
   const [activeHeroTab, setActiveHeroTab] = useState<'retail' | 'restaurant' | 'pharmacy' | 'hotel'>('retail');
 
+  // Privacy Policy and Terms and Conditions Modals
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
+
   // Accordion state tracker for collapsible FAQs
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
 
-  // Floating Lucy AI Chat Bubble states
+  // Floating Lucy Chat Bubble states
   const [isLucyOpen, setIsLucyOpen] = useState(false);
   const [lucyInput, setLucyInput] = useState('');
   const [lucyMessages, setLucyMessages] = useState<Array<{ sender: 'lucy' | 'user'; text: string; time: string }>>([
-    { sender: 'lucy', text: "Hi, I'm Lucy, your AI assistant. Ask me anything about Jasper.", time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) }
+    { sender: 'lucy', text: "Hi, I'm Lucy, your assistant. Ask me anything about Jasper.", time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) }
   ]);
   const [isLucyThinking, setIsLucyThinking] = useState(false);
 
@@ -1083,11 +1102,12 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       
       {/* Floating Glass Header with Updated Navigation Tabs Layout */}
       <header id="landing-header" className={`sticky top-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${isDark ? 'bg-slate-950/80 border-slate-900/60' : 'bg-white/80 border-slate-200 shadow-xs'}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+        {/* Desktop Header Layout */}
+        <div className="hidden lg:flex max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 items-center justify-between">
           
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => onNavigate('/')}>
-            <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/25 flex items-center justify-center">
-              <Store className="w-6 h-6 text-emerald-400 stroke-[1.75]" />
+            <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm flex items-center justify-center">
+              <img src={t.systemLogo || "/icon.svg"} alt="Jasper Suite Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <span className={`text-xl font-bold tracking-tight focus:outline-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
@@ -1135,14 +1155,14 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             <button 
               id="header-btn-login"
               onClick={() => onNavigate('/login')}
-              className={`text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer px-4 py-2 ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`text-[13.5px] font-bold uppercase tracking-wider transition-colors cursor-pointer px-2 flex items-center h-[28px] ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`}
             >
               {t.signIn}
             </button>
             <button 
               id="header-btn-signup"
               onClick={() => onNavigate('/login?register=true')}
-              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold uppercase tracking-widest px-5 py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/10 active:scale-95 cursor-pointer"
+              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[12px] font-bold uppercase tracking-widest px-3 h-[28px] rounded-full transition-all shadow-lg shadow-emerald-500/10 active:scale-95 cursor-pointer flex items-center justify-center"
             >
               {t.freeTrial}
             </button>
@@ -1150,14 +1170,14 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             {/* Day / Dark Mode Toggle Switch */}
             <button
               onClick={() => onToggleTheme?.()}
-              className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+              className={`w-[28px] h-[28px] rounded-lg border transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                 isDark 
                   ? 'bg-slate-900 border-slate-800 text-amber-400 hover:bg-slate-800' 
                   : 'bg-white border-slate-200 text-indigo-600 hover:bg-slate-100 shadow-xs'
               }`}
               title={isDark ? "Switch to Day Mode" : "Switch to Dark Mode"}
             >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {isDark ? <Sun className="w-[14px] h-[14px]" /> : <Moon className="w-[14px] h-[14px]" />}
             </button>
 
             {/* Beautiful Multi-Language Dropdown displaying chosen code with a Globe Icon */}
@@ -1186,8 +1206,8 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
                     {[
                       { code: 'en', label: 'English' },
                       { code: 'sw', label: 'Swahili' },
-                      { code: 'ar', label: 'Arabic' },
-                      { code: 'fr', label: 'French' }
+                      { code: 'ar', label: '🇸🇦 العربية' },
+                      { code: 'fr', label: '🇫🇷 Français' }
                     ].map((item) => (
                       <button
                         key={item.code}
@@ -1203,7 +1223,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
                         }`}
                       >
                         <span>{item.label}</span>
-                        {lang === item.code && <span className="text-[9px] uppercase font-mono px-1 py-0.5 bg-slate-950/20 text-slate-950 rounded-sm">✓</span>}
+                        {lang === item.code && <span className="text-[9px] uppercase font-mono px-1 py-0.5 bg-slate-950/20 text-slate-900 rounded-sm">✓</span>}
                       </button>
                     ))}
                   </div>
@@ -1211,6 +1231,110 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               )}
             </div>
           </div>
+        </div>
+
+        {/* Mobile Header Layout (single row, fixed height 56px = h-14, centered items) */}
+        <div className="flex lg:hidden max-w-7xl mx-auto px-3 h-14 items-center justify-between relative">
+          {/* Left: Logo and branding */}
+          <div className="flex items-center space-x-2.5 cursor-pointer shrink-0" onClick={() => onNavigate('/')}>
+            <div className="w-8 h-8 rounded-full overflow-hidden shadow-xs flex items-center justify-center shrink-0">
+              <img src={t.systemLogo || "/icon.svg"} alt="Jasper Suite Logo" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex flex-col justify-center leading-tight">
+              <span className={`text-[15px] font-bold tracking-tight leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                Jasper<span className="text-emerald-500 font-normal"> Suite</span>
+              </span>
+              <span className={`text-[7px] tracking-widest uppercase font-mono mt-0.5 leading-none ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>AFRICAN COMMERCE OS</span>
+            </div>
+          </div>
+
+          {/* Right: Actions list in exact requested sequence: Theme Toggle, SIGN IN, FREE TRIAL, Hamburger Menu */}
+          <div className="flex items-center space-x-2 shrink-0">
+            {/* Theme toggle -> compact 28px visual tap target */}
+            <button
+              onClick={() => onToggleTheme?.()}
+              className={`w-[28px] h-[28px] flex items-center justify-center rounded-lg border transition-all cursor-pointer shrink-0 ${
+                isDark 
+                  ? 'bg-slate-900 border-slate-800 text-amber-400 hover:bg-slate-800' 
+                  : 'bg-white border-slate-200 text-indigo-600 hover:bg-slate-100 shadow-xs'
+              }`}
+              title={isDark ? "Switch to Day Mode" : "Switch to Dark Mode"}
+            >
+              {isDark ? <Sun className="w-[14px] h-[14px]" /> : <Moon className="w-[14px] h-[14px]" />}
+            </button>
+
+            {/* SIGN IN text button */}
+            <button 
+              id="header-btn-login-mobile"
+              onClick={() => onNavigate('/login')}
+              className={`text-[13.5px] font-bold uppercase tracking-wider transition-colors cursor-pointer px-1 flex items-center h-[28px] ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              {t.signIn}
+            </button>
+
+            {/* FREE TRIAL compact pill button */}
+            <button 
+              id="header-btn-signup-mobile"
+              onClick={() => onNavigate('/login?register=true')}
+              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[12px] font-bold uppercase tracking-wider px-3 h-[28px] rounded-full transition-all shadow-md shadow-emerald-500/10 active:scale-95 cursor-pointer shrink-0 flex items-center justify-center"
+            >
+              {t.freeTrial}
+            </button>
+
+            {/* Hamburger button (☰) -> Opens the language-only dropdown menu */}
+            <button
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              className={`w-[28px] h-[28px] flex items-center justify-center rounded-lg border transition-all cursor-pointer shrink-0 ${
+                isDark 
+                  ? 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white' 
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100 shadow-xs'
+              }`}
+              title="Select Language"
+            >
+              <Menu className="w-[18px] h-[18px]" />
+            </button>
+          </div>
+
+          {/* Hamburger dropdown menu containing ONLY the language selector */}
+          {showMobileMenu && (
+            <>
+              {/* Backing mask to dismiss on outer tap */}
+              <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setShowMobileMenu(false)} />
+              
+              <div className={`absolute right-3 top-14 w-44 rounded-2xl border p-1 shadow-xl z-50 animate-in fade-in slide-in-from-top-3 duration-150 ${
+                isDark ? 'bg-slate-950 border-slate-800 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
+              }`}>
+                {/* Visual identifier for language menu */}
+                <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-900 mb-1 flex items-center space-x-1.5 opacity-80">
+                  <Globe className="w-3.5 h-3.5 text-emerald-500" />
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Languages</span>
+                </div>
+                {[
+                  { code: 'en', label: 'English' },
+                  { code: 'sw', label: 'Swahili' },
+                  { code: 'ar', label: '🇸🇦 العربية' },
+                  { code: 'fr', label: '🇫🇷 Français' }
+                ].map((item) => (
+                  <button
+                    key={item.code}
+                    type="button"
+                    onClick={() => {
+                      setLang(item.code as any);
+                      setShowMobileMenu(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center justify-between ${
+                      lang === item.code 
+                        ? 'bg-emerald-500 text-slate-950 font-bold' 
+                        : isDark ? 'hover:bg-slate-900 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                    {lang === item.code && <span className="text-[9px] uppercase font-mono px-1 py-0.5 bg-slate-950/20 text-slate-900 rounded-sm">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </header>
 
@@ -1309,13 +1433,13 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
                 <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl" />
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Lucy Core AI Assistant
+                  Lucy Core Assistant
                 </span>
                 <h4 className={`text-base font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  {t.meetLucy || "Meet Lucy, Your AI"}
+                  {t.meetLucy || "Meet Lucy"}
                 </h4>
                 <p className={`text-xs font-light leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                  {t.lucyDesc || "Your friendly AI assistant to answer questions and help you grow daily."}
+                  {t.lucyDesc || "Your friendly assistant to answer questions and help you grow daily."}
                 </p>
               </div>
 
@@ -1567,7 +1691,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
                   </li>
                   <li className="flex items-center space-x-2">
                     <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>{t.featureStandard_lucy || "Lucy AI Self-learning assistance"}</span>
+                    <span>{t.featureStandard_lucy || "Lucy Self-learning assistance"}</span>
                   </li>
                 </ul>
               </div>
@@ -1669,14 +1793,14 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           <div className={`border p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left ${isDark ? 'bg-slate-900 border-slate-850' : 'bg-[#eef0f3] border-slate-205 border-slate-220 border-slate-200 shadow-xs'}`}>
             <div className="space-y-1">
               <h5 className={`text-xs font-bold uppercase tracking-tight ${isDark ? 'text-white' : 'text-[#111827]'}`}>Kama hujaona swali lako katika maswali ya kawaida...</h5>
-              <p className={`text-[11px] font-light ${isDark ? 'text-slate-400' : 'text-[#6b7280]'}`}>Ask Lucy AI assistant at the bottom right immediately. Swahili is supported!</p>
+              <p className={`text-[11px] font-light ${isDark ? 'text-slate-400' : 'text-[#6b7280]'}`}>Ask Lucy assistant at the bottom right immediately. Swahili is supported!</p>
             </div>
             
             <button
               onClick={() => setIsLucyOpen(true)}
               className={`font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl cursor-pointer ${isDark ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950' : 'bg-[#00b87a] hover:bg-[#009966] text-white shadow-[#00b87a]/15 shadow-md'}`}
             >
-              Ask Lucy AI
+              Ask Lucy
             </button>
           </div>
 
@@ -1688,10 +1812,10 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
         <div className="max-w-4xl mx-auto space-y-12 text-center">
           
           <div className="text-center space-y-3">
-            <h2 className={`text-xs font-mono uppercase tracking-widest font-bold ${isDark ? 'text-emerald-400' : 'text-[#007a52]'}`}>Get In Touch</h2>
-            <p className={`text-3xl font-extrabold ${isDark ? 'text-white' : 'text-[#111827]'}`}>Direct Assistance & On-Site Deployments</p>
+            <h2 className={`text-xs font-mono uppercase tracking-widest font-bold ${isDark ? 'text-emerald-400' : 'text-[#007a52]'}`}>{t.getInTouch || "Get In Touch"}</h2>
+            <p className={`text-3xl font-extrabold ${isDark ? 'text-white' : 'text-[#111827]'}`}>{t.directAssistance || "Direct Assistance & On-Site Deployments"}</p>
             <p className={`text-sm leading-relaxed max-w-2xl mx-auto font-light ${isDark ? 'text-slate-400' : 'text-[#6b7280]'}`}>
-              Need on-site installation, hardware mapping, or personalized training? Contact our local regional agents immediately to deploy an deployment installer to your desk.
+              {t.contactDesc || "Need on-site installation, hardware mapping, or personalized training? Contact our local regional agents immediately to deploy an deployment installer to your desk."}
             </p>
           </div>
 
@@ -1701,14 +1825,14 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               className={`w-full sm:w-auto flex items-center justify-center space-x-3 font-bold text-sm uppercase tracking-wider px-8 py-4 rounded-2xl transition-all cursor-pointer shadow-lg ${isDark ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/10' : 'bg-[#00b87a] hover:bg-[#009966] text-white shadow-[#00b87a]/15'}`}
             >
               <Phone className={`w-5 h-5 ${isDark ? 'fill-slate-950' : 'fill-white'}`} />
-              <span>{customValues.contactPhoneLabel || "Call Local Agent"}</span>
+              <span>{customValues.contactPhoneLabel || t.callLocalAgent || "Call Local Agent"}</span>
             </a>
             <a 
               href={customValues.contactEmail ? `mailto:${customValues.contactEmail}` : "mailto:deployments@jasper.africa"} 
               className={`w-full sm:w-auto flex items-center justify-center space-x-3 border font-bold text-sm uppercase tracking-wider px-8 py-4 rounded-2xl transition-all cursor-pointer ${isDark ? 'bg-slate-900 hover:bg-slate-800 text-white border-slate-800 hover:border-slate-755' : 'bg-white hover:bg-slate-50 text-[#111827] border-slate-200'}`}
             >
               <Mail className={`w-5 h-5 ${isDark ? 'text-emerald-400' : 'text-[#00b87a]'}`} />
-              <span>{customValues.contactEmailLabel || "Contact Deployments"}</span>
+              <span>{customValues.contactEmailLabel || t.contactDeployments || "Contact Deployments"}</span>
             </a>
           </div>
 
@@ -1717,7 +1841,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
 
       </div>
 
-      {/* FLOATING LUCY AI CHAT BUBBLE ASSISTANT (Requested) */}
+      {/* FLOATING LUCY CHAT BUBBLE ASSISTANT (Requested) */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
         {isLucyOpen ? (
           <div className={`w-[340px] h-[460px] border rounded-3xl overflow-hidden shadow-2xl flex flex-col animate-fade-in font-sans text-left transition-colors duration-300 ${isDark ? 'bg-slate-900 border-emerald-500/60' : 'bg-white border-slate-200'}`}>
@@ -1726,7 +1850,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               <div className="flex items-center space-x-2">
                 <div className={`w-2 h-2 rounded-full animate-pulse ${isDark ? 'bg-emerald-400' : 'bg-emerald-600'}`} />
                 <div>
-                  <h4 className={`text-xs font-bold ${isDark ? 'text-white' : 'text-[#111827]'}`}>Lucy AI self-learning assistant</h4>
+                  <h4 className={`text-xs font-bold ${isDark ? 'text-white' : 'text-[#111827]'}`}>Lucy self-learning assistant</h4>
                   <span className={`text-[8.5px] font-mono block ${isDark ? 'text-emerald-400' : 'text-[#007a52]'}`}>Swahili & English Prewired</span>
                 </div>
               </div>
@@ -1808,7 +1932,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             className={`flex items-center space-x-2 px-4 py-3.5 rounded-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer ${isDark ? 'bg-emerald-500 hover:bg-emerald-450 text-slate-950' : 'bg-[#00b87a] hover:bg-[#009966] text-white shadow-[#00b87a]/15'}`}
           >
             <MessageSquare className="w-5 h-5" />
-            <span className="text-xs font-bold uppercase tracking-wider font-mono">Talk to Lucy AI</span>
+            <span className="text-xs font-bold uppercase tracking-wider font-mono">Talk to Lucy</span>
           </button>
         )}
       </div>
@@ -1820,7 +1944,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           {/* Address details first */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <Store className={`w-5 h-5 ${isDark ? 'text-emerald-400' : 'text-[#00b87a]'}`} />
+              <img src={t.systemLogo || "/icon.svg"} alt="Jasper Suite Logo" className="w-6 h-6 rounded-full overflow-hidden object-cover" />
               <span className={`text-base font-bold ${isDark ? 'text-white' : 'text-[#111827]'}`}>Jasper <span className="text-emerald-450 text-emerald-505 text-emerald-500 font-normal">Suite</span></span>
             </div>
             
@@ -1839,8 +1963,8 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             <ul className={`space-y-2 ${isDark ? 'text-slate-400' : 'text-[#374151]'}`}>
               <li><a href="#landing-hero" className={`transition-colors ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`}>{t.footerHome || "Home Page"}</a></li>
               <li><a href="#faqs" className={`transition-colors ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`}>{t.footerFaq || "FAQ"}</a></li>
-              <li><span className={`transition-colors cursor-pointer ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`} onClick={() => alert("Jasper Privacy Policy: All multi-tenant store logs, generic classifications, and cashiers pin passwords remain protected under client local database caches.")}>{t.footerPrivacy || "Privacy Policy"}</span></li>
-              <li><span className={`transition-colors cursor-pointer ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`} onClick={() => alert("Jasper Terms of Use: By accessing POS terminals or PMS modules, you agree to respect offline database persistence laws.")}>{t.footerTerms || "Terms and Conditions"}</span></li>
+              <li><span className={`transition-colors cursor-pointer ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`} onClick={() => setIsPrivacyOpen(true)}>{t.footerPrivacy || "Privacy Policy"}</span></li>
+              <li><span className={`transition-colors cursor-pointer ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`} onClick={() => setIsTermsOpen(true)}>{t.footerTerms || "Terms and Conditions"}</span></li>
               <li><a href="#contact" className={`transition-colors ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`}>{t.footerContact || "Contact Support"}</a></li>
             </ul>
           </div>
@@ -1901,8 +2025,10 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               <a href={t.socialInstagram || "https://instagram.com"} target="_blank" rel="noreferrer" className={`p-2.5 border rounded-xl cursor-pointer transition-colors flex items-center justify-center ${isDark ? 'bg-slate-900 hover:bg-slate-800 border-slate-850 text-pink-450 hover:text-pink-400' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-pink-600'}`}>
                 <Instagram className="w-5 h-5" />
               </a>
-              <a href={t.socialTwitter || "https://twitter.com"} target="_blank" rel="noreferrer" className={`p-2.5 border rounded-xl cursor-pointer transition-colors flex items-center justify-center ${isDark ? 'bg-slate-900 hover:bg-slate-800 border-slate-850 text-sky-450 hover:text-sky-400' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-sky-650 text-sky-600'}`}>
-                <Twitter className="w-5 h-5" />
+              <a href={t.socialTiktok || "https://tiktok.com"} target="_blank" rel="noreferrer" className={`p-2.5 border rounded-xl cursor-pointer transition-colors flex items-center justify-center ${isDark ? 'bg-slate-900 hover:bg-slate-800 border-slate-850 text-slate-300 hover:text-white' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-black'}`}>
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
+                </svg>
               </a>
               <a href={t.socialFacebook || "https://facebook.com"} target="_blank" rel="noreferrer" className={`p-2.5 border rounded-xl cursor-pointer transition-colors flex items-center justify-center ${isDark ? 'bg-slate-900 hover:bg-slate-800 border-slate-850 text-blue-450 hover:text-blue-400' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-blue-600'}`}>
                 <Facebook className="w-5 h-5" />
@@ -1917,6 +2043,20 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           <p>{t.footerCopyright || "© 2026 Jasper Business Suite Network. All rights reserved."}</p>
         </div>
       </footer>
+
+      <PrivacyAndTermsModals 
+        isOpen={isPrivacyOpen} 
+        type="privacy" 
+        onClose={() => setIsPrivacyOpen(false)} 
+        isDark={isDark} 
+      />
+
+      <PrivacyAndTermsModals 
+        isOpen={isTermsOpen} 
+        type="terms" 
+        onClose={() => setIsTermsOpen(false)} 
+        isDark={isDark} 
+      />
     </div>
   );
 }

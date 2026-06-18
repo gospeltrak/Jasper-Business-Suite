@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, Fragment } from 'react';
+import { useTenantLogo } from '../TenantLogoContext';
 import { Tenant, Product, Sale } from '../types';
 import { 
   ResponsiveContainer, 
@@ -39,6 +40,7 @@ import {
 
 interface DashboardOverviewProps {
   activeTenant: Tenant;
+  systemSettings?: any;
   products: Product[];
   sales: Sale[];
   expenses?: any[];
@@ -50,6 +52,7 @@ interface DashboardOverviewProps {
 
 export default function DashboardOverview({ 
   activeTenant, 
+  systemSettings,
   products, 
   sales = [], 
   expenses = [], 
@@ -58,13 +61,14 @@ export default function DashboardOverview({
   offlinePendingCount = 0,
   onToggleOffline
 }: DashboardOverviewProps) {
+  const { logoUrl } = useTenantLogo();
   const currency = activeTenant.currencyCode || 'TSh';
   
-  // Date timeframe filtering state: 'today' | 'week' | 'month' | '3month'
-  const [timeframe, setTimeframe] = useState<'today' | 'week' | 'month' | '3month'>('month');
+  // Date timeframe filtering state: 'today' | 'week' | 'month' | '3month' | 'year'
+  const [timeframe, setTimeframe] = useState<'today' | 'week' | 'month' | '3month' | 'year'>('month');
 
-  // Sales & Purchases status graph timeframe: 'today' | 'week' | 'month' | '3month'
-  const [statusTimeframe, setStatusTimeframe] = useState<'today' | 'week' | 'month' | '3month'>('month');
+  // Sales & Purchases status graph timeframe: 'today' | 'week' | 'month' | '3month' | 'year'
+  const [statusTimeframe, setStatusTimeframe] = useState<'today' | 'week' | 'month' | '3month' | 'year'>('month');
 
   // Filter sales based on selected timeframe
   const filteredSales = useMemo(() => {
@@ -82,6 +86,8 @@ export default function DashboardOverview({
         return diffDays <= 30;
       } else if (timeframe === '3month') {
         return diffDays <= 90;
+      } else if (timeframe === 'year') {
+        return diffDays <= 365;
       } else {
         return true;
       }
@@ -105,7 +111,7 @@ export default function DashboardOverview({
   }, [filteredSales, products]);
 
   const grossProfit = totalRevenue - totalCost;
-  const avgMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 34.5;
+  const avgMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : (sales.length === 0 ? 0 : 34.5);
 
   // Calculation of Revenue Summary Metrics
   const todayTotalRevenue = useMemo(() => {
@@ -139,7 +145,7 @@ export default function DashboardOverview({
       })
       .reduce((sum, s) => sum + s.total, 0);
 
-    if (lastMonthSalesNum <= 0) return 18.2; // premium static realistic growth fallback
+    if (lastMonthSalesNum <= 0) return sales.length === 0 ? 0 : 18.2; // premium static realistic growth fallback
     return ((thisMonthSalesNum - lastMonthSalesNum) / lastMonthSalesNum) * 100;
   }, [sales]);
 
@@ -151,7 +157,7 @@ export default function DashboardOverview({
         return method === 'credit' || method === 'unpaid' || method === 'pending';
       })
       .reduce((sum, s) => sum + s.total, 0);
-    return creditSalesTotal > 0 ? creditSalesTotal : Math.round(totalRevenue * 0.125);
+    return creditSalesTotal > 0 ? creditSalesTotal : (sales.length === 0 ? 0 : Math.round(totalRevenue * 0.125));
   }, [sales, totalRevenue]);
 
   // Filter expenses based on selected timeframe
@@ -232,6 +238,7 @@ export default function DashboardOverview({
 
   // Row expansion state for invoice ID
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
+  const [activeRowMenu, setActiveRowMenu] = useState<string | null>(null);
 
   // Recent sales interactive action system
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
@@ -263,6 +270,7 @@ export default function DashboardOverview({
   // Helper dataset with dynamic weighting based on selected statusTimeframe parameter
   const chartData = useMemo(() => {
     const now = new Date();
+    const isNewTenant = sales.length === 0;
     
     if (statusTimeframe === 'today') {
       // 4 Day Segments: Dawn, Morning, Afternoon, Evening
@@ -292,12 +300,13 @@ export default function DashboardOverview({
           }, 0);
         }, 0);
 
-        const salesVal = actualSum > 0 ? actualSum : seg.fallbackSale;
-        const purchasesVal = actualCost > 0 ? actualCost : seg.fallbackPurchase;
+        const salesVal = actualSum > 0 ? actualSum : (isNewTenant ? 0 : seg.fallbackSale);
+        const purchasesVal = actualCost > 0 ? actualCost : (isNewTenant ? 0 : seg.fallbackPurchase);
+        const targetVal = isNewTenant ? 0 : seg.target;
 
         return {
           month: seg.name,
-          target: seg.target,
+          target: targetVal,
           sales: salesVal,
           purchases: purchasesVal
         };
@@ -338,12 +347,13 @@ export default function DashboardOverview({
           }, 0);
         }, 0);
 
-        const salesVal = actualSum > 0 ? actualSum : day.fallbackSale;
-        const purchasesVal = actualCost > 0 ? actualCost : day.fallbackPurchase;
+        const salesVal = actualSum > 0 ? actualSum : (isNewTenant ? 0 : day.fallbackSale);
+        const purchasesVal = actualCost > 0 ? actualCost : (isNewTenant ? 0 : day.fallbackPurchase);
+        const targetVal = isNewTenant ? 0 : day.target;
 
         return {
           month: day.name,
-          target: day.target,
+          target: targetVal,
           sales: salesVal,
           purchases: purchasesVal
         };
@@ -374,12 +384,13 @@ export default function DashboardOverview({
           }, 0);
         }, 0);
 
-        const salesVal = actualSum > 0 ? actualSum : wk.fallbackSale;
-        const purchasesVal = actualCost > 0 ? actualCost : wk.fallbackPurchase;
+        const salesVal = actualSum > 0 ? actualSum : (isNewTenant ? 0 : wk.fallbackSale);
+        const purchasesVal = actualCost > 0 ? actualCost : (isNewTenant ? 0 : wk.fallbackPurchase);
+        const targetVal = isNewTenant ? 0 : wk.target;
 
         return {
           month: wk.name,
-          target: wk.target,
+          target: targetVal,
           sales: salesVal,
           purchases: purchasesVal
         };
@@ -415,12 +426,13 @@ export default function DashboardOverview({
         }, 0);
       }, 0);
 
-      const salesVal = actualSum > 0 ? actualSum : m.fallbackSale;
-      const purchasesVal = actualCost > 0 ? actualCost : m.fallbackPurchase;
+      const salesVal = actualSum > 0 ? actualSum : (isNewTenant ? 0 : m.fallbackSale);
+      const purchasesVal = actualCost > 0 ? actualCost : (isNewTenant ? 0 : m.fallbackPurchase);
+      const targetVal = isNewTenant ? 0 : m.target;
 
       return {
         month: m.name,
-        target: m.target,
+        target: targetVal,
         sales: salesVal,
         purchases: purchasesVal
       };
@@ -460,6 +472,11 @@ export default function DashboardOverview({
 
   // Compute Top Selling Products based on current filteredSales (or fallbacks)
   const topProducts = useMemo(() => {
+    // If there are no sales yet for this tenant, do NOT show any seed fallbacks
+    if (filteredSales.length === 0) {
+      return [];
+    }
+
     const productSalesMap: Record<string, { name: string; qty: number; revenue: number }> = {};
     
     filteredSales.forEach(sale => {
@@ -481,53 +498,8 @@ export default function DashboardOverview({
       ...data
     })).sort((a, b) => b.qty - a.qty);
 
-    const selectedProducts = sorted.slice(0, 5);
-    const needed = 5 - selectedProducts.length;
-    
-    if (needed > 0 && products.length > 0) {
-      const alreadySelectedIds = new Set(selectedProducts.map(p => p.id));
-      const remainingProducts = products.filter(p => !alreadySelectedIds.has(p.id));
-      
-      const fallbacks = [
-        { name: 'Panadol Extra', qty: 24, revenue: 120000 },
-        { name: 'Amoxicillin', qty: 18, revenue: 90000 },
-        { name: 'Metformin 500mg', qty: 15, revenue: 75000 },
-        { name: 'Paracetamol Tabs', qty: 12, revenue: 60000 },
-        { name: 'Cetirizine 10mg', qty: 8, revenue: 40000 }
-      ];
-
-      for (let i = 0; i < needed; i++) {
-        if (remainingProducts[i]) {
-          selectedProducts.push({
-            id: remainingProducts[i].id,
-            name: remainingProducts[i].name,
-            qty: fallbacks[i % fallbacks.length].qty,
-            revenue: fallbacks[i % fallbacks.length].revenue
-          });
-        } else if (fallbacks[i]) {
-          selectedProducts.push({
-            id: `fallback-${i}`,
-            name: fallbacks[i].name,
-            qty: fallbacks[i].qty,
-            revenue: fallbacks[i].revenue
-          });
-        }
-      }
-    }
-
-    if (selectedProducts.length === 0) {
-      const defaultFallbacks = [
-        { id: 'f1', name: 'Panadol Extra', qty: 35, revenue: 150000 },
-        { id: 'f2', name: 'Amoxicillin 250mg', qty: 25, revenue: 125000 },
-        { id: 'f3', name: 'Metformin 500mg', qty: 15, revenue: 75000 },
-        { id: 'f4', name: 'Paracetamol 500mg', qty: 10, revenue: 50000 },
-        { id: 'f5', name: 'Cetirizine 10mg', qty: 15, revenue: 40000 }
-      ];
-      return defaultFallbacks;
-    }
-
-    return selectedProducts.slice(0, 5);
-  }, [filteredSales, products]);
+    return sorted.slice(0, 5);
+  }, [filteredSales]);
 
   // Map to percentages and layout-aware offsets for SVG rendering
   const topProductsChartData = useMemo(() => {
@@ -616,23 +588,80 @@ export default function DashboardOverview({
       )}
       
       {/* 2. OVERVIEW HEADER WITH DYNAMIC DAY SELECTOR */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/70 backdrop-blur-md border border-slate-100 p-5 rounded-2xl shadow-sm text-left select-none animate-fade-in">
-        <div>
-          <h2 className="text-lg font-extrabold text-[#1a1a2e] tracking-tight">
-            Real-Time Performance
-          </h2>
-          <p className="text-xs text-slate-450 mt-0.5">
-            Performance stats for <span className="font-semibold text-indigo-600">{activeTenant.name}</span> in the selected time frame
-          </p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-150/80 dark:border-slate-800 p-5 rounded-2xl shadow-xs text-left select-none animate-fade-in">
+        <div className="flex items-center space-x-4">
+          {/* Circular logo or Initials Avatar */}
+          {(() => {
+            const tenantId = activeTenant.id;
+            let logo = logoUrl || systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${tenantId}`) || activeTenant.company_settings?.logo_url || null;
+            if (!logo) {
+              const cachedSet = localStorage.getItem(`jasper_settings_${tenantId}`);
+              if (cachedSet) {
+                try {
+                  const pSet = JSON.parse(cachedSet);
+                  logo = pSet?.company?.logo || pSet?.business?.businessLogoLight || pSet?.business?.businessLogo || null;
+                } catch (err) {}
+              }
+            }
+            if (logo) {
+              return (
+                <img 
+                  src={logo} 
+                  alt={`${activeTenant.name} Logo`} 
+                  className="w-14 h-14 rounded-full object-cover border-2 border-[#00C853] shrink-0 shadow-xs" 
+                  referrerPolicy="no-referrer"
+                />
+              );
+            } else {
+              return (
+                <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-[#00C853] to-teal-400 text-white flex items-center justify-center font-black text-lg tracking-wide shrink-0 shadow-xs">
+                  {activeTenant.name ? activeTenant.name.substring(0, 2).toUpperCase() : 'JA'}
+                </div>
+              );
+            }
+          })()}
+          
+          <div className="leading-tight">
+            <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+              {activeTenant.name}
+            </h2>
+            <div className="flex flex-wrap items-center gap-x-2 mt-0.5 text-slate-650 dark:text-slate-400">
+              <span className="text-[11.5px] font-bold text-emerald-600 dark:text-emerald-400">
+                {(() => {
+                  const lang = localStorage.getItem('jasper_lang') || 'en';
+                  const hour = new Date().getHours();
+                  if (hour >= 5 && hour < 12) {
+                    return lang === 'sw' ? 'Habari za asubuhi ☀️' : 'Good morning ☀️';
+                  } else if (hour >= 12 && hour < 17) {
+                    return lang === 'sw' ? 'Habari za mchana 🌤️' : 'Good afternoon 🌤️';
+                  } else if (hour >= 17 && hour < 21) {
+                    return lang === 'sw' ? 'Habari za jioni 🌆' : 'Good evening 🌆';
+                  } else {
+                    return lang === 'sw' ? 'Usiku mwema 🌙' : 'Good night 🌙';
+                  }
+                })()}
+              </span>
+              <span className="text-[10px] text-slate-350 dark:text-slate-600 hidden sm:inline">•</span>
+              <span className="text-[11px] font-medium text-slate-450 dark:text-slate-450 font-sans">
+                {(() => {
+                  const lang = localStorage.getItem('jasper_lang') || 'en';
+                  const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                  return new Date().toLocaleDateString(lang === 'sw' ? 'sw-TZ' : 'en-US', options);
+                })()}
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* Day Selector: Today, 1 Week, 1 Month, 3 Month */}
-        <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto border border-slate-150 shadow-inner">
+        {/* Day Selector: Today, 1 Week, 1 Month, 3 Month, 1 Year */}
+        {/* DESKTOP LAYOUT (completely untouched) */}
+        <div className="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-wrap gap-y-1 md:flex-nowrap border border-slate-150 shadow-inner">
           {[
             { id: 'today', label: 'Today' },
             { id: 'week', label: '1 Week' },
             { id: 'month', label: '1 Month' },
-            { id: '3month', label: '3 Month' }
+            { id: '3month', label: '3 Month' },
+            { id: 'year', label: '1 Year' }
           ].map((item) => (
             <button
               key={item.id}
@@ -651,12 +680,39 @@ export default function DashboardOverview({
             </button>
           ))}
         </div>
+
+        {/* MOBILE LAYOUT (clean compact single horizontal row without any horizontal scrolling) */}
+        <div className="flex md:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-150 shadow-inner select-none">
+          {[
+            { id: 'today', label: 'Today' },
+            { id: 'week', label: '1 Week' },
+            { id: 'month', label: '1 Month' },
+            { id: '3month', label: '3 Month' },
+            { id: 'year', label: '1 Year' }
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => {
+                setTimeframe(item.id as any);
+                setStatusTimeframe(item.id as any);
+              }}
+              type="button"
+              className={`flex-1 py-1.5 px-0 rounded-lg text-[10px] min-[360px]:text-[11px] min-[400px]:text-xs font-semibold text-center whitespace-nowrap transition-all duration-150 cursor-pointer min-h-[36px] flex items-center justify-center ${
+                timeframe === item.id
+                  ? 'bg-indigo-650 dark:bg-indigo-600 text-white shadow-sm font-bold'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-205'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
       </div>
 
 
 
       {/* 3. KPI CARDS ROW (6 cards, equal width, responsive grid: 3-column x 2-row on PC/wide screens) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 select-none animate-fade-in">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 select-none animate-fade-in">
         
         {/* Card 1: Total Orders */}
         <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
@@ -807,10 +863,12 @@ export default function DashboardOverview({
                 {statusTimeframe === 'today' ? 'Hourly status review (Today)' :
                  statusTimeframe === 'week' ? 'Daily status breakdown (Past 7 Days)' :
                  statusTimeframe === 'month' ? 'Weekly cohort metrics (Past 30 Days)' :
-                 'Quarterly operational analytics (Past 3 Months)'}
+                 statusTimeframe === '3month' ? 'Quarterly operational analytics (Past 3 Months)' :
+                 'Annual operational analytics (Past 1 Year)'}
               </p>
             </div>
-            <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto">
+            {/* DESKTOP TIMEFRAME SELECTOR */}
+            <div className="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-nowrap border border-slate-150">
               <button
                 id="btn-timeframe-today"
                 onClick={() => setStatusTimeframe('today')}
@@ -859,6 +917,42 @@ export default function DashboardOverview({
               >
                 3 Month
               </button>
+              <button
+                id="btn-timeframe-year"
+                onClick={() => setStatusTimeframe('year')}
+                type="button"
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all duration-150 cursor-pointer ${
+                  statusTimeframe === 'year'
+                    ? 'bg-[#1a1a2e] text-white shadow-sm'
+                    : 'text-slate-550 hover:text-[#1a1a2e] hover:bg-slate-200/50'
+                }`}
+              >
+                1 Year
+              </button>
+            </div>
+
+            {/* MOBILE TIMEFRAME SELECTOR */}
+            <div className="flex md:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-150 shadow-inner select-none">
+              {[
+                { id: 'today', label: 'Today' },
+                { id: 'week', label: '1 Week' },
+                { id: 'month', label: '1 Month' },
+                { id: '3month', label: '3 Month' },
+                { id: 'year', label: '1 Year' }
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setStatusTimeframe(item.id as any)}
+                  type="button"
+                  className={`flex-1 py-1.5 px-0 rounded-lg text-[10px] min-[360px]:text-[11px] min-[400px]:text-xs font-semibold text-center whitespace-nowrap transition-all duration-150 cursor-pointer min-h-[34px] flex items-center justify-center ${
+                    statusTimeframe === item.id
+                      ? 'bg-slate-900 text-white shadow-sm font-bold'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-205'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -962,17 +1056,24 @@ export default function DashboardOverview({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-y-1.5 text-left text-xs font-medium select-none text-slate-550">
-            {topProductsChartData.map((data, idx) => (
-              <div key={data.id || idx} className="flex items-center justify-between">
-                <div className="flex items-center space-x-1.5 min-w-0 pr-2">
-                  <span className={`w-2.5 h-2.5 rounded-full ${data.bgColorClass} shrink-0`} />
-                  <span className="truncate font-medium text-slate-705 text-slate-700">{data.name}</span>
+          {topProductsChartData.length === 0 ? (
+            <div className="text-center text-slate-400 py-4 text-xs select-none">
+              <p className="font-bold">Hujauza bidhaa bado / No sales yet</p>
+              <p className="text-[10px] text-slate-400 mt-1">Sajili mauzo kuona takwimu ya bidhaa</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-y-1.5 text-left text-xs font-medium select-none text-slate-550">
+              {topProductsChartData.map((data, idx) => (
+                <div key={data.id || idx} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5 min-w-0 pr-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${data.bgColorClass} shrink-0`} />
+                    <span className="truncate font-medium text-slate-705 text-slate-700">{data.name}</span>
+                  </div>
+                  <div className="text-right font-mono text-slate-400 shrink-0 font-semibold">{data.percentage}% ({data.qty} pcs)</div>
                 </div>
-                <div className="text-right font-mono text-slate-400 shrink-0 font-semibold">{data.percentage}% ({data.qty} pcs)</div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>
@@ -1038,7 +1139,9 @@ export default function DashboardOverview({
                 No matching transactions in this filter. Switch settings above or make active POS sales!
               </div>
             ) : (
-              <table className="w-full text-slate-800 text-xs select-none">
+              <div className="w-full">
+                {/* Desktop Table View */}
+              <table className="hidden md:table w-full text-slate-800 text-xs select-none">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider text-[10px] font-semibold text-left">
                     <th className="pb-3 pt-1 pl-1">Sale ID</th>
@@ -1215,6 +1318,106 @@ export default function DashboardOverview({
                   })}
                 </tbody>
               </table>
+
+              {/* Mobile Cards View */}
+              <div className="md:hidden flex flex-col space-y-3 pb-2 w-full">
+                {posFilteredSalesList.slice(0, 5).map((sale) => {
+                  const status = getSalesStatus(sale.id);
+                  const isExpanded = expandedInvoiceId === sale.id;
+                  const paymentMethodName = sale.paymentMethod || 'Cash';
+                  
+                  return (
+                    <div key={`mobile-${sale.id}`} className="bg-white border text-sm border-slate-100 shadow-sm rounded-2xl p-4 flex flex-col transition-all active:scale-[0.98]">
+                      <div className="flex items-start justify-between mb-3" onClick={() => setExpandedInvoiceId(isExpanded ? null : sale.id)}>
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-800 tracking-tight">{sale.customerName || 'Walk-in Customer'}</span>
+                          <span className="text-[11px] text-slate-400 font-mono mt-0.5">#{sale.receiptNo || sale.id.substring(0, 5)}</span>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span className="font-bold text-slate-900 tracking-tight text-right">{currency} {Math.round(sale.total).toLocaleString()}</span>
+                          <span className="text-[11px] text-slate-400 mt-0.5 text-right">{new Date(sale.timestamp || sale.date).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between border-t border-slate-50 pt-3">
+                        <div className="flex items-center space-x-2">
+                          <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-slate-100/80 text-slate-500">
+                            {paymentMethodName}
+                          </span>
+                          {status === 'Delivered' && (
+                            <span className="bg-emerald-50 text-emerald-600 text-[10px] font-extrabold px-2.5 py-1 rounded-lg uppercase tracking-wider border border-emerald-100">
+                              Delivered
+                            </span>
+                          )}
+                          {status === 'In Progress' && (
+                            <span className="bg-amber-50 text-amber-600 text-[10px] font-extrabold px-2.5 py-1 rounded-lg uppercase tracking-wider border border-amber-100">
+                              Pending
+                            </span>
+                          )}
+                          {status === 'Cancelled' && (
+                            <span className="bg-rose-50 text-rose-600 text-[10px] font-extrabold px-2.5 py-1 rounded-lg uppercase tracking-wider border border-rose-100">
+                              Cancelled
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div 
+                          className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 transition-colors active:scale-90 relative"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveRowMenu(activeRowMenu === sale.id ? null : sale.id);
+                          }}
+                        >
+                          <MoreVertical className="w-5 h-5" />
+                          
+                          {/* Mobile Row Actions Menu Dropdown */}
+                          {activeRowMenu === sale.id && (
+                            <div className="absolute right-0 bottom-8 mt-3 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12)] rounded-xl p-1.5 flex flex-col space-y-1 z-30 border border-slate-100 min-w-[160px]">
+                              <button onClick={(e) => { e.stopPropagation(); setActiveRowMenu(null); }} className="w-full text-left px-3 py-2 text-[13px] font-semibold text-slate-600 hover:bg-slate-50 active:bg-slate-100 rounded-lg flex items-center space-x-3 transition-colors">
+                                <Printer className="w-4 h-4 text-slate-400" />
+                                <span>Print Receipt</span>
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); setActiveRowMenu(null); }} className="w-full text-left px-3 py-2 text-[13px] font-semibold text-slate-600 hover:bg-slate-50 active:bg-slate-100 rounded-lg flex items-center space-x-3 transition-colors">
+                                <Share2 className="w-4 h-4 text-slate-400" />
+                                <span>Share Link</span>
+                              </button>
+                              <div className="h-px bg-slate-100 my-1 w-full" />
+                              <button onClick={(e) => { e.stopPropagation(); setActiveRowMenu(null); }} className="w-full text-left px-3 py-2 text-[13px] font-semibold text-rose-600 active:bg-rose-50 rounded-lg flex items-center space-x-3 mt-1">
+                                <XOctagon className="w-4 h-4 text-rose-400" />
+                                <span>Refund Issue</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {isExpanded && (
+                        <div className="mt-4 bg-slate-50/80 rounded-xl p-3 border border-slate-100/50">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Sale Items</h4>
+                            <div className="h-px bg-slate-200/60 flex-grow" />
+                          </div>
+                          <ul className="space-y-2.5">
+                            {sale.items.map((item, idxx) => (
+                              <li key={idxx} className="flex justify-between items-start text-[13px]">
+                                <div className="flex items-start space-x-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1.5 shrink-0" />
+                                  <span className="text-slate-700 font-medium leading-tight">
+                                    {products.find(p => p.id === item.productId)?.name || 'Product'} 
+                                    <span className="text-slate-400 font-normal ml-1">x{item.quantity}</span>
+                                  </span>
+                                </div>
+                                <span className="text-slate-900 font-mono font-semibold shrink-0">{currency} {Math.round(item.subtotal).toLocaleString()}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              </div>
             )}
           </div>
         </div>

@@ -28,6 +28,9 @@ export interface Tenant {
   taxRate: number; // e.g. 0.075 for Nigeria, 0.16 for Kenya
   mobileMoneyProviders: string[];
   businessType?: 'retail' | 'pharmacy' | 'restaurant' | 'hotel';
+  company_settings?: {
+    logo_url: string | null;
+  };
 }
 
 export interface Product {

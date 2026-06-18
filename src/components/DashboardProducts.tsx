@@ -1501,8 +1501,121 @@ export default function DashboardProducts({
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+            <div className="overflow-x-auto bg-transparent md:bg-white pb-6 md:pb-0">
+              
+              {/* Mobile View: Cards */}
+              <div className="md:hidden flex flex-col space-y-3">
+                {filteredProducts.map((prod) => {
+                  const shopQty = prod.shopStockQty ?? 0;
+                  const storeQty = prod.storeStockQty ?? 0;
+                  const totalQty = prod.stockQty ?? (shopQty + storeQty);
+                  
+                  const isOutOfStock = totalQty <= 0;
+                  const isLow = !isOutOfStock && shopQty <= prod.alertQty;
+                  
+                  return (
+                    <div key={prod.id} className="bg-white border border-slate-100 shadow-sm rounded-2xl p-4 flex flex-col active:scale-[0.98] transition-all">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-800 text-sm tracking-tight">{prod.name}</span>
+                          <span className="text-[11px] text-slate-450 font-mono mt-0.5">{prod.barcode || 'N/A'} • {prod.category}</span>
+                        </div>
+                        <div className="flex flex-col items-end shrink-0">
+                          <span className="font-bold text-emerald-600 tracking-tight">{currency} {Math.round(prod.sellingPrice).toLocaleString()}</span>
+                          <span className="text-[10px] text-slate-400 font-mono line-through mt-0.5">{currency} {Math.round(prod.costPrice).toLocaleString()} cost</span>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 mb-3 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                         <div className="flex flex-col justify-center">
+                           <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Shop Stock</span>
+                           <span className={`text-xs font-bold font-mono ${shopQty <= prod.alertQty ? 'text-red-500' : 'text-slate-800'}`}>{shopQty} units</span>
+                         </div>
+                         <div className="flex flex-col justify-center">
+                           <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Store Stock</span>
+                           <span className="text-xs font-bold font-mono text-slate-800">{storeQty} units</span>
+                         </div>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50">
+                        <div className="flex items-center">
+                          {isOutOfStock ? (
+                            <span className="px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border border-slate-200 bg-slate-100/50 text-slate-500">
+                              OUT OF STOCK
+                            </span>
+                          ) : isLow ? (
+                            <span className="text-rose-600 bg-rose-50 border border-rose-200/50 rounded-lg px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                              LOW: {shopQty} In-Shop
+                            </span>
+                          ) : (
+                            <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/50 rounded-lg px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              ACTIVE STOCK
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="relative">
+                          <button
+                            onClick={() => setOpenDropdownId(openDropdownId === prod.id ? null : prod.id)}
+                            className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
+                          >
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
+                          
+                          {openDropdownId === prod.id && (
+                            <div className="absolute right-0 bottom-full mb-1 w-40 bg-white border border-slate-150 rounded-xl shadow-xl py-1.5 z-50 text-left">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setViewingProduct(prod);
+                                    setOpenDropdownId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center space-x-2 transition-colors"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>View Details</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleBeginEdit(prod);
+                                    setOpenDropdownId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center space-x-2 transition-colors"
+                                >
+                                  <Edit className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>Edit Item</span>
+                                </button>
+                                <div className="border-t border-slate-100 my-1"></div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onDeleteProduct(prod.id);
+                                    setOpenDropdownId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-red-650 hover:bg-red-50 text-xs font-bold flex items-center space-x-2 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                                  <span>Delete Item</span>
+                                </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {filteredProducts.length === 0 && (
+                   <div className="p-10 text-center text-slate-455 text-sm bg-white rounded-2xl shadow-sm">
+                      No matching products under this term or category.
+                   </div>
+                )}
+              </div>
+
+              {/* Desktop View: Table */}
+              <table className="hidden md:table w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/75 text-[10px] text-slate-455 font-bold uppercase tracking-wider border-b border-slate-150 font-mono">
                     <th className="py-4 px-5">Product Name</th>

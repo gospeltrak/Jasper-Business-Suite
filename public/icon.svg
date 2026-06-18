@@ -1,35 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="emeraldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#10b981" />
-      <stop offset="100%" stop-color="#059669" />
-    </linearGradient>
-    <linearGradient id="slateGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1e293b" />
-      <stop offset="100%" stop-color="#0f172a" />
-    </linearGradient>
-    <filter id="subtleShadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.15" />
+    <radialGradient id="sunburst" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#4ade80" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="1" />
+    </radialGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="2" dy="5" stdDeviation="5" flood-opacity="0.25"/>
     </filter>
   </defs>
+  <!-- Background -->
+  <rect width="512" height="512" fill="url(#sunburst)" />
   
-  <!-- Outer Rounded Background -->
-  <rect width="512" height="512" rx="112" fill="url(#slateGradient)" />
-  
-  <!-- Outer Glow Ring -->
-  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="url(#emeraldGradient)" stroke-width="4" stroke-opacity="0.3" />
-  
-  <!-- Geometric Logo Icon Centered -->
-  <g transform="translate(128, 112)" filter="url(#subtleShadow)">
-    <!-- Main Stylized J Letter Intertwined with Progress Bar -->
-    <!-- J Curve Backing -->
-    <path d="M176,32 L224,32 L224,208 C224,243.3 195.3,272 160,272 C124.7,272 96,243.3 96,208 L144,208 C144,216.8 151.2,224 160,224 C168.8,224 176,216.8 176,208 L176,32 Z" fill="url(#emeraldGradient)" />
-    
-    <!-- ERP Shield Motif Backing -->
-    <path d="M48,32 L160,32 L160,80 L80,80 L80,160 L48,160 Z" fill="#ffffff" opacity="0.9" />
-    
-    <!-- Accent Spark/Dot representing Retail/Cashier transaction dot -->
-    <circle cx="160" cy="144" r="20" fill="#34d399" />
-    <circle cx="80" cy="208" r="16" fill="#10b981" />
+  <!-- Sunburst rays -->
+  <g stroke="#ffffff" stroke-opacity="0.1" stroke-width="15">
+    <line x1="256" y1="256" x2="256" y2="0" />
+    <line x1="256" y1="256" x2="256" y2="512" />
+    <line x1="256" y1="256" x2="0" y2="256" />
+    <line x1="256" y1="256" x2="512" y2="256" />
+    <line x1="256" y1="256" x2="0" y2="0" />
+    <line x1="256" y1="256" x2="512" y2="512" />
+    <line x1="256" y1="256" x2="0" y2="512" />
+    <line x1="256" y1="256" x2="512" y2="0" />
+  </g>
+
+  <!-- Abstract Monogram (aB) -->
+  <g fill="#ffffff" filter="url(#shadow)" transform="translate(140, 160)">
+    <!-- Top left 'a' or reverse 'G' -->
+    <path d="M100,0 H20 V40 H100 V100 H0 V140 H140 V0 Z M60,40 H100 V60 H60 Z" />
+    <!-- Bottom right 'B' -->
+    <path d="M140,192 H220 V152 H140 V92 H240 V232 H100 V192 Z M180,152 H140 V132 H180 Z" />
   </g>
 </svg>

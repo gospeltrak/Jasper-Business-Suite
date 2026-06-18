@@ -5,6 +5,8 @@ import Dashboard from './components/Dashboard';
 import AffiliatePortal from './components/AffiliatePortal';
 import ToolsHub from './components/ToolsHub';
 import { User } from './types';
+import { useTheme } from './ThemeContext';
+import { useTenantLogo } from './TenantLogoContext';
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState<string>(() => window.location.pathname || '/');
@@ -14,28 +16,20 @@ export default function App() {
   });
   const [redirectMessage, setRedirectMessage] = useState<string>('');
   
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    const cached = localStorage.getItem('jasper_landing_theme');
-    return cached ? cached === 'dark' : false;
-  });
+  const { isDark, toggleTheme } = useTheme();
+  const { fetchLogoUrl } = useTenantLogo();
 
   useEffect(() => {
-    localStorage.setItem('jasper_landing_theme', isDark ? 'dark' : 'light');
-    const root = document.documentElement;
-    if (isDark) {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
+    if (user?.activeTenant) {
+      fetchLogoUrl(user.activeTenant);
     }
-  }, [isDark]);
+  }, [user, fetchLogoUrl]);
 
   useEffect(() => {
     if (!localStorage.getItem('jasper_lang')) {
       localStorage.setItem('jasper_lang', 'en');
     }
   }, []);
-
-  const toggleTheme = () => setIsDark(!isDark);
 
   // Handle browser back and forward button operations
   useEffect(() => {

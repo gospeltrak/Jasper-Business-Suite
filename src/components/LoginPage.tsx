@@ -1,4 +1,5 @@
 import { useState, FormEvent, useEffect, useRef } from 'react';
+import { useTranslation } from '../LanguageContext';
 import { 
   Store, 
   KeyRound, 
@@ -19,8 +20,9 @@ import {
   Shield,
   Globe
 } from 'lucide-react';
-import { DEMO_USERS } from '../data';
+import { DEMO_USERS, DEFAULT_TENANTS } from '../data';
 import { User, Tenant } from '../types';
+import { getDynamicSupabaseClient } from '../supabaseClient';
 
 declare global {
   interface Window {
@@ -179,15 +181,30 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [regPassword, setRegPassword] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [orgName, setOrgName] = useState('');
-  const [businessType, setBusinessType] = useState<'retail' | 'pharmacy' | 'restaurant' | 'hotel' | ''>('');
-  const [country, setCountry] = useState<'Nigeria' | 'Kenya' | 'Ghana' | 'South Africa' | 'Tanzania'>('Kenya');
-  const [city, setCity] = useState('Nairobi');
+  const [businessType, setBusinessType] = useState<string>('Retail');
+  const [country, setCountry] = useState<'Nigeria' | 'Kenya' | 'Ghana' | 'South Africa' | 'Tanzania'>('Tanzania');
+  const [city, setCity] = useState('Dar es Salaam');
   const [affiliateCode, setAffiliateCode] = useState(() => {
     // Check if affiliate is stored in URL params as ?ref=CODE or ?promo=CODE
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('ref') || urlParams.get('promo') || '';
   });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Tenant Workspace Onboarding States
+  const [onboardingUser, setOnboardingUser] = useState<User | null>(null);
+  const [onboardingBusinessName, setOnboardingBusinessName] = useState('');
+  const [onboardingBusinessType, setOnboardingBusinessType] = useState('Retail');
+  const [onboardingCity, setOnboardingCity] = useState('Dar es Salaam');
+
+  // Welcome Splash state
+  const [splashInfo, setSplashInfo] = useState<{
+    userName: string;
+    businessName: string;
+    logoUrl: string | null;
+  } | null>(null);
+
+  const [loginScreenLogoUrl, setLoginScreenLogoUrl] = useState<string | null>(null);
 
   // SaaS Dynamic Niche Launch State
   const [launchedNiches, setLaunchedNiches] = useState<string[]>(() => {
@@ -196,6 +213,17 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   });
 
   useEffect(() => {
+    // Fetch tenant logo by domain on load
+    const domain = window.location.hostname;
+    fetch(`/api/tenant/logo-by-domain?domain=${encodeURIComponent(domain)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.logoUrl) {
+          setLoginScreenLogoUrl(data.logoUrl);
+        }
+      })
+      .catch(err => console.error('Failed to fetch login screen logo:', err));
+
     const handleUpdate = () => {
       const raw = localStorage.getItem('saas_launched_niches');
       if (raw) setLaunchedNiches(JSON.parse(raw));
@@ -231,25 +259,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [googleCity, setGoogleCity] = useState('Nairobi');
 
   // Translation support
-  const [currentLang, setCurrentLang] = useState<'en' | 'sw' | 'ar' | 'fr'>(() => {
-    const cached = localStorage.getItem('jasper_lang');
-    return (cached && ['en', 'sw', 'ar', 'fr'].includes(cached)) ? (cached as any) : 'en';
-  });
-
-  useEffect(() => {
-    const handleLangChange = () => {
-      const cached = localStorage.getItem('jasper_lang');
-      if (cached && ['en', 'sw', 'ar', 'fr'].includes(cached)) {
-        setCurrentLang(cached as any);
-      }
-    };
-    window.addEventListener('jasper_lang_changed', handleLangChange);
-    window.addEventListener('storage', handleLangChange);
-    return () => {
-      window.removeEventListener('jasper_lang_changed', handleLangChange);
-      window.removeEventListener('storage', handleLangChange);
-    };
-  }, []);
+  const { lang: currentLang, setLang: setCurrentLang, t: tContext } = useTranslation();
 
   const t = (key: string, variables?: Record<string, string>) => {
     const dict = LOGIN_TRANSLATIONS[currentLang] || LOGIN_TRANSLATIONS['en'];
@@ -383,6 +393,160 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }, 450);
   };
 
+  const handleOnboardingSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!onboardingUser) return;
+    if (!onboardingBusinessName.trim()) {
+      setError('Please enter your business name.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const client: any = await getDynamicSupabaseClient();
+
+      // Create a brand new tenant row in the public table
+      const { data: newTenant, error: tenantError } = await client
+        .from('tenants')
+        .insert({
+          name: onboardingBusinessName,
+          country: country || 'Tanzania',
+          city: onboardingCity || 'Dar es Salaam',
+          currency: 'Tanzanian Shilling',
+          currency_code: 'TZS',
+          tax_rate: 0.18,
+          mobile_money_providers: [],
+          business_type: onboardingBusinessType,
+          company_settings: { logo_url: null, theme: 'default' },
+          business_settings: { allow_negative_stock: false, default_unit: 'pcs' },
+          invoice_settings: { show_tax: true, footer_note: 'Thank you for your business' }
+        })
+        .select()
+        .single();
+
+      if (tenantError) {
+        throw tenantError;
+      }
+
+      if (!newTenant) {
+        throw new Error('Tenant provisioning failed: no database row returned.');
+      }
+
+      // Record profile user row matching this auth id linked to their new tenant
+      const { error: userError } = await client
+        .from('users')
+        .upsert({
+          id: onboardingUser.id,
+          email: onboardingUser.email,
+          name: onboardingUser.name,
+          role: 'Admin',
+          tenant_id: newTenant.id,
+          active_tenant: newTenant.id,
+          phone: onboardingUser.phone || null,
+          is_duress: false,
+          is_saas_staff: false
+        });
+
+      if (userError) {
+        throw userError;
+      }
+
+      const updatedUser: User = {
+        ...onboardingUser,
+        tenantId: newTenant.id,
+        activeTenant: newTenant.id,
+        role: 'Admin'
+      };
+
+      // Store locally so cached components load instantly
+      const savedCustomTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
+      localStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, newTenant]));
+
+      const savedCustomUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
+      localStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, updatedUser]));
+
+      setIsLoading(false);
+      setOnboardingUser(null);
+      setSuccessMessage(`Workspace "${onboardingBusinessName}" provisioned successfully.`);
+      triggerOnLoginWithSplash(updatedUser);
+
+    } catch (err: any) {
+      console.error('[Onboarding Flow Error]:', err);
+      // Fallback local onboarding matching live flow
+      const newTenantId = 't-dyn-' + Math.floor(100 + Math.random() * 900);
+      const fallbackTenant: Tenant = {
+        id: newTenantId,
+        name: onboardingBusinessName,
+        country: country || 'Tanzania',
+        city: onboardingCity || 'Dar es Salaam',
+        currency: 'TSh',
+        currencyCode: 'TZS',
+        taxRate: 0.18,
+        mobileMoneyProviders: [],
+        businessType: 'retail'
+      };
+
+      const updatedUser: User = {
+        ...onboardingUser,
+        tenantId: newTenantId,
+        activeTenant: newTenantId,
+        role: 'Admin'
+      };
+
+      const savedCustomTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
+      localStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, fallbackTenant]));
+
+      const savedCustomUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
+      localStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, updatedUser]));
+
+      setIsLoading(false);
+      setOnboardingUser(null);
+      setSuccessMessage(`Workspace "${onboardingBusinessName}" provisioned successfully. (Offline fallback mode)`);
+      triggerOnLoginWithSplash(updatedUser);
+    }
+  };
+
+  const triggerOnLoginWithSplash = (userPayload: any) => {
+    const tenantId = userPayload.activeTenant || userPayload.tenantId;
+    
+    if (!tenantId) {
+      // Intercept and open the workspace onboarding flow immediately
+      setOnboardingUser(userPayload);
+      setIsLoading(false);
+      return;
+    }
+
+    const cachedCustom = localStorage.getItem('jasper_custom_tenants');
+    const parsedCustom: Tenant[] = cachedCustom ? JSON.parse(cachedCustom) : [];
+    const matchedTenant = parsedCustom.find(t => t.id === tenantId) || DEFAULT_TENANTS.find(t => t.id === tenantId) || DEFAULT_TENANTS[0];
+    
+    // Check if corporate logo got uploaded under key
+    let uploadedLogo = localStorage.getItem(`jasper_tenant_logo_${tenantId}`) || matchedTenant.company_settings?.logo_url || null;
+    if (!uploadedLogo) {
+      const cachedSet = localStorage.getItem(`jasper_settings_${tenantId}`);
+      if (cachedSet) {
+        try {
+          const pSet = JSON.parse(cachedSet);
+          uploadedLogo = pSet?.company?.logo || pSet?.business?.businessLogoLight || pSet?.business?.businessLogo || null;
+        } catch (err) {}
+      }
+    }
+    
+    setSplashInfo({
+      userName: userPayload.name,
+      businessName: matchedTenant.name,
+      logoUrl: uploadedLogo
+    });
+    
+    setIsLoading(false); // Stop any form loading spinners
+    
+    setTimeout(() => {
+      onLogin(userPayload);
+    }, 2000);
+  };
+
   const handleLoginSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!emailChecked) {
@@ -392,14 +556,62 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
   };
 
-  const triggerLogin = (targetEmail: string, targetPass: string) => {
+  const triggerLogin = async (targetEmail: string, targetPass: string) => {
     setIsLoading(true);
     setError(null);
 
+    try {
+      const client: any = await getDynamicSupabaseClient();
+      
+      // Perform authentic authentication via Supabase Auth securely
+      const { data: authData, error: authError } = await client.auth.signInWithPassword({
+        email: targetEmail.trim(),
+        password: targetPass
+      });
+
+      if (!authError && authData?.user) {
+        // Authenticated successfully via Supabase Auth! Fetch matching public users row
+        const { data: userProfile, error: profileError } = await client
+          .from('users')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (profileError || !userProfile || !userProfile.tenant_id) {
+          // No user profile profile/tenant exists yet. Redirect to onboarding form
+          triggerOnLoginWithSplash({
+            id: authData.user.id,
+            email: authData.user.email || targetEmail,
+            name: authData.user.user_metadata?.full_name || authData.user.email?.split('@')[0] || 'User',
+            role: 'Admin',
+            tenantId: null,
+            activeTenant: null,
+            phone: authData.user.phone || null,
+          });
+          return;
+        }
+
+        // Active profile matches perfect tenant! Log in
+        triggerOnLoginWithSplash({
+          id: userProfile.id,
+          email: userProfile.email,
+          name: userProfile.name,
+          role: userProfile.role || 'Admin',
+          tenantId: userProfile.tenant_id,
+          activeTenant: userProfile.active_tenant || userProfile.tenant_id,
+          phone: userProfile.phone || null,
+          is_saas_staff: userProfile.is_saas_staff || false,
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn('Real Supabase signin request failed or bypassed. Executing simulated/demo fallback.', e);
+    }
+
+    // Default Fallback
     setTimeout(() => {
       const combinedUsers = getAllSystemUsers();
 
-      // If Super Admin enters any password other than 'password123', log into DURESS DASHBOARD
       if (targetEmail.toLowerCase() === 'saas.admin@jasper.com' && targetPass !== 'password123') {
         onLogin({
           id: 'u-saas-duress',
@@ -418,7 +630,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       );
 
       if (match) {
-        onLogin({
+        triggerOnLoginWithSplash({
           id: match.id || 'u-' + Math.random().toString(36).substr(2, 9),
           email: match.email,
           name: match.name,
@@ -479,125 +691,186 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   };
 
   // Perform dynamic tenant/business registration
-  const handleRegisterSubmit = (e: FormEvent) => {
+  const handleRegisterSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!ownerName || !regEmail || !regPassword || !orgName || !regPhone) {
-      setError('Please fill in all registration inputs, including your contact phone.');
+    if (!ownerName || !regEmail || !regPassword || !orgName) {
+      setError('Please fill in all registration inputs.');
       return;
     }
     if (!businessType) {
-      setError(currentLang === 'sw' ? 'Tafadhali chagua aina ya biashara yako kwanza!' : 'Please select a business industry niche first!');
+      setError('Please select a business industry niche first!');
       return;
     }
 
     setIsLoading(true);
+    setError(null);
 
-    const currencyMapping = {
-      'Nigeria': { symbol: '₦', code: 'NGN', tax: 0.075 },
-      'Kenya': { symbol: 'KSh', code: 'KES', tax: 0.16 },
-      'Ghana': { symbol: 'GH₵', code: 'GHS', tax: 0.15 },
-      'South Africa': { symbol: 'R', code: 'ZAR', tax: 0.15 },
-      'Tanzania': { symbol: 'TSh', code: 'TZS', tax: 0.18 }
-    } as const;
-
-    const mappedCurrency = currencyMapping[country];
-    const newTenantId = 't-dyn-' + Math.floor(100 + Math.random() * 900);
-
-    const newTenant: Tenant = {
-      id: newTenantId,
-      name: orgName,
-      country,
-      city,
-      currency: mappedCurrency.symbol,
-      currencyCode: mappedCurrency.code,
-      taxRate: mappedCurrency.tax,
-      mobileMoneyProviders: country === 'Kenya' ? ['M-Pesa', 'Airtel Money'] : ['MTN MoMo'],
-      businessType: businessType
-    };
-
-    const userStartDate = new Date();
-    const hasReferral = !!affiliateCode.trim();
-    const trialDays = hasReferral ? 20 : 10;
-    const userEndDate = new Date(userStartDate);
-    userEndDate.setDate(userEndDate.getDate() + trialDays);
-
-    const newDynamicUser = {
-      id: 'u-dyn-' + Math.floor(100 + Math.random() * 900),
-      email: regEmail,
-      password: regPassword,
-      name: ownerName,
-      role: 'Admin' as const,
-      tenantId: newTenantId,
-      activeTenant: newTenantId,
-      phone: regPhone,
-      trial_start_date: userStartDate.toISOString(),
-      trial_end_date: userEndDate.toISOString(),
-      is_affiliate_lead: hasReferral,
-      referral_code_used: hasReferral ? affiliateCode.trim() : ''
-    };
-
-    // Store custom tenants dynamically in localStorage
-    const savedCustomTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
-    localStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, newTenant]));
-
-    // Store custom users dynamically in localStorage
-    const savedCustomUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
-    localStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, newDynamicUser]));
-
-    // Affiliate referral tracking registry
-    if (affiliateCode.trim()) {
-      const code = affiliateCode.trim().toUpperCase();
-      const referralLedger = JSON.parse(localStorage.getItem('jasper_referral_ledger') || '[]');
-      referralLedger.push({
-        id: 'ref-dyn-' + Math.floor(1000 + Math.random() * 9000),
-        affiliateCode: code,
-        subscriberName: orgName,
-        package: '30-Day Extended Free Trial (Promo Applied)',
-        payoutStatus: 'Trial Mode',
-        registeredAt: new Date().toISOString().split('T')[0],
-        commission: 0
+    try {
+      const client: any = await getDynamicSupabaseClient();
+      
+      // Step 1: Fix the signup function:
+      // supabase.auth.signUp({ email, password })
+      const { data: authData, error: authError } = await client.auth.signUp({
+        email: regEmail,
+        password: regPassword,
+        options: {
+          data: {
+            full_name: ownerName
+          }
+        }
       });
-      localStorage.setItem('jasper_referral_ledger', JSON.stringify(referralLedger));
 
-      // Generate customized initial sub state with promotional coupon registered
-      const initialSubState = {
-        planId: 'trial' as const,
-        trialStartedAt: new Date().toISOString(),
-        isSubscribedPaid: false,
-        simulatedDaysPassed: 0,
-        promoCodeUsed: code,
-        autoRenewEnabled: true,
-        paymentStatus: 'active' as const
-      };
-      localStorage.setItem('jasper_subscription_state', JSON.stringify(initialSubState));
-      registerAffiliateReferral(code, orgName);
-    } else {
-      // Basic normal Trial duration
-      const initialSubState = {
-        planId: 'trial' as const,
-        trialStartedAt: new Date().toISOString(),
-        isSubscribedPaid: false,
-        simulatedDaysPassed: 0,
-        autoRenewEnabled: true,
-        paymentStatus: 'active' as const
-      };
-      localStorage.setItem('jasper_subscription_state', JSON.stringify(initialSubState));
-    }
+      if (authError) {
+        throw authError;
+      }
 
-    setTimeout(() => {
+      if (!authData?.user) {
+        throw new Error('Registration failed: no user object returned from Supabase Auth');
+      }
+
+      const authUserId = authData.user.id;
+
+      // Step A: Create a new tenant for this business
+      const { data: newTenant, error: tenantError } = await client
+        .from('tenants')
+        .insert({
+          name: orgName, // from signup form
+          country: country || 'Tanzania',
+          city: city || 'Dar es Salaam',
+          currency: 'Tanzanian Shilling',
+          currency_code: 'TZS',
+          tax_rate: 0.18,
+          mobile_money_providers: [],
+          business_type: businessType || 'Retail',
+          company_settings: { logo_url: null, theme: 'default' },
+          business_settings: { allow_negative_stock: false, default_unit: 'pcs' },
+          invoice_settings: { show_tax: true, footer_note: 'Thank you for your business' }
+        })
+        .select()
+        .single();
+
+      if (tenantError) {
+        throw tenantError;
+      }
+
+      if (!newTenant) {
+        throw new Error('Tenant registration failed: no tenant row was returned.');
+      }
+
+      // Step B: Create user row in public users table
+      const { error: userError } = await client
+        .from('users')
+        .insert({
+          id: authUserId, // SAME UUID as auth.users
+          email: regEmail,
+          name: ownerName, // from signup form
+          role: 'Admin', // first user of a new tenant is always Admin
+          tenant_id: newTenant.id,
+          active_tenant: newTenant.id,
+          phone: regPhone || null,
+          is_duress: false,
+          is_saas_staff: false
+        });
+
+      if (userError) {
+        throw userError;
+      }
+
+      // Store response variables
+      const registeredUser: User = {
+        id: authUserId,
+        email: regEmail,
+        name: ownerName,
+        role: 'Admin',
+        tenantId: newTenant.id,
+        activeTenant: newTenant.id,
+        phone: regPhone || undefined,
+        isSaaSStaff: false,
+        trial_start_date: new Date().toISOString(),
+        trial_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+      };
+
+      // Store custom tenants dynamically in localStorage
+      const savedCustomTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
+      localStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, newTenant]));
+
+      // Store custom users dynamically in localStorage
+      const savedCustomUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
+      localStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, {
+        ...registeredUser,
+        password: regPassword
+      }]));
+
       setIsLoading(false);
-      setSuccessMessage(`Success! Registered "${orgName}" as a dynamic ${businessType === 'hotel' ? 'Hotel Business' : businessType === 'retail' ? 'Retail & Wholesale' : businessType === 'pharmacy' ? 'Pharmacy' : 'Restaurant'} tenant.`);
-      
-      // Auto-fill signin inputs to speed up test operations
-      setEmail(regEmail);
-      setPassword(regPassword);
-      
-      // Pivot to signin automatically
-      setAuthTab('signin');
+      setSuccessMessage(`Success! Registered "${orgName}" as an isolated business tenant.`);
       
       // Auto trigger login directly for premium user experience
-      triggerLogin(regEmail, regPassword);
-    }, 1000);
+      triggerOnLoginWithSplash(registeredUser);
+
+    } catch (err: any) {
+      console.warn('[Supabase Registration Flow Error, falling back gracefully]:', err);
+      try {
+        const currencyMapping = {
+          'Nigeria': { symbol: '₦', code: 'NGN', tax: 0.075 },
+          'Kenya': { symbol: 'KSh', code: 'KES', tax: 0.16 },
+          'Ghana': { symbol: 'GH₵', code: 'GHS', tax: 0.15 },
+          'South Africa': { symbol: 'R', code: 'ZAR', tax: 0.15 },
+          'Tanzania': { symbol: 'TSh', code: 'TZS', tax: 0.18 }
+        } as const;
+
+        const mappedCurrency = currencyMapping[country] || currencyMapping['Tanzania'];
+        const newTenantId = 't-dyn-' + Math.floor(100 + Math.random() * 900);
+
+        const newTenant: Tenant = {
+          id: newTenantId,
+          name: orgName,
+          country,
+          city,
+          currency: mappedCurrency.symbol,
+          currencyCode: mappedCurrency.code,
+          taxRate: mappedCurrency.tax,
+          mobileMoneyProviders: country === 'Kenya' ? ['M-Pesa', 'Airtel Money'] : ['MTN MoMo'],
+          businessType: businessType
+        };
+
+        const userStartDate = new Date();
+        const hasReferral = !!affiliateCode.trim();
+        const trialDays = hasReferral ? 20 : 10;
+        const userEndDate = new Date(userStartDate);
+        userEndDate.setDate(userEndDate.getDate() + trialDays);
+
+        const newDynamicUser = {
+          id: 'u-dyn-' + Math.floor(100 + Math.random() * 900),
+          email: regEmail,
+          password: regPassword,
+          name: ownerName,
+          role: 'Admin' as const,
+          tenantId: newTenantId,
+          activeTenant: newTenantId,
+          phone: regPhone || null,
+          trial_start_date: userStartDate.toISOString(),
+          trial_end_date: userEndDate.toISOString(),
+          is_affiliate_lead: hasReferral,
+          referral_code_used: hasReferral ? affiliateCode.trim() : ''
+        };
+
+        // Store custom tenants dynamically in localStorage
+        const savedCustomTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
+        localStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, newTenant]));
+
+        // Store custom users dynamically in localStorage
+        const savedCustomUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
+        localStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, newDynamicUser]));
+
+        setIsLoading(false);
+        setSuccessMessage(`Success (Local Mode)! Registered "${orgName}" offline.`);
+        
+        triggerOnLoginWithSplash(newDynamicUser);
+      } catch (innerErr: any) {
+        setError(innerErr?.message || 'Failed to complete registration.');
+        setIsLoading(false);
+      }
+    }
   };
 
   const handleGoogleLoginClick = () => {
@@ -647,7 +920,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       setTimeout(() => {
         setIsLoading(false);
         setShowGoogleModal(false);
-        onLogin({
+        triggerOnLoginWithSplash({
           id: match.id || 'u-google-' + Math.random().toString(36).substr(2, 9),
           email: match.email,
           name: match.name,
@@ -771,7 +1044,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setTimeout(() => {
       setIsLoading(false);
       setShowGoogleModal(false);
-      onLogin({
+      triggerOnLoginWithSplash({
         id: newDynamicUser.id,
         email: newDynamicUser.email,
         name: newDynamicUser.name,
@@ -795,19 +1068,25 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
       <div className="sm:mx-auto sm:w-full sm:max-w-lg relative z-10 space-y-6">
         {/* Core Header */}
-        <div className="text-center space-y-2 cursor-pointer" onClick={() => onNavigate('/')}>
-          <div className={`inline-flex p-3 rounded-2xl border items-center justify-center mb-1 hover:scale-105 transition-transform shadow-xs ${isSaasAdminPortal ? 'bg-amber-50 border-amber-100' : 'bg-emerald-50 border-emerald-100'}`}>
+        <div className="text-center space-y-3 cursor-pointer" onClick={() => onNavigate('/')}>
+          <div className={`inline-flex p-3 rounded-2xl border items-center justify-center mb-1 hover:scale-105 transition-transform shadow-md ${isSaasAdminPortal ? 'bg-amber-50 border-amber-100' : 'bg-emerald-50 border-emerald-100'}`}>
             {isSaasAdminPortal ? (
               <Shield className="w-8 h-8 text-amber-600 stroke-[1.75]" />
+            ) : loginScreenLogoUrl ? (
+              <img src={loginScreenLogoUrl} alt="Jasper Suite Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
             ) : (
-              <Store className="w-8 h-8 text-emerald-600 stroke-[1.75]" />
+              <img src="/icon.svg" alt="Jasper Suite Logo" className="w-10 h-10 object-contain animate-pulse" />
             )}
           </div>
-          <h2 className="text-2xl font-black tracking-tight text-slate-850 dark:text-slate-100">
-            {isSaasAdminPortal ? 'SaaS Core Authority' : 'Welcome to Jasper Enterprise Suite'}
+          <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+            {isSaasAdminPortal ? 'SaaS Core Authority' : 'Jasper Suite'}
           </h2>
-          <p className="text-[10px] text-slate-450 dark:text-slate-400 font-bold tracking-widest uppercase font-mono">
-            {isSaasAdminPortal ? 'Central Management Backoffice' : 'Unifying POS Ledger, Hotel PMs & Multi-Tenant Channels'}
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold tracking-normal leading-relaxed uppercase max-w-sm mx-auto">
+            {isSaasAdminPortal 
+              ? 'Central Management Backoffice' 
+              : currentLang === 'sw' 
+                ? 'Mfumo wa Kisasa wa Usimamizi wa Biashara na Mauzo' 
+                : 'Next-Generation Unified POS & Enterprise Management Suite'}
           </p>
         </div>
 
@@ -833,7 +1112,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         )}
 
         {/* Auth Tab Picker */}
-        {!isSaasAdminPortal && (
+        {!isSaasAdminPortal && !onboardingUser && (
           <div className="flex bg-slate-200 p-1 rounded-2xl grid grid-cols-2 font-bold text-xs shadow-inner">
             <button
               onClick={() => { setAuthTab('signin'); setError(null); }}
@@ -853,9 +1132,83 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         {/* Action card boundary */}
         <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm space-y-6">
           
-          {(authTab === 'signin' || isSaasAdminPortal) ? (
+          {onboardingUser ? (
+            /* Onboarding Form Screen */
+            <form className="space-y-5 animate-fade-in" onSubmit={handleOnboardingSubmit}>
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
+                <p className="text-xs font-semibold text-amber-800 leading-normal">
+                  Tenant Workspace Configuration: Please set up your business details to launch your isolated dashboard.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Business Name</label>
+                <input
+                  type="text"
+                  required
+                  value={onboardingBusinessName}
+                  placeholder="e.g. My Isolated Business Ltd"
+                  onChange={(e) => setOnboardingBusinessName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Business Type</label>
+                <select
+                  value={onboardingBusinessType}
+                  onChange={(e) => setOnboardingBusinessType(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2.5 text-xs text-slate-800 outline-none cursor-pointer"
+                >
+                  <option value="Retail">Retail</option>
+                  <option value="Wholesale">Wholesale</option>
+                  <option value="Retail & Wholesale">Retail & Wholesale</option>
+                  <option value="Restaurant">Restaurant</option>
+                  <option value="Pharmacy">Pharmacy</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">City / Office Location</label>
+                <input
+                  type="text"
+                  required
+                  value={onboardingCity}
+                  placeholder="e.g. Dar es Salaam"
+                  onChange={(e) => setOnboardingCity(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-55 text-white font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 rounded-xl"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Spinning Up Isolated Tenant...</span>
+                  </>
+                ) : (
+                  <span>Launch My Isolated Dashboard</span>
+                )}
+              </button>
+            </form>
+          ) : (authTab === 'signin' || isSaasAdminPortal) ? (
             /* Sign in screen */
             <form className="space-y-5" onSubmit={handleLoginSubmit}>
+              {/* Warm Personalized Welcoming Banner */}
+              {!isSaasAdminPortal && (
+                <div className="bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-800/30 rounded-2xl p-4 text-center shadow-xs animate-fade-in">
+                  <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 leading-normal">
+                    {currentLang === 'sw' 
+                      ? 'Karibu tena 👋 Ingia kwenye dashibodi yako ya biashara' 
+                      : 'Welcome back 👋 Sign in to your business dashboard'}
+                  </p>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">
@@ -1059,75 +1412,26 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </p>
               </div>
 
-              {/* MANDATORY BUSINESS INDUSTRY NICHE CLICKABLE BLOCKS */}
-              <div className="space-y-3">
+              {/* BUSINESS TYPE DROPDOWN */}
+              <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">
-                  {t('nicheLabel')}
+                  Business Industry Niche / Type
                 </label>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {/* Block 1: Retail and Wholesale */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBusinessType('retail');
-                      setError(null);
-                    }}
-                    className={`flex flex-col items-start text-left p-4 rounded-2xl border transition-all relative cursor-pointer ${
-                      businessType === 'retail'
-                        ? 'border-emerald-500 bg-emerald-500/5 ring-2 ring-emerald-500/20'
-                        : 'border-slate-200 bg-white hover:border-slate-350 hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2.5">
-                      <div className={`p-2 rounded-xl shrink-0 ${businessType === 'retail' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                        <Store className="w-5 h-5" />
-                      </div>
-                      <div className="font-extrabold text-[11px] text-slate-800">
-                        {currentLang === 'sw' ? 'Bloko 1: Rejareja na Jumla' : currentLang === 'ar' ? 'الكتلة 1: تجارة التجزئة والجملة' : currentLang === 'fr' ? 'Bloc 1: Vente au détail et en gros' : 'Block 1: Retail and Wholesale'}
-                      </div>
-                    </div>
-                    <p className="text-[9.5px] text-slate-500 mt-2 font-sans font-light leading-relaxed">
-                      {currentLang === 'sw' ? 'POS Rejesta, usimamizi wa stoki, ripoti za hesabu na madeni.' : currentLang === 'ar' ? 'نقاط بيع وتسجيل متكاملة، تتبع المخزون والتقارير والضرائب.' : currentLang === 'fr' ? 'Caisse POS, mouvements de stocks, taxes et devises.' : 'Offline-First POS Register, multi-tax ledgers, digital bills printout.'}
-                    </p>
-                    {businessType === 'retail' && (
-                      <div className="absolute top-3 right-3 w-4 h-4 bg-emerald-500 text-[10px] text-white flex items-center justify-center rounded-full font-bold">
-                        ✓
-                      </div>
-                    )}
-                  </button>
-
-                  {/* Block 2: Pharmacy */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBusinessType('pharmacy');
-                      setError(null);
-                    }}
-                    className={`flex flex-col items-start text-left p-4 rounded-2xl border transition-all relative cursor-pointer ${
-                      businessType === 'pharmacy'
-                        ? 'border-emerald-500 bg-emerald-500/5 ring-2 ring-emerald-500/20'
-                        : 'border-slate-200 bg-white hover:border-slate-350 hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2.5">
-                      <div className={`p-2 rounded-xl shrink-0 ${businessType === 'pharmacy' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                        <Pill className="w-5 h-5" />
-                      </div>
-                      <div className="font-extrabold text-[11px] text-slate-800">
-                        {currentLang === 'sw' ? 'Bloko 2: Famasia ya Dawa' : currentLang === 'ar' ? 'الكتلة 2: الصيدلية والعقاقير' : currentLang === 'fr' ? 'Bloc 2: Pharmacie médicale' : 'Block 2: Pharmacy'}
-                      </div>
-                    </div>
-                    <p className="text-[9.5px] text-slate-500 mt-2 font-sans font-light leading-relaxed">
-                      {currentLang === 'sw' ? 'Orodha za dawa za kitalu, arifa za muda wa dawa kuisha.' : currentLang === 'ar' ? 'إخطارات لتواريخ انتهاء الصلاحية وتتبع فئات الأدوية.' : currentLang === 'fr' ? 'Génériques des médicaments, alertes d\'expiration et prescriptions.' : 'E-prescription index checks, chemical generic class lists, drug expiry tracker.'}
-                    </p>
-                    {businessType === 'pharmacy' && (
-                      <div className="absolute top-3 right-3 w-4 h-4 bg-emerald-500 text-[10px] text-white flex items-center justify-center rounded-full font-bold">
-                        ✓
-                      </div>
-                    )}
-                  </button>
-                </div>
+                <select
+                  value={businessType}
+                  onChange={(e) => {
+                    setBusinessType(e.target.value);
+                    setError(null);
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2.5 text-xs text-slate-800 outline-none cursor-pointer"
+                >
+                  <option value="Retail">Retail</option>
+                  <option value="Wholesale">Wholesale</option>
+                  <option value="Retail & Wholesale">Retail & Wholesale</option>
+                  <option value="Restaurant">Restaurant</option>
+                  <option value="Pharmacy">Pharmacy</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
 
               <button
@@ -1610,6 +1914,53 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               </form>
             )}
 
+          </div>
+        </div>
+      )}
+
+      {/* Personalized Welcome Splash Screen Overlay */}
+      {splashInfo && (
+        <div className="fixed inset-0 z-[99999] bg-slate-900/98 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 animate-fade-in text-white select-none pointer-events-auto">
+          <div className="space-y-6 max-w-sm animate-scale-in flex flex-col items-center">
+            {/* User's business logo or app logo */}
+            <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden bg-white/10 flex items-center justify-center shadow-2xl p-2 border border-white/20">
+              {splashInfo.logoUrl ? (
+                <img 
+                  src={splashInfo.logoUrl} 
+                  alt="Business Logo" 
+                  className="w-full h-full object-contain" 
+                  referrerPolicy="no-referrer" 
+                />
+              ) : (
+                <img 
+                  src="/icon.svg" 
+                  alt="Jasper App Logo" 
+                  className="w-16 h-16 object-contain" 
+                />
+              )}
+            </div>
+
+            <div className="space-y-2 text-center">
+              <h1 className="text-3xl font-black tracking-tight text-white font-sans">
+                Welcome, {splashInfo.userName}!
+              </h1>
+              <p className="text-xl font-extrabold font-sans text-[#00C853] tracking-wide uppercase">
+                {splashInfo.businessName}
+              </p>
+            </div>
+
+            <div className="pt-4 border-t border-white/10 w-full text-center">
+              <p className="text-sm font-medium text-slate-300 font-sans tracking-wide">
+                {currentLang === 'sw' 
+                  ? 'Dashibodi yako ya biashara iko tayari' 
+                  : 'Your business dashboard is ready'}
+              </p>
+            </div>
+
+            {/* Subtle loader line */}
+            <div className="w-48 h-1 bg-white/10 rounded-full mx-auto overflow-hidden mt-3">
+              <div className="h-full bg-[#00C853] rounded-full animate-pulse" style={{ width: '100%' }} />
+            </div>
           </div>
         </div>
       )}

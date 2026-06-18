@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, FormEvent } from 'react';
 import { Sale, Tenant, SaleItem, Product, SystemSettings, SalesDocument, User as AppUser } from '../types';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 
   Calendar, 
@@ -27,7 +28,13 @@ import {
   Download,
   Bike,
   Eye,
-  Lock
+  Lock,
+  WifiOff,
+  Receipt,
+  MoreVertical,
+  ChevronRight,
+  PlusCircle,
+  Pencil
 } from 'lucide-react';
 import { generateWhatsAppMessage, buildWhatsAppLink } from '../utils/whatsapp';
 import CachedImage from './CachedImage';
@@ -210,7 +217,7 @@ export default function DashboardSalesList({
   const [endDate, setEndDate] = useState<string>(getTodayLocalDateStr());
 
   // Sub tab selection (Sales transaction ledger vs. Customer A/R Debt vs. Seller Shift settlements)
-  const [activeSubTab, setActiveSubTab] = useState<'sales' | 'debts' | 'settlement' | 'documents' | 'add-sale'>('sales');
+  const [activeSubTab, setActiveSubTab] = useState<'sales' | 'debts' | 'settlement' | 'documents'>('sales');
 
   // Load documents from localStorage on mount
   const [documents, setDocuments] = useState<SalesDocument[]>(() => {
@@ -319,6 +326,7 @@ export default function DashboardSalesList({
 
   // Dropdown action popover state
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [mobileActionsSale, setMobileActionsSale] = useState<Sale | null>(null);
 
   // Modal triggers
   const [viewPaymentsOpen, setViewPaymentsOpen] = useState(false);
@@ -362,22 +370,7 @@ export default function DashboardSalesList({
   const [docWizardSelectedDiscount, setDocWizardSelectedDiscount] = useState(0);
   const [docWizardProductSearchQuery, setDocWizardProductSearchQuery] = useState('');
 
-  // States for Direct Add Sale tab
-  const [directSaleDate, setDirectSaleDate] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  });
-  const [directSaleCustomerName, setDirectSaleCustomerName] = useState('');
-  const [directSaleCustomerPhone, setDirectSaleCustomerPhone] = useState('');
-  const [directSalePaymentMethod, setDirectSalePaymentMethod] = useState<'Cash' | 'M-Pesa' | 'MTN MoMo' | 'Bank Transfer' | 'Credit'>('Cash');
-  const [directSaleItems, setDirectSaleItems] = useState<SaleItem[]>([]);
-  const [directSaleCashier, setDirectSaleCashier] = useState('Administrative Manager');
-  const [directSaleSuccessMsg, setDirectSaleSuccessMsg] = useState<string | null>(null);
-
-  // Direct add sale quick add product states
-  const [directAddProductId, setDirectAddProductId] = useState('');
-  const [directAddQty, setDirectAddQty] = useState(1);
-  const [directAddDiscount, setDirectAddDiscount] = useState(0);
+  // States for Direct Add Sale tab removed as all sales must be logged on POS view
 
   const [editFormFields, setEditFormFields] = useState<{
     customerName: string;
@@ -525,6 +518,12 @@ export default function DashboardSalesList({
   const pendingSyncCount = filteredSales.filter(s => s.syncStatus === 'pending').length;
   const creditsCount = filteredSales.filter(s => s.paymentMethod === 'Credit').length;
   const creditsVolume = filteredSales.filter(s => s.paymentMethod === 'Credit').reduce((acc, s) => acc + s.total, 0);
+  const pendingCount = filteredSales.filter(s => {
+    const amountPaid = s.amountPaid !== undefined ? s.amountPaid : s.total;
+    const pastInstallments = (installmentRecords[s.id] || []).reduce((sum, inst) => sum + inst.amount, 0);
+    const totalCollectedSoFar = s.paymentMethod === 'Credit' ? (amountPaid + pastInstallments) : s.total;
+    return s.paymentMethod === 'Credit' && totalCollectedSoFar < s.total;
+  }).length;
 
   const simulatePrint = () => {
     setIsReceiptPrinting(true);
@@ -589,7 +588,8 @@ export default function DashboardSalesList({
       </div>
 
       {/* Dynamic Sub-Tab Selector for general payments, documents, and cashier drawer loggers */}
-      <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-205 overflow-x-auto scrollbar-none shadow-xs select-none">
+      {/* DESKTOP ONLY TAB NAVIGATION */}
+      <div className="hidden md:flex bg-slate-100 p-1 rounded-2xl border border-slate-205 overflow-x-auto scrollbar-none shadow-xs select-none">
         <button
           type="button"
           onClick={() => setActiveSubTab('sales')}
@@ -601,18 +601,6 @@ export default function DashboardSalesList({
         >
           <FileText className="w-4 h-4 text-indigo-500 font-sans" />
           <span>Sales & Receipts</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('add-sale')}
-          className={`px-4 py-2.5 rounded-xl border-none cursor-pointer font-sans text-xs font-bold transition-all duration-200 flex items-center justify-center space-x-2 shrink-0 ${
-            activeSubTab === 'add-sale'
-              ? 'bg-white text-emerald-800 shadow-sm font-black border border-emerald-100'
-              : 'text-emerald-600 hover:text-emerald-800 bg-emerald-50/20 hover:bg-emerald-50/50'
-          }`}
-        >
-          <Plus className="w-4 h-4 text-emerald-600" />
-          <span>Add Sale (Direct)</span>
         </button>
         <button
           type="button"
@@ -647,11 +635,73 @@ export default function DashboardSalesList({
           className={`px-4 py-2.5 rounded-xl border-none cursor-pointer font-sans text-xs font-bold transition-all duration-200 flex items-center justify-center space-x-2 shrink-0 ${
             activeSubTab === 'documents'
               ? 'bg-white text-teal-950 shadow-sm font-black'
-              : 'text-slate-550 hover:text-slate-800'
+              : 'text-slate-555 hover:text-slate-800'
           }`}
         >
           <FileText className="w-4 h-4 text-teal-600 font-sans" />
           <span>Quotations & Proforma Invoices</span>
+        </button>
+      </div>
+
+      {/* MOBILE ONLY TAB NAVIGATION */}
+      <div className="md:hidden grid grid-cols-4 gap-1.5 px-3 pb-2 select-none w-full" id="mobile-sales-tabs-grid">
+        {/* 1. Receipts */}
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('sales')}
+          className={`w-full flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-205 border min-h-[58px] ${
+            activeSubTab === 'sales'
+              ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold'
+              : 'bg-slate-105 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-555 dark:text-slate-400'
+          }`}
+        >
+          <FileText className={`w-[18px] h-[18px] mb-1 shrink-0 ${activeSubTab === 'sales' ? 'text-white' : 'text-indigo-500'}`} />
+          <span className="text-[10px] font-semibold text-center leading-tight whitespace-nowrap">Receipts</span>
+        </button>
+
+        {/* 2. Debts */}
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('debts')}
+          className={`w-full flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-205 border min-h-[58px] relative ${
+            activeSubTab === 'debts'
+              ? 'bg-orange-500 border-orange-500 text-white shadow-xs font-bold'
+              : 'bg-slate-105 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-555 dark:text-slate-400'
+          }`}
+        >
+          <Coins className={`w-[18px] h-[18px] mb-1 shrink-0 ${activeSubTab === 'debts' ? 'text-white' : 'text-orange-500'}`} />
+          <span className="text-[10px] font-semibold text-center leading-tight whitespace-nowrap">Debts</span>
+          {sales.filter(s => s.paymentMethod === 'Credit' && (s.total - (s.amountPaid !== undefined ? s.amountPaid : 0)) > 0).length > 0 && (
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 animate-pulse border border-white" />
+          )}
+        </button>
+
+        {/* 3. Settle Till */}
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('settlement')}
+          className={`w-full flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-205 border min-h-[58px] ${
+            activeSubTab === 'settlement'
+              ? 'bg-indigo-650 border-indigo-650 text-white shadow-xs font-bold'
+              : 'bg-slate-105 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-555 dark:text-slate-400'
+          }`}
+        >
+          <Building className={`w-[18px] h-[18px] mb-1 shrink-0 ${activeSubTab === 'settlement' ? 'text-white' : 'text-indigo-600'}`} />
+          <span className="text-[10px] font-semibold text-center leading-tight whitespace-nowrap">Settle Till</span>
+        </button>
+
+        {/* 4. Documents */}
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('documents')}
+          className={`w-full flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-205 border min-h-[58px] ${
+            activeSubTab === 'documents'
+              ? 'bg-teal-650 border-teal-650 text-white shadow-xs font-bold'
+              : 'bg-slate-105 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-555 dark:text-slate-400'
+          }`}
+        >
+          <FileText className={`w-[18px] h-[18px] mb-1 shrink-0 ${activeSubTab === 'documents' ? 'text-white' : 'text-teal-600'}`} />
+          <span className="text-[10px] font-semibold text-center leading-tight whitespace-nowrap">Proformas</span>
         </button>
       </div>
 
@@ -669,29 +719,31 @@ export default function DashboardSalesList({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-              <div className="flex items-center space-x-2 bg-slate-50 border border-slate-205 px-3 py-1.5 rounded-xl text-xs w-full sm:w-auto">
-                <span className="text-[10px] uppercase font-mono font-bold text-slate-400">From</span>
-                <input 
-                  type="date" 
-                  value={startDate} 
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="bg-transparent border-none outline-none font-medium text-slate-700 focus:ring-0 text-xs cursor-pointer"
-                />
-              </div>
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3 w-full lg:w-auto">
+              <div className="flex flex-row gap-2 w-full lg:w-auto">
+                <div className="flex flex-col flex-1 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl w-full sm:w-auto relative">
+                  <span className="text-xs uppercase font-mono font-medium text-slate-400 mb-0.5">From</span>
+                  <input 
+                    type="date" 
+                    value={startDate} 
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-transparent border-none outline-none font-medium text-slate-700 focus:ring-0 text-sm cursor-pointer w-full p-0 h-5"
+                  />
+                </div>
 
-              <div className="flex items-center space-x-2 bg-slate-50 border border-slate-205 px-3 py-1.5 rounded-xl text-xs w-full sm:w-auto">
-                <span className="text-[10px] uppercase font-mono font-bold text-slate-400">To</span>
-                <input 
-                  type="date" 
-                  value={endDate} 
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="bg-transparent border-none outline-none font-medium text-slate-700 focus:ring-0 text-xs cursor-pointer"
-                />
+                <div className="flex flex-col flex-1 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl w-full sm:w-auto relative">
+                  <span className="text-xs uppercase font-mono font-medium text-slate-400 mb-0.5">To</span>
+                  <input 
+                    type="date" 
+                    value={endDate} 
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="bg-transparent border-none outline-none font-medium text-slate-700 focus:ring-0 text-sm cursor-pointer w-full p-0 h-5"
+                  />
+                </div>
               </div>
 
               {/* Quick presets */}
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex flex-row items-center gap-2 overflow-x-auto pb-1 lg:pb-0 hide-scrollbar w-full lg:w-auto">
                 <button
                   type="button"
                   onClick={() => {
@@ -699,10 +751,10 @@ export default function DashboardSalesList({
                     setStartDate(str);
                     setEndDate(str);
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer transition-all duration-150 ${
+                  className={`flex-1 lg:flex-none whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all duration-150 ${
                     startDate === getTodayLocalDateStr() && endDate === getTodayLocalDateStr()
-                      ? 'bg-slate-900 border-slate-900 text-white'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                   }`}
                 >
                   Today
@@ -719,10 +771,10 @@ export default function DashboardSalesList({
                     setStartDate(yStr);
                     setEndDate(yStr);
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer transition-all duration-150 ${
+                  className={`flex-1 lg:flex-none whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all duration-150 ${
                     startDate && startDate === endDate && startDate !== getTodayLocalDateStr()
-                      ? 'bg-slate-900 border-slate-900 text-white'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                   }`}
                 >
                   Yesterday
@@ -739,10 +791,10 @@ export default function DashboardSalesList({
                     setStartDate(p7Str);
                     setEndDate(getTodayLocalDateStr());
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer transition-all duration-150 ${
+                  className={`flex-1 lg:flex-none whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all duration-150 ${
                     startDate && startDate !== getTodayLocalDateStr() && endDate === getTodayLocalDateStr()
-                      ? 'bg-slate-900 border-slate-900 text-white'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                   }`}
                 >
                   Last 7 Days
@@ -753,10 +805,10 @@ export default function DashboardSalesList({
                     setStartDate('');
                     setEndDate('');
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer transition-all duration-150 ${
+                  className={`flex-1 lg:flex-none whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all duration-150 ${
                     !startDate && !endDate
-                      ? 'bg-slate-900 border-slate-900 text-white'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                   }`}
                 >
                   All Time
@@ -766,7 +818,7 @@ export default function DashboardSalesList({
           </div>
 
           {/* KPI METADATA CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* Total Sales Ticket count */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-3">
@@ -816,8 +868,64 @@ export default function DashboardSalesList({
 
       </div>
 
-      {/* FILTER & CONTROL PANEL BAR */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* KPI METADATA CARDS (MOBILE) */}
+      <div className="md:hidden grid grid-cols-2 gap-3 pb-2 w-full">
+        <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100/50 shadow-sm flex items-center space-x-2">
+          <div className="p-2 bg-blue-100 text-blue-600 rounded-lg shrink-0">
+            <Receipt className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-sm font-black text-slate-800 truncate">{filteredSales.length}</h4>
+            <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Receipt Count</p>
+          </div>
+        </div>
+
+        <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100/50 shadow-sm flex items-center space-x-2">
+          <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg shrink-0">
+            <TrendingUp className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-sm font-black text-slate-800 truncate">{currency}{Math.round(totalVolume).toLocaleString()}</h4>
+            <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Total Sales</p>
+          </div>
+        </div>
+
+        <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-100/50 shadow-sm flex items-center space-x-2">
+          <div className="p-2 bg-amber-100 text-amber-600 rounded-lg shrink-0">
+            <WifiOff className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-sm font-black text-slate-800 truncate">{pendingSyncCount}</h4>
+            <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Offline Dockets</p>
+          </div>
+        </div>
+
+        <div className="bg-orange-50/50 p-3 rounded-xl border border-orange-100/50 shadow-sm flex items-center space-x-2">
+          <div className="p-2 bg-orange-100 text-orange-600 rounded-lg shrink-0">
+            <Clock className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-sm font-black text-slate-800 truncate">{pendingCount}</h4>
+            <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Pending</p>
+          </div>
+        </div>
+
+        <div className="bg-purple-50/50 p-3 rounded-xl border border-purple-100/50 shadow-sm flex items-center space-x-3 col-span-2">
+          <div className="p-2 bg-purple-100 text-purple-600 rounded-lg shrink-0">
+            <CreditCard className="w-4 h-4" />
+          </div>
+          <div className="min-w-0 flex-1 flex justify-between items-center">
+            <div>
+              <h4 className="text-sm font-black text-slate-800 truncate">{currency}{Math.round(creditsVolume).toLocaleString()}</h4>
+              <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Store Credit</p>
+            </div>
+            <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-1 rounded-md">{creditsCount} docs</span>
+          </div>
+        </div>
+      </div>
+
+      {/* FILTER & CONTROL PANEL BAR (DESKTOP) */}
+      <div className="hidden md:flex bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex-col md:flex-row md:items-center justify-between gap-4">
         
         {/* Search */}
         <div className="flex items-center bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs max-w-sm flex-grow">
@@ -868,9 +976,121 @@ export default function DashboardSalesList({
 
       </div>
 
+      {/* FILTER & CONTROL PANEL BAR (MOBILE) */}
+      <div className="md:hidden flex flex-row gap-2 items-center">
+        {/* Search */}
+        <div className="flex-1 flex items-center bg-white border border-slate-200 px-3 py-2.5 rounded-xl shadow-xs">
+          <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+          <input
+            type="text"
+            placeholder="Search Receipt ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="bg-transparent border-none focus:outline-none w-full text-xs text-slate-800 placeholder-slate-400 font-sans"
+          />
+        </div>
+
+        {/* Channel Dropdown */}
+        <select
+          value={selectedPaymentMethod}
+          onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+          className="bg-slate-900 border border-slate-800 text-white px-3 py-2.5 rounded-xl font-bold cursor-pointer outline-none text-xs shadow-xs shrink-0 max-w-[120px]"
+        >
+          <option value="All">All Channels</option>
+          <option value="Cash">Cash</option>
+          <option value="Card">Card</option>
+          <option value="Mobile Money">MOMO</option>
+          <option value="Credit">Credit</option>
+        </select>
+      </div>
+
       {/* SALES MAIN DATA LIST */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-transparent md:bg-white md:rounded-2xl md:border md:border-slate-200 shadow-none md:shadow-xs overflow-hidden">
+        
+        {/* Mobile View: Cards */}
+        <div className="md:hidden flex flex-col space-y-3 pb-8">
+          {filteredSales.map((sale) => {
+            const totalVal = sale.total;
+            const isCredit = sale.paymentMethod === 'Credit';
+            const amountPaid = sale.amountPaid !== undefined ? sale.amountPaid : totalVal;
+            const pastInstallments = (installmentRecords[sale.id] || []).reduce((sum, inst) => sum + inst.amount, 0);
+            const totalCollectedSoFar = isCredit ? (amountPaid + pastInstallments) : totalVal;
+            const amountDueRaw = isCredit ? Math.max(0, totalVal - totalCollectedSoFar) : 0;
+
+            let paymentStatusTag = '';
+            let paymentStatusColor = '';
+
+            if (!isCredit) {
+              paymentStatusTag = 'PAID IN FULL';
+              paymentStatusColor = 'bg-emerald-50 text-emerald-600 border-emerald-100';
+            } else if (amountDueRaw <= 0) {
+              paymentStatusTag = 'SETTLED';
+              paymentStatusColor = 'bg-indigo-50 text-indigo-700 border-indigo-100';
+            } else if (totalCollectedSoFar > 0) {
+              paymentStatusTag = 'PARTIAL PAYMENT';
+              paymentStatusColor = 'bg-amber-50 text-amber-700 border-amber-100';
+            } else {
+              paymentStatusTag = 'UNPAID / RAW';
+              paymentStatusColor = 'bg-rose-50 text-rose-700 border-rose-100';
+            }
+
+            return (
+              <div key={sale.id} className="bg-white border text-sm border-slate-100 shadow-sm rounded-xl p-3 pr-9 flex flex-col relative overflow-hidden active:scale-[0.98] transition-all cursor-pointer" onClick={() => setViewingSaleDetail(sale)}>
+                {/* Vertical Three-Dots Menu Icon */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMobileActionsSale(sale);
+                  }}
+                  className="absolute top-2.5 right-2 p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 active:scale-95 transition-all cursor-pointer z-10"
+                  aria-label="Open sales Actions menu"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+
+                {/* Top Row */}
+                <div className="flex items-start justify-between mb-2 truncate pr-2">
+                  <span className="font-bold text-slate-800 tracking-tight truncate pr-2">{sale.customerName || 'Walk-in Customer'}</span>
+                  <span className="font-bold text-slate-900 tracking-tight text-right text-base shrink-0">{currency} {Math.round(sale.total).toLocaleString()}</span>
+                </div>
+
+                {/* Second Row */}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] text-slate-400 font-mono truncate mr-2">
+                    #{sale.reference || sale.id.substring(0, 5)} &bull; {sale.items.reduce((sum, item) => sum + item.qty, 0)} Items
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                    {sale.paymentMethod || 'Cash'}
+                  </span>
+                </div>
+
+                {/* Third Row */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400">
+                    <span className="mr-1">{new Date(sale.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    <span>{new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border shrink-0 ${paymentStatusColor}`}>
+                    {paymentStatusTag}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+          {filteredSales.length === 0 && (
+             <div className="p-12 flex flex-col items-center justify-center text-center text-slate-455 text-sm bg-white rounded-2xl shadow-sm">
+                <div className="w-16 h-16 bg-slate-50 border border-slate-100 mt-4 rounded-full flex items-center justify-center mb-4">
+                  <FileText className="w-8 h-8 text-slate-300" />
+                </div>
+                <h4 className="text-sm font-bold text-slate-700 mb-1">No sales yet</h4>
+                <p className="text-xs text-slate-455 mb-4">No active transactions match your filter criteria. Use the Cashier Till (POS) to record new sales.</p>
+             </div>
+          )}
+        </div>
+
+        {/* Desktop View: Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-mono font-black text-slate-500 uppercase tracking-widest">
@@ -2470,286 +2690,13 @@ export default function DashboardSalesList({
                   </div>
                 );
               })}
-
-              {filteredDocs.length === 0 && (
-                <div className="col-span-full py-16 text-center bg-white border border-slate-200 rounded-3xl shadow-xs italic text-slate-400 text-xs font-sans">
-                  No documents found matching current filter under this tenant branch office.
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* SECTION E: RAPID DIRECT SALE LOGGER CARD */}
-      {activeSubTab === 'add-sale' && (() => {
-        const handleAddSaleItem = () => {
-          if (!directAddProductId) return;
-          const foundProd = products.find(p => p.id === directAddProductId);
-          if (!foundProd) return;
-
-          const existingIdx = directSaleItems.findIndex(item => item.productId === foundProd.id);
-          if (existingIdx >= 0) {
-            const updated = [...directSaleItems];
-            updated[existingIdx].qty += Number(directAddQty);
-            setDirectSaleItems(updated);
-          } else {
-            const newItem: SaleItem = {
-              productId: foundProd.id,
-              productName: foundProd.name,
-              qty: Number(directAddQty),
-              price: foundProd.sellingPrice,
-              discount: Number(directAddDiscount),
-              discountType: 'percent'
-            };
-            setDirectSaleItems(prev => [...prev, newItem]);
-          }
-
-          setDirectAddProductId('');
-          setDirectAddQty(1);
-          setDirectAddDiscount(0);
-        };
-
-        const handleRemoveSaleItem = (idx: number) => {
-          setDirectSaleItems(prev => prev.filter((_, i) => i !== idx));
-        };
-
-        const totalDirectAmount = directSaleItems.reduce((sum, item) => {
-          const itemPrice = item.discountType === 'percent' ? item.price * (1 - item.discount / 100) : Math.max(0, item.price - item.discount);
-          return sum + (itemPrice * item.qty);
-        }, 0);
-
-        const handleCompleteDirectSale = (e: FormEvent) => {
-          e.preventDefault();
-          if (directSaleItems.length === 0) {
-            alert('Cannot complete an empty sale items list. Please add at least one stock item!');
-            return;
-          }
-
-          const saleId = 'sl-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-          const targetTimestamp = (() => {
-            try {
-              const now = new Date();
-              const d = new Date(`${directSaleDate}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.000Z`);
-              return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
-            } catch (err) {
-              return new Date().toISOString();
-            }
-          })();
-
-          const newSale: Sale = {
-            id: saleId,
-            items: directSaleItems,
-            total: totalDirectAmount,
-            tax: Math.round(totalDirectAmount * 0.16),
-            deliveryCost: 0,
-            discount: 0,
-            discountType: 'percent',
-            paymentMethod: directSalePaymentMethod,
-            reference: Math.random().toString(36).substring(2, 8).toUpperCase(),
-            tenantId: activeTenant.id,
-            timestamp: targetTimestamp,
-            actualTimestamp: new Date().toISOString(),
-            syncStatus: 'synced',
-            cashierName: directSaleCashier,
-            customerName: directSaleCustomerName || 'Walk-In Customer (Direct)',
-            customerPhone: directSaleCustomerPhone || undefined,
-            staffName: directSaleCashier,
-            vatStatus: 'non-vat'
-          };
-
-          if (onUpdateSales) {
-            onUpdateSales([newSale, ...sales]);
-          }
-
-          setDirectSaleSuccessMsg(`Direct backdated sale logged successfully with ID ${saleId.toUpperCase()}`);
-          setDirectSaleCustomerName('');
-          setDirectSaleCustomerPhone('');
-          setDirectSaleItems([]);
-          
-          setTimeout(() => {
-            setDirectSaleSuccessMsg(null);
-            setActiveSubTab('sales');
-          }, 3500);
-        };
-
-        return (
-          <div className="bg-white border border-slate-205 rounded-3xl p-6 shadow-sm max-w-4xl mx-auto animate-fade-in" id="add-sale-direct-view">
-            <div className="flex items-center space-x-2 pb-4 border-b border-slate-100 mb-6 font-sans">
-              <Plus className="w-5 h-5 text-emerald-600 animate-pulse" />
-              <h3 className="text-base font-bold text-slate-800">Directly Record New Sale (Self Service)</h3>
             </div>
 
-            {directSaleSuccessMsg && (
-              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-800 text-xs font-bold leading-relaxed flex items-center space-x-2 animate-pulse font-sans">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>{directSaleSuccessMsg}</span>
+            {filteredDocs.length === 0 && (
+              <div className="col-span-full py-16 text-center bg-white border border-slate-200 rounded-3xl shadow-xs italic text-slate-400 text-xs font-sans">
+                No documents found matching current filter under this tenant branch office.
               </div>
             )}
-
-            <form onSubmit={handleCompleteDirectSale} className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Transaction Date</label>
-                    <input
-                      type="date"
-                      value={directSaleDate}
-                      onChange={(e) => setDirectSaleDate(e.target.value)}
-                      required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500 cursor-pointer"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Cashier User</label>
-                    <input
-                      type="text"
-                      value={directSaleCashier}
-                      onChange={(e) => setDirectSaleCashier(e.target.value)}
-                      required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-850 focus:outline-emerald-500 font-sans"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Client Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Lipa Traders etc."
-                      value={directSaleCustomerName}
-                      onChange={(e) => setDirectSaleCustomerName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500 font-sans"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Customer Phone</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. +254 ..."
-                      value={directSaleCustomerPhone}
-                      onChange={(e) => setDirectSaleCustomerPhone(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500 font-sans"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Payment Method</label>
-                  <select
-                    value={directSalePaymentMethod}
-                    onChange={(e: any) => setDirectSalePaymentMethod(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-700 outline-none cursor-pointer font-sans"
-                  >
-                    <option value="Cash">Cash Drawer</option>
-                    <option value="M-Pesa">M-Pesa Express</option>
-                    <option value="MTN MoMo">MTN MoMo Sandbox</option>
-                    <option value="Bank Transfer">Bank Wire Transfer</option>
-                    <option value="Credit">Credit / AR Debt</option>
-                  </select>
-                </div>
-
-                {/* Direct quick items selector bar */}
-                <div className="p-4 bg-slate-55 rounded-2xl border border-slate-200 space-y-3 font-sans">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider font-mono">Quick Pick Products</span>
-                  <div className="space-y-2.5">
-                    <div>
-                      <select
-                        value={directAddProductId}
-                        onChange={(e) => setDirectAddProductId(e.target.value)}
-                        className="w-full bg-white border border-slate-205 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 outline-none cursor-pointer"
-                      >
-                        <option value="">-- Choose Stock Product --</option>
-                        {products.map(p => (
-                          <option key={p.id} value={p.id}>{p.name} ({currency}{p.sellingPrice.toLocaleString()})</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex gap-2">
-                      <div className="w-1/2">
-                        <label className="block text-[8px] uppercase tracking-wider text-slate-400 mb-1">Quantity</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={directAddQty}
-                          onChange={(e) => setDirectAddQty(Number(e.target.value))}
-                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800"
-                        />
-                      </div>
-                      <div className="w-1/2">
-                        <label className="block text-[8px] uppercase tracking-wider text-slate-400 mb-1">Discount (%)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={directAddDiscount}
-                          onChange={(e) => setDirectAddDiscount(Number(e.target.value))}
-                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleAddSaleItem}
-                      disabled={!directAddProductId}
-                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition-all border-none cursor-pointer"
-                    >
-                      Insert to Sale Basket
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Basket list in rapid sale */}
-              <div className="flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-200 md:pl-6 pt-4 md:pt-0 font-sans">
-                <div className="space-y-4">
-                  <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Sale Basket Items ({directSaleItems.length})</span>
-                  <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
-                    {directSaleItems.map((item, idx) => (
-                      <div key={idx} className="bg-slate-50/50 border border-slate-150 rounded-2xl p-3 flex items-center justify-between text-xs font-sans">
-                        <div>
-                          <p className="font-bold text-slate-800">{item.productName}</p>
-                          <div className="flex items-center space-x-2 text-[10px] text-slate-500 font-mono mt-0.5">
-                            <span>Qty: {item.qty}</span>
-                            <span>•</span>
-                            <span>Price: {currency}{item.price}</span>
-                            {item.discount > 0 && <span>• Disc: {item.discount}%</span>}
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                          <span className="font-bold font-mono text-slate-800">{currency}{Math.round(item.price * item.qty * (1 - item.discount / 100)).toLocaleString()}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveSaleItem(idx)}
-                            className="bg-red-50 hover:bg-red-100/80 hover:text-red-700 transition-colors p-1.5 border border-red-200 text-red-500 rounded-lg cursor-pointer flex items-center justify-center shrink-0"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {directSaleItems.length === 0 && (
-                      <p className="text-center text-slate-450 italic text-xs py-10">Add items from the quick picker to build the sale.</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-slate-200 mt-4 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sale Basket Total:</span>
-                    <span className="text-xl font-mono font-black text-slate-900">{currency}{Math.round(totalDirectAmount).toLocaleString()}</span>
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={directSaleItems.length === 0}
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-350 disabled:cursor-not-allowed text-white font-black uppercase text-xs tracking-wider rounded-2xl border-none cursor-pointer transition-all shadow-md select-none font-sans"
-                  >
-                    ✓ Complete & Log Transaction
-                  </button>
-                </div>
-              </div>
-            </form>
           </div>
         );
       })()}
@@ -3118,9 +3065,9 @@ export default function DashboardSalesList({
                 
                 {/* Receipt store branding block */}
                 <div className="text-center space-y-1 pb-4 border-b border-dashed border-slate-200 flex flex-col items-center">
-                  {(systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo) && (
+                  {(systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url) && (
                     <img 
-                      src={systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo} 
+                      src={systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url || undefined} 
                       alt="Receipt Logo" 
                       referrerPolicy="no-referrer"
                       className="max-h-12 max-w-[140px] object-contain rounded-lg mb-2 select-none"
@@ -4657,9 +4604,9 @@ export default function DashboardSalesList({
                   {/* Decorative corporate banner on top */}
                   <div className="flex items-start justify-between">
                     <div>
-                      {(systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo) ? (
+                      {(systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url) ? (
                         <img 
-                          src={systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo} 
+                          src={systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url || undefined} 
                           alt="Merchant Logo" 
                           referrerPolicy="no-referrer"
                           className="max-h-16 max-w-[200px] object-contain rounded-xl select-none mb-3"
@@ -4854,6 +4801,219 @@ export default function DashboardSalesList({
           </div>
         );
       })()}
+
+      {/* Bottom Sheet Action Menu for Mobile */}
+      <AnimatePresence>
+        {mobileActionsSale && (
+          <>
+            {/* Backdrop Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileActionsSale(null)}
+              className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs env-padding-safe"
+            />
+
+            {/* Bottom Sheet */}
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 280 }}
+              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl shadow-xl z-50 overflow-hidden font-sans flex flex-col max-h-[85vh] text-[#0f172a] border border-slate-100"
+            >
+              {/* Close Handle Bar */}
+              <div className="w-full flex justify-center py-2 shrink-0">
+                <div className="w-12 h-1 bg-slate-250 rounded-full" />
+              </div>
+
+              {/* Header Title Information */}
+              <div className="px-5 pb-3 pt-1 text-left shrink-0">
+                <h3 className="text-base font-extrabold text-slate-800 leading-tight">
+                  {mobileActionsSale.customerName || 'Walk-In Customer'} — <span className="font-mono text-indigo-700">#{getSaleReference(mobileActionsSale)}</span>
+                </h3>
+                <p className="text-xs text-slate-450 mt-1 flex items-center justify-between">
+                  <span>Total Due: <strong className="font-extrabold text-slate-900">{currency}{Math.round(mobileActionsSale.total).toLocaleString()}</strong></span>
+                  <span>{new Date(mobileActionsSale.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} &bull; {new Date(mobileActionsSale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </p>
+              </div>
+
+              <div className="bg-slate-100 h-[1px] w-full" />
+
+              {/* Scrollable Action List */}
+              <div className="overflow-y-auto divide-y divide-slate-100 p-4 max-h-[calc(70vh-20px)] space-y-2.5">
+                
+                {/* 1. View Sale */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewingSaleDetail(mobileActionsSale);
+                    setMobileActionsSale(null);
+                  }}
+                  className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 select-none">
+                      <Eye className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold text-slate-800 block">View Sale</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Inspect client receipt details</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+
+                {/* 2. Add Payment */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const totalVal = mobileActionsSale.total;
+                    const isCredit = mobileActionsSale.paymentMethod === 'Credit';
+                    const initialPaid = mobileActionsSale.amountPaid !== undefined ? mobileActionsSale.amountPaid : (isCredit ? 0 : totalVal);
+                    const installments = installmentRecords[mobileActionsSale.id] || [];
+                    const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
+                    const calculatedPaid = Math.min(totalVal, initialPaid + extraPaid);
+                    const calculatedDue = Math.max(0, totalVal - calculatedPaid);
+
+                    setSelectedSale(mobileActionsSale);
+                    setPayInInputVal(calculatedDue > 0 ? calculatedDue.toString() : '');
+                    setViewPaymentsOpen(true);
+                    setMobileActionsSale(null);
+                  }}
+                  className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 select-none">
+                      <PlusCircle className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold text-slate-800 block">Add Payment</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Collect due balance installment</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+
+                {/* 3. Edit Sale */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const totalVal = mobileActionsSale.total;
+                    const isCredit = mobileActionsSale.paymentMethod === 'Credit';
+                    const initialPaid = mobileActionsSale.amountPaid !== undefined ? mobileActionsSale.amountPaid : (isCredit ? 0 : totalVal);
+                    const installments = installmentRecords[mobileActionsSale.id] || [];
+                    const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
+                    const calculatedPaid = Math.min(totalVal, initialPaid + extraPaid);
+                    const calculatedDue = Math.max(0, totalVal - calculatedPaid);
+
+                    setEditingSale(mobileActionsSale);
+                    setEditFormFields({
+                      customerName: mobileActionsSale.customerName || '',
+                      customerPhone: mobileActionsSale.customerPhone || '',
+                      paymentMethod: mobileActionsSale.paymentMethod,
+                      amountPaid: initialPaid,
+                      amountDue: calculatedDue,
+                      items: [...mobileActionsSale.items]
+                    });
+                    setMobileActionsSale(null);
+                  }}
+                  className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 shrink-0 select-none">
+                      <Pencil className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold text-slate-800 block">Edit Sale</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Update customer details or items</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+
+                {/* 4. POS Receipt */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSale(mobileActionsSale);
+                    setViewA4InvoiceOpen(false);
+                    setMobileActionsSale(null);
+                  }}
+                  className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 shrink-0 select-none">
+                      <Receipt className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold text-slate-800 block">POS Receipt</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">View or print thermal slip</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+
+                {/* 5. Invoice */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSale(mobileActionsSale);
+                    setViewA4InvoiceOpen(true);
+                    setMobileActionsSale(null);
+                  }}
+                  className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 select-none">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold text-slate-800 block">Invoice</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Print standard A4 PDF document</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+
+                {/* Divider below main actions */}
+                <div className="my-2 border-t border-slate-100" />
+
+                {/* 6. Delete Sale */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSaleToDelete(mobileActionsSale);
+                    setMobileActionsSale(null);
+                  }}
+                  disabled={rolePermissions && rolePermissions.deleteSale?.write === false}
+                  className={`w-full h-14 min-h-[52px] flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-rose-50 shadow-3xs cursor-pointer text-left transition-colors font-semibold ${
+                    rolePermissions && rolePermissions.deleteSale?.write === false 
+                      ? 'bg-slate-50 text-slate-400 border-none cursor-not-allowed opacity-50' 
+                      : 'bg-rose-50/30 hover:bg-rose-50 border-rose-100 text-rose-600'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 select-none ${
+                      rolePermissions && rolePermissions.deleteSale?.write === false
+                        ? 'bg-slate-200 text-slate-400'
+                        : 'bg-rose-100 text-rose-600'
+                    }`}>
+                      <Trash2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className={`text-sm font-black block ${rolePermissions && rolePermissions.deleteSale?.write === false ? 'text-slate-400' : 'text-rose-700'}`}>Delete Sale</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Void transaction indices permanently</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-rose-400 flex items-center justify-center" />
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
     </div>
   );

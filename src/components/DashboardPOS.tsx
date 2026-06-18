@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Tenant, Product, Sale, SaleItem, SystemSettings } from '../types';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
   Minus, 
@@ -24,11 +25,142 @@ import {
   Unlock,
   History,
   UserCheck,
-  Calendar
+  Calendar,
+  Settings,
+  ChevronDown
 } from 'lucide-react';
 import DashboardBarcodeScanner from './DashboardBarcodeScanner';
 import { generateWhatsAppMessage, buildWhatsAppLink } from '../utils/whatsapp';
 import CachedImage from './CachedImage';
+
+// Web Audio API helper for offline-friendly beep sound
+const playBeep = (frequency = 800, duration = 80) => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.frequency.value = frequency;
+    osc.type = 'sine';
+    
+    // Smooth envelope to prevent clicking noises
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.01);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + (duration / 1000));
+    
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + (duration / 1000));
+  } catch (e) {
+    // silently fail
+  }
+};
+
+const playErrorBeep = () => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(200, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.4);
+    
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.02);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
+    
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.4);
+  } catch (e) {
+    // silently fail
+  }
+};
+
+const playWarningBeep = () => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    
+    // First short beep (medium frequency 400Hz, duration 120ms)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.frequency.setValueAtTime(400, ctx.currentTime);
+    osc1.type = 'sine';
+    
+    gain1.gain.setValueAtTime(0, ctx.currentTime);
+    gain1.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.01);
+    gain1.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.12);
+    
+    osc1.start(ctx.currentTime);
+    osc1.stop(ctx.currentTime + 0.12);
+
+    // Second short beep starting after a 60ms gap (at 0.18s)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.frequency.setValueAtTime(400, ctx.currentTime + 0.18);
+    osc2.type = 'sine';
+    
+    gain2.gain.setValueAtTime(0, ctx.currentTime + 0.18);
+    gain2.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.19);
+    gain2.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.30);
+    
+    osc2.start(ctx.currentTime + 0.18);
+    osc2.stop(ctx.currentTime + 0.30);
+  } catch (e) {
+    // silently fail
+  }
+};
+
+const playOutOfStockBeep = () => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    
+    // First beep: 400Hz, 150ms
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.frequency.value = 400;
+    osc1.type = 'sine';
+    gain1.gain.setValueAtTime(0, ctx.currentTime);
+    gain1.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.01);
+    gain1.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+    osc1.start(ctx.currentTime);
+    osc1.stop(ctx.currentTime + 0.15);
+
+    // Second beep: 250Hz, 150ms, starting immediately after
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.frequency.value = 250;
+    osc2.type = 'sine';
+    gain2.gain.setValueAtTime(0, ctx.currentTime + 0.15);
+    gain2.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.16);
+    gain2.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.30);
+    osc2.start(ctx.currentTime + 0.15);
+    osc2.stop(ctx.currentTime + 0.30);
+  } catch (e) {
+    // silently fail
+  }
+};
 
 interface DashboardPOSProps {
   activeTenant: Tenant;
@@ -203,22 +335,43 @@ export default function DashboardPOS({
   const [autoInsertOnScan, setAutoInsertOnScan] = useState(true);
   const [barcodeToast, setBarcodeToast] = useState<string | null>(null);
 
+  interface ScanToast {
+    id: string;
+    type: 'error' | 'warning' | 'success';
+    message: string;
+  }
+  const [scanToasts, setScanToasts] = useState<ScanToast[]>([]);
+
+  const addScanToast = (type: 'error' | 'warning' | 'success', message: string) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setScanToasts((prev) => [...prev, { id, type, message }]);
+    setTimeout(() => {
+      setScanToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3000);
+  };
+
   const handleScanSuccess = (scannedCode: string, matchedProduct: Product | null) => {
     if (matchedProduct) {
-      if (autoInsertOnScan) {
-        addToCart(matchedProduct);
-        setBarcodeToast(`Scanned & direct added "${matchedProduct.name}" to till basket!`);
+      const isOOS = (matchedProduct.shopStockQty ?? 0) <= 0 || (matchedProduct.stockQty ?? 0) <= 0;
+      if (isOOS) {
+        playWarningBeep();
+        addScanToast('warning', `📦 Out of stock — ${matchedProduct.name} has no available stock`);
       } else {
-        setSearchTerm(scannedCode);
-        setBarcodeToast(`Scanned match found: ${matchedProduct.name}`);
+        if (autoInsertOnScan) {
+          playBeep(800, 80);
+          addToCart(matchedProduct);
+          addScanToast('success', `Scanned & direct added "${matchedProduct.name}" to till basket!`);
+        } else {
+          playBeep(800, 80);
+          setSearchTerm(scannedCode);
+          addScanToast('success', `Scanned match found: ${matchedProduct.name}`);
+        }
       }
     } else {
-      setBarcodeToast(`Barcode "${scannedCode}" was scanned but is not registered in current catalog.`);
+      playErrorBeep();
+      addScanToast('error', `⚠️ Product not found — this item is not in the system`);
     }
 
-    setTimeout(() => {
-      setBarcodeToast(null);
-    }, 4500);
     setIsScannerOpen(false);
   };
   
@@ -854,49 +1007,98 @@ export default function DashboardPOS({
   }, [cart, sellingChannel, orderDiscount, orderDiscountType, isWholesaleBypassed, isDiscountBypassed]);
 
   return (
-    <div id="pos-view" className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div id="pos-view-container" className="relative pb-[160px] md:pb-0 pt-[56px] md:pt-0">
       
-      {/* Product selection grid (8/12 scope) */}
-      <div className="lg:col-span-7 xl:col-span-8 space-y-6">
-        {/* Search and Categories controls */}
-        <div className="bg-white border border-slate-200 p-6 rounded-3xl space-y-4 shadow-sm animate-fade-in">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-100/70 border border-slate-200 rounded-2xl p-1.5 relative">
-            <div className="relative flex-grow">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search Code, Barcode or Title..."
-                className="w-full bg-transparent text-sm pl-10 pr-24 py-2.5 text-slate-800 placeholder-slate-400 font-sans font-medium outline-none border-none focus:ring-0"
-              />
-              <Search className="absolute left-3.5 top-3 w-4.5 h-4.5 text-slate-400 pointer-events-none" />
-              
-              {/* SCAN BARCODE ICON BUTTON IN THE RIGHT OF SEARCH BAR */}
-              <button 
+      {/* SCAN FEEDBACK INDEPENDENT TOAST STACK */}
+      <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 w-[calc(100%-2rem)] max-w-md pointer-events-none">
+        <AnimatePresence>
+          {scanToasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className={`pointer-events-auto p-4 rounded-xl shadow-md border text-sm font-semibold text-white flex items-center justify-between gap-3 ${
+                toast.type === 'error'
+                  ? 'bg-rose-600 border-rose-500'
+                  : toast.type === 'warning'
+                  ? 'bg-amber-500 border-amber-450'
+                  : 'bg-emerald-600 border-emerald-500'
+              }`}
+            >
+              <span className="flex-1">{toast.message}</span>
+              <button
                 type="button"
-                onClick={() => setIsScannerOpen(true)}
-                className="absolute right-2 top-1.5 p-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center space-x-1 select-none"
-                title="Scan Barcode / QR EAN code with reader"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setScanToasts((prev) => prev.filter((t) => t.id !== toast.id));
+                }}
+                className="text-white hover:opacity-80 transition-opacity bg-transparent border-none cursor-pointer p-1 font-extrabold text-xs select-none"
               >
-                <Scan className="w-4 h-4 text-emerald-600 animate-pulse" />
-                <span className="hidden md:inline text-[9px] font-bold font-mono text-slate-500 tracking-wider">SCAN CODE</span>
+                ✕
               </button>
-            </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
 
-            {/* Direct insert checkbox control */}
-            <div className="flex items-center space-x-2 px-3 border-t sm:border-t-0 sm:border-l border-slate-250 pt-2 sm:pt-0 shrink-0">
-              <input 
-                type="checkbox"
-                id="auto-insert-toggle"
-                checked={autoInsertOnScan}
-                onChange={(e) => setAutoInsertOnScan(e.target.checked)}
-                className="w-3.5 h-3.5 rounded text-emerald-600 border-slate-300 focus:ring-emerald-500 cursor-pointer"
-              />
-              <label htmlFor="auto-insert-toggle" className="text-[10px] font-bold text-slate-500 cursor-pointer uppercase select-none">
-                Auto-Add on Scan
-              </label>
+      {/* Top Header (mobile only) */}
+      <div className="md:hidden fixed top-0 left-0 w-full h-[56px] bg-white border-b border-slate-100 flex items-center justify-between px-4 z-50 shadow-sm">
+        <h1 className="text-lg font-bold text-slate-800">POS</h1>
+        <div className="flex items-center space-x-3">
+          <button className="text-slate-500 hover:text-emerald-600 transition-colors" title="History/Receipts">
+            <History className="w-5 h-5" />
+          </button>
+          <button className="text-slate-500 hover:text-emerald-600 transition-colors" title="Settings">
+            <Settings className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      <div id="pos-view" className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8">
+        
+        {/* Product selection grid (8/12 scope) */}
+        <div className="lg:col-span-7 xl:col-span-8 space-y-4 md:space-y-6">
+          {/* Search and Categories controls */}
+          <div className="bg-white px-3 py-3 md:border border-slate-200 md:p-6 rounded-none md:rounded-3xl space-y-4 shadow-none md:shadow-sm animate-fade-in">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-100/70 border border-slate-200 rounded-2xl p-1.5 relative md:mx-0">
+              <div className="relative flex-grow">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search Code, Barcode or Title..."
+                  className="w-full bg-transparent text-sm pl-10 pr-24 py-2.5 text-slate-800 placeholder-slate-400 font-sans font-medium outline-none border-none focus:ring-0"
+                />
+                <Search className="absolute left-3.5 top-3 w-4.5 h-4.5 text-slate-400 pointer-events-none" />
+                
+                {/* SCAN BARCODE ICON BUTTON IN THE RIGHT OF SEARCH BAR */}
+                <button 
+                  type="button"
+                  onClick={() => setIsScannerOpen(true)}
+                  className="absolute right-2 top-1.5 p-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center space-x-1 select-none"
+                  title="Scan Barcode / QR EAN code with reader"
+                >
+                  <Scan className="w-4 h-4 text-emerald-600 animate-pulse" />
+                  <span className="hidden md:inline text-[9px] font-bold font-mono text-slate-500 tracking-wider">SCAN CODE</span>
+                </button>
+              </div>
+
+              {/* Direct insert checkbox control */}
+              <div className="hidden md:flex items-center space-x-2 px-3 border-t sm:border-t-0 sm:border-l border-slate-250 pt-2 sm:pt-0 shrink-0">
+                <input 
+                  type="checkbox"
+                  id="auto-insert-toggle"
+                  checked={autoInsertOnScan}
+                  onChange={(e) => setAutoInsertOnScan(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded text-emerald-600 border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                />
+                <label htmlFor="auto-insert-toggle" className="text-[10px] font-bold text-slate-500 cursor-pointer uppercase select-none">
+                  Auto-Add on Scan
+                </label>
+              </div>
             </div>
-          </div>
 
           {/* Selling Channel Selector and Warnings */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
@@ -960,7 +1162,7 @@ export default function DashboardPOS({
 
           {/* BARCODE FEEDBACK BANNER */}
           {barcodeToast && (
-            <div className="bg-emerald-50 border border-emerald-100 rounded-xl py-2.5 px-4 flex items-center justify-between text-[11px] text-emerald-800 animate-pulse font-medium shadow-xs">
+            <div className="bg-emerald-50 border border-emerald-100 rounded-xl py-2.5 px-4 mx-2 md:mx-0 flex items-center justify-between text-[11px] text-emerald-800 animate-pulse font-medium shadow-xs">
               <div className="flex items-center space-x-2">
                 <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>{barcodeToast}</span>
@@ -974,7 +1176,8 @@ export default function DashboardPOS({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+          {/* Desktop Categories Pill List */}
+          <div className="hidden md:flex flex-wrap items-center gap-2 pt-0.5">
             {categories.map(cat => (
               <button
                 key={cat}
@@ -989,10 +1192,28 @@ export default function DashboardPOS({
               </button>
             ))}
           </div>
+
+          {/* Mobile Categories Dropdown */}
+          <div className="md:hidden px-2 pt-0.5">
+            <div className="relative">
+              <select
+                value={selectedCategory || 'All'}
+                onChange={(e) => setSelectedCategory(e.target.value === 'All' ? null : e.target.value)}
+                className="w-full bg-white border border-emerald-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+              >
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-emerald-600">
+                <ChevronDown className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Product listing grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6 px-2 md:px-0">
           {filteredProducts.length === 0 ? (
             <div className="sm:col-span-3 text-center py-16 text-sm font-mono text-slate-500 bg-white border border-slate-200 rounded-3xl shadow-sm">
               No matching {activeTenant.businessType === 'pharmacy' ? 'pharmaceutical products' : 'retail items'} in stock.
@@ -1005,15 +1226,22 @@ export default function DashboardPOS({
               return (
                 <div 
                   key={prod.id}
-                  onClick={() => !isOut && addToCart(prod)}
-                  className={`bg-white border rounded-3xl p-3 sm:p-5 flex flex-row sm:flex-col justify-between transition-all select-none space-x-3.5 sm:space-x-0 sm:space-y-3.5 relative shadow-xs group ${
+                  onClick={() => {
+                    if (!isOut) {
+                      playBeep(800, 80);
+                      addToCart(prod);
+                    } else {
+                      playOutOfStockBeep();
+                    }
+                  }}
+                  className={`bg-white border md:rounded-3xl rounded-xl p-0 md:p-5 flex flex-col justify-between transition-all select-none relative shadow-xs active:scale-95 group overflow-hidden md:overflow-visible ${
                     isOut 
                       ? 'border-slate-200 opacity-55 cursor-not-allowed bg-slate-50' 
-                      : 'border-slate-200 hover:border-slate-350 hover:shadow-md cursor-pointer hover:-translate-y-0.5'
+                      : 'border-slate-200 hover:border-slate-350 hover:shadow-md cursor-pointer md:hover:-translate-y-0.5'
                   }`}
                 >
                   {/* Proportional Product Image Container (cached) */}
-                  <div className="w-20 h-20 sm:w-full sm:h-36 bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
+                  <div className="w-full h-[120px] md:h-36 bg-slate-50 border-b md:border border-slate-100 rounded-t-xl md:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
                     <CachedImage 
                       src={getProductImage(prod)} 
                       alt={prod.name} 
@@ -1023,22 +1251,22 @@ export default function DashboardPOS({
                       referrerPolicy="no-referrer"
                     />
                     {isLow && !isOut && (
-                      <span className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 bg-amber-500 text-white px-1.5 sm:px-2 py-0.5 rounded-lg text-[7px] sm:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs">
+                      <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-amber-500 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs">
                         LOW ({shopQty})
                       </span>
                     )}
                     {isOut && (
-                      <span className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 bg-red-600 text-white px-1.5 sm:px-2 py-0.5 rounded-lg text-[7px] sm:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs animate-pulse">
+                      <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-red-600 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs animate-pulse">
                         OUT
                       </span>
                     )}
                   </div>
 
                   {/* Text details and bottom panel wrapper */}
-                  <div className="flex-grow flex flex-col justify-between min-w-0">
+                  <div className="flex-grow flex flex-col justify-between min-w-0 mt-2 px-3 pb-3 md:px-0 md:pb-0">
                     {/* Product Metadata & Text layout */}
                     <div className="space-y-1">
-                      <div className="flex items-center justify-between">
+                      <div className="hidden md:flex items-center justify-between">
                         <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded-xs leading-none">
                           {prod.category}
                         </span>
@@ -1046,21 +1274,21 @@ export default function DashboardPOS({
                           {shopQty} left
                         </span>
                       </div>
-                      <h5 className="font-extrabold text-xs text-slate-800 line-clamp-2 leading-snug sm:min-h-[2.25rem] pt-0.5 select-all" title={prod.name}>
+                      <h5 className="font-extrabold text-xs text-slate-800 line-clamp-2 leading-snug md:min-h-[2.25rem] pt-0.5 select-all" title={prod.name}>
                         {prod.name}
                       </h5>
-                      <p className="text-[9.5px] text-slate-400 font-mono font-medium truncate">SKU: {prod.sku || prod.barcode || 'N/A'}</p>
+                      <p className="hidden md:block text-[9.5px] text-slate-400 font-mono font-medium truncate">SKU: {prod.sku || prod.barcode || 'N/A'}</p>
                     </div>
 
                     {/* Pricing and Select CTA trigger */}
-                    <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 mt-2 sm:mt-0 shrink-0">
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2 shrink-0">
                       <div className="space-y-0.5">
-                        <p className="border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
-                        <span className="text-[13px] sm:text-[14px] font-black text-slate-900 leading-none">{currency}{prod.sellingPrice.toLocaleString()}</span>
+                        <p className="hidden md:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
+                        <span className="text-sm md:text-[14px] font-black text-emerald-700 md:text-slate-900 leading-none">{currency}{prod.sellingPrice.toLocaleString()}</span>
                       </div>
                       {!isOut ? (
                         <div className="text-right">
-                          <span className="bg-emerald-600 hover:bg-emerald-700 group-hover:bg-emerald-700 text-white text-[9.5px] font-black px-2.5 py-1.5 rounded-xl uppercase tracking-wider transition-all shadow-xs inline-flex items-center space-x-1">
+                          <span className="bg-emerald-600 hover:bg-emerald-700 group-hover:bg-emerald-700 text-white text-[9px] md:text-[9.5px] font-black px-2 md:px-2.5 py-1 md:py-1.5 rounded-lg md:rounded-xl uppercase tracking-wider transition-all shadow-xs inline-flex items-center space-x-1">
                             <span>+ Add</span>
                           </span>
                         </div>
@@ -1409,9 +1637,36 @@ export default function DashboardPOS({
             id="pos-checkout-btn"
             disabled={cart.length === 0}
             onClick={triggerCheckout}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-45 text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/15 active:scale-98"
+            className="hidden md:flex w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-45 text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer items-center justify-center space-x-2 shadow-lg shadow-emerald-500/15 active:scale-98"
           >
             <span>Proceed to Payment</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Sticky Cart Summary */}
+      <div className="md:hidden fixed bottom-[60px] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]">
+        <div className="flex flex-col space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="relative">
+                <ShoppingCart className="w-5 h-5 text-slate-700" />
+                {cart.reduce((sum, item) => sum + item.qty, 0) > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-emerald-500 text-white text-[9px] font-bold min-w-[16px] h-[16px] px-1 flex items-center justify-center rounded-full border border-white">
+                    {cart.reduce((sum, item) => sum + item.qty, 0)}
+                  </span>
+                )}
+              </div>
+              <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">Cart Total</span>
+            </div>
+            <span className="text-emerald-700 font-black font-mono text-base">{currency}{Math.round(grandTotal).toLocaleString()}</span>
+          </div>
+          <button
+            disabled={cart.length === 0}
+            onClick={triggerCheckout}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-45 text-white font-bold py-3.5 rounded-xl text-sm transition-all active:scale-95 text-center shadow-lg shadow-emerald-500/20"
+          >
+            Checkout
           </button>
         </div>
       </div>
@@ -1585,11 +1840,15 @@ export default function DashboardPOS({
 
       {/* CHECKOUT MODAL SYSTEM */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="relative bg-white border border-slate-205 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
-            
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 md:slide-in-from-bottom-0">
+          <div className="relative bg-white border border-slate-205 md:rounded-3xl rounded-t-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col mt-auto md:mt-0 animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0">
+            {/* Mobile Drag Handle */}
+            <div className="w-full flex justify-center pt-3 pb-2 md:hidden bg-slate-50">
+              <div className="w-12 h-1.5 bg-slate-300/50 rounded-full" />
+            </div>
+
             {/* Header */}
-            <div className="px-6 py-5 bg-slate-50 border-b border-slate-250 flex items-center justify-between">
+            <div className="px-6 py-4 md:py-5 bg-slate-50 border-b border-slate-250 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Receipt className="w-5 h-5 text-emerald-600" />
                 <h4 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Payment Mode Till</h4>
@@ -1881,9 +2140,9 @@ export default function DashboardPOS({
                 {/* PHYSICAL RECEIPT GRAPHIC CONTAINER */}
                 <div className="bg-white text-slate-905 p-5 rounded-3xl font-mono text-xs space-y-4 shadow-xl border-dashed border-2 border-slate-250">
                   <div className="text-center space-y-2 border-b border-dashed border-slate-200 pb-3 flex flex-col items-center">
-                    {(systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || systemSettings?.business?.businessLogoDark) && (
+                    {(systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || systemSettings?.business?.businessLogoDark || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url) && (
                       <CachedImage 
-                        src={systemSettings.business.businessLogoLight || systemSettings.business.businessLogo || systemSettings.business.businessLogoDark} 
+                        src={systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || systemSettings?.business?.businessLogoDark || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url || undefined} 
                         alt="Logo" 
                         className="w-12 h-12 object-contain mb-1 rounded-lg border border-slate-200 p-0.5" 
                         referrerPolicy="no-referrer"
@@ -2081,6 +2340,7 @@ export default function DashboardPOS({
         products={products}
         onScanSuccess={handleScanSuccess}
       />
+    </div>
     </div>
   );
 }

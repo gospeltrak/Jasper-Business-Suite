@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from '../LanguageContext';
+import { useTenantLogo } from '../TenantLogoContext';
 import { User, Tenant, Product, Sale, SyncLog, Supplier, Expense, Purchase, Delivery, DeliveryRider, SystemSettings, CustomRole, SaleItem } from '../types';
 import { 
   DEFAULT_TENANTS, 
@@ -88,7 +90,12 @@ import {
   PieChart,
   TrendingDown,
   CloudLightning,
-  Search
+  Search,
+  ArrowRightLeft,
+  MapPin,
+  MinusCircle,
+  RefreshCw,
+  Handshake
 } from 'lucide-react';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
@@ -141,6 +148,12 @@ function DeliveryMotorcycleIcon({ className, size = 18 }: { className?: string; 
   );
 }
 
+interface UI_Toast {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  message: string;
+}
+
 interface DashboardProps {
   user: User;
   onLogout: () => void;
@@ -150,6 +163,10 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ user, onLogout, onNavigate, isDark = false, onToggleTheme }: DashboardProps) {
+  const { t, lang, setLang } = useTranslation();
+  const { logoUrl, getFallbackInitials } = useTenantLogo();
+  const [showDashLangMenu, setShowDashLangMenu] = useState(false);
+
   // Load standard + custom registered tenants dynamically
   const [tenantsList] = useState<Tenant[]>(() => {
     const cached = localStorage.getItem('jasper_custom_tenants');
@@ -159,14 +176,55 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   // Determine starting tenant from combined lists
   const [activeTenant, setActiveTenant] = useState<Tenant>(() => {
-    const matched = tenantsList.find(t => t.id === user.activeTenant);
-    return matched || tenantsList[0];
+    const targetTenantId = user.activeTenant || user.tenantId;
+    if (!targetTenantId) {
+      return {
+        id: '',
+        name: 'No Tenant Suite Available',
+        country: 'Tanzania',
+        city: 'Dar es Salaam',
+        currency: 'TSh',
+        currencyCode: 'TZS',
+        taxRate: 0.18,
+        mobileMoneyProviders: [],
+        businessType: 'retail'
+      };
+    }
+    const matched = tenantsList.find(t => t.id === targetTenantId);
+    if (matched) return matched;
+
+    // Dynamically fallback to a clean empty tenant matching the user's activeTenant ID
+    return {
+      id: targetTenantId,
+      name: user.name ? `${user.name} Suite` : 'My Jasper Suite',
+      country: 'Tanzania',
+      city: 'Dar es Salaam',
+      currency: 'TSh',
+      currencyCode: 'TZS',
+      taxRate: 0.18,
+      mobileMoneyProviders: ['M-Pesa', 'Airtel Money', 'Halopesa'],
+      businessType: 'retail'
+    };
   });
 
   // Sidebar Collapse state (icons vs full sidebar labels)
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState<boolean>(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState<boolean>(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+
+  const handleConfirmLogout = async () => {
+    try {
+      setLogoutError(null);
+      await onLogout();
+      setMoreMenuOpen(false);
+      setShowLogoutConfirm(false);
+    } catch (err) {
+      console.error("Sign out error", err);
+      setLogoutError("Sign out failed, please try again");
+    }
+  };
 
   // State Management - Starts on correct tab depending on tenant business vertical
   const [activeTab, setActiveTab ] = useState<string>(() => {
@@ -310,6 +368,32 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   }));
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => DEFAULT_SUPPLIERS);
   const [logs, setLogs] = useState<SyncLog[]>(() => RECENT_SYNC_LOGS);
+
+  // Modern Toast notification array state and dispatcher
+  const [toasts, setToasts] = useState<UI_Toast[]>([]);
+
+  const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
+    const id = Math.random().toString(36).substr(2, 9);
+    setToasts(prev => {
+      const list = [...prev, { id, type, message }];
+      if (list.length > 3) list.shift();
+      return list;
+    });
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3500);
+  };
+
+  // Monitor logs to trigger native responsive toast automatically on actions
+  useEffect(() => {
+    if (logs.length > 0) {
+      const latest = logs[0];
+      if (latest && latest.message) {
+        // Find if this specific message was already toasted to avoid repeat
+        addToast(latest.message, latest.status === 'error' ? 'error' : 'success');
+      }
+    }
+  }, [logs]);
 
   // Load and cache branch specific Settings
   const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => {
@@ -639,7 +723,21 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   // Simulated connection states
-  const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [isOfflineMode, setIsOfflineMode] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOffline = () => setIsOfflineMode(true);
+    const handleOnline = () => setIsOfflineMode(false);
+    
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+    
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
+
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Setup live clock in the ledger header
@@ -649,11 +747,15 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   }, []);
 
   // Multi-tenant pivot controller keys
-  const activeProducts = productsMap[activeTenant.id] || [];
-  const activeSales = salesMap[activeTenant.id] || [];
-  const activeExpenses = expensesMap[activeTenant.id] || [];
-  const activePurchases = purchasesMap[activeTenant.id] || [];
-  const activeDeliveries = deliveriesMap[activeTenant.id] || [];
+  const currentTenantId = user.activeTenant || user.tenantId;
+  const activeProducts = currentTenantId ? (productsMap[activeTenant.id] || []) : [];
+  const activeSales = currentTenantId ? (salesMap[activeTenant.id] || []) : [];
+  const activeExpenses = currentTenantId ? (expensesMap[activeTenant.id] || []) : [];
+  const activePurchases = currentTenantId ? (purchasesMap[activeTenant.id] || []) : [];
+  const activeDeliveries = currentTenantId ? (deliveriesMap[activeTenant.id] || []) : [];
+
+  const activeSuppliers = currentTenantId ? suppliers.filter(s => s.tenantId === activeTenant.id) : [];
+  const activeRiders = currentTenantId ? riders.filter(r => r.tenantId === activeTenant.id) : [];
 
   // Premium subscription state setup 
   const [subState, setSubState] = useState<SubscriptionState>(() => getSubscriptionState());
@@ -1094,6 +1196,28 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     });
   };
 
+  useEffect(() => {
+    if (!isOfflineMode) {
+      const currentList = salesMap[currentTenantId] || [];
+      const pendingCount = currentList.filter(s => s.syncStatus === 'pending').length;
+      if (pendingCount > 0) {
+        // Auto-sync
+        const logMsg = `Network connected. Auto-syncing ${pendingCount} offline receipts.`;
+        setLogs(prev => [{
+          id: 'AUTO-SYNC-' + Math.random().toString(36).substring(3, 8),
+          type: 'system_action',
+          status: 'success',
+          message: logMsg,
+          timestamp: new Date().toISOString()
+        }, ...prev]);
+
+        handleSyncOfflineQueue(() => {
+          console.log('[Dashboard] Auto-synced offline queue successfully.');
+        });
+      }
+    }
+  }, [isOfflineMode, salesMap, currentTenantId]);
+
   // Calculate size of offline sync queue
   const offlinePendingCount = activeSales.filter(s => s.syncStatus === 'pending').length;
 
@@ -1277,7 +1401,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     { id: 'ledger-balance-matrix', label: 'Cash & Bank', icon: Wallet, tabId: 'cash-bank-matrix' },
     { id: 'reports-menu', label: 'Reports', icon: PieChart, tabId: 'reports' },
     { id: 'staff', label: 'Staff Members', icon: Shield, tabId: 'staff-members' },
-    { id: 'online-orders', label: 'Online Sync', icon: Globe, tabId: 'sync' },
     { id: 'settings', label: 'Settings', icon: SettingsIcon, tabId: 'settings' },
     { id: 'subscription', label: 'Subscription', icon: CardIcon, tabId: 'subscription-modal' }
   ];
@@ -1287,10 +1410,70 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   }
 
   return (
-    <div id="dashboard-scaffold" className="w-full h-full bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
+    <div id="dashboard-scaffold" className="w-full h-screen bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
+      
+      {/* 0. HIGH-FIDELITY FLOATING TOAST STACK (Centered at top on mobile, max 3 stacked) */}
+      <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center space-y-2 w-full max-w-sm px-4 pointer-events-none">
+        {toasts.map((t) => {
+          let borderTheme = 'border-l-4 border-l-[#00C853]';
+          let bgTheme = 'bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800';
+          let textColor = 'text-slate-800 dark:text-slate-100';
+          
+          let iconSvg = (
+            <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          );
+
+          if (t.type === 'error') {
+            borderTheme = 'border-l-4 border-l-rose-500';
+            iconSvg = (
+              <svg className="w-5 h-5 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            );
+          } else if (t.type === 'warning') {
+            borderTheme = 'border-l-4 border-l-amber-500';
+            iconSvg = (
+              <svg className="w-5 h-5 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            );
+          } else if (t.type === 'info') {
+            borderTheme = 'border-l-4 border-l-blue-500';
+            iconSvg = (
+              <svg className="w-5 h-5 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            );
+          }
+
+          return (
+            <div
+              key={t.id}
+              className={`flex items-center space-x-3 p-3.5 rounded-2xl shadow-xl w-full select-text pointer-events-auto transition-all duration-300 animate-slide-up-fade ${borderTheme} ${bgTheme}`}
+            >
+              {iconSvg}
+              <p className={`text-xs font-semibold leading-tight flex-1 ${textColor}`}>
+                {t.message}
+              </p>
+              <button
+                onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+                type="button"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
       
       {/* 1. Left Sidebar (Fixed, Dark #1a1f2e with smooth transition) */}
-      <aside className={`hidden md:flex flex-col ${sidebarCollapsed ? 'w-20' : 'w-64'} bg-[#1a1f2e] border-r border-[#262c3f]/50 text-white h-full shrink-0 sticky top-0 overflow-hidden select-none z-45 transition-all duration-300 ease-in-out`}>
+      <aside className={`hidden md:flex flex-col ${sidebarCollapsed ? 'w-20' : 'w-64'} bg-[#1a1f2e] border-r border-[#262c3f]/50 text-white h-full shrink-0 sticky top-0 overflow-y-auto overflow-x-hidden select-none z-45 transition-all duration-300 ease-in-out`}>
         
         {/* Fixed Header Section with Logo top left */}
         <div className="p-5 border-b border-[#262c3f]/50 shrink-0 select-none flex flex-col items-center justify-center">
@@ -1380,7 +1563,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                         : 'opacity-100 scale-x-100 w-auto'
                     }`}
                   >
-                    <span>{item.label}</span>
+                    <span>{t(item.label)}</span>
                     {item.tabId === 'admin-status' && !sidebarCollapsed && (
                       <span className="bg-rose-500 text-white px-1.5 py-0.5 rounded-full text-[9px] font-bold shadow-md shadow-rose-500/20 animate-pulse">
                         2
@@ -1401,7 +1584,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 {/* Hover Tooltip - Pop up next to icon if collapsed */}
                 {sidebarCollapsed && (
                   <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 bg-[#11131e] border border-[#2d354d] text-white font-sans text-xs px-2.5 py-1.5 rounded-lg shadow-xl opacity-0 translate-x-[-10px] group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 ease-out pointer-events-none whitespace-nowrap z-50">
-                    <span className="font-semibold block">{item.label}</span>
+                    <span className="font-semibold block">{t(item.label)}</span>
                   </div>
                 )}
                 {/* Collapsed Badge indicator */}
@@ -1417,7 +1600,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         </div>
 
         {/* Sidebar Fixed Footer Section - Avatar & Globe icon */}
-        <div className={`p-4 bg-[#141824] border-t border-[#262c3f]/50 flex shrink-0 items-center justify-center ${sidebarCollapsed ? 'flex-col space-y-3' : 'justify-between space-x-3'}`}>
+        <div className={`mt-auto p-4 bg-[#141824] border-t border-[#262c3f]/50 flex shrink-0 items-center justify-center ${sidebarCollapsed ? 'flex-col space-y-3' : 'justify-between space-x-3'}`}>
           <div className="flex items-center space-x-3 overflow-hidden">
             <div className="w-9 h-9 bg-gradient-to-tr from-[#6c63ff] to-indigo-500 text-white rounded-full flex items-center justify-center font-black text-xs uppercase shadow shadow-xs shrink-0 select-text">
               {user.name.charAt(0).toUpperCase()}
@@ -1430,36 +1613,66 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             )}
           </div>
           
-          <button
-            onClick={() => {
-              setIsOfflineMode(!isOfflineMode);
-              const logMessage = `Local offline simulation toggled: now ${!isOfflineMode ? 'ONLINE' : 'OFFLINE'}`;
-              setLogs(prev => [{
-                id: 'TOGGLE-' + Math.random().toString(36).substring(3, 8),
-                type: 'system_action',
-                status: 'success',
-                message: logMessage,
-                timestamp: new Date().toISOString()
-              }, ...prev]);
-            }}
+          <div
             title={isOfflineMode ? "Local Mode (Offline)" : "Cloud Network Connected"}
-            className={`p-1.5 hover:bg-white/10 rounded-lg text-slate-450 hover:text-white transition-all cursor-pointer ${sidebarCollapsed ? '' : 'hidden xl:flex'} items-center justify-center`}
+            className={`p-1.5 rounded-lg text-slate-450 transition-all cursor-default ${sidebarCollapsed ? '' : 'hidden xl:flex'} items-center justify-center`}
           >
             <Globe className={`w-4 h-4 ${isOfflineMode ? 'text-amber-500 animate-pulse' : 'text-emerald-400'}`} />
-          </button>
+          </div>
         </div>
 
       </aside>
 
       {/* Main Independence Dashboard Right scroll-container (independent scroll-box) */}
-      <div className={`flex-grow flex flex-col h-full min-w-0 overflow-y-auto relative ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950' : 'bg-[#f5f6fa] dark:bg-slate-950'} select-none scrollbar-none`}>
+      <div className={`flex-1 flex flex-col h-full min-w-0 overflow-hidden relative ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950' : 'bg-[#f5f6fa] dark:bg-slate-950'} select-none`}>
         
         {/* Screen container */}
-        <div className={`flex-grow flex flex-col ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950' : 'bg-[#f5f6fa] dark:bg-slate-950'} overflow-visible min-h-full relative`}>
+        <div className={`flex-grow flex flex-col ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950' : 'bg-[#f5f6fa] dark:bg-slate-950'} min-h-0 overflow-y-auto relative scrollbar-none pb-20 md:pb-0`}>
+
         
-          {/* 2. Top Bar (Light, Sticky) */}
-          <header className={`sticky top-0 z-35 ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950 border-slate-800' : 'bg-white dark:bg-slate-905 border-slate-100/80 dark:border-slate-800/80 shadow-xs'} border-b px-6 py-4.5 select-none flex items-center justify-between shrink-0 transition-colors duration-300`}>
-            <div className="flex items-center space-x-4 flex-1">
+          {/* 2. Top Bar Desktop */}
+          <header className={`hidden md:flex sticky top-0 z-35 ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950 border-slate-800' : 'bg-white dark:bg-slate-905 border-slate-100/80 dark:border-slate-800/80 shadow-xs'} border-b px-6 py-4.5 select-none items-center justify-between shrink-0 transition-colors duration-300`}>
+            <div className="flex items-center space-x-3.5 flex-1 animate-fade-in">
+              {/* Business Logo / Avatar and Name */}
+              <div className="flex items-center space-x-3 shrink-0">
+                {(() => {
+                  let logo = logoUrl || systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant.company_settings?.logo_url || null;
+                  if (!logo) {
+                    const cachedSet = localStorage.getItem(`jasper_settings_${activeTenant.id}`);
+                    if (cachedSet) {
+                      try {
+                        const pSet = JSON.parse(cachedSet);
+                        logo = pSet?.company?.logo || pSet?.business?.businessLogoLight || pSet?.business?.businessLogo || null;
+                      } catch (err) {}
+                    }
+                  }
+                  if (logo) {
+                    return (
+                      <img 
+                        src={logo} 
+                        alt={`${activeTenant.name} Logo`} 
+                        className="w-10 h-10 rounded-full object-cover border-2 border-[#00C853] shrink-0 shadow-xs" 
+                        referrerPolicy="no-referrer"
+                      />
+                    );
+                  } else {
+                    return (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#00C853] to-teal-400 text-white flex items-center justify-center font-black text-xs tracking-wider shrink-0 shadow-xs">
+                        {getFallbackInitials(activeTenant.name)}
+                      </div>
+                    );
+                  }
+                })()}
+                <div className="flex flex-col text-left">
+                  <span className="text-sm font-extrabold text-slate-900 dark:text-white capitalize leading-tight">
+                    {activeTenant.name}
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mt-0.5">
+                    {t(customSidebarItems.find((m: any) => m.id === activeTab || m.tabId === activeTab)?.label || activeTab.replace(/-/g, ' '))} Screen
+                  </span>
+                </div>
+              </div>
+
               <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-900 border-slate-800/60' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800/60'} w-full max-w-sm transition-colors`}>
                 <Search className={`w-4 h-4 ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'text-slate-500' : 'text-slate-400'}`} />
                 <input 
@@ -1472,24 +1685,13 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
             <div className="flex items-center space-x-4">
               {/* Online / offline state tag indicators with globe icon */}
-              <button 
-                onClick={() => {
-                  setIsOfflineMode(!isOfflineMode);
-                  const logMessage = `Local offline simulation toggled: now ${!isOfflineMode ? 'ONLINE' : 'OFFLINE'}`;
-                  setLogs(prev => [{
-                    id: 'TOGGLE-' + Math.random().toString(36).substring(3, 8),
-                    type: 'system_action',
-                    status: 'success',
-                    message: logMessage,
-                    timestamp: new Date().toISOString()
-                  }, ...prev]);
-                }}
-                title={isOfflineMode ? 'Offline - Click to connect' : 'Online Sync Active'}
-                className="flex items-center space-x-2 text-[11px] font-medium tracking-tight px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 cursor-pointer hover:bg-slate-150/40 dark:hover:bg-slate-800 transition-all font-sans"
+              <div 
+                title={isOfflineMode ? 'Device is offline' : 'Device is online'}
+                className="flex items-center space-x-2 text-[11px] font-medium tracking-tight px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 cursor-default transition-all font-sans"
               >
                 <Globe className={`w-3.5 h-3.5 ${isOfflineMode ? 'text-amber-500 animate-pulse' : 'text-emerald-500'}`} />
                 <span className="hidden sm:inline font-semibold">{isOfflineMode ? 'OFFLINE' : 'ONLINE'}</span>
-              </button>
+              </div>
 
               {/* Day / Dark Mode Toggle Switch inside Dashboard */}
               <button
@@ -1499,6 +1701,50 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               >
                 {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-505 text-indigo-500" />}
               </button>
+
+              {/* Language Selection dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowDashLangMenu(!showDashLangMenu)}
+                  className="flex items-center space-x-1 px-2 py-2 text-xs font-bold border rounded-xl cursor-pointer transition-all bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-150/40 dark:hover:bg-slate-800 active:scale-95"
+                  title="Select Language / Badili Lugha"
+                >
+                  <Globe className="w-4 h-4 text-emerald-500" />
+                  <span className="uppercase font-mono text-[10px] ml-0.5">{lang}</span>
+                </button>
+
+                {showDashLangMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowDashLangMenu(false)} />
+                    <div className="absolute right-0 mt-2 w-32 rounded-xl border p-1 shadow-xl z-50 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-800 dark:text-slate-200">
+                      {[
+                        { code: 'en', label: 'English' },
+                        { code: 'sw', label: 'Swahili' },
+                        { code: 'ar', label: '🇸🇦 العربية' },
+                        { code: 'fr', label: '🇫🇷 Français' }
+                      ].map((item) => (
+                        <button
+                          key={item.code}
+                          type="button"
+                          onClick={() => {
+                            setLang(item.code as any);
+                            setShowDashLangMenu(false);
+                          }}
+                          className={`w-full text-left px-2 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
+                            lang === item.code 
+                              ? 'bg-emerald-500 text-slate-950 font-bold' 
+                              : 'hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          <span>{item.label}</span>
+                          {lang === item.code && <span className="text-[9px] font-bold">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
 
               {/* Notification bell desk pivot */}
               <div 
@@ -1526,43 +1772,119 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             </div>
           </header>
 
+          {/* 2b. Top Bar Mobile - Exact 60px height sticky glassmorphic header */}
+          <header className="md:hidden sticky top-0 z-35 h-[62px] backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-b border-slate-100/10 dark:border-slate-800/15 px-4 select-none flex items-center justify-between shrink-0 transition-all duration-300">
+            {/* Left: business logo or initials avatar on mobile top bar */}
+            <div className="flex items-center space-x-3 animate-fade-in">
+              <div 
+                onClick={() => setMoreMenuOpen(true)}
+                className="cursor-pointer active:scale-95 shrink-0 select-none"
+                title="Open Workspace Menu"
+              >
+                {(() => {
+                  let logo = logoUrl || systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant.company_settings?.logo_url || null;
+                  if (!logo) {
+                    const cachedSet = localStorage.getItem(`jasper_settings_${activeTenant.id}`);
+                    if (cachedSet) {
+                      try {
+                        const pSet = JSON.parse(cachedSet);
+                        logo = pSet?.company?.logo || pSet?.business?.businessLogoLight || pSet?.business?.businessLogo || null;
+                      } catch (err) {}
+                    }
+                  }
+                  if (logo) {
+                    return (
+                      <img 
+                        src={logo} 
+                        alt={`${activeTenant.name} Logo`} 
+                        className="w-10 h-10 rounded-full object-cover border-2 border-[#00C853] shadow-sm shrink-0" 
+                        referrerPolicy="no-referrer"
+                      />
+                    );
+                  } else {
+                    return (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#00C853] to-teal-400 text-white flex items-center justify-center font-black text-xs tracking-wider shrink-0 shadow-sm">
+                        {getFallbackInitials(activeTenant.name)}
+                      </div>
+                    );
+                  }
+                })()}
+              </div>
+              <div className="flex flex-col items-start leading-none text-left">
+                <span className="text-xs font-extrabold text-slate-900 dark:text-white capitalize tracking-tight mb-0.5">
+                  {activeTenant.name}
+                </span>
+                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  {t(customSidebarItems.find((m: any) => m.id === activeTab || m.tabId === activeTab)?.label || activeTab.replace(/-/g, ' '))}
+                </span>
+              </div>
+            </div>
+
+            {/* Center: Clean whitespace (nothing, per design) */}
+            <div className="flex-1" />
+
+            {/* Right: Search icon + Language + Notification bell with unread dot indicator */}
+            <div className="flex items-center space-x-1">
+              <button className="p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer">
+                <Search className="w-4.5 h-4.5" />
+              </button>
+
+              {/* Mobile Language Button */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowDashLangMenu(!showDashLangMenu)}
+                  className="p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 flex items-center justify-center cursor-pointer"
+                  title="Select Language / Badili Lugha"
+                >
+                  <Globe className="w-4.5 h-4.5 text-emerald-500" />
+                </button>
+
+                {showDashLangMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowDashLangMenu(false)} />
+                    <div className="absolute right-0 mt-2 w-32 rounded-xl border p-1 shadow-xl z-50 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-800 dark:text-slate-200">
+                      {[
+                        { code: 'en', label: 'English' },
+                        { code: 'sw', label: 'Swahili' },
+                        { code: 'ar', label: '🇸🇦 العربية' },
+                        { code: 'fr', label: '🇫🇷 Français' }
+                      ].map((item) => (
+                        <button
+                          key={item.code}
+                          type="button"
+                          onClick={() => {
+                            setLang(item.code as any);
+                            setShowDashLangMenu(false);
+                          }}
+                          className={`w-full text-left px-2 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
+                            lang === item.code 
+                              ? 'bg-emerald-500 text-slate-950 font-bold' 
+                              : 'hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          <span>{item.label}</span>
+                          {lang === item.code && <span className="text-[9px] font-bold">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div 
+                className="relative p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer"
+                onClick={() => setActiveTab('sync')}
+              >
+                <Bell className="w-4.5 h-4.5" />
+                {offlinePendingCount > 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900" />}
+              </div>
+            </div>
+          </header>
+
           {/* Core workspace content viewports */}
           <main id="workspace-content" className={`flex-grow ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-4 md:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-6 pb-24'} min-h-[500px]`}>
             
-            {isOfflineMode && (
-              <div 
-                id="workspace-offline-banner" 
-                className="bg-amber-500/10 dark:bg-amber-500/5 border border-amber-500/25 dark:border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-200"
-              >
-                <div className="flex items-center space-x-3 text-left">
-                  <div className="p-2 bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-lg animate-pulse shrink-0">
-                    <WifiOff className="w-4.5 h-4.5" />
-                  </div>
-                  <div className="space-y-0.5">
-                    <div className="flex items-center space-x-1.5">
-                      <span className="text-[9px] font-mono font-black uppercase tracking-widest bg-amber-500 text-slate-950 dark:bg-amber-400 dark:text-slate-950 px-1.5 py-0.5 rounded-sm">
-                        OFFLINE ACTIVE
-                      </span>
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        Pending Synchronization (Local Secure Store)
-                      </p>
-                    </div>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-tight">
-                      Jasper is actively routing receipts to device database sandbox. <span className="font-semibold text-amber-700 dark:text-amber-400">{offlinePendingCount} transaction(s) pending sync.</span>
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleToggleOnlineAndSync}
-                  className="w-full sm:w-auto px-3.5 py-2 bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500 text-slate-950 dark:text-white text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-500/5 active:scale-95 cursor-pointer flex items-center justify-center space-x-1.5 shrink-0"
-                >
-                  <RefreshCcw className="w-3.5 h-3.5" />
-                  <span>Sync & Reconnect</span>
-                </button>
-              </div>
-            )}
-
             {user.role !== 'SuperAdmin' && renderSubscriptionStatusBlock()}
 
           {/* TAB ROOT: Hotel Property Management Room Matrix (PMS) */}
@@ -1608,6 +1930,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           {activeTab === 'overview' && (
             <DashboardOverview 
               activeTenant={activeTenant}
+              systemSettings={systemSettings}
               products={activeProducts}
               sales={activeSales}
               expenses={activeExpenses}
@@ -1657,7 +1980,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           {/* TAB ROOT: Supplier entities management */}
           {activeTab === 'suppliers' && (
             <DashboardSuppliers 
-              suppliers={suppliers}
+              suppliers={activeSuppliers}
               onAddSupplier={handleCreateSupplier}
               purchases={activePurchases}
               sales={activeSales}
@@ -1670,7 +1993,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             <DashboardPurchases 
               activeTenant={activeTenant}
               products={activeProducts}
-              suppliers={suppliers}
+              suppliers={activeSuppliers}
               onUpdateStocks={handleUpdateActiveStocks}
               purchases={activePurchases}
               onAddPurchase={handleAddPurchase}
@@ -1682,7 +2005,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             <DashboardDeliveries 
               activeTenant={activeTenant}
               deliveries={activeDeliveries}
-              riders={riders}
+              riders={activeRiders}
               onAddRider={handleAddRider}
               onAddDelivery={(delivery) => {
                 setDeliveriesMap(prev => {
@@ -1725,7 +2048,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onAddExpense={handleAddExpense}
               userName={user.name}
               rolePermissions={currentPermissions}
-              suppliers={suppliers}
+              suppliers={activeSuppliers}
               purchases={purchasesMap[activeTenant.id] || []}
               deliveries={deliveriesMap[activeTenant.id] || []}
             />
@@ -1772,7 +2095,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               userName={user.name}
               defaultTab="inventory"
               rolePermissions={currentPermissions}
-              suppliers={suppliers}
+              suppliers={activeSuppliers}
               purchases={purchasesMap[activeTenant.id] || []}
             />
           )}
@@ -1828,6 +2151,24 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onSaveSettings={(updated) => {
                 setSystemSettings(updated);
                 localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
+                let logoToSave = '';
+                if (updated.company?.logo) {
+                  logoToSave = updated.company.logo;
+                } else if (updated.business?.businessLogoLight) {
+                  logoToSave = updated.business.businessLogoLight;
+                } else if (updated.business?.businessLogo) {
+                  logoToSave = updated.business.businessLogo;
+                }
+                if (logoToSave) {
+                  localStorage.setItem(`jasper_tenant_logo_${activeTenant.id}`, logoToSave);
+                  setActiveTenant(prev => ({
+                    ...prev,
+                    company_settings: {
+                      ...(prev.company_settings || {}),
+                      logo_url: logoToSave
+                    }
+                  }));
+                }
               }}
               subscriptionStatus={subStatus}
               onTriggerUpgrade={(type) => {
@@ -1887,165 +2228,165 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
           </main>
 
+          {/* Mobile Bottom Navigation Component */}
+          <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 h-16 backdrop-blur-md bg-white/90 dark:bg-slate-900/90 border-t border-emerald-500/15 pb-[calc(0.5rem+env(safe-area-inset-bottom))] px-3 pt-2 flex items-center justify-around shadow-[0_-8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_-8px_30px_rgba(0,0,0,0.35)] shrink-0 transition-all duration-300">
+             {[
+               { id: 'overview', label: 'Home', icon: LayoutDashboard },
+               { id: 'sales-list', label: 'Sales', icon: FileText },
+               { id: 'pos', label: 'POS', icon: ShoppingCart },
+               { id: 'reports', label: 'Reports', icon: PieChart },
+             ].map((tab) => {
+               const isActive = activeTab === tab.id;
+               const Icon = tab.icon;
+               return (
+                 <button 
+                   key={tab.id}
+                   onClick={() => setActiveTab(tab.id as any)}
+                   className={`flex flex-col items-center justify-between h-11 w-16 relative transition-all duration-150 active:scale-95 cursor-pointer ${
+                     isActive ? 'text-[#00C853] font-bold' : 'text-slate-400 dark:text-slate-500'
+                   }`}
+                 >
+                   <div className="flex flex-col items-center justify-center flex-1">
+                     <Icon 
+                       className={`w-5 h-5 mb-0.5 transition-transform duration-200 ${isActive ? 'scale-110 text-[#00C853] fill-emerald-500/10' : ''}`} 
+                       strokeWidth={isActive ? 2.5 : 2} 
+                     />
+                     <span className="text-[9px] font-semibold tracking-tight">{isActive ? t(tab.label) : t(tab.label)}</span>
+                   </div>
+                   {isActive && (
+                     <span className="w-1.5 h-1.5 rounded-full bg-[#00C853] shadow-[0_0_10px_#00C853] animate-bounce mb-0.5" />
+                   )}
+                 </button>
+               )
+             })}
+             
+             <button 
+               onClick={() => setMoreMenuOpen(true)}
+               className={`flex flex-col items-center justify-between h-11 w-16 relative transition-all duration-150 active:scale-95 cursor-pointer ${
+                 moreMenuOpen ? 'text-[#00C853] font-bold' : 'text-slate-400 dark:text-slate-500'
+               }`}
+             >
+               <div className="flex flex-col items-center justify-center flex-1">
+                 <Menu className={`w-5 h-5 mb-0.5 transition-transform duration-200 ${moreMenuOpen ? 'scale-110 text-[#00C853]' : ''}`} />
+                 <span className="text-[9px] font-semibold tracking-tight">{t('More')}</span>
+               </div>
+               {moreMenuOpen && (
+                 <span className="w-1.5 h-1.5 rounded-full bg-[#00C853] shadow-[0_0_10px_#00C853] mb-0.5" />
+               )}
+             </button>
+          </nav>
 
+          {/* 5. Mobile Floating Action Button (FAB) (Brand green, rounded-full, 56px, above bottom nav) */}
+          <button
+            onClick={() => setActiveTab('pos')}
+            className={`md:hidden fixed bottom-20 right-4 z-40 w-14 h-14 bg-[#00C853] hover:bg-[#00953D] text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all duration-150 fab-attention-pulse cursor-pointer`}
+            title="Quick POS Checkout"
+            type="button"
+          >
+            <span className="text-[28px] font-light leading-none select-none">+</span>
+          </button>
 
-          {/* Bottom Sheet Modal Drawer for Profile & More System Menus */}
-          {moreMenuOpen && (
-            <div 
-              className="absolute inset-0 z-45 bg-slate-950/60 backdrop-blur-xs flex items-end justify-center select-none"
+        </div>
+
+        {/* Universal sub-modal anchors & floating elements */}
+        <div 
+          className={`absolute inset-0 z-[60] bg-white flex flex-col select-none transition-transform duration-300 ${moreMenuOpen ? 'translate-y-0 shadow-[-5px_0_30px_rgba(0,0,0,0.15)]' : 'translate-y-full pointer-events-none'}`}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 shrink-0">
+            <h2 className="text-xl font-black text-slate-800 tracking-tight">Menu</h2>
+            <button 
               onClick={() => setMoreMenuOpen(false)}
+              className="p-2 bg-slate-100 rounded-full text-slate-500 hover:text-slate-800 transition-colors"
             >
-              <div 
-                className="w-full bg-[#f8f9fa] rounded-t-[28px] max-h-[85%] flex flex-col shadow-2xl animate-slide-up overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Drag / swipe bar handle mimic line */}
-                <div className="w-full flex justify-center py-3">
-                  <div className="w-10 h-1 bg-slate-300 rounded-full" />
-                </div>
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-                {/* Header Section with Profile Details */}
-                <div className="px-5 pb-4 border-b border-slate-200">
-                  <div className="flex items-center justify-between">
+          {/* Menu Links Container */}
+          <div className="flex-grow overflow-y-auto px-4 py-2 pb-20">
+            <div className="flex flex-col">
+              {[
+                { id: 'purchases-list', label: 'Purchases', icon: ShoppingCart, colorTheme: 'blue' },
+                { id: 'suppliers', label: 'Partners', icon: Handshake, colorTheme: 'purple' },
+                { id: 'deliveries', label: 'Delivery', icon: MapPin, colorTheme: 'teal' },
+                { id: 'products', label: 'Products', icon: Package, colorTheme: 'emerald' },
+                { id: 'expenses', label: 'Expenses', icon: MinusCircle, colorTheme: 'rose' },
+                { id: 'settings', label: 'Settings', icon: SettingsIcon, colorTheme: 'slate' },
+                { id: 'sync', label: 'Offline Sync', icon: RefreshCw, colorTheme: 'amber' }
+              ].map((option) => {
+                const IconComponent = option.icon;
+                
+                let textColors = 'text-slate-800';
+                let bgColors = 'bg-slate-50 border-slate-100';
+                let iconColors = 'text-slate-500';
+                
+                if (option.colorTheme === 'blue') {
+                  bgColors = 'bg-blue-50 border-blue-100';
+                  iconColors = 'text-blue-500';
+                } else if (option.colorTheme === 'purple') {
+                  bgColors = 'bg-purple-50 border-purple-100';
+                  iconColors = 'text-purple-500';
+                } else if (option.colorTheme === 'teal') {
+                  bgColors = 'bg-teal-50 border-teal-100';
+                  iconColors = 'text-teal-500';
+                } else if (option.colorTheme === 'emerald') {
+                  bgColors = 'bg-emerald-50 border-emerald-100';
+                  iconColors = 'text-emerald-500';
+                } else if (option.colorTheme === 'rose') {
+                  bgColors = 'bg-rose-50 border-rose-100';
+                  iconColors = 'text-rose-500';
+                } else if (option.colorTheme === 'slate') {
+                  bgColors = 'bg-slate-100 border-slate-200';
+                  iconColors = 'text-slate-500';
+                } else if (option.colorTheme === 'amber') {
+                  bgColors = 'bg-amber-50 border-amber-100';
+                  iconColors = 'text-amber-500';
+                }
+
+                return (
+                  <button
+                    key={option.id}
+                    onClick={() => {
+                      setActiveTab(option.id as any);
+                      setMoreMenuOpen(false);
+                    }}
+                    className="w-full px-2 flex items-center justify-between min-h-[56px] py-2.5 border-b border-slate-100 transition-colors hover:bg-slate-50 active:bg-slate-100 last:border-b-0"
+                  >
                     <div className="flex items-center space-x-3">
-                      <div className="w-11 h-11 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-sm uppercase tracking-wider border border-slate-700 shadow shadow-xs">
-                        {user.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-xs font-black text-slate-900 shrink-0 select-text leading-tight">{user.name}</p>
-                        <div className="flex items-center space-x-1.5 leading-none">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          <span className="text-[9.5px] font-mono text-slate-500 font-extrabold uppercase tracking-widest">{activeRoleName}</span>
+                      <div className="relative shrink-0">
+                        <div className={`w-[44px] h-[44px] rounded-xl flex items-center justify-center border ${bgColors}`}>
+                          <IconComponent className={`w-5 h-5 ${iconColors}`} />
                         </div>
+                        {option.id === 'sync' && (
+                          <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-[2px] border-white ${isOfflineMode ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                        )}
                       </div>
+                      <span className={`text-sm font-semibold tracking-tight ${textColors}`}>{option.label}</span>
                     </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                  </button>
+                );
+              })}
 
-                    <button 
-                      onClick={() => {
-                        onLogout();
-                        setMoreMenuOpen(false);
-                      }}
-                      className="px-3.5 py-1.5 bg-rose-50 border border-thin border-rose-200 text-rose-600 text-[10px] font-bold tracking-tight uppercase rounded-xl hover:bg-rose-100 transition-all cursor-pointer flex items-center space-x-1 active:scale-95"
-                    >
-                      <LogOut className="w-3" />
-                      <span>Sign Out</span>
-                    </button>
+              {/* Logout Button */}
+              <button
+                onClick={() => {
+                  setShowLogoutConfirm(true);
+                }}
+                className="w-full px-2 flex items-center justify-between min-h-[56px] py-2.5 transition-colors hover:bg-rose-50/50 active:bg-rose-50"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-[44px] h-[44px] flex items-center justify-center rounded-xl bg-rose-50 border border-rose-100 shrink-0">
+                    <LogOut className="w-5 h-5 text-rose-500" />
                   </div>
-
-                  {/* Acting Staff Simulator Switcher inside bottom sheet */}
-                  {user.role !== 'SuperAdmin' && (
-                    <div className="mt-4 p-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
-                      <span className="text-[10px] font-mono font-bold text-slate-505 uppercase flex items-center space-x-1">
-                        <Shield className="w-3 h-3 text-amber-500" />
-                        <span>Acting Simulator</span>
-                      </span>
-                      <select
-                        value={actingStaffId}
-                        onChange={(e) => {
-                          const nextId = e.target.value;
-                          setActingStaffId(nextId);
-                          const targetRole = (() => {
-                            const rawRole = nextId === 'logged-in-user' 
-                              ? user.role 
-                              : (systemSettings.staffs.find(s => s.id === nextId)?.role || 'Seller');
-                            return (rawRole === 'Seller' && activeTenant.businessType === 'restaurant') ? 'Waiter' : rawRole;
-                          })();
-                          
-                          const customRolesList = systemSettings.customRoles || [];
-                          const queryPreset = (targetRole.toLowerCase() === 'waiter' || targetRole.toLowerCase() === 'seller') ? 'seller' : targetRole.toLowerCase();
-                          const matched = customRolesList.find(r => r.name.toLowerCase() === targetRole.toLowerCase())
-                            || DEFAULT_CUSTOM_ROLES.find(r => r.name.toLowerCase() === queryPreset);
-                          
-                          const perms = matched ? matched.permissions : null;
-                          if (perms) {
-                            if (activeTab === 'pos' && !perms.pos.read) {
-                              setActiveTab(perms.reportsSalesExpenses.read ? 'reports' : 'sync');
-                            } else if (activeTab === 'reports' && !perms.reportsSalesExpenses.read && !perms.reportsProfitCogs.read) {
-                              setActiveTab(perms.pos.read ? 'pos' : 'sync');
-                            } else if (activeTab === 'settings' && !perms.settings.read) {
-                              setActiveTab(perms.pos.read ? 'pos' : perms.reportsSalesExpenses.read ? 'reports' : 'sync');
-                            } else if (activeTab === 'products' && !perms.products.read) {
-                              setActiveTab(perms.pos.read ? 'pos' : 'sync');
-                            }
-                          }
-                        }}
-                        className="bg-white border border-slate-200 text-slate-800 text-[11px] font-bold px-2 py-1 rounded-xl outline-none focus:border-slate-400 cursor-pointer"
-                      >
-                        <option value="logged-in-user">👑 Owner ({user.role})</option>
-                        {systemSettings.staffs.map(st => (
-                          <option key={st.id} value={st.id}>👤 {st.name} ({st.role === 'Seller' && activeTenant.businessType === 'restaurant' ? 'Waiter' : st.role})</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Multi-tenant Branch Switching terminal selector inside sheet */}
-                  {user.role !== 'SuperAdmin' && (
-                    <div className="mt-2.5 p-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
-                      <span className="text-[10px] font-mono font-bold text-slate-505 uppercase flex items-center space-x-1">
-                        <Building className="w-3 h-3 text-slate-500" />
-                        <span>Branch Terminal</span>
-                      </span>
-                      <select
-                        value={activeTenant.id}
-                        onChange={(e) => {
-                          handleTenantChange(e.target.value);
-                          setMoreMenuOpen(false);
-                        }}
-                        className="bg-white border border-slate-200 text-slate-800 text-[11px] font-bold px-2 py-1 rounded-xl outline-none focus:border-slate-400 cursor-pointer"
-                      >
-                        {tenantsList.map(tenant => (
-                          <option key={tenant.id} value={tenant.id}>
-                            {tenant.name} ({tenant.city})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  <span className="text-sm font-semibold tracking-tight text-rose-600">Logout</span>
                 </div>
-
-                {/* Secondary Menu Links Container inside bottom sheet */}
-                <div className="flex-grow overflow-y-auto px-5 py-4 space-y-2">
-                  <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider font-extrabold">Advanced Applications</span>
-                  
-                  <div className="grid grid-cols-1 gap-2">
-                    {secondaryMenuOptions.map(option => {
-                      const IconComponent = option.icon;
-                      const isActive = activeTab === option.id;
-
-                      return (
-                        <button
-                          key={option.id}
-                          onClick={() => {
-                            setActiveTab(option.id as any);
-                            setMoreMenuOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
-                            isActive 
-                              ? 'bg-slate-900 border-slate-800 text-white shadow shadow-xs font-bold' 
-                              : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-705'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-3">
-                            <IconComponent className={`w-4 h-4 ${isActive ? 'text-emerald-400 animate-pulse' : 'text-slate-400'}`} />
-                            <span className="text-[11.5px] font-semibold tracking-tight">{option.label}</span>
-                          </div>
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-450" />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Footer safe area note */}
-                <div className="p-4 bg-slate-100 border-t border-slate-200/80 text-center flex flex-col items-center justify-center space-y-1 pb-[calc(16px+env(safe-area-inset-bottom))]">
-                  <span className="text-[10px] text-slate-450 uppercase tracking-widest font-mono">Jasper Suite • Mobile Native Shell v1.4.0</span>
-                </div>
-              </div>
+              </button>
             </div>
-          )}
+          </div>
+        </div>
 
-          </div> {/* End of main page viewport */}
         </div> {/* End of Main scroll-container */}
 
       {/* Intelligent AI business copilot module / chat drawer */}
@@ -2060,8 +2401,13 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
       {/* Live Premium Subscription upgrade popups */}
       {subModal && subModal.show && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-8 space-y-6 relative shadow-2xl">
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-4 z-50 animate-in fade-in slide-in-from-bottom-5 md:slide-in-from-bottom-0">
+          <div className="bg-slate-900 border border-slate-800 rounded-t-3xl md:rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 md:p-8 space-y-6 relative shadow-2xl mt-auto md:mt-0 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:pb-8 animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0">
+            {/* Mobile Drag Handle */}
+            <div className="w-full flex justify-center pb-2 md:hidden">
+              <div className="w-12 h-1.5 bg-slate-700/50 rounded-full" />
+            </div>
+
             <div className="text-center space-y-2">
               <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-400">
                 <AlertTriangle className="w-7 h-7" />
@@ -2182,6 +2528,51 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 className="px-5 py-2 hover:bg-slate-850 text-slate-400 hover:text-white font-medium text-xs font-mono uppercase tracking-wider rounded-xl transition-all cursor-pointer"
               >
                 Dismiss Alert
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔒 Sign Out Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[200] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full space-y-6 shadow-2xl border border-slate-100 dark:border-slate-800 text-center animate-scale-up">
+            <div className="mx-auto w-12 h-12 bg-rose-50 dark:bg-rose-950/30 rounded-full flex items-center justify-center text-rose-500 mb-2">
+              <LogOut className="w-6 h-6" />
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-slate-800 dark:text-white tracking-tight">Sign Out</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Are you sure you want to sign out of your account?
+              </p>
+            </div>
+
+            {logoutError && (
+              <div className="bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-450 text-xs rounded-xl p-3 border border-rose-100 dark:border-rose-900/50 flex items-center justify-center space-x-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>{logoutError}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  setLogoutError(null);
+                }}
+                className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmLogout}
+                className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg shadow-rose-600/15"
+              >
+                Sign Out
               </button>
             </div>
           </div>

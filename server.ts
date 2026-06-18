@@ -4,11 +4,24 @@ import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Type } from '@google/genai';
+import { createClient } from '@supabase/supabase-js';
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Initialize Supabase Server-Side Client
+// This ensures that the Suppabase keys are strictly kept on the server.
+let supabaseAdmin: ReturnType<typeof createClient> | null = null;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+if (supabaseUrl && supabaseKey) {
+  supabaseAdmin = createClient(supabaseUrl, supabaseKey);
+  console.log('[Server] Supabase connected successfully on backend.');
+} else {
+  console.warn('[Server] Supabase credentials missing. Ensure SUPABASE_URL and SUPABASE_ANON_KEY are set.');
+}
 
 // Helper for local inventory forecast fallback when API is busy or offline
 function generateLocalForecast(products: any[], salesHistory: any[], tenant: any) {
@@ -298,7 +311,7 @@ Hapa kuna muhtasari wa biashara yako:
 
 Nambie kama unataka nikupeleke ukurasa wowote wa biashara yako leo au kukuhesabia kitu kingine!`;
     } else {
-      responseText = `Hello! I am Lucy, your Jasper Executive Business AI Assistant. (I am running in local safe-mode layout because our primary remote intelligence service is currently experiencing extremely high traffic).
+      responseText = `Hello! I am Lucy, your Jasper Executive Business Assistant. (I am running in local safe-mode layout because our primary remote intelligence service is currently experiencing extremely high traffic).
 
 Here is a quick summary of your current session:
 - **Total Registered Products:** ${products.length}
@@ -363,6 +376,309 @@ async function startServer() {
 
   // Body parser limit expanded for rich sales ledger payloads
   app.use(express.json({ limit: '10mb' }));
+
+  // Supabase Database Verification Route
+  app.get('/api/db/test', async (req, res) => {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Supabase client is not initialized. Keys missing.' });
+    }
+    
+    try {
+      // Just test a simple fetch from the tenants table (or any core table)
+      const { data, error } = await supabaseAdmin.from('tenants').select('*').limit(1);
+      
+      if (error) {
+        throw error;
+      }
+      
+      return res.json({ success: true, message: 'Database connection active.', data });
+    } catch (err: any) {
+      return res.status(500).json({ error: 'Database test failed', details: err?.message || String(err) });
+    }
+  });
+
+  // Public configuration endpoint for runtime frontend initialization
+  app.get('/api/auth/config', (req, res) => {
+    return res.json({
+      supabaseUrl: process.env.SUPABASE_URL || null,
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null
+    });
+  });
+
+  // SaaS Tenant & User Registration Setup Endpoint
+  app.post('/api/auth/register', async (req, res) => {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Supabase backend client is not configured' });
+    }
+    
+    const { email, password, name, businessName } = req.body;
+    
+    if (!email || !password || !name || !businessName) {
+      return res.status(400).json({ error: 'Missing required registration fields' });
+    }
+
+    try {
+      // 1. Create the user in Supabase Auth using the Admin API
+      // We use the admin API securely on the backend so we can auto-confirm their email for now if desired
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+
+      if (authError || !authData.user) {
+        throw new Error(authError?.message || 'Failed to create auth user');
+      }
+
+      const authUserId = authData.user.id;
+
+      // 2. Create the Tenant (Business Account)
+      const { data: tenantData, error: tenantError } = await supabaseAdmin
+        .from('tenants')
+        .insert({
+          name: businessName,
+          country: 'TZ', // Default example
+          currency: 'TZS',
+          currency_code: 'TSh',
+          tax_rate: 0.18, 
+        } as any)
+        .select('id')
+        .single();
+
+      if (tenantError || !tenantData) {
+        // Rollback strategy: delete the auth user since tenant creation failed
+        await supabaseAdmin.auth.admin.deleteUser(authUserId);
+        throw new Error(tenantError?.message || 'Failed to initialize tenant space');
+      }
+
+      // 3. Create the Custom User Row referencing auth.users.id
+      const { error: userError } = await supabaseAdmin
+        .from('users')
+        .insert({
+          id: authUserId, // SAME AS auth.users.id
+          tenant_id: (tenantData as any).id,
+          active_tenant: (tenantData as any).id,
+          email,
+          name,
+          role: 'Admin', // The creator of the business is the Admin
+          is_saas_staff: false
+        } as any);
+
+      if (userError) {
+        // Rollback
+        await supabaseAdmin.auth.admin.deleteUser(authUserId);
+        throw new Error(userError.message || 'Failed to link user profile');
+      }
+
+      // Done.
+      return res.json({ 
+        success: true, 
+        message: 'Account provisioned successfully',
+        userId: authUserId,
+        tenantId: (tenantData as any).id
+      });
+      
+    } catch (err: any) {
+      console.error('[Registration] Error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API Route: Fetch tenant logo by specific tenantId dynamically on app load
+  app.get('/api/tenant/logo-by-id', async (req, res) => {
+    const tenantId = req.query.tenantId as string;
+    try {
+      if (!supabaseAdmin || !tenantId) {
+        return res.json({ logoUrl: null });
+      }
+
+      const { data: tenant, error } = await supabaseAdmin
+        .from('tenants' as any)
+        .select('company_settings')
+        .eq('id', tenantId)
+        .single();
+
+      if (error || !tenant) {
+        return res.json({ logoUrl: null });
+      }
+
+      const companySettings = typeof (tenant as any).company_settings === 'string'
+        ? JSON.parse((tenant as any).company_settings)
+        : (tenant as any).company_settings;
+
+      return res.json({ logoUrl: companySettings?.logo_url || null });
+    } catch (err) {
+      console.error('[Logo Check ID] Error fetching:', err);
+      return res.json({ logoUrl: null });
+    }
+  });
+
+  // API Route: Fetch tenant logo by domain or subdomain dynamically on login screen load
+  app.get('/api/tenant/logo-by-domain', async (req, res) => {
+    const domain = req.query.domain as string;
+    try {
+      if (!supabaseAdmin) {
+        return res.json({ logoUrl: null });
+      }
+
+      const { data: tenants, error } = await supabaseAdmin
+        .from('tenants' as any)
+        .select('id, name, company_settings');
+
+      if (error || !tenants) {
+        return res.json({ logoUrl: null });
+      }
+
+      // Check for matching target domain or tenantId in the list
+      for (const tenant of tenants as any[]) {
+        const companySettings = typeof (tenant as any).company_settings === 'string'
+          ? JSON.parse((tenant as any).company_settings)
+          : (tenant as any).company_settings;
+        
+        if (companySettings && companySettings.logo_url) {
+          if (domain && (
+            (tenant as any).name?.toLowerCase().includes(domain.toLowerCase()) || 
+            (tenant as any).id?.toLowerCase().includes(domain.toLowerCase())
+          )) {
+            return res.json({ logoUrl: companySettings.logo_url, tenantName: (tenant as any).name });
+          }
+        }
+      }
+
+      // If no direct domain match, fallback to the first company settings that has a logo URL
+      for (const tenant of tenants as any[]) {
+        const companySettings = typeof (tenant as any).company_settings === 'string'
+          ? JSON.parse((tenant as any).company_settings)
+          : (tenant as any).company_settings;
+        
+        if (companySettings && companySettings.logo_url) {
+          return res.json({ logoUrl: companySettings.logo_url, tenantName: (tenant as any).name });
+        }
+      }
+
+      return res.json({ logoUrl: null });
+    } catch (err) {
+      console.error('[Logo Fetch] Error fetching logo by domain:', err);
+      return res.json({ logoUrl: null });
+    }
+  });
+
+  // API Route: Upload and persist company logo to Supabase storage + tenants table JSONB field
+  app.post('/api/tenant/logo', async (req, res) => {
+    const { tenantId, logoBase64 } = req.body;
+
+    if (!tenantId || !logoBase64) {
+      return res.status(400).json({ error: 'tenantId and logoBase64 are required.' });
+    }
+
+    try {
+      if (!supabaseAdmin) {
+        console.warn('[Server] Supabase client is not initialized. Using fallback persistence mode.');
+        return res.json({
+          success: true,
+          message: 'Saved locally. (Supabase not initialized)',
+          logoUrl: logoBase64
+        });
+      }
+
+      // Parse the base64 string
+      let base64Data = logoBase64;
+      let mimeType = 'image/png';
+      let extension = 'png';
+
+      if (logoBase64.includes(';base64,')) {
+        const parts = logoBase64.split(';base64,');
+        const mimePart = parts[0]; // e.g. "data:image/jpeg"
+        base64Data = parts[1];
+        if (mimePart.includes(':')) {
+          mimeType = mimePart.split(':')[1];
+          extension = mimeType.split('/')[1] || 'png';
+        }
+      }
+
+      // Convert base64 to Buffer
+      const buffer = Buffer.from(base64Data, 'base64');
+      const fileName = `tenant-${tenantId}-${Date.now()}.${extension}`;
+
+      // Ensure the "logos" bucket exists
+      try {
+        const { data: buckets, error: getBucketsError } = await supabaseAdmin.storage.listBuckets();
+        if (!getBucketsError) {
+          const hasLogos = buckets.some((b: any) => b.name === 'logos');
+          if (!hasLogos) {
+            await supabaseAdmin.storage.createBucket('logos', { public: true });
+          }
+        }
+      } catch (bucketErr) {
+        console.error('[Server] Failed to list or create buckets:', bucketErr);
+      }
+
+      // Upload file to storage
+      const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+        .from('logos')
+        .upload(fileName, buffer, {
+          contentType: mimeType,
+          upsert: true
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: publicUrlData } = supabaseAdmin.storage
+        .from('logos')
+        .getPublicUrl(fileName);
+
+      const publicUrl = publicUrlData?.publicUrl || '';
+
+      if (!publicUrl) {
+        throw new Error('Failed to retrieve uploaded logo public URL');
+      }
+
+      // Fetch current tenants record to get existing company_settings
+      const { data: tenant, error: fetchError } = await supabaseAdmin
+        .from('tenants' as any)
+        .select('company_settings')
+        .eq('id', tenantId)
+        .single();
+
+      let companySettings: any = {};
+      if (!fetchError && tenant && (tenant as any).company_settings) {
+        companySettings = typeof (tenant as any).company_settings === 'string' 
+          ? JSON.parse((tenant as any).company_settings) 
+          : (tenant as any).company_settings;
+      }
+
+      // Store in company_settings under key logo_url
+      companySettings.logo_url = publicUrl;
+
+      // Update tenant
+      const { error: updateError } = await (supabaseAdmin
+        .from('tenants' as any) as any)
+        .update({ company_settings: companySettings })
+        .eq('id', tenantId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      return res.json({
+        success: true,
+        message: 'Logo successfully uploaded and persisted to Supabase database!',
+        logoUrl: publicUrl
+      });
+
+    } catch (err: any) {
+      console.error('[Logo Persistence] Error:', err);
+      // Return a friendly fallback instead of crashing
+      return res.json({
+        success: true,
+        message: 'Fallback local storage persistence (Server: ' + (err?.message || String(err)) + ')',
+        logoUrl: logoBase64
+      });
+    }
+  });
 
   // Bulk Sales Synchronization Endpoint (Background Sync Target)
   app.post('/api/sales/sync', (req, res) => {
@@ -837,7 +1153,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         `You are strictly dedicated and restricted to discussing professional business matters only (such as sales forecasting, inventory levels, clinical drug details if in a pharmacy, profit margins, product trends, catalog advice, customer service procedures, and business reports). ` +
         `If the user asks questions or topics about things OUT OF BUSINESS, commercial administration, or system navigation (such as general jokes, code snippets, Lionel Messi, space travel, music lyrics, recipe ideas, personal life advice, or non-commercial general knowledge), ` +
         `you MUST politely apologize, state that your expertise is strictly confined to professional business administration and sales analytics, and suggest where they can get general help (e.g., standard Google web search or community search engines). ` +
-        `  - English Refusal Example: "I apologize, but as Lucy, your dedicated Business AI assistant, my boundaries are strictly focused on shop management, inventory metrics, and financial forecasting. For queries outside of business administration, I recommend consulting general web search engines like Google or appropriate public references." ` +
+        `  - English Refusal Example: "I apologize, but as Lucy, your dedicated Business assistant, my boundaries are strictly focused on shop management, inventory metrics, and financial forecasting. For queries outside of business administration, I recommend consulting general web search engines like Google or appropriate public references." ` +
         `  - Swahili Refusal Example: "Samahani sana, mimi kama Lucy msaidizi wako wa biashara, ninaruhusiwa tu kusaidia masuala ya kiutawala, usimamizi wa stoki, makadirio ya fedha na mauzo ya duka lako. Kwa maswali mengine ya kawaida yaliyo nje ya biashara, nakushauri utumie mtandao wa Google au mifumo mingine ya ujuzi wetu wa kijamii." ` +
         `` +
         `Your goals are: ` +

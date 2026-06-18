@@ -1,6 +1,101 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 @variant dark (&:where(.dark, .dark *));
+
+/* GLOBAL SOLID STATE DARK THEME OVERRIDES */
+.dark {
+  color-scheme: dark;
+
+  /* 1. Layout backgrounds (prevent white flash or gaps) */
+  body, .screen, #jasper-app-root, .bg-[#f5f6fa], .bg-slate-[50], .bg-slate-50, .bg-[#f2f4f8], .bg-gray-50, .bg-[#f5f6f6], .bg-[#f0f2f5] {
+    background-color: var(--color-slate-955) !important;
+  }
+  
+  /* 2. Elevated Cards and Sub-Panels */
+  .bg-white, .bg-slate-0, .card, .chart-wrap, .sc {
+    background-color: var(--color-slate-905) !important;
+  }
+  
+  /* 3. Mild Secondary Elements */
+  .bg-slate-100, .bg-gray-100, .bg-slate-50\/40, .bg-slate-50\/50, .bg-slate-100\/50, .bg-gray-100\/50 {
+    background-color: #0c121d !important;
+  }
+  .bg-slate-200, .bg-gray-200, .bg-slate-150 {
+    background-color: #1a2436 !important;
+  }
+  .bg-slate-300, .bg-gray-300 {
+    background-color: #334155 !important;
+  }
+
+  /* 4. Contrast Typography Override (Leaves colorful text like green/red alone) */
+  .text-slate-900, .text-slate-850, .text-slate-800, .text-slate-755, .text-slate-705, .text-gray-950, .text-gray-900, .text-gray-800, .text-black {
+    color: #f1f5f9 !important;
+  }
+  
+  .text-slate-700, .text-slate-650, .text-slate-600, .text-slate-555, .text-slate-550, .text-slate-505, .text-gray-700, .text-gray-650, .text-gray-600 {
+    color: #cbd5e1 !important;
+  }
+  
+  .text-slate-400, .text-slate-500, .text-slate-450, .text-slate-350, .text-slate-250, .text-gray-400, .text-gray-500 {
+    color: #94a3b8 !important;
+  }
+
+  /* 5. Precise Borders and Structural Dividers */
+  .border,
+  .border-b,
+  .border-t,
+  .border-l,
+  .border-r,
+  .border-slate-105, .border-slate-100, .border-slate-200, .border-slate-150, .border-slate-205, .border-gray-100, .border-gray-200, hr, .divide-y, .divide-x {
+    border-color: #1a2436 !important;
+  }
+  
+  .divide-slate-100 > *, .divide-slate-200 > *, .divide-gray-100 > *, .divide-gray-200 > * {
+    border-color: #1a2436 !important;
+  }
+
+  /* 6. Form Inputs & Control Selectors */
+  input, select, textarea, .custom-select, select.custom-select {
+    &:not([type="submit"]):not([type="button"]):not(.bg-transparent) {
+      background-color: #0d1527 !important;
+      color: #f1f5f9 !important;
+      border-color: #1a2436 !important;
+    }
+    
+    &::placeholder {
+      color: #475569 !important;
+    }
+  }
+
+  /* 7. Hover and Selected States */
+  tr, li, .list-row, .hover\:bg-gray-50, .hover\:bg-slate-50, .hover\:bg-slate-50\/40, .hover\:bg-slate-50\/50, .hover\:bg-slate-100 {
+    &.hover\:bg-gray-50:hover, &.hover\:bg-slate-50:hover, &.hover\:bg-slate-50\/40:hover, &.hover\:bg-slate-50\/50:hover, &.hover\:bg-slate-100:hover, &.hover\:bg-slate-50\/50:hover {
+      background-color: #1a2436 !important;
+    }
+  }
+
+  /* 8. Neutral Badges and Overlays */
+  .bg-slate-100.text-slate-800, .bg-gray-100.text-gray-800, .bg-slate-100.text-slate-755, .bg-slate-200.text-slate-700 {
+    background-color: #1a2436 !important;
+    color: #f1f5f9 !important;
+  }
+}
+
+/* RTL Global Rules */
+
+.rtl { direction: rtl; text-align: right; }
+body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-serif !important; }
+.rtl .flex-row { flex-direction: row-reverse; }
+.rtl .ml-auto { margin-left: 0; margin-right: auto; }
+.rtl .mr-auto { margin-right: 0; margin-left: auto; }
+.rtl .left-0 { left: auto; right: 0; }
+.rtl .right-0 { right: auto; left: 0; }
+.rtl .rounded-l-xl { border-radius: 0 0.75rem 0.75rem 0; }
+.rtl .rounded-r-xl { border-radius: 0.75rem 0 0 0.75rem; }
+.rtl .border-l-4 { border-left: 0; border-right-width: 4px; }
+.rtl .pl-4 { padding-left: 0; padding-right: 1rem; }
+.rtl .pr-4 { padding-right: 0; padding-left: 1rem; }
 
 @theme {
   --font-sans: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
@@ -511,6 +606,107 @@
     display: none !important;
   }
 }
+
+/* HIGH FIDELITY DESIGN SYSTEM CORNER STONES */
+.glass-header {
+  backdrop-filter: blur(8px);
+  background-color: rgba(255, 255, 255, 0.85);
+}
+.dark .glass-header {
+  backdrop-filter: blur(8px);
+  background-color: rgba(17, 24, 39, 0.85);
+}
+
+.glass-nav {
+  backdrop-filter: blur(12px);
+  background-color: rgba(255, 255, 255, 0.92);
+}
+.dark .glass-nav {
+  backdrop-filter: blur(12px);
+  background-color: rgba(17, 24, 39, 0.92);
+}
+
+/* Interactive elements scaling micro-animations */
+button, 
+.interactive-btn {
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+button:active:not(:disabled),
+.interactive-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.tappable-card {
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tappable-card:active {
+  transform: scale(0.98);
+}
+
+/* Beautiful custom bottom-sheets & spring action slides */
+@keyframes spring-slide-up {
+  0% {
+    transform: translateY(100%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.spring-bottom-sheet {
+  animation: spring-slide-up 350ms cubic-bezier(0.175, 0.885, 0.32, 1.1) forwards;
+}
+
+/* Input states with floating transitions & checkmark highlights */
+.floating-input-group {
+  position: relative;
+}
+
+.modern-input {
+  height: 48px;
+  border-radius: 12px;
+  border-width: 1px;
+  transition: all 200ms ease-in-out;
+}
+.modern-input:focus {
+  outline: none;
+  border-color: #00C853 !important;
+  box-shadow: 0 0 0 2px rgba(0, 200, 83, 0.15) !important;
+}
+
+/* Pulsing FAB Attention Grabbing Ring */
+@keyframes fab-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 200, 83, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(0, 200, 83, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 200, 83, 0);
+  }
+}
+
+.fab-attention-pulse {
+  animation: fab-pulse 2s infinite;
+}
+
+/* Elegant Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+
 
 
 

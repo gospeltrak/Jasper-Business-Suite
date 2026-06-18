@@ -44,7 +44,7 @@ export default function AIBusinessCopilot({
   const [messages, setMessages] = useState<Message[]>([
     {
       sender: 'ai',
-      text: 'Hi! I am Lucy, your AI Copilot. How can I assist you with your business today?',
+      text: 'Hi! I am Lucy, your Copilot. How can I assist you with your business today?',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -221,7 +221,7 @@ export default function AIBusinessCopilot({
       <button
         id="jasper-ai-floating-trigger"
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 w-[56px] h-[56px] bg-[#111111] hover:bg-[#222222] rounded-full flex items-center justify-center text-white shadow-2xl transition-transform active:scale-95 cursor-pointer z-50 border border-slate-700/50 group"
+        className="fixed bottom-24 right-6 md:bottom-6 md:right-6 w-[56px] h-[56px] bg-[#111111] hover:bg-[#222222] rounded-full flex items-center justify-center text-white shadow-2xl transition-transform active:scale-95 cursor-pointer z-50 border border-slate-700/50 group"
       >
         <Sparkles className="w-6 h-6 text-white group-hover:scale-110 transition-transform" />
       </button>
@@ -246,7 +246,7 @@ export default function AIBusinessCopilot({
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
-                  <h5 className="font-semibold text-sm text-slate-800 tracking-tight">Lucy AI</h5>
+                  <h5 className="font-semibold text-sm text-slate-800 tracking-tight">Lucy</h5>
                   <p className="text-[11px] text-slate-500 font-medium">Always here to help</p>
                 </div>
               </div>

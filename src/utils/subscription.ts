@@ -65,7 +65,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
       'Supplies & supplier log ledger',
       'Cashier POS Till checkout',
       'Consolidated P&L index generators',
-      'Lucy AI self-learning integration'
+      'Lucy self-learning integration'
     ]
   },
   wholesale: {

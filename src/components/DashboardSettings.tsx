@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { CompanySettings, BusinessSettings, ProductStoreSettings, StaffSettings, SystemSettings, Tenant, CustomRole, RolePermission, InvoiceSettings, Sale, Expense, Delivery } from '../types';
+import { useTheme } from '../ThemeContext';
+import { useTenantLogo } from '../TenantLogoContext';
+import { DEFAULT_TENANTS } from '../data';
 import { 
   Settings as SettingsIcon, 
   Building, 
@@ -274,6 +277,8 @@ export default function DashboardSettings({
   expenses = [],
   deliveries = []
 }: DashboardSettingsProps) {
+  const { isDark, toggleTheme } = useTheme();
+  const { setLogoUrl } = useTenantLogo();
   // Navigation tabs for Settings
   const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'hrm' | 'roles'>('company');
   
@@ -317,6 +322,58 @@ export default function DashboardSettings({
 
   // Success alert message states
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+
+  // Logo upload and server persistence state
+  const [isLogoSaving, setIsLogoSaving] = useState(false);
+  const [logoSaveStatus, setLogoSaveStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
+  const [hasNewLogoToSave, setHasNewLogoToSave] = useState(false);
+
+  const handlePersistLogoToDb = async () => {
+    if (!companyForm.logo) return;
+    setIsLogoSaving(true);
+    setLogoSaveStatus(null);
+    try {
+      const response = await fetch('/api/tenant/logo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId: activeTenant.id,
+          logoBase64: companyForm.logo
+        })
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        throw new Error(resData?.error || resData?.message || 'Failed to save logo');
+      }
+
+      const savedLogoUrl = resData.logoUrl;
+      setCompanyForm(prev => ({ ...prev, logo: savedLogoUrl }));
+      setHasNewLogoToSave(false);
+      setLogoSaveStatus({ type: 'success', msg: 'Nembo imehifadhiwa kikamilifu! / Logo saved successfully!' });
+      
+      // Update local storage in real-time
+      localStorage.setItem(`jasper_tenant_logo_${activeTenant.id}`, savedLogoUrl);
+      setLogoUrl(savedLogoUrl);
+      
+      // Also save general settings
+      const fullyUpdatedSettings: SystemSettings = {
+        company: { ...companyForm, logo: savedLogoUrl },
+        business: businessForm,
+        productStore: productForm,
+        staffs: staffsList,
+        customRoles: customRolesList,
+        invoiceSettings: invoiceSettingsForm
+      };
+      onSaveSettings(fullyUpdatedSettings);
+
+    } catch (err: any) {
+      console.error('Error saving logo:', err);
+      setLogoSaveStatus({ type: 'error', msg: 'Imeshindwa kuhifadhi nembo. / Failed to save logo. ' + (err?.message || '') });
+    } finally {
+      setIsLogoSaving(false);
+    }
+  };
 
   // Dynamic Roles & Permissions States
   const [selectedRoleId, setSelectedRoleId] = useState<string>('role-seller');
@@ -464,6 +521,7 @@ export default function DashboardSettings({
         const base64String = reader.result as string;
         if (target === 'company') {
           setCompanyForm(prev => ({ ...prev, logo: base64String }));
+          setHasNewLogoToSave(true);
         } else if (target === 'business_light') {
           setBusinessForm(prev => ({ 
             ...prev, 
@@ -677,9 +735,9 @@ export default function DashboardSettings({
     
     // Apply Light/Dark mode changes immediately if requested
     if (companyForm.themeMode === 'dark') {
-      document.documentElement.classList.add('dark');
+      if (!isDark) toggleTheme();
     } else {
-      document.documentElement.classList.remove('dark');
+      if (isDark) toggleTheme();
     }
 
     setSaveSuccess('System configurations and business guidelines updated successfully!');
@@ -932,13 +990,21 @@ export default function DashboardSettings({
               </div>
 
               {/* Logo Drag/Upload Section */}
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 <span className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Company Branding Logo</span>
                 
                 <div className="flex flex-col sm:flex-row sm:items-center gap-5 bg-slate-50 border border-dashed border-slate-205 rounded-2xl p-4">
                   {companyForm.logo ? (
-                    <div className="w-20 h-20 rounded-2xl overflow-hidden bg-white border border-slate-200 flex-shrink-0 flex items-center justify-center">
-                      <img src={companyForm.logo} alt="Company Logo" className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
+                    <div className={`rounded-xl bg-white flex items-center justify-center p-1.5 overflow-hidden shadow-xs flex-shrink-0 ${
+                      hasNewLogoToSave ? 'border-2 border-emerald-500 w-[120px] h-[120px]' : 'border border-slate-200 w-20 h-20'
+                    }`}>
+                      <img 
+                        src={companyForm.logo} 
+                        alt="Company Logo" 
+                        className="w-full h-full object-contain" 
+                        style={{ maxWidth: '120px', maxHeight: '120px' }}
+                        referrerPolicy="no-referrer" 
+                      />
                     </div>
                   ) : (
                     <div className="w-20 h-20 rounded-2xl border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400 text-xs font-mono font-bold flex-shrink-0">
@@ -947,7 +1013,7 @@ export default function DashboardSettings({
                   )}
 
                   <div className="space-y-2 flex-grow">
-                    <div className="relative cursor-pointer transition-all">
+                    <div className="relative cursor-pointer transition-all inline-block">
                       <input
                         type="file"
                         accept="image/*"
@@ -960,6 +1026,39 @@ export default function DashboardSettings({
                       </button>
                     </div>
                     <p className="text-[10px] text-slate-400">Supported formats: JPG, PNG, WEBP. Maximum file size: 2MB.</p>
+
+                    {hasNewLogoToSave && (
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={handlePersistLogoToDb}
+                          disabled={isLogoSaving}
+                          className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-all uppercase tracking-wider"
+                        >
+                          {isLogoSaving ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4 text-white animate-infinite" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                              <span>Inapakia...</span>
+                            </>
+                          ) : (
+                            <span>Hifadhi Nembo / Save Logo</span>
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {logoSaveStatus && (
+                      <div className={`mt-2 p-2.5 rounded-xl text-[11px] font-mono leading-relaxed ${
+                        logoSaveStatus.type === 'success' 
+                          ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
+                          : 'bg-red-50 border border-red-200 text-red-800'
+                      }`}>
+                        {logoSaveStatus.msg}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -976,7 +1075,10 @@ export default function DashboardSettings({
                 <div className="grid grid-cols-2 gap-4">
                   <button
                     type="button"
-                    onClick={() => setCompanyForm(prev => ({ ...prev, themeMode: 'light' }))}
+                    onClick={() => {
+                      setCompanyForm(prev => ({ ...prev, themeMode: 'light' }));
+                      if (isDark) toggleTheme();
+                    }}
                     className={`p-4 rounded-xl border flex flex-col items-center justify-center space-y-2 cursor-pointer transition-all ${
                       companyForm.themeMode === 'light'
                         ? 'bg-white border-emerald-500 shadow-md scale-[1.01]'
@@ -989,7 +1091,10 @@ export default function DashboardSettings({
 
                   <button
                     type="button"
-                    onClick={() => setCompanyForm(prev => ({ ...prev, themeMode: 'dark' }))}
+                    onClick={() => {
+                      setCompanyForm(prev => ({ ...prev, themeMode: 'dark' }));
+                      if (!isDark) toggleTheme();
+                    }}
                     className={`p-4 rounded-xl border flex flex-col items-center justify-center space-y-2 cursor-pointer transition-all ${
                       companyForm.themeMode === 'dark'
                         ? 'bg-slate-900 border-indigo-500 shadow-md text-slate-100 scale-[1.01]'

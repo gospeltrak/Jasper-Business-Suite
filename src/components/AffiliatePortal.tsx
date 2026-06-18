@@ -31,6 +31,7 @@ import {
   Play,
   Tv,
   Eye,
+  EyeOff,
   BookOpen,
   Volume2,
   VolumeX,
@@ -43,6 +44,15 @@ import {
 } from "lucide-react";
 import SaaSHardwarePOS from "./SaaSHardwarePOS";
 import SaaSHardwareInventory from "./SaaSHardwareInventory";
+import { useTranslation } from "../LanguageContext";
+import {
+  getTermsTitle,
+  getTermsSubtitle,
+  getTermsScrollMsg,
+  getTermsStatusMsg,
+  getTermsAcceptBtnText,
+  renderTermsContent,
+} from "./TermsTranslations";
 
 interface Affiliate {
   id: string;
@@ -64,6 +74,7 @@ interface AffiliatePortalProps {
 }
 
 export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
+  const { lang, t } = useTranslation();
   const [authMode, setAuthMode] = useState<"login" | "register" | "dashboard">(
     "login",
   );
@@ -89,11 +100,16 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
   const [showRosterModal, setShowRosterModal] = useState(false);
   const [nidaNumber, setNidaNumber] = useState("");
   const [tinNumber, setTinNumber] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [secondName, setSecondName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Active Logged In Affiliate Info state representation
   const [activeAffiliate, setActiveAffiliate] = useState<Affiliate | null>(
     null,
   );
+  const [isEditingPromo, setIsEditingPromo] = useState(false);
+  const [newPromoInput, setNewPromoInput] = useState("");
   const [activeCreativeTab, setActiveCreativeTab] = useState<string>("flyer");
   const [sspInventory, setSspInventory] = useState<any[]>([]);
 
@@ -323,46 +339,88 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
   const [mirroredStoreCharge, setMirroredStoreCharge] = useState(30000);
 
   // Generate beautiful pre-populated simulation stats for demo portfolios
-  const [clicksCount, setClicksCount] = useState(148);
+  const [clicksCount, setClicksCount] = useState<number>(() => {
+    try {
+      const cached = localStorage.getItem("jasper_logged_affiliate");
+      if (cached) {
+        const aff = JSON.parse(cached);
+        const code = aff.promoCode || "";
+        const storageKey = `jasper_clicks_${code}`;
+        const savedClicks = localStorage.getItem(storageKey);
+        if (savedClicks !== null) {
+          return Number(savedClicks);
+        }
+        if (code.toUpperCase() === "SARAH_JASPER") return 148;
+        if (code.toUpperCase() === "LANGA") return 325;
+        return 0;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return 148; // Default fallback for unlogged or guest view
+  });
   const [claimsReloader, setClaimsReloader] = useState(0);
-  const [subscribers, setSubscribers] = useState([
-    {
-      id: "1",
-      storeName: "Kariakoo Glassware Ltd",
-      registeredAt: "2026-05-10",
-      tier: "Standard Business",
-      status: "Paid",
-      charge: 30000,
-      commission: 4500,
-    },
-    {
-      id: "2",
-      storeName: "Kisumu Chemists Shop",
-      registeredAt: "2026-05-18",
-      tier: "Essential Ledger",
-      status: "Paid",
-      charge: 15000,
-      commission: 2250,
-    },
-    {
-      id: "3",
-      storeName: "Mwenge Food Court",
-      registeredAt: "2026-05-22",
-      tier: "Premium",
-      status: "Paid",
-      charge: 45000,
-      commission: 6750,
-    },
-    {
-      id: "4",
-      storeName: "Arusha Highlands Lodge",
-      registeredAt: "2026-05-23",
-      tier: "trial",
-      status: "Active Trial",
-      charge: 0,
-      commission: 0,
-    },
-  ]);
+  const [subscribers, setSubscribers] = useState(() => {
+    const defaultSubs = [
+      {
+        id: "1",
+        storeName: "Kariakoo Glassware Ltd",
+        registeredAt: "2026-05-10",
+        tier: "Standard Business",
+        status: "Paid",
+        charge: 30000,
+        commission: 4500,
+        affiliateCode: "SARAH_JASPER",
+      },
+      {
+        id: "2",
+        storeName: "Kisumu Chemists Shop",
+        registeredAt: "2026-05-18",
+        tier: "Essential Ledger",
+        status: "Paid",
+        charge: 15000,
+        commission: 2250,
+        affiliateCode: "SARAH_JASPER",
+      },
+      {
+        id: "3",
+        storeName: "Mwenge Food Court",
+        registeredAt: "2026-05-22",
+        tier: "Premium",
+        status: "Paid",
+        charge: 45000,
+        commission: 6750,
+        affiliateCode: "SARAH_JASPER",
+      },
+      {
+        id: "4",
+        storeName: "Arusha Highlands Lodge",
+        registeredAt: "2026-05-23",
+        tier: "trial",
+        status: "Active Trial",
+        charge: 0,
+        commission: 0,
+        affiliateCode: "SARAH_JASPER",
+      },
+    ];
+
+    try {
+      const referralLedger = JSON.parse(localStorage.getItem("jasper_referral_ledger") || "[]");
+      const mappedLedger = referralLedger.map((r: any) => ({
+        id: r.id,
+        storeName: r.subscriberName,
+        registeredAt: r.registeredAt,
+        tier: r.package || "Essential Ledger",
+        status: r.payoutStatus === "Paid" || r.package !== "trial" ? "Paid" : "Active Trial",
+        charge: r.package === "Premium" ? 45000 : r.package === "Standard Business" ? 30000 : 15000,
+        commission: r.commission || 0,
+        affiliateCode: r.affiliateCode,
+      }));
+      return [...defaultSubs, ...mappedLedger];
+    } catch (e) {
+      return defaultSubs;
+    }
+  });
 
   // Custom Super Affiliate mutation handlers
   const saveAffiliatesList = (nextList: any[]) => {
@@ -586,14 +644,97 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
     }
   }, []);
 
-  const handleRegisterAffiliate = (e: any) => {
+  const handleUpdatePromoCode = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !phone || !password || !promoCode) {
-      alert("Please fill in all details.");
+    const cleaned = newPromoInput.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+    if (!cleaned) {
+      alert("Kodi ya ofa inapaswa kuwa na herufi na namba tu! / Promo code must contain alphanumeric characters only!");
       return;
     }
 
-    const cleanCode = promoCode.trim().toUpperCase();
+    // Verify it doesn't already exist in other affiliates
+    const existingAffs = JSON.parse(localStorage.getItem("jasper_affiliates") || "[]");
+    const duplicate = existingAffs.find((a: any) => a.id !== activeAffiliate?.id && a.promoCode?.toUpperCase() === cleaned);
+    if (duplicate) {
+      alert("Kodi hii ya ofa imeshatumika na mtu mwingine! / This promo code is already taken by another affiliate!");
+      return;
+    }
+
+    // Update activeAffiliate state
+    const updatedAffiliate = {
+      ...activeAffiliate!,
+      promoCode: cleaned
+    };
+    setActiveAffiliate(updatedAffiliate);
+    localStorage.setItem("jasper_logged_affiliate", JSON.stringify(updatedAffiliate));
+
+    // Update in jasper_affiliates
+    const nextAffiliates = existingAffs.map((a: any) => {
+      if (a.id === activeAffiliate?.id) {
+        return { ...a, promoCode: cleaned };
+      }
+      return a;
+    });
+    localStorage.setItem("jasper_affiliates", JSON.stringify(nextAffiliates));
+
+    // Update in saas_immersive_affiliates
+    const immersiveCached = localStorage.getItem("saas_immersive_affiliates");
+    if (immersiveCached) {
+      try {
+        const list = JSON.parse(immersiveCached);
+        const updatedList = list.map((a: any) => {
+          if (a.id === activeAffiliate?.id) {
+            return {
+              ...a,
+              promoCode: cleaned,
+              affiliateLink: `https://dukaplus.co.tz/ref/${cleaned.toLowerCase()}`
+            };
+          }
+          return a;
+        });
+        localStorage.setItem("saas_immersive_affiliates", JSON.stringify(updatedList));
+      } catch (err) {}
+    }
+
+    // Also update sub list and ledger for referral subscribers
+    const oldCode = activeAffiliate?.promoCode || "";
+    setSubscribers((prev: any[]) => prev.map((s) => {
+      if (s.affiliateCode && s.affiliateCode.trim().toUpperCase() === oldCode.trim().toUpperCase()) {
+        return { ...s, affiliateCode: cleaned };
+      }
+      return s;
+    }));
+
+    try {
+      const referralLedger = JSON.parse(localStorage.getItem("jasper_referral_ledger") || "[]");
+      const updatedLedger = referralLedger.map((r: any) => {
+        if (r.affiliateCode && r.affiliateCode.trim().toUpperCase() === oldCode.trim().toUpperCase()) {
+          return { ...r, affiliateCode: cleaned };
+        }
+        return r;
+      });
+      localStorage.setItem("jasper_referral_ledger", JSON.stringify(updatedLedger));
+    } catch (err) {}
+
+    setIsEditingPromo(false);
+    alert("🎉 Imefanikiwa! Kodi yako mpya ya ofa ni / Successfully updated! Your new promo code is: " + cleaned);
+  };
+
+  const handleRegisterAffiliate = (e: any) => {
+    e.preventDefault();
+    if (!firstName || !secondName || !phone || !password) {
+      alert("Please enter first name, second name, phone number, and password.");
+      return;
+    }
+
+    if (!nidaNumber || nidaNumber.trim().length === 0) {
+      alert("National ID (NIDA) is mandatory. Please provide a valid NIDA number.");
+      return;
+    }
+
+    const name = `${firstName.trim()} ${secondName.trim()}`;
+    const email = `${firstName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}.${secondName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}${Math.floor(100 + Math.random() * 900)}@jasper-affiliate.com`;
+    const cleanCode = `${firstName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_${secondName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_JAR_${Math.floor(100 + Math.random() * 900)}`;
 
     // Check for parent super-affiliate recruiter assignment
     let parentSuperId: string | undefined = undefined;
@@ -947,7 +1088,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
       ctx.fillText("✓ Runs 100% Offline - Never down", 50, 230);
       ctx.fillText("✓ Accepts Mobile money Instantly", 50, 280);
       ctx.fillText("✓ For Retail, Pharmacies & Restaurants", 50, 330);
-      ctx.fillText("✓ Lucy AI assistant built-in for support", 50, 380);
+      ctx.fillText("✓ Lucy assistant built-in for support", 50, 380);
 
       ctx.fillStyle = "rgba(16, 185, 129, 0.1)";
       ctx.fillRect(50, 440, 700, 180);
@@ -989,7 +1130,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
       ctx.fillText("✓ Cashier Tills POS", 30, 190);
       ctx.fillText("✓ Stock intelligence alerts", 30, 230);
       ctx.fillText("✓ Financial P&L indexes", 30, 275);
-      ctx.fillText("✓ Lucy AI auto trainings", 30, 320);
+      ctx.fillText("✓ Lucy auto trainings", 30, 320);
 
       ctx.fillStyle = "rgba(16, 185, 129, 0.15)";
       ctx.fillRect(20, 390, 410, 180);
@@ -1036,9 +1177,17 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
     } catch (e) {}
   }
 
+  // Filter subscribers to enforce tenant/affiliate data isolation strictly
+  const currentAffiliateCode = activeAffiliate?.promoCode || "";
+  const filteredSubscribers = subscribers.filter(
+    (s) =>
+      s.affiliateCode &&
+      s.affiliateCode.trim().toUpperCase() === currentAffiliateCode.trim().toUpperCase()
+  );
+
   // Calculate earnings
-  const paidSubsCount = subscribers.filter((s) => s.status === "Paid").length;
-  const totalEarnedCommissions = subscribers.reduce(
+  const paidSubsCount = filteredSubscribers.filter((s) => s.status === "Paid").length;
+  const totalEarnedCommissions = filteredSubscribers.reduce(
     (sum, s) => sum + s.commission,
     0,
   );
@@ -1412,28 +1561,28 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
-                        Full Partner Name
+                        First Name (as in National ID)
                       </label>
                       <input
                         type="text"
                         required
-                        placeholder="Sarah Mwakasege"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Sarah"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 text-xs focus:border-emerald-500"
                       />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
-                        Wallet Payout Email
+                        Second Name (as in National ID)
                       </label>
                       <input
-                        type="email"
+                        type="text"
                         required
-                        placeholder="sarah@agency.tz"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 text-xs focus:border-emerald-500 font-mono"
+                        placeholder="Mwakasege"
+                        value={secondName}
+                        onChange={(e) => setSecondName(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 text-xs focus:border-emerald-500"
                       />
                     </div>
                   </div>
@@ -1470,11 +1619,11 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                     </div>
                   </div>
 
-                  {/* NIDA AND TIN NUMBERS ADDED FOR FRAUD PREVENTION */}
+                  {/* NIDA AND TIN NUMBERS FOR IDENTITY/TRA TAX RECONCILIATION */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5 text-left">
-                      <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
-                        NIDA National ID Number
+                      <label className="text-[10px] font-mono uppercase text-amber-500 tracking-wider font-bold">
+                        NIDA National ID Number (Mandatory)
                       </label>
                       <input
                         type="text"
@@ -1501,47 +1650,44 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
-                        Promo Coupon Code
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. SARAH_JASPER"
-                        value={promoCode}
-                        onChange={(e) => setPromoCode(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-emerald-400 placeholder-slate-650 outline-none rounded-2xl p-3 text-xs font-black tracking-widest uppercase focus:border-emerald-500 font-mono"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider font-extrabold text-teal-400">
-                        Recruiter Code (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. LANGA"
-                        value={parentSuperCode}
-                        onChange={(e) => setParentSuperCode(e.target.value)}
-                        className="w-full bg-slate-950 border border-teal-950 text-white placeholder-slate-600 outline-none rounded-2xl p-3 text-xs focus:border-teal-500 font-mono text-center tracking-widest uppercase"
-                      />
-                    </div>
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider font-extrabold text-teal-400">
+                      {t['agent code'] || "Agent Code"}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. LANGA"
+                      value={parentSuperCode}
+                      onChange={(e) => setParentSuperCode(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-600 outline-none rounded-2xl p-3 text-xs focus:border-teal-500 font-mono text-center tracking-widest uppercase"
+                    />
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 relative text-left">
                     <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
                       Secure Password
                     </label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 text-xs focus:border-emerald-500"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        required
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 pr-10 text-xs focus:border-emerald-500 font-sans"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors focus:outline-none cursor-pointer p-1"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-4.5 h-4.5" />
+                        ) : (
+                          <Eye className="w-4.5 h-4.5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-2 text-left">
@@ -1623,9 +1769,36 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                   <span className="text-slate-500 uppercase text-[9px]">
                     Master Code:
                   </span>
-                  <span className="text-white font-bold">
-                    {activeAffiliate?.promoCode}
-                  </span>
+                  {isEditingPromo ? (
+                    <form onSubmit={handleUpdatePromoCode} className="flex items-center space-x-1">
+                      <input
+                        type="text"
+                        className="bg-slate-900 border border-teal-500 text-teal-400 uppercase text-xs font-bold px-1 rounded focus:outline-none w-24"
+                        value={newPromoInput}
+                        onChange={(e) => setNewPromoInput(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))}
+                        maxLength={20}
+                        autoFocus
+                      />
+                      <button type="submit" className="text-emerald-400 hover:text-emerald-300 font-bold text-[10px]">Save</button>
+                      <button type="button" onClick={() => setIsEditingPromo(false)} className="text-slate-400 hover:text-white text-[10px]">X</button>
+                    </form>
+                  ) : (
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-white font-bold">
+                        {activeAffiliate?.promoCode}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setNewPromoInput(activeAffiliate?.promoCode || "");
+                          setIsEditingPromo(true);
+                        }}
+                        className="text-slate-500 hover:text-teal-400 transition-colors"
+                        title="Edit Master Code"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -1664,42 +1837,47 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
               {/* SIDEBAR NAVIGATION */}
               <div className="w-full lg:w-64 shrink-0 flex flex-col gap-1.5 border-b lg:border-b-0 lg:border-r border-slate-850 pb-4 lg:pb-0 lg:pr-6">
                 {[
-                  { id: "overview", name: "Network Overview", icon: Layers },
+                  { id: "overview", key: "network overview", name: "Network Overview", icon: Layers },
                   {
                     id: "reconciliation",
+                    key: "monthly reconciliation",
                     name: "Monthly Reconciliation",
                     icon: DollarSign,
                   },
-                  { id: "manage", name: "Manage Sub-Affiliates", icon: Users },
-                  { id: "sessions", name: "Academic Sessions", icon: BookOpen },
+                  { id: "manage", key: "manage sub-affiliates", name: "Manage Sub-Affiliates", icon: Users },
+                  { id: "sessions", key: "academic sessions", name: "Academic Sessions", icon: BookOpen },
                   {
                     id: "conferencing",
+                    key: "video conferencing call",
                     name: "Video Conferencing Call",
                     icon: Video,
                   },
-                  { id: "hw-pos", name: "Hardware POS", icon: ShoppingCart },
+                  { id: "hw-pos", key: "hardware pos", name: "Hardware POS", icon: ShoppingCart },
                   {
                     id: "hw-inventory",
+                    key: "hardware inventory",
                     name: "Hardware Inventory",
                     icon: Package,
                   },
-                ].map((t) => {
-                  const IconComp = t.icon;
+                ].map((item) => {
+                  const IconComp = item.icon;
                   return (
                     <button
-                      key={t.id}
+                      key={item.id}
                       type="button"
                       onClick={() => {
-                        setSuperActiveTab(t.id as any);
+                        setSuperActiveTab(item.id as any);
                       }}
                       className={`w-full px-4 py-3 rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-start gap-3 transition-all cursor-pointer ${
-                        superActiveTab === t.id
+                        superActiveTab === item.id
                           ? "bg-teal-500 text-slate-950 shadow-lg shadow-teal-500/10"
                           : "text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent"
                       }`}
                     >
-                      <IconComp className={`w-4 h-4 shrink-0 ${superActiveTab === t.id ? "text-slate-950" : "text-slate-500"}`} />
-                      <span className="text-left leading-tight">{t.name}</span>
+                      <IconComp className={`w-4 h-4 shrink-0 ${superActiveTab === item.id ? "text-slate-950" : "text-slate-500"}`} />
+                      <span className="text-left leading-tight">
+                        {t[item.key] || item.name}
+                      </span>
                     </button>
                   );
                 })}
@@ -3585,7 +3763,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                   Referred Subscribers
                 </dt>
                 <dd className="text-3xl font-extrabold text-white font-mono">
-                  {subscribers.length}
+                  {filteredSubscribers.length}
                 </dd>
                 <div className="text-[10px] text-slate-400 font-mono">
                   <span className="text-emerald-400 font-bold">
@@ -3593,7 +3771,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                   </span>{" "}
                   •{" "}
                   {
-                    subscribers.filter((s) => s.status === "Active Trial")
+                    filteredSubscribers.filter((s) => s.status === "Active Trial")
                       .length
                   }{" "}
                   Trialists
@@ -3679,29 +3857,75 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                   {/* Item 2: Promo Code coupon copy */}
                   <div className="space-y-1">
                     <div className="flex justify-between items-center text-[10px] font-mono">
-                      <span className="text-slate-455 text-slate-450 uppercase">
+                      <span className="text-slate-450 uppercase">
                         Your Signup Promo Code Coupon:
                       </span>
-                      <button
-                        onClick={() =>
-                          copyToClipboard(
-                            activeAffiliate?.promoCode || "",
-                            setCopiedCode,
-                          )
-                        }
-                        className="text-emerald-400 hover:underline flex items-center space-x-1 cursor-pointer font-bold uppercase text-[9px]"
-                      >
-                        {copiedCode ? (
-                          <Check className="w-3 h-3 text-emerald-400" />
-                        ) : (
-                          <Copy className="w-3 h-3" />
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={() => {
+                            setNewPromoInput(activeAffiliate?.promoCode || "");
+                            setIsEditingPromo(!isEditingPromo);
+                          }}
+                          className={`${isEditingPromo ? "text-amber-400" : "text-teal-400"} hover:underline flex items-center space-x-1 cursor-pointer font-bold uppercase text-[9px]`}
+                        >
+                          <Edit2 className="w-3 h-3" />
+                          <span>{isEditingPromo ? "Editing" : "Change Code"}</span>
+                        </button>
+                        {!isEditingPromo && (
+                          <button
+                            onClick={() =>
+                              copyToClipboard(
+                                activeAffiliate?.promoCode || "",
+                                setCopiedCode,
+                              )
+                            }
+                            className="text-emerald-400 hover:underline flex items-center space-x-1 cursor-pointer font-bold uppercase text-[9px]"
+                          >
+                            {copiedCode ? (
+                              <Check className="w-3 h-3 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                            <span>{copiedCode ? "Copied" : "Copy"}</span>
+                          </button>
                         )}
-                        <span>{copiedCode ? "Copied" : "Copy"}</span>
-                      </button>
+                      </div>
                     </div>
-                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs font-mono text-white tracking-widest font-extrabold text-center select-all uppercase">
-                      {activeAffiliate?.promoCode}
-                    </div>
+
+                    {isEditingPromo ? (
+                      <form onSubmit={handleUpdatePromoCode} className="space-y-2 pt-1">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            className="w-full bg-slate-950 p-2.5 rounded-lg border border-teal-500 font-mono text-center text-teal-300 uppercase text-xs tracking-widest font-extrabold focus:outline-none focus:ring-1 focus:ring-teal-400"
+                            value={newPromoInput}
+                            onChange={(e) => setNewPromoInput(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))}
+                            placeholder="KODI MPYA YA OFA / NEW PROMO CODE"
+                            maxLength={30}
+                            required
+                          />
+                        </div>
+                        <div className="flex justify-end space-x-2 text-[9px] font-mono">
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingPromo(false)}
+                            className="px-2.5 py-1 text-slate-400 bg-slate-900 border border-slate-800 rounded-md hover:text-white"
+                          >
+                            CANCEL
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-3 py-1 text-slate-950 bg-teal-400 hover:bg-teal-300 rounded-md font-extrabold uppercase transition-colors"
+                          >
+                            SAVE CHANGES
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs font-mono text-white tracking-widest font-extrabold text-center select-all uppercase">
+                        {activeAffiliate?.promoCode}
+                      </div>
+                    )}
                   </div>
 
                   {/* Graphical Adsense & Social Media Materials Tab List */}
@@ -4096,48 +4320,60 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                 </div>
 
                 <div className="space-y-3 max-h-[340px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 pr-1.5">
-                  {subscribers.map((sub) => (
-                    <div
-                      key={sub.id}
-                      className="bg-slate-950/70 p-3 rounded-xl border border-slate-850 flex items-center justify-between text-xs font-mono"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center space-x-2">
-                          <span className="font-bold text-white text-[12px]">
-                            {sub.storeName}
-                          </span>
-                          <span
-                            className={`text-[8.5px] uppercase font-bold px-1.5 py-0.2 rounded ${
-                              sub.status === "Paid"
-                                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
-                                : "bg-amber-500/15 text-amber-400 border border-amber-500/20"
-                            }`}
-                          >
-                            {sub.tier}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-slate-500 flex justify-between gap-4 font-sans font-light">
-                          <span>Joined: {sub.registeredAt}</span>
-                          <span>
-                            Monthly bill: TSh {sub.charge.toLocaleString()}
-                          </span>
-                        </div>
+                  {filteredSubscribers.length === 0 ? (
+                    <div className="text-center py-10 px-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/40 text-slate-400 space-y-3 select-none">
+                      <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto text-lg">
+                        <span>🎯</span>
                       </div>
-
-                      <div className="text-right space-y-0.5">
-                        <div
-                          className={`text-sms font-bold ${sub.commission > 0 ? "text-emerald-400" : "text-slate-505"}`}
-                        >
-                          + TSh {sub.commission.toLocaleString()}
-                        </div>
-                        <span className="text-[8.5px] text-slate-505 uppercase text-slate-500 tracking-wider font-bold">
-                          {sub.status === "Paid"
-                            ? "CONFIRMED"
-                            : "RECURRING TRIAL"}
-                        </span>
+                      <div className="space-y-1">
+                        <p className="font-bold text-white text-xs">Hakuna data bado / No data yet</p>
+                        <p className="text-[10px] text-slate-500 max-w-xs mx-auto text-center">Hujasajili mteja yeyote bado chini ya code yako. Shiriki code yako ya ofa kuanza kupata kamisheni!</p>
                       </div>
                     </div>
-                  ))}
+                  ) : (
+                    filteredSubscribers.map((sub) => (
+                      <div
+                        key={sub.id}
+                        className="bg-slate-950/70 p-3 rounded-xl border border-slate-850 flex items-center justify-between text-xs font-mono"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-bold text-white text-[12px]">
+                              {sub.storeName}
+                            </span>
+                            <span
+                              className={`text-[8.5px] uppercase font-bold px-1.5 py-0.2 rounded ${
+                                sub.status === "Paid"
+                                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
+                                  : "bg-amber-500/15 text-amber-400 border border-amber-500/20"
+                              }`}
+                            >
+                              {sub.tier}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 flex justify-between gap-4 font-sans font-light">
+                            <span>Joined: {sub.registeredAt}</span>
+                            <span>
+                              Monthly bill: TSh {sub.charge.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-right space-y-0.5">
+                          <div
+                            className={`text-sms font-bold ${sub.commission > 0 ? "text-emerald-400" : "text-slate-505"}`}
+                          >
+                            + TSh {sub.commission.toLocaleString()}
+                          </div>
+                          <span className="text-[8.5px] text-slate-505 uppercase text-slate-500 tracking-wider font-bold">
+                            {sub.status === "Paid"
+                              ? "CONFIRMED"
+                              : "RECURRING TRIAL"}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
 
                   <div className="text-center pt-2">
                     <button
@@ -4624,11 +4860,10 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                   <span className="text-xl">📜</span>
                   <div className="text-left">
                     <h2 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                      Affiliate Program Terms & Conditions
+                      {getTermsTitle(lang)}
                     </h2>
                     <p className="text-[10px] text-slate-400">
-                      Please read carefully and scroll to the bottom to unlock
-                      acceptance
+                      {getTermsSubtitle(lang)}
                     </p>
                   </div>
                 </div>
@@ -4656,126 +4891,10 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                 }}
                 className="p-6 overflow-y-auto space-y-4 text-xs text-slate-300 leading-relaxed max-h-[50vh] bg-slate-950/20 text-left selection:bg-amber-500/10 select-none font-sans"
               >
-                <div className="space-y-3">
-                  <p className="font-bold text-amber-400 text-sm border-b border-slate-800 pb-2">
-                    AFFILIATE PROGRAM TERMS & CONDITIONS
-                  </p>
-                  <p className="text-[11px] font-mono text-slate-450 italic mb-4">
-                    Effective Date: May 1, 2526
-                  </p>
+                {renderTermsContent(lang)}
 
-                  <p className="font-bold text-slate-100 text-[13px] pt-2">
-                    1. ENROLLMENT ELIGIBILITY
-                  </p>
-                  <p>
-                    By enrolling in the Jasper suite affiliate partner network,
-                    you declare that you are at least 18 years of age and
-                    currently reside or possess a legal financial presence in
-                    Tanzania or East Africa. To prevent identity and financial
-                    fraud, all members must supply their full legal name, active
-                    mobile number registered under their respective identity,
-                    Tanzania National ID Number (NIDA Number), and Taxpayer
-                    Identification Number (TIN Number) upon registration.
-                  </p>
-                  <p>
-                    Any attempt to submit false NIDA IDs or non-matching
-                    taxpayer certificates to circumvent local revenue
-                    withholding mandates will result in registration rejection,
-                    account forfeiture, and permanent blacklisting from our
-                    retail suite.
-                  </p>
-
-                  <p className="font-bold text-slate-100 text-[13px] pt-2">
-                    2. REVENUE COMMISSION SCHEDULE
-                  </p>
-                  <p>
-                    You shall receive a 15% recurring commission on all monthly
-                    subscription invoices paid in full by shop, hotel, pharmacy,
-                    or restaurant operators whom you refer to Jasper. No
-                    commissions shall accrue on cancelled accounts, test
-                    accounts, credit balances, or transactions disputed for
-                    suspicious charge activity.
-                  </p>
-                  <p>
-                    Commissions are calculated in East African Shillings (TSh)
-                    based on actual settled subscription revenue and paid
-                    straight to your designated mobile money wallet (Vodacom
-                    M-Pesa, Mixx by Yas, Airtel Money, Halopesa) on the last
-                    Friday of every calendar month.
-                  </p>
-
-                  <p className="font-bold text-slate-100 text-[13px] pt-2">
-                    3. TAXATION & WITHHOLDING COMPLIANCE (TRA)
-                  </p>
-                  <p>
-                    All payments made through the Jasper Suite Affiliate Program
-                    are subject to local tax laws specified by the Tanzania
-                    Revenue Authority (TRA). As a registered partner, you agree
-                    that withholding tax of up to 10% or the mandatory
-                    regulatory withholding rate shall be automatically filed and
-                    paid on your behalf under your supplied Taxpayer
-                    Identification Number (TIN).
-                  </p>
-                  <p>
-                    Corporate super affiliates and recruitment networks are
-                    solely responsible for pulling their downline rosters
-                    containing full legal names, payout mobile numbers, and
-                    corresponding TIN Numbers to submit withholding and
-                    corporate taxes under local revenue declarations. Jasper
-                    Suite reserves the absolute right to freeze payouts until
-                    valid, matching NIDA and TIN certificates are provided and
-                    verified.
-                  </p>
-
-                  <p className="font-bold text-slate-100 text-[13px] pt-2">
-                    4. COMPLIANCE & PROHIBITED PRACTICES
-                  </p>
-                  <p>
-                    Affiliates are strictly forbidden from executing
-                    "self-referrals" – i.e., registering their own retail
-                    outlets using their own personal affiliate coupon codes to
-                    secure discounts. Direct spamming, misleading
-                    advertisements, or cyber squatting on matching domains is
-                    completely prohibited. In any such instance, your coupon
-                    code will be instantly deactivated, your user accounts
-                    locked, and all accrued balances set to zero.
-                  </p>
-
-                  <p className="font-bold text-slate-100 text-[13px] pt-2">
-                    5. HIERARCHY, SUPER RECRUITERS & SUB-AFFILIATES
-                  </p>
-                  <p>
-                    Partners registering under a recruiting recruiter code
-                    ("parent code") agree to join that respective recruiter's
-                    tracking downline network. The Super partner will earn a 5%
-                    monthly manager commission oversight share, paid straight to
-                    their mobile wallet, for assisting with your client
-                    onboarding and ledger technical support, without reducing
-                    your standard 15% commission.
-                  </p>
-                  <p>
-                    The parent Super partner will hold local supervisory
-                    authority over your account complaints, dispute filings, and
-                    will gain visibility to your legal name, mobile wallet phone
-                    registered number, NIDA ID, and TIN Number to facilitate
-                    combined withholding filing and compliance rosters.
-                  </p>
-
-                  <p className="font-bold text-slate-100 text-[13px] pt-2">
-                    6. AMENDMENT & PORTAL TERMINATION
-                  </p>
-                  <p>
-                    Jasper Suite holds the right to alter this agreement at any
-                    time. Changes will be posted inside the partner portal.
-                    Continuing your participation in the affiliate program
-                    following updates constitutes full, unconditional acceptance
-                    of any amendments.
-                  </p>
-
-                  <div className="pt-4 border-t border-slate-800 text-[10px] text-slate-450 italic text-center">
-                    Please scroll entirely down to unlock the agreement accept
-                    lock.
-                  </div>
+                <div className="pt-4 border-t border-slate-800 text-[10px] text-slate-450 italic text-center">
+                  {getTermsScrollMsg(lang)}
                 </div>
               </div>
 
@@ -4786,9 +4905,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                     className={`w-3 h-3 rounded-full ${hasScrolledToBottom ? "bg-emerald-500 animate-pulse" : "bg-slate-700"}`}
                   />
                   <span className="text-[10.5px] font-semibold text-slate-400 text-left">
-                    {hasScrolledToBottom
-                      ? "Ready: Scroll checklist cleared"
-                      : "Locked: Scroll down to read full terms"}
+                    {getTermsStatusMsg(lang, hasScrolledToBottom)}
                   </span>
                 </div>
 
@@ -4805,9 +4922,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                       : "bg-slate-800 text-slate-500 opacity-40 cursor-not-allowed border border-slate-700"
                   }`}
                 >
-                  {hasScrolledToBottom
-                    ? "I Accept Terms & Complete ✓"
-                    : "⬇️ Scroll Down to Unlock Accept Button"}
+                  {getTermsAcceptBtnText(lang, hasScrolledToBottom)}
                 </button>
               </div>
             </div>

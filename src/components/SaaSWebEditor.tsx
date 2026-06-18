@@ -61,7 +61,7 @@ const DEFAULT_TRANSLATIONS: Record<string, string> = {
   footerCol4Title: "Follow Us",
   socialYoutube: "https://youtube.com",
   socialInstagram: "https://instagram.com",
-  socialTwitter: "https://twitter.com",
+  socialTiktok: "https://tiktok.com",
   socialFacebook: "https://facebook.com",
   footerCopyright: "© 2026 Jasper Business Suite Network. All rights reserved."
 };
@@ -400,6 +400,27 @@ export default function SaaSWebEditor() {
               {/* Form entries */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 
+                {/* System Logo Override */}
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider font-bold">System Hub Logo URL (Circle)</label>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full border border-slate-700 bg-slate-900 flex items-center justify-center overflow-hidden shrink-0">
+                      {(customValues.systemLogo) ? (
+                        <img src={customValues.systemLogo} alt="Logo Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <Globe className="w-5 h-5 text-slate-500" />
+                      )}
+                    </div>
+                    <input 
+                      type="text" 
+                      value={customValues.systemLogo || ''}
+                      onChange={(e) => handleInputChange('systemLogo', e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500 font-sans"
+                      placeholder="Image URL (e.g. https://example.com/logo.png)"
+                    />
+                  </div>
+                </div>
+
                 {/* Hero Headline part A */}
                 <div className="space-y-1.5">
                   <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider font-bold">Hero Headline (Pre-Word)</label>
@@ -770,11 +791,11 @@ export default function SaaSWebEditor() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="block text-[11px] uppercase tracking-wider font-bold">Twitter (X) URL</label>
+                      <label className="block text-[11px] uppercase tracking-wider font-bold">TikTok URL</label>
                       <input 
                         type="text" 
-                        value={customValues.socialTwitter || ''}
-                        onChange={(e) => handleInputChange('socialTwitter', e.target.value)}
+                        value={customValues.socialTiktok || ''}
+                        onChange={(e) => handleInputChange('socialTiktok', e.target.value)}
                         className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500"
                       />
                     </div>

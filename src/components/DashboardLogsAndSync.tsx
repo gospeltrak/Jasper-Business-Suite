@@ -126,17 +126,6 @@ export default function DashboardLogsAndSync({
                   </p>
                 </div>
               </div>
-
-              <button
-                onClick={onToggleOffline}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-                  isOfflineMode 
-                    ? 'bg-emerald-600 text-white border-emerald-500 hover:bg-emerald-70s' 
-                    : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                }`}
-              >
-                {isOfflineMode ? 'Go Online' : 'Force Offline'}
-              </button>
             </div>
           </div>
 
