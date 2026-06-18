@@ -20,15 +20,11 @@ export const MicroSokoAdminDashboard: React.FC<{ onSwitchToSettings?: () => void
   const isDemoLoaded = hasDemoData(ctx);
 
   const handleLoadDemo = () => {
-    if (window.confirm('Demo data will be added to your MicroSoko account for testing. You can clear it later. Do you wish to proceed?')) {
-      loadDemoData(ctx);
-    }
+    loadDemoData(ctx);
   };
 
   const handleClearDemo = () => {
-    if (window.confirm('This will remove only demo data. Your real data will not be deleted.')) {
-      clearDemoData(ctx);
-    }
+    clearDemoData(ctx);
   };
 
   return (

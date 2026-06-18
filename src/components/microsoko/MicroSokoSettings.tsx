@@ -104,16 +104,27 @@ export const MicroSokoSettings: React.FC = () => {
 const DemoDataTab = ({ ctx }: { ctx: any }) => {
   const isDemoLoaded = hasDemoData(ctx);
 
+  const [confirmLoad, setConfirmLoad] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+
   const handleLoadDemo = () => {
-    if (window.confirm('Demo data will be added to your MicroSoko account for testing. You can clear it later. Do you wish to proceed?')) {
-      loadDemoData(ctx);
+    if (!confirmLoad) {
+      setConfirmLoad(true);
+      setTimeout(() => setConfirmLoad(false), 3000);
+      return;
     }
+    loadDemoData(ctx);
+    setConfirmLoad(false);
   };
 
   const handleClearDemo = () => {
-    if (window.confirm('This will remove only demo data. Your real data will not be deleted.')) {
-      clearDemoData(ctx);
+    if (!confirmClear) {
+      setConfirmClear(true);
+      setTimeout(() => setConfirmClear(false), 3000);
+      return;
     }
+    clearDemoData(ctx);
+    setConfirmClear(false);
   };
 
   return (
@@ -135,20 +146,20 @@ const DemoDataTab = ({ ctx }: { ctx: any }) => {
              disabled={isDemoLoaded}
              onClick={handleLoadDemo} 
              className={`px-6 py-3 rounded-xl font-bold flex items-center transition-colors ${
-               isDemoLoaded ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-slate-800'
+               isDemoLoaded ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : (confirmLoad ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white hover:bg-slate-800')
              }`}
            >
-             <Database className="w-5 h-5 mr-2" /> Load Demo Data
+             <Database className="w-5 h-5 mr-2" /> {confirmLoad ? 'Click again to confirm' : 'Load Demo Data'}
            </button>
            
            <button 
              disabled={!isDemoLoaded}
              onClick={handleClearDemo} 
              className={`px-6 py-3 rounded-xl font-bold flex items-center transition-colors ${
-               !isDemoLoaded ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-100 text-rose-700 hover:bg-rose-200'
+               !isDemoLoaded ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : (confirmClear ? 'bg-rose-600 text-white' : 'bg-rose-100 text-rose-700 hover:bg-rose-200')
              }`}
            >
-             <X className="w-5 h-5 mr-2" /> Clear Demo Data
+             <X className="w-5 h-5 mr-2" /> {confirmClear ? 'Click again to confirm' : 'Clear Demo Data'}
            </button>
         </div>
       </div>
@@ -308,22 +319,17 @@ const GenericListManager = ({
 }: { 
   title: string, items: any[], onSave: (items: any[]) => void, placeholderName?: string 
 }) => {
-  const [list, setList] = useState(items);
   const [newItemName, setNewItemName] = useState('');
 
   const handleAdd = () => {
     if (!newItemName.trim()) return;
     const newItem = { id: Math.random().toString(), name: newItemName, isActive: true };
-    setList([...list, newItem]);
+    onSave([...items, newItem]);
     setNewItemName('');
   };
 
   const toggleActive = (id: string) => {
-    setList(list.map(i => i.id === id ? { ...i, isActive: !i.isActive } : i));
-  };
-
-  const handleSave = () => {
-    onSave(list);
+    onSave(items.map(i => i.id === id ? { ...i, isActive: !i.isActive } : i));
   };
 
   return (
@@ -339,7 +345,7 @@ const GenericListManager = ({
           placeholder={placeholderName} 
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
         />
-        <button onClick={handleAdd} className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold flex items-center hover:bg-emerald-700">
+        <button type="button" onClick={handleAdd} className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold flex items-center hover:bg-emerald-700">
           <Plus className="w-5 h-5" />
         </button>
       </div>
@@ -353,11 +359,12 @@ const GenericListManager = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {list.map(item => (
+            {items.map(item => (
               <tr key={item.id} className="bg-white hover:bg-slate-50">
                 <td className="px-4 py-3 font-semibold text-slate-800">{item.name}</td>
                 <td className="px-4 py-3 text-right">
                   <button 
+                    type="button"
                     onClick={() => toggleActive(item.id)}
                     className={`px-3 py-1 rounded text-xs font-bold ${item.isActive !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}
                   >
@@ -366,19 +373,13 @@ const GenericListManager = ({
                 </td>
               </tr>
             ))}
-            {list.length === 0 && (
+            {items.length === 0 && (
               <tr>
                 <td colSpan={2} className="px-4 py-8 text-center text-slate-500">No items found.</td>
               </tr>
             )}
           </tbody>
         </table>
-      </div>
-
-      <div className="flex justify-end pt-4">
-        <button onClick={handleSave} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold flex items-center hover:bg-slate-800">
-          <Save className="w-4 h-4 mr-2" /> Save {title}
-        </button>
       </div>
     </div>
   );
