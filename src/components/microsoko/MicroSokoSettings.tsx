@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useMicroSoko } from './MicroSokoContext';
 import { loadDemoData, clearDemoData, hasDemoData } from './microSokoDemoData';
-import { Building2, Palette, PackageSearch, Scale, Replace, CreditCard, ShoppingCart, Tags, Settings2, Plus, Save, X, Edit2, CheckCircle, Database } from 'lucide-react';
-import { MsBusinessSettings, MsBrandingSettings, MsExpenseCategory, MsItem, MsUnit, MsPaymentMethod, MsConversion } from './MicroSokoTypes';
+import { Building2, Palette, PackageSearch, Scale, Replace, CreditCard, ShoppingCart, Tags, Settings2, Plus, Save, X, Edit2, CheckCircle, Database, Factory } from 'lucide-react';
+import { MsBusinessSettings, MsBrandingSettings, MsExpenseCategory, MsItem, MsUnit, MsPaymentMethod, MsConversion, MsRecipe, MsRecipeMaterial } from './MicroSokoTypes';
 
 export const MicroSokoSettings: React.FC = () => {
   const ctx = useMicroSoko();
@@ -12,15 +12,17 @@ export const MicroSokoSettings: React.FC = () => {
     units, setUnits, conversions, setConversions,
     paymentMethods, setPaymentMethods,
     expenseCategories, setExpenseCategories,
-    items, addItem, updateItem
+    items, addItem, updateItem,
+    recipes, addRecipe, updateRecipe, deleteRecipe
   } = ctx;
 
-  const [activeTab, setActiveTab] = useState<'business' | 'branding' | 'items' | 'units' | 'conversions' | 'payments' | 'selling_method' | 'expenses' | 'pos' | 'demo'>('business');
+  const [activeTab, setActiveTab] = useState<'business' | 'branding' | 'items' | 'recipes' | 'units' | 'conversions' | 'payments' | 'selling_method' | 'expenses' | 'pos' | 'demo'>('business');
 
   const tabs = [
     { id: 'business', label: 'Business Setup', icon: Building2 },
     { id: 'branding', label: 'Branding Settings', icon: Palette },
     { id: 'items', label: 'Items Setup', icon: PackageSearch },
+    { id: 'recipes', label: 'Production Recipes', icon: Factory },
     { id: 'units', label: 'Units Setup', icon: Scale },
     { id: 'conversions', label: 'Unit Conversions', icon: Replace },
     { id: 'payments', label: 'Payment Methods', icon: CreditCard },
@@ -86,6 +88,9 @@ export const MicroSokoSettings: React.FC = () => {
             )}
             {activeTab === 'items' && (
               <ItemsSetupTab items={items} units={units} onAdd={addItem} onUpdate={updateItem} />
+            )}
+            {activeTab === 'recipes' && (
+              <RecipesSetupTab recipes={recipes} items={items} units={units} addRecipe={addRecipe} updateRecipe={updateRecipe} deleteRecipe={deleteRecipe} />
             )}
             {activeTab === 'conversions' && (
               <ConversionsSetupTab conversions={conversions} items={items} units={units} onSave={setConversions} />
@@ -319,17 +324,27 @@ const GenericListManager = ({
 }: { 
   title: string, items: any[], onSave: (items: any[]) => void, placeholderName?: string 
 }) => {
-  const [newItemName, setNewItemName] = useState('');
+  const [list, setList] = React.useState(items);
+  const [newItemName, setNewItemName] = React.useState('');
+
+  React.useEffect(() => {
+    setList(items);
+  }, [items]);
 
   const handleAdd = () => {
     if (!newItemName.trim()) return;
     const newItem = { id: Math.random().toString(), name: newItemName, isActive: true };
-    onSave([...items, newItem]);
+    setList([...list, newItem]);
     setNewItemName('');
   };
 
   const toggleActive = (id: string) => {
-    onSave(items.map(i => i.id === id ? { ...i, isActive: !i.isActive } : i));
+    setList(list.map(i => i.id === id ? { ...i, isActive: !i.isActive } : i));
+  };
+
+  const handleSave = () => {
+    onSave(list);
+    alert(`${title} saved successfully.`);
   };
 
   return (
@@ -359,7 +374,7 @@ const GenericListManager = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {items.map(item => (
+            {list.map(item => (
               <tr key={item.id} className="bg-white hover:bg-slate-50">
                 <td className="px-4 py-3 font-semibold text-slate-800">{item.name}</td>
                 <td className="px-4 py-3 text-right">
@@ -373,13 +388,19 @@ const GenericListManager = ({
                 </td>
               </tr>
             ))}
-            {items.length === 0 && (
+            {list.length === 0 && (
               <tr>
                 <td colSpan={2} className="px-4 py-8 text-center text-slate-500">No items found.</td>
               </tr>
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="flex justify-end pt-4">
+        <button onClick={handleSave} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold flex items-center hover:bg-slate-800">
+          <Save className="w-4 h-4 mr-2" /> Save {title}
+        </button>
       </div>
     </div>
   );
@@ -538,6 +559,205 @@ const ItemsSetupTab = ({ items, units, onAdd, onUpdate }: { items: MsItem[], uni
             )}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+};
+
+// 4b. Production Recipes
+const RecipesSetupTab = ({ recipes, items, units, addRecipe, updateRecipe, deleteRecipe }: any) => {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  
+  const [formData, setFormData] = useState<Partial<MsRecipe>>({
+    name: '', finishedProductId: '', expectedOutput: 1, outputUnitId: '', materials: [], notes: '', isActive: true
+  });
+
+  const handleEdit = (recipe: MsRecipe) => {
+    setFormData(recipe);
+    setEditingId(recipe.id);
+    setShowForm(true);
+  };
+
+  const handleSave = () => {
+    if (!formData.name || !formData.finishedProductId || !formData.expectedOutput || !formData.outputUnitId || formData.materials!.length === 0) {
+      alert("Please fill all required fields and add at least one material.");
+      return;
+    }
+    if (editingId) {
+      updateRecipe(formData as MsRecipe);
+    } else {
+      addRecipe({ ...formData, id: Math.random().toString() } as MsRecipe);
+    }
+    setShowForm(false);
+    setEditingId(null);
+  };
+
+  const getUnitName = (id: string) => units.find((u: any) => u.id === id)?.name || id;
+  const getItemName = (id: string) => items.find((i: any) => i.id === id)?.name || id;
+
+  const addMaterialRow = () => {
+    setFormData({
+      ...formData,
+      materials: [...(formData.materials || []), { id: Math.random().toString(), itemId: '', quantity: 1, unitId: '', role: 'raw_material' }]
+    });
+  };
+
+  const updateMaterial = (idx: number, field: string, val: any) => {
+    const updated = [...(formData.materials || [])];
+    updated[idx] = { ...updated[idx], [field]: val };
+    setFormData({ ...formData, materials: updated });
+  };
+  
+  const removeMaterial = (idx: number) => {
+    const updated = [...(formData.materials || [])];
+    updated.splice(idx, 1);
+    setFormData({ ...formData, materials: updated });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-end border-b pb-2">
+        <div>
+          <h3 className="text-xl font-black text-slate-800">Production Recipes</h3>
+          <p className="text-slate-500 text-sm">Teach MicroSoko how you produce your products to track efficiency and costs.</p>
+        </div>
+        <button onClick={() => {
+          setEditingId(null);
+          setFormData({ name: '', finishedProductId: '', expectedOutput: 1, outputUnitId: '', materials: [], notes: '', isActive: true });
+          setShowForm(true);
+        }} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center hover:bg-slate-800">
+          <Plus className="w-4 h-4 mr-2" /> Add Recipe
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 relative mb-6">
+          <button onClick={() => setShowForm(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700"><X className="w-5 h-5"/></button>
+          <h4 className="font-bold text-slate-800 mb-6 text-lg">{editingId ? 'Edit Recipe' : 'New Recipe Setup'}</h4>
+          
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Recipe Name <span className="text-rose-500">*</span></label>
+                <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Rice Beans Meat Plate" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 font-semibold outline-none focus:border-emerald-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Finished Product <span className="text-rose-500">*</span></label>
+                <select value={formData.finishedProductId} onChange={e => setFormData({ ...formData, finishedProductId: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 font-semibold outline-none focus:border-emerald-500">
+                  <option value="">Select product you produce...</option>
+                  {items.filter((i: any) => i.type === 'finished_product').map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-white border text-sm border-slate-200 rounded-xl p-4">
+              <h5 className="font-bold text-slate-800 mb-4 pb-2 border-b flex justify-between items-center">
+                <span>Materials & Costs Used <span className="text-rose-500">*</span></span>
+                <button onClick={addMaterialRow} className="text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg hover:bg-emerald-100 flex items-center font-bold">
+                  <Plus className="w-4 h-4 mr-1" /> Add
+                </button>
+              </h5>
+              
+              <div className="space-y-3">
+                {formData.materials?.map((mat, idx) => (
+                  <div key={idx} className="flex flex-col md:flex-row items-center gap-2 relative">
+                    <select value={mat.role} onChange={e => updateMaterial(idx, 'role', e.target.value)} className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:border-emerald-500 font-semibold md:w-36">
+                      <option value="raw_material">Raw Mat.</option>
+                      <option value="packaging">Packaging</option>
+                      <option value="direct_cost">Direct Cost</option>
+                      <option value="by_product">By Product</option>
+                    </select>
+                    <select value={mat.itemId} onChange={e => {
+                        const item = items.find((i: any) => i.id === e.target.value);
+                        updateMaterial(idx, 'itemId', e.target.value);
+                        if(item) updateMaterial(idx, 'unitId', item.unitId);
+                      }} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:border-emerald-500 font-semibold"
+                    >
+                      <option value="">Select Item...</option>
+                      {items.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                    </select>
+                    <input type="number" value={mat.quantity} onChange={e => updateMaterial(idx, 'quantity', parseFloat(e.target.value) || 0)} placeholder="Qty" className="w-full md:w-24 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 font-semibold text-center focus:border-emerald-500 flex-shrink-0" />
+                    <select value={mat.unitId} onChange={e => updateMaterial(idx, 'unitId', e.target.value)} className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:border-emerald-500 font-semibold md:w-32">
+                      <option value="">Unit...</option>
+                      {units.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                    <button onClick={() => removeMaterial(idx)} className="text-slate-400 hover:text-rose-500 p-2"><X className="w-4 h-4" /></button>
+                  </div>
+                ))}
+                {(!formData.materials || formData.materials.length === 0) && (
+                  <p className="text-slate-500 italic text-center py-4">No materials added. Click "Add" to specify ingredients or costs.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Expected Output Qty <span className="text-rose-500">*</span></label>
+                <input type="number" value={formData.expectedOutput} onChange={e => setFormData({ ...formData, expectedOutput: parseFloat(e.target.value) || 0 })} placeholder="e.g. 12" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 font-semibold text-center outline-none focus:border-emerald-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Output Unit <span className="text-rose-500">*</span></label>
+                <select value={formData.outputUnitId} onChange={e => setFormData({ ...formData, outputUnitId: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 font-semibold outline-none focus:border-emerald-500">
+                  <option value="">Select Output Unit...</option>
+                  {units.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Notes</label>
+              <textarea rows={2} value={formData.notes || ''} onChange={e => setFormData({ ...formData, notes: e.target.value })} placeholder="Any instructions or notes..." className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 font-semibold outline-none focus:border-emerald-500"></textarea>
+            </div>
+
+          </div>
+          
+          <div className="flex justify-between items-center mt-6 pt-6 border-t border-slate-200">
+             {editingId ? (
+                <button onClick={() => { if(window.confirm('Delete this recipe?')) deleteRecipe(editingId); setShowForm(false); }} className="text-rose-500 hover:text-rose-600 font-bold px-4 py-2 rounded-xl bg-rose-50">Delete Recipe</button>
+             ) : <div></div>}
+             <button onClick={handleSave} className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold flex items-center hover:bg-emerald-700">
+               <Save className="w-5 h-5 mr-2" /> Save Recipe
+             </button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {recipes.map((recipe: MsRecipe) => (
+          <div key={recipe.id} className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-emerald-500 transition-colors cursor-pointer" onClick={() => handleEdit(recipe)}>
+            <div className="flex justify-between items-start mb-2">
+              <h4 className="font-bold text-slate-800 text-lg">{recipe.name}</h4>
+              <Edit2 className="w-4 h-4 text-emerald-500" />
+            </div>
+            <p className="text-sm font-semibold text-slate-600 mb-4">{getItemName(recipe.finishedProductId)}</p>
+            
+            <div className="space-y-1 mb-4 border-l-2 border-emerald-100 pl-3">
+              <p className="text-xs text-slate-500 uppercase font-bold tracking-widest">Expected Output</p>
+              <p className="font-bold text-emerald-600">{recipe.expectedOutput} {getUnitName(recipe.outputUnitId)}</p>
+            </div>
+
+            <p className="text-xs text-slate-500 uppercase font-bold tracking-widest mb-2">Materials & Costs</p>
+            <ul className="text-sm text-slate-600 space-y-1 truncate">
+              {recipe.materials.slice(0, 3).map(m => (
+                <li key={m.id}>• {m.quantity} {getUnitName(m.unitId)} {getItemName(m.itemId)}</li>
+              ))}
+              {recipe.materials.length > 3 && (
+                <li className="text-slate-400 italic">• + {recipe.materials.length - 3} more</li>
+              )}
+            </ul>
+          </div>
+        ))}
+        {recipes.length === 0 && (
+          <div className="col-span-full border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
+            <Factory className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <h4 className="font-bold text-slate-800 mb-2">No Recipes Added</h4>
+            <p className="text-slate-500 max-w-sm mx-auto">Teach MicroSoko how you create your products to automatically track costs and inventory.</p>
+            <button onClick={() => setShowForm(true)} className="mt-6 bg-slate-900 border border-slate-800 text-white px-6 py-2 rounded-xl font-bold inline-flex items-center hover:bg-slate-800">
+               <Plus className="w-4 h-4 mr-2" /> Create First Recipe
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -90,12 +90,17 @@ export const PerformanceDashboard: React.FC = () => {
                     <AlertTriangle className="w-4 h-4 text-amber-500 mr-2" /> Bidhaa ya <strong>&nbsp;{i.name}&nbsp;</strong> inakaribia kuisha. Sourcing inahitajika.
                  </li>
              ))}
+             {items.flatMap(i => i.batches).filter(b => b.source === 'production' && b.efficiency !== undefined && b.efficiency < 100).map(b => (
+                 <li key={b.id} className="flex items-center text-sm text-rose-700">
+                    <AlertTriangle className="w-4 h-4 text-rose-500 mr-2" /> Tarehe {new Date(b.date).toLocaleDateString()}, uzalishaji ulikuwa na ufanisi mdogo ({b.efficiency}%). Matarajio: {b.expectedOutput}, Uzalishaji: {b.actualOutput}.
+                 </li>
+             ))}
              {netProfit < 0 && (
                  <li className="flex items-center text-sm text-rose-700">
                     <TrendingDown className="w-4 h-4 mr-2" /> Faida imeshuka. Ebu kagua matumizi yako kwenye Expenses.
                  </li>
              )}
-             {items.filter(i=>i.stock <= i.lowStockAlert).length === 0 && netProfit > 0 && (
+             {items.filter(i=>i.stock <= i.lowStockAlert).length === 0 && netProfit > 0 && items.flatMap(i => i.batches).filter(b => b.source === 'production' && b.efficiency !== undefined && b.efficiency < 100).length === 0 && (
                  <li className="flex items-center text-sm text-emerald-700">
                     <CheckCircle className="w-4 h-4 mr-2" /> Mfumo unasoma vizuri. Hongera kwa kusimamia vizuri!
                  </li>

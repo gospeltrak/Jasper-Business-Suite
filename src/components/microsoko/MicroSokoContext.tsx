@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { MsUnit, MsConversion, MsPaymentMethod, MsBatch, MsItem, MsExpense, MsDelivery, MsSale, MsExpenseCategory, MsBusinessSettings, MsBrandingSettings } from './MicroSokoTypes';
+import { MsUnit, MsConversion, MsPaymentMethod, MsBatch, MsItem, MsExpense, MsDelivery, MsSale, MsExpenseCategory, MsBusinessSettings, MsBrandingSettings, MsRecipe } from './MicroSokoTypes';
 
 interface MicroSokoState {
   units: MsUnit[];
   conversions: MsConversion[];
   paymentMethods: MsPaymentMethod[];
   items: MsItem[];
+  recipes: MsRecipe[];
   expenseCategories: MsExpenseCategory[];
   expenses: MsExpense[];
   deliveries: MsDelivery[];
@@ -16,6 +17,9 @@ interface MicroSokoState {
   setBrandingSettings: (opts: MsBrandingSettings) => void;
   updateItem: (item: MsItem) => void;
   addItem: (item: MsItem) => void;
+  addRecipe: (recipe: MsRecipe) => void;
+  updateRecipe: (recipe: MsRecipe) => void;
+  deleteRecipe: (id: string) => void;
   addSale: (sale: MsSale) => void;
   addExpense: (exp: MsExpense) => void;
   addDelivery: (del: MsDelivery) => void;
@@ -24,6 +28,7 @@ interface MicroSokoState {
   setExpenseCategories: (cats: MsExpenseCategory[]) => void;
   setConversions: (convs: MsConversion[]) => void;
   setItems: (items: MsItem[]) => void;
+  setRecipes: (recipes: MsRecipe[]) => void;
   setExpenses: (exps: MsExpense[]) => void;
   setDeliveries: (dels: MsDelivery[]) => void;
   setSales: (sales: MsSale[]) => void;
@@ -86,6 +91,7 @@ export const MicroSokoProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [paymentMethods, setPaymentMethods] = useState<MsPaymentMethod[]>(defaultPaymentMethods);
   const [expenseCategories, setExpenseCategories] = useState<MsExpenseCategory[]>(defaultExpenseCategories);
   const [items, setItems] = useState<MsItem[]>([]);
+  const [recipes, setRecipes] = useState<MsRecipe[]>([]);
   const [expenses, setExpenses] = useState<MsExpense[]>([]);
   const [deliveries, setDeliveries] = useState<MsDelivery[]>([]);
   const [sales, setSales] = useState<MsSale[]>([]);
@@ -96,18 +102,21 @@ export const MicroSokoProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   
   const updateItem = (updated: MsItem) => setItems(prev => prev.map(i => i.id === updated.id ? updated : i));
   const addItem = (item: MsItem) => setItems(prev => [...prev, item]);
+  const addRecipe = (recipe: MsRecipe) => setRecipes(prev => [...prev, recipe]);
+  const updateRecipe = (recipe: MsRecipe) => setRecipes(prev => prev.map(r => r.id === recipe.id ? recipe : r));
+  const deleteRecipe = (id: string) => setRecipes(prev => prev.filter(r => r.id !== id));
   const addSale = (sale: MsSale) => setSales(prev => [...prev, sale]);
   const addExpense = (exp: MsExpense) => setExpenses(prev => [...prev, exp]);
   const addDelivery = (del: MsDelivery) => setDeliveries(prev => [...prev, del]);
 
   return (
     <MicroSokoContext.Provider value={{
-      units, conversions, paymentMethods, items, expenses, deliveries, sales,
+      units, conversions, paymentMethods, items, recipes, expenses, deliveries, sales,
       expenseCategories, businessSettings, brandingSettings,
       setBusinessSettings, setBrandingSettings,
-      updateItem, addItem, addSale, addExpense, addDelivery,
+      updateItem, addItem, addRecipe, updateRecipe, deleteRecipe, addSale, addExpense, addDelivery,
       setUnits, setPaymentMethods, setExpenseCategories, setConversions,
-      setItems, setExpenses, setDeliveries, setSales
+      setItems, setRecipes, setExpenses, setDeliveries, setSales
     }}>
       {children}
     </MicroSokoContext.Provider>

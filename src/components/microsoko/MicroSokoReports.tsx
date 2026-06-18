@@ -217,8 +217,9 @@ export const MicroSokoReports: React.FC = () => {
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="flex border-b border-slate-200 overflow-x-auto">
-              <button onClick={()=>setActiveTab('sales')} className={`px-6 py-4 font-bold text-sm text-center whitespace-nowrap outline-none ${activeTab==='sales' ? 'border-b-2 border-emerald-500 text-emerald-600' : 'text-slate-500 hover:bg-slate-50'}`}>Sales List</button>
-              <button onClick={()=>setActiveTab('expenses')} className={`px-6 py-4 font-bold text-sm text-center whitespace-nowrap outline-none ${activeTab==='expenses' ? 'border-b-2 border-emerald-500 text-emerald-600' : 'text-slate-500 hover:bg-slate-50'}`}>Expenses List</button>
+              <button onClick={()=>setActiveTab('sales')} className={`px-6 py-4 font-bold text-sm text-center whitespace-nowrap outline-none flex-1 lg:flex-none ${activeTab==='sales' ? 'border-b-2 border-emerald-500 text-emerald-600' : 'text-slate-500 hover:bg-slate-50'}`}>Sales List</button>
+              <button onClick={()=>setActiveTab('expenses')} className={`px-6 py-4 font-bold text-sm text-center whitespace-nowrap outline-none flex-1 lg:flex-none ${activeTab==='expenses' ? 'border-b-2 border-emerald-500 text-emerald-600' : 'text-slate-500 hover:bg-slate-50'}`}>Expenses List</button>
+              <button onClick={()=>setActiveTab('production')} className={`px-6 py-4 font-bold text-sm text-center whitespace-nowrap outline-none flex-1 lg:flex-none ${activeTab==='production' ? 'border-b-2 border-emerald-500 text-emerald-600' : 'text-slate-500 hover:bg-slate-50'}`}>Production Performance</button>
             </div>
 
             <div className="p-0">
@@ -263,6 +264,43 @@ export const MicroSokoReports: React.FC = () => {
                         </tr>
                       ))}
                       {expenses.length === 0 && deliveries.length === 0 && <tr><td colSpan={3} className="p-8 text-center text-slate-400">No expenses data.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {activeTab === 'production' && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                      <tr>
+                        <th className="p-4">Date</th>
+                        <th className="p-4">Product</th>
+                        <th className="p-4">Actual Output</th>
+                        <th className="p-4">Expected Output</th>
+                        <th className="p-4 text-center">Yield Efficiency</th>
+                        <th className="p-4 text-right">Cost Per Unit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {items.flatMap(i => i.batches.filter(b => b.source === 'production').map(b => ({...b, itemName: i.name})))
+                        .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                        .map(b => (
+                        <tr key={b.id} className="hover:bg-slate-50">
+                          <td className="p-4 font-semibold text-slate-700">{new Date(b.date).toLocaleDateString()}</td>
+                          <td className="p-4 text-slate-600 font-bold">{b.itemName}</td>
+                          <td className="p-4 font-semibold">{b.actualOutput || b.quantityCreated}</td>
+                          <td className="p-4 text-slate-500">{b.expectedOutput || '-'}</td>
+                          <td className="p-4 text-center">
+                            {b.efficiency !== undefined ? (
+                              <span className={`px-2 py-1 rounded-lg text-xs font-bold ${b.efficiency < 100 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                {b.efficiency}%
+                              </span>
+                            ) : '-'}
+                          </td>
+                          <td className="p-4 font-mono font-bold text-slate-800 text-right">TZS {b.costPerUnit.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      {items.flatMap(i => i.batches.filter(b => b.source === 'production')).length === 0 && <tr><td colSpan={6} className="p-8 text-center text-slate-400">No production batches recorded.</td></tr>}
                     </tbody>
                   </table>
                 </div>

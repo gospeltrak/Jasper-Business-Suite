@@ -4,7 +4,7 @@ import { ShoppingCart, CheckCircle, CreditCard, Trash2 } from 'lucide-react';
 import { MsSaleItem } from './MicroSokoTypes';
 
 export const FastPOS: React.FC = () => {
-  const { items, paymentMethods, addSale, updateItem } = useMicroSoko();
+  const { items, setItems, paymentMethods, addSale, updateItem } = useMicroSoko();
   const posItems = items.filter(i => i.showOnPos);
 
   const [cart, setCart] = useState<MsSaleItem[]>([]);
@@ -38,10 +38,12 @@ export const FastPOS: React.FC = () => {
 
      // FIFO Logic processing
      const finalCartItems = [...cart];
+     let updatedItems = [...items];
 
      finalCartItems.forEach(cartItem => {
-         const originalProd = items.find(i=>i.id === cartItem.itemId);
-         if(!originalProd) return;
+         const pIndex = updatedItems.findIndex(i=>i.id === cartItem.itemId);
+         if(pIndex === -1) return;
+         const originalProd = updatedItems[pIndex];
 
          let qtyRequested = cartItem.qty;
          const batchesUsed = [];
@@ -53,14 +55,13 @@ export const FastPOS: React.FC = () => {
                  if(qtyRequested === 0) break;
 
                  if(newBatches[i].quantityRemaining >= qtyRequested) {
-                     newBatches[i].quantityRemaining -= qtyRequested;
+                     newBatches[i] = { ...newBatches[i], quantityRemaining: newBatches[i].quantityRemaining - qtyRequested };
                      batchesUsed.push({ batchId: newBatches[i].id, qty: qtyRequested, costPerUnit: newBatches[i].costPerUnit });
                      qtyRequested = 0;
                  } else {
                      batchesUsed.push({ batchId: newBatches[i].id, qty: newBatches[i].quantityRemaining, costPerUnit: newBatches[i].costPerUnit });
                      qtyRequested -= newBatches[i].quantityRemaining;
-                     newBatches[i].quantityRemaining = 0;
-                     newBatches[i].status = 'finished';
+                     newBatches[i] = { ...newBatches[i], quantityRemaining: 0, status: 'finished' };
                  }
              }
          } else {
@@ -71,12 +72,14 @@ export const FastPOS: React.FC = () => {
          cartItem._batchesUsed = batchesUsed;
 
          // update item stock
-         updateItem({
+         updatedItems[pIndex] = {
              ...originalProd,
              stock: originalProd.stock - cartItem.qty,
              batches: newBatches
-         });
+         };
      });
+     
+     setItems(updatedItems);
 
      addSale({
          id: Math.random().toString(36).substr(2, 9),
