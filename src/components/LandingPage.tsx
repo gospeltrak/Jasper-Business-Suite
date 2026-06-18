@@ -35,7 +35,8 @@ import {
   Facebook,
   Sun,
   Moon,
-  Menu
+  Menu,
+  Factory
 } from 'lucide-react';
 
 const TRANSLATIONS: Record<string, Record<string, string>> = {
@@ -56,6 +57,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     retail: "Retail Shops",
     wholesale: "Wholesale Shops",
     pharmacies: "Pharmacies",
+    manufacturing: "Manufacturing",
     cashMgmt: "Cash Management",
     cashDesc: "Manage your cash accurately every single day with ease.",
     capitalProt: "Capital Protection",
@@ -84,6 +86,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     featLedgerDesc: "Track stock quantities, receive automatic low-stock notifications, and monitor medicine/product expiry dates easily.",
     featGatewayTitle: "Mobile Money Check",
     featGatewayDesc: "Invoices connect directly with M-Pesa, Tigo, and Airtel Money to verify transactions quickly.",
+    featSmartSokoTitle: "SmartSoko Production",
+    featSmartSokoDesc: "Manage raw materials, production batches, and yield efficiency with live unit cost tracking.",
     testimonialHeader: "Successful Businesses",
     testimonialSub: "What other shop owners say",
     mustafaSay: "We were losing sales when the internet was down. Since starting with Jasper's offline cashier, sales never stop.",
@@ -148,6 +152,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     retail: "Duka la Rejareja",
     wholesale: "Duka la Jumla",
     pharmacies: "Famasia na Dawa",
+    manufacturing: "Wazalishaji",
     cashMgmt: "Usimamizi wa Pesa",
     cashDesc: "Dhibiti hesabu zako za pesa kwa usahihi kila siku.",
     capitalProt: "Ulinzi wa Mtaji",
@@ -176,6 +181,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     featLedgerDesc: "Fuatilia idadi ya bidhaa zako kwa urahisi, pokea taarifa stoki inapopungua, na uzuie hasara kwa kufuatilia tarehe za kuharibika kwa bidhaa.",
     featGatewayTitle: "Hakiki Malipo ya Simu",
     featGatewayDesc: "Inaungana moja kwa moja na M-Pesa, Tigo Pesa, na Airtel Money ili kuhakiki malipo kwa sekunde chache.",
+    featSmartSokoTitle: "Zalisha na SmartSoko",
+    featSmartSokoDesc: "Dhibiti malighafi, uzalishaji, na gharama halisi za kila bidhaa kwa urahisi.",
     testimonialHeader: "Biashara Zinazofanikiwa",
     testimonialSub: "Maudhui kutoka kwa wamiliki wa maduka",
     mustafaSay: "Tulipoteza mauzo mtandao ulipokatika. Tangu tuanze kutumia keshia ya bila mtandao ya Jasper, mauzo hayajawahi kusimama.",
@@ -1352,7 +1359,8 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
                 {[
                   { label: t.retail, icon: ShoppingCart, color: isDark ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/15" : "text-[#007a52] bg-[#e6faf4] border-emerald-200" },
                   { label: t.wholesale, icon: Store, color: isDark ? "text-blue-400 bg-blue-500/10 border-blue-500/15" : "text-[#007a52] bg-[#e6faf4] border-emerald-200" },
-                  { label: t.pharmacies, icon: Pill, color: isDark ? "text-rose-400 bg-rose-500/10 border-rose-500/15" : "text-rose-700 bg-rose-50 border-rose-200" }
+                  { label: t.pharmacies, icon: Pill, color: isDark ? "text-rose-400 bg-rose-500/10 border-rose-500/15" : "text-rose-700 bg-rose-50 border-rose-200" },
+                  { label: t.manufacturing || "Manufacturing", icon: Factory, color: isDark ? "text-amber-400 bg-amber-500/10 border-amber-500/15" : "text-amber-700 bg-amber-50 border-amber-200" }
                 ].map((sec, i) => (
                   <div key={i} className={`flex items-center space-x-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl border transition-colors duration-300 ${sec.color}`}>
                     <sec.icon className="w-4 h-4" />
@@ -1493,7 +1501,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
             
             {/* Feat 1: Offline-First Hybrid Queue */}
             <div className={`p-8 rounded-2xl relative group transition-all border ${isDark ? 'bg-slate-900/45 border-slate-850 hover:border-slate-755' : 'bg-white border-slate-200 hover:border-slate-300 shadow-[0_2px_12px_rgba(0,0,0,0.06)]'}`}>
@@ -1525,6 +1533,17 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               <h3 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-[#111827]'}`}>{t.featGatewayTitle || "Mobile Money Check"}</h3>
               <p className={`text-sm leading-relaxed font-light ${isDark ? 'text-slate-400' : 'text-[#374151]'}`}>
                 {t.featGatewayDesc || "Invoices connect directly with M-Pesa, Tigo, and Airtel Money to verify transactions quickly."}
+              </p>
+            </div>
+            
+            {/* Feat 4: SmartSoko */}
+            <div className={`p-8 rounded-2xl relative group transition-all border ${isDark ? 'bg-slate-900/45 border-slate-850 hover:border-slate-755' : 'bg-white border-slate-200 hover:border-slate-300 shadow-[0_2px_12px_rgba(0,0,0,0.06)]'}`}>
+              <div className={`p-3 w-fit rounded-xl border mb-6 group-hover:scale-110 transition-transform ${isDark ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                <Factory className="w-6 h-6 stroke-[1.75]" />
+              </div>
+              <h3 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-[#111827]'}`}>{t.featSmartSokoTitle || "SmartSoko Production"}</h3>
+              <p className={`text-sm leading-relaxed font-light ${isDark ? 'text-slate-400' : 'text-[#374151]'}`}>
+                {t.featSmartSokoDesc || "Manage raw materials, production batches, and yield efficiency with live unit cost tracking."}
               </p>
             </div>
 

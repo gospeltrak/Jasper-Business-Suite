@@ -26,9 +26,9 @@ export const MicroSokoDashboard: React.FC<{ onLogout: () => void }> = ({ onLogou
           </div>
           <div className="flex-1 w-full flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto md:py-6 md:space-y-2 md:px-3 hide-scrollbar">
             {[
-              { id: 'admin', icon: LayoutDashboard, label: 'Admin Fleet / Dashboard' },
+              { id: 'admin', icon: LayoutDashboard, label: 'Dashboard' },
               { id: 'pos', icon: Store, label: 'Fast POS' },
-              { id: 'sourcing', icon: Calculator, label: 'Sourcing' },
+              { id: 'sourcing', icon: Calculator, label: 'Purchases' },
               { id: 'batch', icon: Factory, label: 'Batch Wizard' },
               { id: 'inventory', icon: Package, label: 'Inventory List' },
               { id: 'performance', icon: Activity, label: 'Performance' },

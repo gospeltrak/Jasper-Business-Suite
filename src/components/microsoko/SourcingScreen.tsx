@@ -63,7 +63,7 @@ export const SourcingScreen: React.FC = () => {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div>
-        <h2 className="text-2xl font-black text-slate-800">Sourcing Materials</h2>
+        <h2 className="text-2xl font-black text-slate-800">Purchases</h2>
         <p className="text-slate-500">Record new purchases and calculate true landed cost.</p>
       </div>
 

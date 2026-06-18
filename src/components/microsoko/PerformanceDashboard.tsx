@@ -87,7 +87,7 @@ export const PerformanceDashboard: React.FC = () => {
           <ul className="space-y-3">
              {items.filter(i=>i.stock <= i.lowStockAlert && i.showOnPos).map(i => (
                  <li key={i.id} className="flex items-center text-sm text-slate-700">
-                    <AlertTriangle className="w-4 h-4 text-amber-500 mr-2" /> Bidhaa ya <strong>&nbsp;{i.name}&nbsp;</strong> inakaribia kuisha. Sourcing inahitajika.
+                    <AlertTriangle className="w-4 h-4 text-amber-500 mr-2" /> Bidhaa ya <strong>&nbsp;{i.name}&nbsp;</strong> inakaribia kuisha. Purchases inahitajika.
                  </li>
              ))}
              {items.flatMap(i => i.batches).filter(b => b.source === 'production' && b.efficiency !== undefined && b.efficiency < 100).map(b => (
