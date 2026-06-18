@@ -66,10 +66,29 @@ export const DEFAULT_TENANTS: Tenant[] = [
     taxRate: 0.18,
     mobileMoneyProviders: ['M-Pesa', 'Mixx by Yas', 'Airtel Money', 'Halopesa'],
     businessType: 'pharmacy',
+  },
+  {
+    id: 't-microsoko-01',
+    name: 'MicroSoko Retail Ltd',
+    country: 'Tanzania',
+    city: 'Dar es Salaam',
+    currency: 'TSh',
+    currencyCode: 'TZS',
+    taxRate: 0.0,
+    mobileMoneyProviders: ['M-Pesa'],
+    businessType: 'retail',
   }
 ];
 
 export const DEMO_USERS = [
+  {
+    email: 'microsoko_admin@jasper.com',
+    password: 'password123',
+    name: 'Tunde Jasper (MicroSoko)',
+    role: 'Admin' as const,
+    tenantId: 't-microsoko-01',
+    activeTenant: 't-microsoko-01',
+  },
   {
     email: 'saas.admin@jasper.com',
     password: 'password123',

@@ -779,38 +779,13 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           }
         }
       }
-    } catch (e) {
-      console.error("Failed to auto-detect timezone/currency:", e);
+    } catch (e: any) {
+      console.warn("Failed to auto-detect timezone/currency:", e?.message || e);
     }
 
     // 2. High-precision dynamic IP location lookup
     const detectLocation = async () => {
-      try {
-        const res = await fetch('https://ipapi.co/json/');
-        if (!res.ok) {
-          setCurrency('TZS');
-          return;
-        }
-        const contentType = res.headers.get('content-type') || '';
-        if (!contentType.includes('application/json')) {
-          setCurrency('TZS');
-          return;
-        }
-        const data = await res.json();
-        if (data && data.country_code) {
-          const code = data.country_code.toUpperCase();
-          if (code === 'KE') {
-            setCurrency('KES');
-          } else if (code === 'NG') {
-            setCurrency('NGN');
-          } else if (code === 'TZ') {
-            setCurrency('TZS');
-          }
-        }
-      } catch (err) {
-        // Silently fall back to default timezone (Africa/Dar_es_Salaam -> TZS) without throwing any error or warning
-        setCurrency('TZS');
-      }
+      setCurrency('TZS');
     };
     detectLocation();
   }, []);

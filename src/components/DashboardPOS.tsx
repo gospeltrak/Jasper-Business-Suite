@@ -278,6 +278,7 @@ export default function DashboardPOS({
     discountType: 'percent' | 'cash';
     dosageType?: 'full' | 'half' | 'tabs';
     tabsSelected?: number;
+    bulkSellMode?: 'scale' | 'pcs';
   }>>([]);
   const [deliveryCost, setDeliveryCost] = useState<number>(0);
   const [orderDiscount, setOrderDiscount] = useState<number>(0);
@@ -503,11 +504,12 @@ export default function DashboardPOS({
       }
       return [...prev, { 
         product: prod, 
-        qty: 1, 
+        qty: prod.isBulkProduct && (prod.sellingMode === 'scale' || prod.sellingMode === 'hybrid') ? (prod.sellUnitQty || 1) : 1, 
         discount: 0, 
         discountType: 'percent',
         dosageType: initialDosage,
-        tabsSelected: initialTabs
+        tabsSelected: initialTabs,
+        bulkSellMode: prod.isBulkProduct ? (prod.sellingMode === 'hybrid' ? 'scale' : prod.sellingMode) : undefined
       }];
     });
   };
@@ -564,6 +566,15 @@ export default function DashboardPOS({
         return i;
       });
     });
+  };
+
+  const updateCartBulkMode = (id: string, mode: 'scale' | 'pcs') => {
+    setCart(prev => prev.map(i => {
+      if (i.product.id === id) {
+         return { ...i, bulkSellMode: mode, qty: mode === 'scale' ? (i.product.sellUnitQty || 1) : 1 };
+      }
+      return i;
+    }));
   };
 
   const updateCartDosage = (productId: string, dosageType: 'full' | 'half' | 'tabs', customTabs?: number) => {
@@ -747,6 +758,8 @@ export default function DashboardPOS({
   };
 
   const finalizeSale = () => {
+    const pendingBatchUpdates: Record<string, import('../types').ProductBatch[]> = {};
+
     // Generate sale item models
     const saleItems: SaleItem[] = cart.map(i => {
       const isPharmacy = activeTenant.businessType === 'pharmacy';
@@ -756,15 +769,89 @@ export default function DashboardPOS({
         ? (i.product.wholesalePrice ?? i.product.sellingPrice)
         : i.product.sellingPrice;
 
+      const isBulk = i.product.isBulkProduct;
+      const bMode = i.bulkSellMode || (isBulk ? (i.product.sellingMode === 'hybrid' ? 'scale' : i.product.sellingMode) : 'standard');
+
       let unitPrice = channelBasePrice;
+      let ratioScaling = 1;
+
+      if (isBulk) {
+        if (bMode === 'scale') {
+           unitPrice = (i.product.sellUnitPrice || 0) / (i.product.sellUnitQty || 1);
+        } else if (bMode === 'pcs') {
+           unitPrice = i.product.sellUnitPrice || 0;
+           ratioScaling = (Number(i.product.bulkPurchaseQty) || 1) / (Number(i.product.sellUnitQty) || 1);
+        }
+      }
+
       if (isPharmacy) {
         if (dType === 'half') {
           unitPrice = channelBasePrice / 2;
+          ratioScaling = 2;
         } else if (dType === 'tabs') {
           const tPerPack = i.product.tabsPerPack || 30;
           const tSelected = i.tabsSelected || 1;
           unitPrice = (channelBasePrice / tPerPack) * tSelected;
+          ratioScaling = tPerPack / tSelected;
         }
+      }
+
+      // Process Batches deduction!
+      let deductQtyReal = i.qty;
+      if (bMode === 'pcs' && isBulk) {
+          deductQtyReal = i.qty / Math.max(ratioScaling, 1);
+      } else if (isPharmacy && dType !== 'full') {
+          deductQtyReal = i.qty / ratioScaling;
+      }
+      
+      const sellMethod = i.product.sellingMethod || 'fifo';
+      const batchesUsed: import('../types').SaleBatchInfo[] = [];
+      let blendedCost = i.product.costPrice;
+
+      if (i.product.batches && i.product.batches.length > 0 && sellMethod === 'fifo') {
+          const sortedBatches = [...i.product.batches].filter(b => b.status === 'active').sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          let remainingToDeduct = deductQtyReal;
+          let totalDeductedCost = 0;
+          let totalDeductedQty = 0;
+          
+          // Re-use pending batch updates if same product was bought in previous cart item
+          const newProductBatches = pendingBatchUpdates[i.product.id] || i.product.batches.map(b => ({ ...b }));
+
+          for (const batch of newProductBatches) {
+              if (batch.status !== 'active' || remainingToDeduct <= 0.0001) continue; // eps margin
+              
+              const take = Math.min(batch.quantityRemaining, remainingToDeduct);
+              batch.quantityRemaining -= take;
+              remainingToDeduct -= take;
+              
+              if (batch.quantityRemaining <= 0.001) {
+                  batch.quantityRemaining = 0;
+                  batch.status = 'finished';
+              }
+
+              batchesUsed.push({
+                  batchId: batch.id,
+                  batchNumber: batch.batchNumber,
+                  qty: Number(take.toFixed(3)),
+                  buyingPrice: batch.buyingPrice
+              });
+
+              totalDeductedCost += (take * batch.buyingPrice);
+              totalDeductedQty += take;
+          }
+
+          if (totalDeductedQty > 0) {
+              blendedCost = totalDeductedCost / totalDeductedQty;
+          }
+
+          // Compute average remaining cost
+          const totalRemaining = newProductBatches.filter(b => b.status === 'active').reduce((sum, b) => sum + b.quantityRemaining, 0);
+          const totalValue = newProductBatches.filter(b => b.status === 'active').reduce((sum, b) => sum + (b.quantityRemaining * b.buyingPrice), 0);
+          const newAvgCost = totalRemaining > 0 ? (totalValue / totalRemaining) : blendedCost;
+          
+          pendingBatchUpdates[i.product.id] = newProductBatches;
+      } else if (sellMethod === 'average_cost') {
+          blendedCost = i.product.averageBuyingCost || i.product.costPrice;
       }
 
       return {
@@ -779,7 +866,12 @@ export default function DashboardPOS({
         dosageType: i.dosageType,
         tabsSelected: i.tabsSelected,
         tabsPerPack: i.product.tabsPerPack,
-        channel: sellingChannel
+        channel: sellingChannel,
+        isBulkProduct: isBulk,
+        sellUnit: i.product.sellUnit,
+        sellMode: bMode as 'scale' | 'pcs',
+        batchesUsed: batchesUsed.length > 0 ? batchesUsed : undefined,
+        costPriceAtSale: Number(blendedCost.toFixed(2))
       };
     });
 
@@ -832,7 +924,15 @@ export default function DashboardPOS({
       if (soldItem) {
         let deductQty = soldItem.qty;
         
-        if (activeTenant.businessType === 'pharmacy') {
+        if (prod.isBulkProduct) {
+          const bMode = soldItem.bulkSellMode || (prod.sellingMode === 'hybrid' ? 'scale' : prod.sellingMode);
+          if (bMode === 'scale') {
+            deductQty = soldItem.qty;
+          } else if (bMode === 'pcs') {
+            const ratio = (Number(prod.bulkPurchaseQty) || 1) / (Number(prod.sellUnitQty) || 1);
+            deductQty = soldItem.qty / Math.max(ratio, 1);
+          }
+        } else if (activeTenant.businessType === 'pharmacy') {
           const dType = soldItem.dosageType || 'full';
           if (dType === 'half') {
             deductQty = soldItem.qty * 0.5;
@@ -848,11 +948,13 @@ export default function DashboardPOS({
         // Use nice rounded decimals to avoid IEEE float problems
         const roundedShop = Number(nextShopQty.toFixed(3));
         const roundedTotal = Number((roundedShop + (prod.storeStockQty ?? 0)).toFixed(3));
+        const updatedBatches = pendingBatchUpdates[prod.id] || prod.batches;
 
         return {
           ...prod,
           shopStockQty: roundedShop,
-          stockQty: roundedTotal
+          stockQty: roundedTotal,
+          batches: updatedBatches,
         };
       }
       return prod;
@@ -1403,6 +1505,16 @@ export default function DashboardPOS({
                 : item.product.sellingPrice;
 
               let basePrice = channelPrice;
+              
+              if (item.product.isBulkProduct) {
+                 const bMode = item.bulkSellMode || (item.product.sellingMode === 'hybrid' ? 'scale' : item.product.sellingMode);
+                 if (bMode === 'scale') {
+                    basePrice = (item.product.sellUnitPrice || 0) / (item.product.sellUnitQty || 1);
+                 } else if (bMode === 'pcs') {
+                    basePrice = item.product.sellUnitPrice || 0;
+                 }
+              }
+
               let dosageLabel = 'Full Dose';
 
               if (isPharmacy) {
@@ -1448,32 +1560,57 @@ export default function DashboardPOS({
 
                     {/* Right: Quantity increment/decrement box + delete button */}
                     <div className="flex items-center space-x-2 shrink-0">
-                      <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-xs">
-                        <button 
-                          type="button"
-                          onClick={() => updateCartQty(item.product.id, -1)}
-                          className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
-                        >
-                          <Minus className="w-2.5 h-2.5" />
-                        </button>
-                        <input 
-                          type="number"
-                          min="1"
-                          value={item.qty}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 1;
-                            updateCartQtyDirect(item.product.id, val);
-                          }}
-                          className="w-8 text-center font-black font-mono text-slate-800 bg-transparent py-0 text-[10.5px] focus:outline-none border-none"
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => updateCartQty(item.product.id, 1)}
-                          className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
-                        >
-                          <Plus className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
+                      {item.product.isBulkProduct ? (
+                        <div className="flex flex-col items-end space-y-1">
+                          {(item.product.sellingMode === 'hybrid') && (
+                            <div className="flex bg-slate-100 rounded p-0.5 border border-slate-200 text-[9px] font-bold">
+                              <button type="button" onClick={() => updateCartBulkMode(item.product.id, 'scale')} className={`px-1.5 py-0.5 rounded ${item.bulkSellMode !== 'pcs' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'}`}>Scale</button>
+                              <button type="button" onClick={() => updateCartBulkMode(item.product.id, 'pcs')} className={`px-1.5 py-0.5 rounded ${item.bulkSellMode === 'pcs' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'}`}>Pcs</button>
+                            </div>
+                          )}
+                          {((item.bulkSellMode || (item.product.sellingMode === 'hybrid' ? 'scale' : item.product.sellingMode)) === 'scale') ? (
+                            <div className="flex space-x-1">
+                              {[{ label: '1/4', val: 0.25 }, { label: '1/2', val: 0.5 }, { label: '3/4', val: 0.75 }, { label: '1', val: 1 }].map(f => (
+                                <button type="button" key={f.label} onClick={() => updateCartQtyDirect(item.product.id, f.val)} className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px] font-bold text-slate-700 hover:bg-slate-50">{f.label}</button>
+                              ))}
+                              <input type="number" step="0.01" value={item.qty} onChange={(e) => updateCartQtyDirect(item.product.id, Number(e.target.value))} className="w-12 text-center font-black font-mono text-slate-800 bg-white border border-slate-200 rounded py-0.5 text-[10px] focus:outline-emerald-500" />
+                            </div>
+                          ) : (
+                            <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-xs">
+                              <button type="button" onClick={() => updateCartQty(item.product.id, -1)} className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"><Minus className="w-2.5 h-2.5" /></button>
+                              <input type="number" min="1" value={item.qty} onChange={(e) => updateCartQtyDirect(item.product.id, parseInt(e.target.value) || 1)} className="w-8 text-center font-black font-mono text-slate-800 bg-transparent py-0 text-[10.5px] focus:outline-none border-none" />
+                              <button type="button" onClick={() => updateCartQty(item.product.id, 1)} className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"><Plus className="w-2.5 h-2.5" /></button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-xs">
+                          <button 
+                            type="button"
+                            onClick={() => updateCartQty(item.product.id, -1)}
+                            className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
+                          >
+                            <Minus className="w-2.5 h-2.5" />
+                          </button>
+                          <input 
+                            type="number"
+                            min="1"
+                            value={item.qty}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 1;
+                              updateCartQtyDirect(item.product.id, val);
+                            }}
+                            className="w-8 text-center font-black font-mono text-slate-800 bg-transparent py-0 text-[10.5px] focus:outline-none border-none"
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => updateCartQty(item.product.id, 1)}
+                            className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
+                          >
+                            <Plus className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
+                      )}
 
                       {/* Total price for this line item and trash icon */}
                       <div className="flex items-center space-x-1.5 text-right pl-1">

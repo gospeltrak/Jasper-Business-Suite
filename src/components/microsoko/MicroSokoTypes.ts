@@ -1,0 +1,12 @@
+export interface MsUnit { id: string; name: string; isActive?: boolean; isDemo?: boolean; }
+export interface MsConversion { id: string; itemId: string; fromUnit: string; fromQty: number; toUnit: string; toQty: number; notes: string; isDemo?: boolean; }
+export interface MsPaymentMethod { id: string; name: string; isActive?: boolean; isDefault?: boolean; isDemo?: boolean; }
+export interface MsBatch { id: string; itemId: string; source: 'purchase'|'production'; batchNumber: string; date: string; costPerUnit: number; quantityCreated: number; quantityRemaining: number; suggestedSellingPrice: number; finalSellingPrice?: number; status: 'active'|'finished'; isDemo?: boolean; }
+export interface MsItem { id: string; name: string; type: 'raw_material'|'finished_product'|'by_product'|'packaging'|'label'|'operational_cost'; unitId: string; stock: number; averageCost: number; latestCost: number; sellingPrice: number; showOnPos: boolean; posDisplayName?: string; posColor?: string; posIcon?: string; allowDiscount?: boolean; sellingMethod: 'fifo'|'average_cost'|'manual'; notes?: string; batches: MsBatch[]; lowStockAlert: number; isDemo?: boolean; }
+export interface MsExpenseCategory { id: string; name: string; isActive: boolean; isDemo?: boolean; }
+export interface MsExpense { id: string; name: string; category: string; amount: number; paymentMethodId: string; date: string; notes: string; isDemo?: boolean; }
+export interface MsDelivery { id: string; type: string; cost: number; paidBy: 'business'|'customer'; riderName: string; destination: string; date: string; notes: string; isDemo?: boolean; }
+export interface MsSaleItem { itemId: string; name: string; qty: number; price: number; _batchesUsed: any[]; }
+export interface MsSale { id: string; items: MsSaleItem[]; total: number; paymentMethodId: string; date: string; isDemo?: boolean; }
+export interface MsBusinessSettings { id?: string; name: string; ownerName: string; phone: string; email?: string; location?: string; address: string; region: string; currency: string; tin?: string; vrn?: string; defaultSellingMethod: 'fifo'|'average_cost'|'manual'; isDemo?: boolean; }
+export interface MsBrandingSettings { id?: string; logo?: string; themeColor: string; secondaryColor?: string; receiptHeader: string; receiptFooter: string; slogan?: string; address: string; phone: string; whatsapp?: string; email?: string; website?: string; isDemo?: boolean; }

@@ -311,7 +311,7 @@ export default function DashboardForecasting({
   };
 
   const fetchGeneratorForecast = async () => {
-    const response = await fetch('/api/forecast', {
+    const response = await fetch(`/api/forecast`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -512,7 +512,7 @@ export default function DashboardForecasting({
       }
 
       // API request to Gemini Copilot
-      const res = await fetch('/api/copilot', {
+      const res = await fetch(`/api/copilot`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

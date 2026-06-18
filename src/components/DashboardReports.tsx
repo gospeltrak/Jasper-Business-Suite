@@ -50,7 +50,8 @@ import {
   MinusCircle,
   ShoppingCart,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  Scale
 } from 'lucide-react';
 
 interface DashboardReportsProps {
@@ -83,7 +84,7 @@ export default function DashboardReports({
   const currency = activeTenant.currency;
   
   // Tab within reports
-  const [reportTab, setReportTab] = useState<'p&l' | 'sales-report' | 'payments' | 'inventory' | 'velocity' | 'users' | 'expenses' | 'product-monitoring' | 'dual-channel' | 'deliveries'>(
+  const [reportTab, setReportTab] = useState<'p&l' | 'sales-report' | 'payments' | 'inventory' | 'velocity' | 'users' | 'expenses' | 'product-monitoring' | 'dual-channel' | 'deliveries' | 'bulk-products'>(
     (defaultTab as any) || (rolePermissions?.reportsProfitCogs?.read !== false ? 'p&l' : 'sales-report')
   );
 
@@ -256,7 +257,7 @@ export default function DashboardReports({
       s.items.forEach(item => {
         const matchingProd = products.find(p => p.id === item.productId);
         if (matchingProd) {
-          estimatedCOGS += (matchingProd.costPrice * item.qty);
+          estimatedCOGS += ((item.costPriceAtSale ?? matchingProd.costPrice) * item.qty);
         } else {
           estimatedCOGS += (item.price * item.qty * 0.75);
         }
@@ -332,9 +333,9 @@ export default function DashboardReports({
               prodPerfMap[it.productId] = {
                 name: it.productName,
                 sku: match?.sku || '',
-                cost: match?.costPrice ?? 0,
+                cost: it.costPriceAtSale ?? match?.costPrice ?? 0,
                 price: it.price,
-                margin: it.price - (match?.costPrice ?? 0),
+                margin: it.price - (it.costPriceAtSale ?? match?.costPrice ?? 0),
                 sold: 0,
                 rev: 0,
                 profit: 0
@@ -523,7 +524,7 @@ export default function DashboardReports({
   const totalCOGS = filteredSales.reduce((acc, sale) => {
     const saleCOGS = sale.items.reduce((sAcc, item) => {
       const matchProd = products.find(p => p.id === item.productId);
-      const unitCost = matchProd ? matchProd.costPrice : (item.price * 0.6); // Fallback: 60% of price
+      const unitCost = item.costPriceAtSale ?? (matchProd ? matchProd.costPrice : (item.price * 0.6)); // Fallback: 60% of price
       return sAcc + (unitCost * item.qty);
     }, 0);
     return acc + saleCOGS;
@@ -577,7 +578,7 @@ export default function DashboardReports({
         
         const saleCogs = sale.items.reduce((sAcc, item) => {
           const matchProd = products.find(p => p.id === item.productId);
-          const unitCost = matchProd ? matchProd.costPrice : (item.price * 0.6);
+          const unitCost = item.costPriceAtSale ?? (matchProd ? matchProd.costPrice : (item.price * 0.6));
           return sAcc + (unitCost * item.qty);
         }, 0);
         
@@ -650,7 +651,7 @@ export default function DashboardReports({
     const totalProfit = recordsFilteredSales.reduce((sum, s) => {
       const cogs = s.items.reduce((acc, item) => {
         const prod = products.find(p => p.id === item.productId);
-        const cost = prod ? (prod.costPrice ?? 0) : 0;
+        const cost = item.costPriceAtSale ?? (prod ? (prod.costPrice ?? 0) : 0);
         return acc + (cost * item.qty);
       }, 0);
       return sum + (s.total - cogs);
@@ -845,7 +846,7 @@ export default function DashboardReports({
         }
         const state = mapRates[item.productId];
         const prodMatch = products.find(pr => pr.id === item.productId);
-        const costVal = prodMatch ? prodMatch.costPrice : (item.price * 0.6);
+        const costVal = item.costPriceAtSale ?? (prodMatch ? prodMatch.costPrice : (item.price * 0.6));
         
         state.unitsSold += item.qty;
         state.totalRevenue += (item.price * item.qty * (1 - item.discount / 100));
@@ -893,7 +894,7 @@ export default function DashboardReports({
       // Calculate profit generated on client
       const cogs = s.items.reduce((acc, item) => {
         const prod = products.find(p => p.id === item.productId);
-        const unitCost = prod ? prod.costPrice : (item.price * 0.6);
+        const unitCost = item.costPriceAtSale ?? (prod ? prod.costPrice : (item.price * 0.6));
         return acc + (unitCost * item.qty);
       }, 0);
       
@@ -937,7 +938,7 @@ export default function DashboardReports({
       // Extract sales margin contribution
       const cogs = s.items.reduce((acc, item) => {
         const prod = products.find(p => p.id === item.productId);
-        const unitCost = prod ? prod.costPrice : (item.price * 0.6);
+        const unitCost = item.costPriceAtSale ?? (prod ? prod.costPrice : (item.price * 0.6));
         return acc + (unitCost * item.qty);
       }, 0);
       staffRecs[key].profitContribution += (s.total - cogs);
@@ -1468,6 +1469,7 @@ export default function DashboardReports({
             { id: 'inventory', label: 'Stock Valuation (Store vs Shop)', icon: Package, reqPerm: 'reportsSalesExpenses' },
             { id: 'payments', label: 'Payments Mode Report', icon: DollarSign, reqPerm: 'reportsSalesExpenses' },
             { id: 'product-monitoring', label: 'Product Profitability Report', icon: BarChart3, reqPerm: 'reportsSalesExpenses' },
+            { id: 'bulk-products', label: 'Bulk Products Report', icon: Scale, reqPerm: 'reportsSalesExpenses' },
             { id: 'users', label: 'Suppliers, Customers & Staffs', icon: Users, reqPerm: 'reportsSalesExpenses' }
           ].filter(tab => {
             if (!rolePermissions) return true;
@@ -1554,6 +1556,8 @@ export default function DashboardReports({
                   { id: 'inventory', label: 'Inventory Report', icon: Package, reqPerm: 'reportsSalesExpenses' },
                   { id: 'payments', label: 'Payments Report', icon: DollarSign, reqPerm: 'reportsSalesExpenses' },
                   { id: 'product-monitoring', label: 'Product Profitability', icon: Tag, reqPerm: 'reportsSalesExpenses' },
+                { id: 'bulk-products', label: 'Bulk Products Report', icon: Scale, desc: 'Performance and stock conversion matrices for bulk purchasing logic.', colorClass: 'bg-blue-50 text-blue-605 border border-blue-100', reqPerm: 'reportsSalesExpenses' },
+                  { id: 'bulk-products', label: 'Bulk Products Report', icon: Scale, reqPerm: 'reportsSalesExpenses' },
                   { id: 'users', label: 'Partners & Customers', icon: Users, reqPerm: 'reportsSalesExpenses' }
                 ].filter(tab => {
                   if (!rolePermissions) return true;
@@ -2500,7 +2504,68 @@ export default function DashboardReports({
         )}
 
         {/* TAB 7: INDIVIDUAL PRODUCT PERFORMANCE MONITORING */}
-        {reportTab === 'product-monitoring' && (() => {
+                      {reportTab === 'bulk-products' && (
+                <div className="space-y-5 animate-fade-in text-left">
+                  <div className="border-b border-slate-100 pb-3">
+                    <h3 className="text-base font-bold text-slate-800 uppercase tracking-widest font-mono flex items-center space-x-2">
+                      <Scale className="w-5 h-5 text-emerald-600" />
+                      <span>Uchambuzi wa Ununuzi wa Jumla (Bulk Tracker)</span>
+                    </h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {products.filter(p => p.isBulkProduct).length === 0 && (
+                      <div className="col-span-full py-8 text-center text-slate-400 font-mono text-xs bg-white rounded-2xl border border-slate-200 border-dashed">
+                        Hakuna bidhaa za jumla zilizorekodiwa (No bulk products configured yet)
+                      </div>
+                    )}
+                    {products.filter(p => p.isBulkProduct).map(p => {
+                      const ratio = (Number(p.bulkPurchaseQty) || 1) / (Number(p.sellUnitQty) || 1);
+                      const grossProfit = (ratio * (Number(p.sellUnitPrice) || 0)) - (p.costPrice || 0);
+                      const breakeven = Math.ceil((p.costPrice || 0) / (Number(p.sellUnitPrice) || 1));
+                      const totalRevenue = ratio * (Number(p.sellUnitPrice) || 0);
+
+                      let unitsSold = 0;
+                      filteredSales.forEach(s => {
+                          s.items.forEach(it => {
+                              if (it.productId === p.id) {
+                                  unitsSold += it.qty; 
+                              }
+                          });
+                      });
+
+                      const abstractSoldUnits = p.sellingMode === 'scale' 
+                             ? unitsSold / (Number(p.sellUnitQty) || 1) 
+                             : unitsSold;
+
+                      const profitMade = abstractSoldUnits * (Number(p.sellUnitPrice) || 0);
+
+                      return (
+                        <div key={p.id} className="bg-white border border-slate-200 shadow-sm rounded-2xl p-4 space-y-3 font-mono text-xs shrink-0">
+                          <h4 className="font-bold font-sans text-slate-800 text-sm truncate">{p.name}</h4>
+                          <div className="space-y-1 text-slate-600">
+                            <div className="flex justify-between"><span>Buy:</span> <span className="font-bold">{p.bulkPurchaseQty}{p.bulkUnit} @ {currency}{p.costPrice.toLocaleString()}</span></div>
+                            <div className="flex justify-between"><span>Sell:</span> <span className="font-bold">{p.sellUnitQty}{p.sellUnit?.replace(/[0-9.]/g, '').trim()} @ {currency}{p.sellUnitPrice?.toLocaleString()}</span></div>
+                            <div className="flex justify-between"><span>Mode:</span> <span className="font-bold uppercase text-[9px] bg-slate-100 px-1.5 py-0.5 rounded">{p.sellingMode}</span></div>
+                            <div className="flex justify-between"><span>Total parts:</span> <span className="font-bold text-slate-800">{ratio.toFixed(2)} pts</span></div>
+                            <div className="flex justify-between border-t border-slate-100 pt-1"><span>Breakeven:</span> <span className="font-bold text-slate-800">{breakeven} pts required</span></div>
+                          </div>
+                          <div className="pt-2 border-t border-slate-100 space-y-1">
+                            <div className="flex justify-between text-emerald-600"><span>Gross Revenue:</span> <span className="font-bold">{currency}{totalRevenue.toLocaleString()}</span></div>
+                            <div className="flex justify-between text-emerald-700"><span>Gross Profit:</span> <span className="font-bold">{currency}{grossProfit.toLocaleString()}</span></div>
+                          </div>
+                          <div className="mt-2 bg-indigo-50 border border-indigo-100 rounded-xl p-2.5 space-y-1">
+                            <div className="flex justify-between text-indigo-700 font-bold"><span>Period Parts Sold:</span> <span>{abstractSoldUnits.toFixed(2)} pts</span></div>
+                            <div className="flex justify-between text-indigo-800 font-bold"><span>Period Revenue:</span> <span>{currency}{profitMade.toLocaleString()}</span></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {reportTab === 'product-monitoring' && (() => {
           const isAll = selectedMonitoredProductId === 'all';
           const monitoredProduct = isAll ? undefined : products.find(p => p.id === selectedMonitoredProductId);
           
@@ -2529,7 +2594,7 @@ export default function DashboardReports({
                 totalRevenue += itemSub;
                 
                 const itemProd = products.find(p => p.id === item.productId);
-                totalCogs += (itemProd?.costPrice ?? 0) * item.qty;
+                totalCogs += (item.costPriceAtSale ?? itemProd?.costPrice ?? 0) * item.qty;
               }
             });
           });
@@ -2567,7 +2632,7 @@ export default function DashboardReports({
                   }
                   dayData.revenue += itemSub;
                   const itemProd = products.find(p => p.id === item.productId);
-                  dayData.profit += itemSub - (itemProd?.costPrice ?? 0) * item.qty;
+                  dayData.profit += itemSub - (item.costPriceAtSale ?? itemProd?.costPrice ?? 0) * item.qty;
                 }
               });
             });
@@ -2601,7 +2666,7 @@ export default function DashboardReports({
                     itemSub = itemSub * (1 - itemDiscount / 100);
                   }
                   revenue += itemSub;
-                  cogs += (p.costPrice ?? 0) * item.qty;
+                  cogs += (item.costPriceAtSale ?? p.costPrice ?? 0) * item.qty;
                 }
               });
             });
@@ -3163,7 +3228,7 @@ export default function DashboardReports({
                               itemValue = itemValue * (1 - disc / 100);
                             }
 
-                            const designCogs = (monitoredProduct?.costPrice || 0) * saleItem.qty;
+                            const designCogs = (saleItem.costPriceAtSale ?? monitoredProduct?.costPrice ?? 0) * saleItem.qty;
                             const designProfit = itemValue - designCogs;
 
                             return (
@@ -3259,7 +3324,7 @@ export default function DashboardReports({
 
               // Retrieve cost and quantity
               const qty = item.qty;
-              const cost = matchedProduct.costPrice || 0;
+              const cost = (item.costPriceAtSale ?? (matchedProduct.costPrice || 0));
               const unitPrice = item.price;
               const revenue = qty * unitPrice;
               const cogs = qty * cost;
@@ -3679,6 +3744,7 @@ export default function DashboardReports({
                    reportTab === 'inventory' ? 'Inventory Report' :
                    reportTab === 'payments' ? 'Payments Report' :
                    reportTab === 'product-monitoring' ? 'Product Profitability' :
+                   reportTab === 'bulk-products' ? 'Bulk Products Report' :
                    reportTab === 'users' ? 'Partners & Customers' :
                    reportTab === 'expenses' ? 'Branch Expenses' :
                    reportTab === 'deliveries' ? 'Fleet Logistics' : 'Velocity Report'}
@@ -4242,9 +4308,9 @@ export default function DashboardReports({
                           prodPerfMap[it.productId] = {
                             name: it.productName,
                             sku: match?.sku || '',
-                            cost: match?.costPrice ?? 0,
+                            cost: it.costPriceAtSale ?? match?.costPrice ?? 0,
                             price: it.price,
-                            margin: it.price - (match?.costPrice ?? 0),
+                            margin: it.price - (it.costPriceAtSale ?? match?.costPrice ?? 0),
                             sold: 0,
                             rev: 0,
                             profit: 0
@@ -4381,7 +4447,7 @@ export default function DashboardReports({
                         if (!matchedProduct) return;
 
                         const qty = item.qty;
-                        const cost = matchedProduct.costPrice || 0;
+                        const cost = (item.costPriceAtSale ?? (matchedProduct.costPrice || 0));
                         const revenue = qty * item.price;
                         const cogs = qty * cost;
 
@@ -5312,9 +5378,9 @@ export default function DashboardReports({
                   prodPerfMap[it.productId] = {
                     name: it.productName,
                     sku: match?.sku || '',
-                    cost: match?.costPrice ?? 0,
+                    cost: it.costPriceAtSale ?? match?.costPrice ?? 0,
                     price: it.price,
-                    margin: it.price - (match?.costPrice ?? 0),
+                    margin: it.price - (it.costPriceAtSale ?? match?.costPrice ?? 0),
                     sold: 0,
                     rev: 0,
                     profit: 0

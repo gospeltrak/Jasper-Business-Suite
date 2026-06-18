@@ -13,14 +13,14 @@ export async function getDynamicSupabaseClient() {
 
   if (!url || !key) {
     try {
-      const res = await fetch('/api/auth/config');
+      const res = await fetch(`/api/auth/config`);
       const data = await res.json();
       if (data.supabaseUrl && data.supabaseAnonKey) {
         url = data.supabaseUrl;
         key = data.supabaseAnonKey;
       }
-    } catch (e) {
-      console.error('[Supabase Client] Failed to fetch frontend config:', e);
+    } catch (e: any) {
+      console.warn('[Supabase Client] Failed to fetch frontend config:', e?.message || e);
     }
   }
 
@@ -30,11 +30,16 @@ export async function getDynamicSupabaseClient() {
     key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy';
   }
 
+  const isPlaceholder = url === 'https://placeholder-url.supabase.co';
+
   supabaseClientInstance = createClient(url, key, {
     auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true
+      persistSession: !isPlaceholder,
+      autoRefreshToken: !isPlaceholder,
+      detectSessionInUrl: !isPlaceholder
+    },
+    global: {
+      fetch: isPlaceholder ? (async () => new Response('{}', { status: 200 })) as any : undefined
     }
   });
 
@@ -45,11 +50,15 @@ export async function getDynamicSupabaseClient() {
 const metaEnvStatic = (import.meta as any).env || {};
 const supabaseUrl = metaEnvStatic.VITE_SUPABASE_URL || 'https://placeholder-url.supabase.co';
 const supabaseAnonKey = metaEnvStatic.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy';
+const isStaticPlaceholder = supabaseUrl === 'https://placeholder-url.supabase.co';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
+    persistSession: !isStaticPlaceholder,
+    autoRefreshToken: !isStaticPlaceholder,
+    detectSessionInUrl: !isStaticPlaceholder
+  },
+  global: {
+    fetch: isStaticPlaceholder ? (async () => new Response('{}', { status: 200 })) as any : undefined
   }
 });

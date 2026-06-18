@@ -160,7 +160,7 @@ export default function AIBusinessCopilot({
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/copilot', {
+      const res = await fetch(`/api/copilot`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

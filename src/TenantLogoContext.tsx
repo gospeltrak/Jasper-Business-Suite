@@ -44,8 +44,8 @@ export function TenantLogoProvider({ children }: { children: ReactNode }) {
         setLogoState(data.logoUrl);
         return data.logoUrl;
       }
-    } catch (err) {
-      console.error('[TenantLogoContext] Failed to fetch logo from server:', err);
+    } catch (err: any) {
+      console.warn('[TenantLogoContext] Failed to fetch logo from server:', err?.message || err);
     }
     
     setLogoState(null);

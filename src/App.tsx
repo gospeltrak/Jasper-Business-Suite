@@ -4,6 +4,7 @@ import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
 import AffiliatePortal from './components/AffiliatePortal';
 import ToolsHub from './components/ToolsHub';
+import { MicroSokoDashboard } from './components/microsoko/MicroSokoDashboard';
 import { User } from './types';
 import { useTheme } from './ThemeContext';
 import { useTenantLogo } from './TenantLogoContext';
@@ -101,6 +102,9 @@ export default function App() {
         );
       case '/dashboard':
         if (user) {
+          if (user.activeTenant === 't-microsoko-01') {
+            return <MicroSokoDashboard onLogout={handleLogoutSuccess} />;
+          }
           return (
             <Dashboard 
               user={user} 

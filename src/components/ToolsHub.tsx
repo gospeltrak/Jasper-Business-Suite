@@ -448,7 +448,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
     const rawBase64 = bgImage.split(',')[1] || bgImage;
 
     try {
-      const response = await fetch('/api/tools/remove-bg', {
+      const response = await fetch(`/api/tools/remove-bg`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -514,7 +514,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
     const rawBase64 = scaleImage.split(',')[1] || scaleImage;
 
     try {
-      const response = await fetch('/api/tools/remove-bg', {
+      const response = await fetch(`/api/tools/remove-bg`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

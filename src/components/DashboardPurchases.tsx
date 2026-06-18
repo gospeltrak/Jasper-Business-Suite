@@ -40,13 +40,25 @@ export default function DashboardPurchases({
   const [activeSubTab, setActiveSubTab] = useState<'history' | 'till'>('history');
 
   // Recording Till Form States
-  const [selectedSupplierId, setSelectedSupplierId] = useState<string>(suppliers[0]?.id || '');
+  const defaultSupplierId = 'sup-walk-in';
+  const availableSuppliers = suppliers.length > 0 ? suppliers : [{
+    id: defaultSupplierId,
+    name: 'One-time Vendor',
+    contactPerson: 'N/A',
+    phone: '',
+    email: '',
+    categories: [],
+    tenantId: activeTenant.id
+  } as any];
+
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>(suppliers[0]?.id || defaultSupplierId);
   const [destination, setDestination] = useState<'shop' | 'store'>('store');
   const [deliveryStatus, setDeliveryStatus] = useState<'Pending' | 'Partial' | 'Full order delivered'>('Full order delivered');
   
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number }>>([]);
   const [amountPaid, setAmountPaid] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
 
   // Discount & Delivery Fee states
@@ -167,7 +179,7 @@ export default function DashboardPurchases({
       return;
     }
 
-    const supplier = suppliers.find(s => s.id === selectedSupplierId) || suppliers[0];
+    const supplier = availableSuppliers.find(s => s.id === selectedSupplierId) || availableSuppliers[0];
 
     // Create purchase transaction
     const purchaseItems: PurchaseItem[] = cart.map(item => ({
@@ -185,6 +197,7 @@ export default function DashboardPurchases({
       totalAmount,
       amountPaid,
       amountDue,
+      paymentMethod,
       destination,
       deliveryStatus,
       timestamp: new Date().toISOString(),
@@ -604,7 +617,7 @@ export default function DashboardPurchases({
                     onChange={(e) => setSelectedSupplierId(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer"
                   >
-                    {suppliers.map(sup => (
+                    {availableSuppliers.map(sup => (
                       <option key={sup.id} value={sup.id}>
                         {sup.name} ({sup.contactPerson})
                       </option>
@@ -832,6 +845,21 @@ export default function DashboardPurchases({
                       placeholder="0"
                     />
                   </div>
+                </div>
+
+                {/* Payment Method */}
+                <div className="space-y-1.5 font-sans">
+                  <label className="text-[10px] font-black text-slate-505 uppercase tracking-wider block font-mono">Payment Method</label>
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="w-full bg-white border border-slate-250 focus:border-emerald-500 px-3 py-2.5 rounded-xl text-xs font-bold font-sans transition-all cursor-pointer outline-none"
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="Mobile Money">Mobile Money</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Card">Credit/Debit Card</option>
+                  </select>
                 </div>
 
                 {/* Due Credit Display */}

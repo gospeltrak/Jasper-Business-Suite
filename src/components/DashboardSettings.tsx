@@ -333,7 +333,7 @@ export default function DashboardSettings({
     setIsLogoSaving(true);
     setLogoSaveStatus(null);
     try {
-      const response = await fetch('/api/tenant/logo', {
+      const response = await fetch(`/api/tenant/logo`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -56,6 +56,47 @@ export interface Product {
   sellInWholesale?: boolean;
   wholesalePrice?: number;
   minWholesaleQty?: number;
+  
+  // Bulk-to-Unit Selling feature fields
+  isBulkProduct?: boolean;
+  bulkUnit?: string;
+  bulkPurchaseQty?: number;
+  sellUnit?: string;
+  sellUnitQty?: number;
+  sellUnitPrice?: number;
+  bulkToUnitsRatio?: number;
+  sellingMode?: 'standard' | 'scale' | 'pcs' | 'hybrid';
+  
+  // Batch feature fields
+  sellingMethod?: 'fifo' | 'average_cost' | 'manual_batch';
+  latestBuyingPrice?: number;
+  averageBuyingCost?: number;
+  batches?: ProductBatch[];
+}
+
+export interface ProductBatch {
+  id: string;
+  productId: string;
+  batchNumber: string;
+  supplierName?: string;
+  purchaseDate: string;
+  quantityPurchased: number;
+  quantityRemaining: number;
+  buyingPrice: number;
+  previousBuyingPrice?: number;
+  priceChangePercentage?: number;
+  suggestedSellingPrice?: number;
+  finalSellingPrice?: number;
+  status: 'active' | 'finished';
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface SaleBatchInfo {
+  batchId: string;
+  batchNumber: string;
+  qty: number;
+  buyingPrice: number; // For profit calculation
 }
 
 export interface SaleItem {
@@ -65,6 +106,15 @@ export interface SaleItem {
   price: number;
   discount: number; // percentage
   discountType?: 'percent' | 'cash';
+  
+  batchesUsed?: SaleBatchInfo[]; // Which batches were drawn from for this sale
+  costPriceAtSale?: number; // Calculated blended cost or average cost at the time of sale
+  
+  // For Bulk-to-unit selling
+  isBulkProduct?: boolean;
+  sellUnit?: string;
+  sellMode?: 'scale' | 'pcs';
+  
   // Pharmacy dosage options
   dosageType?: 'full' | 'half' | 'tabs';
   tabsSelected?: number;
@@ -148,6 +198,7 @@ export interface Purchase {
   totalAmount: number;
   amountPaid: number;
   amountDue: number;
+  paymentMethod?: string;
   destination: 'shop' | 'store';
   deliveryStatus: 'Pending' | 'Partial' | 'Full order delivered';
   timestamp: string; // ISO String
