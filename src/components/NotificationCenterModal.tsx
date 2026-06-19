@@ -69,34 +69,34 @@ export const NotificationCenterModal: React.FC<Props> = ({ isOpen, onClose, onNa
                <div 
                  key={n.id} 
                  onClick={() => !n.isRead && markAsRead(n.id)}
-                 className={\`p-4 rounded-2xl border transition-colors cursor-pointer \${n.isRead ? 'bg-white border-transparent' : 'bg-emerald-50/50 border-emerald-100'}\`}
+                 className={`p-4 rounded-2xl border transition-colors cursor-pointer ${n.isRead ? 'bg-white border-transparent' : 'bg-emerald-50/50 border-emerald-100'}`}
                >
                   <div className="flex space-x-3">
                      <div className="shrink-0 mt-0.5">
                         {n.notificationType === 'sale' ? (
-                           <div className={\`w-8 h-8 rounded-full flex items-center justify-center \${n.isRead ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-600'}\`}>
+                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${n.isRead ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-600'}`}>
                               <ShoppingCart className="w-4 h-4" />
                            </div>
                         ) : n.notificationType === 'report' ? (
-                           <div className={\`w-8 h-8 rounded-full flex items-center justify-center \${n.isRead ? 'bg-slate-100 text-slate-500' : 'bg-indigo-100 text-indigo-600'}\`}>
+                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${n.isRead ? 'bg-slate-100 text-slate-500' : 'bg-indigo-100 text-indigo-600'}`}>
                               <FileText className="w-4 h-4" />
                            </div>
                         ) : (
-                           <div className={\`w-8 h-8 rounded-full flex items-center justify-center \${n.isRead ? 'bg-slate-100 text-slate-500' : 'bg-amber-100 text-amber-600'}\`}>
+                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${n.isRead ? 'bg-slate-100 text-slate-500' : 'bg-amber-100 text-amber-600'}`}>
                               <AlertCircle className="w-4 h-4" />
                            </div>
                         )}
                      </div>
                      <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-1">
-                           <h4 className={\`text-sm truncate pr-2 \${n.isRead ? 'font-medium text-slate-700' : 'font-bold text-slate-900'}\`}>
+                           <h4 className={`text-sm truncate pr-2 ${n.isRead ? 'font-medium text-slate-700' : 'font-bold text-slate-900'}`}>
                               {n.title}
                            </h4>
                            <span className="text-[10px] text-slate-400 whitespace-nowrap pt-1">
                               {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                            </span>
                         </div>
-                        <p className={\`text-xs leading-relaxed whitespace-pre-wrap \${n.isRead ? 'text-slate-500' : 'text-slate-700'}\`}>
+                        <p className={`text-xs leading-relaxed whitespace-pre-wrap ${n.isRead ? 'text-slate-500' : 'text-slate-700'}`}>
                            {n.message}
                         </p>
                         {!n.isRead && (

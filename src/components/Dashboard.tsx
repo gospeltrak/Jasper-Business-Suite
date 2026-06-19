@@ -933,7 +933,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
        const summaryStrings = [];
        sale.items.forEach(item => {
           totalCost += ((item.costPriceAtSale || 0) * item.qty);
-          summaryStrings.push(\`\${item.qty}x \${item.productName}\`);
+          summaryStrings.push(`${item.qty}x ${item.productName}`);
        });
        const estimatedProfit = sale.total - totalCost;
 

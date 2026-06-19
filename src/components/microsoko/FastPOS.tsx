@@ -126,7 +126,7 @@ export const FastPOS: React.FC = () => {
      });
 
      try {
-       const summaryStrings = finalCartItems.map(i => \`\${i.qty}x \${i.itemName}\`);
+       const summaryStrings = finalCartItems.map(i => `${i.qty}x ${i.itemName}`);
        const paymentMethodName = paymentMethods.find(p => p.id === paymentMethodId)?.name || 'Cash';
        
        let totalCost = 0;

@@ -8,9 +8,6 @@ import { createClient } from '@supabase/supabase-js';
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // Initialize Supabase Server-Side Client
 // This ensures that the Suppabase keys are strictly kept on the server.
 let supabaseAdmin: ReturnType<typeof createClient> | null = null;

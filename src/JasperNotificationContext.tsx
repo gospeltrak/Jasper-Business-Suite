@@ -101,12 +101,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
 
     const title = 'New Sale Recorded';
-    let msg = \`Module: \${payload.moduleName}\nSale: \${payload.amount.toLocaleString()} TZS\nPayment: \${payload.paymentMethod}\nCashier: \${payload.cashierName}\nTime: \${new Date().toLocaleTimeString()}\`;
+    let msg = `Module: ${payload.moduleName}\nSale: ${payload.amount.toLocaleString()} TZS\nPayment: ${payload.paymentMethod}\nCashier: ${payload.cashierName}\nTime: ${new Date().toLocaleTimeString()}`;
     if (payload.profit !== undefined) {
-      msg += \`\nProfit: \${payload.profit.toLocaleString()} TZS\`;
+      msg += `\nProfit: ${payload.profit.toLocaleString()} TZS`;
     }
     if (payload.itemsSummary) {
-      msg += \`\nItems: \${payload.itemsSummary}\`;
+      msg += `\nItems: ${payload.itemsSummary}`;
     }
 
     const newNotif: JasperNotification = {
