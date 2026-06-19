@@ -1787,7 +1787,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           <div className={`border p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left ${isDark ? 'bg-slate-900 border-slate-850' : 'bg-[#eef0f3] border-slate-205 border-slate-220 border-slate-200 shadow-xs'}`}>
             <div className="space-y-1">
               <h5 className={`text-xs font-bold uppercase tracking-tight ${isDark ? 'text-white' : 'text-[#111827]'}`}>Kama hujaona swali lako katika maswali ya kawaida...</h5>
-              <p className={`text-[11px] font-light ${isDark ? 'text-slate-400' : 'text-[#6b7280]'}`}>Ask Lucy assistant at the bottom right immediately. Swahili is supported!</p>
+              <p className={`text-[11px] font-light ${isDark ? 'text-slate-400' : 'text-[#6b7280]'}`}>Ask Lucy. Swahili supported.</p>
             </div>
             
             <button

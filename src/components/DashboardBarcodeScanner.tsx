@@ -281,7 +281,7 @@ export default function DashboardBarcodeScanner({
         <div className="bg-slate-50 border-t border-slate-200 px-6 py-4.5 flex items-start space-x-2.5 text-[11px] text-slate-550 shrink-0 select-none leading-relaxed">
           <HelpCircle className="w-4 h-4 text-emerald-600 shrink-0" />
           <p>
-            When matching is completed, scanning automatically fills the POS register filters with the barcode string. Check <b>direct adding</b> on the cashier terminal to insert matching unit quantities in real-time.
+            Scanning fills POS barcode search.
           </p>
         </div>
 

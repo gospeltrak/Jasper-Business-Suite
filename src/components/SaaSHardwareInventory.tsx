@@ -81,7 +81,7 @@ export default function SaaSHardwareInventory({ affiliateId }: { affiliateId?: s
           </button>
         )}
       </div>
-      <p className="text-[11px] text-slate-400">Track stock levels for POS hardware devices limit or reconfigure properties.</p>
+      <p className="text-[11px] text-slate-400">Hardware stock.</p>
 
       {inventory.length === 0 ? (
         <div className="p-8 text-center text-slate-500 border border-slate-800 rounded-xl bg-slate-950/50">

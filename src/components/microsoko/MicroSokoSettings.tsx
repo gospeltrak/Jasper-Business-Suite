@@ -288,7 +288,7 @@ const SellingMethodTab = ({ settings, onSave }: { settings: MsBusinessSettings, 
   return (
     <div className="space-y-6">
       <h3 className="text-xl font-black text-slate-800 border-b pb-2">Selling Method Settings</h3>
-      <p className="text-slate-600 text-sm">Choose the default costing and batch selection method for your items when making sales.</p>
+      <p className="text-slate-600 text-sm">Choose selling cost method.</p>
       
       <div className="space-y-3">
         <label onClick={() => onSave({ ...settings, defaultSellingMethod: 'fifo' })} className={`p-4 border rounded-xl flex items-start cursor-pointer transition-colors ${settings.defaultSellingMethod === 'fifo' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
@@ -625,7 +625,7 @@ const RecipesSetupTab = ({ recipes, items, units, addRecipe, updateRecipe, delet
       <div className="flex justify-between items-end border-b pb-2">
         <div>
           <h3 className="text-xl font-black text-slate-800">Production Recipes</h3>
-          <p className="text-slate-500 text-sm">Teach MicroSoko how you produce your products to track efficiency and costs.</p>
+          <p className="text-slate-500 text-sm">Set production recipe.</p>
         </div>
         <button onClick={() => {
           setEditingId(null);
@@ -691,7 +691,7 @@ const RecipesSetupTab = ({ recipes, items, units, addRecipe, updateRecipe, delet
                   </div>
                 ))}
                 {(!formData.materials || formData.materials.length === 0) && (
-                  <p className="text-slate-500 italic text-center py-4">No materials added. Click "Add" to specify ingredients or costs.</p>
+                  <p className="text-slate-500 italic text-center py-4">No materials added.</p>
                 )}
               </div>
             </div>
@@ -757,7 +757,7 @@ const RecipesSetupTab = ({ recipes, items, units, addRecipe, updateRecipe, delet
           <div className="col-span-full border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
             <Factory className="w-12 h-12 text-slate-300 mx-auto mb-4" />
             <h4 className="font-bold text-slate-800 mb-2">No Recipes Added</h4>
-            <p className="text-slate-500 max-w-sm mx-auto">Teach MicroSoko how you create your products to automatically track costs and inventory.</p>
+            <p className="text-slate-500 max-w-sm mx-auto">Add production recipe.</p>
             <button onClick={() => setShowForm(true)} className="mt-6 bg-slate-900 border border-slate-800 text-white px-6 py-2 rounded-xl font-bold inline-flex items-center hover:bg-slate-800">
                <Plus className="w-4 h-4 mr-2" /> Create First Recipe
             </button>

@@ -52,7 +52,7 @@ export default function App() {
   // Perform route protection redirects check
   useEffect(() => {
     if (currentPath === '/dashboard' && !user) {
-      setRedirectMessage('Authentication Required. Please log in with a localized staff profile to view dashboard drawers.');
+      setRedirectMessage('Please log in to continue.');
       window.history.pushState({}, '', '/login');
       setCurrentPath('/login');
     }

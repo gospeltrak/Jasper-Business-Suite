@@ -14,7 +14,7 @@ export const MicroSokoShowcase: React.FC = () => {
             The Micro-ERP Built for Informal Scale.
           </h2>
           <p className="text-lg text-slate-600 dark:text-slate-400">
-            Mama Ntilie, Local Bakeries, Maize Millers, and Wauza Chips. Stop losing margins to unseen overheads. Track exact costs, manage raw materials, and sell fast with ultra-flexible daily billing.
+            For food makers and micro-shops. Track costs, materials, and sales.
           </p>
         </div>
 
@@ -40,7 +40,7 @@ export const MicroSokoShowcase: React.FC = () => {
           <div className="bg-white dark:bg-slate-905 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 flex flex-col relative overflow-hidden group hover:border-emerald-500 transition-colors">
             <div className="mb-8">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Soko Siku</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm">Perfect for testing the system with zero long-term commitment.</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm">Test first.</p>
             </div>
             <div className="mb-8 flex items-baseline gap-2">
               <span className="text-5xl font-black text-slate-900 dark:text-white font-mono">500</span>
@@ -66,7 +66,7 @@ export const MicroSokoShowcase: React.FC = () => {
             </div>
             <div className="mb-8 mt-4">
               <h3 className="text-xl font-bold text-white mb-2">Soko Mwezi</h3>
-              <p className="text-slate-400 dark:text-emerald-100/70 text-sm">Best value. Full operational visibility for serious micro-businesses.</p>
+              <p className="text-slate-400 dark:text-emerald-100/70 text-sm">Best value.</p>
             </div>
             <div className="mb-8 flex items-baseline gap-2">
               <span className="text-5xl font-black text-white font-mono">10,000</span>
@@ -89,7 +89,7 @@ export const MicroSokoShowcase: React.FC = () => {
           <div className="bg-white dark:bg-slate-905 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 flex flex-col relative overflow-hidden group hover:border-emerald-500 transition-colors">
             <div className="mb-8">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Soko Wiki</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm">Flexible weekly cycles matching typical local supplier payouts.</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm">Weekly billing.</p>
             </div>
             <div className="mb-8 flex items-baseline gap-2">
               <span className="text-5xl font-black text-slate-900 dark:text-white font-mono">3,000</span>

@@ -327,7 +327,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-white font-sans">SaaS Financial Earnings Summary</h2>
-                  <p className="text-xs text-slate-400">Aggregated payments and periodic income indices for Tanzania regions.</p>
+                  <p className="text-xs text-slate-400">Regional payments.</p>
                 </div>
                 <span className="px-2 py-1 bg-slate-900 border border-slate-800 rounded-lg text-[10px] font-mono font-bold text-slate-400 uppercase">
                   LOCAL DISPATCH: ON
@@ -450,7 +450,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
             <div className="space-y-6 animate-fade-in">
               <div>
                 <h2 className="text-lg font-bold text-white font-sans">Subscribers Registry Directory</h2>
-                <p className="text-xs text-slate-400">Full archive index of local client business credentials, pricing rates, and licenses.</p>
+                <p className="text-xs text-slate-400">Client archive.</p>
               </div>
 
               {/* THREE MAIN RATIO STAT CARDS */}
@@ -538,7 +538,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
             <div className="space-y-6 animate-fade-in">
               <div>
                 <h2 className="text-lg font-bold text-white font-sans">Organic Conversion Channels & Leads</h2>
-                <p className="text-xs text-slate-400">Analysis metrics demonstrating our direct capture traffic vs. third-party network referrers.</p>
+                <p className="text-xs text-slate-400">Traffic sources.</p>
               </div>
 
               {/* OVERVIEW SECTION BOX */}
@@ -635,7 +635,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
             <div className="space-y-6 animate-fade-in">
               <div>
                 <h2 className="text-lg font-bold text-white font-sans">Affiliates & Partners Hub</h2>
-                <p className="text-xs text-slate-400">Track and manage network marketers distributing licenses via custom conversion hooks.</p>
+                <p className="text-xs text-slate-400">Manage marketers.</p>
               </div>
 
               {/* OVERVIEW PANEL GROUP */}
@@ -790,7 +790,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-white font-sans">Affiliate Marketing Materials & Media</h2>
-                  <p className="text-xs text-slate-400">Manage downloadable digital product flyers, site leaderboards, and Instagram templates.</p>
+                  <p className="text-xs text-slate-400">Manage flyers.</p>
                 </div>
                 
                 <button
@@ -976,7 +976,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
             <div className="space-y-6 animate-fade-in">
               <div>
                 <h2 className="text-lg font-bold text-white font-sans">Dispatch Broadcast Notifications & Inbox</h2>
-                <p className="text-xs text-slate-400">Broadcast updates to active license merchants, text all affiliates, or dispatch direct support notes.</p>
+                <p className="text-xs text-slate-400">Send updates.</p>
               </div>
 
               {/* BROADCAST vs DIRECT PANELS CONTAINER */}
@@ -997,7 +997,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
                       <textarea
                         rows={2}
                         required
-                        placeholder="Write your broadcast update regarding maintenance, feature additions, or news..."
+                        placeholder="Write update..."
                         className="w-full bg-slate-900 border border-slate-850 p-2 text-white text-xs focus:outline-none rounded font-sans resize-none"
                         value={broadcastSubText}
                         onChange={(e) => setBroadcastSubText(e.target.value)}
@@ -1021,7 +1021,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
                       <textarea
                         rows={2}
                         required
-                        placeholder="Write message to update key conversion assets, promo campaigns or rate changes..."
+                        placeholder="Write message..."
                         className="w-full bg-slate-900 border border-slate-850 p-2 text-white text-xs focus:outline-none rounded font-sans resize-none"
                         value={broadcastAffText}
                         onChange={(e) => setBroadcastAffText(e.target.value)}
@@ -1172,7 +1172,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
             <div className="space-y-6 animate-fade-in">
               <div>
                 <h2 className="text-lg font-bold text-white font-sans">System & Decoy Configuration Settings</h2>
-                <p className="text-xs text-slate-400">Tailor credentials and visual layouts shown to prevent forensic tracing checks.</p>
+                <p className="text-xs text-slate-400">Edit display settings.</p>
               </div>
 
               <div className="bg-slate-905 border border-slate-850 rounded-3xl p-5 space-y-5 max-w-2xl">

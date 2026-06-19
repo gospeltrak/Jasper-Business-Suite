@@ -1354,7 +1354,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
 
       {/* FOOTER */}
       <footer className={`border-t text-center py-8 text-xs font-mono leading-none ${isDark ? 'bg-slate-955 bg-slate-950 border-slate-900 text-slate-600' : 'bg-white border-slate-200 text-slate-400'}`}>
-        <p>© 2026 Jasper Suite tools workspace. Powered by Gemini Pro Neural Models.</p>
+        <p>© 2026 Jasper Suite.</p>
       </footer>
 
       {/* FLOATING TOKEN ACQUIRE MODAL / PAYROLL GATEWAY */}

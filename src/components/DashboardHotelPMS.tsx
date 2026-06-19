@@ -1394,7 +1394,7 @@ export default function DashboardHotelPMS({ activeTenant, currentUser, onAddSync
                 <label className="text-[10px] font-bold text-slate-500 uppercase block font-mono">Special Requests / Preferences</label>
                 <textarea
                   value={specialRequests}
-                  placeholder="e.g. Prefers low pillows, vegetarian breakfast plan, pre-purchased welcome flowers"
+                  placeholder="Guest notes..."
                   rows={2}
                   onChange={(e) => setSpecialRequests(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none resize-none font-sans"

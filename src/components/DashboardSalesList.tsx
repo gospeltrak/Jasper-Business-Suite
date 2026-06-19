@@ -1103,7 +1103,7 @@ export default function DashboardSalesList({
                   <FileText className="w-8 h-8 text-slate-300" />
                 </div>
                 <h4 className="text-sm font-bold text-slate-700 mb-1">No sales yet</h4>
-                <p className="text-xs text-slate-455 mb-4">No active transactions match your filter criteria. Use the Cashier Till (POS) to record new sales.</p>
+                <p className="text-xs text-slate-455 mb-4">No matching sales.</p>
              </div>
           )}
         </div>
@@ -1839,7 +1839,7 @@ export default function DashboardSalesList({
                 <div className="space-y-2">
                   <h3 className="text-md font-bold text-slate-800 uppercase tracking-wider font-mono">Premium Sub Ledger Workspace Locked</h3>
                   <p className="text-slate-500 text-xs leading-relaxed max-w-sm mx-auto font-sans">
-                    Multi-tenant Cash Drawer auditing, shift closures, real-time variance calculation, and double-entry split routing are premium member features.
+                    Shift settlement is premium.
                   </p>
                 </div>
                 <div className="pt-2">
@@ -1891,7 +1891,7 @@ export default function DashboardSalesList({
                         <p className="text-[11px] leading-snug">
                           {openingFloatVerified 
                             ? `You successfully matched the physical paper coins & banknotes in the register drawer with the opening float at the start of the shift.`
-                            : `Before commencing trade, verify that the physical banknotes & silver coins in the register drawer exactly match the system's presumed opening float.`
+                            : `Confirm opening cash before sales.`
                           }
                         </p>
                       </div>
@@ -2044,7 +2044,7 @@ export default function DashboardSalesList({
                           </div>
                           
                           <p className="text-[11px] text-slate-500 leading-snug">
-                            Below are all cash sales & installments automatically recorded today. Cashiers should match these ledger lines with the cash in the drawer.
+                            Match today cash with drawer cash.
                           </p>
 
                           <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
@@ -2112,7 +2112,7 @@ export default function DashboardSalesList({
                         className="w-full bg-slate-50 border border-slate-250 rounded-xl px-3 py-2 text-xs font-mono font-black text-slate-900 outline-none focus:ring-1 focus:ring-indigo-500"
                         placeholder="Count all physical notes & silver change"
                       />
-                      <span className="block text-[9px] text-slate-400 mt-0.5">Count layout: exact coin slots + bills inside secure tray drawer.</span>
+                      <span className="block text-[9px] text-slate-400 mt-0.5">Cash count.</span>
                     </div>
 
                     {/* Variance alert card block */}
@@ -2155,7 +2155,7 @@ export default function DashboardSalesList({
                         value={settlePayInAmount}
                         onChange={(e) => setSettlePayInAmount(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0))}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
-                        placeholder="Volume of physical cash drop removed from bin"
+                        placeholder="Cash removed"
                       />
                       <span className="block text-[9px] text-slate-400 mt-0.5">Amount to clear out of the physical drawer and route.</span>
                     </div>
@@ -2205,7 +2205,7 @@ export default function DashboardSalesList({
                           ))}
                         </select>
                         <span className="block text-[8.5px] text-slate-500">
-                          Direct Double-Entry Split will deposit in selected treasury ledger account node.
+                          Deposit to selected account.
                         </span>
                       </div>
                     )}
@@ -2242,7 +2242,7 @@ export default function DashboardSalesList({
                         </div>
 
                         <span className="block text-[8.5px] text-rose-700 leading-relaxed font-sans mt-1">
-                          💡 <strong>Routing Engine:</strong> Generates entry type <code>person_payout</code>. Bypasses standard payment statistics and routes straight into the system's dedicated payout workspace.
+                          <strong>Route:</strong> person payout.
                         </span>
                       </div>
                     )}
@@ -2257,10 +2257,10 @@ export default function DashboardSalesList({
                         required
                         value={settleReferenceCode}
                         onChange={(e) => setSettleReferenceCode(e.target.value)}
-                        placeholder="Deposit Slip, MOMO Hash, or Manager Receipt ID"
+                        placeholder="Deposit reference"
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
                       />
-                      <span className="block text-[8px] text-slate-400 mt-1">Mandatory verification index for financial tracing & audits.</span>
+                      <span className="block text-[8px] text-slate-400 mt-1">Required reference.</span>
                     </div>
 
                     {/* DEPOSIT SLIP / RECEIPT DRAG-AND-DROP ZONE */}
@@ -2362,7 +2362,7 @@ export default function DashboardSalesList({
                         rows={2}
                         value={settleSmsPasteText}
                         onChange={(e) => setSettleSmsPasteText(e.target.value)}
-                        placeholder="Example: LH840192XX Confirmed. Received Shs 50,000 sent to Bank Account..."
+                        placeholder="Confirmation message..."
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-sans text-slate-755 outline-none focus:ring-1 focus:ring-indigo-500 font-mono text-[10px]"
                       />
                     </div>
@@ -2372,7 +2372,7 @@ export default function DashboardSalesList({
                       <label className="block text-[8px] font-mono font-black uppercase text-slate-400 mb-1.5">Remarks / Audit Note</label>
                       <textarea
                         rows={2}
-                        placeholder="e.g. Afternoon shift drawer counts balanced 100% with cash vouchers."
+                        placeholder="Shift note..."
                         value={settleMemo}
                         onChange={(e) => setSettleMemo(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-sans text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500"
@@ -2399,7 +2399,7 @@ export default function DashboardSalesList({
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                       <div>
                         <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest font-mono">Historical Till Settlements</h3>
-                        <p className="text-[11px] text-slate-450 mt-1">Audit shift closures, physical counted variances, and settlement targets.</p>
+                        <p className="text-[11px] text-slate-450 mt-1">Shift settlement.</p>
                       </div>
                       <div className="bg-slate-100 px-2.5 py-1.5 rounded-lg font-mono text-[10px] text-indigo-700 font-bold border border-slate-205">
                         Deposited Cash: {currency}{tillSettlements.reduce((tot, st) => tot + st.paymentInAmount, 0).toLocaleString()}
@@ -2544,7 +2544,7 @@ export default function DashboardSalesList({
                           {doubleEntryLedgers.length === 0 && (
                             <tr>
                               <td colSpan={5} className="p-6 text-center text-indigo-400/70 text-xs italic">
-                                No double-entry split ledgers mapped yet. Finalize a shift layout to generate ledger vouchers.
+                                No split entries yet.
                               </td>
                             </tr>
                           )}
@@ -3263,7 +3263,7 @@ export default function DashboardSalesList({
                   <span className="inline-block tracking-[0.3em] font-mono font-bold text-[13px] bg-slate-50 border border-slate-200 px-3 py-1 text-slate-800 rounded select-none">
                     *20260520TSUITE*
                   </span>
-                  <p className="text-[9px] uppercase">Thank you for choice shopping with us!</p>
+                  <p className="text-[9px] uppercase">Thank you.</p>
                 </div>
 
               </div>
@@ -3622,7 +3622,7 @@ export default function DashboardSalesList({
                         <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                         <div>
                           <p className="font-bold uppercase tracking-wider">Settled Invoice</p>
-                          <p className="text-[10px] text-slate-500">This client account records zero outstanding due. All credit ledger postings for receipt are fully matched.</p>
+                          <p className="text-[10px] text-slate-500">No balance due.</p>
                         </div>
                       </div>
                     )}
@@ -4143,7 +4143,7 @@ export default function DashboardSalesList({
                     You are attempting to completely erase checkouout record <strong className="font-bold text-rose-750 font-mono">{saleToDelete.reference || saleToDelete.id.toUpperCase()}</strong>.
                   </p>
                   <p className="text-[11px] text-slate-500 leading-normal">
-                    Proceeding will revert any transaction balances, remove its ledger index, and void this tax receipt. If needed, reprint or export an audit log before confirming.
+                    This will void the receipt.
                   </p>
                 </div>
               </div>
@@ -4309,7 +4309,7 @@ export default function DashboardSalesList({
                     <label htmlFor="newDocHasVatCheckbox" className="text-xs font-bold text-slate-705 cursor-pointer select-none">
                       Compute VAT (Value Added Tax 18%)
                     </label>
-                    <p className="text-[10px] text-slate-400">If unchecked, VAT calculation rows will not appear on this document layout.</p>
+                    <p className="text-[10px] text-slate-400">Hide VAT when unchecked.</p>
                   </div>
                 </div>
 
@@ -4317,12 +4317,12 @@ export default function DashboardSalesList({
                   <label className="block text-xs font-bold text-slate-650 mb-1">Invoice Footer Tagline / Memo</label>
                   <textarea
                     rows={2}
-                    placeholder="e.g. Goods once sold cannot be returned. Thank you for your continued partnership!"
+                    placeholder="Footer note..."
                     value={newDocTagline}
                     onChange={(e) => setNewDocTagline(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-850 focus:outline-emerald-500 resize-none font-sans"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1 font-sans">This tagline is editable and will render elegant typography at bottom footer of the invoice/quotation.</p>
+                  <p className="text-[10px] text-slate-400 mt-1 font-sans">Shown in document footer.</p>
                 </div>
               </div>
 

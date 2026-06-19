@@ -253,7 +253,7 @@ export default function DashboardStaff({
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm max-w-3xl">
           <div className="mb-6 border-b border-slate-100 pb-4">
             <h3 className="font-bold text-slate-800 text-sm mb-1">Staff Onboarding Station</h3>
-            <p className="text-xs text-slate-500">Provide staff login credentials and assign roles. Ensure profile pictures are square (recommended 500x500px).</p>
+            <p className="text-xs text-slate-500">Add staff login and role.</p>
           </div>
 
           <div className="flex gap-4 mb-6">
@@ -383,7 +383,7 @@ export default function DashboardStaff({
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
           <div className="mb-6">
             <h3 className="font-bold text-slate-800 text-sm mb-1">Staff Performance & Analytics</h3>
-            <p className="text-xs text-slate-500">Track orders processed, profit generated, and expenses logged per staff member.</p>
+            <p className="text-xs text-slate-500">Staff sales and expenses.</p>
           </div>
 
           <div className="grid grid-cols-1 gap-4">

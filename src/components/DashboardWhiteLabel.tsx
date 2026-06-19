@@ -255,7 +255,7 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-xs font-bold text-slate-800 block">Offline LocalStorage Guard</span>
-                    <span className="text-[10px] text-slate-400 font-light block">Restrict database synchronization to target domain ONLY</span>
+                    <span className="text-[10px] text-slate-400 font-light block">Limit sync to this domain.</span>
                   </div>
                   <input
                     type="checkbox"
@@ -304,7 +304,7 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
           <div className="flex items-center justify-between px-1">
             <div>
               <h3 className="text-sm font-bold text-slate-800">Live Website Integration Sandbox</h3>
-              <p className="text-xs text-slate-450">Simulates are real embedded representation on a client website.</p>
+              <p className="text-xs text-slate-450">Client website preview.</p>
             </div>
             <div className="font-mono text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-150 px-2.5 py-1 rounded-full font-black animate-pulse">
               ● REAL TIME FEED
@@ -465,7 +465,7 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
                       <div className="flex items-center justify-between">
                         <div>
                           <h5 className="font-bold text-xs text-slate-800 uppercase tracking-wider font-mono">Dynamic Stock Master Catalog</h5>
-                          <p className="text-[10px] text-slate-400">Totaling 12 active therapeutic categories registered on database.</p>
+                          <p className="text-[10px] text-slate-400">12 categories.</p>
                         </div>
                         <button 
                           style={{ backgroundColor: primaryColor }}
@@ -511,7 +511,7 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
                     <div className="space-y-4">
                       <div>
                         <h5 className="font-bold text-xs text-slate-800 uppercase tracking-wider font-mono">Custom Audits & CRM Analytics</h5>
-                        <p className="text-[10px] text-slate-400">Integrated audit reporting showing VAT ledger computations with TRA compliance indicators.</p>
+                        <p className="text-[10px] text-slate-400">VAT report.</p>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
@@ -556,7 +556,7 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
                             <span>Prime Labs Tanzania Ltd.</span>
                             <span className="text-[9.5px] font-mono font-black" style={{ color: primaryColor }}>TZ-MED-03</span>
                           </div>
-                          <p className="text-[10px] text-slate-450">Antibiotics, injectable fluids and high-volume clinical fluids.</p>
+                          <p className="text-[10px] text-slate-450">Antibiotics and fluids.</p>
                           <div className="text-[9px] font-mono text-slate-400 pt-1 border-t border-slate-100">Contact: +255 784 102 938</div>
                         </div>
 
@@ -565,7 +565,7 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
                             <span>Astra Zen Pharmaceuticals</span>
                             <span className="text-[9.5px] font-mono font-black text-indigo-700">AZ-UK-INT</span>
                           </div>
-                          <p className="text-[10px] text-slate-400">Cardiovascular drugs, blood regulators and imported vaccines.</p>
+                          <p className="text-[10px] text-slate-400">Heart drugs and vaccines.</p>
                           <div className="text-[9px] font-mono text-slate-450 pt-1 border-t border-slate-100">Contact: partner-support@astrazen.com</div>
                         </div>
                       </div>
@@ -604,7 +604,7 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
                   <span>Integrated Unified Billing</span>
                 </span>
                 <p className="text-[10.5px] text-slate-450 leading-relaxed font-light">
-                  Whether your clients embed the isolated cashier POS till or the <strong>entire administrative niche suite</strong> on their domain, the system links to our unified database. When their subscription cycles end, they renew using the exact same billing rules as direct clients.
+                  Client domains use the same subscription rules.
                 </p>
               </div>
 

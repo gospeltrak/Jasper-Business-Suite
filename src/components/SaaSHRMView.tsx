@@ -121,7 +121,7 @@ export default function SaaSHRMView() {
       <div className="bg-slate-900 border border-slate-850 p-6 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-base font-bold text-white uppercase tracking-wider font-mono">HRM Workspace & Personnel Directory</h2>
-          <p className="text-xs text-slate-400 mt-1">Hire general managers, system developers, or tax compliance specialists. Set roles, wages, and audit payroll metrics.</p>
+          <p className="text-xs text-slate-400 mt-1">Hire staff and set wages.</p>
         </div>
         <div className="flex items-center space-x-2 bg-indigo-500/10 text-indigo-400 px-3 py-1.5 rounded-lg border border-indigo-500/20 text-xs font-mono">
           <Users className="w-4 h-4 shrink-0" />
@@ -203,7 +203,7 @@ export default function SaaSHRMView() {
             <div className="space-y-1">
               <label className="text-[10px] font-mono uppercase text-slate-400">Staff Responsibilities Notes</label>
               <textarea 
-                placeholder="List specific targets e.g. Post 10 add banners on local forums weekly, supervise affiliate payout complaint boards..."
+                placeholder="Staff targets..."
                 value={notes}
                 maxLength={200}
                 onChange={(e) => setNotes(e.target.value)}

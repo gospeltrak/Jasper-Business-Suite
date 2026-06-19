@@ -1297,7 +1297,7 @@ export default function DashboardProducts({
                 <button
                   onClick={downloadCsvTemplate}
                   className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-220 px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs transition-colors cursor-pointer"
-                  title="Download CSV Form Template to register products easily"
+                  title="Download CSV template"
                 >
                   <Download className="w-4 h-4 text-emerald-600" />
                   <span>Download Spreadsheet Template</span>
@@ -1495,7 +1495,7 @@ export default function DashboardProducts({
                       onChange={(e) => setBarcode(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono tracking-wide transition-all outline-none"
                     />
-                    <p className="text-[9px] text-slate-400">No barcode? Leave it blank and the system will automatically allocate a tag on commit which will be used as the Product SKU.</p>
+                    <p className="text-[9px] text-slate-400">Leave blank to auto-create SKU.</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3.5 border-b border-dashed border-slate-100 pb-3">
@@ -1523,7 +1523,7 @@ export default function DashboardProducts({
 
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-505 uppercase block">Low Stock Alert Level</label>
-                    <p className="text-[9px] text-slate-400 leading-tight">This is where users put what number of product remaining should trigger stock alerts.</p>
+                    <p className="text-[9px] text-slate-400 leading-tight">Set low-stock alert.</p>
                     <input 
                       type="number" 
                       min="1"
@@ -1653,7 +1653,7 @@ export default function DashboardProducts({
                 <div className="flex items-center justify-between">
                   <div>
                     <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Smart Batch Costing</h5>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Applies globally in Wholesale, Retail, Pharmacy, and future inventory modules.</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Applies to all inventory.</p>
                   </div>
                   <label className="flex items-center space-x-2 text-[10px] font-bold text-slate-600 uppercase">
                     <input
@@ -1845,7 +1845,7 @@ export default function DashboardProducts({
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input 
                   type="text" 
-                  placeholder="Filter by product name, barcode, or category..."
+                  placeholder="Search products..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 px-3 pl-9 py-2 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-800 transition-all font-semibold"
@@ -2573,7 +2573,7 @@ export default function DashboardProducts({
                 🔎 Print Layout Preview (WYSIWYG layout simulation)
               </span>
               <p className="text-[10px] text-slate-400 mt-0.5">
-                This preview layout shows exact dimensions that will be burned onto your adhesive thermals. Perfect calibration.
+                Thermal label preview.
               </p>
             </div>
 
@@ -2735,7 +2735,7 @@ export default function DashboardProducts({
                 
                 <Camera className="w-8 h-8 text-slate-600 animate-pulse mb-1.5" />
                 <p className="font-mono text-[10px] text-slate-450 uppercase tracking-widest">Awaiting Laser Feed...</p>
-                <p className="text-[9px] text-slate-500 max-w-[180px] leading-relaxed mt-1">Camera lens aligns standard 1D products. Click a tag below to scan mock trigger.</p>
+                <p className="text-[9px] text-slate-500 max-w-[180px] leading-relaxed mt-1">Scan or pick a sample.</p>
               </div>
 
               {/* Sample codes to scan */}
@@ -3078,7 +3078,7 @@ export default function DashboardProducts({
                   {selectedCategoryFilter || 'All Categories'} Catalogue
                 </h4>
                 <p className="text-[11px] text-slate-400">
-                  Showing active stock units categorized under the chosen ledger segment.
+                  Stock for selected category.
                 </p>
               </div>
               <span className="font-mono text-[11px] font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-650">

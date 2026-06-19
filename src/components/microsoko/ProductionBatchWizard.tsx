@@ -193,7 +193,7 @@ export const ProductionBatchWizard: React.FC = () => {
     <div className="p-6 max-w-5xl mx-auto space-y-6 flex-1 overflow-y-auto">
       <div>
         <h2 className="text-2xl font-black text-slate-800">Production Batch Wizard</h2>
-        <p className="text-slate-500">Transform raw materials into finished products based on production runs.</p>
+        <p className="text-slate-500">Make finished products.</p>
       </div>
       
       {success && (

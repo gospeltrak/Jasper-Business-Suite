@@ -157,7 +157,7 @@ export default function SaaSHardwareSales() {
           <h3 className="text-sm font-extrabold text-white uppercase tracking-wider font-mono">Hardware Sales Analytics</h3>
         </div>
       </div>
-      <p className="text-[11px] text-slate-400">View sales history, regional data, and hardware distribution.</p>
+      <p className="text-[11px] text-slate-400">Sales and devices.</p>
 
       {/* Tabs */}
       <div className="flex space-x-2 border-b border-slate-800 pb-0 overflow-x-auto">

@@ -1164,7 +1164,7 @@ export default function DashboardSettings({
                     value={businessForm.businessAddress}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, businessAddress: e.target.value }))}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                    placeholder="Branch address displayed on system and receipts..."
+                    placeholder="Branch address..."
                   />
                 </div>
 
@@ -1186,7 +1186,7 @@ export default function DashboardSettings({
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, tagline: e.target.value }))}
                     rows={2}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                    placeholder="E.g. Thank you for doing business with us. Please pay within 15 days of issue."
+                    placeholder="Payment note..."
                   />
                 </div>
               </div>
@@ -1196,7 +1196,7 @@ export default function DashboardSettings({
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-750 font-mono tracking-wider">🎨 Custom System Branding Logos</h4>
                   <p className="text-[10.5px] text-slate-450 mt-0.5 font-sans leading-relaxed">
-                    Upload your custom logos to personalize the Jasper Business Suite application and client documents. The system dynamically toggles light and dark versions based on system visual preference.
+                    Upload light and dark logos.
                   </p>
                 </div>
 
@@ -1237,7 +1237,7 @@ export default function DashboardSettings({
                             <span>Upload Day Logo</span>
                           </button>
                         </div>
-                        <p className="text-[9.5px] text-slate-400">Appears in light-mode dashboards, sales registers and billing receipts.</p>
+                        <p className="text-[9.5px] text-slate-400">Light logo.</p>
                       </div>
                     </div>
                   </div>
@@ -1273,7 +1273,7 @@ export default function DashboardSettings({
                             <span>Upload Dark Logo</span>
                           </button>
                         </div>
-                        <p className="text-[9.5px] text-slate-500">Appears in dark-mode dashboard interfaces and side navigation modules.</p>
+                        <p className="text-[9.5px] text-slate-500">Dark logo.</p>
                       </div>
                     </div>
                   </div>
@@ -1289,7 +1289,7 @@ export default function DashboardSettings({
                     <span>Active Cashier Till Payments</span>
                   </h4>
                   <p className="text-[10.5px] text-slate-450 leading-relaxed font-sans mt-0.5">
-                    Register custom clearing modules available to clients at point of sale checkout gates.
+                    Add payment methods.
                   </p>
                 </div>
 
@@ -1339,7 +1339,7 @@ export default function DashboardSettings({
                       <span>Active Delivery Settings (Payment Methods)</span>
                     </h4>
                     <p className="text-[10.5px] text-slate-450 leading-relaxed font-sans mt-0.5">
-                      Register custom clearing modules available for clearing Delivery fees.
+                      Add delivery payment methods.
                     </p>
                   </div>
 
@@ -1450,7 +1450,7 @@ export default function DashboardSettings({
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">📦 Product Catalog & Measurements</h3>
                 <p className="text-xs text-slate-450 mt-1 font-sans">
-                  Define item categorization hierarchies and standard measurement modules such as pes, kilograms, or litres used in inventory counting operations.
+                  Add categories and units.
                 </p>
               </div>
 

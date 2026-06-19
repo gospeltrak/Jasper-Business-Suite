@@ -213,7 +213,7 @@ export default function SaaSWebEditor() {
               🖥️ Portal Website Home Page Builder
             </h2>
             <p className="text-xs text-slate-400 max-w-2xl">
-              Customize local currency layout, order blocks, tweak headlines, adjust contact numbers, and hide unneeded marketing sections dynamically. Changes propagate instantly to the live home page!
+              Edit homepage text, order, contacts, and sections.
             </p>
           </div>
 
@@ -304,7 +304,7 @@ export default function SaaSWebEditor() {
             <div className="space-y-4">
               <div className="p-3.5 bg-slate-950/40 border border-slate-850 rounded-xl">
                 <p className="text-xs text-slate-400 leading-relaxed font-sans">
-                  💡 <strong>How Section Assembly works</strong>: Below is the current sequence structure of your business landing page. Use the <strong className="text-white">Up (▲)</strong> and <strong className="text-white">Down (▼)</strong> buttons to shift component rows. Click the <strong className="text-emerald-400">Eye/Hide</strong> buttons to keep specific containers off-screen.
+                  <strong>Sections</strong>: reorder or hide homepage blocks.
                 </p>
               </div>
 
@@ -820,7 +820,7 @@ export default function SaaSWebEditor() {
             <div className="space-y-6">
               <div className="p-3.5 bg-slate-950/40 border border-slate-850 rounded-xl">
                 <p className="text-xs text-slate-400 leading-relaxed font-sans">
-                  👑 <strong>Partner Capacity & Waitlist Settings</strong>: Prevent over-saturation of local franchise brokers by putting a hard ceiling on licensed Recruitment Partners. When the limit is reached, the "Becoming a Partner" signup form automatically transforms into a modern waitlist notification collector.
+                  <strong>Partner Limit</strong>: set maximum active partners.
                 </p>
               </div>
 

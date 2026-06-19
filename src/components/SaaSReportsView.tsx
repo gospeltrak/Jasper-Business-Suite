@@ -40,7 +40,7 @@ interface ExpenseRecord {
 interface AffiliateAccount {
   id: string;
   name: string;
-  revenueGenerated: number;
+  revenueDate: number;
   totalEarnings?: number;
   isSuper?: boolean;
 }

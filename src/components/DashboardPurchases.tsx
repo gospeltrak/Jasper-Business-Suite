@@ -311,7 +311,7 @@ export default function DashboardPurchases({
             </h5>
             <div className="flex items-center space-x-2 text-[10px] font-mono text-slate-400">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span>Restock actions recorded instantly change active branch valuations</span>
+              <span>Restocks update stock value.</span>
             </div>
           </div>
 

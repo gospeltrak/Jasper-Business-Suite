@@ -1841,7 +1841,7 @@ export default function DashboardPOS({
                     <ShieldAlert className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
                     <div className="space-y-0.5">
                       <p className="text-[11px] font-black uppercase text-rose-400 tracking-wider">🔒 Exception Blockade Alert</p>
-                      <p className="text-[9.5px] text-slate-450 leading-snug font-sans">Till basket checkout suspended until supervisor pin authorization is completed.</p>
+                      <p className="text-[9.5px] text-slate-450 leading-snug font-sans">Supervisor PIN required.</p>
                     </div>
                   </div>
 
@@ -1912,7 +1912,7 @@ export default function DashboardPOS({
                         type="button"
                         onClick={handleSimulateSwipeApproval}
                         className="bg-indigo-955/90 hover:bg-indigo-900 border border-indigo-900/40 text-indigo-405 text-[8.5px] font-extrabold py-1.5 rounded-lg cursor-pointer transition-colors flex-grow text-center"
-                        title="Directly simulate biometric manager bypass swipe"
+                        title="Manager override"
                       >
                         ⚡ Simulate Owner Overpass
                       </button>
@@ -2197,7 +2197,7 @@ export default function DashboardPOS({
                 <RefreshCw className="w-10 h-10 text-emerald-600 animate-spin" />
                 <div className="space-y-1">
                   <h5 className="font-bold text-sm uppercase tracking-wider text-slate-800">Communicating with Payment Server</h5>
-                  <p className="text-xs text-slate-450">Verifying customer account token & authenticating gateway rails...</p>
+                  <p className="text-xs text-slate-450">Checking customer...</p>
                 </div>
               </div>
             )}
@@ -2421,7 +2421,7 @@ export default function DashboardPOS({
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-[11px]">+</span>
                         <input
                           type="text"
-                          placeholder="Phone number (digits with country code e.g. 234803...)"
+                          placeholder="Phone with country code..."
                           value={recipientWhatsApp}
                           onChange={(e) => setRecipientWhatsApp(e.target.value.replace(/[^0-9]/g, ''))}
                           className="w-full bg-white border border-slate-250 rounded-xl text-xs pl-6 pr-3 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500 font-mono placeholder:font-sans placeholder:text-slate-400"

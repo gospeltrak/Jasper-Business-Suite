@@ -634,7 +634,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                     <span className="text-[9.5px] font-mono text-emerald-400 uppercase tracking-widest font-black">SUPERADMIN IMMERSIVE DASHBOARD INTERCEPT</span>
                   </div>
                   <h3 className="text-lg font-black text-white mt-1 uppercase tracking-tight">{selectedUser.name} View</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Seeing and editing exactly as the user experiences behind the gateway shell.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">View user workspace.</p>
                 </div>
                 {onLock && (
                   <button 
@@ -1033,7 +1033,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                       <ShieldAlert className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
                       <div>
                         <span className="text-red-400 font-black block font-mono uppercase">CRITICAL SYSTEM MUTATION CONTROL</span>
-                        <p className="text-slate-300 mt-1">Any edits to subscription levels, suspends, password overrides, or deletions are instantly synced. They strictly require setting and providing the SuperAdmin security key. All actions inside this cockpit are securely audited.</p>
+                        <p className="text-slate-300 mt-1">Security key required.</p>
                       </div>
                     </div>
 
@@ -1230,7 +1230,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
               </div>
               <h2 className="text-2xl font-bold font-sans text-white mb-2 tracking-tight">Global Subscriber Hub</h2>
               <p className="text-slate-400 text-sm max-w-md mx-auto mb-10 leading-relaxed font-sans">
-                Select a subscriber from the roster to access their immersive workspace, perform security actions, and manage core system settings.
+                Select a subscriber.
               </p>
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-8 w-full max-w-3xl border-t border-slate-800/80 pt-10">

@@ -58,8 +58,8 @@ ${itemsText}
 ${discountBlock}${deliveryBlock}${vatBlock}
 *GRAND TOTAL PAID:* *${currency}${Math.round(sale.total).toLocaleString()}*
 ------------------------------------------
-Thank you for choice shopping with us!
-Generated securely via Jasper Ledger.`;
+Thank you.
+Jasper receipt.`;
 
   return messageText;
 }

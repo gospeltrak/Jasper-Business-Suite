@@ -660,7 +660,7 @@ Vehicle Plate Number: ${plateNumber}
             <div className="relative flex-grow">
               <input
                 type="text"
-                placeholder="Search delivery tasks by customer name, order ref, phone..."
+                placeholder="Search deliveries..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs pl-10 pr-4 py-2.5 text-slate-800 placeholder-slate-400 font-sans focus:outline-none focus:border-emerald-500"
@@ -955,7 +955,7 @@ Vehicle Plate Number: ${plateNumber}
                     />
                   )}
                 </div>
-                <p className="text-[9.5px] text-slate-450 font-sans italic leading-tight">Recommended dimensions: Fits inside 500x500 pixels as a clean PNG image.</p>
+                <p className="text-[9.5px] text-slate-450 font-sans italic leading-tight">Use 500x500 PNG.</p>
               </div>
 
               <button
@@ -1556,7 +1556,7 @@ Vehicle Plate Number: ${plateNumber}
                     type="button"
                     onClick={handleFinishDeliveryNote}
                     className="bg-emerald-600 hover:bg-emerald-550 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center space-x-1 cursor-pointer shadow-sm transition-all border-none"
-                    title="Validate fields, resolve pending status and trigger print"
+                    title="Validate and print"
                   >
                     <span>✅ Complete & Print Note</span>
                   </button>
@@ -2114,7 +2114,7 @@ Vehicle Plate Number: ${plateNumber}
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase font-sans">Delivery Address / Destination</label>
                     <textarea
-                      placeholder="Enter exact drop-off location or map notes..."
+                      placeholder="Drop-off location..."
                       value={dispatchCustomerLocation}
                       onChange={(e) => setDispatchCustomerLocation(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-emerald-500 min-h-[60px]"
@@ -2417,7 +2417,7 @@ Vehicle Plate Number: ${plateNumber}
                   </div>
                   <div className="text-center py-6 px-4">
                     <Plus className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                    <p className="text-xs text-slate-500 max-w-[250px] mx-auto font-medium">To keep order dispatch records linked to actual transactions, please search for a paid store ticket.</p>
+                    <p className="text-xs text-slate-500 max-w-[250px] mx-auto font-medium">Search paid ticket first.</p>
                   </div>
                 </>
               ) : (

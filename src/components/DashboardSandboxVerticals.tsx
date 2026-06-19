@@ -1020,7 +1020,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
           {/* Patients profiles management card */}
           <div className="bg-white border border-slate-205 rounded-[24px] p-6 space-y-4">
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider font-mono">Enroll Patient Profile</h3>
-            <p className="text-[11px] text-slate-400">Add medical histories, insurer networks, and chemical contradictions securely</p>
+            <p className="text-[11px] text-slate-400">Add patient data.</p>
             
             <form onSubmit={handleAddNewPatient} className="space-y-4 text-xs font-sans">
               <div className="space-y-1">
@@ -1085,7 +1085,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
           {/* Active prescription dossiers List */}
           <div className="bg-white border border-slate-205 rounded-[24px] p-6 lg:col-span-2 space-y-4">
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider font-mono">Direct Electronic Insurance Claims</h3>
-            <p className="text-[11px] text-slate-400">Claims filed securely to national insurance networks using MedSoftwares BestRx portal</p>
+            <p className="text-[11px] text-slate-400">Insurance claims.</p>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -1142,7 +1142,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
           {/* APOTHECARY FAST MEDICAL CREATOR (Cols 4) */}
           <div className="lg:col-span-4 bg-white border border-slate-205 rounded-[24px] p-5 space-y-4">
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider font-mono">Apothecary Inventory Register</h3>
-            <p className="text-[11px] text-slate-400">Add custom generic drugs, molecular formulas, and set batch configurations</p>
+            <p className="text-[11px] text-slate-400">Add drugs and batches.</p>
 
             <form onSubmit={handleCreateNewMedication} className="space-y-4 text-xs font-sans">
               <div className="space-y-1">
@@ -1259,7 +1259,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
           {/* CATALOG PREVIEW & EXPIRATION AUDITS (Cols 8) */}
           <div className="lg:col-span-8 bg-white border border-slate-205 rounded-[24px] p-6 space-y-4">
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider font-mono">Cold-Chain Storage & Expiry Audits</h3>
-            <p className="text-[11px] text-slate-400">Total drug batches logged including submolecular components, temperature restrictions and expiry protocols</p>
+            <p className="text-[11px] text-slate-400">Drug batches.</p>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -1332,7 +1332,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
           {/* HL7 & HIPAA protocols verification metadata view */}
           <div className="bg-white border border-slate-205 rounded-[24px] p-6 space-y-4">
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest font-mono">HIPAA & HL7 Standards</h3>
-            <p className="text-[11px] text-slate-400">Security compliance frameworks governing patients records encryption and electronic transfers</p>
+            <p className="text-[11px] text-slate-400">Compliance rules.</p>
             
             <div className="space-y-3.5 text-xs">
               <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">

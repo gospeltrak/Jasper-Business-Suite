@@ -133,7 +133,7 @@ export default function SaaSStaffManager() {
           <Shield className="w-5 h-5 text-amber-500" />
           <div>
             <h3 className="text-base font-extrabold text-white">SaaS Staff Control Center</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">Manage additional super admins and configure restricted access roles.</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Manage admin access.</p>
           </div>
         </div>
         {!showAddForm && (
@@ -215,7 +215,7 @@ export default function SaaSStaffManager() {
                 </div>
                 <div className="text-xs">
                   <p className="font-bold text-slate-300">Staff Profile Image</p>
-                  <p className="text-[10px] text-slate-500 max-w-[150px]">Click avatar to upload photo. Used across the super-admin interface.</p>
+                  <p className="text-[10px] text-slate-500 max-w-[150px]">Click to upload.</p>
                 </div>
               </div>
 
@@ -268,7 +268,7 @@ export default function SaaSStaffManager() {
                   <Shield className="w-3 h-3 mr-1.5" />
                   Grant Role Access Segments
                 </p>
-                <p className="text-[9.5px] text-slate-400 mt-1 leading-tight">Restrict this staff to specific tabs. The user interface will dynamically eliminate restricted screens.</p>
+                <p className="text-[9.5px] text-slate-400 mt-1 leading-tight">Limit visible tabs.</p>
               </div>
               <div className="p-2 overflow-y-auto max-h-[220px] space-y-1 nice-scrollbar flex-grow">
                 {allPermissionsList.map((perm) => (

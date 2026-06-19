@@ -414,7 +414,7 @@ export default function DashboardSuppliers({
                   <div className="space-y-1">
                     <span className="text-[9.5px] font-black font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded uppercase">B2B INVOICE ACCOUNT AUDIT</span>
                     <h4 className="text-base font-black text-slate-800">{matchedSup.name}</h4>
-                    <p className="text-xs text-slate-400">Detailed historical list of stock orders, clearances, delivery locations, and balance payments.</p>
+                    <p className="text-xs text-slate-400">Purchase history.</p>
                   </div>
 
                   {/* Financial stats */}
@@ -439,7 +439,7 @@ export default function DashboardSuppliers({
                   <div className="text-center p-12 text-slate-400 space-y-1">
                     <ClipboardList className="w-8 h-8 text-slate-300 mx-auto" />
                     <p className="font-bold text-xs">No Purchases Registered From This Supplier Yet</p>
-                    <p className="text-[10px] text-slate-400">Launch the Purchases List tab to record procurement restocks.</p>
+                    <p className="text-[10px] text-slate-400">Go to Purchases to restock.</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -633,7 +633,7 @@ export default function DashboardSuppliers({
             <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div>
                 <span className="font-bold text-slate-800 text-[13px] block">B2B Vendor Performance Index</span>
-                <span className="text-[10px] text-slate-400 block font-normal mt-0.5">Statistical metrics derived dynamically from restock records, fulfillment statuses, and return counts.</span>
+                <span className="text-[10px] text-slate-400 block font-normal mt-0.5">Supplier metrics.</span>
               </div>
               
               <button

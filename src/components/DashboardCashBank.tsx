@@ -723,7 +723,7 @@ export default function DashboardCashBank({
               <div>
                 <span className="text-[10px] font-bold text-emerald-400 font-mono uppercase tracking-widest block">Combined System Dashboard</span>
                 <h2 className="text-sm font-extrabold text-white tracking-tight mt-1">Liquidity & Consolidated Cash Flow</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Aggregate values across all physical, mobile money, and bank accounts.</p>
+                <p className="text-xs text-slate-400 mt-0.5">All account balances.</p>
               </div>
             </div>
 
@@ -1033,7 +1033,7 @@ export default function DashboardCashBank({
                 <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                   <div>
                     <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">Accounts Transfer Guidelines</h2>
-                    <p className="text-xs text-slate-500 font-sans">Strict security audit rules for manual transfers &amp; bank runs.</p>
+                    <p className="text-xs text-slate-500 font-sans">Transfer rules.</p>
                   </div>
                   <span className="text-[9px] font-mono font-bold bg-slate-100 border border-slate-200 text-slate-500 px-2 py-0.5 rounded-full uppercase">
                     Secured
@@ -1047,7 +1047,7 @@ export default function DashboardCashBank({
                     </div>
                     <div className="space-y-0.5 text-xs">
                       <strong className="text-slate-800 font-bold block">Select Core Source Account</strong>
-                      <p className="leading-relaxed text-slate-500">Choose which register cash box or bank vault you are drawing the funds from.</p>
+                      <p className="leading-relaxed text-slate-500">Select source account.</p>
                     </div>
                   </div>
 
@@ -1057,7 +1057,7 @@ export default function DashboardCashBank({
                     </div>
                     <div className="space-y-0.5 text-xs">
                       <strong className="text-slate-800 font-bold block">Select Target Wallet or Bank</strong>
-                      <p className="leading-relaxed text-slate-500">Pick the destination mobile wallet or central bank account for the deposit.</p>
+                      <p className="leading-relaxed text-slate-500">Select destination.</p>
                     </div>
                   </div>
 
@@ -1068,7 +1068,7 @@ export default function DashboardCashBank({
                     <div className="space-y-0.5 text-xs text-slate-600">
                       <strong className="text-rose-750 font-bold block">Provide Audited Verification Slip</strong>
                       <p className="leading-relaxed text-rose-800 bg-rose-50/50 p-2.5 rounded-xl border border-rose-100">
-                        Our internal ledger is strict. You MUST attach either a paper bank slip image/PDF (Rule #4) or a mobile screenshot screenshot code (Rule #5) before performing the transaction!
+                        Attach bank slip or mobile screenshot before transfer.
                       </p>
                     </div>
                   </div>
@@ -1076,7 +1076,7 @@ export default function DashboardCashBank({
               </div>
 
               <div className="text-[10px] text-slate-400 font-sans mt-5 text-left border-t border-slate-100 pt-3">
-                * All manual adjustments write directly to the local secure ledger and are timestamped and synchronized on the Central Bank network.
+                * Manual adjustments are timestamped.
               </div>
             </div>
 
@@ -1197,7 +1197,7 @@ export default function DashboardCashBank({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                   <div>
                     <p className="text-xs text-slate-500 leading-relaxed font-sans">
-                      Need to move money out of <strong>{chan.name}</strong> into another operational register or bank account? Click the button to automatically configure the Transfer Panel with this account prefilled as the funds source.
+                      Move money from <strong>{chan.name}</strong>.
                     </p>
                   </div>
                   <div className="flex justify-start md:justify-end">
@@ -1229,7 +1229,7 @@ export default function DashboardCashBank({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div>
             <h3 className="text-sm font-extrabold text-slate-900">Account History & Transactions</h3>
-            <p className="text-xs text-slate-400 select-none">A simple log of money coming in and out of your business accounts.</p>
+            <p className="text-xs text-slate-400 select-none">Money in and out.</p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
@@ -1366,7 +1366,7 @@ export default function DashboardCashBank({
                     <div className="flex flex-col items-center space-y-2">
                       <AlertCircle className="w-8 h-8 text-slate-300" />
                       <p className="font-bold text-slate-500">No Transactions Found</p>
-                      <p className="text-[11px] text-slate-400 max-w-xs">There are no transactions matching your search terms or chosen dates. Try changing the dates above.</p>
+                      <p className="text-[11px] text-slate-400 max-w-xs">No matching transactions.</p>
                     </div>
                   </td>
                 </tr>

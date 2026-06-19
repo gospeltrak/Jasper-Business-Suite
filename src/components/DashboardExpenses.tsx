@@ -765,7 +765,7 @@ export default function DashboardExpenses({
                       <div className="flex flex-col items-center justify-center space-y-2">
                         <Receipt className="w-10 h-10 text-slate-300 dark:text-slate-700" />
                         <p className="font-extrabold text-sm text-slate-700 dark:text-slate-400">No Operational Expense Records Located</p>
-                        <p className="text-xs text-slate-400 max-w-sm">No recorded debits match your selected date context filters. Click "Add New Expense" to record a cash-out event.</p>
+                        <p className="text-xs text-slate-400 max-w-sm">No expenses found.</p>
                       </div>
                     </td>
                   </tr>
@@ -844,7 +844,7 @@ export default function DashboardExpenses({
                 <label className="block text-slate-600 dark:text-slate-400 font-extrabold">Classification Name</label>
                 <input
                   type="text"
-                  placeholder="e.g. Office Supplies, Staff Meal, Machinery Maintenance"
+                  placeholder="Expense category..."
                   value={newCategoryName}
                   onChange={(e) => {
                     setNewCategoryName(e.target.value);
@@ -894,7 +894,7 @@ export default function DashboardExpenses({
             </div>
             <div className="text-left">
               <h3 className="font-extrabold text-sm text-slate-950 dark:text-white">Add Expense</h3>
-              <p className="text-[10.5px] text-slate-400">Fill out outgoing expenditures values to maintain proper commercial balance tracking.</p>
+              <p className="text-[10.5px] text-slate-400">Add expense details.</p>
             </div>
           </div>
 
@@ -940,7 +940,7 @@ export default function DashboardExpenses({
                 <label className="block text-slate-600 dark:text-slate-400 font-extrabold">Name of Expense</label>
                 <input
                   type="text"
-                  placeholder="e.g. Fuel for branches generator, Generator power outage support"
+                  placeholder="Expense description..."
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                   className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 dark:text-white font-semibold"
@@ -994,7 +994,7 @@ export default function DashboardExpenses({
                 <div className="flex flex-col items-center justify-center space-y-1.5">
                   <Upload className="w-8 h-8 text-slate-400 animate-pulse" />
                   <p className="font-extrabold text-xs text-slate-700 dark:text-slate-300">Drag & Drop PDF / Image receipts, or Click to Browse</p>
-                  <p className="text-[10px] text-slate-400">Accepts commercial invoices, scanner PNGs, scanner JPEGs or A4 PDF invoices</p>
+                  <p className="text-[10px] text-slate-400">PNG, JPG, or PDF.</p>
                 </div>
 
                 {uploadedFileName && (
@@ -1031,7 +1031,7 @@ export default function DashboardExpenses({
               <label className="block text-slate-600 dark:text-slate-400 font-extrabold">Transaction Message / Reference Code</label>
               <input
                 type="text"
-                placeholder="e.g. M-Pesa Code: SH72D8FSN, Bank Transfer ref info, Card terminal trace receipt 5323"
+                placeholder="Payment reference..."
                 value={formTransactionMessage}
                 onChange={(e) => setFormTransactionMessage(e.target.value)}
                 className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 dark:text-white font-medium"
@@ -1042,7 +1042,7 @@ export default function DashboardExpenses({
             <div className="space-y-1">
               <label className="block text-slate-600 dark:text-slate-400 font-extrabold">Note about the Expense</label>
               <textarea
-                placeholder="Write specific notes detailing the purpose of this cash-out event, manager approvals, audit justification or description about the expense..."
+                placeholder="Expense notes..."
                 value={formNote}
                 onChange={(e) => setFormNote(e.target.value)}
                 rows={3}

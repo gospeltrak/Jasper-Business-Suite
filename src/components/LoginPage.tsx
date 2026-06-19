@@ -1777,7 +1777,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
                 <div className="pt-2 border-t border-slate-100 flex items-center space-x-2 text-[10px] text-slate-400 font-sans leading-relaxed">
                   <span>🔒</span>
-                  <span>Google sharing rules: Shares name, email address, and general consent keys. Google Single Sign-on integration is verified and secure.</span>
+                  <span>Google shares name and email.</span>
                 </div>
               </div>
             ) : (

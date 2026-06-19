@@ -360,7 +360,7 @@ export default function SuperSaaSAdminView({
       conversionsLink: 0,
       conversionsPromo: 0,
       totalEarnings: 0,
-      revenueGenerated: 0,
+      revenueDate: 0,
       monthlyEarnings: [{ month: '2026-05', amount: 0 }],
       sessions: [],
       recentPayouts: []
@@ -474,7 +474,7 @@ export default function SuperSaaSAdminView({
             <span>Operational Admin Core Panel</span>
           </div>
           <h2 className="text-xl font-extrabold text-white">Central SaaS Control Portal</h2>
-          <p className="text-xs text-slate-400 mt-1">Manage global subscriptions, dynamic flyers distribution models, direct/affiliate income paths, and secure mobile terminals.</p>
+          <p className="text-xs text-slate-400 mt-1">Manage subscriptions, partners, and devices.</p>
         </div>
 
         {/* Live Admin Authorization lock state widget */}
@@ -612,20 +612,20 @@ export default function SuperSaaSAdminView({
                 <Sparkles className="w-5 h-5 text-emerald-400" />
                 <div>
                   <h3 className="text-base font-extrabold text-white">Roadmap Release & Niche Launch Manager</h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Control which of the 2 business verticals are commercially launched or run securely in backend development.</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Control active verticals.</p>
                 </div>
               </div>
 
               <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
                 <p className="text-xs text-slate-350 leading-relaxed">
-                  <strong>💡 Active SaaS Phased Rollout strategy:</strong> To maximize product craft and maintain focused resource allocation, you can restrict new client registrations only to your most stable, polished niches (e.g., <strong className="text-emerald-400">Retail/Wholesale</strong> &amp; <strong className="text-emerald-400">Pharmacy</strong>) while leaving the other sectors in <strong className="text-amber-400">Background Sandbox Dev</strong>. standard public users registering on your home gateway won&apos;t be able to select background lines, while your internal dev team can continue testing their modules safely!
+                  <strong>💡 Rollout:</strong> Limit signups to active niches (<strong className="text-emerald-400">Retail/Wholesale</strong> &amp; <strong className="text-emerald-400">Pharmacy</strong>). Sandbox lines stay internal.
                 </p>
               </div>
 
               {/* Dynamic Niches Status Matrix */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 {[
-                  { id: 'retail', name: 'Retail & Wholesale', slug: 'retail', icon: Store, desc: 'Offline-First POS Register, multi-tax ledgers, digital bills printout.', color: 'text-emerald-400', bg: 'bg-emerald-500/5' },
+                  { id: 'retail', name: 'Retail & Wholesale', slug: 'retail', icon: Store, desc: 'POS, tax, receipts.', color: 'text-emerald-400', bg: 'bg-emerald-500/5' },
                   { id: 'pharmacy', name: 'Pharmacies & Clinical POS', slug: 'pharmacy', icon: Pill, desc: 'E-prescription index checks, chemical generic class lists, drug expiry tracker.', color: 'text-indigo-400', bg: 'bg-indigo-500/5' }
                 ].map((item) => {
                   const isLive = launchedNiches.includes(item.id);
@@ -701,7 +701,7 @@ export default function SuperSaaSAdminView({
                     <Volume2 className="w-4 h-4 text-rose-400" />
                     <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider">Deploy System-Wide Broadcasts</h3>
                   </div>
-                  <p className="text-[10.5px] text-slate-400 leading-normal">Transmit alert banners or emergency maintenance reports immediately to all active cashier dashboards.</p>
+                  <p className="text-[10.5px] text-slate-400 leading-normal">Send alerts to cashiers.</p>
                   
                   <form onSubmit={handleSendBroadcast} className="space-y-3">
                     <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
@@ -723,7 +723,7 @@ export default function SuperSaaSAdminView({
 
                     <textarea
                       rows={3}
-                      placeholder="Enter unified announcement text to transmit... (e.g. Server updates live on Mombasa nodes)"
+                      placeholder="Announcement text..."
                       value={broadcastMessage}
                       onChange={(e) => setBroadcastMessage(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-rose-500"
@@ -745,7 +745,7 @@ export default function SuperSaaSAdminView({
                   <Volume2 className="w-4 h-4 text-cyan-400" />
                   <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider">Targeted Direct Support gateway</h3>
                 </div>
-                <p className="text-[10.5px] text-slate-400 leading-normal">Route discrete private messages or API sync overrides directly into any subscriber chat widget.</p>
+                <p className="text-[10.5px] text-slate-400 leading-normal">Send subscriber message.</p>
 
                 <form onSubmit={handleSendDM} className="space-y-3">
                   <div className="grid grid-cols-2 gap-2">
@@ -834,7 +834,7 @@ export default function SuperSaaSAdminView({
                   <ImageIcon className="w-4 h-4 text-emerald-400" />
                   <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider">Ad Exchange (SSP) Manager</h3>
                 </div>
-                <p className="text-[10.5px] text-slate-400 leading-normal">Configure AdSense-compatible Ad Units. These creatives acts as an SSP platform available to affiliates in their embedded dashboards.</p>
+                <p className="text-[10.5px] text-slate-400 leading-normal">Manage ad units.</p>
 
                 <form onSubmit={handleCreateBanner} className="space-y-3">
                   <div className="space-y-1">

@@ -1133,7 +1133,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Dynamic Layout Grid</h3>
-                <p className="text-[11px] text-slate-450 leading-tight">Pick a table to take order or click the digital QR scan button next to any table to try Scan-To-Order.</p>
+                <p className="text-[11px] text-slate-450 leading-tight">Pick a table or scan QR.</p>
               </div>
               <div className="bg-slate-50 border border-slate-200 p-1 px-3 rounded-xl text-[10px] font-mono text-slate-500">
                 Active Tables: <strong>{tables.length}</strong>
@@ -1280,7 +1280,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
                     {!phoneActiveCustomer ? (
                       <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl space-y-2">
                         <p className="text-[10px] text-amber-400 font-bold uppercase tracking-wider font-mono">🎁 Member Loyalty Club ?</p>
-                        <p className="text-[10px] text-slate-400 leading-tight">Gain visit points & automatically qualify for 15% VIP discount on meals!</p>
+                        <p className="text-[10px] text-slate-400 leading-tight">Earn points and discount.</p>
                         
                         {phoneRegistering ? (
                           <div className="space-y-2 pt-1.5">
@@ -1750,7 +1750,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
               <div className="py-16 text-center space-y-2">
                 <CheckCircle className="w-10 h-10 text-emerald-450 mx-auto" />
                 <p className="text-xs font-mono font-bold text-slate-400 uppercase tracking-widest">Pass Counter Fully Clear</p>
-                <p className="text-[10px] text-slate-500 max-w-xs mx-auto">All customer orders have been fully prepped, cooked, and run to the dining floor.</p>
+                <p className="text-[10px] text-slate-500 max-w-xs mx-auto">All orders served.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2218,7 +2218,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Loyalty directory (Tanzania Subledger)</h3>
-                <p className="text-[11px] text-slate-450 mt-0.5">Enrolled guests enjoy 15% automatic discount on tables and self QR sales.</p>
+                <p className="text-[11px] text-slate-450 mt-0.5">Members get 15% discount.</p>
               </div>
               <span className="text-[10px] bg-slate-100 text-slate-605 px-2.5 py-1 rounded-full font-mono border border-slate-200">
                 Registered: <strong>{loyaltyDb.length} accounts</strong>
@@ -2260,7 +2260,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
             <div className="bg-white border border-slate-205 rounded-3xl p-6 space-y-4 shadow-sm">
               <div className="border-b border-slate-100 pb-2">
                 <h4 className="text-xs font-mono font-black text-slate-800 uppercase tracking-widest text-orange-500">Add New Guest Account</h4>
-                <p className="text-[10px] text-slate-450">Instantly grant points for guest visits on the billing loop.</p>
+                <p className="text-[10px] text-slate-450">Add visit points.</p>
               </div>
 
               <form onSubmit={handleEnrollCustomer} className="space-y-3.5 text-xs text-slate-700">
@@ -2387,7 +2387,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
               <span className="p-1 px-2.2 bg-emerald-500/10 text-emerald-400 rounded-lg text-xs font-mono font-bold">Postgres SQL</span>
               <div>
                 <h3 className="text-sm font-black text-slate-100 uppercase tracking-widest">Supabase Database Schema Code</h3>
-                <p className="text-[10.5px] text-slate-500">Copy-pasteable model definition scripts containing recipe stock update trigger mechanisms.</p>
+                <p className="text-[10.5px] text-slate-500">Recipe stock SQL.</p>
               </div>
             </div>
 
@@ -2430,7 +2430,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
             <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4 font-sans">
               <div>
                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Book Table Reservation</h3>
-                <p className="text-[11px] text-slate-400 leading-relaxed">Instantly assign tables and reserve seats for incoming guests.</p>
+                <p className="text-[11px] text-slate-400 leading-relaxed">Reserve tables.</p>
               </div>
 
               <form onSubmit={(e) => {
@@ -2715,14 +2715,14 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
             <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">
               <div>
                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Create Delivery Dispatch</h3>
-                <p className="text-[11px] text-slate-400">Instantly register food delivery to addresses across Dar es Salaam.</p>
+                <p className="text-[11px] text-slate-400">Add delivery order.</p>
               </div>
 
               {activeOrderItems.length === 0 ? (
                 <div className="p-6 bg-slate-50 border border-slate-200 text-center rounded-2xl space-y-2">
                   <ShoppingBag className="w-8 h-8 text-slate-400 mx-auto" />
                   <p className="text-[11px] text-slate-700 font-bold">Basket Till is Empty</p>
-                  <p className="text-[9.5px] text-slate-450 leading-relaxed">Go to the "Table Map & QR Ordering" tab and click dishes on the menu list to build a delivery basket.</p>
+                  <p className="text-[9.5px] text-slate-450 leading-relaxed">Pick dishes from menu.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -3104,7 +3104,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
                         <div className="flex gap-2">
                           <input
                             type="text"
-                            placeholder="e.g., No chili, extra lemon slice, urgent table"
+                            placeholder="Order notes..."
                             value={mgmtCommentInput}
                             onChange={(e) => setMgmtCommentInput(e.target.value)}
                             className="bg-slate-50 border border-slate-200 outline-none p-2 rounded-xl text-xs w-full focus:bg-white focus:border-orange-500"
@@ -3189,7 +3189,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
                         <div>
                           <strong className="text-xs font-mono font-black uppercase text-slate-400 tracking-wider">No Outstanding Dine-In Bill</strong>
                           <h6 className="text-sm font-bold text-slate-800 mt-1">Ready for Incoming Customers</h6>
-                          <p className="text-[10.5px] text-slate-500 max-w-xs mx-auto leading-relaxed mt-1">This table is currently ready to host customers. You can adjust its live housekeeping status state below.</p>
+                          <p className="text-[10.5px] text-slate-500 max-w-xs mx-auto leading-relaxed mt-1">Table is ready.</p>
                         </div>
                         
                         {/* Status switching buttons */}

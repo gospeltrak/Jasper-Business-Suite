@@ -219,7 +219,7 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
             <ShoppingCart className="w-5 h-5 text-indigo-400" />
             <h3 className="text-sm font-extrabold text-white uppercase tracking-wider font-mono">Hardware POS System {affiliateId && '(Partner Location)'}</h3>
           </div>
-          <p className="text-[11px] text-slate-400">Sell devices to active subscribers, walk-in customers or partners.</p>
+          <p className="text-[11px] text-slate-400">Sell devices.</p>
           
           {inventory.length === 0 ? (
             <div className="p-8 text-center text-slate-500 border border-slate-800 rounded-xl bg-slate-950/50">

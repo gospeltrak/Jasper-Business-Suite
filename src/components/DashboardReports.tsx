@@ -1143,7 +1143,7 @@ export default function DashboardReports({
             <h2 className="text-xl font-bold tracking-tight text-slate-800">Unified Branch Accounts & Reports</h2>
           </div>
           <p className="text-xs text-slate-450 leading-relaxed font-sans">
-            Comprehensive ledger, valuations, staff audit journals and central P&L statement files.
+            Reports, stock value, staff, and P&L.
           </p>
         </div>
 
@@ -1176,7 +1176,7 @@ export default function DashboardReports({
               onClick={handleDownloadActiveTabCSV}
               type="button"
               className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs uppercase font-mono transition-all flex items-center space-x-1.5 shadow-sm shadow-emerald-700/10 cursor-pointer"
-              title="Download spreadsheet CSV of the currently active report tab"
+              title="Download CSV"
             >
               <Download className="w-4 h-4" />
               <span>Export CSV</span>
@@ -1186,7 +1186,7 @@ export default function DashboardReports({
               onClick={() => window.print()}
               type="button"
               className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-bold rounded-xl text-xs uppercase font-mono transition-all flex items-center space-x-1.5 shadow-sm shadow-slate-950/10 cursor-pointer"
-              title="Export/Print currently active report tab to professional PDF (A4)"
+              title="Export PDF"
             >
               <Printer className="w-4 h-4" />
               <span>Export PDF</span>
@@ -1619,7 +1619,7 @@ export default function DashboardReports({
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-6">
             <div className="border-b border-slate-100 pb-4">
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Commercial Profit & Loss Account</h3>
-              <p className="text-xs text-slate-450 mt-1">Simulated full accrual P&L statement ledger for the chosen range cycle.</p>
+              <p className="text-xs text-slate-450 mt-1">P&L for selected range.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -2065,7 +2065,7 @@ export default function DashboardReports({
                         <td colSpan={9} className="p-16 text-center text-sm text-slate-400 font-medium font-sans bg-slate-50/50">
                           <ShoppingBag className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                           <p className="font-bold text-slate-600 uppercase tracking-wide">No transactions matched research parameters</p>
-                          <p className="text-[11px] text-slate-400 mt-1 max-w-xs mx-auto font-light">Adjust the date ranges from the top header or select a different payment filter mode above.</p>
+                          <p className="text-[11px] text-slate-400 mt-1 max-w-xs mx-auto font-light">Change date or filter.</p>
                         </td>
                       </tr>
                     )}
@@ -2083,7 +2083,7 @@ export default function DashboardReports({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-4">
               <div>
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Received Payments & Channel Ledger</h3>
-                <p className="text-xs text-slate-450 mt-1">Audit tracking logs and volume summaries across local payment networks.</p>
+                <p className="text-xs text-slate-450 mt-1">Payment summary.</p>
               </div>
 
               {/* Tab payment filter rails */}
@@ -2171,7 +2171,7 @@ export default function DashboardReports({
               <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-4 gap-4">
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Stock Valuations & Warehouse Split</h3>
-                  <p className="text-xs text-slate-455 mt-1">Exact counting check of items on shelf/store splitting, cogs pricing and unrealized profit values.</p>
+                  <p className="text-xs text-slate-455 mt-1">Stock, cost, and profit.</p>
                 </div>
 
                 {/* Categorization controls and query key */}
@@ -2304,7 +2304,7 @@ export default function DashboardReports({
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
               <div>
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Client Profiles & Spend Analysis</h3>
-                <p className="text-xs text-slate-450 mt-1">Tracks customer spend totals, credit lines, margins, and most-recurrent items bought.</p>
+                <p className="text-xs text-slate-450 mt-1">Customer totals and credit.</p>
               </div>
 
               <div className="overflow-x-auto rounded-2xl border border-slate-200">
@@ -2346,7 +2346,7 @@ export default function DashboardReports({
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
               <div>
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Wholesale Suppliers & Procurements Trade Log</h3>
-                <p className="text-xs text-slate-450 mt-1">Tracks registered wholesale suppliers, contact info, total items procured, and value transaction volume.</p>
+                <p className="text-xs text-slate-450 mt-1">Supplier totals.</p>
               </div>
 
               <div className="overflow-x-auto rounded-2xl border border-slate-200">
@@ -2389,7 +2389,7 @@ export default function DashboardReports({
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
               <div>
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Staff Sales & Cost Accountability</h3>
-                <p className="text-xs text-slate-450 mt-1">Audit process metrics detailing cashier volumes and net earnings adjustments per team member.</p>
+                <p className="text-xs text-slate-450 mt-1">Cashier totals.</p>
               </div>
 
               <div className="overflow-x-auto rounded-2xl border border-slate-200">
@@ -2438,7 +2438,7 @@ export default function DashboardReports({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-4">
               <div>
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Operating Expenses Logs Receipt</h3>
-                <p className="text-xs text-slate-450 mt-1">Audit tracking of all business expenditure categories and receipt files.</p>
+                <p className="text-xs text-slate-450 mt-1">Expense totals.</p>
               </div>
 
               {/* Action triggers */}
@@ -2763,7 +2763,7 @@ export default function DashboardReports({
                   <div className="space-y-1">
                     <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Product Performance & Margin Tracker</h3>
                     <p className="text-xs text-slate-450 leading-relaxed font-sans">
-                      Lookup any stock item, trace its exact sales quantity, custom timelines, profit generation, cost profile, and shop vs. store balances. Choose 'View All' to check the entire inventory list side-by-side.
+                      Select a product or view all stock.
                     </p>
                   </div>
 
@@ -2909,11 +2909,11 @@ export default function DashboardReports({
                       {!isAll && monitoredProduct && (
                         ((monitoredProduct.shopStockQty ?? 0) + (monitoredProduct.storeStockQty ?? 0)) <= (monitoredProduct.alertQty ?? 5) ? (
                           <div className="p-3 bg-amber-50 rounded-xl border border-amber-200/60 flex items-center space-x-2 text-[10.5px] font-bold text-amber-800 leading-normal font-sans animate-pulse">
-                            <span>⚠️ Low Stock Warning! On-hand stock is below alert threshold ({formatProductQuantity(monitoredProduct.alertQty ?? 5, monitoredProduct)}). Consider purchasing replenishment batch.</span>
+                            <span>Low stock: below alert ({formatProductQuantity(monitoredProduct.alertQty ?? 5, monitoredProduct)}). Consider purchasing replenishment batch.</span>
                           </div>
                         ) : (
                           <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center space-x-2 text-[10.5px] font-bold text-emerald-800 leading-normal font-sans">
-                            <span>✅ Stock balance is healthy. Well-stocked above trigger alert ({formatProductQuantity(monitoredProduct.alertQty ?? 5, monitoredProduct)}).</span>
+                            <span>Stock OK: above alert ({formatProductQuantity(monitoredProduct.alertQty ?? 5, monitoredProduct)}).</span>
                           </div>
                         )
                       )}
@@ -3424,7 +3424,7 @@ export default function DashboardReports({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 border border-slate-205 p-5 rounded-3xl">
                 <div className="text-left">
                   <h4 className="font-extrabold text-slate-800 text-sm tracking-tight uppercase">📦 Double Channel Retail-Wholesale Reconciliation</h4>
-                  <p className="text-xs text-slate-500 font-medium leading-relaxed mt-0.5">Reconciling single-inventory profits, channel structures, sales velocity, and bypass audit lines.</p>
+                  <p className="text-xs text-slate-500 font-medium leading-relaxed mt-0.5">Inventory profit summary.</p>
                 </div>
                 <button
                   type="button"
@@ -3502,7 +3502,7 @@ export default function DashboardReports({
                     <span className="text-slate-400 font-medium text-[10.5px]">RECONCILED PROFIT POOL</span>
                     <h2 className="text-2xl font-black text-emerald-400 font-mono tracking-tight">{currency}{Math.round(grandChannelProfit).toLocaleString()}</h2>
                     <p className="text-[9.5px] text-slate-450 leading-relaxed pt-1 font-sans">
-                      All calculations are generated in real-time by multiplying product checkout channels against historical purchase costs.
+                      Based on sales and purchase costs.
                     </p>
                   </div>
                 </div>
@@ -3573,7 +3573,7 @@ export default function DashboardReports({
                       {productListStats.length === 0 && (
                         <tr>
                           <td colSpan={7} className="py-12 text-center text-slate-400 text-xs font-bold leading-relaxed">
-                            No active retail or wholesale channel ledger transactions found for selected date range.
+                            No sales in this range.
                           </td>
                         </tr>
                       )}
@@ -5081,7 +5081,7 @@ export default function DashboardReports({
           </div>
           <div className="text-right">
             <span className="text-xs font-mono font-bold block text-slate-805">A4 AUDIT STATEMENT</span>
-            <span className="text-[9px] text-slate-505 font-mono block mt-1">Generated: {new Date().toLocaleString()}</span>
+            <span className="text-[9px] text-slate-505 font-mono block mt-1">Date: {new Date().toLocaleString()}</span>
             <span className="text-[9px] text-slate-505 font-mono block mt-0.5">Author ID: {userName}</span>
             <span className="text-[9px] text-slate-505 font-mono block mt-0.5">Scope Period: {startDateStr} — {endDateStr}</span>
           </div>
@@ -5362,7 +5362,7 @@ export default function DashboardReports({
                   ))}
                   {filteredExpenses.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="p-4 text-center text-slate-400 italic">No operational expense ledger records found for this period.</td>
+                      <td colSpan={6} className="p-4 text-center text-slate-400 italic">No expenses found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -5472,7 +5472,7 @@ export default function DashboardReports({
                   Fleet & Logistics Delivery Analytics
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  Analysis of delivery operations, revenue generated from delivery fees, routing destinations, and associated fleet operating capability. 
+                  Delivery revenue and routes.
                 </p>
               </div>
 
@@ -5544,7 +5544,7 @@ export default function DashboardReports({
                               .sort(([_, a], [__, b]) => b - a);
                               
                             if (sortedMethods.length === 0) {
-                              return <p className="text-center text-slate-400 italic text-xs py-4 w-full">No delivery revenue data available yet.</p>;
+                              return <p className="text-center text-slate-400 italic text-xs py-4 w-full">No delivery revenue.</p>;
                             }
 
                             return sortedMethods.map(([method, amount], idx) => (
@@ -5564,7 +5564,7 @@ export default function DashboardReports({
                         </div>
                         <div className="p-4 flex flex-col">
                           {topLocations.length === 0 ? (
-                            <p className="text-center text-slate-400 italic text-xs py-10">No delivery location data available.</p>
+                            <p className="text-center text-slate-400 italic text-xs py-10">No delivery locations.</p>
                           ) : (
                             <>
                               <div className="h-48 w-full mb-4">
@@ -5674,7 +5674,7 @@ export default function DashboardReports({
                           <tbody className="divide-y divide-slate-100">
                             {validDeliveries.length === 0 ? (
                               <tr>
-                                <td colSpan={6} className="text-center p-6 text-slate-500 italic">No delivery data available on record.</td>
+                                <td colSpan={6} className="text-center p-6 text-slate-500 italic">No delivery data.</td>
                               </tr>
                             ) : (
                               validDeliveries.slice(0, 15).map(del => (

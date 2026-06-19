@@ -676,7 +676,7 @@ export default function DashboardForecasting({
                     </div>
                     <div>
                       <h3 className="text-sm font-bold text-slate-800 uppercase tracking-tight">Timeline Cashflow Forecasts</h3>
-                      <p className="text-[11px] text-slate-450">Multi-period evaluation of sales, recurring expenses, and net profit margins</p>
+                      <p className="text-[11px] text-slate-450">Sales, expenses, profit</p>
                     </div>
                   </div>
 
@@ -773,7 +773,7 @@ export default function DashboardForecasting({
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-4 text-left">
                             <div>
                               <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Interactive Forecast Trajectory</h4>
-                              <p className="text-[10.5px] text-slate-500 font-sans leading-relaxed">Dynamic multi-period compound trajectory charting of active shop metrics</p>
+                              <p className="text-[10.5px] text-slate-500 font-sans leading-relaxed">Forecast chart</p>
                             </div>
                             <div className="flex items-center space-x-1.5 self-start sm:self-auto mt-1 sm:mt-0">
                               <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
@@ -1003,7 +1003,7 @@ export default function DashboardForecasting({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 uppercase tracking-tight">Auto-Drafted Inventory Replenishment</h3>
-                  <p className="text-[11px] text-slate-450">Specific stock modifications drafted based on historical product runs</p>
+                  <p className="text-[11px] text-slate-450">Suggested stock changes</p>
                 </div>
                 
                 {/* Search Term */}

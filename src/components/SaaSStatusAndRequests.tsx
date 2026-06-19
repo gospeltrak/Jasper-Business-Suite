@@ -100,7 +100,7 @@ export default function SaaSStatusAndRequests() {
               <h3 className="text-sm font-extrabold text-white uppercase tracking-wider font-mono">Emergency Operations Override</h3>
             </div>
             <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
-              Activation and deactivation is handled automatically by the system. Use this panel to manually override an account's status.
+              Override account status.
             </p>
             
             <div className="space-y-3">
@@ -284,7 +284,7 @@ export default function SaaSStatusAndRequests() {
               <span>Popup Banner Text (Optional)</span>
             </label>
             <textarea 
-              placeholder="e.g. You have received 7 free diagnostic days. Enjoy!" 
+              placeholder="Message..." 
               className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-indigo-500 focus:outline-none min-h-[80px]"
               value={offerBannerText}
               onChange={(e) => setOfferBannerText(e.target.value)}
