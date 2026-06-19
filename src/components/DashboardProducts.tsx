@@ -37,7 +37,6 @@ import {
   detectPriceChange,
   getDefaultFractionOptions,
   mapCostingMethodToLegacy,
-  suggestSellingPriceFromPreviousMargin,
 } from '../utils/inventoryCosting';
 import { formatProductQuantity } from '../utils/unitFormatter';
 
@@ -216,24 +215,63 @@ export default function DashboardProducts({
     setEditForm({});
   };
 
+  const getReplenishPricingPreview = (
+    product: Product,
+    qtyReceived: number,
+    newBuyingCost: number,
+    method: 'fifo' | 'average_price' | 'batch_price'
+  ) => {
+    const latestCost = product.latestBuyingPrice ?? product.costPrice ?? 0;
+    const activeBatches = (product.batches || []).filter(batch => batch.status === 'active' && batch.quantityRemaining > 0);
+    const batchQuantity = activeBatches.reduce((sum, batch) => sum + batch.quantityRemaining, 0);
+    const batchValue = activeBatches.reduce((sum, batch) => sum + (batch.quantityRemaining * batch.buyingPrice), 0);
+    const fallbackQuantity = batchQuantity > 0 ? batchQuantity : Number(product.stockQty || product.shopStockQty || 0) + Number(product.storeStockQty || 0);
+    const fallbackValue = fallbackQuantity * (product.averageBuyingCost || latestCost);
+    const currentQuantity = batchQuantity > 0 ? batchQuantity : fallbackQuantity;
+    const currentValue = batchQuantity > 0 ? batchValue : fallbackValue;
+    const currentAverageCost = currentQuantity > 0 ? currentValue / currentQuantity : (product.averageBuyingCost || latestCost);
+    const nextAverageCost = (currentQuantity + qtyReceived) > 0
+      ? (currentValue + (qtyReceived * newBuyingCost)) / (currentQuantity + qtyReceived)
+      : newBuyingCost;
+
+    const previousBasis = method === 'average_price' ? currentAverageCost : latestCost;
+    const nextBasis = method === 'average_price' ? nextAverageCost : newBuyingCost;
+    const marginRatio = previousBasis > 0 ? product.sellingPrice / previousBasis : 1.5;
+    const suggestedPrice = Math.round(nextBasis * marginRatio);
+
+    return {
+      previousBasis,
+      nextBasis,
+      suggestedPrice,
+      priceChange: detectPriceChange(previousBasis, nextBasis),
+      currentQuantity,
+      methodName: method === 'average_price' ? 'Average' : method === 'batch_price' ? 'Batch Price' : 'FIFO',
+      previousLabel: method === 'average_price' ? 'Current Avg Cost:' : 'Previous Buying Price:',
+      nextLabel: method === 'average_price' ? 'New Avg Cost:' : 'New Buying Price:',
+      note: method === 'average_price'
+        ? 'Uses blended cost from old stock and this batch.'
+        : method === 'batch_price'
+          ? 'Uses this batch price in POS.'
+          : 'Uses oldest available batch first in POS.',
+    };
+  };
+
   const handleReplenishSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!replenishProduct || !replenishQty || Number(replenishQty) <= 0 || !replenishCost) return;
     
     const qty = Number(replenishQty);
     const newCost = Number(replenishCost);
-    const prevCost = replenishProduct.latestBuyingPrice ?? replenishProduct.costPrice;
-    const priceChange = detectPriceChange(prevCost, newCost);
-    const suggestedPrice = suggestSellingPriceFromPreviousMargin(prevCost, replenishProduct.sellingPrice, newCost);
+    const method = replenishCostingMethod;
+    const pricingPreview = getReplenishPricingPreview(replenishProduct, qty, newCost, method);
     
     let finalSellingPrice = replenishProduct.sellingPrice;
     if (replenishPriceAction === 'suggested') {
-        finalSellingPrice = suggestedPrice;
+        finalSellingPrice = pricingPreview.suggestedPrice;
     } else if (replenishPriceAction === 'custom' && replenishCustomPrice) {
         finalSellingPrice = Number(replenishCustomPrice);
     }
 
-    const method = replenishCostingMethod;
     const productForBatch: Product = {
       ...replenishProduct,
       costingMethod: method,
@@ -4097,25 +4135,31 @@ export default function DashboardProducts({
                   </div>
 
                   {(() => {
-                     const prevCost = replenishProduct.latestBuyingPrice ?? replenishProduct.costPrice;
                      const newC = Number(replenishCost);
-                     const priceChange = detectPriceChange(prevCost, newC);
-                     const suggestedPrice = suggestSellingPriceFromPreviousMargin(prevCost, replenishProduct.sellingPrice, newC);
+                     const qty = Number(replenishQty || 0);
+                     const preview = getReplenishPricingPreview(replenishProduct, qty, newC, replenishCostingMethod);
+                     const { priceChange, suggestedPrice } = preview;
 
                      return (
                        <div className="space-y-4 text-xs">
                          <div className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-100">
-                           <span className="text-slate-500">Previous Buying Price:</span>
-                           <span className="font-mono font-bold text-slate-800">{currency}{prevCost.toLocaleString()}</span>
+                           <span className="text-slate-500">{preview.previousLabel}</span>
+                           <span className="font-mono font-bold text-slate-800">{currency}{Math.round(preview.previousBasis).toLocaleString()}</span>
                          </div>
                          <div className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-100">
-                           <span className="text-slate-500">New Buying Price:</span>
-                           <span className="font-mono font-bold text-slate-800">{currency}{newC.toLocaleString()}</span>
+                           <span className="text-slate-500">{preview.nextLabel}</span>
+                           <span className="font-mono font-bold text-slate-800">{currency}{Math.round(preview.nextBasis).toLocaleString()}</span>
                          </div>
-                         {prevCost > 0 && Math.abs(priceChange.percentage) > 0.1 && (
+                         {preview.previousBasis > 0 && Math.abs(priceChange.percentage) > 0.1 && (
                            <div className={`flex justify-between items-center p-2.5 rounded-lg border ${priceChange.direction === 'increased' ? 'bg-red-50 border-red-100 text-red-800' : 'bg-green-50 border-green-100 text-green-800'}`}>
-                             <span className="font-bold">Price {priceChange.direction === 'increased' ? 'Increased' : 'Decreased'} By:</span>
+                             <span className="font-bold">{replenishCostingMethod === 'average_price' ? 'Average Cost' : 'Price'} {priceChange.direction === 'increased' ? 'Increased' : 'Decreased'} By:</span>
                              <span className="font-mono font-black">{Math.abs(priceChange.percentage).toFixed(1)}%</span>
+                           </div>
+                         )}
+                         {replenishCostingMethod === 'average_price' && (
+                           <div className="flex justify-between items-center bg-indigo-50 p-2.5 rounded-lg border border-indigo-100 text-indigo-800">
+                             <span className="font-bold">Stock Included:</span>
+                             <span className="font-mono font-black">{preview.currentQuantity.toLocaleString()} old + {qty.toLocaleString()} new</span>
                            </div>
                          )}
 
@@ -4148,7 +4192,7 @@ export default function DashboardProducts({
                                <input type="radio" name="priceAction" checked={replenishPriceAction === 'suggested'} onChange={() => setReplenishPriceAction('suggested')} className="mt-0.5 accent-emerald-600" />
                                <div className="ml-3 flex-1">
                                  <span className="block font-bold text-slate-800 text-sm">Suggested Price: {currency}{Math.round(suggestedPrice).toLocaleString()}</span>
-                                 <span className="block text-slate-500 mt-0.5">Maintains your current margin logic</span>
+                                 <span className="block text-slate-500 mt-0.5">{preview.note}</span>
                                </div>
                              </label>
 
@@ -4180,7 +4224,7 @@ export default function DashboardProducts({
             </div>
 
             <div className="bg-slate-50 p-4 flex justify-between space-x-2 border-t border-slate-150">
-              <span className="text-[10px] text-slate-500 max-w-[240px] leading-tight flex items-center"><Package className="w-3 h-3 mr-1 shrink-0"/> Records a separate batch and applies {replenishCostingMethod.replace('_', ' ')} selling in POS</span>
+              <span className="text-[10px] text-slate-500 max-w-[240px] leading-tight flex items-center"><Package className="w-3 h-3 mr-1 shrink-0"/> {replenishCostingMethod === 'average_price' ? 'Saves batch and updates POS average price' : replenishCostingMethod === 'batch_price' ? 'Saves batch for batch-price selling' : 'Saves batch for FIFO selling'}</span>
               <div className="flex space-x-2">
                 <button type="button" onClick={() => setReplenishProduct(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-lg uppercase tracking-wider text-[10px] cursor-pointer">Cancel</button>
                 <button type="submit" disabled={!replenishCost || !replenishQty} className="px-5 py-2 bg-emerald-600 disabled:opacity-50 hover:bg-emerald-500 text-white font-bold rounded-lg uppercase tracking-wider text-[10px] cursor-pointer">Add Batch</button>
