@@ -3,6 +3,7 @@ import { Tenant, Product, Sale, SaleItem, SystemSettings } from '../types';
 import {
   calculateWeightedAverageCost,
   deductBatchesForSale,
+  getPosSellingPriceForCostingMethod,
   getProductCostingMethod,
 } from '../utils/inventoryCosting';
 import { motion, AnimatePresence } from 'motion/react';
@@ -662,26 +663,51 @@ export default function DashboardPOS({
     setCart(prev => prev.filter(i => i.product.id !== id));
   };
 
+  const getBatchAwareChannelPrice = (product: Product) => {
+    const fallbackPrice = sellingChannel === 'wholesale'
+      ? (product.wholesalePrice ?? product.sellingPrice)
+      : product.sellingPrice;
+
+    return getPosSellingPriceForCostingMethod(product, fallbackPrice);
+  };
+
+  const getCartUnitPrice = (item: {
+    product: Product;
+    bulkSellMode?: 'scale' | 'pcs';
+    dosageType?: 'full' | 'half' | 'tabs';
+    tabsSelected?: number;
+  }) => {
+    const isPharmacy = activeTenant.businessType === 'pharmacy';
+    const channelBasePrice = getBatchAwareChannelPrice(item.product);
+    let unitPrice = channelBasePrice;
+
+    if (item.product.isBulkProduct) {
+      const bMode = item.bulkSellMode || (item.product.sellingMode === 'hybrid' ? 'scale' : item.product.sellingMode);
+      if (bMode === 'scale') {
+        unitPrice = (item.product.sellUnitPrice || channelBasePrice) / (item.product.sellUnitQty || 1);
+      } else if (bMode === 'pcs') {
+        unitPrice = item.product.sellUnitPrice || channelBasePrice;
+      }
+    }
+
+    if (isPharmacy) {
+      const dType = item.dosageType || 'full';
+      if (dType === 'half') {
+        unitPrice = channelBasePrice / 2;
+      } else if (dType === 'tabs') {
+        const tPerPack = item.product.tabsPerPack || 30;
+        const tSelected = item.tabsSelected || 1;
+        unitPrice = (channelBasePrice / tPerPack) * tSelected;
+      }
+    }
+
+    return unitPrice;
+  };
+
   // Pricing calculations
   const calculateSubtotal = () => {
     return cart.reduce((sum, item) => {
-      const isPharmacy = activeTenant.businessType === 'pharmacy';
-      const dType = item.dosageType || 'full';
-      
-      const channelBasePrice = sellingChannel === 'wholesale'
-        ? (item.product.wholesalePrice ?? item.product.sellingPrice)
-        : item.product.sellingPrice;
-      
-      let unitPrice = channelBasePrice;
-      if (isPharmacy) {
-        if (dType === 'half') {
-          unitPrice = channelBasePrice / 2;
-        } else if (dType === 'tabs') {
-          const tPerPack = item.product.tabsPerPack || 30;
-          const tSelected = item.tabsSelected || 1;
-          unitPrice = (channelBasePrice / tPerPack) * tSelected;
-        }
-      }
+      const unitPrice = getCartUnitPrice(item);
 
       const itemType = item.discountType || 'percent';
       const discountedPrice = itemType === 'cash'
@@ -770,9 +796,7 @@ export default function DashboardPOS({
       const isPharmacy = activeTenant.businessType === 'pharmacy';
       const dType = i.dosageType || 'full';
       
-      const channelBasePrice = sellingChannel === 'wholesale'
-        ? (i.product.wholesalePrice ?? i.product.sellingPrice)
-        : i.product.sellingPrice;
+      const channelBasePrice = getBatchAwareChannelPrice(i.product);
 
       const isBulk = i.product.isBulkProduct;
       const bMode = i.bulkSellMode || (isBulk ? (i.product.sellingMode === 'hybrid' ? 'scale' : i.product.sellingMode) : 'standard');
@@ -820,11 +844,13 @@ export default function DashboardPOS({
 
           if (sellMethod === 'average_price') {
               blendedCost = i.product.averageBuyingCost || calculateWeightedAverageCost(i.product.batches, i.product.costPrice);
+              unitPrice = getPosSellingPriceForCostingMethod(i.product, unitPrice, 'average_price');
           } else if (sellMethod === 'batch_price') {
               blendedCost = deduction.batchesUsed[0]?.buyingPrice || i.product.latestBuyingPrice || i.product.costPrice;
               unitPrice = deduction.batchesUsed[0]?.sellingPrice || unitPrice;
           } else {
               blendedCost = deduction.unitCost;
+              unitPrice = deduction.batchesUsed[0]?.sellingPrice || unitPrice;
           }
       }
 
@@ -1363,7 +1389,12 @@ export default function DashboardPOS({
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2 shrink-0">
                       <div className="space-y-0.5">
                         <p className="hidden md:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
-                        <span className="text-sm md:text-[14px] font-black text-emerald-700 md:text-slate-900 leading-none">{currency}{prod.sellingPrice.toLocaleString()}</span>
+                        <span className="text-sm md:text-[14px] font-black text-emerald-700 md:text-slate-900 leading-none">{currency}{Math.round(getBatchAwareChannelPrice(prod)).toLocaleString()}</span>
+                        {prod.batches && prod.batches.some(batch => batch.status === 'active') && (
+                          <span className="block text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+                            {getProductCostingMethod(prod).replace('_', ' ')}
+                          </span>
+                        )}
                       </div>
                       {!isOut ? (
                         <div className="text-right">
@@ -1477,30 +1508,15 @@ export default function DashboardPOS({
               const tabsPerPack = item.product.tabsPerPack || 30;
               const tabsSelected = item.tabsSelected || 15;
 
-              const channelPrice = sellingChannel === 'wholesale'
-                ? (item.product.wholesalePrice ?? item.product.sellingPrice)
-                : item.product.sellingPrice;
-
-              let basePrice = channelPrice;
-              
-              if (item.product.isBulkProduct) {
-                 const bMode = item.bulkSellMode || (item.product.sellingMode === 'hybrid' ? 'scale' : item.product.sellingMode);
-                 if (bMode === 'scale') {
-                    basePrice = (item.product.sellUnitPrice || 0) / (item.product.sellUnitQty || 1);
-                 } else if (bMode === 'pcs') {
-                    basePrice = item.product.sellUnitPrice || 0;
-                 }
-              }
+              let basePrice = getCartUnitPrice(item);
 
               let dosageLabel = 'Full Dose';
 
               if (isPharmacy) {
                 if (dosageType === 'half') {
-                  basePrice = channelPrice / 2;
                   dosageLabel = 'Half Dose Split';
                 } else if (dosageType === 'tabs') {
                   const tPerPack = item.product.tabsPerPack || 30;
-                  basePrice = (channelPrice / tPerPack) * tabsSelected;
                   dosageLabel = `${tabsSelected} Tabs off Pack [${tPerPack}]`;
                 }
               }

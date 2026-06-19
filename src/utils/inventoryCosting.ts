@@ -64,6 +64,41 @@ export const calculateWeightedAverageCost = (batches: ProductBatch[], fallbackCo
   return totalQuantity > 0 ? totalValue / totalQuantity : fallbackCost;
 };
 
+export const getActiveBatchesOldestFirst = (product: Product) => (
+  [...(product.batches || [])]
+    .filter(batch => batch.status === 'active' && batch.quantityRemaining > 0)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+);
+
+export const calculateWeightedAverageSellingPrice = (product: Product, fallbackPrice = product.sellingPrice) => {
+  const active = getActiveBatchesOldestFirst(product);
+  const totalQuantity = active.reduce((sum, batch) => sum + batch.quantityRemaining, 0);
+  const totalValue = active.reduce((sum, batch) => {
+    const batchSellingPrice = batch.finalSellingPrice || batch.suggestedSellingPrice || fallbackPrice;
+    return sum + (batch.quantityRemaining * batchSellingPrice);
+  }, 0);
+
+  return totalQuantity > 0 ? totalValue / totalQuantity : fallbackPrice;
+};
+
+export const getPosSellingPriceForCostingMethod = (
+  product: Product,
+  fallbackPrice = product.sellingPrice,
+  method: InventoryCostingMethod = getProductCostingMethod(product),
+) => {
+  const active = getActiveBatchesOldestFirst(product);
+
+  if ((method === 'fifo' || method === 'batch_price') && active.length > 0) {
+    return active[0].finalSellingPrice || active[0].suggestedSellingPrice || fallbackPrice;
+  }
+
+  if (method === 'average_price') {
+    return calculateWeightedAverageSellingPrice(product, fallbackPrice);
+  }
+
+  return fallbackPrice;
+};
+
 export const createInventoryBatch = (
   product: Product,
   quantityPurchased: number,

@@ -232,9 +232,7 @@ export default function DashboardProducts({
         finalSellingPrice = Number(replenishCustomPrice);
     }
 
-    const method = priceChange.direction === 'unchanged'
-      ? (replenishProduct.costingMethod || replenishCostingMethod)
-      : replenishCostingMethod;
+    const method = replenishCostingMethod;
     const productForBatch: Product = {
       ...replenishProduct,
       costingMethod: method,
@@ -4120,27 +4118,26 @@ export default function DashboardProducts({
                            </div>
                          )}
 
-                         {priceChange.direction !== 'unchanged' && (
-                           <div className="pt-2">
-                             <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">Choose Costing Method for New Cost</span>
-                             <div className="grid grid-cols-3 gap-2">
-                               {[
-                                 ['fifo', 'FIFO'],
-                                 ['average_price', 'Average'],
-                                 ['batch_price', 'Batch Price'],
-                               ].map(([method, label]) => (
-                                 <button
-                                   key={method}
-                                   type="button"
-                                   onClick={() => setReplenishCostingMethod(method as typeof replenishCostingMethod)}
-                                   className={`px-2 py-2 rounded-xl border text-[10px] font-black uppercase ${replenishCostingMethod === method ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
-                                 >
-                                   {label}
-                                 </button>
-                               ))}
-                             </div>
+                         <div className="pt-2">
+                           <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">Choose POS Selling Method</span>
+                           <div className="grid grid-cols-3 gap-2">
+                             {[
+                               ['fifo', 'FIFO', 'Sell oldest stock first at its batch price'],
+                               ['average_price', 'Average', 'Use weighted average price suggestion'],
+                               ['batch_price', 'Batch Price', 'Sell by selected/current batch price'],
+                             ].map(([method, label, helper]) => (
+                               <button
+                                 key={method}
+                                 type="button"
+                                 onClick={() => setReplenishCostingMethod(method as typeof replenishCostingMethod)}
+                                 className={`px-2 py-2 rounded-xl border text-left transition-all ${replenishCostingMethod === method ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                               >
+                                 <span className="block text-[10px] font-black uppercase">{label}</span>
+                                 <span className={`block text-[8px] mt-1 leading-tight ${replenishCostingMethod === method ? 'text-slate-300' : 'text-slate-400'}`}>{helper}</span>
+                               </button>
+                             ))}
                            </div>
-                         )}
+                         </div>
 
                          <div className="pt-2">
                            <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">Configure New Selling Price</span>
@@ -4182,7 +4179,7 @@ export default function DashboardProducts({
             </div>
 
             <div className="bg-slate-50 p-4 flex justify-between space-x-2 border-t border-slate-150">
-              <span className="text-[10px] text-slate-500 max-w-[200px] leading-tight flex items-center"><Package className="w-3 h-3 mr-1 shrink-0"/> Records as separate FIFO accounting batch</span>
+              <span className="text-[10px] text-slate-500 max-w-[240px] leading-tight flex items-center"><Package className="w-3 h-3 mr-1 shrink-0"/> Records a separate batch and applies {replenishCostingMethod.replace('_', ' ')} selling in POS</span>
               <div className="flex space-x-2">
                 <button type="button" onClick={() => setReplenishProduct(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-lg uppercase tracking-wider text-[10px] cursor-pointer">Cancel</button>
                 <button type="submit" disabled={!replenishCost || !replenishQty} className="px-5 py-2 bg-emerald-600 disabled:opacity-50 hover:bg-emerald-500 text-white font-bold rounded-lg uppercase tracking-wider text-[10px] cursor-pointer">Add Batch</button>
