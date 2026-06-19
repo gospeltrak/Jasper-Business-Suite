@@ -4573,12 +4573,12 @@ export default function DashboardSalesList({
         const preparerRole = activeStaff?.role || currentUser?.role || 'Accounts & Finance Dept';
 
         return (
-          <div className="fixed inset-0 z-[2147483647] bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800 print:bg-white">
-            <div className="relative bg-white border-0 shadow-2xl w-full overflow-hidden flex flex-col h-[100dvh] font-sans print:h-auto print:overflow-visible">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+            <div className="relative bg-white border border-slate-205 rounded-none sm:rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto sm:max-h-[95vh] font-sans">
               
               {/* Header Action Tools */}
-              <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur-md shrink-0 font-sans shadow-sm print:hidden">
-                <div className="px-3 py-2.5 sm:px-5 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+              <div className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50/95 backdrop-blur-md shrink-0 font-sans print:hidden">
+                <div className="p-3 sm:p-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-center space-x-2 min-w-0">
                     <Printer className="w-5 h-5 text-indigo-600 shrink-0" />
                     <span className="text-[11px] sm:text-xs font-black font-mono text-slate-800 uppercase truncate">A4 Office Print Preview Mode</span>
@@ -4587,7 +4587,7 @@ export default function DashboardSalesList({
                     <button
                       type="button"
                       onClick={() => setDocumentSendOpen(prev => !prev)}
-                      className="h-9 px-3 sm:px-4 bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
+                      className="h-10 px-3 sm:px-4 bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
                     >
                       <MessageSquare className="w-4 h-4 text-white" />
                       <span>Send</span>
@@ -4595,7 +4595,7 @@ export default function DashboardSalesList({
                     <button
                       type="button"
                       onClick={() => window.print()}
-                      className="h-9 px-3 sm:px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
+                      className="h-10 px-3 sm:px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
                     >
                       <Printer className="w-4 h-4 text-white" />
                       <span>Print A4</span>
@@ -4610,7 +4610,7 @@ export default function DashboardSalesList({
                             setViewingDocument(null);
                           }
                         }}
-                        className="h-9 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
+                        className="h-10 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
                       >
                         <ArrowRight className="w-4 h-4 text-white" />
                         <span>Convert to Sale</span>
@@ -4619,7 +4619,7 @@ export default function DashboardSalesList({
                     <button
                       type="button"
                       onClick={() => setViewingDocument(null)}
-                      className="h-9 px-3 sm:px-4 bg-white hover:bg-slate-100 border border-slate-300 text-slate-650 text-[11px] sm:text-xs font-bold rounded-xl cursor-pointer transition-all font-sans whitespace-nowrap"
+                      className="h-10 px-3 sm:px-4 bg-white hover:bg-slate-100 border border-slate-300 text-slate-650 text-[11px] sm:text-xs font-bold rounded-xl cursor-pointer transition-all font-sans whitespace-nowrap"
                     >
                       Close Preview
                     </button>
@@ -4656,7 +4656,7 @@ export default function DashboardSalesList({
               </div>
 
               {/* Printable Area content representation matching layout templates */}
-              <div className="flex-1 overflow-auto bg-slate-200/70 p-4 sm:p-6 lg:p-8 print:p-0 print:bg-white print:overflow-visible" id="printable-a4-surface">
+              <div className="flex-1 overflow-auto bg-slate-200/70 p-3 sm:p-6 lg:p-10 print:p-0 print:bg-white print:overflow-visible" id="printable-a4-surface">
                 <div className="w-full max-w-[794px] min-h-[1123px] mx-auto bg-white rounded-2xl sm:rounded-[2rem] shadow-xl border border-slate-200 p-6 sm:p-10 lg:p-14 space-y-8 font-sans print:max-w-none print:min-h-0 print:rounded-none print:shadow-none print:border-0 print:p-0">
                   
                   {/* Decorative corporate banner on top */}
