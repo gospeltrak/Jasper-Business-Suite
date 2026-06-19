@@ -341,6 +341,8 @@ export default function DashboardSalesList({
   // States for Documents Tab (Quotations, Proforma, Invoices)
   const [showNewDocModal, setShowNewDocModal] = useState(false);
   const [viewingDocument, setViewingDocument] = useState<SalesDocument | null>(null);
+  const [documentSendOpen, setDocumentSendOpen] = useState(false);
+  const [documentSendPhone, setDocumentSendPhone] = useState('');
   const [selectedDocTypeFilter, setSelectedDocTypeFilter] = useState<'all' | 'quotation' | 'proforma invoice'>('all');
   
   // States for wizard: document creator
@@ -364,6 +366,16 @@ export default function DashboardSalesList({
       setNewDocDeliveryCost(0);
     }
   }, [showNewDocModal, systemSettings]);
+
+  useEffect(() => {
+    if (viewingDocument) {
+      setDocumentSendPhone(viewingDocument.customerPhone || '');
+      setDocumentSendOpen(false);
+    } else {
+      setDocumentSendPhone('');
+      setDocumentSendOpen(false);
+    }
+  }, [viewingDocument]);
 
   // Wizard quick add product states
   const [docWizardSelectedProductId, setDocWizardSelectedProductId] = useState('');
@@ -562,6 +574,12 @@ export default function DashboardSalesList({
         onUpdateSales(sales.map(s => s.id === saleId ? updatedSale : s));
       }
     }
+  };
+
+  const buildDocumentWhatsAppMessage = (doc: SalesDocument) => {
+    const documentLabel = doc.type === 'quotation' ? 'price quote' : 'proforma invoice';
+    const customer = doc.customerName?.trim() || 'valued customer';
+    return `Hello ${customer}, thank you for choosing ${activeTenant.name}. We have prepared your A4 ${documentLabel} ${doc.documentNumber} with a total of ${currency}${Math.round(doc.total).toLocaleString()}. Kindly review it at your convenience. We value your partnership and are happy to serve you.`;
   };
 
   return (
@@ -2678,7 +2696,7 @@ export default function DashboardSalesList({
                             className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[10.5px] transition-all border-none cursor-pointer flex items-center space-x-1 shadow-sm"
                           >
                             <ArrowRight className="w-3.5 h-3.5" />
-                            <span>Convert to POS</span>
+                            <span>Convert to Sale</span>
                           </button>
                         ) : (
                           <span className="px-2 py-1.5 bg-slate-100 text-slate-450 border border-slate-200 rounded-lg text-[10px] font-bold inline-flex items-center space-x-1">
@@ -4555,57 +4573,95 @@ export default function DashboardSalesList({
         const preparerRole = activeStaff?.role || currentUser?.role || 'Accounts & Finance Dept';
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
-            <div className="relative bg-white border border-slate-205 rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[95vh] font-sans">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+            <div className="relative bg-white border border-slate-205 rounded-none sm:rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto sm:max-h-[95vh] font-sans">
               
               {/* Header Action Tools */}
-              <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0 font-sans print:hidden">
-                <div className="flex items-center space-x-2">
-                  <Printer className="w-5 h-5 text-indigo-600" />
-                  <span className="text-xs font-black font-mono text-slate-800 uppercase">A4 Office Print Preview Mode</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => window.print()}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center space-x-1 shadow-sm font-sans"
-                  >
-                    <Printer className="w-4 h-4 text-white" />
-                    <span>Print Out (A4)</span>
-                  </button>
-                  {viewingDocument.status === 'pending' && (
+              <div className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50/95 backdrop-blur-md shrink-0 font-sans print:hidden">
+                <div className="p-3 sm:p-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center space-x-2 min-w-0">
+                    <Printer className="w-5 h-5 text-indigo-600 shrink-0" />
+                    <span className="text-[11px] sm:text-xs font-black font-mono text-slate-800 uppercase truncate">A4 Office Print Preview Mode</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-2 w-full lg:w-auto">
                     <button
                       type="button"
-                      onClick={() => {
-                        if (onPreloadCartForPOS) {
-                          onPreloadCartForPOS(viewingDocument.items, viewingDocument.timestamp);
-                          setDocuments(prev => prev.map(d => d.id === viewingDocument.id ? { ...d, status: 'converted' } : d));
-                          setViewingDocument(null);
-                        }
-                      }}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center space-x-1 shadow-sm font-sans"
+                      onClick={() => setDocumentSendOpen(prev => !prev)}
+                      className="h-10 px-3 sm:px-4 bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
                     >
-                      <ArrowRight className="w-4 h-4 text-white" />
-                      <span>Convert to POS Sale</span>
+                      <MessageSquare className="w-4 h-4 text-white" />
+                      <span>Send</span>
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setViewingDocument(null)}
-                    className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-600 text-xs font-bold rounded-xl cursor-pointer transition-all font-sans"
-                  >
-                    Close Preview
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      className="h-10 px-3 sm:px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
+                    >
+                      <Printer className="w-4 h-4 text-white" />
+                      <span>Print A4</span>
+                    </button>
+                    {viewingDocument.status === 'pending' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onPreloadCartForPOS) {
+                            onPreloadCartForPOS(viewingDocument.items, viewingDocument.timestamp);
+                            setDocuments(prev => prev.map(d => d.id === viewingDocument.id ? { ...d, status: 'converted' } : d));
+                            setViewingDocument(null);
+                          }
+                        }}
+                        className="h-10 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
+                      >
+                        <ArrowRight className="w-4 h-4 text-white" />
+                        <span>Convert to Sale</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setViewingDocument(null)}
+                      className="h-10 px-3 sm:px-4 bg-white hover:bg-slate-100 border border-slate-300 text-slate-650 text-[11px] sm:text-xs font-bold rounded-xl cursor-pointer transition-all font-sans whitespace-nowrap"
+                    >
+                      Close Preview
+                    </button>
+                  </div>
                 </div>
+                {documentSendOpen && (
+                  <div className="px-3 pb-3 sm:px-4 sm:pb-4 border-t border-slate-200 bg-white">
+                    <div className="flex flex-col sm:flex-row sm:items-end gap-2 pt-3">
+                      <label className="flex-1">
+                        <span className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Customer WhatsApp Number</span>
+                        <input
+                          type="tel"
+                          value={documentSendPhone}
+                          onChange={(e) => setDocumentSendPhone(e.target.value.replace(/[^\d+\s-]/g, ''))}
+                          placeholder="+255 700 000 000"
+                          className="w-full h-11 px-3 rounded-xl border border-slate-250 bg-slate-50 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        />
+                      </label>
+                      <a
+                        href={buildWhatsAppLink(buildDocumentWhatsAppMessage(viewingDocument), documentSendPhone)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`h-11 px-4 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 transition-all ${documentSendPhone.trim() ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm' : 'bg-slate-200 text-slate-400 pointer-events-none'}`}
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        <span>Send WhatsApp</span>
+                      </a>
+                    </div>
+                    <p className="mt-2 text-[10.5px] text-slate-500 font-medium">
+                      Opens WhatsApp with a respectful customer message. Attach or share the printed A4 PDF from WhatsApp when ready.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Printable Area content representation matching layout templates */}
-              <div className="p-10 overflow-y-auto flex-1 bg-white print:p-0 print:overflow-visible" id="printable-a4-surface">
-                <div className="max-w-2xl mx-auto space-y-8 font-sans">
+              <div className="flex-1 overflow-auto bg-slate-200/70 p-3 sm:p-6 lg:p-10 print:p-0 print:bg-white print:overflow-visible" id="printable-a4-surface">
+                <div className="w-full max-w-[794px] min-h-[1123px] mx-auto bg-white rounded-2xl sm:rounded-[2rem] shadow-xl border border-slate-200 p-6 sm:p-10 lg:p-14 space-y-8 font-sans print:max-w-none print:min-h-0 print:rounded-none print:shadow-none print:border-0 print:p-0">
                   
                   {/* Decorative corporate banner on top */}
-                  <div className="flex items-start justify-between">
-                    <div>
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+                    <div className="min-w-0">
                       {(systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url) ? (
                         <img 
                           src={systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url || undefined} 
@@ -4618,7 +4674,7 @@ export default function DashboardSalesList({
                           {activeTenant.name.slice(0, 2).toUpperCase()}
                         </div>
                       )}
-                      <h1 className="text-xl font-black text-slate-900 leading-tight uppercase tracking-tight">{activeTenant.name}</h1>
+                      <h1 className="text-lg sm:text-xl font-black text-slate-900 leading-tight uppercase tracking-tight break-words">{activeTenant.name}</h1>
                       <p className="text-[11px] text-slate-500 font-mono mt-0.5 select-all">{systemSettings?.company?.address || 'Merchant Head Office'}</p>
                       {systemSettings?.business?.businessEmail && (
                         <p className="text-[11px] text-slate-500 font-mono select-all mt-0.5">📧 {systemSettings.business.businessEmail}</p>
@@ -4626,11 +4682,11 @@ export default function DashboardSalesList({
                       <p className="text-[11px] text-slate-505 font-mono select-all mt-0.5">📞 {systemSettings?.company?.phone || '+254 Merchant Admin'}</p>
                     </div>
 
-                    <div className="text-right font-sans">
+                    <div className="text-left sm:text-right font-sans shrink-0">
                       <span className="text-[11px] font-black uppercase tracking-widest font-mono text-slate-400">Official Document</span>
-                      <h2 className="text-3xl font-black text-slate-800 uppercase mt-1 tracking-tight">
+                      <h2 className="text-2xl sm:text-3xl font-black text-slate-800 uppercase mt-1 tracking-tight">
                         {viewingDocument.type === 'quotation' ? 'Price Quote' :
-                         viewingDocument.type === 'proforma' ? 'Proforma' : 'Invoice'}
+                         viewingDocument.type === 'proforma invoice' ? 'Proforma' : 'Invoice'}
                       </h2>
                       <div className="mt-4 font-mono text-xs text-slate-600 space-y-1">
                         <div>
@@ -4646,27 +4702,27 @@ export default function DashboardSalesList({
                   </div>
 
                   {/* Client billed address template wrapper */}
-                  <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/85 grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/85 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <span className="block text-[9px] uppercase tracking-wider font-bold text-slate-450 mb-1">Billed To (Client):</span>
                       <h4 className="font-bold text-slate-800 text-xs font-sans capitalize">{viewingDocument.customerName || 'Loyal Client'}</h4>
                       {viewingDocument.customerPhone && <p className="text-[11px] text-slate-500 font-mono mt-1">📞 {viewingDocument.customerPhone}</p>}
                     </div>
                     {viewingDocument.customerAddress ? (
-                      <div className="border-l border-slate-200 pl-4 font-sans">
+                      <div className="sm:border-l border-slate-200 sm:pl-4 font-sans">
                         <span className="block text-[9px] uppercase tracking-wider font-bold text-slate-450 mb-1">Delivery Destination:</span>
                         <p className="text-[11px] text-slate-600 leading-relaxed font-sans mt-0.5">{viewingDocument.customerAddress}</p>
                       </div>
                     ) : (
-                      <div className="border-l border-slate-200 pl-4 font-sans">
+                      <div className="sm:border-l border-slate-200 sm:pl-4 font-sans">
                         {/* Blank */}
                       </div>
                     )}
                   </div>
 
                   {/* Ledger lines table with brand color header */}
-                  <div className="border border-slate-200 rounded-2xl overflow-hidden font-sans">
-                    <table className="w-full text-left border-collapse text-xs">
+                  <div className="border border-slate-200 rounded-2xl overflow-x-auto font-sans">
+                    <table className="w-full min-w-[520px] text-left border-collapse text-xs">
                       <thead>
                         <tr 
                           className="text-[10px] text-white font-bold uppercase tracking-wider select-none font-sans"
@@ -4682,11 +4738,12 @@ export default function DashboardSalesList({
                       <tbody className="divide-y divide-slate-105 font-medium font-sans">
                         {viewingDocument.items.map((item, index) => {
                           const itemPrice = item.discountType === 'cash' ? Math.max(0, item.price - item.discount) : item.price * (1 - item.discount / 100);
+                          const itemProduct = products.find(p => p.id === item.productId);
                           return (
                             <tr key={index} className="hover:bg-slate-50/50 transition-colors text-slate-750">
                               <td className="p-3 font-mono text-[10px] text-slate-450">{String(index + 1).padStart(2, '0')}</td>
                               <td className="p-3 font-bold text-slate-800">{item.productName}</td>
-                              <td className="p-3 text-right font-mono font-bold">{item.qty}</td>
+                              <td className="p-3 text-right font-mono font-bold">{formatSaleItemQuantity(item, itemProduct)}</td>
                               <td className="p-3 text-right font-mono">{currency}{item.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                               <td className="p-3 text-right font-mono font-bold text-slate-800">{currency}{(itemPrice * item.qty).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                             </tr>
@@ -4765,13 +4822,13 @@ export default function DashboardSalesList({
                   )}
 
                   {/* Representative Authorised Signature sections */}
-                  <div className="grid grid-cols-2 gap-8 pt-6 border-t border-slate-100 items-end text-xs font-sans">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-6 border-t border-slate-100 items-end text-xs font-sans">
                     <div>
                       <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400 font-mono mb-1">Prepared By</span>
                       <p className="font-bold text-slate-800 border-b border-slate-200 pb-1 w-full max-w-xs">{preparerName}</p>
                       <p className="text-[10px] text-slate-400 font-medium mt-1">Title: {preparerRole}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-left sm:text-right">
                       <span className="block text-[8px] font-black uppercase tracking-wider text-slate-450 font-mono mb-1">Signature</span>
                       <div className="border-b border-dashed border-slate-300 w-full max-w-xs ml-auto h-12 flex items-center justify-end overflow-hidden pb-1 select-none">
                         {activeStaff?.signatureImage ? (
