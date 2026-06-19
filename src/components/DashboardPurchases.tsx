@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Product, Supplier, Purchase, PurchaseItem, Tenant } from '../types';
+import { addBatchToProduct, createInventoryBatch } from '../utils/inventoryCosting';
 import { 
   Truck, 
   Package, 
@@ -222,12 +223,18 @@ export default function DashboardPurchases({
           newStoreQty += addedQty;
         }
 
+        const batch = createInventoryBatch(prod, addedQty, cartItem.costPrice, {
+          supplierName: supplier.name,
+          finalSellingPrice: prod.sellingPrice,
+          purchaseDate: newPurchase.timestamp,
+        });
+        const updatedWithBatch = addBatchToProduct(prod, batch, destination);
+
         return {
-          ...prod,
-          costPrice: cartItem.costPrice, // update product default catalog cost price to the newly negotiated level
-          shopStockQty: newShopQty,
-          storeStockQty: newStoreQty,
-          stockQty: newShopQty + newStoreQty
+          ...updatedWithBatch,
+          shopStockQty: Number(newShopQty.toFixed(3)),
+          storeStockQty: Number(newStoreQty.toFixed(3)),
+          stockQty: Number((newShopQty + newStoreQty).toFixed(3))
         };
       }
       return prod;

@@ -33,6 +33,45 @@ export interface Tenant {
   };
 }
 
+export type InventoryCostingMethod = 'fifo' | 'average_price' | 'batch_price';
+export type LegacySellingMethod = 'fifo' | 'average_cost' | 'manual_batch';
+
+export interface FractionSaleOption {
+  id: string;
+  label: string;
+  quantityInBaseUnit: number;
+  price?: number;
+  isDefault?: boolean;
+}
+
+export interface PharmacyUnitBreakdown {
+  purchaseUnit: string;
+  stripUnit: string;
+  baseUnit: string;
+  stripsPerBox: number;
+  tabletsPerStrip: number;
+}
+
+export interface ProductInventorySettings {
+  costingMethod: InventoryCostingMethod;
+  allowPosMethodOverride: boolean;
+  allowScaleSelling: boolean;
+  purchaseUnit: string;
+  baseUnit: string;
+  conversionToBaseUnit: number;
+  allowCustomQuantity: boolean;
+  defaultPricePerBaseUnit?: number;
+  fractionSaleOptions?: FractionSaleOption[];
+  pharmacyUnitBreakdown?: PharmacyUnitBreakdown;
+}
+
+export interface PriceChangeInfo {
+  previousBuyingPrice: number;
+  newBuyingPrice: number;
+  percentage: number;
+  direction: 'increased' | 'decreased' | 'unchanged';
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -68,7 +107,18 @@ export interface Product {
   sellingMode?: 'standard' | 'scale' | 'pcs' | 'hybrid';
   
   // Batch feature fields
-  sellingMethod?: 'fifo' | 'average_cost' | 'manual_batch';
+  sellingMethod?: LegacySellingMethod;
+  inventorySettings?: ProductInventorySettings;
+  costingMethod?: InventoryCostingMethod;
+  allowPosMethodOverride?: boolean;
+  allowScaleSelling?: boolean;
+  purchaseUnit?: string;
+  baseUnit?: string;
+  conversionToBaseUnit?: number;
+  fractionSaleOptions?: FractionSaleOption[];
+  allowCustomQuantity?: boolean;
+  defaultPricePerBaseUnit?: number;
+  pharmacyUnitBreakdown?: PharmacyUnitBreakdown;
   latestBuyingPrice?: number;
   averageBuyingCost?: number;
   batches?: ProductBatch[];
@@ -87,6 +137,10 @@ export interface ProductBatch {
   priceChangePercentage?: number;
   suggestedSellingPrice?: number;
   finalSellingPrice?: number;
+  baseUnit?: string;
+  quantityPurchasedBase?: number;
+  quantityRemainingBase?: number;
+  costingMethodAtCreation?: InventoryCostingMethod;
   status: 'active' | 'finished';
   createdBy: string;
   createdAt: string;
@@ -97,6 +151,21 @@ export interface SaleBatchInfo {
   batchNumber: string;
   qty: number;
   buyingPrice: number; // For profit calculation
+  baseQty?: number;
+  sellingPrice?: number;
+}
+
+export interface SaleBatchItem {
+  saleId: string;
+  productId: string;
+  batchId: string;
+  quantitySold: number;
+  baseQuantityDeducted: number;
+  buyingCost: number;
+  sellingPrice: number;
+  costingMethodUsed: InventoryCostingMethod;
+  profit: number;
+  remainingStock: number;
 }
 
 export interface SaleItem {
@@ -109,6 +178,9 @@ export interface SaleItem {
   
   batchesUsed?: SaleBatchInfo[]; // Which batches were drawn from for this sale
   costPriceAtSale?: number; // Calculated blended cost or average cost at the time of sale
+  baseQuantityDeducted?: number;
+  costingMethodUsed?: InventoryCostingMethod;
+  batchBreakdown?: SaleBatchItem[];
   
   // For Bulk-to-unit selling
   isBulkProduct?: boolean;
@@ -507,6 +579,5 @@ export interface LedgerEntry {
   receiptFile?: string;
   muamalaFile?: string;
 }
-
 
 

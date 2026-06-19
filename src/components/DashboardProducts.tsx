@@ -31,6 +31,14 @@ import {
 } from 'lucide-react';
 import { useTranslation } from '../LanguageContext';
 import CachedImage from './CachedImage';
+import {
+  addBatchToProduct,
+  createInventoryBatch,
+  detectPriceChange,
+  getDefaultFractionOptions,
+  mapCostingMethodToLegacy,
+  suggestSellingPriceFromPreviousMargin,
+} from '../utils/inventoryCosting';
 
 interface DashboardProductsProps {
   activeTenant: Tenant;
@@ -77,6 +85,7 @@ export default function DashboardProducts({
   const [replenishSupplier, setReplenishSupplier] = useState<string>('');
   const [replenishPriceAction, setReplenishPriceAction] = useState<'suggested' | 'keep' | 'custom'>('suggested');
   const [replenishCustomPrice, setReplenishCustomPrice] = useState<number | ''>('');
+  const [replenishCostingMethod, setReplenishCostingMethod] = useState<'fifo' | 'average_price' | 'batch_price'>('fifo');
   
   const [brand, setBrand] = useState(''); // New Brand input field for manual product creation
   const [customCategories, setCustomCategories] = useState<string[]>([]);
@@ -172,6 +181,29 @@ export default function DashboardProducts({
           sellUnitPrice: editForm.isBulkProduct ? editForm.sellUnitPrice : undefined,
           bulkToUnitsRatio: editForm.isBulkProduct ? ((Number(editForm.bulkPurchaseQty) || 1) / (Number(editForm.sellUnitQty) || 1)) : undefined,
           sellingMode: editForm.isBulkProduct ? editForm.sellingMode : undefined,
+          costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
+          sellingMethod: mapCostingMethodToLegacy(editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo'),
+          allowPosMethodOverride: !!editForm.allowPosMethodOverride,
+          allowScaleSelling: !!editForm.allowScaleSelling || !!editForm.isBulkProduct,
+          purchaseUnit: editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || editForm.unit || 'Unit',
+          baseUnit: editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || editForm.unit || 'Unit',
+          conversionToBaseUnit: Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1),
+          allowCustomQuantity: editForm.allowCustomQuantity !== false,
+          defaultPricePerBaseUnit: Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0),
+          fractionSaleOptions: editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions,
+          pharmacyUnitBreakdown: editForm.pharmacyUnitBreakdown || editForm.inventorySettings?.pharmacyUnitBreakdown,
+          inventorySettings: {
+            costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
+            allowPosMethodOverride: !!editForm.allowPosMethodOverride,
+            allowScaleSelling: !!editForm.allowScaleSelling || !!editForm.isBulkProduct,
+            purchaseUnit: editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || editForm.unit || 'Unit',
+            baseUnit: editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || editForm.unit || 'Unit',
+            conversionToBaseUnit: Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1),
+            allowCustomQuantity: editForm.allowCustomQuantity !== false,
+            defaultPricePerBaseUnit: Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0),
+            fractionSaleOptions: editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions,
+            pharmacyUnitBreakdown: editForm.pharmacyUnitBreakdown || editForm.inventorySettings?.pharmacyUnitBreakdown,
+          },
           sku: b
         } as Product;
       }
@@ -189,57 +221,45 @@ export default function DashboardProducts({
     
     const qty = Number(replenishQty);
     const newCost = Number(replenishCost);
-    const prevCost = replenishProduct.costPrice;
-    
-    let priceChangePercentage = 0;
-    if (prevCost > 0) {
-      priceChangePercentage = ((newCost - prevCost) / prevCost) * 100;
-    }
-    
-    const marginRatio = prevCost > 0 ? (replenishProduct.sellingPrice / prevCost) : 1.5;
-    const suggestedPrice = newCost * marginRatio;
+    const prevCost = replenishProduct.latestBuyingPrice ?? replenishProduct.costPrice;
+    const priceChange = detectPriceChange(prevCost, newCost);
+    const suggestedPrice = suggestSellingPriceFromPreviousMargin(prevCost, replenishProduct.sellingPrice, newCost);
     
     let finalSellingPrice = replenishProduct.sellingPrice;
     if (replenishPriceAction === 'suggested') {
-        finalSellingPrice = Math.round(suggestedPrice);
+        finalSellingPrice = suggestedPrice;
     } else if (replenishPriceAction === 'custom' && replenishCustomPrice) {
         finalSellingPrice = Number(replenishCustomPrice);
     }
 
-    const newBatch: ProductBatch = {
-      id: 'b-' + Math.random().toString(36).substr(2, 9),
-      productId: replenishProduct.id,
-      batchNumber: 'B-' + new Date().getTime().toString().substr(-6),
-      supplierName: replenishSupplier || undefined,
-      purchaseDate: new Date().toISOString(),
-      quantityPurchased: qty,
-      quantityRemaining: qty,
-      buyingPrice: newCost,
-      previousBuyingPrice: prevCost,
-      priceChangePercentage: priceChangePercentage,
-      suggestedSellingPrice: Math.round(suggestedPrice),
-      finalSellingPrice: finalSellingPrice,
-      status: 'active',
-      createdBy: 'Admin',
-      createdAt: new Date().toISOString()
+    const method = priceChange.direction === 'unchanged'
+      ? (replenishProduct.costingMethod || replenishCostingMethod)
+      : replenishCostingMethod;
+    const productForBatch: Product = {
+      ...replenishProduct,
+      costingMethod: method,
+      sellingMethod: mapCostingMethodToLegacy(method),
+      inventorySettings: {
+        costingMethod: method,
+        allowPosMethodOverride: replenishProduct.inventorySettings?.allowPosMethodOverride ?? replenishProduct.allowPosMethodOverride ?? false,
+        allowScaleSelling: replenishProduct.inventorySettings?.allowScaleSelling ?? replenishProduct.allowScaleSelling ?? !!replenishProduct.isBulkProduct,
+        purchaseUnit: replenishProduct.inventorySettings?.purchaseUnit || replenishProduct.purchaseUnit || replenishProduct.bulkUnit || replenishProduct.unit || 'Unit',
+        baseUnit: replenishProduct.inventorySettings?.baseUnit || replenishProduct.baseUnit || replenishProduct.sellUnit || replenishProduct.unit || 'Unit',
+        conversionToBaseUnit: replenishProduct.inventorySettings?.conversionToBaseUnit || replenishProduct.conversionToBaseUnit || 1,
+        allowCustomQuantity: replenishProduct.inventorySettings?.allowCustomQuantity ?? replenishProduct.allowCustomQuantity ?? true,
+        defaultPricePerBaseUnit: replenishProduct.inventorySettings?.defaultPricePerBaseUnit ?? replenishProduct.defaultPricePerBaseUnit ?? replenishProduct.sellUnitPrice,
+        fractionSaleOptions: replenishProduct.inventorySettings?.fractionSaleOptions || replenishProduct.fractionSaleOptions,
+        pharmacyUnitBreakdown: replenishProduct.inventorySettings?.pharmacyUnitBreakdown || replenishProduct.pharmacyUnitBreakdown,
+      },
     };
-
-    const updatedBatches = [...(replenishProduct.batches || []), newBatch];
-
-    const totalRemaining = updatedBatches.filter(b => b.status === 'active').reduce((sum, b) => sum + b.quantityRemaining, 0);
-    const totalValue = updatedBatches.filter(b => b.status === 'active').reduce((sum, b) => sum + (b.quantityRemaining * b.buyingPrice), 0);
-    const newAvgCost = totalRemaining > 0 ? (totalValue / totalRemaining) : newCost;
+    const newBatch: ProductBatch = createInventoryBatch(productForBatch, qty, newCost, {
+      supplierName: replenishSupplier || undefined,
+      finalSellingPrice,
+    });
 
     const updatedProduct: Product = {
-      ...replenishProduct,
-      batches: updatedBatches,
-      costPrice: newCost,
-      latestBuyingPrice: newCost,
-      averageBuyingCost: newAvgCost,
+      ...addBatchToProduct(productForBatch, newBatch, 'store'),
       sellingPrice: finalSellingPrice,
-      storeStockQty: (replenishProduct.storeStockQty || 0) + qty,
-      stockQty: (replenishProduct.stockQty || 0) + qty,
-      sellingMethod: replenishProduct.sellingMethod || 'fifo'
     };
 
     onUpdateProducts(products.map(p => p.id === replenishProduct.id ? updatedProduct : p));
@@ -249,6 +269,7 @@ export default function DashboardProducts({
     setReplenishCost('');
     setReplenishSupplier('');
     setReplenishPriceAction('suggested');
+    setReplenishCostingMethod('fifo');
     setReplenishCustomPrice('');
   };
 
@@ -301,6 +322,13 @@ export default function DashboardProducts({
   const [sellUnit, setSellUnit] = useState('1/4 kg');
   const [sellUnitQty, setSellUnitQty] = useState<number | ''>(0.25);
   const [sellUnitPrice, setSellUnitPrice] = useState<number | ''>(500);
+  const [costingMethod, setCostingMethod] = useState<'fifo' | 'average_price' | 'batch_price'>('fifo');
+  const [allowPosMethodOverride, setAllowPosMethodOverride] = useState(false);
+  const [allowScaleSelling, setAllowScaleSelling] = useState(false);
+  const [purchaseUnit, setPurchaseUnit] = useState('Sack');
+  const [baseUnit, setBaseUnit] = useState('Kg');
+  const [conversionToBaseUnit, setConversionToBaseUnit] = useState<number | ''>(100);
+  const [allowCustomQuantity, setAllowCustomQuantity] = useState(true);
 
   // Scanner Simulator modal in form
   const [isFormScannerOpen, setIsFormScannerOpen] = useState(false);
@@ -576,6 +604,49 @@ export default function DashboardProducts({
       sellInWholesale,
       wholesalePrice: sellInWholesale ? finalWholesalePrice : undefined,
       minWholesaleQty: sellInWholesale ? finalMinWholesaleQty : undefined,
+      costingMethod,
+      sellingMethod: mapCostingMethodToLegacy(costingMethod),
+      allowPosMethodOverride,
+      allowScaleSelling: allowScaleSelling || isBulkProduct,
+      purchaseUnit,
+      baseUnit,
+      conversionToBaseUnit: Number(conversionToBaseUnit) || 1,
+      allowCustomQuantity,
+      defaultPricePerBaseUnit: Number(sellUnitPrice) || finalSellingPrice,
+      fractionSaleOptions: allowScaleSelling || isBulkProduct
+        ? getDefaultFractionOptions(baseUnit, Number(sellUnitPrice) || finalSellingPrice)
+        : undefined,
+      pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
+        ? {
+          purchaseUnit: 'Box',
+          stripUnit: 'Strip',
+          baseUnit: 'Tablet',
+          stripsPerBox: 10,
+          tabletsPerStrip: 10,
+        }
+        : undefined,
+      inventorySettings: {
+        costingMethod,
+        allowPosMethodOverride,
+        allowScaleSelling: allowScaleSelling || isBulkProduct,
+        purchaseUnit,
+        baseUnit,
+        conversionToBaseUnit: Number(conversionToBaseUnit) || 1,
+        allowCustomQuantity,
+        defaultPricePerBaseUnit: Number(sellUnitPrice) || finalSellingPrice,
+        fractionSaleOptions: allowScaleSelling || isBulkProduct
+          ? getDefaultFractionOptions(baseUnit, Number(sellUnitPrice) || finalSellingPrice)
+          : undefined,
+        pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
+          ? {
+            purchaseUnit: 'Box',
+            stripUnit: 'Strip',
+            baseUnit: 'Tablet',
+            stripsPerBox: 10,
+            tabletsPerStrip: 10,
+          }
+          : undefined,
+      },
       
       isBulkProduct,
       ...(isBulkProduct && {
@@ -609,6 +680,13 @@ export default function DashboardProducts({
       setWholesalePrice(0);
       setMinWholesaleQty(10);
       setIsBulkProduct(false);
+      setCostingMethod('fifo');
+      setAllowPosMethodOverride(false);
+      setAllowScaleSelling(false);
+      setPurchaseUnit('Sack');
+      setBaseUnit('Kg');
+      setConversionToBaseUnit(100);
+      setAllowCustomQuantity(true);
       setIsOpen(false);
       setFormSuccess(false);
       setFormError(null);
@@ -1572,6 +1650,59 @@ export default function DashboardProducts({
 
               </div>
 
+              <div className="space-y-4 pt-2 border-t border-slate-150">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Smart Batch Costing</h5>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Applies globally in Wholesale, Retail, Pharmacy, and future inventory modules.</p>
+                  </div>
+                  <label className="flex items-center space-x-2 text-[10px] font-bold text-slate-600 uppercase">
+                    <input
+                      type="checkbox"
+                      checked={allowPosMethodOverride}
+                      onChange={(e) => setAllowPosMethodOverride(e.target.checked)}
+                      className="accent-emerald-600"
+                    />
+                    <span>Cashier Override</span>
+                  </label>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    ['fifo', 'FIFO', 'Oldest batch sells first'],
+                    ['average_price', 'Average Price', 'Profit uses weighted cost'],
+                    ['batch_price', 'Batch Price', 'Sell using batch price'],
+                  ].map(([method, label, helper]) => (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => setCostingMethod(method as typeof costingMethod)}
+                      className={`p-3 rounded-xl border text-left transition-all ${costingMethod === method ? 'bg-slate-900 text-white border-slate-900 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                    >
+                      <span className="block text-xs font-black">{label}</span>
+                      <span className={`block text-[9px] mt-1 ${costingMethod === method ? 'text-slate-300' : 'text-slate-400'}`}>{helper}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase">Purchase Unit</label>
+                    <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase">Base Unit</label>
+                    <input value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase">Conversion</label>
+                    <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                  </div>
+                  <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+                    <input type="checkbox" checked={allowScaleSelling} onChange={(e) => setAllowScaleSelling(e.target.checked)} className="accent-emerald-600" />
+                    Scale Sale
+                  </label>
+                </div>
+              </div>
+
               {/* Bidhaa ya Jumla / Bulk Product SECTION */}
               <div className="space-y-4 pt-2 border-t border-slate-150">
                 <div className="flex items-center justify-between">
@@ -1822,6 +1953,7 @@ export default function DashboardProducts({
                                     setReplenishQty('');
                                     setReplenishSupplier('');
                                     setReplenishPriceAction('suggested');
+                                    setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo');
                                     setOpenDropdownId(null);
                                   }}
                                   className="w-full px-3 py-2 text-slate-700 hover:bg-emerald-50 text-xs font-semibold flex items-center space-x-2 transition-colors"
@@ -2048,6 +2180,7 @@ export default function DashboardProducts({
                                         setReplenishQty('');
                                         setReplenishSupplier('');
                                         setReplenishPriceAction('suggested');
+                                        setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo');
                                         setOpenDropdownId(null);
                                       }}
                                       className="w-full px-3 py-2 text-slate-700 hover:bg-emerald-50 text-xs font-semibold flex items-center space-x-2 transition-colors"
@@ -3695,14 +3828,84 @@ export default function DashboardProducts({
                   <div className="space-y-1 pt-1 font-mono">
                     <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Outbound Stock Pulling Logic</label>
                     <select 
-                      value={editForm.sellingMethod || 'fifo'}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, sellingMethod: e.target.value as 'fifo'|'average_cost'|'manual_batch' }))}
+                      value={editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo'}
+                      onChange={(e) => {
+                        const method = e.target.value as 'fifo'|'average_price'|'batch_price';
+                        setEditForm(prev => ({
+                          ...prev,
+                          costingMethod: method,
+                          sellingMethod: mapCostingMethodToLegacy(method),
+                          inventorySettings: {
+                            costingMethod: method,
+                            allowPosMethodOverride: prev.inventorySettings?.allowPosMethodOverride ?? prev.allowPosMethodOverride ?? false,
+                            allowScaleSelling: prev.inventorySettings?.allowScaleSelling ?? prev.allowScaleSelling ?? !!prev.isBulkProduct,
+                            purchaseUnit: prev.inventorySettings?.purchaseUnit || prev.purchaseUnit || prev.bulkUnit || prev.unit || 'Unit',
+                            baseUnit: prev.inventorySettings?.baseUnit || prev.baseUnit || prev.sellUnit || prev.unit || 'Unit',
+                            conversionToBaseUnit: prev.inventorySettings?.conversionToBaseUnit || prev.conversionToBaseUnit || 1,
+                            allowCustomQuantity: prev.inventorySettings?.allowCustomQuantity ?? prev.allowCustomQuantity ?? true,
+                            defaultPricePerBaseUnit: prev.inventorySettings?.defaultPricePerBaseUnit ?? prev.defaultPricePerBaseUnit ?? prev.sellUnitPrice,
+                            fractionSaleOptions: prev.inventorySettings?.fractionSaleOptions || prev.fractionSaleOptions,
+                            pharmacyUnitBreakdown: prev.inventorySettings?.pharmacyUnitBreakdown || prev.pharmacyUnitBreakdown,
+                          },
+                        }));
+                      }}
                       className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none"
                     >
                       <option value="fifo">FIFO (Old Stock First - Recommended)</option>
-                      <option value="average_cost">Average Cost Logic</option>
-                      <option value="manual_batch">Manual Batch Selection</option>
+                      <option value="average_price">Average Price Logic</option>
+                      <option value="batch_price">Batch Price Selling</option>
                     </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+                      <input
+                        type="checkbox"
+                        checked={!!(editForm.allowPosMethodOverride ?? editForm.inventorySettings?.allowPosMethodOverride)}
+                        onChange={(e) => setEditForm(prev => ({
+                          ...prev,
+                          allowPosMethodOverride: e.target.checked,
+                          inventorySettings: {
+                            costingMethod: prev.costingMethod || prev.inventorySettings?.costingMethod || 'fifo',
+                            allowPosMethodOverride: e.target.checked,
+                            allowScaleSelling: prev.inventorySettings?.allowScaleSelling ?? prev.allowScaleSelling ?? !!prev.isBulkProduct,
+                            purchaseUnit: prev.inventorySettings?.purchaseUnit || prev.purchaseUnit || prev.bulkUnit || prev.unit || 'Unit',
+                            baseUnit: prev.inventorySettings?.baseUnit || prev.baseUnit || prev.sellUnit || prev.unit || 'Unit',
+                            conversionToBaseUnit: prev.inventorySettings?.conversionToBaseUnit || prev.conversionToBaseUnit || 1,
+                            allowCustomQuantity: prev.inventorySettings?.allowCustomQuantity ?? prev.allowCustomQuantity ?? true,
+                            defaultPricePerBaseUnit: prev.inventorySettings?.defaultPricePerBaseUnit ?? prev.defaultPricePerBaseUnit ?? prev.sellUnitPrice,
+                            fractionSaleOptions: prev.inventorySettings?.fractionSaleOptions || prev.fractionSaleOptions,
+                            pharmacyUnitBreakdown: prev.inventorySettings?.pharmacyUnitBreakdown || prev.pharmacyUnitBreakdown,
+                          },
+                        }))}
+                        className="accent-emerald-600"
+                      />
+                      POS Override
+                    </label>
+                    <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+                      <input
+                        type="checkbox"
+                        checked={!!(editForm.allowScaleSelling ?? editForm.inventorySettings?.allowScaleSelling)}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, allowScaleSelling: e.target.checked }))}
+                        className="accent-emerald-600"
+                      />
+                      Scale Selling
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Purchase Unit</label>
+                      <input value={editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, purchaseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Base Unit</label>
+                      <input value={editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, baseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Conversion</label>
+                      <input type="number" step="0.001" value={editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1} onChange={e => setEditForm(prev => ({ ...prev, conversionToBaseUnit: Number(e.target.value) || 1 }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3895,12 +4098,10 @@ export default function DashboardProducts({
                   </div>
 
                   {(() => {
-                     const prevCost = replenishProduct.costPrice;
+                     const prevCost = replenishProduct.latestBuyingPrice ?? replenishProduct.costPrice;
                      const newC = Number(replenishCost);
-                     const diff = newC - prevCost;
-                     const percChange = prevCost > 0 ? (diff / prevCost) * 100 : 0;
-                     const marginRatio = prevCost > 0 ? (replenishProduct.sellingPrice / prevCost) : 1.5;
-                     const suggestedPrice = newC * marginRatio;
+                     const priceChange = detectPriceChange(prevCost, newC);
+                     const suggestedPrice = suggestSellingPriceFromPreviousMargin(prevCost, replenishProduct.sellingPrice, newC);
 
                      return (
                        <div className="space-y-4 text-xs">
@@ -3912,10 +4113,32 @@ export default function DashboardProducts({
                            <span className="text-slate-500">New Buying Price:</span>
                            <span className="font-mono font-bold text-slate-800">{currency}{newC.toLocaleString()}</span>
                          </div>
-                         {prevCost > 0 && Math.abs(percChange) > 0.1 && (
-                           <div className={`flex justify-between items-center p-2.5 rounded-lg border ${percChange > 0 ? 'bg-red-50 border-red-100 text-red-800' : 'bg-green-50 border-green-100 text-green-800'}`}>
-                             <span className="font-bold">Price {percChange > 0 ? 'Increased' : 'Decreased'} By:</span>
-                             <span className="font-mono font-black">{Math.abs(percChange).toFixed(1)}%</span>
+                         {prevCost > 0 && Math.abs(priceChange.percentage) > 0.1 && (
+                           <div className={`flex justify-between items-center p-2.5 rounded-lg border ${priceChange.direction === 'increased' ? 'bg-red-50 border-red-100 text-red-800' : 'bg-green-50 border-green-100 text-green-800'}`}>
+                             <span className="font-bold">Price {priceChange.direction === 'increased' ? 'Increased' : 'Decreased'} By:</span>
+                             <span className="font-mono font-black">{Math.abs(priceChange.percentage).toFixed(1)}%</span>
+                           </div>
+                         )}
+
+                         {priceChange.direction !== 'unchanged' && (
+                           <div className="pt-2">
+                             <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">Choose Costing Method for New Cost</span>
+                             <div className="grid grid-cols-3 gap-2">
+                               {[
+                                 ['fifo', 'FIFO'],
+                                 ['average_price', 'Average'],
+                                 ['batch_price', 'Batch Price'],
+                               ].map(([method, label]) => (
+                                 <button
+                                   key={method}
+                                   type="button"
+                                   onClick={() => setReplenishCostingMethod(method as typeof replenishCostingMethod)}
+                                   className={`px-2 py-2 rounded-xl border text-[10px] font-black uppercase ${replenishCostingMethod === method ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                                 >
+                                   {label}
+                                 </button>
+                               ))}
+                             </div>
                            </div>
                          )}
 
@@ -3972,4 +4195,3 @@ export default function DashboardProducts({
     </div>
   );
 }
-

@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Tenant, Product, Sale, SaleItem, SystemSettings } from '../types';
+import {
+  calculateWeightedAverageCost,
+  deductBatchesForSale,
+  getProductCostingMethod,
+} from '../utils/inventoryCosting';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -804,54 +809,23 @@ export default function DashboardPOS({
           deductQtyReal = i.qty / ratioScaling;
       }
       
-      const sellMethod = i.product.sellingMethod || 'fifo';
+      const sellMethod = getProductCostingMethod(i.product);
       const batchesUsed: import('../types').SaleBatchInfo[] = [];
       let blendedCost = i.product.costPrice;
 
-      if (i.product.batches && i.product.batches.length > 0 && sellMethod === 'fifo') {
-          const sortedBatches = [...i.product.batches].filter(b => b.status === 'active').sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-          let remainingToDeduct = deductQtyReal;
-          let totalDeductedCost = 0;
-          let totalDeductedQty = 0;
-          
-          // Re-use pending batch updates if same product was bought in previous cart item
-          const newProductBatches = pendingBatchUpdates[i.product.id] || i.product.batches.map(b => ({ ...b }));
+      if (i.product.batches && i.product.batches.length > 0) {
+          const deduction = deductBatchesForSale(i.product, deductQtyReal, pendingBatchUpdates[i.product.id]);
+          batchesUsed.push(...deduction.batchesUsed);
+          pendingBatchUpdates[i.product.id] = deduction.updatedBatches;
 
-          for (const batch of newProductBatches) {
-              if (batch.status !== 'active' || remainingToDeduct <= 0.0001) continue; // eps margin
-              
-              const take = Math.min(batch.quantityRemaining, remainingToDeduct);
-              batch.quantityRemaining -= take;
-              remainingToDeduct -= take;
-              
-              if (batch.quantityRemaining <= 0.001) {
-                  batch.quantityRemaining = 0;
-                  batch.status = 'finished';
-              }
-
-              batchesUsed.push({
-                  batchId: batch.id,
-                  batchNumber: batch.batchNumber,
-                  qty: Number(take.toFixed(3)),
-                  buyingPrice: batch.buyingPrice
-              });
-
-              totalDeductedCost += (take * batch.buyingPrice);
-              totalDeductedQty += take;
+          if (sellMethod === 'average_price') {
+              blendedCost = i.product.averageBuyingCost || calculateWeightedAverageCost(i.product.batches, i.product.costPrice);
+          } else if (sellMethod === 'batch_price') {
+              blendedCost = deduction.batchesUsed[0]?.buyingPrice || i.product.latestBuyingPrice || i.product.costPrice;
+              unitPrice = deduction.batchesUsed[0]?.sellingPrice || unitPrice;
+          } else {
+              blendedCost = deduction.unitCost;
           }
-
-          if (totalDeductedQty > 0) {
-              blendedCost = totalDeductedCost / totalDeductedQty;
-          }
-
-          // Compute average remaining cost
-          const totalRemaining = newProductBatches.filter(b => b.status === 'active').reduce((sum, b) => sum + b.quantityRemaining, 0);
-          const totalValue = newProductBatches.filter(b => b.status === 'active').reduce((sum, b) => sum + (b.quantityRemaining * b.buyingPrice), 0);
-          const newAvgCost = totalRemaining > 0 ? (totalValue / totalRemaining) : blendedCost;
-          
-          pendingBatchUpdates[i.product.id] = newProductBatches;
-      } else if (sellMethod === 'average_cost') {
-          blendedCost = i.product.averageBuyingCost || i.product.costPrice;
       }
 
       return {
@@ -871,6 +845,8 @@ export default function DashboardPOS({
         sellUnit: i.product.sellUnit,
         sellMode: bMode as 'scale' | 'pcs',
         batchesUsed: batchesUsed.length > 0 ? batchesUsed : undefined,
+        baseQuantityDeducted: Number(deductQtyReal.toFixed(3)),
+        costingMethodUsed: sellMethod,
         costPriceAtSale: Number(blendedCost.toFixed(2))
       };
     });
@@ -955,6 +931,7 @@ export default function DashboardPOS({
           shopStockQty: roundedShop,
           stockQty: roundedTotal,
           batches: updatedBatches,
+          averageBuyingCost: updatedBatches ? calculateWeightedAverageCost(updatedBatches, prod.costPrice) : prod.averageBuyingCost,
         };
       }
       return prod;
