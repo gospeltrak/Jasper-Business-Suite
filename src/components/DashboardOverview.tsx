@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, Fragment } from 'react';
 import { useTenantLogo } from '../TenantLogoContext';
+import { useTranslation } from '../LanguageContext';
 import { Tenant, Product, Sale } from '../types';
 import { 
   ResponsiveContainer, 
@@ -62,6 +63,7 @@ export default function DashboardOverview({
   onToggleOffline
 }: DashboardOverviewProps) {
   const { logoUrl } = useTenantLogo();
+  const { t, lang } = useTranslation();
   const currency = activeTenant.currencyCode || 'TSh';
   
   // Date timeframe filtering state: 'today' | 'week' | 'month' | '3month' | 'year'
@@ -628,25 +630,25 @@ export default function DashboardOverview({
             <div className="flex flex-wrap items-center gap-x-2 mt-0.5 text-slate-650 dark:text-slate-400">
               <span className="text-[11.5px] font-bold text-emerald-600 dark:text-emerald-400">
                 {(() => {
-                  const lang = localStorage.getItem('jasper_lang') || 'en';
+                  const currentLang = lang;
                   const hour = new Date().getHours();
                   if (hour >= 5 && hour < 12) {
-                    return lang === 'sw' ? 'Habari za asubuhi ☀️' : 'Good morning ☀️';
+                    return currentLang === 'sw' ? 'Habari za asubuhi ☀️' : t('Good morning') + ' ☀️';
                   } else if (hour >= 12 && hour < 17) {
-                    return lang === 'sw' ? 'Habari za mchana 🌤️' : 'Good afternoon 🌤️';
+                    return currentLang === 'sw' ? 'Habari za mchana 🌤️' : t('Good afternoon') + ' 🌤️';
                   } else if (hour >= 17 && hour < 21) {
-                    return lang === 'sw' ? 'Habari za jioni 🌆' : 'Good evening 🌆';
+                    return currentLang === 'sw' ? 'Habari za jioni 🌆' : t('Good evening') + ' 🌆';
                   } else {
-                    return lang === 'sw' ? 'Usiku mwema 🌙' : 'Good night 🌙';
+                    return currentLang === 'sw' ? 'Usiku mwema 🌙' : t('Good night') + ' 🌙';
                   }
                 })()}
               </span>
               <span className="text-[10px] text-slate-350 dark:text-slate-600 hidden sm:inline">•</span>
               <span className="text-[11px] font-medium text-slate-450 dark:text-slate-450 font-sans">
                 {(() => {
-                  const lang = localStorage.getItem('jasper_lang') || 'en';
+                  const currentLang = lang;
                   const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-                  return new Date().toLocaleDateString(lang === 'sw' ? 'sw-TZ' : 'en-US', options);
+                  return new Date().toLocaleDateString(currentLang === 'sw' ? 'sw-TZ' : currentLang === 'fr' ? 'fr-FR' : currentLang === 'ar' ? 'ar' : 'en-US', options);
                 })()}
               </span>
             </div>
@@ -657,11 +659,11 @@ export default function DashboardOverview({
         {/* DESKTOP LAYOUT (completely untouched) */}
         <div className="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-wrap gap-y-1 md:flex-nowrap border border-slate-150 shadow-inner">
           {[
-            { id: 'today', label: 'Today' },
-            { id: 'week', label: '1 Week' },
-            { id: 'month', label: '1 Month' },
-            { id: '3month', label: '3 Month' },
-            { id: 'year', label: '1 Year' }
+            { id: 'today', label: t('Today') },
+            { id: 'week', label: t('1 Week') },
+            { id: 'month', label: t('1 Month') },
+            { id: '3month', label: t('3 Month') },
+            { id: 'year', label: t('1 Year') }
           ].map((item) => (
             <button
               key={item.id}
@@ -684,11 +686,11 @@ export default function DashboardOverview({
         {/* MOBILE LAYOUT (clean compact single horizontal row without any horizontal scrolling) */}
         <div className="flex md:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-150 shadow-inner select-none">
           {[
-            { id: 'today', label: 'Today' },
-            { id: 'week', label: '1 Week' },
-            { id: 'month', label: '1 Month' },
-            { id: '3month', label: '3 Month' },
-            { id: 'year', label: '1 Year' }
+            { id: 'today', label: t('Today') },
+            { id: 'week', label: t('1 Week') },
+            { id: 'month', label: t('1 Month') },
+            { id: '3month', label: t('3 Month') },
+            { id: 'year', label: t('1 Year') }
           ].map((item) => (
             <button
               key={item.id}
@@ -858,13 +860,13 @@ export default function DashboardOverview({
           
           <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-50 pb-4 mb-5 gap-3">
             <div className="text-left">
-              <h3 className="text-[15px] font-extrabold text-[#1a1a2e] tracking-tight font-sans">Sales & Purchases Status</h3>
+              <h3 className="text-[15px] font-extrabold text-[#1a1a2e] tracking-tight font-sans">{t('Sales & Purchases Status')}</h3>
               <p className="text-[11px] text-slate-400">
-                {statusTimeframe === 'today' ? 'Hourly status review (Today)' :
-                 statusTimeframe === 'week' ? 'Daily status breakdown (Past 7 Days)' :
-                 statusTimeframe === 'month' ? 'Weekly cohort metrics (Past 30 Days)' :
-                 statusTimeframe === '3month' ? 'Quarterly operational analytics (Past 3 Months)' :
-                 'Annual operational analytics (Past 1 Year)'}
+                {statusTimeframe === 'today' ? t('Hourly status review (Today)') :
+                 statusTimeframe === 'week' ? t('Daily status breakdown (Past 7 Days)') :
+                 statusTimeframe === 'month' ? t('Weekly cohort metrics (Past 30 Days)') :
+                 statusTimeframe === '3month' ? t('Quarterly operational analytics (Past 3 Months)') :
+                 t('Annual operational analytics (Past 1 Year)')}
               </p>
             </div>
             {/* DESKTOP TIMEFRAME SELECTOR */}
@@ -879,7 +881,7 @@ export default function DashboardOverview({
                     : 'text-slate-500 hover:text-[#1a1a2e] hover:bg-slate-200/50'
                 }`}
               >
-                Today
+                {t('Today')}
               </button>
               <button
                 id="btn-timeframe-week"
@@ -891,7 +893,7 @@ export default function DashboardOverview({
                     : 'text-slate-550 hover:text-[#1a1a2e] hover:bg-slate-200/50'
                 }`}
               >
-                1 Week
+                {t('1 Week')}
               </button>
               <button
                 id="btn-timeframe-month"
@@ -903,7 +905,7 @@ export default function DashboardOverview({
                     : 'text-slate-550 hover:text-[#1a1a2e] hover:bg-slate-200/50'
                 }`}
               >
-                1 Month
+                {t('1 Month')}
               </button>
               <button
                 id="btn-timeframe-3month"
@@ -915,7 +917,7 @@ export default function DashboardOverview({
                     : 'text-slate-550 hover:text-[#1a1a2e] hover:bg-slate-200/50'
                 }`}
               >
-                3 Month
+                {t('3 Month')}
               </button>
               <button
                 id="btn-timeframe-year"
@@ -927,18 +929,18 @@ export default function DashboardOverview({
                     : 'text-slate-550 hover:text-[#1a1a2e] hover:bg-slate-200/50'
                 }`}
               >
-                1 Year
+                {t('1 Year')}
               </button>
             </div>
 
             {/* MOBILE TIMEFRAME SELECTOR */}
             <div className="flex md:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-150 shadow-inner select-none">
               {[
-                { id: 'today', label: 'Today' },
-                { id: 'week', label: '1 Week' },
-                { id: 'month', label: '1 Month' },
-                { id: '3month', label: '3 Month' },
-                { id: 'year', label: '1 Year' }
+                { id: 'today', label: t('Today') },
+                { id: 'week', label: t('1 Week') },
+                { id: 'month', label: t('1 Month') },
+                { id: '3month', label: t('3 Month') },
+                { id: 'year', label: t('1 Year') }
               ].map((item) => (
                 <button
                   key={item.id}
