@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, FormEvent } from 'react';
 import { Sale, Tenant, SaleItem, Product, SystemSettings, SalesDocument, User as AppUser } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { formatSaleItemQuantity } from '../utils/unitFormatter';
 import { 
   Search, 
   Calendar, 
@@ -3120,12 +3121,13 @@ export default function DashboardSalesList({
                       const priceAfterDiscount = isItemCash
                         ? Math.max(0, item.price - item.discount)
                         : item.price * (1 - item.discount / 100);
+                      const itemProduct = products.find(product => product.id === item.productId);
                       return (
                         <div key={index} className="flex justify-between items-start text-xs text-slate-705">
                           <div className="space-y-0.5 max-w-[70%]">
                             <p className="font-bold text-slate-800 leading-tight">{item.productName}</p>
                             <p className="text-[10.5px] text-slate-450 font-mono">
-                              {item.qty} units x {currency}{item.price.toLocaleString()}
+                              {formatSaleItemQuantity(item, itemProduct)} x {currency}{item.price.toLocaleString()}
                               {item.discount > 0 && (
                                 <span className="text-emerald-600 font-bold ml-1">
                                   ({isItemCash ? `${currency}${item.discount} Off` : `${item.discount}% Off`})

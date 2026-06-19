@@ -39,6 +39,7 @@ import {
   mapCostingMethodToLegacy,
   suggestSellingPriceFromPreviousMargin,
 } from '../utils/inventoryCosting';
+import { formatProductQuantity } from '../utils/unitFormatter';
 
 interface DashboardProductsProps {
   activeTenant: Tenant;
@@ -708,14 +709,14 @@ export default function DashboardProducts({
     
     if (transferDirection === 'store_to_shop') {
       if (qty > storeQty) {
-        setTransferError(`Insufficient backroom warehouse stock. Max available: ${storeQty} units.`);
+        setTransferError(`Insufficient backroom warehouse stock. Max available: ${formatProductQuantity(storeQty, transferProduct)}.`);
         return;
       }
       nextShop += qty;
       nextStore -= qty;
     } else {
       if (qty > shopQty) {
-        setTransferError(`Insufficient shop floor stock. Max available: ${shopQty} units.`);
+        setTransferError(`Insufficient shop floor stock. Max available: ${formatProductQuantity(shopQty, transferProduct)}.`);
         return;
       }
       nextShop -= qty;
@@ -1795,7 +1796,7 @@ export default function DashboardProducts({
                     <div className="bg-emerald-600 text-white rounded-2xl p-4 space-y-2 text-xs font-mono shadow-md shadow-emerald-600/20">
                       <div className="flex justify-between font-bold">
                         <span>{t('totalUnitsFromPurchase')}</span>
-                        <span>{Number(bulkPurchaseQty) || 0} ÷ {Number(sellUnitQty) || 1} = {((Number(bulkPurchaseQty) || 0) / (Number(sellUnitQty) || 1)).toFixed(2)} units</span>
+                        <span>{Number(bulkPurchaseQty) || 0} ÷ {Number(sellUnitQty) || 1} = {formatProductQuantity(((Number(bulkPurchaseQty) || 0) / (Number(sellUnitQty) || 1)), { unit: sellUnit || baseUnit } as Product)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>{t('totalRevenueIfAllSold')}</span>
@@ -1811,7 +1812,7 @@ export default function DashboardProducts({
                       </div>
                       <div className="flex justify-between font-bold text-emerald-100">
                         <span>{t('breakevenUnits')}:</span>
-                        <span>{Math.ceil(costPrice / (Number(sellUnitPrice) || 1))} units</span>
+                        <span>{formatProductQuantity(Math.ceil(costPrice / (Number(sellUnitPrice) || 1)), { unit: sellUnit || baseUnit } as Product)}</span>
                       </div>
                     </div>
                   </div>
@@ -1884,11 +1885,11 @@ export default function DashboardProducts({
                       <div className="grid grid-cols-2 gap-2 mb-3 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                          <div className="flex flex-col justify-center">
                            <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Shop Stock</span>
-                           <span className={`text-xs font-bold font-mono ${shopQty <= prod.alertQty ? 'text-red-500' : 'text-slate-800'}`}>{shopQty} units</span>
+                           <span className={`text-xs font-bold font-mono ${shopQty <= prod.alertQty ? 'text-red-500' : 'text-slate-800'}`}>{formatProductQuantity(shopQty, prod)}</span>
                          </div>
                          <div className="flex flex-col justify-center">
                            <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Store Stock</span>
-                           <span className="text-xs font-bold font-mono text-slate-800">{storeQty} units</span>
+                           <span className="text-xs font-bold font-mono text-slate-800">{formatProductQuantity(storeQty, prod)}</span>
                          </div>
                       </div>
 
@@ -1901,7 +1902,7 @@ export default function DashboardProducts({
                           ) : isLow ? (
                             <span className="text-rose-600 bg-rose-50 border border-rose-200/50 rounded-lg px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5">
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                              LOW: {shopQty} In-Shop
+                              LOW: {formatProductQuantity(shopQty, prod)} In-Shop
                             </span>
                           ) : (
                             <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/50 rounded-lg px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5">
@@ -1996,9 +1997,9 @@ export default function DashboardProducts({
                     <th className="py-4 px-4 text-right">Cost Price</th>
                     <th className="py-4 px-4 text-right">Retail Price</th>
                     <th className="py-4 px-4 text-right">Wholesale Price / Min Qty</th>
-                    <th className="py-4 px-4 text-center">In Shop</th>
-                    <th className="py-4 px-4 text-center">In Store</th>
-                    <th className="py-4 px-4 text-center">Total Stock</th>
+                    <th className="py-4 px-4 text-center">Units</th>
+                    <th className="py-4 px-4 text-center">Store Units</th>
+                    <th className="py-4 px-4 text-center">Total Units</th>
                     <th className="py-4 px-4 text-center">Status</th>
                     <th className="py-4 px-5 text-center font-mono uppercase">Ledger Actions</th>
                   </tr>
@@ -2076,7 +2077,7 @@ export default function DashboardProducts({
                                 {currency}{wholesaleVal.toLocaleString()}
                               </span>
                               <span className="text-[9px] text-slate-400 mt-0.5">
-                                Min Qty: <strong className="text-slate-700">{minWholesaleVal}</strong>
+                                Min Qty: <strong className="text-slate-700">{formatProductQuantity(minWholesaleVal, prod)}</strong>
                               </span>
                             </div>
                           ) : (
@@ -2089,16 +2090,16 @@ export default function DashboardProducts({
                           <span className={`font-mono text-[11px] px-2.5 py-1 rounded-full font-bold bg-slate-50 border border-slate-200 ${
                             isLow ? 'text-amber-600 bg-amber-50/50 border-amber-200' : 'text-slate-600'
                           }`}>
-                            {shopQty} units
+                            {formatProductQuantity(shopQty, prod)}
                           </span>
                         </td>
                         <td className="py-4 px-4 text-center">
                           <span className="font-mono text-[11px] px-2.5 py-1 rounded-full font-bold bg-slate-50 border border-slate-200 text-slate-600">
-                            {storeQty} units
+                            {formatProductQuantity(storeQty, prod)}
                           </span>
                         </td>
                         <td className="py-4 px-4 text-center font-black text-slate-750 font-mono text-xs">
-                          {totalQty}
+                          {formatProductQuantity(totalQty, prod)}
                         </td>
                         <td className="py-4 px-4 text-center">
                           {isOutOfStock ? (
@@ -2887,11 +2888,11 @@ export default function DashboardProducts({
               <div className="grid grid-cols-2 gap-3 pb-1">
                 <div className="bg-emerald-50 border border-emerald-100 p-3.5 rounded-xl text-center space-y-0.5">
                   <span className="text-[9px] font-bold text-emerald-600 tracking-wider">In Shop layout</span>
-                  <p className="text-xl font-mono font-black text-emerald-700">{transferProduct.shopStockQty ?? 0}</p>
+                  <p className="text-xl font-mono font-black text-emerald-700">{formatProductQuantity(transferProduct.shopStockQty ?? 0, transferProduct)}</p>
                 </div>
                 <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-center space-y-0.5">
                   <span className="text-[9px] font-bold text-slate-550 tracking-wider">In store rooms</span>
-                  <p className="text-xl font-mono font-black text-slate-700">{transferProduct.storeStockQty ?? 0}</p>
+                  <p className="text-xl font-mono font-black text-slate-700">{formatProductQuantity(transferProduct.storeStockQty ?? 0, transferProduct)}</p>
                 </div>
               </div>
 
@@ -2933,7 +2934,7 @@ export default function DashboardProducts({
                   {/* Qty input */}
                   <div className="space-y-1.5">
                     <div className="flex justify-between items-center text-[9.5px] font-bold text-slate-400">
-                      <label>Qty units to move</label>
+                      <label>Units to move</label>
                       <button 
                         type="button"
                         onClick={() => {
@@ -3115,7 +3116,7 @@ export default function DashboardProducts({
                         </div>
                         <div className="pt-2">
                           <span className="inline-block bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-mono text-[9.5px]">
-                            Shop: {shopQty} / Store: {storeQty}
+                            Shop: {formatProductQuantity(shopQty, prod)} / Store: {formatProductQuantity(storeQty, prod)}
                           </span>
                         </div>
                       </div>
@@ -3321,7 +3322,7 @@ export default function DashboardProducts({
                         </div>
                         <div className="pt-2">
                           <span className="inline-block bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-mono text-[9.5px]">
-                            Shop: {shopQty} / Store: {storeQty}
+                            Shop: {formatProductQuantity(shopQty, prod)} / Store: {formatProductQuantity(storeQty, prod)}
                           </span>
                         </div>
                       </div>
@@ -3409,15 +3410,15 @@ export default function DashboardProducts({
 
                   <div className="grid grid-cols-2 gap-3 pb-1 font-mono">
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Shop shelf (Units)</label>
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Shop shelf units</label>
                       <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold">
-                        {viewingProduct.shopStockQty ?? 0}
+                        {formatProductQuantity(viewingProduct.shopStockQty ?? 0, viewingProduct)}
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">store rooms (Units)</label>
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">store room units</label>
                       <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold font-mono">
-                        {viewingProduct.storeStockQty ?? 0}
+                        {formatProductQuantity(viewingProduct.storeStockQty ?? 0, viewingProduct)}
                       </div>
                     </div>
                   </div>
@@ -3425,13 +3426,13 @@ export default function DashboardProducts({
                   <div className="space-y-1 font-mono">
                     <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Low alert Level threshold</label>
                     <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold font-mono">
-                      {viewingProduct.alertQty ?? 5} units
+                      {formatProductQuantity(viewingProduct.alertQty ?? 5, viewingProduct)}
                     </div>
                   </div>
 
                   <div className="bg-teal-50/50 border border-teal-150 p-4 rounded-2xl items-center font-mono">
                     <span className="text-[9.5px] font-bold text-teal-650 uppercase block">Overall ledger balance</span>
-                    <p className="text-2xl font-black text-teal-800 mt-1">{(viewingProduct.shopStockQty ?? 0) + (viewingProduct.storeStockQty ?? 0)} units</p>
+                    <p className="text-2xl font-black text-teal-800 mt-1">{formatProductQuantity((viewingProduct.shopStockQty ?? 0) + (viewingProduct.storeStockQty ?? 0), viewingProduct)}</p>
                   </div>
                 </div>
 
@@ -3464,7 +3465,7 @@ export default function DashboardProducts({
                     <div className="space-y-1">
                       <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Wholesale Min qty</label>
                       <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-805 font-bold">
-                        {viewingProduct.sellInWholesale ? `${viewingProduct.minWholesaleQty ?? 10} units` : 'LOCKED'}
+                        {viewingProduct.sellInWholesale ? formatProductQuantity(viewingProduct.minWholesaleQty ?? 10, viewingProduct) : 'LOCKED'}
                       </div>
                     </div>
                   </div>
@@ -3728,7 +3729,7 @@ export default function DashboardProducts({
 
                   <div className="bg-teal-50/50 border border-teal-150 p-4 rounded-2xl items-center font-mono">
                     <span className="text-[9.5px] font-bold text-teal-650 uppercase block">Overall ledger balance</span>
-                    <p className="text-2xl font-black text-teal-800 mt-1">{(editForm.shopStockQty ?? 0) + (editForm.storeStockQty ?? 0)} units</p>
+                    <p className="text-2xl font-black text-teal-800 mt-1">{formatProductQuantity((editForm.shopStockQty ?? 0) + (editForm.storeStockQty ?? 0), editForm as Product)}</p>
                   </div>
                 </div>
 
@@ -4008,7 +4009,7 @@ export default function DashboardProducts({
                       <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 space-y-1 mt-2 text-[10px] font-mono text-emerald-800">
                         <div className="flex justify-between font-bold">
                           <span>{t('totalUnitsFromPurchase')}</span>
-                          <span>{((Number(editForm.bulkPurchaseQty) || 0) / (Number(editForm.sellUnitQty) || 1)).toFixed(2)} units</span>
+                          <span>{formatProductQuantity(((Number(editForm.bulkPurchaseQty) || 0) / (Number(editForm.sellUnitQty) || 1)), { unit: editForm.sellUnit || editForm.baseUnit || editForm.unit } as Product)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>{t('totalRevenueIfAllSold')}</span>
@@ -4024,7 +4025,7 @@ export default function DashboardProducts({
                         </div>
                         <div className="flex justify-between font-bold text-emerald-900">
                           <span>{t('breakevenUnits')}:</span>
-                          <span>{Math.ceil((editForm.costPrice ?? 0) / (Number(editForm.sellUnitPrice) || 1))} units</span>
+                          <span>{formatProductQuantity(Math.ceil((editForm.costPrice ?? 0) / (Number(editForm.sellUnitPrice) || 1)), { unit: editForm.sellUnit || editForm.baseUnit || editForm.unit } as Product)}</span>
                         </div>
                       </div>
                     </div>

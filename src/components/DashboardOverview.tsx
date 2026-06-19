@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, Fragment } from 'react';
 import { useTenantLogo } from '../TenantLogoContext';
 import { useTranslation } from '../LanguageContext';
 import { Tenant, Product, Sale } from '../types';
+import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitFormatter';
 import { 
   ResponsiveContainer, 
   ComposedChart, 
@@ -1246,7 +1247,7 @@ export default function DashboardOverview({
                                         <div className="flex items-center space-x-2 flex-grow min-w-0">
                                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
                                           <span className="font-semibold text-slate-800 truncate">{itemProductObj ? itemProductObj.name : 'Branch Product'}</span>
-                                          <span className="text-slate-400 text-[10px] flex-shrink-0">x {item.qty} units</span>
+                                          <span className="text-slate-400 text-[10px] flex-shrink-0">x {formatSaleItemQuantity(item, itemProductObj)}</span>
                                         </div>
                                         <span className="font-bold text-[#1a1a2e] flex-shrink-0">{currency} {Math.round(item.price * item.qty).toLocaleString()}</span>
                                       </div>
@@ -1429,14 +1430,14 @@ export default function DashboardOverview({
                       </div>
                       
                       <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border uppercase shrink-0 ${badgeColor}`}>
-                        {product.stockQty === 0 ? 'Out of Stock' : `${product.stockQty} left`}
+                        {product.stockQty === 0 ? 'Out of Stock' : `${formatProductQuantity(product.stockQty, product)} left`}
                       </span>
                     </div>
 
                     {/* Progress slider bar representation */}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-[9px] font-semibold text-slate-400">
-                        <span>Reorder Limit: {limit} units</span>
+                        <span>Reorder Limit: {formatProductQuantity(limit, product)}</span>
                         <span className="font-mono">{Math.round(pct)}% safety level</span>
                       </div>
                       <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -1450,7 +1451,7 @@ export default function DashboardOverview({
                     {/* Operational trigger dispatcher button */}
                     <div className="pt-1 flex items-center justify-between gap-1.5">
                       <p className="text-[9.5px] text-slate-450 italic">
-                        {product.stockQty === 0 ? 'Critical supply break!' : `Below limit by ${Math.max(1, limit - product.stockQty)} units`}
+                        {product.stockQty === 0 ? 'Critical supply break!' : `Below limit by ${formatProductQuantity(Math.max(1, limit - product.stockQty), product)}`}
                       </p>
                       <button
                         type="button"

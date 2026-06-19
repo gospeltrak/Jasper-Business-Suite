@@ -6,6 +6,7 @@ import {
   getPosSellingPriceForCostingMethod,
   getProductCostingMethod,
 } from '../utils/inventoryCosting';
+import { formatProductQuantity } from '../utils/unitFormatter';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -503,7 +504,7 @@ export default function DashboardPOS({
         
         const nextQty = existing.qty + 1;
         if (nextQty * boxWeight > shopQty) {
-          setPosWarning(`Stock Limit: Cannot add more than ${shopQty} items of "${prod.name}" to the register basket!`);
+          setPosWarning(`Stock Limit: Cannot add more than ${formatProductQuantity(shopQty, prod)} of "${prod.name}" to the register basket!`);
           return prev;
         }
         return prev.map(i => i.product.id === prod.id ? { ...i, qty: nextQty } : i);
@@ -536,7 +537,7 @@ export default function DashboardPOS({
               : (i.tabsSelected || 1) / (i.product.tabsPerPack || 30);
 
           if (nextQty * boxWeight > shopQty) {
-            setPosWarning(`Stock Limit: Cannot exceed active shop stock of ${shopQty} units for "${i.product.name}"!`);
+            setPosWarning(`Stock Limit: Cannot exceed active shop stock of ${formatProductQuantity(shopQty, i.product)} for "${i.product.name}"!`);
             return i;
           }
           return { ...i, qty: nextQty };
@@ -564,7 +565,7 @@ export default function DashboardPOS({
 
           if (newQty * boxWeight > shopQty) {
             const maxQty = Math.max(1, Math.floor(shopQty / boxWeight));
-            setPosWarning(`Stock Limit: Maximum possible quantity for "${i.product.name}" is ${maxQty} based on stock!`);
+            setPosWarning(`Stock Limit: Maximum possible quantity for "${i.product.name}" is ${formatProductQuantity(maxQty, i.product)} based on stock!`);
             return { ...i, qty: maxQty };
           }
           return { ...i, qty: newQty };
@@ -1376,7 +1377,7 @@ export default function DashboardPOS({
                           {prod.category}
                         </span>
                         <span className="text-[9px] font-mono text-slate-450 font-bold bg-slate-100 px-1.5 py-0.5 rounded-xs leading-none">
-                          {shopQty} left
+                          {formatProductQuantity(shopQty, prod)} left
                         </span>
                       </div>
                       <h5 className="font-extrabold text-xs text-slate-800 line-clamp-2 leading-snug md:min-h-[2.25rem] pt-0.5 select-all" title={prod.name}>

@@ -53,6 +53,7 @@ import {
   ArrowRight,
   Scale
 } from 'lucide-react';
+import { formatProductQuantity, getProductUnitName } from '../utils/unitFormatter';
 
 interface DashboardReportsProps {
   activeTenant: Tenant;
@@ -760,6 +761,7 @@ export default function DashboardReports({
 
       return {
         id: prod.id,
+        product: prod,
         name: prod.name,
         sku: prod.sku,
         category: prod.category,
@@ -2256,8 +2258,8 @@ export default function DashboardReports({
                       <th className="p-4">Barcode / Code ID</th>
                       <th className="p-4">Product Name</th>
                       <th className="p-4 uppercase">Category</th>
-                      <th className="p-4 text-center">Shop Qty</th>
-                      <th className="p-4 text-center">Store Qty</th>
+                      <th className="p-4 text-center">Units</th>
+                      <th className="p-4 text-center">Store Units</th>
                       <th className="p-4 text-center text-amber-700 font-bold">Sold on Credit</th>
                       {showProfitCogs && <th className="p-4 text-right">Cost Price (COGS)</th>}
                       <th className="p-4 text-right">Sel. Price</th>
@@ -2270,9 +2272,9 @@ export default function DashboardReports({
                       <td className="p-4 font-mono text-slate-650 leading-none">{p.sku}</td>
                       <td className="p-4 font-bold text-slate-800 leading-none">{p.name}</td>
                       <td className="p-4"><span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[9.5px] uppercase font-mono font-medium text-slate-600">{p.category}</span></td>
-                      <td className="p-4 text-center font-bold text-emerald-700 bg-emerald-500/5">{p.shopQty} units</td>
-                      <td className="p-4 text-center font-bold text-blue-700 bg-blue-500/5">{p.storeQty} units</td>
-                      <td className="p-4 text-center font-bold text-amber-700 bg-amber-500/5">{p.creditIssuedQty} units</td>
+                      <td className="p-4 text-center font-bold text-emerald-700 bg-emerald-500/5">{formatProductQuantity(p.shopQty, p.product)}</td>
+                      <td className="p-4 text-center font-bold text-blue-700 bg-blue-500/5">{formatProductQuantity(p.storeQty, p.product)}</td>
+                      <td className="p-4 text-center font-bold text-amber-700 bg-amber-500/5">{formatProductQuantity(p.creditIssuedQty, p.product)}</td>
                       {showProfitCogs && <td className="p-4 text-right font-mono text-slate-650">{currency}{p.cogsShop + p.cogsStore + p.cogsCredit > 0 ? p.totalCogs.toLocaleString() : '0'}</td>}
                       <td className="p-4 text-right font-mono text-slate-650">{currency}{p.sellingPrice.toLocaleString()}</td>
                       {showProfitCogs && <td className="p-4 text-right font-mono font-black text-slate-800">{currency}{p.unrealizedProfit.toLocaleString()}</td>}
@@ -2887,19 +2889,19 @@ export default function DashboardReports({
                         <div className="flex justify-between items-center py-1 border-b border-slate-200">
                           <span className="text-slate-500 font-medium">{isAll ? 'Shop Floor (Combined):' : 'Shop Floor Balance:'}</span>
                           <span className="font-mono font-bold text-emerald-700 bg-emerald-100/50 px-2 py-0.5 rounded-md">
-                            {(isAll ? sumShopStock : (monitoredProduct?.shopStockQty ?? 0)).toLocaleString()} units
+                            {isAll ? `${sumShopStock.toLocaleString()} units` : formatProductQuantity(monitoredProduct?.shopStockQty ?? 0, monitoredProduct)}
                           </span>
                         </div>
                         <div className="flex justify-between items-center py-1 border-b border-slate-200">
                           <span className="text-slate-500 font-medium">{isAll ? 'Backrooms (Combined):' : 'Store Backroom Balance:'}</span>
                           <span className="font-mono font-bold text-blue-700 bg-blue-100/50 px-2 py-0.5 rounded-md">
-                            {(isAll ? sumStoreStock : (monitoredProduct?.storeStockQty ?? 0)).toLocaleString()} units
+                            {isAll ? `${sumStoreStock.toLocaleString()} units` : formatProductQuantity(monitoredProduct?.storeStockQty ?? 0, monitoredProduct)}
                           </span>
                         </div>
                         <div className="flex justify-between items-center py-1">
                           <span className="text-slate-500 font-black">Total Physical On-Hand:</span>
                           <span className="font-mono font-black text-slate-800 bg-slate-200 px-2 py-0.5 rounded-md">
-                            {(isAll ? sumPhysicalStock : ((monitoredProduct?.shopStockQty ?? 0) + (monitoredProduct?.storeStockQty ?? 0))).toLocaleString()} units
+                            {isAll ? `${sumPhysicalStock.toLocaleString()} units` : formatProductQuantity(((monitoredProduct?.shopStockQty ?? 0) + (monitoredProduct?.storeStockQty ?? 0)), monitoredProduct)}
                           </span>
                         </div>
                       </div>
@@ -2907,11 +2909,11 @@ export default function DashboardReports({
                       {!isAll && monitoredProduct && (
                         ((monitoredProduct.shopStockQty ?? 0) + (monitoredProduct.storeStockQty ?? 0)) <= (monitoredProduct.alertQty ?? 5) ? (
                           <div className="p-3 bg-amber-50 rounded-xl border border-amber-200/60 flex items-center space-x-2 text-[10.5px] font-bold text-amber-800 leading-normal font-sans animate-pulse">
-                            <span>⚠️ Low Stock Warning! On-hand stock is below alert threshold ({(monitoredProduct.alertQty ?? 5)} units). Consider purchasing replenishment batch.</span>
+                            <span>⚠️ Low Stock Warning! On-hand stock is below alert threshold ({formatProductQuantity(monitoredProduct.alertQty ?? 5, monitoredProduct)}). Consider purchasing replenishment batch.</span>
                           </div>
                         ) : (
                           <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center space-x-2 text-[10.5px] font-bold text-emerald-800 leading-normal font-sans">
-                            <span>✅ Stock balance is healthy. Well-stocked above trigger alert ({(monitoredProduct.alertQty ?? 5)} units).</span>
+                            <span>✅ Stock balance is healthy. Well-stocked above trigger alert ({formatProductQuantity(monitoredProduct.alertQty ?? 5, monitoredProduct)}).</span>
                           </div>
                         )
                       )}
@@ -2944,7 +2946,7 @@ export default function DashboardReports({
                           <span className="font-mono font-bold text-indigo-700">
                             {isAll 
                               ? (salesForMonitoredProduct.length > 0 ? (totalQtySold / salesForMonitoredProduct.length).toFixed(1) : '0') + ' units'
-                              : currency + (monitoredProduct?.sellingPrice ?? 0).toLocaleString() + ' / unit'
+                              : currency + (monitoredProduct?.sellingPrice ?? 0).toLocaleString() + ` / ${getProductUnitName(monitoredProduct)}`
                             }
                           </span>
                         </div>
@@ -3179,7 +3181,7 @@ export default function DashboardReports({
                           <div className="flex items-center space-x-2">
                             <p className="text-xs font-bold uppercase tracking-wider text-slate-700 font-mono">Daily Sales Volume Timeline</p>
                           </div>
-                          <span className="text-[10px] font-mono text-slate-400 uppercase font-black">Max peak: {maxDailyQty} units</span>
+                          <span className="text-[10px] font-mono text-slate-400 uppercase font-black">Max peak: {formatProductQuantity(maxDailyQty, monitoredProduct)}</span>
                         </div>
 
                         <div className="space-y-3 pt-2 font-sans">
@@ -3189,7 +3191,7 @@ export default function DashboardReports({
                               <div key={day.date} className="space-y-1">
                                 <div className="flex justify-between items-center text-[11px] text-slate-600 font-mono">
                                   <span className="font-bold">{new Date(day.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                  <span className="font-black text-slate-800 font-sans">{day.qty} units ({currency}{Math.round(day.revenue).toLocaleString()})</span>
+                                  <span className="font-black text-slate-800 font-sans">{formatProductQuantity(day.qty, monitoredProduct)} ({currency}{Math.round(day.revenue).toLocaleString()})</span>
                                 </div>
                                 <div className="flex items-center space-x-3">
                                   <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
@@ -3242,7 +3244,7 @@ export default function DashboardReports({
                                     Guest/Client: <span className="font-bold text-slate-700">{sale.customerName || 'Walk-In Customer'}</span>
                                   </p>
                                   <p className="text-slate-500 leading-normal">
-                                    Quantity Ordered: <span className="font-black text-slate-800 font-mono font-sans">{saleItem.qty} units</span> {disc > 0 && <span className="text-rose-650 font-black font-mono">({disc}% off)</span>}
+                                    Quantity Ordered: <span className="font-black text-slate-800 font-mono font-sans">{formatProductQuantity(saleItem.qty, monitoredProduct)}</span> {disc > 0 && <span className="text-rose-650 font-black font-mono">({disc}% off)</span>}
                                   </p>
                                 </div>
 
@@ -3544,13 +3546,13 @@ export default function DashboardReports({
                             <td className="py-3 px-4 text-center">
                               <div className="inline-block text-left">
                                 <p className="font-mono text-[11px] font-bold text-emerald-800">{currency}{Math.round(st.retailRev).toLocaleString()}</p>
-                                <p className="text-[9px] font-mono text-slate-400 font-semibold">{st.retailQty} units sold</p>
+                                <p className="text-[9px] font-mono text-slate-400 font-semibold">{formatProductQuantity(st.retailQty, st.product)} sold</p>
                               </div>
                             </td>
                             <td className="py-3 px-4 text-center">
                               <div className="inline-block text-left">
                                 <p className="font-mono text-[11px] font-bold text-teal-850">{currency}{Math.round(st.wholesaleRev).toLocaleString()}</p>
-                                <p className="text-[9px] font-mono text-slate-400 font-semibold">{st.wholesaleQty} units sold</p>
+                                <p className="text-[9px] font-mono text-slate-400 font-semibold">{formatProductQuantity(st.wholesaleQty, st.product)} sold</p>
                               </div>
                             </td>
                             <td className="py-3 px-4 text-center font-mono font-bold text-slate-800">
@@ -4130,11 +4132,11 @@ export default function DashboardReports({
                                   <div>
                                     <span className="text-sm font-bold text-slate-800 block">{p.name}</span>
                                     <span className="text-xs text-slate-400 block mt-0.5">
-                                      SKU: {p.sku || 'N/A'} • Cost: {currency}{p.costPrice.toFixed(1)} • Shop: {p.shopStockQty || 0}
+                                      SKU: {p.sku || 'N/A'} • Cost: {currency}{p.costPrice.toFixed(1)} • Shop: {formatProductQuantity(p.shopStockQty || 0, p)}
                                     </span>
                                   </div>
                                   <div className="text-right shrink-0">
-                                    <span className="text-sm font-extrabold text-slate-900 block">{totalQty} units</span>
+                                    <span className="text-sm font-extrabold text-slate-900 block">{formatProductQuantity(totalQty, p)}</span>
                                     <span className="text-[11px] text-indigo-600 font-bold block mt-0.5">{currency}{Math.round(valAmount).toLocaleString()}</span>
                                   </div>
                                 </div>
@@ -4360,7 +4362,7 @@ export default function DashboardReports({
                                     <ShoppingBag className="w-4 h-4" />
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Units Sold</span>
                                   </div>
-                                  <span className="text-sm font-black text-slate-800 font-sans mt-2">{totalUnits} units</span>
+                                  <span className="text-sm font-black text-slate-800 font-sans mt-2">{formatProductQuantity(totalUnits, products.find(p => p.id === selectedMonitoredProductId))}</span>
                                 </div>
 
                                 <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
@@ -4668,7 +4670,7 @@ export default function DashboardReports({
                                   <span className="text-xs text-slate-400 block mt-1">Barcode: {item.barcode || 'N/A'} • Doc: {item.sku || 'N/A'}</span>
                                 </div>
                                 <div className="text-right shrink-0">
-                                  <span className="text-sm font-extrabold text-slate-900 block">{item.qty} units</span>
+                                  <span className="text-sm font-extrabold text-slate-900 block">{formatProductQuantity(item.qty, products.find(p => p.sku === item.sku || p.barcode === item.barcode || p.name === item.name))}</span>
                                   <span className="text-[11px] text-emerald-600 font-extrabold block mt-0.5">{(item.qty / 30).toFixed(2)} / day</span>
                                 </div>
                               </div>
@@ -5246,7 +5248,7 @@ export default function DashboardReports({
                     <th className="p-1.5">Category</th>
                     <th className="p-1.5 text-right">Cost Price</th>
                     <th className="p-1.5 text-right">Selling Price</th>
-                    <th className="p-1.5 text-right">Available stock</th>
+                    <th className="p-1.5 text-right">Units</th>
                     <th className="p-1.5 text-right">Assets Value</th>
                   </tr>
                 </thead>
@@ -5258,7 +5260,7 @@ export default function DashboardReports({
                       <td className="p-1.5 whitespace-nowrap">{p.category || 'General'}</td>
                       <td className="p-1.5 text-right font-mono">{currency}{p.costPrice.toFixed(1)}</td>
                       <td className="p-1.5 text-right font-mono">{currency}{p.sellingPrice.toFixed(1)}</td>
-                      <td className="p-1.5 text-right font-mono font-black">{p.stockQty || 0} units</td>
+                      <td className="p-1.5 text-right font-mono font-black">{formatProductQuantity(p.stockQty || 0, p)}</td>
                       <td className="p-1.5 text-right font-mono font-bold">{currency}{((p.stockQty || 0) * p.costPrice).toLocaleString(undefined, {minimumFractionDigits: 1})}</td>
                     </tr>
                   ))}
@@ -5416,7 +5418,7 @@ export default function DashboardReports({
                         <td className="p-1.5 font-mono text-[8px]">{item.sku || 'N/A'}</td>
                         <td className="p-1.5 text-right font-mono">{currency}{item.cost.toFixed(1)}</td>
                         <td className="p-1.5 text-right font-mono">{currency}{item.price.toFixed(1)}</td>
-                        <td className="p-1.5 text-right font-mono font-black">{item.sold} units</td>
+                        <td className="p-1.5 text-right font-mono font-black">{formatProductQuantity(item.sold, products.find(p => p.sku === item.sku || p.name === item.name))}</td>
                         <td className="p-1.5 text-right font-mono">{currency}{Math.round(item.rev).toLocaleString()}</td>
                         <td className="p-1.5 text-right font-mono font-bold text-emerald-900">{currency}{Math.round(item.profit).toLocaleString()}</td>
                       </tr>
@@ -5451,7 +5453,7 @@ export default function DashboardReports({
                       <td className="p-1.5 text-right font-mono">{currency}{p.costPrice.toFixed(1)}</td>
                       <td className="p-1.5 text-right font-mono">{currency}{p.sellingPrice.toFixed(1)}</td>
                       <td className="p-1.5 text-right font-mono">{currency}{(p.wholesalePrice || p.sellingPrice * 0.9).toFixed(1)}</td>
-                      <td className="p-1.5 text-right font-mono">{p.minWholesaleQty || 10} units</td>
+                      <td className="p-1.5 text-right font-mono">{formatProductQuantity(p.minWholesaleQty || 10, p)}</td>
                       <td className="p-1.5 text-center">{p.sellInRetail !== false ? '✅ Active' : '❌ Disabled'}</td>
                       <td className="p-1.5 text-center">{p.sellInWholesale ? '✅ Active' : '❌ Disabled'}</td>
                     </tr>

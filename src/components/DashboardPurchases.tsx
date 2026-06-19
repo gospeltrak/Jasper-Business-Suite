@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Product, Supplier, Purchase, PurchaseItem, Tenant } from '../types';
 import { addBatchToProduct, createInventoryBatch } from '../utils/inventoryCosting';
+import { formatProductQuantity } from '../utils/unitFormatter';
 import { 
   Truck, 
   Package, 
@@ -579,7 +580,7 @@ export default function DashboardPurchases({
                           {prod.sku}
                         </span>
                         <span className="text-[9.5px] font-bold text-slate-400 font-mono">
-                          Curr. stock: {prod.stockQty}
+                          Curr. stock: {formatProductQuantity(prod.stockQty, prod)}
                         </span>
                       </div>
                       <h6 className="text-xs font-bold text-slate-800 line-clamp-2 leading-tight group-hover:text-emerald-700">{prod.name}</h6>
