@@ -33,10 +33,7 @@ import {
   MoreVertical,
   Printer,
   Share2,
-  XOctagon,
-  WifiOff,
-  Database,
-  RefreshCcw
+  XOctagon
 } from 'lucide-react';
 
 interface DashboardOverviewProps {
@@ -538,57 +535,6 @@ export default function DashboardOverview({
 
   return (
     <div id="overview-component" className="space-y-6 font-sans">
-      
-      {isOfflineMode && (
-        <div id="overview-offline-warn-card" className="bg-gradient-to-br from-amber-50 to-amber-100/60 dark:from-slate-900/50 dark:to-slate-900/20 border border-amber-200/80 dark:border-amber-500/20 rounded-2xl p-6 shadow-xs text-left select-none animate-in fade-in slide-in-from-top-3 duration-250 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="flex items-start space-x-4">
-            <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl border border-amber-200/50 dark:border-amber-500/10 self-start mt-0.5 animate-pulse">
-              <WifiOff className="w-6 h-6 stroke-[1.8]" />
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-amber-500/10 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20">
-                  OFFLINE RESILIENCE ACTIVE
-                </span>
-                <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75 animate-duration-[1200ms]"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                </span>
-              </div>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white leading-tight">
-                Operating in Local Storage Mode
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
-                Your connection is offline. Jasper's secure local sync engine is safely recording all receipts to your device's isolated database. These transactions are pending synchronization and will automatically consolidate on the next online check.
-              </p>
-              
-              {/* Visual queue representing pending sync queue state */}
-              <div className="flex flex-wrap items-center gap-4 mt-3 pt-2 border-t border-amber-200/40 dark:border-amber-500/10 font-sans">
-                <div className="flex items-center space-x-1.5 text-xs text-amber-800 dark:text-amber-400 font-semibold">
-                  <Database className="w-3.5 h-3.5" />
-                  <span>{offlinePendingCount} Unsaved sales awaiting cloud-merging</span>
-                </div>
-                <div className="hidden sm:inline text-slate-350 dark:text-slate-600">•</div>
-                <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                  <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200/50 dark:border-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300">IndexedDB: pending_sales</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="w-full md:w-auto shrink-0 flex flex-col sm:flex-row md:flex-col gap-2.5">
-            <button
-              type="button"
-              onClick={onToggleOffline}
-              className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500 text-slate-950 dark:text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-500/10 hover:shadow-amber-500/20 active:scale-95 cursor-pointer flex items-center justify-center space-x-2"
-            >
-              <RefreshCcw className="w-3.5 h-3.5" />
-              <span>Simulate Online & Sync</span>
-            </button>
-          </div>
-        </div>
-      )}
-      
       {/* 2. OVERVIEW HEADER WITH DYNAMIC DAY SELECTOR */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-150/80 dark:border-slate-800 p-5 rounded-2xl shadow-xs text-left select-none animate-fade-in">
         <div className="flex items-center space-x-4">
