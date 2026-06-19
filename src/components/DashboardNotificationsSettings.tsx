@@ -1,47 +1,97 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useJasperNotifications } from '../JasperNotificationContext';
-import { Save, Bell, Clock, Calendar, AlertTriangle } from 'lucide-react';
+import { Save, Bell, Clock, Calendar, AlertTriangle, Send, User, MessageCircle } from 'lucide-react';
+import { JasperModuleNotificationSettings } from '../types';
 
-export const DashboardNotificationsSettings: React.FC = () => {
-  const { settings, updateSettings } = useJasperNotifications();
+interface DashboardNotificationsSettingsProps {
+  tenantId?: string;
+  moduleName?: string;
+  moduleLabel?: string;
+  showModuleSelector?: boolean;
+}
+
+const MODULE_OPTIONS = [
+  { id: 'wholesale-retail', label: 'Wholesale & Retail' },
+  { id: 'microsoko', label: 'MicroSoko' },
+  { id: 'pharmacy', label: 'Pharmacy' }
+];
+
+const validateWhatsapp = (value: string) => /^\+[1-9]\d{8,14}$/.test(value.trim());
+
+export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSettingsProps> = ({
+  tenantId = 'default-tenant',
+  moduleName = 'wholesale-retail',
+  moduleLabel = 'Wholesale & Retail',
+  showModuleSelector = true
+}) => {
+  const { getModuleSettings, updateModuleSettings, sendTestModuleWhatsappReport } = useJasperNotifications();
+  const [activeModule, setActiveModule] = useState(moduleName);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!settings) return null;
+  const activeMeta = useMemo(() => {
+    if (!showModuleSelector) return { id: moduleName, label: moduleLabel };
+    return MODULE_OPTIONS.find(m => m.id === activeModule) || { id: activeModule, label: activeModule };
+  }, [activeModule, moduleLabel, moduleName, showModuleSelector]);
 
-  const handleModuleToggle = (mod: string) => {
-    let newMods = [...settings.enabledModules];
-    if (mod === 'all') {
-      newMods = ['all'];
-    } else {
-      if (newMods.includes('all')) newMods = [];
-      if (newMods.includes(mod)) {
-        newMods = newMods.filter(m => m !== mod);
-      } else {
-        newMods.push(mod);
-      }
+  const settings = getModuleSettings(tenantId, activeMeta.id);
+
+  const update = (updates: Partial<JasperModuleNotificationSettings>) => {
+    setError(null);
+    updateModuleSettings(tenantId, activeMeta.id, updates);
+  };
+
+  const validate = () => {
+    if (settings.enableWhatsapp && !validateWhatsapp(settings.whatsappNumber)) {
+      setError('Please enter WhatsApp number with country code, example +255712345678.');
+      return false;
     }
-    updateSettings({ enabledModules: newMods });
+    return true;
   };
 
   const handleSave = () => {
-    setSaveStatus('Settings updated successfully!');
+    if (!validate()) return;
+    setSaveStatus(activeMeta.label + ' notification settings saved.');
     setTimeout(() => setSaveStatus(null), 3000);
   };
 
-  const testTrigger = () => {
-    // Just a placeholder for testing
-    alert("Test notification would be generated here.");
+  const handleTest = () => {
+    if (!validate()) return;
+    const result = sendTestModuleWhatsappReport(tenantId, activeMeta.id, activeMeta.label);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    setSaveStatus(result.message);
+    setTimeout(() => setSaveStatus(null), 4000);
   };
+
+  const channelToggle = (key: keyof Pick<JasperModuleNotificationSettings, 'enableInApp' | 'enableWhatsapp' | 'enableEmail' | 'enableSms' | 'enablePush'>, label: string) => (
+    <label className="flex items-center space-x-2 cursor-pointer bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
+      <input type="checkbox" checked={!!settings[key]} onChange={e => update({ [key]: e.target.checked } as Partial<JasperModuleNotificationSettings>)} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+      <span className="font-semibold text-slate-700 text-xs">{label}</span>
+    </label>
+  );
+
+  const reportToggle = (key: keyof Pick<JasperModuleNotificationSettings, 'enableSaleNotifications' | 'enableMorningSummary' | 'enableEndDayProfitLoss' | 'enableEndDayExpenses' | 'enableWeeklySummary' | 'enableMonthlySummary' | 'enableLowStockAlerts' | 'enablePriceAlerts' | 'enableCashAlerts' | 'enableLossWarnings'>, title: string, desc?: string) => (
+    <label className="flex items-start space-x-3 cursor-pointer p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-slate-300 transition-colors">
+      <input type="checkbox" checked={!!settings[key]} onChange={e => update({ [key]: e.target.checked } as Partial<JasperModuleNotificationSettings>)} className="mt-1 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+      <div>
+        <span className="font-bold text-slate-800 block text-sm">{title}</span>
+        {desc && <span className="text-xs text-slate-500 block">{desc}</span>}
+      </div>
+    </label>
+  );
 
   return (
     <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-8 shadow-sm text-sm">
-      <div className="border-b border-slate-100 pb-4 flex justify-between items-center">
+      <div className="border-b border-slate-100 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono flex items-center">
-             <Bell className="w-4 h-4 mr-2" /> Global Notifications & Auto Reports
+            <Bell className="w-4 h-4 mr-2" /> Notifications & Auto Reports
           </h3>
           <p className="text-xs text-slate-500 font-sans mt-1">
-             Configure automated business reports and smart alerts for the owner.
+            Configure module-specific report receivers, channels, schedules, and alert types. Global defaults can still exist, but this module overrides them.
           </p>
         </div>
         <button onClick={handleSave} className="flex items-center space-x-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-colors">
@@ -50,181 +100,131 @@ export const DashboardNotificationsSettings: React.FC = () => {
         </button>
       </div>
 
-      {saveStatus && (
-         <div className="p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-bold flex items-center">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>
-            {saveStatus}
-         </div>
+      {showModuleSelector && (
+        <div className="flex flex-wrap gap-2">
+          {MODULE_OPTIONS.map(m => (
+            <button key={m.id} onClick={() => setActiveModule(m.id)} className={`px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-wider transition-all ${activeMeta.id === m.id ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+              {m.label}
+            </button>
+          ))}
+        </div>
       )}
 
-      {/* A. Owner Contacts */}
-      <div className="space-y-4">
-        <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2">A. Owner Contact Details</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {saveStatus && (
+        <div className="p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-bold flex items-center">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2" />
+          {saveStatus}
+        </div>
+      )}
+      {error && (
+        <div className="p-3 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl font-bold flex items-center">
+          <AlertTriangle className="w-4 h-4 mr-2" />
+          {error}
+        </div>
+      )}
+
+      <section className="space-y-4">
+        <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center"><User className="w-4 h-4 mr-2" /> 1. Report Receiver Details - {activeMeta.label}</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">Phone Number</label>
-            <input type="tel" value={settings.ownerPhone} onChange={e => updateSettings({ ownerPhone: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="+255..." />
+            <label className="block text-xs font-bold text-slate-500 mb-1">Receiver name</label>
+            <input value={settings.receiverName} onChange={e => update({ receiverName: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="Owner or manager name" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">WhatsApp Number (Optional)</label>
-            <input type="tel" value={settings.ownerWhatsapp || ''} onChange={e => updateSettings({ ownerWhatsapp: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="+255..." />
+            <label className="block text-xs font-bold text-slate-500 mb-1">WhatsApp Number for Reports</label>
+            <input type="tel" value={settings.whatsappNumber} onChange={e => update({ whatsappNumber: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="Example: +255712345678" />
+            <p className="text-[10px] text-slate-400 mt-1">This number will receive {activeMeta.label} reports and notifications.</p>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">Email Address (Optional)</label>
-            <input type="email" value={settings.ownerEmail || ''} onChange={e => updateSettings({ ownerEmail: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="owner@business.com" />
+            <label className="block text-xs font-bold text-slate-500 mb-1">Backup WhatsApp number (optional)</label>
+            <input type="tel" value={settings.backupWhatsappNumber || ''} onChange={e => update({ backupWhatsappNumber: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="+255..." />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1">Email address (optional)</label>
+            <input type="email" value={settings.emailAddress || ''} onChange={e => update({ emailAddress: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="owner@business.com" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1">SMS phone number (optional)</label>
+            <input type="tel" value={settings.smsPhoneNumber || ''} onChange={e => update({ smsPhoneNumber: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="+255..." />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1">Role / position (optional)</label>
+            <input value={settings.receiverRole || ''} onChange={e => update({ receiverRole: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="Owner, manager, pharmacist..." />
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* B. Channels */}
-      <div className="space-y-4">
-        <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2">B. Delivery Channels</h4>
-        <div className="flex flex-wrap gap-4">
-          <label className="flex items-center space-x-2 cursor-pointer">
-            <input type="checkbox" checked={settings.enableInApp} onChange={e => updateSettings({ enableInApp: e.target.checked })} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="font-medium text-slate-700">In-App Alerts</span>
-          </label>
-          <label className="flex items-center space-x-2 cursor-pointer">
-            <input type="checkbox" checked={settings.enableEmail} onChange={e => updateSettings({ enableEmail: e.target.checked })} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="font-medium text-slate-700">Email</span>
-          </label>
-          <label className="flex items-center space-x-2 cursor-pointer">
-            <input type="checkbox" checked={settings.enableSms} onChange={e => updateSettings({ enableSms: e.target.checked })} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="font-medium text-slate-700">SMS</span>
-          </label>
-          <label className="flex items-center space-x-2 cursor-pointer">
-            <input type="checkbox" checked={settings.enableWhatsapp} onChange={e => updateSettings({ enableWhatsapp: e.target.checked })} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="font-medium text-slate-700">WhatsApp</span>
-          </label>
-           <label className="flex items-center space-x-2 cursor-pointer">
-            <input type="checkbox" checked={settings.enablePush} onChange={e => updateSettings({ enablePush: e.target.checked })} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="font-medium text-slate-700">Push Notifications</span>
-          </label>
+      <section className="space-y-4">
+        <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2">2. Notification Channels</h4>
+        <div className="flex flex-wrap gap-3">
+          {channelToggle('enableInApp', 'In-app notification')}
+          {channelToggle('enableWhatsapp', 'WhatsApp')}
+          {channelToggle('enableEmail', 'Email')}
+          {channelToggle('enableSms', 'SMS')}
+          {channelToggle('enablePush', 'Push notification')}
         </div>
-      </div>
+      </section>
 
-      {/* C. Modules */}
-      <div className="space-y-4">
-        <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2">C. Active Modules to Report</h4>
-        <div className="flex flex-wrap gap-4">
-          <label className="flex items-center space-x-2 cursor-pointer bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg">
-            <input type="checkbox" checked={settings.enabledModules.includes('all')} onChange={() => handleModuleToggle('all')} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="font-medium text-slate-700">All Modules</span>
-          </label>
-          <label className="flex items-center space-x-2 cursor-pointer bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg">
-            <input type="checkbox" checked={settings.enabledModules.includes('all') || settings.enabledModules.includes('wholesale')} onChange={() => handleModuleToggle('wholesale')} disabled={settings.enabledModules.includes('all')} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="font-medium text-slate-700">Wholesale & Retail</span>
-          </label>
-          <label className="flex items-center space-x-2 cursor-pointer bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg">
-            <input type="checkbox" checked={settings.enabledModules.includes('all') || settings.enabledModules.includes('microsoko')} onChange={() => handleModuleToggle('microsoko')} disabled={settings.enabledModules.includes('all')} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="font-medium text-slate-700">MicroSoko</span>
-          </label>
-          <label className="flex items-center space-x-2 cursor-pointer bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg">
-            <input type="checkbox" checked={settings.enabledModules.includes('all') || settings.enabledModules.includes('pharmacy')} onChange={() => handleModuleToggle('pharmacy')} disabled={settings.enabledModules.includes('all')} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="font-medium text-slate-700">Pharmacy</span>
-          </label>
-        </div>
-      </div>
-
-      {/* D. Auto Reports */}
-      <div className="space-y-4">
-        <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2">D. Automated Reports</h4>
-        <div className="space-y-3">
-          <label className="flex items-start space-x-3 cursor-pointer p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-slate-300 transition-colors">
-            <input type="checkbox" checked={settings.enableSaleNotifications} onChange={e => updateSettings({ enableSaleNotifications: e.target.checked })} className="mt-1 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <div>
-               <span className="font-bold text-slate-800 block text-sm">Every Sale Notification (Real-time)</span>
-               <span className="text-xs text-slate-500 block">Sends an alert immediately after every sale is completed. May cause high volume of messages.</span>
-            </div>
-          </label>
-
-          <label className="flex items-start space-x-3 cursor-pointer p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-slate-300 transition-colors">
-            <input type="checkbox" checked={settings.enableMorningSummary} onChange={e => updateSettings({ enableMorningSummary: e.target.checked })} className="mt-1 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <div>
-               <span className="font-bold text-slate-800 block text-sm">Morning Yesterday Summary</span>
-               <span className="text-xs text-slate-500 block">Sends a quick brief of yesterday's business every morning.</span>
-            </div>
-          </label>
-
-          <label className="flex items-start space-x-3 cursor-pointer p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-slate-300 transition-colors">
-            <input type="checkbox" checked={settings.enableEndDayProfitLoss} onChange={e => updateSettings({ enableEndDayProfitLoss: e.target.checked })} className="mt-1 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <div>
-               <span className="font-bold text-slate-800 block text-sm">End-of-Day Profit & Loss Report</span>
-               <span className="text-xs text-slate-500 block">Sends a detailed P&L snapshot at the end of every business day.</span>
-            </div>
-          </label>
-
-          <label className="flex items-start space-x-3 cursor-pointer p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-slate-300 transition-colors">
-            <input type="checkbox" checked={settings.enableEndDayExpenses} onChange={e => updateSettings({ enableEndDayExpenses: e.target.checked })} className="mt-1 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <div>
-               <span className="font-bold text-slate-800 block text-sm">End-of-Day Expenses Report</span>
-               <span className="text-xs text-slate-500 block">Outlines business expenses spent each day.</span>
-            </div>
-          </label>
-
-          <label className="flex items-start space-x-3 cursor-pointer p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-slate-300 transition-colors">
-            <input type="checkbox" checked={settings.enableWeeklySummary} onChange={e => updateSettings({ enableWeeklySummary: e.target.checked })} className="mt-1 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <div>
-               <span className="font-bold text-slate-800 block text-sm">Weekly Business Summary</span>
-               <span className="text-xs text-slate-500 block">Comprehensive weekly business metrics and trends.</span>
-            </div>
-          </label>
-
-          <label className="flex items-start space-x-3 cursor-pointer p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-slate-300 transition-colors">
-            <input type="checkbox" checked={settings.enableMonthlySummary} onChange={e => updateSettings({ enableMonthlySummary: e.target.checked })} className="mt-1 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-            <div>
-               <span className="font-bold text-slate-800 block text-sm">Monthly Business Summary</span>
-               <span className="text-xs text-slate-500 block">Full monthly report covering total sales, expenses, and insights.</span>
-            </div>
-          </label>
-        </div>
-      </div>
-
-      {/* E. Schedule Settings */}
-      <div className="space-y-4">
-        <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2">E. Report Schedule & Timings</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <section className="space-y-4">
+        <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2">3. Report Schedule</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1 flex items-center"><Clock className="w-3 h-3 mr-1"/> Morning Summary Time</label>
-            <input type="time" value={settings.morningSummaryTime} onChange={e => updateSettings({ morningSummaryTime: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none" />
+            <label className="block text-xs font-bold text-slate-500 mb-1 flex items-center"><Clock className="w-3 h-3 mr-1" /> Morning summary time</label>
+            <input type="time" value={settings.morningSummaryTime} onChange={e => update({ morningSummaryTime: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1 flex items-center"><Clock className="w-3 h-3 mr-1"/> End-of-Day Time</label>
-            <input type="time" value={settings.endDayReportTime} onChange={e => updateSettings({ endDayReportTime: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none" />
+            <label className="block text-xs font-bold text-slate-500 mb-1 flex items-center"><Clock className="w-3 h-3 mr-1" /> End-of-day report time</label>
+            <input type="time" value={settings.endDayReportTime} onChange={e => update({ endDayReportTime: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1 flex items-center"><Calendar className="w-3 h-3 mr-1"/> Weekly Run Day</label>
-            <select value={settings.weeklySummaryDay} onChange={e => updateSettings({ weeklySummaryDay: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none">
-                <option value="Monday">Monday</option>
-                <option value="Friday">Friday</option>
-                <option value="Saturday">Saturday</option>
-                <option value="Sunday">Sunday</option>
+            <label className="block text-xs font-bold text-slate-500 mb-1 flex items-center"><Calendar className="w-3 h-3 mr-1" /> Weekly summary day</label>
+            <select value={settings.weeklySummaryDay} onChange={e => update({ weeklySummaryDay: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none">
+              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => <option key={day} value={day}>{day}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1 flex items-center"><Calendar className="w-3 h-3 mr-1"/> Monthly Run Day</label>
-            <select value={settings.monthlySummaryDay} onChange={e => updateSettings({ monthlySummaryDay: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none">
-                <option value="1">1st of the month</option>
-                <option value="last">Last day of the month</option>
+            <label className="block text-xs font-bold text-slate-500 mb-1 flex items-center"><Calendar className="w-3 h-3 mr-1" /> Monthly summary day</label>
+            <select value={settings.monthlySummaryDay} onChange={e => update({ monthlySummaryDay: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none">
+              <option value="1">1st day of month</option>
+              <option value="last">Last day of month</option>
             </select>
           </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1">Timezone</label>
+            <input value={settings.timezone} onChange={e => update({ timezone: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none" placeholder="Africa/Dar_es_Salaam" />
+          </div>
         </div>
-      </div>
-      
-      {/* Test Engine */}
-      <div className="space-y-4 border-t border-slate-100 pt-6">
-         <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-start space-x-3">
-             <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-             <div className="text-amber-800 text-xs leading-relaxed space-y-2">
-                 <p className="font-bold text-sm">Testing Global Logic Workflow</p>
-                 <p>In-app notifications work immediately. External bindings to Email/SMS wait on platform credential configuration. All reporting logic operates off your selected timezone: <strong>{settings.timezone}</strong>.</p>
-                 <button onClick={testTrigger} className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition-colors">
-                    Send Test Notification
-                 </button>
-             </div>
-         </div>
-      </div>
+      </section>
 
+      <section className="space-y-4">
+        <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2">4. Report Types</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {reportToggle('enableSaleNotifications', 'Every sale notification', 'Optional and OFF by default to avoid high message volume.')}
+          {reportToggle('enableMorningSummary', 'Morning yesterday summary')}
+          {reportToggle('enableEndDayProfitLoss', 'End-of-day profit & loss report')}
+          {reportToggle('enableEndDayExpenses', 'End-of-day expenses report')}
+          {reportToggle('enableWeeklySummary', 'Weekly summary')}
+          {reportToggle('enableMonthlySummary', 'Monthly summary')}
+          {reportToggle('enableLowStockAlerts', 'Low stock alerts')}
+          {reportToggle('enablePriceAlerts', 'Price increase alerts')}
+          {reportToggle('enableCashAlerts', 'Cash shortage alerts')}
+          {reportToggle('enableLossWarnings', 'Loss warnings')}
+        </div>
+      </section>
+
+      <section className="space-y-4 border-t border-slate-100 pt-6">
+        <h4 className="font-bold text-slate-800 flex items-center"><MessageCircle className="w-4 h-4 mr-2" /> 5. Test Notification</h4>
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-start space-x-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+          <div className="text-amber-800 text-xs leading-relaxed space-y-3">
+            <p>Send a test WhatsApp report for {activeMeta.label}. If no WhatsApp provider is configured, the test will be saved as an in-app notification.</p>
+            <button onClick={handleTest} className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition-colors flex items-center space-x-2">
+              <Send className="w-4 h-4" />
+              <span>Send Test WhatsApp Report</span>
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };

@@ -430,6 +430,39 @@ export interface JasperNotificationSettings {
   enablePush: boolean;
 }
 
+export interface JasperModuleNotificationSettings {
+  id: string;
+  tenantId: string;
+  moduleName: string;
+  receiverName: string;
+  receiverRole?: string;
+  whatsappNumber: string;
+  backupWhatsappNumber?: string;
+  emailAddress?: string;
+  smsPhoneNumber?: string;
+  timezone: string;
+  enableInApp: boolean;
+  enableWhatsapp: boolean;
+  enableEmail: boolean;
+  enableSms: boolean;
+  enablePush: boolean;
+  enableSaleNotifications: boolean;
+  enableMorningSummary: boolean;
+  enableEndDayProfitLoss: boolean;
+  enableEndDayExpenses: boolean;
+  enableWeeklySummary: boolean;
+  enableMonthlySummary: boolean;
+  enableLowStockAlerts: boolean;
+  enablePriceAlerts: boolean;
+  enableCashAlerts: boolean;
+  enableLossWarnings: boolean;
+  morningSummaryTime: string;
+  endDayReportTime: string;
+  weeklySummaryDay: string;
+  monthlySummaryDay: string;
+  createdAt: string;
+  updatedAt: string;
+}
 export interface JasperNotification {
   id: string;
   tenantId: string;

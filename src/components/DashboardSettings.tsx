@@ -2267,7 +2267,12 @@ export default function DashboardSettings({
 
           {/* TAB 6: NOTIFICATIONS & AUTO REPORTS */}
           {activeSubTab === 'notifications' && (
-             <DashboardNotificationsSettings />
+             <DashboardNotificationsSettings
+               tenantId={activeTenant.id}
+               moduleName={activeTenant.businessType === 'pharmacy' ? 'pharmacy' : 'wholesale-retail'}
+               moduleLabel={activeTenant.businessType === 'pharmacy' ? 'Pharmacy' : 'Wholesale & Retail'}
+               showModuleSelector={true}
+             />
           )}
 
         </div>

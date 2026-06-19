@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useMicroSoko } from './MicroSokoContext';
 import { loadDemoData, clearDemoData, hasDemoData } from './microSokoDemoData';
-import { Building2, Palette, PackageSearch, Scale, Replace, CreditCard, ShoppingCart, Tags, Settings2, Plus, Save, X, Edit2, CheckCircle, Database, Factory } from 'lucide-react';
+import { Building2, Palette, PackageSearch, Scale, Replace, CreditCard, ShoppingCart, Tags, Settings2, Plus, Save, X, Edit2, CheckCircle, Database, Factory, Bell } from 'lucide-react';
 import { MsBusinessSettings, MsBrandingSettings, MsExpenseCategory, MsItem, MsUnit, MsPaymentMethod, MsConversion, MsRecipe, MsRecipeMaterial } from './MicroSokoTypes';
+import { DashboardNotificationsSettings } from '../DashboardNotificationsSettings';
 
 export const MicroSokoSettings: React.FC = () => {
   const ctx = useMicroSoko();
@@ -16,7 +17,7 @@ export const MicroSokoSettings: React.FC = () => {
     recipes, addRecipe, updateRecipe, deleteRecipe
   } = ctx;
 
-  const [activeTab, setActiveTab] = useState<'business' | 'branding' | 'items' | 'recipes' | 'units' | 'conversions' | 'payments' | 'selling_method' | 'expenses' | 'pos' | 'demo'>('business');
+  const [activeTab, setActiveTab] = useState<'business' | 'branding' | 'items' | 'recipes' | 'units' | 'conversions' | 'payments' | 'selling_method' | 'expenses' | 'pos' | 'notifications' | 'demo'>('business');
 
   const tabs = [
     { id: 'business', label: 'Business Setup', icon: Building2 },
@@ -29,6 +30,7 @@ export const MicroSokoSettings: React.FC = () => {
     { id: 'selling_method', label: 'Selling Method', icon: ShoppingCart },
     { id: 'expenses', label: 'Expense Categories', icon: Tags },
     { id: 'pos', label: 'POS Product Settings', icon: Settings2 },
+    { id: 'notifications', label: 'Notifications & Auto Reports', icon: Bell },
     { id: 'demo', label: 'Demo Data', icon: Database }
   ] as const;
 
@@ -94,6 +96,9 @@ export const MicroSokoSettings: React.FC = () => {
             )}
             {activeTab === 'conversions' && (
               <ConversionsSetupTab conversions={conversions} items={items} units={units} onSave={setConversions} />
+            )}
+            {activeTab === 'notifications' && (
+              <DashboardNotificationsSettings tenantId="t-microsoko-01" moduleName="microsoko" moduleLabel="MicroSoko" showModuleSelector={false} />
             )}
             {activeTab === 'demo' && (
               <DemoDataTab ctx={ctx} />
