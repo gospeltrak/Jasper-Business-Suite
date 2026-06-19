@@ -444,7 +444,15 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     };
   });
 
-  const [preloadedCart, setPreloadedCart] = useState<{items: SaleItem[], backdate?: string} | null>(null);
+  const [preloadedCart, setPreloadedCart] = useState<{
+    items: SaleItem[];
+    backdate?: string;
+    deliveryCost?: number;
+    paymentMethod?: string;
+    customerName?: string;
+    customerPhone?: string;
+    hasVat?: boolean;
+  } | null>(null);
 
   // Automatically refresh settings when pivot branch (activeTenant) updates
   useEffect(() => {
@@ -2094,8 +2102,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               rolePermissions={currentPermissions}
               products={activeProducts}
               systemSettings={systemSettings}
-              onPreloadCartForPOS={(items, backdate) => {
-                setPreloadedCart({ items, backdate });
+              onPreloadCartForPOS={(items, backdate, options) => {
+                setPreloadedCart({ items, backdate, ...options });
                 setActiveTab('pos');
               }}
               currentUser={user}

@@ -177,7 +177,15 @@ interface DashboardPOSProps {
   userName: string;
   isOfflineMode: boolean;
   systemSettings?: SystemSettings;
-  preloadedCart?: { items: SaleItem[], backdate?: string } | null;
+  preloadedCart?: {
+    items: SaleItem[];
+    backdate?: string;
+    deliveryCost?: number;
+    paymentMethod?: string;
+    customerName?: string;
+    customerPhone?: string;
+    hasVat?: boolean;
+  } | null;
   onClearPreloadedCart?: () => void;
 }
 
@@ -327,6 +335,13 @@ export default function DashboardPOS({
         };
       });
       setCart(mapped);
+      setDeliveryCost(Math.max(0, Number(preloadedCart.deliveryCost) || 0));
+      setPaymentMethod(preloadedCart.paymentMethod || 'Cash');
+      setCustomerName(preloadedCart.customerName || '');
+      setCustomerPhone(preloadedCart.customerPhone || '');
+      setVatStatus(preloadedCart.hasVat ? 'vat' : 'non-vat');
+      setOrderDiscount(0);
+      setOrderDiscountType('percent');
       
       if (preloadedCart.backdate) {
         setSaleDate(preloadedCart.backdate.split('T')[0]);

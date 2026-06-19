@@ -457,6 +457,7 @@ export interface SalesDocument {
   total: number;
   tax: number;
   deliveryCost?: number;
+  paymentMethod?: string;
   hasVat?: boolean;
   customerName: string;
   customerPhone?: string;
@@ -579,5 +580,4 @@ export interface LedgerEntry {
   receiptFile?: string;
   muamalaFile?: string;
 }
-
 

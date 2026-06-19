@@ -152,7 +152,17 @@ interface DashboardSalesListProps {
   rolePermissions?: any;
   products?: Product[];
   systemSettings?: SystemSettings;
-  onPreloadCartForPOS?: (items: SaleItem[], backdate?: string) => void;
+  onPreloadCartForPOS?: (
+    items: SaleItem[],
+    backdate?: string,
+    options?: {
+      deliveryCost?: number;
+      paymentMethod?: string;
+      customerName?: string;
+      customerPhone?: string;
+      hasVat?: boolean;
+    }
+  ) => void;
   currentUser?: AppUser;
   subscriptionStatus?: any;
   onSendToDeliveryNote?: (sale: Sale) => void;
@@ -357,6 +367,7 @@ export default function DashboardSalesList({
   const [newDocItems, setNewDocItems] = useState<SaleItem[]>([]);
   const [newDocTagline, setNewDocTagline] = useState(() => systemSettings?.business?.tagline || '');
   const [newDocDeliveryCost, setNewDocDeliveryCost] = useState(0);
+  const [newDocPaymentMethod, setNewDocPaymentMethod] = useState(() => systemSettings?.business?.paymentModes?.[0] || 'Cash');
   const [newDocHasVat, setNewDocHasVat] = useState(() => !!systemSettings?.invoiceSettings?.hasVatByDefault);
 
   // Sync VAT toggle default state when modal opens
@@ -364,6 +375,7 @@ export default function DashboardSalesList({
     if (showNewDocModal) {
       setNewDocHasVat(!!systemSettings?.invoiceSettings?.hasVatByDefault);
       setNewDocDeliveryCost(0);
+      setNewDocPaymentMethod(systemSettings?.business?.paymentModes?.[0] || 'Cash');
     }
   }, [showNewDocModal, systemSettings]);
 
@@ -580,6 +592,21 @@ export default function DashboardSalesList({
     const documentLabel = doc.type === 'quotation' ? 'price quote' : 'proforma invoice';
     const customer = doc.customerName?.trim() || 'valued customer';
     return `Hello ${customer}, thank you for choosing ${activeTenant.name}. We have prepared your A4 ${documentLabel} ${doc.documentNumber} with a total of ${currency}${Math.round(doc.total).toLocaleString()}. Kindly review it at your convenience. We value your partnership and are happy to serve you.`;
+  };
+
+  const sendDocumentToSales = (doc: SalesDocument) => {
+    if (!onPreloadCartForPOS) return;
+
+    onPreloadCartForPOS(doc.items, doc.timestamp, {
+      deliveryCost: doc.deliveryCost || 0,
+      paymentMethod: doc.paymentMethod || 'Cash',
+      customerName: doc.customerName,
+      customerPhone: doc.customerPhone,
+      hasVat: !!doc.hasVat
+    });
+
+    setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, status: 'converted' } : d));
+    setViewingDocument(null);
   };
 
   return (
@@ -2688,15 +2715,12 @@ export default function DashboardSalesList({
                           <button
                             type="button"
                             onClick={() => {
-                              if (onPreloadCartForPOS) {
-                                onPreloadCartForPOS(doc.items, doc.timestamp);
-                                setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, status: 'converted' } : d));
-                              }
+                              sendDocumentToSales(doc);
                             }}
                             className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[10.5px] transition-all border-none cursor-pointer flex items-center space-x-1 shadow-sm"
                           >
                             <ArrowRight className="w-3.5 h-3.5" />
-                            <span>Convert to Sale</span>
+                            <span>Send to Sales</span>
                           </button>
                         ) : (
                           <span className="px-2 py-1.5 bg-slate-100 text-slate-450 border border-slate-200 rounded-lg text-[10px] font-bold inline-flex items-center space-x-1">
@@ -4294,6 +4318,18 @@ export default function DashboardSalesList({
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-850 focus:outline-emerald-500 font-mono"
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-650 mb-1">Payment Method</label>
+                    <select
+                      value={newDocPaymentMethod}
+                      onChange={(e) => setNewDocPaymentMethod(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-850 focus:outline-emerald-500"
+                    >
+                      {(systemSettings?.business?.paymentModes?.length ? systemSettings.business.paymentModes : ['Cash', 'Card', 'M-Pesa', 'Bank']).map(mode => (
+                        <option key={mode} value={mode}>{mode}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* VAT Toggle Choice */}
@@ -4535,6 +4571,7 @@ export default function DashboardSalesList({
                         total: totalSum,
                         tax: taxSum,
                         deliveryCost: shippingSum,
+                        paymentMethod: newDocPaymentMethod,
                         hasVat: newDocHasVat,
                         customerName: newDocCustomerName.trim() || 'Walk-In Customer',
                         customerPhone: newDocCustomerPhone.trim() || undefined,
@@ -4583,10 +4620,16 @@ export default function DashboardSalesList({
                     <Printer className="w-5 h-5 text-indigo-600 shrink-0" />
                     <span className="text-[11px] sm:text-xs font-black font-mono text-slate-800 uppercase truncate">A4 Office Print Preview Mode</span>
                   </div>
-                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-2 w-full lg:w-auto">
+                  <div className="grid grid-cols-3 sm:flex sm:flex-wrap sm:items-center gap-2 w-full lg:w-auto">
                     <button
                       type="button"
-                      onClick={() => setDocumentSendOpen(prev => !prev)}
+                      onClick={() => {
+                        if (viewingDocument.customerPhone?.trim()) {
+                          window.open(buildWhatsAppLink(buildDocumentWhatsAppMessage(viewingDocument), viewingDocument.customerPhone), '_blank', 'noopener,noreferrer');
+                        } else {
+                          setDocumentSendOpen(prev => !prev);
+                        }
+                      }}
                       className="h-10 px-3 sm:px-4 bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
                     >
                       <MessageSquare className="w-4 h-4 text-white" />
@@ -4594,28 +4637,13 @@ export default function DashboardSalesList({
                     </button>
                     <button
                       type="button"
-                      onClick={() => window.print()}
-                      className="h-10 px-3 sm:px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
+                      disabled={viewingDocument.status !== 'pending'}
+                      onClick={() => sendDocumentToSales(viewingDocument)}
+                      className="h-10 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
                     >
-                      <Printer className="w-4 h-4 text-white" />
-                      <span>Print A4</span>
+                      <ArrowRight className="w-4 h-4" />
+                      <span>Send to Sales</span>
                     </button>
-                    {viewingDocument.status === 'pending' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onPreloadCartForPOS) {
-                            onPreloadCartForPOS(viewingDocument.items, viewingDocument.timestamp);
-                            setDocuments(prev => prev.map(d => d.id === viewingDocument.id ? { ...d, status: 'converted' } : d));
-                            setViewingDocument(null);
-                          }
-                        }}
-                        className="h-10 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
-                      >
-                        <ArrowRight className="w-4 h-4 text-white" />
-                        <span>Convert to Sale</span>
-                      </button>
-                    )}
                     <button
                       type="button"
                       onClick={() => setViewingDocument(null)}
