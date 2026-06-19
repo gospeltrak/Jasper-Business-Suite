@@ -1,6 +1,3 @@
--- Jasper Business Suite: global inventory costing, batch costing, fractional sales, and pharmacy breakdowns.
--- Run this in Supabase SQL editor for each deployed project.
-
 create table if not exists public.jasper_product_inventory_settings (
   id uuid primary key default gen_random_uuid(),
   tenant_id text not null,
