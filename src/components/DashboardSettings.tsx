@@ -303,6 +303,9 @@ export default function DashboardSettings({
       hasVatByDefault: false
     };
   });
+  const [posSettingsForm, setPosSettingsForm] = useState(() => ({
+    showProductImages: systemSettings.posSettings?.showProductImages !== false
+  }));
   const [staffsList, setStaffsList] = useState<StaffSettings[]>(() => {
     const original = systemSettings.staffs || [];
     if (activeTenant.businessType === 'restaurant') {
@@ -365,7 +368,8 @@ export default function DashboardSettings({
         productStore: productForm,
         staffs: staffsList,
         customRoles: customRolesList,
-        invoiceSettings: invoiceSettingsForm
+        invoiceSettings: invoiceSettingsForm,
+        posSettings: posSettingsForm
       };
       onSaveSettings(fullyUpdatedSettings);
 
@@ -731,7 +735,8 @@ export default function DashboardSettings({
       productStore: productForm,
       staffs: staffsList,
       customRoles: customRolesList,
-      invoiceSettings: invoiceSettingsForm
+      invoiceSettings: invoiceSettingsForm,
+      posSettings: posSettingsForm
     };
     onSaveSettings(fullyUpdatedSettings);
     
@@ -1279,6 +1284,34 @@ export default function DashboardSettings({
                   </div>
 
                 </div>
+              </div>
+
+              {/* POS Display Settings */}
+              <div className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-4">
+                <div>
+                  <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
+                    <Sliders className="w-4 h-4 text-slate-500" />
+                    <span>POS Settings</span>
+                  </h4>
+                  <p className="text-[10.5px] text-slate-450 leading-relaxed font-sans mt-0.5">
+                    Choose how products appear on the sales screen.
+                  </p>
+                </div>
+
+                <label className="flex items-center justify-between gap-4 bg-white border border-slate-220 rounded-2xl p-4 cursor-pointer">
+                  <div className="min-w-0">
+                    <span className="block text-xs font-black text-slate-800 uppercase tracking-wide">Show product pictures in POS</span>
+                    <span className="block text-[10.5px] text-slate-500 mt-0.5">
+                      Turn off to show a clean product list without images.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={posSettingsForm.showProductImages}
+                    onChange={(e) => setPosSettingsForm(prev => ({ ...prev, showProductImages: e.target.checked }))}
+                    className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 shrink-0"
+                  />
+                </label>
               </div>
 
               {/* Payment modes register */}

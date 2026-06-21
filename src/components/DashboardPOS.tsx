@@ -284,6 +284,7 @@ export default function DashboardPOS({
   preloadedCart,
   onClearPreloadedCart
 }: DashboardPOSProps) {
+  const showProductImages = systemSettings?.posSettings?.showProductImages !== false;
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<Array<{ 
@@ -1354,7 +1355,7 @@ export default function DashboardPOS({
         </div>
 
         {/* Product listing grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6 px-2 md:px-0">
+        <div className={`${showProductImages ? 'grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6' : 'flex flex-col gap-2'} px-2 md:px-0`}>
           {filteredProducts.length === 0 ? (
             <div className="sm:col-span-3 text-center py-16 text-sm font-mono text-slate-500 bg-white border border-slate-200 rounded-3xl shadow-sm">
               No matching {activeTenant.businessType === 'pharmacy' ? 'pharmaceutical products' : 'retail items'} in stock.
@@ -1375,39 +1376,45 @@ export default function DashboardPOS({
                       playOutOfStockBeep();
                     }
                   }}
-                  className={`bg-white border md:rounded-3xl rounded-xl p-0 md:p-5 flex flex-col justify-between transition-all select-none relative shadow-xs active:scale-95 group overflow-hidden md:overflow-visible ${
+                  className={`bg-white border rounded-xl transition-all select-none relative shadow-xs active:scale-95 group ${
+                    showProductImages
+                      ? 'p-0 md:p-5 flex flex-col justify-between overflow-hidden md:overflow-visible md:rounded-3xl'
+                      : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'
+                  } ${
                     isOut 
                       ? 'border-slate-200 opacity-55 cursor-not-allowed bg-slate-50' 
                       : 'border-slate-200 hover:border-slate-350 hover:shadow-md cursor-pointer md:hover:-translate-y-0.5'
                   }`}
                 >
                   {/* Proportional Product Image Container (cached) */}
-                  <div className="w-full h-[120px] md:h-36 bg-slate-50 border-b md:border border-slate-100 rounded-t-xl md:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
-                    <CachedImage 
-                      src={getProductImage(prod)} 
-                      alt={prod.name} 
-                      className={`w-full h-full transition-transform duration-500 group-hover:scale-105 select-none pointer-events-none ${
-                        prod.image && prod.image.startsWith('data:') ? 'object-contain p-2.5' : 'object-cover'
-                      }`}
-                      referrerPolicy="no-referrer"
-                    />
-                    {isLow && !isOut && (
-                      <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-amber-500 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs">
-                        LOW ({shopQty})
-                      </span>
-                    )}
-                    {isOut && (
-                      <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-red-600 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs animate-pulse">
-                        OUT
-                      </span>
-                    )}
-                  </div>
+                  {showProductImages && (
+                    <div className="w-full h-[120px] md:h-36 bg-slate-50 border-b md:border border-slate-100 rounded-t-xl md:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
+                      <CachedImage 
+                        src={getProductImage(prod)} 
+                        alt={prod.name} 
+                        className={`w-full h-full transition-transform duration-500 group-hover:scale-105 select-none pointer-events-none ${
+                          prod.image && prod.image.startsWith('data:') ? 'object-contain p-2.5' : 'object-cover'
+                        }`}
+                        referrerPolicy="no-referrer"
+                      />
+                      {isLow && !isOut && (
+                        <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-amber-500 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs">
+                          LOW ({shopQty})
+                        </span>
+                      )}
+                      {isOut && (
+                        <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-red-600 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs animate-pulse">
+                          OUT
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {/* Text details and bottom panel wrapper */}
-                  <div className="flex-grow flex flex-col justify-between min-w-0 mt-2 px-3 pb-3 md:px-0 md:pb-0">
+                  <div className={`${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-2 px-3 pb-3 md:px-0 md:pb-0' : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'}`}>
                     {/* Product Metadata & Text layout */}
-                    <div className="space-y-1">
-                      <div className="hidden md:flex items-center justify-between">
+                    <div className="space-y-1 min-w-0">
+                      <div className={`${showProductImages ? 'hidden md:flex' : 'flex'} items-center justify-between gap-2`}>
                         <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded-xs leading-none">
                           {prod.category}
                         </span>
@@ -1415,19 +1422,19 @@ export default function DashboardPOS({
                           {formatProductQuantity(shopQty, prod)} left
                         </span>
                       </div>
-                      <h5 className="font-extrabold text-xs text-slate-800 line-clamp-2 leading-snug md:min-h-[2.25rem] pt-0.5 select-all" title={prod.name}>
+                      <h5 className={`font-extrabold text-xs text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 md:min-h-[2.25rem]' : 'truncate md:text-sm'}`} title={prod.name}>
                         {prod.name}
                       </h5>
-                      <p className="hidden md:block text-[9.5px] text-slate-400 font-mono font-medium truncate">SKU: {prod.sku || prod.barcode || 'N/A'}</p>
+                      <p className={`${showProductImages ? 'hidden md:block' : 'block'} text-[9.5px] text-slate-400 font-mono font-medium truncate`}>SKU: {prod.sku || prod.barcode || 'N/A'}</p>
                     </div>
 
                     {/* Pricing and Select CTA trigger */}
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2 shrink-0">
+                    <div className={`${showProductImages ? 'flex items-center justify-between pt-2 border-t border-slate-100 mt-2' : 'contents md:flex md:items-center md:gap-3 md:justify-end'} shrink-0`}>
                       <div className="space-y-0.5">
                         <p className="hidden md:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
-                        <span className="text-sm md:text-[14px] font-black text-emerald-700 md:text-slate-900 leading-none">{currency}{Math.round(getBatchAwareChannelPrice(prod)).toLocaleString()}</span>
+                        <span className="text-sm md:text-[14px] font-black text-emerald-700 md:text-slate-900 leading-none whitespace-nowrap">{currency}{Math.round(getBatchAwareChannelPrice(prod)).toLocaleString()}</span>
                         {prod.batches && prod.batches.some(batch => batch.status === 'active') && (
-                          <span className="block text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+                          <span className={`${showProductImages ? 'block' : 'hidden md:block'} text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5`}>
                             {getProductCostingMethod(prod).replace('_', ' ')}
                           </span>
                         )}

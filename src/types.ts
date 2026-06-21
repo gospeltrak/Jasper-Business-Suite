@@ -447,6 +447,9 @@ export interface SystemSettings {
   staffs: StaffSettings[];
   customRoles?: CustomRole[];
   invoiceSettings?: InvoiceSettings;
+  posSettings?: {
+    showProductImages: boolean;
+  };
 }
 
 export interface SalesDocument {
