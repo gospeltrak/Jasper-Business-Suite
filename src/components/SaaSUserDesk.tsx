@@ -94,8 +94,8 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   }, [isUnlocked]);
   
   // Immersive Mode (Seeing everything exactly as the user sees it)
-  const [immersiveTab, setImmersiveTab] = useState<'info' | 'sessions' | 'business' | 'controls'>('info');
-  const [bizSubTab, setBizSubTab] = useState<'transactions' | 'reports' | 'stock' | 'people' | 'messages' | 'billing'>('transactions');
+  const [immersiveTab] = useState<'business'>('business');
+  const [bizSubTab, setBizSubTab] = useState<'messages' | 'billing' | 'hardware'>('messages');
 
   // Encryption key verification states
   const [secureKeyInput, setSecureKeyInput] = useState('');
@@ -578,7 +578,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                         setEditPlan(u.subscriptionPlan);
                         setEditPaymentStatus(u.paymentStatus);
                         setEditStatus(u.status);
-                        setImmersiveTab('info');
+                        setBizSubTab('messages');
                       }}
                       className={`p-3 transition-colors ${isUnlocked ? 'cursor-pointer hover:bg-slate-900/40 text-slate-300' : 'cursor-not-allowed opacity-80 text-slate-500'} ${isSelected ? 'bg-emerald-500/10 border-l-2 border-emerald-500 text-white font-bold' : ''}`}
                     >
@@ -647,157 +647,26 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                 )}
               </div>
 
-              {/* IMMERSIVE VIEW TABS */}
-              <div className="flex border-b border-slate-900 bg-slate-950 p-1 flex-wrap gap-1">
-                <button 
-                  onClick={() => setImmersiveTab('info')}
-                  className={`px-4 py-2 text-xs font-mono uppercase tracking-tight rounded-lg ${immersiveTab === 'info' ? 'bg-slate-900 text-white font-extrabold border-b border-emerald-500' : 'text-slate-400 hover:text-slate-300'}`}
-                >
-                  👤 Account Bio
-                </button>
-                <button 
-                  onClick={() => setImmersiveTab('sessions')}
-                  className={`px-4 py-2 text-xs font-mono uppercase tracking-tight rounded-lg ${immersiveTab === 'sessions' ? 'bg-slate-900 text-white font-extrabold border-b border-emerald-500' : 'text-slate-400 hover:text-slate-300'}`}
-                >
-                  📱 Session Logs
-                </button>
-                <button 
-                  onClick={() => setImmersiveTab('business')}
-                  className={`px-4 py-2 text-xs font-mono uppercase tracking-tight rounded-lg ${immersiveTab === 'business' ? 'bg-slate-900 text-white font-extrabold border-b border-emerald-500' : 'text-slate-400 hover:text-slate-300'}`}
-                >
-                  💼 user Business Data
-                </button>
-                <button 
-                  onClick={() => setImmersiveTab('controls')}
-                  className={`px-4 py-2 text-xs font-mono uppercase tracking-tight rounded-lg ${immersiveTab === 'controls' ? 'bg-slate-900 text-red-400 font-extrabold border-b border-red-500' : 'text-slate-400 hover:text-slate-300'}`}
-                >
-                  🔒 Admin Security control
-                </button>
+              <div className="border-b border-slate-900 bg-slate-950 px-4 py-3">
+                <span className="text-xs font-mono uppercase tracking-tight text-emerald-400 font-black">User Data</span>
               </div>
 
               {/* DISPATCH IMMERSIVE AREA */}
               <div className="p-6 bg-slate-950/60 min-h-[380px]">
-                
-                {/* 1. Account Info Section */}
-                {immersiveTab === 'info' && (
-                  <div className="space-y-6 animate-fade-in text-left">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-mono text-slate-500 block">Full Legal Name</span>
-                        <div className="bg-slate-900 p-3 rounded-lg border border-slate-850 font-sans text-xs text-white uppercase font-bold">
-                          {selectedUser.name}
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-mono text-slate-500 block">Identified Username</span>
-                        <div className="bg-slate-900 p-3 rounded-lg border border-slate-850 font-mono text-xs text-emerald-400">
-                          {selectedUser.username}
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-mono text-slate-500 block">Communication Email Gateway</span>
-                        <div className="bg-slate-900 p-3 rounded-lg border border-slate-850 font-sans text-xs text-slate-300">
-                          {selectedUser.email}
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-mono text-slate-500 block">Mobile Phone Node</span>
-                        <div className="bg-slate-900 p-3 rounded-lg border border-slate-850 font-mono text-xs text-slate-300">
-                          {selectedUser.phone}
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-mono text-slate-500 block">Operating Plan Level</span>
-                        <div className="bg-slate-900 p-3 rounded-lg border border-slate-850 font-mono text-xs text-white font-bold capitalize">
-                          {selectedUser.subscriptionPlan}
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-mono text-slate-500 block">Subscription Payment Status</span>
-                        <div className={`p-3 rounded-lg border font-mono text-xs font-bold capitalize ${selectedUser.paymentStatus === 'Paid' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                          {selectedUser.paymentStatus} · {selectedUser.paymentMethod}
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-mono text-slate-500 block">Date Node Created</span>
-                        <div className="bg-slate-900 p-3 rounded-lg border border-slate-850 font-mono text-xs text-slate-400">
-                          {selectedUser.dateCreated}
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-mono text-slate-500 block">Live Node Condition Status</span>
-                        <div className={`p-3 rounded-lg border font-mono text-xs font-bold uppercase ${selectedUser.status === 'Active' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-slate-900 border-slate-850 text-slate-400'}`}>
-                          {selectedUser.status}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. Session Activity Logs */}
-                {immersiveTab === 'sessions' && (
-                  <div className="space-y-4 animate-fade-in text-left">
-                    <div className="flex justify-between items-center bg-slate-900 p-3 rounded-lg border border-slate-850">
-                      <div>
-                        <span className="text-[10px] uppercase font-mono text-slate-500">Total Lifetime Duration</span>
-                        <span className="text-sm font-bold block font-mono text-emerald-400">
-                          {selectedUser.sessions.reduce((acc, s) => acc + s.durationMinutes, 0)} Operating Minutes overall
-                        </span>
-                      </div>
-                      <Clock className="w-5 h-5 text-slate-500" />
-                    </div>
-
-                    <div className="bg-slate-900 border border-slate-850 rounded-lg overflow-hidden">
-                      <table className="w-full text-left text-xs text-slate-300 font-mono">
-                        <thead className="bg-slate-950 text-[10px] uppercase text-slate-500 font-mono">
-                          <tr>
-                            <th className="p-3">Session Connect / Disconnect</th>
-                            <th className="p-3">Duration</th>
-                            <th className="p-3">Terminal Node</th>
-                            <th className="p-3">IP IP & Location</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-950">
-                          {selectedUser.sessions.map((s, idx) => (
-                            <tr key={idx} className="hover:bg-slate-850/30">
-                              <td className="p-3">
-                                <span className="text-emerald-400 block text-[10.5px]">▲ {s.loginTime}</span>
-                                <span className="text-red-400 block text-[10.5px]">▼ {s.logoutTime}</span>
-                              </td>
-                              <td className="p-3 text-white font-bold">{s.durationMinutes} mins</td>
-                              <td className="p-3">
-                                <span className="px-1.5 py-0.5 bg-slate-950 rounded text-[9px] uppercase font-black">{s.device}</span>
-                              </td>
-                              <td className="p-3">
-                                <span className="block font-bold text-slate-200">{s.ipAddress}</span>
-                                <span className="text-[10px] text-slate-500 leading-tight block">{s.location}</span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* 3. Immersive User Business Data Intercept panels */}
+                {/* User Business Data Intercept panels */}
                 {immersiveTab === 'business' && (
                   <div className="space-y-5 animate-fade-in text-left">
                     
                     {/* Inner workspace tab selectors */}
                     <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-850 flex-wrap gap-1">
                       {[
-                        { id: 'transactions', label: '📊 Transactions' },
-                        { id: 'reports', label: '📈 Reports' },
-                        { id: 'stock', label: '📦 Stock Audit' },
-                        { id: 'people', label: '👥 Team staff' },
-                        { id: 'messages', label: '💬 Active chats' },
-                        { id: 'billing', label: '💳 Subscription history' },
-                        { id: 'hardware', label: '🖥️ Hardware' }
+                        { id: 'messages', label: 'Active Chats' },
+                        { id: 'billing', label: 'Subscription History' },
+                        { id: 'hardware', label: 'Hardware' }
                       ].map(p => (
                         <button
                           key={p.id}
-                          onClick={() => setBizSubTab(p.id as any)}
+                          onClick={() => setBizSubTab(p.id as 'messages' | 'billing' | 'hardware')}
                           className={`px-3 py-1.5 text-[10px] font-mono rounded-md uppercase tracking-tighter ${bizSubTab === p.id ? 'bg-slate-950 text-emerald-400 font-black' : 'text-slate-400 hover:text-slate-200'}`}
                         >
                           {p.label}
@@ -806,125 +675,6 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                     </div>
 
                     <div className="bg-slate-900 border border-slate-850 p-4 rounded-xl min-h-[220px]">
-                      
-                      {/* SUB-TAB: Transactions */}
-                      {bizSubTab === 'transactions' && (
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-mono uppercase text-emerald-400 font-black">All Consolidated Branch Transactions</h4>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs text-slate-300 font-mono">
-                              <thead className="bg-slate-950 text-[10px] uppercase text-slate-500 border-b border-slate-800">
-                                <tr>
-                                  <th className="p-2">TX ID</th>
-                                  <th className="p-2">Date</th>
-                                  <th className="p-2">Details</th>
-                                  <th className="p-2 text-right">Amount</th>
-                                  <th className="p-2 text-center">Gateway</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-950">
-                                {selectedUser.transactions.map(t => (
-                                  <tr key={t.id} className="hover:bg-slate-850/20">
-                                    <td className="p-2 text-white font-bold">{t.id}</td>
-                                    <td className="p-2 text-[10px] text-slate-400">{t.date}</td>
-                                    <td className="p-2 max-w-[180px] truncate" title={t.items}>{t.items}</td>
-                                    <td className="p-2 text-right text-emerald-400 font-bold">TSh {t.amount.toLocaleString()}</td>
-                                    <td className="p-2 text-center">
-                                      <span className="px-1.5 py-0.5 bg-slate-950 rounded text-[9px] font-bold text-slate-300">{t.paymentMethod}</span>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* SUB-TAB: Reports */}
-                      {bizSubTab === 'reports' && (
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-mono uppercase text-emerald-400 font-black font-bold">Monthly Profit & Ledger Statements</h4>
-                          <div className="space-y-2">
-                            {selectedUser.reports.map((r, idx) => (
-                              <div key={idx} className="bg-slate-950 p-3 rounded-lg border border-slate-850 grid grid-cols-2 md:grid-cols-4 gap-2 font-mono text-[11px]">
-                                <div>
-                                  <div className="text-[9px] text-slate-500 uppercase">MONTHLY REPORT</div>
-                                  <div className="text-white font-bold">{r.month}</div>
-                                </div>
-                                <div>
-                                  <div className="text-[9px] text-red-400 uppercase">TOTAL EXPENSE</div>
-                                  <div className="text-red-400">TSh {r.expenseTotal.toLocaleString()}</div>
-                                </div>
-                                <div>
-                                  <div className="text-[9px] text-cyan-400 uppercase">VAT PAYABLE</div>
-                                  <div className="text-cyan-400">TSh {r.taxCollected.toLocaleString()}</div>
-                                </div>
-                                <div>
-                                  <div className="text-[9px] text-emerald-400 uppercase">YIELD TAX DECLARED</div>
-                                  <div className="text-emerald-400 font-extrabold">TSh {r.profit.toLocaleString()}</div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* SUB-TAB: Stock Audit */}
-                      {bizSubTab === 'stock' && (
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-mono uppercase text-emerald-400 font-black">Branch Real-Time Stock Valuations</h4>
-                          <div className="bg-slate-950 rounded-lg overflow-hidden border border-slate-850">
-                            <table className="w-full text-left text-xs text-slate-300 font-mono">
-                              <thead className="bg-slate-900/60 text-[10px] uppercase text-slate-500">
-                                <tr>
-                                  <th className="p-2">Product Unit / Code</th>
-                                  <th className="p-2 text-center">Stock Count</th>
-                                  <th className="p-2 text-center">Alert qty</th>
-                                  <th className="p-2 text-right">Node Rating</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-900">
-                                {selectedUser.stockRecords.map(s => (
-                                  <tr key={s.id} className="hover:bg-slate-850/10">
-                                    <td className="p-2">
-                                      <span className="block font-bold text-slate-200">{s.name}</span>
-                                      <span className="text-[9.5px] text-slate-500 uppercase">{s.sku}</span>
-                                    </td>
-                                    <td className="p-2 text-center font-bold text-white">{s.stockQty} items</td>
-                                    <td className="p-2 text-center text-red-400 font-bold">{s.alertQty} min</td>
-                                    <td className="p-2 text-right">
-                                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${s.stockQty > s.alertQty ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
-                                        {s.stockQty > s.alertQty ? 'HEALTHY DEPOT' : 'REORDER IMMEDIATE'}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* SUB-TAB: Connections */}
-                      {bizSubTab === 'people' && (
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-mono uppercase text-emerald-400 font-black">Connected Staff & Branch Terminals</h4>
-                          <div className="divide-y divide-slate-950 bg-slate-950 p-2.5 rounded-lg border border-slate-850">
-                            {selectedUser.downlines.map((p, idx) => (
-                              <div key={idx} className="py-2 flex justify-between items-center text-xs">
-                                <div className="flex items-center space-x-2">
-                                  <div className={`w-2 h-2 rounded-full ${p.status === 'online' ? 'bg-emerald-500' : 'bg-slate-700'}`} />
-                                  <span className="text-white font-bold">{p.name}</span>
-                                </div>
-                                <span className="text-[10px] uppercase font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                                  {p.role}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
                       {/* SUB-TAB: Message streams */}
                       {bizSubTab === 'messages' && (
                         <div className="space-y-3">
@@ -1019,202 +769,6 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                           </div>
                         </div>
                       )}
-
-                    </div>
-                  </div>
-                )}
-
-                {/* 4. Active Edit, Password Reset and suspend controls with lock limits */}
-                {immersiveTab === 'controls' && (
-                  <div className="space-y-6 animate-fade-in text-left">
-                    
-                    {/* Security Warn Banner */}
-                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start space-x-3 text-xs">
-                      <ShieldAlert className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="text-red-400 font-black block font-mono uppercase">CRITICAL SYSTEM MUTATION CONTROL</span>
-                        <p className="text-slate-300 mt-1">Security key required.</p>
-                      </div>
-                    </div>
-
-                    {/* Shared Authorisation Key field (Permanent Stars ●●●●●● Type input only!) */}
-                    <div className="bg-slate-900 p-4 rounded-xl border border-slate-850 space-y-3">
-                      <div className="flex justify-between items-center">
-                        <label className="text-xs uppercase font-mono text-slate-300 font-bold flex items-center gap-1.5">
-                          <Lock className="w-3.5 h-3.5 text-rose-500" />
-                          <span>Input Secret Key (STARS ONLY ●●●●)</span>
-                        </label>
-                        {isActionLocked ? (
-                          <span className="text-[10px] uppercase font-mono bg-red-600/30 text-red-400 border border-red-500/30 px-2 py-0.5 rounded animate-pulse">
-                            ⚠️ Lockout Remaining: {lockoutTimeLeft}s
-                          </span>
-                        ) : failedAttempts > 0 ? (
-                          <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded font-mono">
-                            {failedAttempts} failures tracking level
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            Mask is forced permanently
-                          </span>
-                        )}
-                      </div>
-                      
-                      <input 
-                        type="password"
-                        placeholder="••••••••••••"
-                        autoComplete="new-password"
-                        disabled={isActionLocked}
-                        value={secureKeyInput}
-                        onChange={(e) => setSecureKeyInput(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-xs text-rose-400 font-mono focus:border-rose-500 outline-none block disabled:opacity-50"
-                      />
-                    </div>
-
-                    {/* Workspaces list */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                      
-                      {/* Left Block: Profile Overwrite fields */}
-                      <form onSubmit={handleEditFieldSubmit} className="bg-slate-900 p-4 rounded-xl border border-slate-850 space-y-3">
-                        <div className="border-b border-slate-800 pb-2 text-[10px] uppercase font-mono text-emerald-400 font-extrabold flex items-center justify-between">
-                          <span>Modify Profile Fields</span>
-                          <span className="text-slate-500">Overwrite DB settings</span>
-                        </div>
-                        <div className="space-y-2">
-                          <div>
-                            <label className="text-[9px] uppercase font-mono text-slate-500 block">Full Legal Name</label>
-                            <input 
-                              type="text"
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              className="w-full bg-slate-950 border border-slate-800 p-2 text-xs rounded text-white outline-none focus:border-slate-700 font-bold"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[9px] uppercase font-mono text-slate-500 block">Identified Username</label>
-                            <input 
-                              type="text"
-                              value={editUsername}
-                              onChange={(e) => setEditUsername(e.target.value)}
-                              className="w-full bg-slate-950 border border-slate-800 p-2 text-xs rounded text-white outline-none focus:border-slate-700 font-mono text-emerald-400"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[9px] uppercase font-mono text-slate-500 block">Identified Email</label>
-                            <input 
-                              type="email"
-                              value={editEmail}
-                              onChange={(e) => setEditEmail(e.target.value)}
-                              className="w-full bg-slate-950 border border-slate-800 p-2 text-xs rounded text-white outline-none focus:border-slate-700"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[9px] uppercase font-mono text-slate-500 block">Gateway Phone Node</label>
-                            <input 
-                              type="text"
-                              value={editPhone}
-                              onChange={(e) => setEditPhone(e.target.value)}
-                              className="w-full bg-slate-950 border border-slate-800 p-2 text-xs rounded text-white outline-none focus:border-slate-700"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[9px] uppercase font-mono text-slate-500 block">Subscription plan</label>
-                            <input 
-                              type="text"
-                              value={editPlan}
-                              onChange={(e) => setEditPlan(e.target.value)}
-                              className="w-full bg-slate-950 border border-slate-800 p-2 text-xs rounded text-white outline-none focus:border-slate-700"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[9px] uppercase font-mono text-slate-500 block">Payment level</label>
-                            <select 
-                              value={editPaymentStatus}
-                              onChange={(e) => setEditPaymentStatus(e.target.value as any)}
-                              className="w-full bg-slate-950 border border-slate-800 p-2 text-xs rounded text-white outline-none focus:border-slate-700"
-                            >
-                              <option value="Paid">Paid status tier</option>
-                              <option value="Unpaid">Unpaid status tier</option>
-                              <option value="Grace Period">Grace Period</option>
-                              <option value="Overdue">Overdue restriction level</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <button 
-                          type="submit"
-                          disabled={isActionLocked}
-                          className="w-full bg-emerald-500 text-slate-950 hover:bg-emerald-400 py-2 py-2 text-xs rounded font-bold font-mono uppercase tracking-tight transition-transform active:scale-[0.99] cursor-pointer disabled:opacity-50"
-                        >
-                          Confirm with Secret Key
-                        </button>
-                      </form>
-
-                      {/* Right Block: Condition and Deletion triggers */}
-                      <div className="space-y-5">
-                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-850 space-y-3.5">
-                          <div className="border-b border-slate-800 pb-2 text-[10px] uppercase font-mono text-amber-400 font-extrabold flex justify-between">
-                            <span>Conditional block logs</span>
-                            <span className="text-slate-500">Suspend node status</span>
-                          </div>
-                          <div className="flex gap-2.5">
-                            <button
-                              onClick={() => handleSuspendReactivate('Suspended')}
-                              disabled={isActionLocked || selectedUser.status === 'Suspended'}
-                              className="flex-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 font-mono font-bold uppercase py-2.5 text-[10px] rounded-lg tracking-tight transition-transform cursor-pointer disabled:opacity-50"
-                            >
-                              ⚠️ Suspend Node
-                            </button>
-                            <button
-                              onClick={() => handleSuspendReactivate('Active')}
-                              disabled={isActionLocked || selectedUser.status === 'Active'}
-                              className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-mono font-bold uppercase py-2.5 text-[10px] rounded-lg tracking-tight transition-transform cursor-pointer disabled:opacity-50"
-                            >
-                              🌟 Reactivate
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-850 space-y-3">
-                          <div className="border-b border-slate-800 pb-2 text-[10px] uppercase font-mono text-cyan-400 font-extrabold">
-                            Password Hard Reset Trigger
-                          </div>
-                          <div className="space-y-2">
-                            <input 
-                              type="text"
-                              placeholder="Type temp generic password..."
-                              value={newPasswordValue}
-                              onChange={(e) => setNewPasswordValue(e.target.value)}
-                              className="w-full bg-slate-950 border border-slate-800 p-2 text-xs rounded text-white outline-none text-center font-mono focus:border-slate-700"
-                            />
-                            <button
-                              onClick={handleResetPassword}
-                              disabled={isActionLocked}
-                              className="w-full bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 font-mono uppercase font-black py-2.5 text-[10px] rounded-lg tracking-tight transition-transform cursor-pointer disabled:opacity-50"
-                            >
-                              🔑 Execute Password Override
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="bg-slate-900 border border-red-500/20 p-4 rounded-xl space-y-3.5">
-                          <div className="text-[10px] uppercase font-mono text-red-400 font-extrabold">
-                            Permanent Account Wipe block
-                          </div>
-                          <button
-                            onClick={handleDeleteUser}
-                            disabled={isActionLocked}
-                            className="w-full bg-red-600 hover:bg-red-500 hover:bg-red-700 text-white font-mono font-extrabold uppercase py-2.5 text-[10.5px] rounded-lg tracking-wider transition-all active:scale-[0.99] cursor-pointer shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
-                          >
-                            <UserX className="w-4 h-4" />
-                            <span>Wipe account permanently from system</span>
-                          </button>
-                        </div>
-                      </div>
 
                     </div>
                   </div>
