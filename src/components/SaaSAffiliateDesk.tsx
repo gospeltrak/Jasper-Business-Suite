@@ -67,6 +67,89 @@ interface AffiliateAccount {
   tinNumber?: string;
 }
 
+const numberOrZero = (value: unknown) =>
+  typeof value === "number" && Number.isFinite(value) ? value : 0;
+
+const stringOrFallback = (value: unknown, fallback: string) =>
+  typeof value === "string" && value.trim() ? value : fallback;
+
+const normalizeAffiliateAccount = (
+  raw: Partial<AffiliateAccount> | null | undefined,
+  index: number,
+): AffiliateAccount => {
+  const source = raw || {};
+  const id = stringOrFallback(source.id, `aff-${index + 1}`);
+  const name = stringOrFallback(source.name, `Affiliate ${index + 1}`);
+  const promoCode = stringOrFallback(
+    source.promoCode,
+    name.replace(/[^a-z0-9]/gi, "").slice(0, 10).toUpperCase() || `AFF${index + 1}`,
+  );
+  const username = stringOrFallback(
+    source.username,
+    `@${promoCode.toLowerCase()}_affiliate`,
+  );
+  const status: AffiliateAccount["status"] =
+    source.status === "Suspended" ||
+    source.status === "Top Performer" ||
+    source.status === "Active"
+      ? source.status
+      : "Active";
+
+  return {
+    id,
+    name,
+    username,
+    email: stringOrFallback(source.email, "not-set@jasper.local"),
+    phone: stringOrFallback(source.phone, "Not set"),
+    status,
+    joinedDate: stringOrFallback(source.joinedDate, new Date().toISOString().slice(0, 10)),
+    affiliateLink: stringOrFallback(
+      source.affiliateLink,
+      `https://dukaplus.co.tz/ref/${promoCode.toLowerCase()}`,
+    ),
+    promoCode,
+    conversionsLink: numberOrZero(source.conversionsLink),
+    conversionsPromo: numberOrZero(source.conversionsPromo),
+    totalEarnings: numberOrZero(source.totalEarnings),
+    revenueGenerated: numberOrZero(source.revenueGenerated),
+    monthlyEarnings: Array.isArray(source.monthlyEarnings)
+      ? source.monthlyEarnings.map((item, itemIndex) => ({
+          month: stringOrFallback(item?.month, `Month ${itemIndex + 1}`),
+          amount: numberOrZero(item?.amount),
+        }))
+      : [],
+    sessions: Array.isArray(source.sessions)
+      ? source.sessions.map((session) => ({
+          loginTime: stringOrFallback(session?.loginTime, "Not recorded"),
+          logoutTime: stringOrFallback(session?.logoutTime, "Not recorded"),
+          durationMinutes: numberOrZero(session?.durationMinutes),
+          device:
+            session?.device === "Phone" ||
+            session?.device === "Tablet" ||
+            session?.device === "Desktop"
+              ? session.device
+              : "Phone",
+          ipAddress: stringOrFallback(session?.ipAddress, "Not recorded"),
+          location: stringOrFallback(session?.location, "Not recorded"),
+        }))
+      : [],
+    recentPayouts: Array.isArray(source.recentPayouts)
+      ? source.recentPayouts.map((payout, payoutIndex) => ({
+          id: stringOrFallback(payout?.id, `PAY-${index + 1}-${payoutIndex + 1}`),
+          date: stringOrFallback(payout?.date, "Not recorded"),
+          amount: numberOrZero(payout?.amount),
+          method: stringOrFallback(payout?.method, "Not recorded"),
+          status: payout?.status === "Processing" ? "Processing" : "Settled",
+        }))
+      : [],
+    isSuper: !!source.isSuper,
+    parentSuperId: typeof source.parentSuperId === "string" ? source.parentSuperId : "",
+    targetReferrals: numberOrZero(source.targetReferrals) || 200,
+    nidaNumber: typeof source.nidaNumber === "string" ? source.nidaNumber : "",
+    tinNumber: typeof source.tinNumber === "string" ? source.tinNumber : "",
+  };
+};
+
 export default function SaaSAffiliateDesk({ isUnlocked = false, onLock }: { isUnlocked?: boolean, onLock?: () => void }) {
   const [affiliates, setAffiliates] = useState<AffiliateAccount[]>([]);
   const [selectedAff, setSelectedAff] = useState<AffiliateAccount | null>(null);
@@ -152,7 +235,24 @@ export default function SaaSAffiliateDesk({ isUnlocked = false, onLock }: { isUn
   const loadAffiliatesData = () => {
     const cached = localStorage.getItem("saas_immersive_affiliates");
     if (cached) {
-      setAffiliates(JSON.parse(cached));
+      try {
+        const parsed = JSON.parse(cached);
+        if (!Array.isArray(parsed)) throw new Error("Affiliate cache is not a list");
+        const normalized = parsed.map((affiliate, index) =>
+          normalizeAffiliateAccount(affiliate, index),
+        );
+        setAffiliates(normalized);
+        localStorage.setItem(
+          "saas_immersive_affiliates",
+          JSON.stringify(normalized),
+        );
+        return;
+      } catch (error) {
+        console.warn("Resetting invalid affiliate cache", error);
+        localStorage.removeItem("saas_immersive_affiliates");
+        loadAffiliatesData();
+        return;
+      }
     } else {
       const initialAffiliates: AffiliateAccount[] = [
         {
@@ -678,6 +778,11 @@ export default function SaaSAffiliateDesk({ isUnlocked = false, onLock }: { isUn
     }
     return meetsQuery;
   });
+  const topAffiliate = affiliates.length
+    ? [...affiliates].sort(
+        (a, b) => b.conversionsPromo - a.conversionsPromo,
+      )[0]
+    : null;
 
   return (
     <div className="space-y-6">
@@ -688,18 +793,10 @@ export default function SaaSAffiliateDesk({ isUnlocked = false, onLock }: { isUn
             Top Recruiter Conversion Block
           </div>
           <div className="text-white text-xl font-black mt-1 font-sans">
-            {affiliates.length > 0
-              ? affiliates.sort(
-                  (a, b) => b.conversionsPromo - a.conversionsPromo,
-                )[0]?.name
-              : "None"}
+            {topAffiliate?.name || "None"}
           </div>
           <div className="text-[10.5px] text-slate-500 font-mono mt-0.5">
-            {affiliates.length > 0
-              ? affiliates.sort(
-                  (a, b) => b.conversionsPromo - a.conversionsPromo,
-                )[0]?.conversionsPromo
-              : 0}{" "}
+            {topAffiliate?.conversionsPromo || 0}{" "}
             signups via promotional code
           </div>
         </div>
