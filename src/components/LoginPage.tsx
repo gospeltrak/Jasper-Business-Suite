@@ -1671,28 +1671,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 ) : emailChecked ? (
                   <span>{loginOtpMode ? 'Access With WhatsApp OTP' : 'Access Terminal Cabin'}</span>
                 ) : (
-                  <span>Continue with WhatsApp</span>
+                  <span>Continue</span>
                 )}
               </button>
 
-              <div className="relative flex py-1.5 items-center">
-                <div className="flex-grow border-t border-slate-150"></div>
-                <span className="flex-shrink mx-3 text-[9px] font-mono text-slate-400 uppercase tracking-wider font-extrabold">
-                  OR GOOGLE SINGLE SIGN-ON
-                </span>
-                <div className="flex-grow border-t border-slate-150"></div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGoogleLoginClick}
-                className="w-full py-3 border border-slate-200 bg-white hover:bg-slate-50 text-slate-705 font-bold rounded-2.5xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2.5 active:scale-98 shadow-xs"
-              >
-                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                  <path fill="#EA4335" d="M12.24 10.285V14.4h6.887c-.648 2.42-2.519 4.114-5.137 4.114-3.467 0-6.277-2.81-6.277-6.277s2.81-6.277 6.277-6.277c1.551 0 2.966.565 4.062 1.49l3.056-3.057C19.167 2.147 15.932 1 12.24 1 5.48 1 0 6.48 0 13.22c0 6.74 5.48 12.22 12.24 12.22 6.41 0 11.536-4.595 11.536-11.39 0-.693-.06-1.344-.173-1.956H12.24z"/>
-                </svg>
-                <span>Continue with Google</span>
-              </button>
             </form>
           ) : (
             /* Registration screen with picker for the 4 dynamic business sectors */
@@ -1852,24 +1834,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 )}
               </button>
 
-              <div className="relative flex py-1.5 items-center">
-                <div className="flex-grow border-t border-slate-150"></div>
-                <span className="flex-shrink mx-3 text-[9px] font-mono text-slate-400 uppercase tracking-wider font-extrabold">
-                  OR ONE-CLICK REGISTER WITH GOOGLE
-                </span>
-                <div className="flex-grow border-t border-slate-150"></div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGoogleLoginClick}
-                className="w-full py-3 border border-slate-205 bg-white hover:bg-slate-50 text-slate-705 font-bold rounded-2.5xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2.5 active:scale-98 shadow-xs"
-              >
-                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                  <path fill="#EA4335" d="M12.24 10.285V14.4h6.887c-.648 2.42-2.519 4.114-5.137 4.114-3.467 0-6.277-2.81-6.277-6.277s2.81-6.277 6.277-6.277c1.551 0 2.966.565 4.062 1.49l3.056-3.057C19.167 2.147 15.932 1 12.24 1 5.48 1 0 6.48 0 13.22c0 6.74 5.48 12.22 12.24 12.22 6.41 0 11.536-4.595 11.536-11.39 0-.693-.06-1.344-.173-1.956H12.24z"/>
-                </svg>
-                <span>Continue with Google</span>
-              </button>
             </form>
           )}
 
