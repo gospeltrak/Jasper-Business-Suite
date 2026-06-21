@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Tenant, Product, Sale, SaleItem, SystemSettings } from '../types';
 import {
   calculateWeightedAverageCost,
@@ -552,15 +552,15 @@ export default function DashboardPOS({
   };
 
   // Filtering products for current tenant active list
-  const filteredProducts = products.filter(p => {
+  const filteredProducts = useMemo(() => products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           p.barcode.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = !selectedCategory || selectedCategory === 'All' || p.category === selectedCategory;
     return matchesSearch && matchesCategory;
-  });
+  }), [products, searchTerm, selectedCategory]);
 
-  const addToCart = (prod: Product) => {
+  const addToCart = useCallback((prod: Product) => {
     // Channel selling permissions validation
     if (sellingChannel === 'retail' && prod.sellInRetail === false) {
       setPosWarning(`Product "${prod.name}" is wholesale-only. Change channel to Wholesale to sell this product.`);
@@ -605,9 +605,9 @@ export default function DashboardPOS({
         bulkSellMode: prod.isBulkProduct ? (prod.sellingMode === 'hybrid' ? 'scale' : prod.sellingMode) : undefined
       }];
     });
-  };
+  }, [sellingChannel, activeTenant.businessType]);
 
-  const updateCartQty = (id: string, delta: number) => {
+  const updateCartQty = useCallback((id: string, delta: number) => {
     setCart(prev => {
       return prev.map(i => {
         if (i.product.id === id) {
@@ -627,7 +627,7 @@ export default function DashboardPOS({
         return i;
       }).filter(Boolean) as any;
     });
-  };
+  }, [activeTenant.businessType]);
 
   const updateCartQtyDirect = (id: string, newQty: number) => {
     if (newQty <= 0) {
@@ -787,20 +787,17 @@ export default function DashboardPOS({
     return unitPrice;
   };
 
-  // Pricing calculations
-  const calculateSubtotal = () => {
+  // Pricing calculations — memoized for instant basket updates
+  const subtotal = useMemo(() => {
     return cart.reduce((sum, item) => {
       const unitPrice = getCartUnitPrice(item);
-
       const itemType = item.discountType || 'percent';
       const discountedPrice = itemType === 'cash'
         ? Math.max(0, unitPrice - item.discount)
         : unitPrice * (1 - item.discount / 100);
       return sum + (discountedPrice * item.qty);
     }, 0);
-  };
-
-  const subtotal = calculateSubtotal();
+  }, [cart, sellingChannel]);
   const orderDiscountAmt = orderDiscountType === 'cash'
     ? Math.max(0, Math.min(subtotal, orderDiscount))
     : subtotal * (Math.max(0, Math.min(100, orderDiscount)) / 100);
@@ -2584,3 +2581,4 @@ export default function DashboardPOS({
     </div>
   );
 }
+
