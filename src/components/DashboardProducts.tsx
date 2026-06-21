@@ -190,13 +190,13 @@ export default function DashboardProducts({
           costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
           sellingMethod: mapCostingMethodToLegacy(editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo'),
           allowPosMethodOverride: !!editForm.allowPosMethodOverride,
-          allowScaleSelling: !!editForm.allowScaleSelling || !!editForm.isBulkProduct,
-          purchaseUnit: editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || editForm.unit || 'Unit',
-          baseUnit: editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || editForm.unit || 'Unit',
-          conversionToBaseUnit: Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1),
+          allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
+          purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : (editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || editForm.unit || 'Unit'),
+          baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || editForm.unit || 'Unit'),
+          conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1),
           allowCustomQuantity: editForm.allowCustomQuantity !== false,
           defaultPricePerBaseUnit: Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0),
-          fractionSaleOptions: editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions,
+          fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
           dosesPerPacket: activeTenant.businessType === 'pharmacy' ? editDosesPerPacket : editForm.dosesPerPacket,
           tabsPerDose: activeTenant.businessType === 'pharmacy' ? editTabsPerDose : editForm.tabsPerDose,
           tabsPerPack: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : editForm.tabsPerPack,
@@ -217,13 +217,13 @@ export default function DashboardProducts({
           inventorySettings: {
             costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
             allowPosMethodOverride: !!editForm.allowPosMethodOverride,
-            allowScaleSelling: !!editForm.allowScaleSelling || !!editForm.isBulkProduct,
-            purchaseUnit: editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || editForm.unit || 'Unit',
-            baseUnit: editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || editForm.unit || 'Unit',
-            conversionToBaseUnit: Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1),
+            allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
+            purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : (editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || editForm.unit || 'Unit'),
+            baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || editForm.unit || 'Unit'),
+            conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1),
             allowCustomQuantity: editForm.allowCustomQuantity !== false,
             defaultPricePerBaseUnit: Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0),
-            fractionSaleOptions: editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions,
+            fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
             pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
               ? {
                 purchaseUnit: 'Packet',
@@ -686,10 +686,10 @@ export default function DashboardProducts({
       costingMethod,
       sellingMethod: mapCostingMethodToLegacy(costingMethod),
       allowPosMethodOverride,
-      allowScaleSelling: allowScaleSelling || isBulkProduct,
-      purchaseUnit,
-      baseUnit,
-      conversionToBaseUnit: Number(conversionToBaseUnit) || 1,
+      allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (allowScaleSelling || isBulkProduct),
+      purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : purchaseUnit,
+      baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : baseUnit,
+      conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : (Number(conversionToBaseUnit) || 1),
       allowCustomQuantity,
       defaultPricePerBaseUnit: Number(sellUnitPrice) || finalSellingPrice,
       dosesPerPacket: activeTenant.businessType === 'pharmacy' ? pharmacyDosesPerPacket : undefined,
@@ -700,7 +700,7 @@ export default function DashboardProducts({
       fullDosePrice: activeTenant.businessType === 'pharmacy' ? pharmacyFullDosePrice : undefined,
       halfDosePrice: activeTenant.businessType === 'pharmacy' ? pharmacyHalfDosePrice : undefined,
       tabPrice: activeTenant.businessType === 'pharmacy' ? pharmacyTabPrice : undefined,
-      fractionSaleOptions: allowScaleSelling || isBulkProduct
+      fractionSaleOptions: activeTenant.businessType !== 'pharmacy' && (allowScaleSelling || isBulkProduct)
         ? getDefaultFractionOptions(baseUnit, Number(sellUnitPrice) || finalSellingPrice)
         : undefined,
       pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
@@ -715,13 +715,13 @@ export default function DashboardProducts({
       inventorySettings: {
         costingMethod,
         allowPosMethodOverride,
-        allowScaleSelling: allowScaleSelling || isBulkProduct,
-        purchaseUnit,
-        baseUnit,
-        conversionToBaseUnit: Number(conversionToBaseUnit) || 1,
+        allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (allowScaleSelling || isBulkProduct),
+        purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : purchaseUnit,
+        baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : baseUnit,
+        conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : (Number(conversionToBaseUnit) || 1),
         allowCustomQuantity,
         defaultPricePerBaseUnit: Number(sellUnitPrice) || finalSellingPrice,
-        fractionSaleOptions: allowScaleSelling || isBulkProduct
+        fractionSaleOptions: activeTenant.businessType !== 'pharmacy' && (allowScaleSelling || isBulkProduct)
           ? getDefaultFractionOptions(baseUnit, Number(sellUnitPrice) || finalSellingPrice)
           : undefined,
         pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
@@ -1775,24 +1775,26 @@ export default function DashboardProducts({
                     </button>
                   ))}
                 </div>
-                <div className="grid grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase">Purchase Unit</label>
-                    <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                {activeTenant.businessType !== 'pharmacy' && (
+                  <div className="grid grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Purchase Unit</label>
+                      <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Base Unit</label>
+                      <input value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Conversion</label>
+                      <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                    </div>
+                    <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+                      <input type="checkbox" checked={allowScaleSelling} onChange={(e) => setAllowScaleSelling(e.target.checked)} className="accent-emerald-600" />
+                      Scale Sale
+                    </label>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase">Base Unit</label>
-                    <input value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase">Conversion</label>
-                    <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                  </div>
-                  <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
-                    <input type="checkbox" checked={allowScaleSelling} onChange={(e) => setAllowScaleSelling(e.target.checked)} className="accent-emerald-600" />
-                    Scale Sale
-                  </label>
-                </div>
+                )}
               </div>
 
               {activeTenant.businessType === 'pharmacy' && (
@@ -3987,7 +3989,7 @@ export default function DashboardProducts({
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className={`grid ${activeTenant.businessType === 'pharmacy' ? 'grid-cols-1' : 'grid-cols-2'} gap-3 pt-1`}>
                     <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
                       <input
                         type="checkbox"
@@ -4012,31 +4014,35 @@ export default function DashboardProducts({
                       />
                       POS Override
                     </label>
-                    <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
-                      <input
-                        type="checkbox"
-                        checked={!!(editForm.allowScaleSelling ?? editForm.inventorySettings?.allowScaleSelling)}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, allowScaleSelling: e.target.checked }))}
-                        className="accent-emerald-600"
-                      />
-                      Scale Selling
-                    </label>
+                    {activeTenant.businessType !== 'pharmacy' && (
+                      <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+                        <input
+                          type="checkbox"
+                          checked={!!(editForm.allowScaleSelling ?? editForm.inventorySettings?.allowScaleSelling)}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, allowScaleSelling: e.target.checked }))}
+                          className="accent-emerald-600"
+                        />
+                        Scale Selling
+                      </label>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Purchase Unit</label>
-                      <input value={editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, purchaseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                  {activeTenant.businessType !== 'pharmacy' && (
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Purchase Unit</label>
+                        <input value={editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, purchaseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Base Unit</label>
+                        <input value={editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, baseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Conversion</label>
+                        <input type="number" step="0.001" value={editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1} onChange={e => setEditForm(prev => ({ ...prev, conversionToBaseUnit: Number(e.target.value) || 1 }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Base Unit</label>
-                      <input value={editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, baseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Conversion</label>
-                      <input type="number" step="0.001" value={editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1} onChange={e => setEditForm(prev => ({ ...prev, conversionToBaseUnit: Number(e.target.value) || 1 }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
