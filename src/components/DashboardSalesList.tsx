@@ -4658,7 +4658,7 @@ export default function DashboardSalesList({
                     <Printer className="w-5 h-5 text-indigo-600 shrink-0" />
                     <span className="text-[11px] sm:text-xs font-black font-mono text-slate-800 uppercase truncate">A4 Office Print Preview Mode</span>
                   </div>
-                  <div className="grid grid-cols-3 sm:flex sm:flex-wrap sm:items-center gap-2 w-full lg:w-auto">
+	                  <div className="hidden">
                     <button
                       type="button"
                       onClick={() => {
@@ -4691,43 +4691,10 @@ export default function DashboardSalesList({
                     </button>
                   </div>
                 </div>
-                {documentSendOpen && (
-                  <div className="px-3 pb-3 sm:px-4 sm:pb-4 border-t border-slate-200 bg-white">
-                    <div className="flex flex-col sm:flex-row sm:items-end gap-2 pt-3">
-                      <label className="flex-1">
-                        <span className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Customer WhatsApp Number</span>
-                        <input
-                          type="tel"
-                          value={documentSendPhone}
-                          onChange={(e) => setDocumentSendPhone(e.target.value.replace(/[^\d+\s-]/g, ''))}
-                          placeholder="+255 700 000 000"
-                          className="w-full h-11 px-3 rounded-xl border border-slate-250 bg-slate-50 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        disabled={!documentSendPhone.trim()}
-                        onClick={() => sharePdfDocument(viewingDocument, documentSendPhone)}
-                        className={`h-11 px-4 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 transition-all ${documentSendPhone.trim() ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm' : 'bg-slate-200 text-slate-400 pointer-events-none'}`}
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                        <span>Send PDF</span>
-                      </button>
-                    </div>
-                    <p className="mt-2 text-[10.5px] text-slate-500 font-medium">
-                      Creates the PDF from this document template before opening WhatsApp.
-                    </p>
-                  </div>
-                )}
-                {pdfShareStatus && (
-                  <div className="px-4 pb-3 text-[11px] font-bold text-emerald-700">
-                    {pdfShareStatus}
-                  </div>
-                )}
-              </div>
+	              </div>
 
               {/* Printable Area content representation matching layout templates */}
-              <div className="flex-1 overflow-auto bg-slate-200/70 p-3 sm:p-6 lg:p-10 print:p-0 print:bg-white print:overflow-visible" id="printable-a4-surface">
+	              <div className="flex-1 overflow-auto bg-slate-200/70 p-3 sm:p-6 lg:p-10 print:p-0 print:bg-white print:overflow-visible" id="printable-a4-surface">
                 <div id="sales-document-a4-pdf-template" className="w-full max-w-[794px] min-h-[1123px] mx-auto bg-white rounded-2xl sm:rounded-[2rem] shadow-xl border border-slate-200 p-6 sm:p-10 lg:p-14 space-y-8 font-sans print:max-w-none print:min-h-0 print:rounded-none print:shadow-none print:border-0 print:p-0">
                   
                   {/* Decorative corporate banner on top */}
@@ -4924,10 +4891,75 @@ export default function DashboardSalesList({
                     </p>
                   </div>
 
-                </div>
-              </div>
+	                </div>
+	              </div>
 
-            </div>
+	              <div className="shrink-0 border-t border-slate-200 bg-white/98 p-3 sm:p-4 print:hidden shadow-[0_-12px_30px_rgba(15,23,42,0.08)]">
+	                {documentSendOpen && (
+	                  <div className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50/45 p-3">
+	                    <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+	                      <label className="flex-1">
+	                        <span className="block text-[10px] font-black uppercase tracking-wider text-slate-600 mb-1">Customer WhatsApp Number</span>
+	                        <input
+	                          type="tel"
+	                          value={documentSendPhone}
+	                          onChange={(e) => setDocumentSendPhone(e.target.value.replace(/[^\d+\s-]/g, ''))}
+	                          placeholder="+255 700 000 000"
+	                          className="w-full h-12 px-3 rounded-xl border border-emerald-250 bg-white text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+	                        />
+	                      </label>
+	                      <button
+	                        type="button"
+	                        disabled={!documentSendPhone.trim()}
+	                        onClick={() => sharePdfDocument(viewingDocument, documentSendPhone)}
+	                        className={`h-12 px-5 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 transition-all ${documentSendPhone.trim() ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm' : 'bg-slate-200 text-slate-400 pointer-events-none'}`}
+	                      >
+	                        <MessageSquare className="w-4 h-4" />
+	                        <span>Send PDF</span>
+	                      </button>
+	                    </div>
+	                  </div>
+	                )}
+	                {pdfShareStatus && (
+	                  <div className="mb-3 rounded-xl bg-emerald-50 border border-emerald-150 px-3 py-2 text-[11px] font-bold text-emerald-700">
+	                    {pdfShareStatus}
+	                  </div>
+	                )}
+	                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+	                  <button
+	                    type="button"
+	                    onClick={() => {
+	                      if (viewingDocument.customerPhone?.trim()) {
+	                        sharePdfDocument(viewingDocument, viewingDocument.customerPhone);
+	                      } else {
+	                        setDocumentSendOpen(prev => !prev);
+	                      }
+	                    }}
+	                    className="h-12 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-2 shadow-sm font-sans whitespace-nowrap"
+	                  >
+	                    <MessageSquare className="w-4 h-4 text-white" />
+	                    <span>Send</span>
+	                  </button>
+	                  <button
+	                    type="button"
+	                    disabled={viewingDocument.status !== 'pending'}
+	                    onClick={() => sendDocumentToSales(viewingDocument)}
+	                    className="h-12 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-2 shadow-sm font-sans whitespace-nowrap"
+	                  >
+	                    <ArrowRight className="w-4 h-4" />
+	                    <span>Send to Sales</span>
+	                  </button>
+	                  <button
+	                    type="button"
+	                    onClick={() => setViewingDocument(null)}
+	                    className="h-12 px-4 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-black uppercase rounded-xl cursor-pointer transition-all font-sans whitespace-nowrap"
+	                  >
+	                    Close
+	                  </button>
+	                </div>
+	              </div>
+
+	            </div>
           </div>
         );
       })()}
@@ -5148,4 +5180,3 @@ export default function DashboardSalesList({
     </div>
   );
 }
-
