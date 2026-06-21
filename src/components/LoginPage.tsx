@@ -1600,17 +1600,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   {recoveryStep === 'identify' ? (
                     <div className="space-y-2">
                       <input
-                        type="text"
-                        value={recoveryIdentifier}
-                        onChange={e => setRecoveryIdentifier(e.target.value)}
-                        placeholder="Admin WhatsApp number"
-                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
-                      />
-                      <input
                         type="tel"
-                        value={recoveryWhatsapp}
-                        onChange={e => setRecoveryWhatsapp(e.target.value)}
-                        placeholder="WhatsApp number to receive OTP"
+                        value={recoveryIdentifier}
+                        onChange={e => { setRecoveryIdentifier(e.target.value); setRecoveryWhatsapp(e.target.value); }}
+                        placeholder="Your WhatsApp / mobile number"
                         className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
                       />
                       <button
@@ -1717,12 +1710,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Company / Hotel Name</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Company / Business Name</label>
                   <input
                     type="text"
                     required
                     value={orgName}
-                    placeholder="e.g. Lagos Royal Retreat"
+                    placeholder="e.g. Jasper Traders Ltd"
                     onChange={(e) => setOrgName(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none"
                   />
@@ -1731,14 +1724,19 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Backup Email (Optional)</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block flex items-center gap-1">
+                    <MessageCircle className="w-3 h-3 text-emerald-600" />
+                    WhatsApp / Mobile Number <span className="text-red-500">*</span>
+                  </label>
                   <input
-                    type="email"
-                    value={regEmail}
-                    placeholder="Optional email backup"
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-sans"
+                    type="tel"
+                    required
+                    value={regPhone}
+                    placeholder="e.g. +255 712 345 678"
+                    onChange={(e) => setRegPhone(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-850 outline-none font-sans"
                   />
+                  <p className="text-[9.5px] text-slate-400 font-medium">Used to sign in & receive OTP resets</p>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Pin Password</label>
@@ -1753,9 +1751,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Region of operations</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Region of Operations</label>
                   <select
                     value={country}
                     onChange={(e) => {
@@ -1773,24 +1771,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-505 uppercase block">City Name Office</label>
+                  <label className="text-[10px] font-bold text-slate-505 uppercase block">City / Office Location</label>
                   <input
                     type="text"
                     required
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-505 uppercase block">Owner WhatsApp Number</label>
-                  <input
-                    type="tel"
-                    required
-                    value={regPhone}
-                    placeholder="e.g. +255 712 345 678"
-                    onChange={(e) => setRegPhone(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-850 outline-none font-sans"
                   />
                 </div>
               </div>
@@ -1813,26 +1800,35 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </p>
               </div>
 
-              {/* BUSINESS TYPE DROPDOWN */}
-              <div className="space-y-1.5">
+              {/* BUSINESS TYPE - NICHE BLOCKS */}
+              <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">
                   Business Industry Niche / Type
                 </label>
-                <select
-                  value={businessType}
-                  onChange={(e) => {
-                    setBusinessType(e.target.value);
-                    setError(null);
-                  }}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2.5 text-xs text-slate-800 outline-none cursor-pointer"
-                >
-                  <option value="Retail">Retail</option>
-                  <option value="Wholesale">Wholesale</option>
-                  <option value="Retail & Wholesale">Retail & Wholesale</option>
-                  <option value="Restaurant">Restaurant</option>
-                  <option value="Pharmacy">Pharmacy</option>
-                  <option value="Other">Other</option>
-                </select>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: 'Retail & Wholesale', label: 'Retail & Wholesale', icon: '🛒', desc: 'Shops, supermarkets, distributors' },
+                    { value: 'Pharmacy', label: 'Pharmacy', icon: '💊', desc: 'Clinics, dispensaries, chemists' },
+                  ].map(niche => (
+                    <button
+                      key={niche.value}
+                      type="button"
+                      onClick={() => { setBusinessType(niche.value); setError(null); }}
+                      className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                        businessType === niche.value
+                          ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                          : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white'
+                      }`}
+                    >
+                      <span className="text-2xl block mb-1">{niche.icon}</span>
+                      <span className={`block text-xs font-black ${businessType === niche.value ? 'text-emerald-800' : 'text-slate-700'}`}>{niche.label}</span>
+                      <span className="block text-[10px] text-slate-400 font-medium mt-0.5 leading-snug">{niche.desc}</span>
+                      {businessType === niche.value && (
+                        <span className="mt-1.5 inline-block text-[9px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Selected ✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <button
@@ -2368,3 +2364,4 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     </div>
   );
 }
+
