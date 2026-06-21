@@ -18,7 +18,9 @@ import {
   Compass,
   Briefcase,
   Shield,
-  Globe
+  Globe,
+  MessageCircle,
+  RefreshCw
 } from 'lucide-react';
 import { DEMO_USERS, DEFAULT_TENANTS } from '../data';
 import { User, Tenant } from '../types';
@@ -174,6 +176,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [recoveryIdentifier, setRecoveryIdentifier] = useState('');
+  const [recoveryWhatsapp, setRecoveryWhatsapp] = useState('');
+  const [recoveryOtp, setRecoveryOtp] = useState('');
+  const [recoveryInputOtp, setRecoveryInputOtp] = useState('');
+  const [recoveryNewPassword, setRecoveryNewPassword] = useState('');
+  const [recoveryUser, setRecoveryUser] = useState<any | null>(null);
+  const [recoveryStep, setRecoveryStep] = useState<'identify' | 'verify'>('identify');
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
 
   // Registration Form States
   const [ownerName, setOwnerName] = useState('');
@@ -342,7 +353,14 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const getAllSystemUsers = () => {
     const customUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
     const saasStaffs = JSON.parse(localStorage.getItem('jasper_saas_staffs') || '[]');
-    const systemUsers = [...DEMO_USERS, ...customUsers, ...saasStaffs];
+    const passwordOverrides = JSON.parse(localStorage.getItem('jasper_password_overrides') || '{}');
+    const withPasswordOverride = (user: any) => {
+      const overrideKey = user.email || user.phone || user.id;
+      return overrideKey && passwordOverrides[overrideKey]
+        ? { ...user, password: passwordOverrides[overrideKey] }
+        : user;
+    };
+    const systemUsers = [...DEMO_USERS, ...customUsers, ...saasStaffs].map(withPasswordOverride);
 
     // Scan all cached tenants settings for staffs
     for (let i = 0; i < localStorage.length; i++) {
@@ -353,7 +371,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             const settings = JSON.parse(localStorage.getItem(key) || '{}');
             if (settings.staffs && Array.isArray(settings.staffs)) {
               settings.staffs.forEach((staff: any) => {
-                 systemUsers.push({
+                 systemUsers.push(withPasswordOverride({
                    id: staff.id,
                    email: staff.phone || staff.name.toLowerCase().replace(' ', '') + '@jasper.com', 
                    phone: staff.phone || '',
@@ -363,13 +381,133 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                    tenantId: tenantId,
                    activeTenant: tenantId,
                    profileImage: staff.profileImage
-                 });
+                 }));
               });
             }
           } catch(e) {}
         }
     }
     return systemUsers;
+  };
+
+  const normalizePhoneForWhatsapp = (phone: string) => {
+    const digits = (phone || '').replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.startsWith('0')) return `255${digits.slice(1)}`;
+    return digits;
+  };
+
+  const isOwnerRecoveryRole = (role?: string) => {
+    const normalized = (role || '').toLowerCase();
+    return ['admin', 'manager', 'superadmin', 'owner'].some(r => normalized.includes(r));
+  };
+
+  const handleStartRecovery = (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setRecoveryMessage(null);
+
+    const identifier = recoveryIdentifier.trim() || email.trim();
+    if (!identifier) {
+      setRecoveryMessage('Enter your email or phone number first.');
+      return;
+    }
+
+    const found = getAllSystemUsers().find((u: any) =>
+      u.email?.toLowerCase() === identifier.toLowerCase() || u.phone === identifier
+    );
+
+    if (!found) {
+      setRecoveryMessage('No account found with that email or phone.');
+      return;
+    }
+
+    if (!isOwnerRecoveryRole(found.role)) {
+      setRecoveryMessage('Staff password reset is handled by the business admin in Staff Members.');
+      return;
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const whatsappNumber = normalizePhoneForWhatsapp(recoveryWhatsapp || found.phone || identifier);
+    if (!whatsappNumber) {
+      setRecoveryMessage('Enter the owner/admin WhatsApp number to receive OTP.');
+      return;
+    }
+    setRecoveryUser(found);
+    setRecoveryOtp(otp);
+    setRecoveryWhatsapp(whatsappNumber);
+    setRecoveryStep('verify');
+    setRecoveryMessage('OTP prepared. Send it to the owner/admin WhatsApp, then enter it here.');
+
+    const message = `Jasper Suite password reset OTP: ${otp}. Use this code to reset your admin account password. If you did not request this, please ignore it.`;
+    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const persistRecoveredPassword = (user: any, newPassword: string) => {
+    const updateList = (key: string) => {
+      const list = JSON.parse(localStorage.getItem(key) || '[]');
+      const updated = list.map((entry: any) => {
+        const sameUser = (entry.email && user.email && entry.email === user.email) || (entry.id && user.id && entry.id === user.id) || (entry.phone && user.phone && entry.phone === user.phone);
+        return sameUser ? { ...entry, password: newPassword } : entry;
+      });
+      localStorage.setItem(key, JSON.stringify(updated));
+    };
+
+    updateList('jasper_custom_users');
+    updateList('jasper_saas_staffs');
+
+    if (user.activeTenant || user.tenantId) {
+      const settingsKey = `jasper_settings_${user.activeTenant || user.tenantId}`;
+      const settings = JSON.parse(localStorage.getItem(settingsKey) || '{}');
+      if (Array.isArray(settings.staffs)) {
+        settings.staffs = settings.staffs.map((staff: any) => {
+          const sameStaff = (staff.id && user.id && staff.id === user.id) || (staff.phone && user.phone && staff.phone === user.phone);
+          return sameStaff ? { ...staff, password: newPassword } : staff;
+        });
+        localStorage.setItem(settingsKey, JSON.stringify(settings));
+      }
+    }
+
+    const overrides = JSON.parse(localStorage.getItem('jasper_password_overrides') || '{}');
+    if (user.email) overrides[user.email] = newPassword;
+    if (user.phone) overrides[user.phone] = newPassword;
+    if (user.id) overrides[user.id] = newPassword;
+    localStorage.setItem('jasper_password_overrides', JSON.stringify(overrides));
+  };
+
+  const handleFinishRecovery = (e: FormEvent) => {
+    e.preventDefault();
+    setRecoveryMessage(null);
+
+    if (!recoveryUser || !recoveryOtp) {
+      setRecoveryStep('identify');
+      setRecoveryMessage('Start the reset again.');
+      return;
+    }
+
+    if (recoveryInputOtp.trim() !== recoveryOtp) {
+      setRecoveryMessage('Wrong OTP. Check WhatsApp and try again.');
+      return;
+    }
+
+    if (recoveryNewPassword.trim().length < 4) {
+      setRecoveryMessage('New password must have at least 4 characters.');
+      return;
+    }
+
+    persistRecoveredPassword(recoveryUser, recoveryNewPassword.trim());
+    setEmail(recoveryUser.email || recoveryUser.phone || '');
+    setPassword(recoveryNewPassword.trim());
+    setEmailChecked(true);
+    setShowRecovery(false);
+    setRecoveryStep('identify');
+    setRecoveryIdentifier('');
+    setRecoveryWhatsapp('');
+    setRecoveryOtp('');
+    setRecoveryInputOtp('');
+    setRecoveryNewPassword('');
+    setRecoveryUser(null);
+    setSuccessMessage('Password reset successfully. You can sign in now.');
   };
 
   const handleCheckEmail = (e: FormEvent) => {
@@ -1248,9 +1386,23 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
               {emailChecked ? (
                 <div className="space-y-1.5 animate-fade-in">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">
-                    SECURITY PIN PASSWORD
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block">
+                      SECURITY PIN PASSWORD
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowRecovery(true);
+                        setRecoveryIdentifier(email);
+                        setRecoveryStep('identify');
+                        setRecoveryMessage(null);
+                      }}
+                      className="text-[10px] font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-800"
+                    >
+                      Forgot?
+                    </button>
+                  </div>
                   <div className="relative">
                     <input
                       id="login-password"
@@ -1265,6 +1417,117 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   </div>
                 </div>
               ) : null}
+
+              {!emailChecked && (
+                <div className="flex justify-end -mt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowRecovery(true);
+                      setRecoveryIdentifier(email);
+                      setRecoveryStep('identify');
+                      setRecoveryMessage(null);
+                    }}
+                    className="text-[10px] font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-800"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+
+              {showRecovery && (
+                <div className="rounded-2xl border border-emerald-300 bg-white p-4 space-y-3 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <MessageCircle className="w-4 h-4 text-emerald-700" />
+                        WhatsApp OTP Reset
+                      </h4>
+                      <p className="text-[11px] text-slate-700 mt-1 leading-snug">
+                        Admin and owner accounts reset by WhatsApp OTP. Staff accounts are reset by the business admin.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowRecovery(false)}
+                      className="text-[10px] font-black text-slate-500 hover:text-slate-800"
+                    >
+                      CLOSE
+                    </button>
+                  </div>
+
+                  {recoveryMessage && (
+                    <div className="text-[11px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-150 rounded-xl px-3 py-2">
+                      {recoveryMessage}
+                    </div>
+                  )}
+
+                  {recoveryStep === 'identify' ? (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={recoveryIdentifier}
+                        onChange={e => setRecoveryIdentifier(e.target.value)}
+                        placeholder="Admin email or phone"
+                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
+                      />
+                      <input
+                        type="tel"
+                        value={recoveryWhatsapp}
+                        onChange={e => setRecoveryWhatsapp(e.target.value)}
+                        placeholder="WhatsApp number if different"
+                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleStartRecovery}
+                        className="w-full py-2.5 rounded-xl bg-emerald-700 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        Send WhatsApp OTP
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={recoveryInputOtp}
+                        onChange={e => setRecoveryInputOtp(e.target.value)}
+                        placeholder="Enter 6-digit OTP"
+                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-mono font-black tracking-widest outline-none focus:border-emerald-500"
+                      />
+                      <input
+                        type="password"
+                        value={recoveryNewPassword}
+                        onChange={e => setRecoveryNewPassword(e.target.value)}
+                        placeholder="New password / PIN"
+                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRecoveryStep('identify');
+                            setRecoveryInputOtp('');
+                            setRecoveryNewPassword('');
+                          }}
+                          className="py-2.5 rounded-xl bg-white border border-emerald-150 text-slate-700 text-[10px] font-black uppercase tracking-wider"
+                        >
+                          Change Number
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleFinishRecovery}
+                          className="py-2.5 rounded-xl bg-slate-950 text-white text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          Reset Password
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <button
                 id="login-submit-btn"

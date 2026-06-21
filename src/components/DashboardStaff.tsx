@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StaffSettings, SystemSettings, Sale, Expense, Delivery, Tenant } from '../types';
-import { Users, UserPlus, BarChart3, CheckCircle2, XCircle, Camera, Shield, Search, Upload } from 'lucide-react';
+import { Users, UserPlus, BarChart3, CheckCircle2, XCircle, Camera, Shield, Search, Upload, KeyRound } from 'lucide-react';
 import { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
 
 // Simple currency formatter
@@ -62,6 +62,8 @@ export default function DashboardStaff({
   const [vehicleColor, setVehicleColor] = useState('');
   const [licensePlate, setLicensePlate] = useState('');
   const [signatureImage, setSignatureImage] = useState('');
+  const [resetStaffId, setResetStaffId] = useState('');
+  const [resetStaffPassword, setResetStaffPassword] = useState('');
   
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -123,6 +125,24 @@ export default function DashboardStaff({
       setStaffList(updatedStaffs);
       onUpdateSettings({ ...systemSettings, staffs: updatedStaffs });
     }
+  };
+
+  const handleResetStaffPassword = (staffId: string) => {
+    if (!resetStaffPassword.trim()) {
+      setSuccessMessage('Enter a new staff password first.');
+      return;
+    }
+
+    const updatedStaffs = staffList.map(staff =>
+      staff.id === staffId ? { ...staff, password: resetStaffPassword.trim() } : staff
+    );
+
+    setStaffList(updatedStaffs);
+    onUpdateSettings({ ...systemSettings, staffs: updatedStaffs });
+    setResetStaffId('');
+    setResetStaffPassword('');
+    setSuccessMessage('Staff password reset successfully.');
+    setTimeout(() => setSuccessMessage(''), 2500);
   };
 
   return (
@@ -231,12 +251,44 @@ export default function DashboardStaff({
                           )}
                         </td>
                         <td className="p-4 text-right">
-                          <button 
-                            onClick={() => handleDeleteStaff(staff.id)}
-                            className="bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rose-100 transition-colors"
-                          >
-                            Remove
-                          </button>
+                          <div className="flex flex-col items-end gap-2">
+                            <div className="flex justify-end gap-2">
+                              <button 
+                                onClick={() => {
+                                  setResetStaffId(resetStaffId === staff.id ? '' : staff.id);
+                                  setResetStaffPassword('');
+                                }}
+                                className="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors inline-flex items-center gap-1"
+                              >
+                                <KeyRound className="w-3.5 h-3.5" />
+                                Reset
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteStaff(staff.id)}
+                                className="bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rose-100 transition-colors"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                            {resetStaffId === staff.id && (
+                              <div className="w-full max-w-[260px] bg-slate-50 border border-slate-200 rounded-xl p-2 flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={resetStaffPassword}
+                                  onChange={e => setResetStaffPassword(e.target.value)}
+                                  placeholder="New password / PIN"
+                                  className="min-w-0 flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold outline-none focus:border-indigo-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleResetStaffPassword(staff.id)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-slate-950 text-white text-[10px] font-black uppercase"
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
