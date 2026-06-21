@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '../LanguageContext';
+import { createLucyResponse, getLucyGreeting } from '../utils/lucyBrain';
 import PrivacyAndTermsModals from './PrivacyAndTermsModals';
 import { 
   Store, 
@@ -911,7 +912,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
   const [isLucyOpen, setIsLucyOpen] = useState(false);
   const [lucyInput, setLucyInput] = useState('');
   const [lucyMessages, setLucyMessages] = useState<Array<{ sender: 'lucy' | 'user'; text: string; time: string }>>([
-    { sender: 'lucy', text: "Hi, I'm Lucy, your assistant. Ask me anything about Jasper.", time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) }
+    { sender: 'lucy', text: getLucyGreeting('en'), time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) }
   ]);
   const [isLucyThinking, setIsLucyThinking] = useState(false);
 
@@ -951,40 +952,32 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
     setLucyInput('');
     setIsLucyThinking(true);
 
-    // AI Self-learning analysis of user inputs - matches user intent and reports to super saas admin
+    // Lucy works offline on the landing page and stores lightweight interest signals locally.
     setTimeout(() => {
-      let reply = "";
-      let categoryType = "General Inquiry";
-      let matchedNiche = "general";
-
+      const lucy = createLucyResponse(userMsg, { surface: 'landing' });
       const lower = userMsg.toLowerCase();
-      if (lower.includes('price') || lower.includes('cost') || lower.includes('subscription') || lower.includes('package')) {
-        reply = `Jasper has simple pricing options tailored to your local currency! Plan 1 is our 14-days Free Trial. Plan 2 is Essential Ledger for TSh 15,000/mo. Plan 3 is Standard Business for TSh 30,000/mo. Plan 4 is Premium Wholesale for TSh 45,000/mo. You can upgrade easily directly in your dashboard!`;
-        categoryType = "Subscription Interest";
-      } else if (lower.includes('hotel') || lower.includes('room') || lower.includes('pms')) {
-        reply = `Jasper includes a fully-featured Hotel Property Management System (PMS). You get a Room matrix visualizer, dynamic occupancy booking calendar, surge rate settings, and custom check-in forms. This is included in our Standard & Premium packages!`;
-        categoryType = "Hotel Sector Interest";
-        matchedNiche = "hotel";
-      } else if (lower.includes('pharmacy') || lower.includes('drug') || lower.includes('medicine') || lower.includes('rx')) {
-        reply = `For Pharmacies, Jasper features automatic clinical Rx intercept safeguards, pharmaceutical generic drug classification lists, batch code expirations alerts, and pharmacist direct checkout tills. No hardware overhead needed!`;
-        categoryType = "Pharmacy Sector Interest";
-        matchedNiche = "pharmacy";
-      } else if (lower.includes('restaurant') || lower.includes('table') || lower.includes('food') || lower.includes('kds')) {
-        reply = `Our Restaurant suite includes dining tables arrangement builders, live KDS (Kitchen Display System) tickets dispatching, staff shift logs, and cashier order split bill tills. Keeps food service extremely fast!`;
-        categoryType = "Restaurant Sector Interest";
-        matchedNiche = "restaurant";
-      } else if (lower.includes('offline') || lower.includes('internet') || lower.includes('network')) {
-        reply = `Yes! Jasper has an uncompromised Offline-First register engine. All sales, taxes, inventory reductions, and customer logs are stored securely in local browser databases, and synchronize automatically when network grids reconnect.`;
-        categoryType = "Technical Resilience Query";
-      } else if (lower.includes('affiliate') || lower.includes('earn') || lower.includes('join')) {
-        reply = `You can join our Affiliate Force program and earn 15% recurring commissions paid directly to your wallet (Mixx by Yas, M-Pesa, Airtel Money, Halopesa) on the last Friday of every single month! Check out the Affiliate Portal on our footer of this page.`;
-        categoryType = "Affiliate Program Inquiry";
-      } else {
-        reply = `Tanzania and East Africa trust Jasper as their core business companion. Run Retail, Restaurant, Pharmacy, or Hotels smoothly. Setup takes only 2 minutes and I am always built-in inside the system to analyze your metrics and help you grow! Let me know if you would like me to setup a trial account!`;
-        categoryType = "Features Walkthrough";
-      }
+      const categoryType = lower.includes('price') || lower.includes('cost') || lower.includes('subscription') || lower.includes('package')
+        ? 'Subscription Interest'
+        : lower.includes('hotel') || lower.includes('room') || lower.includes('pms')
+          ? 'Hotel Sector Interest'
+          : lower.includes('pharmacy') || lower.includes('drug') || lower.includes('medicine') || lower.includes('rx')
+            ? 'Pharmacy Sector Interest'
+            : lower.includes('restaurant') || lower.includes('table') || lower.includes('food') || lower.includes('kds')
+              ? 'Restaurant Sector Interest'
+              : lower.includes('offline') || lower.includes('internet') || lower.includes('network') || lower.includes('mtandao')
+                ? 'Technical Resilience Query'
+                : lucy.refused
+                  ? 'Out-of-Scope Query'
+                  : 'Features Walkthrough';
+      const matchedNiche = lower.includes('hotel') || lower.includes('room') || lower.includes('pms')
+        ? 'hotel'
+        : lower.includes('pharmacy') || lower.includes('drug') || lower.includes('medicine') || lower.includes('rx')
+          ? 'pharmacy'
+          : lower.includes('restaurant') || lower.includes('table') || lower.includes('food') || lower.includes('kds')
+            ? 'restaurant'
+            : 'general';
 
-      setLucyMessages(prev => [...prev, { sender: 'lucy', text: reply, time: timestamp }]);
+      setLucyMessages(prev => [...prev, { sender: 'lucy', text: lucy.text, time: timestamp }]);
       setIsLucyThinking(false);
 
       const selfLearnings = JSON.parse(localStorage.getItem('jasper_lucy_self_learnings') || '[]');

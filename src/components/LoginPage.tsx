@@ -1848,6 +1848,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           </button>
         </div>
       </div>
+      </div>
 
       {/* GOOGLE SSO FLOW MODAL */}
       {showGoogleModal && (
@@ -2180,4 +2181,3 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     </div>
   );
 }
-

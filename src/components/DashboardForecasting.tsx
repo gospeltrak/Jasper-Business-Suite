@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Sale, Tenant } from '../types';
+import { createLucyResponse, getLucyGreeting } from '../utils/lucyBrain';
 import { 
   ResponsiveContainer, 
   LineChart, 
@@ -260,16 +261,14 @@ export default function DashboardForecasting({
 
   // Initialize Lucy Greeting
   useEffect(() => {
-    const enGreeting = `Hi! I am Lucy, your dedicated Business & Forecasting Companion. I have fully analyzed your system configuration, local branch settings, catalog records and cash ledger summaries. Ask me custom forecasting questions, trend analysis, or suggest products to add around your niche!`;
-    
     setChatMessages([
       {
         sender: 'ai',
-        text: enGreeting,
+        text: getLucyGreeting('en', activeTenant.name),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
     ]);
-  }, []);
+  }, [activeTenant.name]);
 
   useEffect(() => {
     if (chatEndRef.current) {
@@ -484,89 +483,29 @@ export default function DashboardForecasting({
     setChatInput('');
     setChatLoading(true);
 
-    try {
-      // 1. Client-side explicit out of business filter as safety fallback
-      const nonBusinessKeywords = [
-        'football', 'messi', 'ronaldo', 'joke', 'movie', 'song', 'lyrics', 'recipe', 'game', 
-        'dating', 'who are you', 'weather', 'sing me', 'play a', 'music', 'michezo', 'utani', 'hadithi'
-      ];
-      const isGeneralKnowledgeOut = nonBusinessKeywords.some(keyword => cleanMsg.toLowerCase().includes(keyword)) && 
-        !(cleanMsg.toLowerCase().includes('sell') || cleanMsg.toLowerCase().includes('business') || cleanMsg.toLowerCase().includes('stock') || cleanMsg.toLowerCase().includes('price') || cleanMsg.toLowerCase().includes('pharmacy') || cleanMsg.toLowerCase().includes('store'));
-
-      if (isGeneralKnowledgeOut) {
-        setTimeout(() => {
-          const swText = `Samahani sana, mimi kama Lucy msaidizi wako wa biashara, ninaruhusiwa tu kusaidia masuala ya kiutawala, usimamizi wa stoki, makadirio ya fedha na mauzo ya duka lako. Kwa maswali mengine ya kawaida yaliyo nje ya biashara, nakushauri utumie mtandao wa Google au mifumo mingine.`;
-          const enText = `I apologize, but as Lucy, your dedicated Business assistant, my boundaries are strictly focused on shop management, inventory metrics, and financial forecasting. For queries outside of business administration, I recommend consulting general web search engines like Google or appropriate public references.`;
-          
-          setChatMessages(prev => [
-            ...prev,
-            {
-              sender: 'ai',
-              text: enText,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            }
-          ]);
-          setChatLoading(false);
-        }, 600);
-        return;
-      }
-
-      // API request to Gemini Copilot
-      const res = await fetch(`/api/copilot`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          message: cleanMsg,
-          activeTab: 'forecasting',
-          businessType: activeTenant.businessType,
-          products,
-          sales,
-          expenses
-        })
+    window.setTimeout(() => {
+      const lucy = createLucyResponse(cleanMsg, {
+        activeTenant,
+        activeTab: 'forecasting',
+        products,
+        sales,
+        expenses,
+        surface: 'forecasting'
       });
-
-      if (!res.ok) {
-        throw new Error('API server returned error state');
-      }
-
-      const data = await res.json();
-      const chartConf = getRecommendedChartForQuery(cleanMsg, data.responseText);
+      const chartConf = getRecommendedChartForQuery(cleanMsg, lucy.text);
       setChatMessages(prev => [
         ...prev,
         {
           sender: 'ai',
-          text: data.responseText,
+          text: lucy.text,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           chartData: chartConf?.chartData,
           chartType: chartConf?.chartType,
           chartTitle: chartConf?.chartTitle
         }
       ]);
-    } catch (err) {
-      console.error('Failed to talk to Lucy', err);
-      // Fallback offline analytics response for forecasting queries
-      setTimeout(() => {
-        const fallbackText = `I have received your query. Analyzing your ${products.length} products and recent ${sales.length} transactions, your store is healthily structured. Please press 'Re-Analyze Inventory' to sync the pipeline.`;
-        const chartConf = getRecommendedChartForQuery(cleanMsg, fallbackText);
-        
-        setChatMessages(prev => [
-          ...prev,
-          {
-            sender: 'ai',
-            text: fallbackText,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            chartData: chartConf?.chartData,
-            chartType: chartConf?.chartType,
-            chartTitle: chartConf?.chartTitle
-          }
-        ]);
-        setChatLoading(false);
-      }, 750);
-    } finally {
       setChatLoading(false);
-    }
+    }, 450);
   };
 
   return (

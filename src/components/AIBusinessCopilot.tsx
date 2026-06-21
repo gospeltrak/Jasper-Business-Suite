@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, ReactNode } from 'react';
 import { Tenant } from '../types';
+import { createLucyResponse, getLucyGreeting } from '../utils/lucyBrain';
 import { 
   Sparkles, 
   Send, 
@@ -44,29 +45,19 @@ export default function AIBusinessCopilot({
   const [messages, setMessages] = useState<Message[]>([
     {
       sender: 'ai',
-      text: 'Hi! I am Lucy, your Copilot. How can I assist you with your business today?',
+      text: getLucyGreeting('en', activeTenant.name),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);
-  const [showAdminUtilities, setShowAdminUtilities] = useState(false);
 
   // Voice Controls States
   const [isListening, setIsListening] = useState(false);
   const [isSpokenOutputEnabled, setIsSpokenOutputEnabled] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
 
-  const [unsupportedLog, setUnsupportedLog] = useState<Record<string, number>>(() => {
-    const cached = localStorage.getItem('jasper_unsupported_features');
-    return cached ? JSON.parse(cached) : {};
-  });
-
   const chatEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
-
-  useEffect(() => {
-    localStorage.setItem('jasper_unsupported_features', JSON.stringify(unsupportedLog));
-  }, [unsupportedLog]);
 
   useEffect(() => {
     if (chatEndRef.current) {
@@ -135,86 +126,41 @@ export default function AIBusinessCopilot({
     }
   };
 
-  const logUnsupportedFeature = (featureName: string, amount = 1) => {
-    setUnsupportedLog(prev => ({ ...prev, [featureName]: (prev[featureName] || 0) + amount }));
-  };
-
   const handleSend = async (customMessage?: string) => {
     const textToSend = customMessage || input;
     if (!textToSend.trim()) return;
     if (!customMessage) setInput('');
 
-    const cleanLowerInput = textToSend.trim().toLowerCase();
-    if (cleanLowerInput === '/admin' || cleanLowerInput === 'admin') {
-      const nextState = !showAdminUtilities;
-      setShowAdminUtilities(nextState);
-      setMessages(prev => [...prev, {
-        sender: 'ai',
-        text: nextState ? '🔐 Super-Admin Mode ENABLED.' : '🔐 Super-Admin Mode DISABLED.',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
-      return;
-    }
-
     setMessages(prev => [...prev, { sender: 'user', text: textToSend, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
     setIsLoading(true);
 
-    try {
-      const res = await fetch(`/api/copilot`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          message: textToSend, 
-          activeTab, 
-          businessType: activeTenant.businessType, 
-          products, 
-          sales, 
-          expenses 
-        })
+    window.setTimeout(() => {
+      const lucy = createLucyResponse(textToSend, {
+        activeTenant,
+        activeTab,
+        products,
+        sales,
+        expenses,
+        surface: 'dashboard'
       });
-      if (!res.ok) throw new Error('API Error');
-      const data = await res.json();
-      
+
       const aiMsgObj: Message = {
         sender: 'ai',
-        text: data.responseText,
+        text: lucy.text,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        actionTriggered: data.action === 'NAVIGATE' ? data.targetTab : undefined,
-        unsupportedFeature: data.unsupportedFeature
+        actionTriggered: lucy.action === 'NAVIGATE' ? lucy.targetTab : undefined,
+        unsupportedFeature: lucy.safetyTopic
       };
 
-      if (data.action === 'NAVIGATE' && data.targetTab) setTimeout(() => onNavigate(data.targetTab), 1200);
-      if (data.unsupportedFeature) logUnsupportedFeature(data.unsupportedFeature);
-
       setMessages(prev => [...prev, aiMsgObj]);
-      speakAIResponse(data.responseText);
-    } catch (err) {
-      const lower = textToSend.toLowerCase();
-      let responseText = 'Offline Mode: I am currently unable to reach the main AI server. I default to local diagnostics.';
-      let actionObj: string | undefined = undefined;
-      
-      if (lower.includes('pos') || lower.includes('mauzo') || lower.includes('till')) {
-        actionObj = 'pos';
-        responseText = 'Switching view to Cashier Desk Till Register now...';
-      } else if (lower.includes('ripoti') || lower.includes('report')) {
-        actionObj = 'reports';
-        responseText = 'Opening corporate reports module.';
-      }
-      
-      setMessages(prev => [...prev, {
-        sender: 'ai',
-        text: responseText,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        actionTriggered: actionObj
-      }]);
-      if (actionObj) setTimeout(() => onNavigate(actionObj!), 800);
-      speakAIResponse(responseText);
-    } finally {
+      speakAIResponse(lucy.text);
       setIsLoading(false);
-    }
-  };
 
-  const triggeredBacklogs = Object.entries(unsupportedLog).filter(([_, count]) => (count as number) >= 10);
+      if (lucy.action === 'NAVIGATE' && lucy.targetTab) {
+        window.setTimeout(() => onNavigate(lucy.targetTab!), 500);
+      }
+    }, 350);
+  };
 
   return (
     <>
@@ -238,8 +184,7 @@ export default function AIBusinessCopilot({
           >
             {/* Header */}
             <div 
-              onDoubleClick={() => setShowAdminUtilities(prev => !prev)}
-              className="px-5 py-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+              className="px-5 py-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between select-none"
             >
               <div className="flex items-center space-x-3">
                 <div className="w-9 h-9 bg-black text-white rounded-full flex items-center justify-center shadow-sm">
@@ -270,24 +215,6 @@ export default function AIBusinessCopilot({
                 </button>
               </div>
             </div>
-
-            {/* Admin Utility Banners */}
-            {showAdminUtilities && triggeredBacklogs.length > 0 && (
-              <div className="bg-amber-50 text-amber-900 border-b border-amber-100 p-3 text-[11px] flex items-start space-x-2 font-medium">
-                <AlertTriangle className="w-4 h-4 mt-0.5 text-amber-600" />
-                <div>
-                  <p className="font-bold">Missing Features Alert (10+ Requests)</p>
-                  <ul className="mt-1 space-y-0.5">
-                    {triggeredBacklogs.map(([feature, count]) => (
-                      <li key={feature} className="flex justify-between border-t border-amber-200/50 pt-0.5">
-                        <span className="opacity-80">{feature}</span>
-                        <span className="font-bold bg-amber-200 px-1 rounded text-[10px]">{count} Req</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
 
             {/* Chat Area */}
             <div className="p-4 flex-grow overflow-y-auto space-y-4 bg-white relative scrollbar-hide">
@@ -355,6 +282,24 @@ export default function AIBusinessCopilot({
                 </div>
               )}
               <div ref={chatEndRef} />
+            </div>
+
+            <div className="px-3 py-2 bg-white border-t border-slate-100 flex gap-2 overflow-x-auto scrollbar-hide">
+              {[
+                'Open POS',
+                'Check low stock',
+                'Summarize my business',
+                'Nisaidie kwa Kiswahili'
+              ].map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => handleSend(prompt)}
+                  className="shrink-0 px-3 py-1.5 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[11px] font-semibold text-slate-600 transition-colors"
+                >
+                  {prompt}
+                </button>
+              ))}
             </div>
 
             {/* Input Form */}
