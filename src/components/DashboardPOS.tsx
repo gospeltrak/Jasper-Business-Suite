@@ -745,6 +745,10 @@ export default function DashboardPOS({
       ? (product.wholesalePrice ?? product.sellingPrice)
       : product.sellingPrice;
 
+    if (activeTenant.businessType !== 'pharmacy' && product.isBulkProduct) {
+      return getRetailPackageConfig(product).pricePerBaseUnit || fallbackPrice;
+    }
+
     return getPosSellingPriceForCostingMethod(product, fallbackPrice);
   };
 
@@ -933,6 +937,7 @@ export default function DashboardPOS({
               unitPrice = deduction.batchesUsed[0]?.sellingPrice || unitPrice;
           }
       }
+      const saleUnitCost = i.qty > 0 ? blendedCost * (deductQtyReal / i.qty) : blendedCost;
 
       return {
         productId: i.product.id,
@@ -953,7 +958,7 @@ export default function DashboardPOS({
         batchesUsed: batchesUsed.length > 0 ? batchesUsed : undefined,
         baseQuantityDeducted: Number(deductQtyReal.toFixed(3)),
         costingMethodUsed: sellMethod,
-        costPriceAtSale: Number(blendedCost.toFixed(2))
+        costPriceAtSale: Number(saleUnitCost.toFixed(2))
       };
     });
 

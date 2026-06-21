@@ -62,6 +62,7 @@ export interface ProductInventorySettings {
   packageUnitPrice?: number;
   wholePackagePrice?: number;
   halfPackagePrice?: number;
+  packageBuyingCost?: number;
   allowCustomQuantity: boolean;
   defaultPricePerBaseUnit?: number;
   fractionSaleOptions?: FractionSaleOption[];
@@ -127,6 +128,7 @@ export interface Product {
   packageUnitPrice?: number;
   wholePackagePrice?: number;
   halfPackagePrice?: number;
+  packageBuyingCost?: number;
   fractionSaleOptions?: FractionSaleOption[];
   allowCustomQuantity?: boolean;
   defaultPricePerBaseUnit?: number;

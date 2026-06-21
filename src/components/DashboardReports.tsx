@@ -2522,43 +2522,50 @@ export default function DashboardReports({
                       </div>
                     )}
                     {products.filter(p => p.isBulkProduct).map(p => {
-                      const ratio = (Number(p.bulkPurchaseQty) || 1) / (Number(p.sellUnitQty) || 1);
-                      const grossProfit = (ratio * (Number(p.sellUnitPrice) || 0)) - (p.costPrice || 0);
-                      const breakeven = Math.ceil((p.costPrice || 0) / (Number(p.sellUnitPrice) || 1));
-                      const totalRevenue = ratio * (Number(p.sellUnitPrice) || 0);
+                      const baseUnit = p.inventorySettings?.baseUnit || p.baseUnit || p.sellUnit || p.unit || 'unit';
+                      const packageUnit = p.inventorySettings?.purchaseUnit || p.purchaseUnit || p.bulkUnit || 'package';
+                      const conversion = Math.max(0.001, Number(p.inventorySettings?.conversionToBaseUnit || p.conversionToBaseUnit || p.bulkPurchaseQty || 1));
+                      const pricePerBase = Number(p.inventorySettings?.defaultPricePerBaseUnit || p.defaultPricePerBaseUnit || p.sellUnitPrice || p.sellingPrice || 0);
+                      const costPerBase = Number(p.costPrice || 0);
+                      const packageCost = Number(p.packageBuyingCost || p.inventorySettings?.packageBuyingCost || (costPerBase * conversion));
+                      const totalRevenue = conversion * pricePerBase;
+                      const grossProfit = totalRevenue - packageCost;
+                      const breakeven = pricePerBase > 0 ? Math.ceil(packageCost / pricePerBase) : 0;
 
                       let unitsSold = 0;
+                      let periodRevenue = 0;
+                      let periodCogs = 0;
                       filteredSales.forEach(s => {
                           s.items.forEach(it => {
                               if (it.productId === p.id) {
-                                  unitsSold += it.qty; 
+                                  unitsSold += it.baseQuantityDeducted ?? it.qty;
+                                  periodRevenue += it.qty * it.price * (1 - (it.discount || 0) / 100);
+                                  periodCogs += (it.costPriceAtSale ?? costPerBase) * it.qty;
                               }
                           });
                       });
 
-                      const abstractSoldUnits = p.sellingMode === 'scale' 
-                             ? unitsSold / (Number(p.sellUnitQty) || 1) 
-                             : unitsSold;
-
-                      const profitMade = abstractSoldUnits * (Number(p.sellUnitPrice) || 0);
+                      const periodProfit = periodRevenue - periodCogs;
 
                       return (
                         <div key={p.id} className="bg-white border border-slate-200 shadow-sm rounded-2xl p-4 space-y-3 font-mono text-xs shrink-0">
                           <h4 className="font-bold font-sans text-slate-800 text-sm truncate">{p.name}</h4>
                           <div className="space-y-1 text-slate-600">
-                            <div className="flex justify-between"><span>Buy:</span> <span className="font-bold">{p.bulkPurchaseQty}{p.bulkUnit} @ {currency}{p.costPrice.toLocaleString()}</span></div>
-                            <div className="flex justify-between"><span>Sell:</span> <span className="font-bold">{p.sellUnitQty}{p.sellUnit?.replace(/[0-9.]/g, '').trim()} @ {currency}{p.sellUnitPrice?.toLocaleString()}</span></div>
+                            <div className="flex justify-between"><span>Package:</span> <span className="font-bold">1 {packageUnit} = {conversion.toLocaleString()} {baseUnit}</span></div>
+                            <div className="flex justify-between"><span>Buy:</span> <span className="font-bold">{currency}{packageCost.toLocaleString()} / {packageUnit}</span></div>
+                            <div className="flex justify-between"><span>Sell:</span> <span className="font-bold">{currency}{pricePerBase.toLocaleString()} / {baseUnit}</span></div>
                             <div className="flex justify-between"><span>Mode:</span> <span className="font-bold uppercase text-[9px] bg-slate-100 px-1.5 py-0.5 rounded">{p.sellingMode}</span></div>
-                            <div className="flex justify-between"><span>Total parts:</span> <span className="font-bold text-slate-800">{ratio.toFixed(2)} pts</span></div>
-                            <div className="flex justify-between border-t border-slate-100 pt-1"><span>Breakeven:</span> <span className="font-bold text-slate-800">{breakeven} pts required</span></div>
+                            <div className="flex justify-between"><span>Total base:</span> <span className="font-bold text-slate-800">{conversion.toLocaleString()} {baseUnit}</span></div>
+                            <div className="flex justify-between border-t border-slate-100 pt-1"><span>Breakeven:</span> <span className="font-bold text-slate-800">{breakeven} {baseUnit} required</span></div>
                           </div>
                           <div className="pt-2 border-t border-slate-100 space-y-1">
                             <div className="flex justify-between text-emerald-600"><span>Gross Revenue:</span> <span className="font-bold">{currency}{totalRevenue.toLocaleString()}</span></div>
                             <div className="flex justify-between text-emerald-700"><span>Gross Profit:</span> <span className="font-bold">{currency}{grossProfit.toLocaleString()}</span></div>
                           </div>
                           <div className="mt-2 bg-indigo-50 border border-indigo-100 rounded-xl p-2.5 space-y-1">
-                            <div className="flex justify-between text-indigo-700 font-bold"><span>Period Parts Sold:</span> <span>{abstractSoldUnits.toFixed(2)} pts</span></div>
-                            <div className="flex justify-between text-indigo-800 font-bold"><span>Period Revenue:</span> <span>{currency}{profitMade.toLocaleString()}</span></div>
+                            <div className="flex justify-between text-indigo-700 font-bold"><span>Period Sold:</span> <span>{unitsSold.toFixed(2)} {baseUnit}</span></div>
+                            <div className="flex justify-between text-indigo-800 font-bold"><span>Period Revenue:</span> <span>{currency}{periodRevenue.toLocaleString()}</span></div>
+                            <div className="flex justify-between text-indigo-900 font-bold"><span>Period Profit:</span> <span>{currency}{periodProfit.toLocaleString()}</span></div>
                           </div>
                         </div>
                       );

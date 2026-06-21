@@ -152,7 +152,7 @@ export default function DashboardProducts({
     // Find product in products
     const updated = products.map(p => {
       if (p.id === editingProduct?.id) {
-        const costPrice = editForm.costPrice ?? 0;
+        const rawCostPrice = editForm.costPrice ?? 0;
         const sellPrice = editForm.sellInRetail !== false ? (editForm.sellingPrice ?? 0) : 0;
         const b = editForm.barcode ? editForm.barcode.trim() : p.barcode;
         const editDosesPerPacket = Math.max(1, Number(editForm.dosesPerPacket || editForm.pharmacyUnitBreakdown?.stripsPerBox || 1));
@@ -165,6 +165,10 @@ export default function DashboardProducts({
         const editPurchaseUnit = editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package';
         const editConversionToBase = Math.max(0.001, Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || editForm.bulkPurchaseQty || 1));
         const editPricePerBase = Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0);
+        const editPackageBuyingCost = Number(editForm.packageBuyingCost || editForm.inventorySettings?.packageBuyingCost || rawCostPrice || 0);
+        const editLedgerCostPrice = activeTenant.businessType !== 'pharmacy' && editForm.isBulkProduct
+          ? editPackageBuyingCost / editConversionToBase
+          : rawCostPrice;
         return {
           ...p,
           name: editForm.name || '',
@@ -172,7 +176,7 @@ export default function DashboardProducts({
           category: editForm.category || '',
           unit: editForm.unit || '',
           barcode: b,
-          costPrice: costPrice,
+          costPrice: editLedgerCostPrice,
           sellingPrice: sellPrice,
           stockQty: (editForm.shopStockQty ?? 0) + (editForm.storeStockQty ?? 0),
           shopStockQty: editForm.shopStockQty ?? 0,
@@ -201,6 +205,7 @@ export default function DashboardProducts({
           packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase,
           wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * editConversionToBase,
           halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * (editConversionToBase / 2),
+          packageBuyingCost: activeTenant.businessType === 'pharmacy' ? undefined : editPackageBuyingCost,
           allowCustomQuantity: editForm.allowCustomQuantity !== false,
           defaultPricePerBaseUnit: editPricePerBase,
           fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
@@ -231,6 +236,7 @@ export default function DashboardProducts({
             packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase,
             wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * editConversionToBase,
             halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * (editConversionToBase / 2),
+            packageBuyingCost: activeTenant.businessType === 'pharmacy' ? undefined : editPackageBuyingCost,
             allowCustomQuantity: editForm.allowCustomQuantity !== false,
             defaultPricePerBaseUnit: editPricePerBase,
             fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
@@ -300,8 +306,15 @@ export default function DashboardProducts({
     e.preventDefault();
     if (!replenishProduct || !replenishQty || Number(replenishQty) <= 0 || !replenishCost) return;
     
-    const qty = Number(replenishQty);
-    const newCost = Number(replenishCost);
+    const receivedPackageQty = Number(replenishQty);
+    const receivedPackageCost = Number(replenishCost);
+    const isRetailBulk = activeTenant.businessType !== 'pharmacy' && replenishProduct.isBulkProduct;
+    const replenishConversion = Math.max(
+      0.001,
+      Number(replenishProduct.inventorySettings?.conversionToBaseUnit || replenishProduct.conversionToBaseUnit || replenishProduct.bulkPurchaseQty || 1)
+    );
+    const qty = isRetailBulk ? receivedPackageQty * replenishConversion : receivedPackageQty;
+    const newCost = isRetailBulk ? receivedPackageCost / replenishConversion : receivedPackageCost;
     const method = replenishCostingMethod;
     const pricingPreview = getReplenishPricingPreview(replenishProduct, qty, newCost, method);
     
@@ -314,6 +327,8 @@ export default function DashboardProducts({
 
     const productForBatch: Product = {
       ...replenishProduct,
+      costPrice: isRetailBulk ? newCost : replenishProduct.costPrice,
+      packageBuyingCost: isRetailBulk ? receivedPackageCost : replenishProduct.packageBuyingCost,
       costingMethod: method,
       sellingMethod: mapCostingMethodToLegacy(method),
       inventorySettings: {
@@ -323,6 +338,7 @@ export default function DashboardProducts({
         purchaseUnit: replenishProduct.inventorySettings?.purchaseUnit || replenishProduct.purchaseUnit || replenishProduct.bulkUnit || replenishProduct.unit || 'Unit',
         baseUnit: replenishProduct.inventorySettings?.baseUnit || replenishProduct.baseUnit || replenishProduct.sellUnit || replenishProduct.unit || 'Unit',
         conversionToBaseUnit: replenishProduct.inventorySettings?.conversionToBaseUnit || replenishProduct.conversionToBaseUnit || 1,
+        packageBuyingCost: isRetailBulk ? receivedPackageCost : replenishProduct.inventorySettings?.packageBuyingCost,
         allowCustomQuantity: replenishProduct.inventorySettings?.allowCustomQuantity ?? replenishProduct.allowCustomQuantity ?? true,
         defaultPricePerBaseUnit: replenishProduct.inventorySettings?.defaultPricePerBaseUnit ?? replenishProduct.defaultPricePerBaseUnit ?? replenishProduct.sellUnitPrice,
         fractionSaleOptions: replenishProduct.inventorySettings?.fractionSaleOptions || replenishProduct.fractionSaleOptions,
@@ -334,9 +350,24 @@ export default function DashboardProducts({
       finalSellingPrice,
     });
 
+    const productWithBatch = addBatchToProduct(productForBatch, newBatch, 'store');
     const updatedProduct: Product = {
-      ...addBatchToProduct(productForBatch, newBatch, 'store'),
+      ...productWithBatch,
       sellingPrice: finalSellingPrice,
+      sellUnitPrice: isRetailBulk ? finalSellingPrice : productForBatch.sellUnitPrice,
+      defaultPricePerBaseUnit: isRetailBulk ? finalSellingPrice : productForBatch.defaultPricePerBaseUnit,
+      packageUnitPrice: isRetailBulk ? finalSellingPrice : productForBatch.packageUnitPrice,
+      wholePackagePrice: isRetailBulk ? finalSellingPrice * replenishConversion : productForBatch.wholePackagePrice,
+      halfPackagePrice: isRetailBulk ? finalSellingPrice * (replenishConversion / 2) : productForBatch.halfPackagePrice,
+      packageBuyingCost: isRetailBulk ? receivedPackageCost : productForBatch.packageBuyingCost,
+      inventorySettings: {
+        ...(productWithBatch.inventorySettings || productForBatch.inventorySettings),
+        defaultPricePerBaseUnit: isRetailBulk ? finalSellingPrice : productForBatch.inventorySettings?.defaultPricePerBaseUnit,
+        packageUnitPrice: isRetailBulk ? finalSellingPrice : productForBatch.inventorySettings?.packageUnitPrice,
+        wholePackagePrice: isRetailBulk ? finalSellingPrice * replenishConversion : productForBatch.inventorySettings?.wholePackagePrice,
+        halfPackagePrice: isRetailBulk ? finalSellingPrice * (replenishConversion / 2) : productForBatch.inventorySettings?.halfPackagePrice,
+        packageBuyingCost: isRetailBulk ? receivedPackageCost : productForBatch.inventorySettings?.packageBuyingCost,
+      },
     };
 
     onUpdateProducts(products.map(p => p.id === replenishProduct.id ? updatedProduct : p));
@@ -448,9 +479,15 @@ export default function DashboardProducts({
   const [printJobSuccess, setPrintJobSuccess] = useState(false);
 
   // Profit/Telemetry calculations
-  const profit = sellingPrice - costPrice;
-  const markup = costPrice > 0 ? (profit / costPrice) * 100 : 0;
-  const margin = sellingPrice > 0 ? (profit / sellingPrice) * 100 : 0;
+  const effectiveCostPrice = isBulkProduct && activeTenant.businessType !== 'pharmacy'
+    ? costPrice / Math.max(0.001, Number(conversionToBaseUnit) || Number(bulkPurchaseQty) || 1)
+    : costPrice;
+  const effectiveSellingPrice = isBulkProduct && activeTenant.businessType !== 'pharmacy'
+    ? Number(sellUnitPrice) || sellingPrice
+    : sellingPrice;
+  const profit = effectiveSellingPrice - effectiveCostPrice;
+  const markup = effectiveCostPrice > 0 ? (profit / effectiveCostPrice) * 100 : 0;
+  const margin = effectiveSellingPrice > 0 ? (profit / effectiveSellingPrice) * 100 : 0;
 
   // Filter products matching print label query
   const labelSearchResults = useMemo(() => {
@@ -677,6 +714,10 @@ export default function DashboardProducts({
     const retailPurchaseUnit = purchaseUnit || bulkUnit || 'Package';
     const retailConversionToBaseUnit = Math.max(0.001, Number(conversionToBaseUnit) || Number(bulkPurchaseQty) || 1);
     const retailPricePerBaseUnit = Number(sellUnitPrice) || finalSellingPrice;
+    const retailPackageBuyingCost = costPrice;
+    const ledgerCostPrice = activeTenant.businessType !== 'pharmacy' && isBulkProduct
+      ? retailPackageBuyingCost / retailConversionToBaseUnit
+      : costPrice;
 
     const newProd: Product = {
       id: 'p-' + Math.random().toString(36).substr(2, 9),
@@ -685,7 +726,7 @@ export default function DashboardProducts({
       barcode: finalizedBarcode,
       category,
       unit,
-      costPrice: costPrice,
+      costPrice: ledgerCostPrice,
       sellingPrice: finalSellingPrice,
       stockQty: shopStockQty + storeStockQty,
       shopStockQty: shopStockQty,
@@ -707,6 +748,7 @@ export default function DashboardProducts({
       packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit,
       wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * retailConversionToBaseUnit,
       halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
+      packageBuyingCost: activeTenant.businessType === 'pharmacy' ? undefined : retailPackageBuyingCost,
       allowCustomQuantity,
       defaultPricePerBaseUnit: activeTenant.businessType === 'pharmacy' ? finalSellingPrice : retailPricePerBaseUnit,
       dosesPerPacket: activeTenant.businessType === 'pharmacy' ? pharmacyDosesPerPacket : undefined,
@@ -739,6 +781,7 @@ export default function DashboardProducts({
         packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit,
         wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * retailConversionToBaseUnit,
         halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
+        packageBuyingCost: activeTenant.businessType === 'pharmacy' ? undefined : retailPackageBuyingCost,
         allowCustomQuantity,
         defaultPricePerBaseUnit: activeTenant.businessType === 'pharmacy' ? finalSellingPrice : retailPricePerBaseUnit,
         fractionSaleOptions: activeTenant.businessType !== 'pharmacy' && (allowScaleSelling || isBulkProduct)
@@ -1686,7 +1729,7 @@ export default function DashboardProducts({
 
                   <div className="grid grid-cols-2 gap-3.5">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Cost Buy Price</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">{isBulkProduct && activeTenant.businessType !== 'pharmacy' ? `Package Buy Cost (${purchaseUnit || 'Package'})` : 'Cost Buy Price'}</label>
                       <input 
                         type="number" 
                         min="0"
@@ -3923,14 +3966,19 @@ export default function DashboardProducts({
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Cost buy Price</label>
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">{editForm.isBulkProduct && activeTenant.businessType !== 'pharmacy' ? `Package Buy Cost (${editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package'})` : 'Cost buy Price'}</label>
                       <input 
                         type="number" 
                         min="0"
-                        value={editForm.costPrice ?? 0}
+                        value={editForm.isBulkProduct && activeTenant.businessType !== 'pharmacy'
+                          ? (editForm.packageBuyingCost ?? editForm.inventorySettings?.packageBuyingCost ?? editForm.costPrice ?? 0)
+                          : (editForm.costPrice ?? 0)}
                         onChange={(e) => {
                           const val = Math.max(0, parseFloat(e.target.value) || 0);
-                          setEditForm(prev => ({ ...prev, costPrice: val }));
+                          setEditForm(prev => prev.isBulkProduct && activeTenant.businessType !== 'pharmacy'
+                            ? { ...prev, packageBuyingCost: val }
+                            : { ...prev, costPrice: val }
+                          );
                         }}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none"
                       />
