@@ -155,6 +155,12 @@ export default function DashboardProducts({
         const costPrice = editForm.costPrice ?? 0;
         const sellPrice = editForm.sellInRetail !== false ? (editForm.sellingPrice ?? 0) : 0;
         const b = editForm.barcode ? editForm.barcode.trim() : p.barcode;
+        const editDosesPerPacket = Math.max(1, Number(editForm.dosesPerPacket || editForm.pharmacyUnitBreakdown?.stripsPerBox || 1));
+        const editTabsPerDose = Math.max(1, Number(editForm.tabsPerDose || editForm.pharmacyUnitBreakdown?.tabletsPerStrip || editForm.tabsPerPack || 1));
+        const editTabsPerPacket = editDosesPerPacket * editTabsPerDose;
+        const editFullDosePrice = Number(editForm.fullDosePrice || (editDosesPerPacket > 0 ? sellPrice / editDosesPerPacket : sellPrice));
+        const editHalfDosePrice = Number(editForm.halfDosePrice || editFullDosePrice / 2);
+        const editTabPrice = Number(editForm.tabPrice || (editTabsPerPacket > 0 ? sellPrice / editTabsPerPacket : sellPrice));
         return {
           ...p,
           name: editForm.name || '',
@@ -191,7 +197,23 @@ export default function DashboardProducts({
           allowCustomQuantity: editForm.allowCustomQuantity !== false,
           defaultPricePerBaseUnit: Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0),
           fractionSaleOptions: editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions,
-          pharmacyUnitBreakdown: editForm.pharmacyUnitBreakdown || editForm.inventorySettings?.pharmacyUnitBreakdown,
+          dosesPerPacket: activeTenant.businessType === 'pharmacy' ? editDosesPerPacket : editForm.dosesPerPacket,
+          tabsPerDose: activeTenant.businessType === 'pharmacy' ? editTabsPerDose : editForm.tabsPerDose,
+          tabsPerPack: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : editForm.tabsPerPack,
+          allowsDosageDividing: activeTenant.businessType === 'pharmacy' ? true : editForm.allowsDosageDividing,
+          packetPrice: activeTenant.businessType === 'pharmacy' ? sellPrice : editForm.packetPrice,
+          fullDosePrice: activeTenant.businessType === 'pharmacy' ? editFullDosePrice : editForm.fullDosePrice,
+          halfDosePrice: activeTenant.businessType === 'pharmacy' ? editHalfDosePrice : editForm.halfDosePrice,
+          tabPrice: activeTenant.businessType === 'pharmacy' ? editTabPrice : editForm.tabPrice,
+          pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
+            ? {
+              purchaseUnit: 'Packet',
+              stripUnit: 'Dose',
+              baseUnit: 'Tab',
+              stripsPerBox: editDosesPerPacket,
+              tabletsPerStrip: editTabsPerDose,
+            }
+            : (editForm.pharmacyUnitBreakdown || editForm.inventorySettings?.pharmacyUnitBreakdown),
           inventorySettings: {
             costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
             allowPosMethodOverride: !!editForm.allowPosMethodOverride,
@@ -202,7 +224,15 @@ export default function DashboardProducts({
             allowCustomQuantity: editForm.allowCustomQuantity !== false,
             defaultPricePerBaseUnit: Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0),
             fractionSaleOptions: editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions,
-            pharmacyUnitBreakdown: editForm.pharmacyUnitBreakdown || editForm.inventorySettings?.pharmacyUnitBreakdown,
+            pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
+              ? {
+                purchaseUnit: 'Packet',
+                stripUnit: 'Dose',
+                baseUnit: 'Tab',
+                stripsPerBox: editDosesPerPacket,
+                tabletsPerStrip: editTabsPerDose,
+              }
+              : (editForm.pharmacyUnitBreakdown || editForm.inventorySettings?.pharmacyUnitBreakdown),
           },
           sku: b
         } as Product;
@@ -366,6 +396,11 @@ export default function DashboardProducts({
   const [baseUnit, setBaseUnit] = useState('Kg');
   const [conversionToBaseUnit, setConversionToBaseUnit] = useState<number | ''>(100);
   const [allowCustomQuantity, setAllowCustomQuantity] = useState(true);
+  const [dosesPerPacket, setDosesPerPacket] = useState<number | ''>(10);
+  const [tabsPerDose, setTabsPerDose] = useState<number | ''>(2);
+  const [fullDosePrice, setFullDosePrice] = useState<number | ''>(0);
+  const [halfDosePrice, setHalfDosePrice] = useState<number | ''>(0);
+  const [tabPrice, setTabPrice] = useState<number | ''>(0);
 
   // Scanner Simulator modal in form
   const [isFormScannerOpen, setIsFormScannerOpen] = useState(false);
@@ -621,6 +656,13 @@ export default function DashboardProducts({
 
     // Use barcode, or automatically generate one if left blank
     const finalizedBarcode = barcode.trim() || `${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const pharmacyDosesPerPacket = Math.max(1, Number(dosesPerPacket) || 1);
+    const pharmacyTabsPerDose = Math.max(1, Number(tabsPerDose) || 1);
+    const pharmacyTabsPerPacket = pharmacyDosesPerPacket * pharmacyTabsPerDose;
+    const pharmacyPacketPrice = finalSellingPrice;
+    const pharmacyFullDosePrice = Number(fullDosePrice) || (pharmacyPacketPrice / pharmacyDosesPerPacket);
+    const pharmacyHalfDosePrice = Number(halfDosePrice) || (pharmacyFullDosePrice / 2);
+    const pharmacyTabPrice = Number(tabPrice) || (pharmacyPacketPrice / pharmacyTabsPerPacket);
 
     const newProd: Product = {
       id: 'p-' + Math.random().toString(36).substr(2, 9),
@@ -650,16 +692,24 @@ export default function DashboardProducts({
       conversionToBaseUnit: Number(conversionToBaseUnit) || 1,
       allowCustomQuantity,
       defaultPricePerBaseUnit: Number(sellUnitPrice) || finalSellingPrice,
+      dosesPerPacket: activeTenant.businessType === 'pharmacy' ? pharmacyDosesPerPacket : undefined,
+      tabsPerDose: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerDose : undefined,
+      tabsPerPack: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : undefined,
+      allowsDosageDividing: activeTenant.businessType === 'pharmacy' ? true : undefined,
+      packetPrice: activeTenant.businessType === 'pharmacy' ? pharmacyPacketPrice : undefined,
+      fullDosePrice: activeTenant.businessType === 'pharmacy' ? pharmacyFullDosePrice : undefined,
+      halfDosePrice: activeTenant.businessType === 'pharmacy' ? pharmacyHalfDosePrice : undefined,
+      tabPrice: activeTenant.businessType === 'pharmacy' ? pharmacyTabPrice : undefined,
       fractionSaleOptions: allowScaleSelling || isBulkProduct
         ? getDefaultFractionOptions(baseUnit, Number(sellUnitPrice) || finalSellingPrice)
         : undefined,
       pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
         ? {
-          purchaseUnit: 'Box',
-          stripUnit: 'Strip',
-          baseUnit: 'Tablet',
-          stripsPerBox: 10,
-          tabletsPerStrip: 10,
+          purchaseUnit: 'Packet',
+          stripUnit: 'Dose',
+          baseUnit: 'Tab',
+          stripsPerBox: pharmacyDosesPerPacket,
+          tabletsPerStrip: pharmacyTabsPerDose,
         }
         : undefined,
       inventorySettings: {
@@ -676,11 +726,11 @@ export default function DashboardProducts({
           : undefined,
         pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
           ? {
-            purchaseUnit: 'Box',
-            stripUnit: 'Strip',
-            baseUnit: 'Tablet',
-            stripsPerBox: 10,
-            tabletsPerStrip: 10,
+            purchaseUnit: 'Packet',
+            stripUnit: 'Dose',
+            baseUnit: 'Tab',
+            stripsPerBox: pharmacyDosesPerPacket,
+            tabletsPerStrip: pharmacyTabsPerDose,
           }
           : undefined,
       },
@@ -717,6 +767,11 @@ export default function DashboardProducts({
       setWholesalePrice(0);
       setMinWholesaleQty(10);
       setIsBulkProduct(false);
+      setDosesPerPacket(10);
+      setTabsPerDose(2);
+      setFullDosePrice(0);
+      setHalfDosePrice(0);
+      setTabPrice(0);
       setCostingMethod('fifo');
       setAllowPosMethodOverride(false);
       setAllowScaleSelling(false);
@@ -1739,6 +1794,44 @@ export default function DashboardProducts({
                   </label>
                 </div>
               </div>
+
+              {activeTenant.businessType === 'pharmacy' && (
+                <div className="space-y-4 pt-2 border-t border-slate-150">
+                  <div>
+                    <span className="font-bold text-sm text-slate-800">Pharmacy Dose Setup</span>
+                    <p className="text-[10.5px] text-slate-450 mt-0.5">Define packet, dose and tab selling.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Doses per packet</label>
+                      <input type="number" min={1} value={dosesPerPacket} onChange={e => setDosesPerPacket(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Tabs per full dose</label>
+                      <input type="number" min={1} value={tabsPerDose} onChange={e => setTabsPerDose(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Packet price</label>
+                      <input type="number" value={sellingPrice} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Full dose price</label>
+                      <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Half dose price</label>
+                      <input type="number" value={halfDosePrice} onChange={e => setHalfDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Price per tab</label>
+                      <input type="number" value={tabPrice} onChange={e => setTabPrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                    </div>
+                    <div className="col-span-2 text-[10px] font-mono text-emerald-800 bg-white/70 border border-emerald-100 rounded-xl px-3 py-2">
+                      1 packet = {(Number(dosesPerPacket) || 0)} doses = {((Number(dosesPerPacket) || 0) * (Number(tabsPerDose) || 0))} tabs. Half dose = {Math.max(1, Math.ceil((Number(tabsPerDose) || 1) / 2))} tabs.
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Bidhaa ya Jumla / Bulk Product SECTION */}
               <div className="space-y-4 pt-2 border-t border-slate-150">
@@ -3946,6 +4039,43 @@ export default function DashboardProducts({
                   </div>
                 </div>
               </div>
+
+              {activeTenant.businessType === 'pharmacy' && (
+                <div className="px-5 pb-5">
+                  <div className="border border-emerald-100 bg-emerald-50/40 rounded-2xl p-4 space-y-3">
+                    <div>
+                      <span className="font-bold text-[11px] text-slate-700 uppercase tracking-widest">Pharmacy Dose Setup</span>
+                      <p className="text-[10px] text-slate-450 mt-0.5">Packet, dose, half dose and tab pricing.</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Doses per packet</label>
+                        <input type="number" min={1} value={editForm.dosesPerPacket ?? editForm.pharmacyUnitBreakdown?.stripsPerBox ?? 1} onChange={e => setEditForm(prev => ({ ...prev, dosesPerPacket: Number(e.target.value) || 1 }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Tabs per full dose</label>
+                        <input type="number" min={1} value={editForm.tabsPerDose ?? editForm.pharmacyUnitBreakdown?.tabletsPerStrip ?? editForm.tabsPerPack ?? 1} onChange={e => setEditForm(prev => ({ ...prev, tabsPerDose: Number(e.target.value) || 1 }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Packet price</label>
+                        <input type="number" value={editForm.sellingPrice ?? 0} onChange={e => setEditForm(prev => ({ ...prev, sellingPrice: Number(e.target.value) || 0 }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Full dose price</label>
+                        <input type="number" value={editForm.fullDosePrice ?? ''} onChange={e => setEditForm(prev => ({ ...prev, fullDosePrice: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Half dose price</label>
+                        <input type="number" value={editForm.halfDosePrice ?? ''} onChange={e => setEditForm(prev => ({ ...prev, halfDosePrice: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Price per tab</label>
+                        <input type="number" value={editForm.tabPrice ?? ''} onChange={e => setEditForm(prev => ({ ...prev, tabPrice: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Edit Bidhaa ya Jumla / Bulk Product SECTION */}
               <div className="px-5 pb-5">

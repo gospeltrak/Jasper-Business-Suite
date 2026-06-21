@@ -292,7 +292,7 @@ export default function DashboardPOS({
     qty: number; 
     discount: number; 
     discountType: 'percent' | 'cash';
-    dosageType?: 'full' | 'half' | 'tabs';
+    dosageType?: 'packet' | 'full' | 'half' | 'tabs';
     tabsSelected?: number;
     bulkSellMode?: 'scale' | 'pcs';
   }>>([]);
@@ -497,6 +497,36 @@ export default function DashboardPOS({
     : Array.from(new Set(products.map(p => p.category)));
   const categories = ['All', ...configuredCategories];
 
+  const getPharmacyDoseConfig = (product: Product) => {
+    const dosesPerPacket = Math.max(1, Number(product.dosesPerPacket || product.pharmacyUnitBreakdown?.stripsPerBox || 1));
+    const tabsPerDose = Math.max(1, Number(product.tabsPerDose || product.pharmacyUnitBreakdown?.tabletsPerStrip || product.tabsPerPack || 1));
+    const tabsPerPacket = Math.max(1, Number(product.tabsPerPack || (dosesPerPacket * tabsPerDose)));
+    const halfDoseTabs = Math.max(1, Math.ceil(tabsPerDose / 2));
+    const packetPrice = Number(product.packetPrice || product.sellingPrice || 0);
+    const fullDosePrice = Number(product.fullDosePrice || (packetPrice / dosesPerPacket));
+    const halfDosePrice = Number(product.halfDosePrice || (fullDosePrice / 2));
+    const tabPrice = Number(product.tabPrice || (packetPrice / tabsPerPacket));
+    return { dosesPerPacket, tabsPerDose, tabsPerPacket, halfDoseTabs, packetPrice, fullDosePrice, halfDosePrice, tabPrice };
+  };
+
+  const getPharmacyDoseWeight = (product: Product, dosageType: 'packet' | 'full' | 'half' | 'tabs' = 'packet', tabsSelected?: number) => {
+    const cfg = getPharmacyDoseConfig(product);
+    if (dosageType === 'packet') return 1;
+    if (dosageType === 'full') return cfg.tabsPerDose / cfg.tabsPerPacket;
+    if (dosageType === 'half') return cfg.halfDoseTabs / cfg.tabsPerPacket;
+    return Math.max(1, tabsSelected || 1) / cfg.tabsPerPacket;
+  };
+
+  const formatPharmacyRemaining = (packets: number, product: Product) => {
+    const cfg = getPharmacyDoseConfig(product);
+    const totalTabs = Math.max(0, Math.round(packets * cfg.tabsPerPacket));
+    const fullPackets = Math.floor(totalTabs / cfg.tabsPerPacket);
+    const afterPackets = totalTabs % cfg.tabsPerPacket;
+    const fullDoses = Math.floor(afterPackets / cfg.tabsPerDose);
+    const tabs = afterPackets % cfg.tabsPerDose;
+    return `${fullPackets} packet${fullPackets === 1 ? '' : 's'}, ${fullDoses} dose${fullDoses === 1 ? '' : 's'}, ${tabs} tab${tabs === 1 ? '' : 's'}`;
+  };
+
   // Filtering products for current tenant active list
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -524,19 +554,15 @@ export default function DashboardPOS({
     }
 
     const isPharmacy = activeTenant.businessType === 'pharmacy';
-    const initialDosage = isPharmacy ? 'full' : undefined;
-    const initialTabs = isPharmacy && prod.tabsPerPack ? Math.max(1, Math.round(prod.tabsPerPack / 2)) : undefined;
+    const initialDosage = isPharmacy ? 'packet' : undefined;
+    const initialTabs = isPharmacy ? 1 : undefined;
 
     setCart(prev => {
       const existing = prev.find(i => i.product.id === prod.id);
       if (existing) {
         // limit by stock with weight checks
-        const activeType = existing.dosageType || 'full';
-        const boxWeight = activeType === 'full' 
-          ? 1 
-          : activeType === 'half' 
-            ? 0.5 
-            : (existing.tabsSelected || 1) / (existing.product.tabsPerPack || 30);
+        const activeType = existing.dosageType || 'packet';
+        const boxWeight = isPharmacy ? getPharmacyDoseWeight(existing.product, activeType, existing.tabsSelected) : 1;
         
         const nextQty = existing.qty + 1;
         if (nextQty * boxWeight > shopQty) {
@@ -565,12 +591,8 @@ export default function DashboardPOS({
           if (nextQty <= 0) return null;
           
           const shopQty = i.product.shopStockQty ?? 0;
-          const activeType = i.dosageType || 'full';
-          const boxWeight = activeType === 'full' 
-            ? 1 
-            : activeType === 'half' 
-              ? 0.5 
-              : (i.tabsSelected || 1) / (i.product.tabsPerPack || 30);
+          const activeType = i.dosageType || 'packet';
+          const boxWeight = activeTenant.businessType === 'pharmacy' ? getPharmacyDoseWeight(i.product, activeType, i.tabsSelected) : 1;
 
           if (nextQty * boxWeight > shopQty) {
             setPosWarning(`Stock Limit: Cannot exceed active shop stock of ${formatProductQuantity(shopQty, i.product)} for "${i.product.name}"!`);
@@ -592,12 +614,8 @@ export default function DashboardPOS({
       return prev.map(i => {
         if (i.product.id === id) {
           const shopQty = i.product.shopStockQty ?? 0;
-          const activeType = i.dosageType || 'full';
-          const boxWeight = activeType === 'full' 
-            ? 1 
-            : activeType === 'half' 
-              ? 0.5 
-              : (i.tabsSelected || 1) / (i.product.tabsPerPack || 30);
+          const activeType = i.dosageType || 'packet';
+          const boxWeight = activeTenant.businessType === 'pharmacy' ? getPharmacyDoseWeight(i.product, activeType, i.tabsSelected) : 1;
 
           if (newQty * boxWeight > shopQty) {
             const maxQty = Math.max(1, Math.floor(shopQty / boxWeight));
@@ -620,24 +638,20 @@ export default function DashboardPOS({
     }));
   };
 
-  const updateCartDosage = (productId: string, dosageType: 'full' | 'half' | 'tabs', customTabs?: number) => {
+  const updateCartDosage = (productId: string, dosageType: 'packet' | 'full' | 'half' | 'tabs', customTabs?: number) => {
     setCart(prev => {
       return prev.map(item => {
         if (item.product.id === productId) {
-          const tPerPack = item.product.tabsPerPack || 30;
+          const doseCfg = getPharmacyDoseConfig(item.product);
           const defaultTabs = customTabs !== undefined 
             ? customTabs 
             : dosageType === 'half' 
-              ? Math.max(1, Math.round(tPerPack / 2)) 
+              ? doseCfg.halfDoseTabs 
               : 1;
 
           // Recalculate if qty is still valid for stock when weight changes
           const shopQty = item.product.shopStockQty ?? 0;
-          const boxWeight = dosageType === 'full' 
-            ? 1 
-            : dosageType === 'half' 
-              ? 0.5 
-              : defaultTabs / tPerPack;
+          const boxWeight = getPharmacyDoseWeight(item.product, dosageType, defaultTabs);
 
           let newQty = item.qty;
           if (newQty * boxWeight > shopQty) {
@@ -660,11 +674,11 @@ export default function DashboardPOS({
     setCart(prev => {
       return prev.map(item => {
         if (item.product.id === productId) {
-          const tPerPack = item.product.tabsPerPack || 30;
-          const sanitizedTabs = Math.max(1, Math.min(tPerPack, tabsCount));
+          const doseCfg = getPharmacyDoseConfig(item.product);
+          const sanitizedTabs = Math.max(1, Math.min(doseCfg.tabsPerPacket, tabsCount));
           
           const shopQty = item.product.shopStockQty ?? 0;
-          const boxWeight = sanitizedTabs / tPerPack;
+          const boxWeight = getPharmacyDoseWeight(item.product, 'tabs', sanitizedTabs);
           
           let newQty = item.qty;
           if (newQty * boxWeight > shopQty) {
@@ -711,7 +725,7 @@ export default function DashboardPOS({
   const getCartUnitPrice = (item: {
     product: Product;
     bulkSellMode?: 'scale' | 'pcs';
-    dosageType?: 'full' | 'half' | 'tabs';
+    dosageType?: 'packet' | 'full' | 'half' | 'tabs';
     tabsSelected?: number;
   }) => {
     const isPharmacy = activeTenant.businessType === 'pharmacy';
@@ -728,13 +742,17 @@ export default function DashboardPOS({
     }
 
     if (isPharmacy) {
-      const dType = item.dosageType || 'full';
-      if (dType === 'half') {
-        unitPrice = channelBasePrice / 2;
+      const dType = item.dosageType || 'packet';
+      const doseCfg = getPharmacyDoseConfig(item.product);
+      if (dType === 'packet') {
+        unitPrice = doseCfg.packetPrice || channelBasePrice;
+      } else if (dType === 'full') {
+        unitPrice = doseCfg.fullDosePrice;
+      } else if (dType === 'half') {
+        unitPrice = doseCfg.halfDosePrice;
       } else if (dType === 'tabs') {
-        const tPerPack = item.product.tabsPerPack || 30;
         const tSelected = item.tabsSelected || 1;
-        unitPrice = (channelBasePrice / tPerPack) * tSelected;
+        unitPrice = doseCfg.tabPrice * tSelected;
       }
     }
 
@@ -831,7 +849,7 @@ export default function DashboardPOS({
     // Generate sale item models
     const saleItems: SaleItem[] = cart.map(i => {
       const isPharmacy = activeTenant.businessType === 'pharmacy';
-      const dType = i.dosageType || 'full';
+      const dType = i.dosageType || 'packet';
       
       const channelBasePrice = getBatchAwareChannelPrice(i.product);
 
@@ -851,14 +869,20 @@ export default function DashboardPOS({
       }
 
       if (isPharmacy) {
-        if (dType === 'half') {
-          unitPrice = channelBasePrice / 2;
-          ratioScaling = 2;
+        const doseCfg = getPharmacyDoseConfig(i.product);
+        if (dType === 'packet') {
+          unitPrice = doseCfg.packetPrice || channelBasePrice;
+          ratioScaling = 1;
+        } else if (dType === 'full') {
+          unitPrice = doseCfg.fullDosePrice;
+          ratioScaling = doseCfg.dosesPerPacket;
+        } else if (dType === 'half') {
+          unitPrice = doseCfg.halfDosePrice;
+          ratioScaling = 1 / getPharmacyDoseWeight(i.product, 'half');
         } else if (dType === 'tabs') {
-          const tPerPack = i.product.tabsPerPack || 30;
           const tSelected = i.tabsSelected || 1;
-          unitPrice = (channelBasePrice / tPerPack) * tSelected;
-          ratioScaling = tPerPack / tSelected;
+          unitPrice = doseCfg.tabPrice * tSelected;
+          ratioScaling = 1 / getPharmacyDoseWeight(i.product, 'tabs', tSelected);
         }
       }
 
@@ -866,7 +890,7 @@ export default function DashboardPOS({
       let deductQtyReal = i.qty;
       if (bMode === 'pcs' && isBulk) {
           deductQtyReal = i.qty / Math.max(ratioScaling, 1);
-      } else if (isPharmacy && dType !== 'full') {
+      } else if (isPharmacy && dType !== 'packet') {
           deductQtyReal = i.qty / ratioScaling;
       }
       
@@ -893,8 +917,8 @@ export default function DashboardPOS({
 
       return {
         productId: i.product.id,
-        productName: isPharmacy && dType !== 'full' 
-          ? `${i.product.name} [${dType === 'half' ? '½ Box Dosage' : `${i.tabsSelected} Tabs Split`}]`
+        productName: isPharmacy && dType !== 'packet' 
+          ? `${i.product.name} [${dType === 'full' ? 'Full Dose' : dType === 'half' ? 'Half Dose' : `${i.tabsSelected} Tabs`}]`
           : i.product.name,
         qty: i.qty,
         price: unitPrice,
@@ -972,13 +996,9 @@ export default function DashboardPOS({
             deductQty = soldItem.qty / Math.max(ratio, 1);
           }
         } else if (activeTenant.businessType === 'pharmacy') {
-          const dType = soldItem.dosageType || 'full';
-          if (dType === 'half') {
-            deductQty = soldItem.qty * 0.5;
-          } else if (dType === 'tabs') {
-            const tPerPack = soldItem.product.tabsPerPack || 30;
-            const tSelected = soldItem.tabsSelected || 1;
-            deductQty = soldItem.qty * (tSelected / tPerPack);
+          const dType = soldItem.dosageType || 'packet';
+          if (dType !== 'packet') {
+            deductQty = soldItem.qty * getPharmacyDoseWeight(soldItem.product, dType, soldItem.tabsSelected);
           }
         }
 
@@ -1419,7 +1439,7 @@ export default function DashboardPOS({
                           {prod.category}
                         </span>
                         <span className="text-[9px] font-mono text-slate-450 font-bold bg-slate-100 px-1.5 py-0.5 rounded-xs leading-none">
-                          {formatProductQuantity(shopQty, prod)} left
+                          {activeTenant.businessType === 'pharmacy' ? formatPharmacyRemaining(shopQty, prod) : `${formatProductQuantity(shopQty, prod)} left`}
                         </span>
                       </div>
                       <h5 className={`font-extrabold text-xs text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 md:min-h-[2.25rem]' : 'truncate md:text-sm'}`} title={prod.name}>
@@ -1547,22 +1567,27 @@ export default function DashboardPOS({
           ) : (
             cart.map(item => {
               const isPharmacy = activeTenant.businessType === 'pharmacy';
-              const dosageType = item.dosageType || 'full';
-              const tabsPerPack = item.product.tabsPerPack || 30;
-              const tabsSelected = item.tabsSelected || 15;
+              const dosageType = item.dosageType || 'packet';
+              const doseCfg = getPharmacyDoseConfig(item.product);
+              const tabsPerPack = doseCfg.tabsPerPacket;
+              const tabsSelected = item.tabsSelected || 1;
 
               let basePrice = getCartUnitPrice(item);
 
-              let dosageLabel = 'Full Dose';
+              let dosageLabel = 'Packet';
 
               if (isPharmacy) {
-                if (dosageType === 'half') {
-                  dosageLabel = 'Half Dose Split';
+                if (dosageType === 'full') {
+                  dosageLabel = `Full Dose (${doseCfg.tabsPerDose} tabs)`;
+                } else if (dosageType === 'half') {
+                  dosageLabel = `Half Dose (${doseCfg.halfDoseTabs} tabs)`;
                 } else if (dosageType === 'tabs') {
-                  const tPerPack = item.product.tabsPerPack || 30;
-                  dosageLabel = `${tabsSelected} Tabs off Pack [${tPerPack}]`;
+                  dosageLabel = `${tabsSelected} tabs`;
                 }
               }
+              const projectedRemaining = isPharmacy
+                ? formatPharmacyRemaining((item.product.shopStockQty || 0) - (item.qty * getPharmacyDoseWeight(item.product, dosageType, item.tabsSelected)), item.product)
+                : '';
 
               const isCash = item.discountType === 'cash';
               const discountPrice = isCash
@@ -1587,7 +1612,7 @@ export default function DashboardPOS({
                       </h6>
                       
                       {/* Price below name - Simplified as requested */}
-                      {isPharmacy && dosageType !== 'full' && (
+                      {isPharmacy && (
                         <div className="text-[10px] text-indigo-750 font-bold bg-indigo-50/70 py-0.5 px-1.5 mt-0.5 rounded truncate w-max">
                           {dosageLabel}
                         </div>
@@ -1670,9 +1695,10 @@ export default function DashboardPOS({
                       <div className="flex items-center space-x-1">
                         <select
                           value={dosageType}
-                          onChange={(e) => updateCartDosage(item.product.id, e.target.value as 'full' | 'half' | 'tabs')}
+                          onChange={(e) => updateCartDosage(item.product.id, e.target.value as 'packet' | 'full' | 'half' | 'tabs')}
                           className="bg-white border border-slate-200 rounded px-1 py-0.5 text-[9.5px] font-bold text-slate-600 focus:outline-none cursor-pointer"
                         >
+                          <option value="packet">Packet</option>
                           <option value="full">Full Dose</option>
                           <option value="half">Half Dose</option>
                           <option value="tabs">By Tabs</option>
@@ -1693,6 +1719,9 @@ export default function DashboardPOS({
                             <span className="text-[8px] font-mono text-slate-400">/{tabsPerPack}</span>
                           </div>
                         )}
+                        <span className="text-[8.5px] font-mono text-slate-400">
+                          Remain: {projectedRemaining}
+                        </span>
                       </div>
                     </div>
                   )}

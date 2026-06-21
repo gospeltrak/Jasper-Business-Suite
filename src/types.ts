@@ -90,6 +90,12 @@ export interface Product {
   // Pharmacy dosage configs
   tabsPerPack?: number;
   allowsDosageDividing?: boolean;
+  dosesPerPacket?: number;
+  tabsPerDose?: number;
+  packetPrice?: number;
+  fullDosePrice?: number;
+  halfDosePrice?: number;
+  tabPrice?: number;
   // Retail & Wholesale properties
   sellInRetail?: boolean;
   sellInWholesale?: boolean;
@@ -188,7 +194,7 @@ export interface SaleItem {
   sellMode?: 'scale' | 'pcs';
   
   // Pharmacy dosage options
-  dosageType?: 'full' | 'half' | 'tabs';
+  dosageType?: 'packet' | 'full' | 'half' | 'tabs';
   tabsSelected?: number;
   tabsPerPack?: number;
   channel?: 'retail' | 'wholesale';
