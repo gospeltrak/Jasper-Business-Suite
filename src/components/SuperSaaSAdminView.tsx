@@ -14,7 +14,6 @@ import {
   Smartphone, 
   Lock, 
   Unlock, 
-  Activity, 
   FileText, 
   RefreshCw, 
   Send,
@@ -74,7 +73,6 @@ export default function SuperSaaSAdminView({
   const [adPlacements, setAdPlacements] = useState<any[]>([]);
   const [banners, setBanners] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
-  const [adminLogs, setAdminLogs] = useState<any[]>([]);
 
   // Security Auth controls
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -130,10 +128,6 @@ export default function SuperSaaSAdminView({
 
   useEffect(() => {
     initializeSaaSData();
-    loadAdminLogs();
-    
-    const handleUpdate = () => loadAdminLogs();
-    window.addEventListener('saas_logs_updated', handleUpdate);
 
     const handleEnterMirror = (e: any) => {
       if (e.detail && e.detail.account) {
@@ -144,24 +138,9 @@ export default function SuperSaaSAdminView({
     window.addEventListener('saas_enter_mirror', handleEnterMirror);
 
     return () => {
-      window.removeEventListener('saas_logs_updated', handleUpdate);
       window.removeEventListener('saas_enter_mirror', handleEnterMirror);
     };
   }, []);
-
-  const loadAdminLogs = () => {
-    const raw = localStorage.getItem('saas_ops_admin_logs');
-    if (raw) {
-      setAdminLogs(JSON.parse(raw));
-    } else {
-      const defaults = [
-        { id: 'log-101', actionTaken: 'Secured master node channels', targetUser: 'System-wide', timestamp: '2026-05-24 10:11', adminUsername: '@super_admin_core' },
-        { id: 'log-102', actionTaken: 'Activated template engine assets', targetUser: 'Campaign node', timestamp: '2026-05-24 09:12', adminUsername: '@super_admin_core' }
-      ];
-      setAdminLogs(defaults);
-      localStorage.setItem('saas_ops_admin_logs', JSON.stringify(defaults));
-    }
-  };
 
   const handleAuditLog = (actionTaken: string, targetUser: string) => {
     const current = localStorage.getItem('saas_ops_admin_logs') ? JSON.parse(localStorage.getItem('saas_ops_admin_logs')!) : [];
@@ -174,7 +153,6 @@ export default function SuperSaaSAdminView({
     };
     const updated = [newLog, ...current];
     localStorage.setItem('saas_ops_admin_logs', JSON.stringify(updated));
-    setAdminLogs(updated);
   };
 
   const initializeSaaSData = () => {
@@ -376,22 +354,6 @@ export default function SuperSaaSAdminView({
     setNewAffLastName('');
     handleAuditLog(`Registered active affiliate promoter: ${newAffRecord.name} (PROMO: ${uniqueCode})`, newAffRecord.name);
     alert(`⚡ Promo code: "${uniqueCode}" was securely registered to affiliate directory!`);
-  };
-
-  const handleClearLogs = () => {
-    const confirmation = prompt('🔑 Enter authorization key to clear sessions dashboard logs (MASKED ENTRY):');
-    if (!confirmation) return;
-    
-    const saved = localStorage.getItem('saas_encrypted_master_key');
-    const actual = saved ? atob(saved) : '0000';
-
-    if (confirmation === actual || confirmation === '0000' || confirmation === 'saas-secure-2026') {
-      localStorage.setItem('saas_ops_admin_logs', JSON.stringify([]));
-      setAdminLogs([]);
-      alert('🧹 Unified operations audit log files cleared.');
-    } else {
-      alert('❌ Authorization Rejected.');
-    }
   };
 
   if (mirroredAccount) {
@@ -954,51 +916,6 @@ export default function SuperSaaSAdminView({
           </div>
         )}
 
-      </div>
-
-      {/* ======================= PERSISTENT LIVE OPERATIONS AUDIT LOGS ======================= */}
-      <div className="bg-slate-950 p-6 rounded-2xl border border-slate-850 space-y-4">
-        <div className="flex justify-between items-center border-b border-slate-800 pb-2.5 text-left">
-          <div className="flex items-center space-x-2">
-            <Activity className="w-4 h-4 text-rose-400 animate-pulse" />
-            <h3 className="text-sm font-black text-white font-mono uppercase tracking-tight">SuperAdmin Operations Audit Logs</h3>
-          </div>
-          <button 
-            onClick={handleClearLogs}
-            className="px-3 py-1 bg-red-500/10 hover:bg-red-505 hover:bg-red-650 hover:bg-red-650/20 text-red-100 text-[10px] font-mono rounded border border-red-500/30 uppercase cursor-pointer"
-          >
-            Clear Activity Logs
-          </button>
-        </div>
-
-        <div className="max-h-[180px] overflow-y-auto rounded-lg border border-slate-900 bg-slate-900/40 text-left animate-fade-in">
-          <table className="w-full text-left text-xs text-slate-350 font-mono text-xs">
-            <thead className="bg-slate-950 text-[9px] uppercase tracking-wider text-slate-500 border-b border-slate-850 sticky top-0">
-              <tr>
-                <th className="p-2.5">Timestamp</th>
-                <th className="p-2.5">Action Code Executed</th>
-                <th className="p-2.5">Target Scope</th>
-                <th className="p-2.5 text-right font-bold">Operator Node</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-900 select-text font-mono">
-              {adminLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="p-6 text-center text-slate-500">No admin access actions logged in this session range.</td>
-                </tr>
-              ) : (
-                adminLogs.map(log => (
-                  <tr key={log.id} className="hover:bg-slate-950/20">
-                    <td className="p-2.5 text-slate-500">{log.timestamp}</td>
-                    <td className="p-2.5 text-rose-300 font-bold">{log.actionTaken}</td>
-                    <td className="p-2.5 text-slate-300">{log.targetUser}</td>
-                    <td className="p-2.5 text-right text-emerald-400">{log.adminUsername}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
       </div>
 
     </div>
