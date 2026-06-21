@@ -112,6 +112,8 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
   const [newPromoInput, setNewPromoInput] = useState("");
   const [activeCreativeTab, setActiveCreativeTab] = useState<string>("flyer");
   const [sspInventory, setSspInventory] = useState<any[]>([]);
+  const [tutorialLibrary, setTutorialLibrary] = useState<any[]>([]);
+  const [tutorialAssignments, setTutorialAssignments] = useState<any[]>([]);
 
   useEffect(() => {
     // Load dynamic SSP banners from admin platform
@@ -126,6 +128,17 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
         console.error("Failed to load SSP inventory", error);
         setSspInventory([]);
       }
+    }
+
+    try {
+      const savedTutorials = localStorage.getItem("saas_training_tutorials");
+      const savedAssignments = localStorage.getItem("saas_tutorial_assignments");
+      setTutorialLibrary(savedTutorials ? JSON.parse(savedTutorials) : []);
+      setTutorialAssignments(savedAssignments ? JSON.parse(savedAssignments) : []);
+    } catch (error) {
+      console.error("Failed to load tutorials", error);
+      setTutorialLibrary([]);
+      setTutorialAssignments([]);
     }
     
     // Parse URL query arguments to support separate pathway links
@@ -257,10 +270,29 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
     },
   );
 
+  const handleSendTutorialToSubAffiliate = (tutorial: any, child: any) => {
+    if (!activeAffiliate || !tutorial || !child) return;
+    const assignment = {
+      id: "lesson-" + Math.floor(Math.random() * 1000000),
+      tutorialId: tutorial.id,
+      tutorial,
+      fromId: activeAffiliate.id,
+      fromName: activeAffiliate.name,
+      toId: child.id,
+      toName: child.name,
+      sentAt: new Date().toISOString(),
+      read: false,
+    };
+    const nextAssignments = [assignment, ...tutorialAssignments];
+    setTutorialAssignments(nextAssignments);
+    localStorage.setItem("saas_tutorial_assignments", JSON.stringify(nextAssignments));
+    alert(`Tutorial sent to ${child.name}.`);
+  };
+
   // Sessions materials research configuration
   const [sessionsSearchQuery, setSessionsSearchQuery] = useState("");
   const [sessionsCategory, setSessionsCategory] = useState<
-    "all" | "guide" | "video" | "marketing"
+    "all" | "guide" | "video" | "marketing" | "lesson" | "message"
   >("all");
 
   // Video conferencing simulation state representors
@@ -1187,6 +1219,9 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
 
   // Filter subscribers to enforce tenant/affiliate data isolation strictly
   const currentAffiliateCode = activeAffiliate?.promoCode || "";
+  const receivedTutorials = tutorialAssignments.filter(
+    (assignment) => assignment.toId === activeAffiliate?.id,
+  );
   const filteredSubscribers = subscribers.filter(
     (s) =>
       s.affiliateCode &&
@@ -1853,7 +1888,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                     icon: DollarSign,
                   },
                   { id: "manage", key: "manage sub-affiliates", name: "Manage Sub-Affiliates", icon: Users },
-                  { id: "sessions", key: "academic sessions", name: "Academic Sessions", icon: BookOpen },
+                  { id: "sessions", key: "tutorials and lessons", name: "Tutorials & Lessons", icon: BookOpen },
                   {
                     id: "conferencing",
                     key: "video conferencing call",
@@ -2754,6 +2789,23 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                     duration: "Zip File",
                     format: "Asset Creative Pack",
                   },
+                  ...tutorialLibrary.map((tutorial) => ({
+                    id: tutorial.id,
+                    title: tutorial.title,
+                    desc: tutorial.description || tutorial.link || tutorial.fileName || "Tutorial from Jasper admin.",
+                    category: tutorial.type || "lesson",
+                    fileSize: tutorial.fileName ? "Uploaded" : "Link",
+                    duration: tutorial.type === "video" ? "Video" : "Lesson",
+                    format:
+                      tutorial.type === "video"
+                        ? "Video Tutorial"
+                        : tutorial.type === "message"
+                          ? "Message"
+                          : tutorial.type === "guide"
+                            ? "Guide"
+                            : "Lesson",
+                    sourceTutorial: tutorial,
+                  })),
                 ];
 
                 const searchClean = sessionsSearchQuery.toLowerCase();
@@ -2807,6 +2859,8 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                           { id: "all", name: "All Formats" },
                           { id: "guide", name: "Guides & Manuals" },
                           { id: "video", name: "Video Classrooms" },
+                          { id: "lesson", name: "Lessons" },
+                          { id: "message", name: "Messages" },
                           { id: "marketing", name: "Marketing Assets" },
                         ].map((c) => (
                           <button
@@ -2862,18 +2916,48 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                             <span className="text-[9.5px] font-mono text-slate-500">
                               ID: {mat.id.toUpperCase()}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                alert(
-                                  `📥 Material "${mat.title}" download triggered! File stored in system cache.`,
-                                )
-                              }
-                              className="px-3.5 py-1.5 bg-slate-950 hover:bg-slate-850 text-white font-bold font-mono text-[9.5px] uppercase rounded-xl border border-slate-800 flex items-center gap-1 cursor-pointer transition-colors"
-                            >
-                              <Download className="w-3 h-3 text-teal-400" />
-                              <span>Get Asset</span>
-                            </button>
+                            <div className="flex flex-wrap justify-end gap-2">
+                              {mat.sourceTutorial?.link && (
+                                <a
+                                  href={mat.sourceTutorial.link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="px-3.5 py-1.5 bg-slate-950 hover:bg-slate-850 text-white font-bold font-mono text-[9.5px] uppercase rounded-xl border border-slate-800 flex items-center gap-1 cursor-pointer transition-colors"
+                                >
+                                  <ExternalLink className="w-3 h-3 text-teal-400" />
+                                  <span>Open</span>
+                                </a>
+                              )}
+                              {mat.sourceTutorial?.assetData && (
+                                <a
+                                  href={mat.sourceTutorial.assetData}
+                                  download={mat.sourceTutorial.fileName || mat.title}
+                                  className="px-3.5 py-1.5 bg-slate-950 hover:bg-slate-850 text-white font-bold font-mono text-[9.5px] uppercase rounded-xl border border-slate-800 flex items-center gap-1 cursor-pointer transition-colors"
+                                >
+                                  <Download className="w-3 h-3 text-teal-400" />
+                                  <span>File</span>
+                                </a>
+                              )}
+                              {managedKids.slice(0, 4).map((child) => (
+                                <button
+                                  key={`${mat.id}-${child.id}`}
+                                  type="button"
+                                  onClick={() =>
+                                    handleSendTutorialToSubAffiliate(
+                                      mat.sourceTutorial || mat,
+                                      child,
+                                    )
+                                  }
+                                  className="px-3.5 py-1.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold font-mono text-[9.5px] uppercase rounded-xl flex items-center gap-1 cursor-pointer transition-colors"
+                                >
+                                  <Send className="w-3 h-3" />
+                                  <span>{child.name.split(" ")[0]}</span>
+                                </button>
+                              ))}
+                              {managedKids.length === 0 && (
+                                <span className="text-[9.5px] text-slate-500 font-mono">No sub-affiliates</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -3742,6 +3826,70 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                   tax-free!
                 </p>
               </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-850 p-5 rounded-2xl space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                  <h3 className="text-sm uppercase font-mono tracking-wider font-extrabold text-white flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-teal-400" />
+                    <span>Tutorials & Lessons</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Lessons sent by your super affiliate or agent.
+                  </p>
+                </div>
+                <span className="text-[10px] bg-slate-950 border border-slate-800 text-teal-400 px-3 py-1 rounded-lg font-mono">
+                  {receivedTutorials.length} lesson{receivedTutorials.length === 1 ? "" : "s"}
+                </span>
+              </div>
+
+              {receivedTutorials.length === 0 ? (
+                <div className="bg-slate-950 border border-slate-850 rounded-xl p-4 text-xs text-slate-400">
+                  No tutorials sent yet.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {receivedTutorials.map((assignment) => {
+                    const tutorial = assignment.tutorial || {};
+                    return (
+                      <div key={assignment.id} className="bg-slate-950 border border-slate-850 rounded-xl p-4 space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/20 text-[9px] font-mono uppercase font-bold">
+                            {tutorial.type || "lesson"}
+                          </span>
+                          <span className="text-[9px] text-slate-500 font-mono">
+                            From {assignment.fromName}
+                          </span>
+                        </div>
+                        <h4 className="text-sm text-white font-extrabold">{tutorial.title}</h4>
+                        <p className="text-[11px] text-slate-400 leading-normal">{tutorial.description || "Open this lesson and follow the guide."}</p>
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          {tutorial.link && (
+                            <a
+                              href={tutorial.link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3 py-1.5 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-lg font-mono font-bold text-[10px] uppercase"
+                            >
+                              Open Link
+                            </a>
+                          )}
+                          {tutorial.assetData && (
+                            <a
+                              href={tutorial.assetData}
+                              download={tutorial.fileName || tutorial.title}
+                              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-white rounded-lg border border-slate-800 font-mono font-bold text-[10px] uppercase"
+                            >
+                              Download
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Dashboard Analytics progression stats grid */}

@@ -83,6 +83,7 @@ import {
   Inbox,
   Layers,
   MonitorPlay,
+  BookOpen,
   Menu,
   MoreHorizontal,
   X,
@@ -258,6 +259,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     'admin-chats',
     'admin-inbox',
     'admin-promotions',
+    'admin-tutorials',
     'admin-web-editor',
     'admin-settings',
     'hotel-pms',
@@ -1372,6 +1374,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         { id: 'admin-chats', label: 'Chats / Broadcasts', icon: MessageSquare },
         { id: 'admin-inbox', label: 'User Inbox', icon: Inbox },
         { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
+        { id: 'admin-tutorials', label: 'Tutorials', icon: BookOpen },
         { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
         { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
       ]
@@ -1428,6 +1431,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         { id: 'admin-chats', label: 'Chats', icon: MessageSquare },
         { id: 'admin-inbox', label: 'Inbox', icon: Inbox },
         { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
+        { id: 'admin-tutorials', label: 'Tutorials', icon: BookOpen },
         { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
         { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
       ]
@@ -1495,6 +1499,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     { id: 'admin-chats', label: 'Chats', icon: MessageSquare, tabId: 'admin-chats' },
     { id: 'admin-inbox', label: 'Inbox', icon: Inbox, tabId: 'admin-inbox' },
     { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay, tabId: 'admin-promotions' },
+    { id: 'admin-tutorials', label: 'Tutorials', icon: BookOpen, tabId: 'admin-tutorials' },
     { id: 'admin-web-editor', label: 'Web Editor', icon: Globe, tabId: 'admin-web-editor' },
     { id: 'admin-settings', label: 'Settings', icon: SettingsIcon, tabId: 'admin-settings' }
   ] : [
@@ -2312,6 +2317,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                  activeTab === 'admin-chats' ? 'chats' :
                  activeTab === 'admin-inbox' ? 'inbox' :
                  activeTab === 'admin-promotions' ? 'promotions' :
+                 activeTab === 'admin-tutorials' ? 'tutorials' :
                  activeTab === 'admin-web-editor' ? 'web-editor' :
                  activeTab === 'admin-settings' ? 'settings' : 'dashboard'
                }
@@ -2329,6 +2335,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                    subTab === 'chats' ? 'admin-chats' :
                    subTab === 'inbox' ? 'admin-inbox' :
                    subTab === 'promotions' ? 'admin-promotions' :
+                   subTab === 'tutorials' ? 'admin-tutorials' :
                    subTab === 'web-editor' ? 'admin-web-editor' :
                    subTab === 'settings' ? 'admin-settings' : 'admin-dashboard';
                  setActiveTab(mappedTab);

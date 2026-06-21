@@ -23,6 +23,7 @@ import {
   Image as ImageIcon,
   MessageSquare,
   Video,
+  BookOpen,
   Store,
   Pill,
   Utensils,
@@ -48,7 +49,7 @@ import SaaSHardwareSales from './SaaSHardwareSales';
 import SaaSStaffManager from './SaaSStaffManager';
 import SaaSWebEditor from './SaaSWebEditor';
 
-export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'status' | 'reports' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'web-editor' | 'settings';
+export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'status' | 'reports' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'web-editor' | 'settings';
 
 export interface SuperSaaSAdminViewProps {
   activeAdminSubTab?: SuperAdminWorkspaceTab;
@@ -101,6 +102,12 @@ export default function SuperSaaSAdminView({
   const [newBannerCreative, setNewBannerCreative] = useState<File | null>(null);
   const [newBannerAdType, setNewBannerAdType] = useState<'image' | 'video' | 'motion' | 'message'>('image');
   const [newBannerMessage, setNewBannerMessage] = useState('');
+  const [tutorials, setTutorials] = useState<any[]>([]);
+  const [newTutorialTitle, setNewTutorialTitle] = useState('');
+  const [newTutorialType, setNewTutorialType] = useState<'guide' | 'video' | 'lesson' | 'message'>('guide');
+  const [newTutorialDescription, setNewTutorialDescription] = useState('');
+  const [newTutorialLink, setNewTutorialLink] = useState('');
+  const [newTutorialFile, setNewTutorialFile] = useState<File | null>(null);
 
   const [mirroredAccount, setMirroredAccount] = useState<any | null>(null);
   const [isMirrorAffiliate, setIsMirrorAffiliate] = useState<boolean>(false);
@@ -163,11 +170,13 @@ export default function SuperSaaSAdminView({
     const cachedPlacements = localStorage.getItem('saas_ops_placements');
     const cachedBanners = localStorage.getItem('saas_ops_banners') || localStorage.getItem('saas_promotional_banners');
     const cachedMessages = localStorage.getItem('saas_ops_messages');
+    const cachedTutorials = localStorage.getItem('saas_training_tutorials');
 
     if (cachedPlacements && cachedBanners && cachedMessages) {
       setAdPlacements(JSON.parse(cachedPlacements));
       setBanners(JSON.parse(cachedBanners));
       setMessages(JSON.parse(cachedMessages));
+      setTutorials(cachedTutorials ? JSON.parse(cachedTutorials) : []);
       return;
     }
 
@@ -190,6 +199,7 @@ export default function SuperSaaSAdminView({
     setAdPlacements(initialPlacements);
     setBanners(initialBanners);
     setMessages(initialMessages);
+    setTutorials(cachedTutorials ? JSON.parse(cachedTutorials) : []);
 
     localStorage.setItem('saas_ops_placements', JSON.stringify(initialPlacements));
     localStorage.setItem('saas_ops_banners', JSON.stringify(initialBanners));
@@ -201,6 +211,51 @@ export default function SuperSaaSAdminView({
     localStorage.setItem('saas_ops_banners', JSON.stringify(activeBanners));
     localStorage.setItem('saas_promotional_banners', JSON.stringify(activeBanners));
     localStorage.setItem('saas_ops_messages', JSON.stringify(currentMessages));
+  };
+
+  const saveTutorials = (nextTutorials: any[]) => {
+    setTutorials(nextTutorials);
+    localStorage.setItem('saas_training_tutorials', JSON.stringify(nextTutorials));
+  };
+
+  const handleCreateTutorial = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTutorialTitle.trim()) return;
+    if (!newTutorialDescription.trim() && !newTutorialLink.trim() && !newTutorialFile) {
+      alert('Add a short lesson description, link, or file.');
+      return;
+    }
+
+    const persistTutorial = (assetData: string | null = null) => {
+      const tutorial = {
+        id: 'tut-' + Math.floor(Math.random() * 1000000),
+        title: newTutorialTitle.trim(),
+        type: newTutorialType,
+        description: newTutorialDescription.trim(),
+        link: newTutorialLink.trim(),
+        fileName: newTutorialFile ? newTutorialFile.name : '',
+        fileMime: newTutorialFile ? newTutorialFile.type : '',
+        assetData,
+        createdAt: new Date().toISOString(),
+      };
+      saveTutorials([tutorial, ...tutorials]);
+      setNewTutorialTitle('');
+      setNewTutorialDescription('');
+      setNewTutorialLink('');
+      setNewTutorialFile(null);
+      handleAuditLog(`Uploaded tutorial: ${tutorial.title}`, 'Tutorial Library');
+      alert('Tutorial saved.');
+    };
+
+    if (!newTutorialFile) {
+      persistTutorial(null);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => persistTutorial(typeof reader.result === 'string' ? reader.result : null);
+    reader.onerror = () => alert('Could not read tutorial file.');
+    reader.readAsDataURL(newTutorialFile);
   };
 
   const handleVerifyPassword = () => {
@@ -998,7 +1053,117 @@ export default function SuperSaaSAdminView({
           </div>
         )}
 
-        {/* ======================= TAB 5: EXPENSES ======================= */}
+        {/* ======================= TAB 6: TUTORIALS ======================= */}
+        {activeTab === 'tutorials' && (
+          <div className="space-y-6 animate-fade-in text-left">
+            <div className="w-full bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
+              <div className="flex items-center space-x-2">
+                <BookOpen className="w-4 h-4 text-teal-400" />
+                <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider">Tutorial Library</h3>
+              </div>
+              <p className="text-[10.5px] text-slate-400 leading-normal">Upload guides, video tutorials, lessons, and short messages for super agents to share with their sub-affiliates.</p>
+
+              <form onSubmit={handleCreateTutorial} className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9.5px] font-mono text-slate-500 uppercase">Tutorial Title</label>
+                  <input
+                    type="text"
+                    value={newTutorialTitle}
+                    onChange={(e) => setNewTutorialTitle(e.target.value)}
+                    placeholder="e.g. How to register a new retail shop"
+                    className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-teal-500"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9.5px] font-mono text-slate-500 uppercase">Tutorial Type</label>
+                  <select
+                    value={newTutorialType}
+                    onChange={(e) => setNewTutorialType(e.target.value as any)}
+                    className="bg-slate-950 border border-slate-800 p-2 text-xs text-slate-300 w-full rounded outline-none cursor-pointer"
+                  >
+                    <option value="guide">Guide / PDF</option>
+                    <option value="video">Video Tutorial</option>
+                    <option value="lesson">Lesson / Training</option>
+                    <option value="message">Message</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1 lg:col-span-2">
+                  <label className="text-[9.5px] font-mono text-slate-500 uppercase">Description / Message</label>
+                  <textarea
+                    value={newTutorialDescription}
+                    onChange={(e) => setNewTutorialDescription(e.target.value)}
+                    rows={4}
+                    placeholder="Write what this lesson teaches..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-teal-500 resize-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9.5px] font-mono text-slate-500 uppercase">Video / Guide Link</label>
+                  <input
+                    type="url"
+                    value={newTutorialLink}
+                    onChange={(e) => setNewTutorialLink(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-teal-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9.5px] font-mono text-slate-500 uppercase">Upload File</label>
+                  <input
+                    type="file"
+                    accept="application/pdf,image/*,video/mp4,video/webm,video/quicktime"
+                    onChange={(e) => setNewTutorialFile(e.target.files?.[0] || null)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-slate-300 file:mr-3 file:rounded file:border-0 file:bg-teal-500 file:px-2 file:py-1 file:text-slate-950 file:font-bold"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="lg:col-span-2 w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 font-mono font-bold text-xs uppercase tracking-wider rounded-lg"
+                >
+                  Save Tutorial
+                </button>
+              </form>
+            </div>
+
+            <div className="w-full bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
+              <span className="text-[10px] uppercase font-mono text-slate-500 font-bold block">Tutorials Available To Super Agents</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {tutorials.length === 0 && (
+                  <div className="md:col-span-2 bg-slate-950 border border-slate-850 rounded-xl p-5 text-xs text-slate-400">
+                    No tutorials uploaded yet.
+                  </div>
+                )}
+                {tutorials.map((tutorial) => (
+                  <div key={tutorial.id} className="bg-slate-950 border border-slate-850 rounded-xl p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/20 text-[9px] font-mono uppercase font-bold">{tutorial.type}</span>
+                      <button
+                        type="button"
+                        onClick={() => saveTutorials(tutorials.filter((item) => item.id !== tutorial.id))}
+                        className="text-[9px] text-rose-400 hover:text-rose-300 font-mono uppercase"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                    <h4 className="text-sm text-white font-extrabold">{tutorial.title}</h4>
+                    <p className="text-[11px] text-slate-400 leading-normal">{tutorial.description || 'No description.'}</p>
+                    {(tutorial.fileName || tutorial.link) && (
+                      <p className="text-[10px] text-slate-500 font-mono truncate">{tutorial.fileName || tutorial.link}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ======================= TAB 7: EXPENSES ======================= */}
         {activeTab === 'expenses' && (
           <div className="space-y-6 animate-fade-in text-left">
             <SaaSExpensesView />
