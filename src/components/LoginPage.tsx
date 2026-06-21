@@ -3,7 +3,6 @@ import { useTranslation } from '../LanguageContext';
 import { 
   Store, 
   KeyRound, 
-  Mail, 
   AlertTriangle, 
   Play, 
   HelpCircle, 
@@ -53,13 +52,13 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "Unifying POS Ledger, Hotel PMs & Multi-Tenant Channels",
     signinTab: "Sign In Account",
     registerTab: "Register New Business",
-    emailLabel: "Owner Email Address",
+    emailLabel: "Owner WhatsApp Number",
     passLabel: "Owner Pin Password",
     ownerName: "Owner Full Name",
     companyName: "Company / Hotel Name",
     region: "Region of operations",
     city: "City Name Office",
-    phone: "Owner Contact Phone",
+    phone: "Owner WhatsApp Number",
     promoCode: "Affiliate Referral Promo Code (Optional)",
     promoDesc: "Promo code gives you an extended 20 days free trial instead of 10 days.",
     nicheLabel: "Business Industry Niche (Mandatory)",
@@ -78,13 +77,13 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "POS Rejesta, Kitabu cha Hesabu, Usimamizi wa Hoteli na Huduma ya Pamoja",
     signinTab: "Ingia kwenye Akaunti",
     registerTab: "Sajili Biashara Mpya",
-    emailLabel: "Barua Pepe ya Mmiliki",
+    emailLabel: "Namba ya WhatsApp ya Mmiliki",
     passLabel: "Nenosiri la Mmiliki (Pin)",
     ownerName: "Majina Kamili ya Mmiliki",
     companyName: "Jina la Kampuni au Biashara",
     region: "Nchi/Eneo la Huduma",
     city: "Jiji/Ofisi Kuu",
-    phone: "Namba ya Simu ya Mmiliki",
+    phone: "Namba ya WhatsApp ya Mmiliki",
     promoCode: "Kuponi ya Washirika (Sio Lazima)",
     promoDesc: "Kuponi hii inakupa majaribio ya siku 20 bure badala ya siku 10.",
     nicheLabel: "Aina ya Biashara yako (Lazima)",
@@ -103,13 +102,13 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "توحيد نقاط البيع، وإدارة الفنادق والقنوات متعددة المستأجرين",
     signinTab: "تسجيل الدخول للحساب",
     registerTab: "تسجيل عمل تجاري جديد",
-    emailLabel: "البريد الإلكتروني للمالك",
+    emailLabel: "رقم واتساب المالك",
     passLabel: "رمز المرور السري للمالك",
     ownerName: "الاسم الكامل للمالك",
     companyName: "اسم الشركة / الفندق",
     region: "منطقة العمليات",
     city: "اسم مدينة المكتب",
-    phone: "هاتف الاتصال بالمالك",
+    phone: "رقم واتساب المالك",
     promoCode: "رمز ترويج الإحالة (اختياري)",
     promoDesc: "يمنحك الرمز الترويجي فترة تجريبية مجانية ممتدة لـ 20 يومًا بدلاً من 10 أيام.",
     nicheLabel: "مجال العمل التجاري (إلزامي)",
@@ -128,13 +127,13 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "Unification du registre POS, de la comptabilité et hôtelière multi-locataire",
     signinTab: "Se Connecter",
     registerTab: "Enregistrer une Entreprise",
-    emailLabel: "Adresse E-mail du Propriétaire",
+    emailLabel: "Numéro WhatsApp du propriétaire",
     passLabel: "Code d'accès Pin",
     ownerName: "Nom Complet du Propriétaire",
     companyName: "Nom de l'Entreprise ou de l'Hôtel",
     region: "Région des opérations",
     city: "Ville du bureau principal",
-    phone: "Numéro de téléphone portable",
+    phone: "Numéro WhatsApp du propriétaire",
     promoCode: "Code Promo d'affiliation (Optionnel)",
     promoDesc: "Le code promo prolonge l'essai gratuit jusqu'à 20 jours au lieu de 10.",
     nicheLabel: "Niche commerciale industrielle (Obligatoire)",
@@ -176,6 +175,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loginOtpMode, setLoginOtpMode] = useState(false);
+  const [loginOtp, setLoginOtp] = useState('');
+  const [loginOtpInput, setLoginOtpInput] = useState('');
+  const [loginOtpUser, setLoginOtpUser] = useState<any | null>(null);
+  const [loginOtpMessage, setLoginOtpMessage] = useState<string | null>(null);
   const [showRecovery, setShowRecovery] = useState(false);
   const [recoveryIdentifier, setRecoveryIdentifier] = useState('');
   const [recoveryWhatsapp, setRecoveryWhatsapp] = useState('');
@@ -397,6 +401,21 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     return digits;
   };
 
+  const sameLoginIdentifier = (valueA?: string, valueB?: string) => {
+    const a = (valueA || '').trim();
+    const b = (valueB || '').trim();
+    if (!a || !b) return false;
+    if (a.toLowerCase() === b.toLowerCase()) return true;
+    const phoneA = normalizePhoneForWhatsapp(a);
+    const phoneB = normalizePhoneForWhatsapp(b);
+    return !!phoneA && !!phoneB && phoneA === phoneB;
+  };
+
+  const makeInternalEmailFromPhone = (phone: string) => {
+    const normalized = normalizePhoneForWhatsapp(phone);
+    return normalized ? `wa${normalized}@whatsapp.jasper.local` : '';
+  };
+
   const isOwnerRecoveryRole = (role?: string) => {
     const normalized = (role || '').toLowerCase();
     return ['admin', 'manager', 'superadmin', 'owner'].some(r => normalized.includes(r));
@@ -409,16 +428,16 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
     const identifier = recoveryIdentifier.trim() || email.trim();
     if (!identifier) {
-      setRecoveryMessage('Enter your email or phone number first.');
+      setRecoveryMessage('Enter your WhatsApp number first.');
       return;
     }
 
     const found = getAllSystemUsers().find((u: any) =>
-      u.email?.toLowerCase() === identifier.toLowerCase() || u.phone === identifier
+      sameLoginIdentifier(u.phone, identifier) || sameLoginIdentifier(u.email, identifier)
     );
 
     if (!found) {
-      setRecoveryMessage('No account found with that email or phone.');
+      setRecoveryMessage('No account found with that WhatsApp number.');
       return;
     }
 
@@ -496,7 +515,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
 
     persistRecoveredPassword(recoveryUser, recoveryNewPassword.trim());
-    setEmail(recoveryUser.email || recoveryUser.phone || '');
+    setEmail(recoveryUser.phone || recoveryUser.email || '');
     setPassword(recoveryNewPassword.trim());
     setEmailChecked(true);
     setShowRecovery(false);
@@ -514,7 +533,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     e.preventDefault();
     setError(null);
     if (!email.trim()) {
-      setError('Please enter your email or phone to proceed.');
+      setError('Please enter your WhatsApp number to proceed.');
       return;
     }
 
@@ -522,7 +541,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setTimeout(() => {
       const combinedUsers = getAllSystemUsers();
       const match = combinedUsers.find(
-        (u: any) => u.email.toLowerCase() === email.toLowerCase().trim() || (u.phone && u.phone === email.trim())
+        (u: any) => sameLoginIdentifier(u.phone, email) || sameLoginIdentifier(u.email, email)
       );
 
       setIsLoading(false);
@@ -693,21 +712,85 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     e.preventDefault();
     if (!emailChecked) {
       handleCheckEmail(e);
+    } else if (loginOtpMode) {
+      triggerOtpLogin();
     } else {
       triggerLogin(email, password);
     }
   };
 
-  const triggerLogin = async (targetEmail: string, targetPass: string) => {
+  const handleSendLoginOtp = () => {
+    setLoginOtpMessage(null);
+    setError(null);
+
+    const user = getAllSystemUsers().find((u: any) =>
+      sameLoginIdentifier(u.phone, email) || sameLoginIdentifier(u.email, email)
+    );
+
+    if (!user) {
+      setLoginOtpMessage('No account found for this WhatsApp number.');
+      return;
+    }
+
+    const whatsappNumber = normalizePhoneForWhatsapp(user.phone || email);
+    if (!whatsappNumber) {
+      setLoginOtpMessage('This account has no WhatsApp number. Ask admin to update the phone number.');
+      return;
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    setLoginOtp(otp);
+    setLoginOtpUser(user);
+    setLoginOtpInput('');
+    setLoginOtpMode(true);
+    setPassword('');
+    setLoginOtpMessage('OTP prepared. Send it through WhatsApp, then enter it here.');
+
+    const message = `Jasper Suite login OTP: ${otp}. Use this code to sign in. If you did not request this, please ignore it.`;
+    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const triggerOtpLogin = () => {
+    setError(null);
+    if (!loginOtpUser || !loginOtp) {
+      setLoginOtpMode(false);
+      setLoginOtpMessage('Request a new WhatsApp OTP.');
+      return;
+    }
+
+    if (loginOtpInput.trim() !== loginOtp) {
+      setLoginOtpMessage('Wrong OTP. Check WhatsApp and try again.');
+      return;
+    }
+
+    setIsLoading(true);
+    triggerOnLoginWithSplash({
+      id: loginOtpUser.id || 'u-' + Math.random().toString(36).substr(2, 9),
+      email: loginOtpUser.email,
+      name: loginOtpUser.name,
+      role: loginOtpUser.role as any,
+      tenantId: loginOtpUser.tenantId,
+      activeTenant: loginOtpUser.activeTenant,
+      profileImage: loginOtpUser.profileImage,
+      phone: loginOtpUser.phone,
+      trial_start_date: loginOtpUser.trial_start_date || new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      trial_end_date: loginOtpUser.trial_end_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      is_affiliate_lead: loginOtpUser.is_affiliate_lead || false,
+      referral_code_used: loginOtpUser.referral_code_used || ''
+    });
+  };
+
+  const triggerLogin = async (targetIdentifier: string, targetPass: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
       const client: any = await getDynamicSupabaseClient();
+      const authEmail = targetIdentifier.includes('@') ? targetIdentifier.trim() : makeInternalEmailFromPhone(targetIdentifier);
       
       // Perform authentic authentication via Supabase Auth securely
       const { data: authData, error: authError } = await client.auth.signInWithPassword({
-        email: targetEmail.trim(),
+        email: authEmail,
         password: targetPass
       });
 
@@ -723,12 +806,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           // No user profile profile/tenant exists yet. Redirect to onboarding form
           triggerOnLoginWithSplash({
             id: authData.user.id,
-            email: authData.user.email || targetEmail,
+            email: authData.user.email || authEmail,
             name: authData.user.user_metadata?.full_name || authData.user.email?.split('@')[0] || 'User',
             role: 'Admin',
             tenantId: null,
             activeTenant: null,
-            phone: authData.user.phone || null,
+            phone: authData.user.phone || targetIdentifier || null,
           });
           return;
         }
@@ -754,7 +837,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setTimeout(() => {
       const combinedUsers = getAllSystemUsers();
 
-      if (targetEmail.toLowerCase() === 'saas.admin@jasper.com' && targetPass !== 'password123') {
+      if (sameLoginIdentifier(targetIdentifier, 'saas.admin@jasper.com') && targetPass !== 'password123') {
         onLogin({
           id: 'u-saas-duress',
           email: 'saas.admin@jasper.com',
@@ -768,7 +851,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       }
 
       const match = combinedUsers.find(
-        (u: any) => (u.email.toLowerCase() === targetEmail.toLowerCase() || (u.phone && u.phone === targetEmail.trim())) && u.password === targetPass
+        (u: any) => (sameLoginIdentifier(u.phone, targetIdentifier) || sameLoginIdentifier(u.email, targetIdentifier)) && u.password === targetPass
       );
 
       if (match) {
@@ -794,10 +877,14 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   };
 
   const handleQuickFill = (userObj: typeof DEMO_USERS[0]) => {
-    setEmail(userObj.email);
+    setEmail(userObj.phone || userObj.email);
     setPassword(userObj.password);
+    setLoginOtpMode(false);
+    setLoginOtp('');
+    setLoginOtpInput('');
+    setLoginOtpUser(null);
     setEmailChecked(true);
-    triggerLogin(userObj.email, userObj.password);
+    triggerLogin(userObj.phone || userObj.email, userObj.password);
   };
 
   const registerAffiliateReferral = (code: string, subscriberName: string) => {
@@ -835,7 +922,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   // Perform dynamic tenant/business registration
   const handleRegisterSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!ownerName || !regEmail || !regPassword || !orgName) {
+    if (!ownerName || !regPhone || !regPassword || !orgName) {
       setError('Please fill in all registration inputs.');
       return;
     }
@@ -846,6 +933,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
     setIsLoading(true);
     setError(null);
+    const ownerAuthEmail = regEmail.trim() || makeInternalEmailFromPhone(regPhone);
 
     try {
       const client: any = await getDynamicSupabaseClient();
@@ -853,11 +941,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       // Step 1: Fix the signup function:
       // supabase.auth.signUp({ email, password })
       const { data: authData, error: authError } = await client.auth.signUp({
-        email: regEmail,
+        email: ownerAuthEmail,
         password: regPassword,
         options: {
           data: {
-            full_name: ownerName
+            full_name: ownerName,
+            phone: regPhone
           }
         }
       });
@@ -904,7 +993,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         .from('users')
         .insert({
           id: authUserId, // SAME UUID as auth.users
-          email: regEmail,
+          email: ownerAuthEmail,
           name: ownerName, // from signup form
           role: 'Admin', // first user of a new tenant is always Admin
           tenant_id: newTenant.id,
@@ -921,7 +1010,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       // Store response variables
       const registeredUser: User = {
         id: authUserId,
-        email: regEmail,
+        email: ownerAuthEmail,
         name: ownerName,
         role: 'Admin',
         tenantId: newTenant.id,
@@ -983,7 +1072,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
         const newDynamicUser = {
           id: 'u-dyn-' + Math.floor(100 + Math.random() * 900),
-          email: regEmail,
+          email: ownerAuthEmail,
           password: regPassword,
           name: ownerName,
           role: 'Admin' as const,
@@ -1354,7 +1443,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">
-                    {isSaasAdminPortal ? 'SAAS STAFF ACCOUNT EMAIL' : 'CASHIER / STAFF EMAIL OR PHONE'}
+                    {isSaasAdminPortal ? 'SAAS STAFF WHATSAPP NUMBER' : 'WHATSAPP NUMBER'}
                   </label>
                   {emailChecked && (
                     <button
@@ -1362,6 +1451,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                       onClick={() => {
                         setEmailChecked(false);
                         setPassword('');
+                        setLoginOtpMode(false);
+                        setLoginOtp('');
+                        setLoginOtpInput('');
+                        setLoginOtpUser(null);
+                        setLoginOtpMessage(null);
                       }}
                       className="text-[10px] font-bold text-emerald-600 hover:text-emerald-750 bg-transparent cursor-pointer border-none outline-none"
                     >
@@ -1378,9 +1472,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 text-sm text-slate-800 placeholder-slate-400 font-sans transition-all outline-none"
-                    placeholder="Email or Phone Number"
+                    placeholder="WhatsApp number"
                   />
-                  <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                  <MessageCircle className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
                 </div>
               </div>
 
@@ -1388,33 +1482,74 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 <div className="space-y-1.5 animate-fade-in">
                   <div className="flex items-center justify-between">
                     <label className="text-[10px] font-bold text-slate-500 uppercase block">
-                      SECURITY PIN PASSWORD
+                      {loginOtpMode ? 'WHATSAPP OTP' : 'SECURITY PIN PASSWORD'}
                     </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSendLoginOtp}
+                        className="text-[10px] font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-800"
+                      >
+                        Send OTP
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowRecovery(true);
+                          setRecoveryIdentifier(email);
+                          setRecoveryStep('identify');
+                          setRecoveryMessage(null);
+                        }}
+                        className="text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-800"
+                      >
+                        Forgot?
+                      </button>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    {loginOtpMode ? (
+                      <input
+                        id="login-otp"
+                        type="text"
+                        required
+                        value={loginOtpInput}
+                        onChange={(e) => setLoginOtpInput(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 text-sm text-slate-800 placeholder-slate-400 font-mono tracking-widest transition-all outline-none"
+                        placeholder="Enter WhatsApp OTP"
+                      />
+                    ) : (
+                      <input
+                        id="login-password"
+                        type="password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 text-sm text-slate-800 placeholder-slate-400 font-mono tracking-wider transition-all outline-none"
+                        placeholder="••••••••••••"
+                      />
+                    )}
+                    <KeyRound className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                  </div>
+                  {loginOtpMessage && (
+                    <div className="text-[11px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-150 rounded-xl px-3 py-2">
+                      {loginOtpMessage}
+                    </div>
+                  )}
+                  {loginOtpMode && (
                     <button
                       type="button"
                       onClick={() => {
-                        setShowRecovery(true);
-                        setRecoveryIdentifier(email);
-                        setRecoveryStep('identify');
-                        setRecoveryMessage(null);
+                        setLoginOtpMode(false);
+                        setLoginOtp('');
+                        setLoginOtpInput('');
+                        setLoginOtpUser(null);
+                        setLoginOtpMessage(null);
                       }}
-                      className="text-[10px] font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-800"
+                      className="text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-800"
                     >
-                      Forgot?
+                      Use PIN/password instead
                     </button>
-                  </div>
-                  <div className="relative">
-                    <input
-                      id="login-password"
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 text-sm text-slate-800 placeholder-slate-400 font-mono tracking-wider transition-all outline-none"
-                      placeholder="••••••••••••"
-                    />
-                    <KeyRound className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-                  </div>
+                  )}
                 </div>
               ) : null}
 
@@ -1444,7 +1579,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                         WhatsApp OTP Reset
                       </h4>
                       <p className="text-[11px] text-slate-700 mt-1 leading-snug">
-                        Admin and owner accounts reset by WhatsApp OTP. Staff accounts are reset by the business admin.
+                        Owner and admin accounts reset by WhatsApp OTP. Staff accounts are reset by the business admin.
                       </p>
                     </div>
                     <button
@@ -1468,14 +1603,14 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                         type="text"
                         value={recoveryIdentifier}
                         onChange={e => setRecoveryIdentifier(e.target.value)}
-                        placeholder="Admin email or phone"
+                        placeholder="Admin WhatsApp number"
                         className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
                       />
                       <input
                         type="tel"
                         value={recoveryWhatsapp}
                         onChange={e => setRecoveryWhatsapp(e.target.value)}
-                        placeholder="WhatsApp number if different"
+                        placeholder="WhatsApp number to receive OTP"
                         className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
                       />
                       <button
@@ -1541,9 +1676,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <span>Processing securely...</span>
                   </>
                 ) : emailChecked ? (
-                  <span>Access Terminal Cabin</span>
+                  <span>{loginOtpMode ? 'Access With WhatsApp OTP' : 'Access Terminal Cabin'}</span>
                 ) : (
-                  <span>Continue to Security PIN</span>
+                  <span>Continue with WhatsApp</span>
                 )}
               </button>
 
@@ -1596,12 +1731,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Email Address</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Backup Email (Optional)</label>
                   <input
                     type="email"
-                    required
                     value={regEmail}
-                    placeholder="tunde@lagosroyal.com"
+                    placeholder="Optional email backup"
                     onChange={(e) => setRegEmail(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-sans"
                   />
@@ -1649,12 +1783,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-505 uppercase block">Owner Contact Phone</label>
+                  <label className="text-[10px] font-bold text-slate-505 uppercase block">Owner WhatsApp Number</label>
                   <input
                     type="tel"
                     required
                     value={regPhone}
-                    placeholder="e.g. +254 712 345 678"
+                    placeholder="e.g. +255 712 345 678"
                     onChange={(e) => setRegPhone(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-850 outline-none font-sans"
                   />
@@ -1774,7 +1908,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                       <p className="text-xs font-black text-white group-hover:text-amber-400 transition-colors">
                         {user.name} <span className="text-[10px] font-mono text-amber-500">({user.role})</span>
                       </p>
-                      <p className="text-[10px] text-slate-400">{user.email}</p>
+                      <p className="text-[10px] text-slate-400">{user.phone}</p>
                     </div>
                     <span className="text-[9px] font-mono font-extrabold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-lg">
                       SaaS Active Controller
@@ -1798,7 +1932,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                         <p className="text-xs font-black text-slate-800 group-hover:text-emerald-700">
                           {user.name} <span className="text-[10px] font-mono text-slate-400">({user.role})</span>
                         </p>
-                        <p className="text-[10px] text-slate-450">{user.email}</p>
+                        <p className="text-[10px] text-slate-450">{user.phone}</p>
                       </div>
                       <span className="text-[9.5px] font-mono font-bold text-indigo-700 bg-indigo-55/60 border border-indigo-150 px-2 py-0.5 rounded-full">
                         Nairobi, KE — Hotel OS
@@ -1823,7 +1957,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                         <p className="text-xs font-black text-slate-800 group-hover:text-emerald-700">
                           {user.name} <span className="text-[10px] font-mono text-slate-400">({user.role})</span>
                         </p>
-                        <p className="text-[10px] text-slate-450">{user.email}</p>
+                        <p className="text-[10px] text-slate-450">{user.phone}</p>
                       </div>
                       <span className="text-[9.5px] font-mono font-bold text-orange-700 bg-orange-50 border border-orange-150 px-2 py-0.5 rounded-full animate-pulse">
                         Dar es Salaam, TZ — Restaurant OS
@@ -1848,7 +1982,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                         <p className="text-xs font-black text-slate-800 group-hover:text-emerald-700">
                           {user.name} <span className="text-[10px] font-mono text-slate-400">({user.role})</span>
                         </p>
-                        <p className="text-[10px] text-slate-450">{user.email}</p>
+                        <p className="text-[10px] text-slate-450">{user.phone}</p>
                       </div>
                       <span className="text-[9.5px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-150 px-2 py-0.5 rounded-full animate-pulse">
                         Dar es Salaam, TZ — Pharmacy OS
@@ -1876,7 +2010,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                           <p className="text-xs font-bold text-slate-700 group-hover:text-emerald-700">
                             {user.name} <span className="text-[9.5px] font-mono text-slate-400">({user.role})</span>
                           </p>
-                          <p className="text-[9.5px] text-slate-450">{user.email}</p>
+                          <p className="text-[9.5px] text-slate-450">{user.phone}</p>
                         </div>
                         <span className="text-[9px] font-mono font-bold text-slate-505 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full">
                           {branch}
@@ -2019,7 +2153,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
                 <div className="pt-2 border-t border-slate-100 flex items-center space-x-2 text-[10px] text-slate-400 font-sans leading-relaxed">
                   <span>🔒</span>
-                  <span>Google shares name and email.</span>
+                  <span>Google shares verified profile details.</span>
                 </div>
               </div>
             ) : (

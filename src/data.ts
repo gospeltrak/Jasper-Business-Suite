@@ -77,6 +77,7 @@ export const DEMO_USERS = [
     role: 'SuperAdmin' as const,
     tenantId: 't-lagos-01',
     activeTenant: 't-lagos-01',
+    phone: '+255 700 000 001',
   },
   {
     email: 'admin@jasper.com',
@@ -85,6 +86,7 @@ export const DEMO_USERS = [
     role: 'Admin' as const,
     tenantId: 't-lagos-01',
     activeTenant: 't-lagos-01',
+    phone: '+255 700 000 002',
   },
   {
     email: 'nairobi_cashier@jasper.com',
@@ -93,6 +95,7 @@ export const DEMO_USERS = [
     role: 'Cashier' as const,
     tenantId: 't-nairobi-02',
     activeTenant: 't-nairobi-02',
+    phone: '+254 711 222 333',
   },
   {
     email: 'accra_mgr@jasper.com',
@@ -101,6 +104,7 @@ export const DEMO_USERS = [
     role: 'Manager' as const,
     tenantId: 't-accra-03',
     activeTenant: 't-accra-03',
+    phone: '+233 244 111 222',
   },
   {
     email: 'hotel_mgr@jasper.com',
@@ -109,6 +113,7 @@ export const DEMO_USERS = [
     role: 'Manager' as const,
     tenantId: 't-hotel-01',
     activeTenant: 't-hotel-01',
+    phone: '+254 722 000 111',
   },
   {
     email: 'restaurant_mgr@jasper.com',
@@ -117,6 +122,7 @@ export const DEMO_USERS = [
     role: 'Manager' as const,
     tenantId: 't-restaurant-01',
     activeTenant: 't-restaurant-01',
+    phone: '+255 713 555 777',
   },
   {
     email: 'pharmacy_mgr@jasper.com',
@@ -125,6 +131,7 @@ export const DEMO_USERS = [
     role: 'Manager' as const,
     tenantId: 't-pharma-01',
     activeTenant: 't-pharma-01',
+    phone: '+255 744 555 888',
   }
 ];
 
