@@ -10,10 +10,37 @@ import { useTheme } from './ThemeContext';
 import { useTenantLogo } from './TenantLogoContext';
 
 export default function App() {
-  const [currentPath, setCurrentPath] = useState<string>(() => window.location.pathname || '/');
+  const normalizePath = (path: string) => {
+    const clean = (path || '/').split('?')[0].replace(/\/+$/, '');
+    return clean || '/';
+  };
+
+  const dashboardRouteMap: Record<string, string | undefined> = {
+    '/dashboard': undefined,
+    '/sales': 'sales-list',
+    '/dashboard/sales': 'sales-list',
+    '/sales-list': 'sales-list',
+    '/dashboard/sales-list': 'sales-list',
+    '/reports': 'reports',
+    '/dashboard/reports': 'reports',
+    '/pos': 'pos',
+    '/dashboard/pos': 'pos',
+    '/products': 'products',
+    '/dashboard/products': 'products',
+    '/settings': 'settings',
+    '/dashboard/settings': 'settings'
+  };
+
+  const [currentPath, setCurrentPath] = useState<string>(() => normalizePath(window.location.pathname || '/'));
   const [user, setUser] = useState<User | null>(() => {
-    const cached = localStorage.getItem('jasper_cashier_user');
-    return cached ? JSON.parse(cached) : null;
+    try {
+      const cached = localStorage.getItem('jasper_cashier_user');
+      return cached ? JSON.parse(cached) : null;
+    } catch (err) {
+      console.error('Failed to load saved user session', err);
+      localStorage.removeItem('jasper_cashier_user');
+      return null;
+    }
   });
   const [redirectMessage, setRedirectMessage] = useState<string>('');
   
@@ -35,7 +62,7 @@ export default function App() {
   // Handle browser back and forward button operations
   useEffect(() => {
     const handlePopState = () => {
-      setCurrentPath(window.location.pathname || '/');
+      setCurrentPath(normalizePath(window.location.pathname || '/'));
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -45,13 +72,12 @@ export default function App() {
   const navigateTo = (path: string) => {
     setRedirectMessage('');
     window.history.pushState({}, '', path);
-    const baseRoute = path.split('?')[0] || '/';
-    setCurrentPath(baseRoute);
+    setCurrentPath(normalizePath(path));
   };
 
   // Perform route protection redirects check
   useEffect(() => {
-    if (currentPath === '/dashboard' && !user) {
+    if (currentPath in dashboardRouteMap && !user) {
       setRedirectMessage('Please log in to continue.');
       window.history.pushState({}, '', '/login');
       setCurrentPath('/login');
@@ -101,6 +127,18 @@ export default function App() {
           />
         );
       case '/dashboard':
+      case '/sales':
+      case '/dashboard/sales':
+      case '/sales-list':
+      case '/dashboard/sales-list':
+      case '/reports':
+      case '/dashboard/reports':
+      case '/pos':
+      case '/dashboard/pos':
+      case '/products':
+      case '/dashboard/products':
+      case '/settings':
+      case '/dashboard/settings':
         if (user) {
           if (user.activeTenant === 't-microsoko-01') {
             return <MicroSokoDashboard onLogout={handleLogoutSuccess} />;
@@ -112,10 +150,19 @@ export default function App() {
               onNavigate={navigateTo} 
               isDark={isDark}
               onToggleTheme={toggleTheme}
+              initialTab={dashboardRouteMap[currentPath]}
             />
           );
         }
-        return null;
+        return (
+          <LoginPage
+            onLogin={handleLoginSuccess}
+            onNavigate={navigateTo}
+            redirectMessage={redirectMessage || 'Please log in to continue.'}
+            isDark={isDark}
+            onToggleTheme={toggleTheme}
+          />
+        );
       default:
         // Default fallback serves our beautiful styled landing page
         return <LandingPage isDark={isDark} onToggleTheme={toggleTheme} onNavigate={navigateTo} />;

@@ -161,11 +161,12 @@ interface DashboardProps {
   onNavigate: (route: string) => void;
   isDark?: boolean;
   onToggleTheme?: () => void;
+  initialTab?: string;
 }
 
 import { NotificationCenterModal } from './NotificationCenterModal';
 
-export default function Dashboard({ user, onLogout, onNavigate, isDark = false, onToggleTheme }: DashboardProps) {
+export default function Dashboard({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
   const { logoUrl, getFallbackInitials } = useTenantLogo();
   const { addSaleNotification, unreadCount } = useJasperNotifications();
@@ -232,13 +233,60 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   // State Management - Starts on correct tab depending on tenant business vertical
-  const [activeTab, setActiveTab ] = useState<string>(() => {
+  const knownDashboardTabs = new Set([
+    'admin-dashboard',
+    'admin-subscribers',
+    'admin-hw-pos',
+    'admin-hw-inventory',
+    'admin-hw-sales',
+    'admin-affiliates',
+    'admin-status',
+    'admin-reports',
+    'admin-expenses',
+    'admin-chats',
+    'admin-inbox',
+    'admin-promotions',
+    'admin-web-editor',
+    'admin-settings',
+    'hotel-pms',
+    'restaurant-hub',
+    'sandbox-pms',
+    'overview',
+    'pos',
+    'products',
+    'suppliers',
+    'purchases-list',
+    'deliveries',
+    'sync',
+    'reports',
+    'sales-list',
+    'expenses',
+    'inventory',
+    'forecasting',
+    'cash-bank-matrix',
+    'whitelabel',
+    'staff-members',
+    'settings'
+  ]);
+
+  const getDefaultDashboardTab = () => {
     if (user.role === 'SuperAdmin') return 'admin-dashboard';
     if (activeTenant.businessType === 'hotel') return 'hotel-pms';
     if (activeTenant.businessType === 'restaurant') return 'restaurant-hub';
     if (activeTenant.businessType === 'pharmacy') return 'sandbox-pms';
     return 'overview';
+  };
+
+  const [activeTab, setActiveTab ] = useState<string>(() => {
+    if (initialTab && knownDashboardTabs.has(initialTab)) return initialTab;
+    const cachedTab = localStorage.getItem(`jasper_active_dashboard_tab_${user.id}_${activeTenant.id}`);
+    if (cachedTab && knownDashboardTabs.has(cachedTab)) return cachedTab;
+    return getDefaultDashboardTab();
   });
+
+  useEffect(() => {
+    localStorage.setItem(`jasper_active_dashboard_tab_${user.id}_${activeTenant.id}`, activeTab);
+  }, [activeTab, activeTenant.id, user.id]);
   const [actingStaffId, setActingStaffId] = useState<string>('logged-in-user');
   const [productsMap, setProductsMap] = useState<Record<string, Product[]>>(() => DEFAULT_PRODUCTS);
   const [salesMap, setSalesMap] = useState<Record<string, Sale[]>>(() => MOCK_SALES_HISTORY);
