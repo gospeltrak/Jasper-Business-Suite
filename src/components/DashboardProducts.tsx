@@ -2129,7 +2129,9 @@ export default function DashboardProducts({
                           </button>
                           
                           {openDropdownId === prod.id && (
-                            <div className="absolute right-0 bottom-full mb-1 w-40 bg-white border border-slate-150 rounded-xl shadow-xl py-1.5 z-50 text-left">
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setOpenDropdownId(null)}></div>
+                            <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-150 rounded-xl shadow-xl py-1.5 z-50 text-left">
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -2181,6 +2183,7 @@ export default function DashboardProducts({
                                   <span>Delete Item</span>
                                 </button>
                             </div>
+                            </>
                           )}
                         </div>
                       </div>
@@ -2356,7 +2359,7 @@ export default function DashboardProducts({
                                 <>
                                   {/* Backdrop layer */}
                                   <div className="fixed inset-0 z-40" onClick={() => setOpenDropdownId(null)}></div>
-                                  <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-45 animate-fade-in text-left">
+                                  <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-50 animate-fade-in text-left">
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -3256,22 +3259,41 @@ export default function DashboardProducts({
                 {categoriesList.map(cat => {
                   const count = products.filter(p => p.category === cat).length;
                   return (
-                    <button
+                    <div
                       key={cat}
-                      onClick={() => setSelectedCategoryFilter(cat)}
-                      className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between font-medium cursor-pointer ${
+                      className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between font-medium ${
                         selectedCategoryFilter === cat
                           ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-bold shadow-xs'
                           : 'bg-slate-50 border-slate-150 text-slate-600 hover:bg-slate-100'
                       }`}
                     >
-                      <span className="truncate pr-2">{cat}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono leading-none flex-shrink-0 ${
-                        selectedCategoryFilter === cat ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-200 text-slate-700 font-semibold'
-                      }`}>
-                        {count}
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCategoryFilter(cat)}
+                        className="flex items-center justify-between flex-1 min-w-0 cursor-pointer bg-transparent border-none text-left"
+                      >
+                        <span className="truncate pr-2">{cat}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono leading-none flex-shrink-0 ${
+                          selectedCategoryFilter === cat ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-200 text-slate-700 font-semibold'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Delete category "${cat}"? Products using it will be unlinked.`)) {
+                            setCustomCategories(prev => prev.filter(c => c !== cat));
+                            if (selectedCategoryFilter === cat) setSelectedCategoryFilter(null);
+                          }
+                        }}
+                        className="ml-2 p-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0 cursor-pointer bg-transparent border-none"
+                        title="Delete Category"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -3448,33 +3470,52 @@ export default function DashboardProducts({
                   const count = products.filter(p => p.brand?.toLowerCase() === b.name.toLowerCase()).length;
                   const initials = b.name.slice(0, 2).toUpperCase();
                   return (
-                    <button
+                    <div
                       key={b.name}
-                      onClick={() => setSelectedBrandFilter(b.name)}
-                      className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between font-medium cursor-pointer ${
+                      className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between font-medium ${
                         selectedBrandFilter?.toLowerCase() === b.name.toLowerCase()
                           ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-bold shadow-xs'
                           : 'bg-slate-50 border-slate-150 text-slate-600 hover:bg-slate-100'
                       }`}
                     >
-                      <div className="flex items-center space-x-2.5 min-w-0">
-                        {b.logo ? (
-                          <div className="w-5 h-5 bg-white border border-slate-200 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center p-0.5">
-                            <img src={b.logo} alt={b.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                          </div>
-                        ) : (
-                          <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-black flex items-center justify-center text-[7.5px] font-mono leading-none flex-shrink-0 uppercase">
-                            {initials}
-                          </span>
-                        )}
-                        <span className="truncate pr-1">{b.name}</span>
-                      </div>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono leading-none flex-shrink-0 ${
-                        selectedBrandFilter?.toLowerCase() === b.name.toLowerCase() ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-200 text-slate-700 font-semibold'
-                      }`}>
-                        {count}
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBrandFilter(b.name)}
+                        className="flex items-center justify-between flex-1 min-w-0 cursor-pointer bg-transparent border-none text-left"
+                      >
+                        <div className="flex items-center space-x-2.5 min-w-0">
+                          {b.logo ? (
+                            <div className="w-5 h-5 bg-white border border-slate-200 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center p-0.5">
+                              <img src={b.logo} alt={b.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                            </div>
+                          ) : (
+                            <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-black flex items-center justify-center text-[7.5px] font-mono leading-none flex-shrink-0 uppercase">
+                              {initials}
+                            </span>
+                          )}
+                          <span className="truncate pr-1">{b.name}</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono leading-none flex-shrink-0 ${
+                          selectedBrandFilter?.toLowerCase() === b.name.toLowerCase() ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-200 text-slate-700 font-semibold'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Delete brand "${b.name}"? Products using it will be unlinked.`)) {
+                            setCustomBrands(prev => prev.filter(br => br.name !== b.name));
+                            if (selectedBrandFilter === b.name) setSelectedBrandFilter(null);
+                          }
+                        }}
+                        className="ml-2 p-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0 cursor-pointer bg-transparent border-none"
+                        title="Delete Brand"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -4461,3 +4502,4 @@ export default function DashboardProducts({
     </div>
   );
 }
+
