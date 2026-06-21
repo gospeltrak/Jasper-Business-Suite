@@ -161,6 +161,10 @@ export default function DashboardProducts({
         const editFullDosePrice = Number(editForm.fullDosePrice || (editDosesPerPacket > 0 ? sellPrice / editDosesPerPacket : sellPrice));
         const editHalfDosePrice = Number(editForm.halfDosePrice || editFullDosePrice / 2);
         const editTabPrice = Number(editForm.tabPrice || (editTabsPerPacket > 0 ? sellPrice / editTabsPerPacket : sellPrice));
+        const editBaseUnit = editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || editForm.unit || 'Unit';
+        const editPurchaseUnit = editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package';
+        const editConversionToBase = Math.max(0.001, Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || editForm.bulkPurchaseQty || 1));
+        const editPricePerBase = Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0);
         return {
           ...p,
           name: editForm.name || '',
@@ -180,22 +184,25 @@ export default function DashboardProducts({
           wholesalePrice: editForm.sellInWholesale ? (editForm.wholesalePrice ?? 0) : undefined,
           minWholesaleQty: editForm.sellInWholesale ? (editForm.minWholesaleQty ?? 10) : undefined,
           isBulkProduct: editForm.isBulkProduct,
-          bulkUnit: editForm.isBulkProduct ? editForm.bulkUnit : undefined,
-          bulkPurchaseQty: editForm.isBulkProduct ? editForm.bulkPurchaseQty : undefined,
-          sellUnit: editForm.isBulkProduct ? editForm.sellUnit : undefined,
-          sellUnitQty: editForm.isBulkProduct ? editForm.sellUnitQty : undefined,
-          sellUnitPrice: editForm.isBulkProduct ? editForm.sellUnitPrice : undefined,
-          bulkToUnitsRatio: editForm.isBulkProduct ? ((Number(editForm.bulkPurchaseQty) || 1) / (Number(editForm.sellUnitQty) || 1)) : undefined,
+          bulkUnit: editForm.isBulkProduct ? editPurchaseUnit : undefined,
+          bulkPurchaseQty: editForm.isBulkProduct ? editConversionToBase : undefined,
+          sellUnit: editForm.isBulkProduct ? editBaseUnit : undefined,
+          sellUnitQty: editForm.isBulkProduct ? 1 : undefined,
+          sellUnitPrice: editForm.isBulkProduct ? editPricePerBase : undefined,
+          bulkToUnitsRatio: editForm.isBulkProduct ? editConversionToBase : undefined,
           sellingMode: editForm.isBulkProduct ? editForm.sellingMode : undefined,
           costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
           sellingMethod: mapCostingMethodToLegacy(editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo'),
           allowPosMethodOverride: !!editForm.allowPosMethodOverride,
           allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
-          purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : (editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || editForm.unit || 'Unit'),
-          baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || editForm.unit || 'Unit'),
-          conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1),
+          purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : editPurchaseUnit,
+          baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : editBaseUnit,
+          conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : editConversionToBase,
+          packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase,
+          wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * editConversionToBase,
+          halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * (editConversionToBase / 2),
           allowCustomQuantity: editForm.allowCustomQuantity !== false,
-          defaultPricePerBaseUnit: Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0),
+          defaultPricePerBaseUnit: editPricePerBase,
           fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
           dosesPerPacket: activeTenant.businessType === 'pharmacy' ? editDosesPerPacket : editForm.dosesPerPacket,
           tabsPerDose: activeTenant.businessType === 'pharmacy' ? editTabsPerDose : editForm.tabsPerDose,
@@ -218,11 +225,14 @@ export default function DashboardProducts({
             costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
             allowPosMethodOverride: !!editForm.allowPosMethodOverride,
             allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
-            purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : (editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || editForm.unit || 'Unit'),
-            baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || editForm.unit || 'Unit'),
-            conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1),
+            purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : editPurchaseUnit,
+            baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : editBaseUnit,
+            conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : editConversionToBase,
+            packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase,
+            wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * editConversionToBase,
+            halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * (editConversionToBase / 2),
             allowCustomQuantity: editForm.allowCustomQuantity !== false,
-            defaultPricePerBaseUnit: Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0),
+            defaultPricePerBaseUnit: editPricePerBase,
             fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
             pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
               ? {
@@ -663,6 +673,10 @@ export default function DashboardProducts({
     const pharmacyFullDosePrice = Number(fullDosePrice) || (pharmacyPacketPrice / pharmacyDosesPerPacket);
     const pharmacyHalfDosePrice = Number(halfDosePrice) || (pharmacyFullDosePrice / 2);
     const pharmacyTabPrice = Number(tabPrice) || (pharmacyPacketPrice / pharmacyTabsPerPacket);
+    const retailBaseUnit = baseUnit || unit || 'Unit';
+    const retailPurchaseUnit = purchaseUnit || bulkUnit || 'Package';
+    const retailConversionToBaseUnit = Math.max(0.001, Number(conversionToBaseUnit) || Number(bulkPurchaseQty) || 1);
+    const retailPricePerBaseUnit = Number(sellUnitPrice) || finalSellingPrice;
 
     const newProd: Product = {
       id: 'p-' + Math.random().toString(36).substr(2, 9),
@@ -687,11 +701,14 @@ export default function DashboardProducts({
       sellingMethod: mapCostingMethodToLegacy(costingMethod),
       allowPosMethodOverride,
       allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (allowScaleSelling || isBulkProduct),
-      purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : purchaseUnit,
-      baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : baseUnit,
-      conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : (Number(conversionToBaseUnit) || 1),
+      purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : retailPurchaseUnit,
+      baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : retailBaseUnit,
+      conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
+      packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit,
+      wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * retailConversionToBaseUnit,
+      halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
       allowCustomQuantity,
-      defaultPricePerBaseUnit: Number(sellUnitPrice) || finalSellingPrice,
+      defaultPricePerBaseUnit: activeTenant.businessType === 'pharmacy' ? finalSellingPrice : retailPricePerBaseUnit,
       dosesPerPacket: activeTenant.businessType === 'pharmacy' ? pharmacyDosesPerPacket : undefined,
       tabsPerDose: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerDose : undefined,
       tabsPerPack: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : undefined,
@@ -701,7 +718,7 @@ export default function DashboardProducts({
       halfDosePrice: activeTenant.businessType === 'pharmacy' ? pharmacyHalfDosePrice : undefined,
       tabPrice: activeTenant.businessType === 'pharmacy' ? pharmacyTabPrice : undefined,
       fractionSaleOptions: activeTenant.businessType !== 'pharmacy' && (allowScaleSelling || isBulkProduct)
-        ? getDefaultFractionOptions(baseUnit, Number(sellUnitPrice) || finalSellingPrice)
+        ? getDefaultFractionOptions(retailBaseUnit, retailPricePerBaseUnit)
         : undefined,
       pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
         ? {
@@ -716,13 +733,16 @@ export default function DashboardProducts({
         costingMethod,
         allowPosMethodOverride,
         allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (allowScaleSelling || isBulkProduct),
-        purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : purchaseUnit,
-        baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : baseUnit,
-        conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : (Number(conversionToBaseUnit) || 1),
+        purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : retailPurchaseUnit,
+        baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : retailBaseUnit,
+        conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
+        packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit,
+        wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * retailConversionToBaseUnit,
+        halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
         allowCustomQuantity,
-        defaultPricePerBaseUnit: Number(sellUnitPrice) || finalSellingPrice,
+        defaultPricePerBaseUnit: activeTenant.businessType === 'pharmacy' ? finalSellingPrice : retailPricePerBaseUnit,
         fractionSaleOptions: activeTenant.businessType !== 'pharmacy' && (allowScaleSelling || isBulkProduct)
-          ? getDefaultFractionOptions(baseUnit, Number(sellUnitPrice) || finalSellingPrice)
+          ? getDefaultFractionOptions(retailBaseUnit, retailPricePerBaseUnit)
           : undefined,
         pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
           ? {
@@ -737,12 +757,12 @@ export default function DashboardProducts({
       
       isBulkProduct,
       ...(isBulkProduct && {
-        bulkUnit,
-        bulkPurchaseQty: Number(bulkPurchaseQty) || 0,
-        sellUnit,
-        sellUnitQty: Number(sellUnitQty) || 1,
-        sellUnitPrice: Number(sellUnitPrice) || 0,
-        bulkToUnitsRatio: (Number(bulkPurchaseQty) || 1) / (Number(sellUnitQty) || 1),
+        bulkUnit: retailPurchaseUnit,
+        bulkPurchaseQty: retailConversionToBaseUnit,
+        sellUnit: retailBaseUnit,
+        sellUnitQty: 1,
+        sellUnitPrice: retailPricePerBaseUnit,
+        bulkToUnitsRatio: retailConversionToBaseUnit,
         sellingMode,
       })
     };
@@ -1593,22 +1613,24 @@ export default function DashboardProducts({
 
                   <div className="grid grid-cols-2 gap-3.5 border-b border-dashed border-slate-100 pb-3">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Shop Shelf stock (Units)</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Shop Stock ({isBulkProduct && activeTenant.businessType !== 'pharmacy' ? baseUnit : 'Units'})</label>
                       <input 
                         type="number" 
                         min="0"
+                        step="0.001"
                         value={shopStockQty}
-                        onChange={(e) => setShopStockQty(Math.max(0, parseInt(e.target.value) || 0))}
+                        onChange={(e) => setShopStockQty(Math.max(0, parseFloat(e.target.value) || 0))}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Warehouse Storage (Units)</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Store Stock ({isBulkProduct && activeTenant.businessType !== 'pharmacy' ? baseUnit : 'Units'})</label>
                       <input 
                         type="number" 
                         min="0"
+                        step="0.001"
                         value={storeStockQty}
-                        onChange={(e) => setStoreStockQty(Math.max(0, parseInt(e.target.value) || 0))}
+                        onChange={(e) => setStoreStockQty(Math.max(0, parseFloat(e.target.value) || 0))}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
                       />
                     </div>
@@ -1620,8 +1642,9 @@ export default function DashboardProducts({
                     <input 
                       type="number" 
                       min="1"
+                      step="0.001"
                       value={alertQty}
-                      onChange={(e) => setAlertQty(Math.max(1, parseInt(e.target.value) || 0))}
+                      onChange={(e) => setAlertQty(Math.max(0.001, parseFloat(e.target.value) || 0))}
                       className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none mt-1"
                     />
                   </div>
@@ -1746,7 +1769,7 @@ export default function DashboardProducts({
                 <div className="flex items-center justify-between">
                   <div>
                     <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Smart Batch Costing</h5>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Applies to all inventory.</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">FIFO, average, and batch price control.</p>
                   </div>
                   <label className="flex items-center space-x-2 text-[10px] font-bold text-slate-600 uppercase">
                     <input
@@ -1778,20 +1801,20 @@ export default function DashboardProducts({
                 {activeTenant.businessType !== 'pharmacy' && (
                   <div className="grid grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Purchase Unit</label>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
                       <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Base Unit</label>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Sell / Count Unit</label>
                       <input value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Conversion</label>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">1 Package Contains</label>
                       <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                     </div>
                     <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
                       <input type="checkbox" checked={allowScaleSelling} onChange={(e) => setAllowScaleSelling(e.target.checked)} className="accent-emerald-600" />
-                      Scale Sale
+                      Fraction Sale
                     </label>
                   </div>
                 )}
@@ -1838,7 +1861,7 @@ export default function DashboardProducts({
               {/* Bidhaa ya Jumla / Bulk Product SECTION */}
               <div className="space-y-4 pt-2 border-t border-slate-150">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-slate-800">{t('bulkProduct')}</span>
+                  <span className="font-bold text-sm text-slate-800">Retail Package Selling</span>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input 
                       type="checkbox" 
@@ -1854,7 +1877,7 @@ export default function DashboardProducts({
                   <div className="p-4 bg-slate-50 border border-emerald-100 rounded-2xl space-y-4">
                     {/* Mode Selector */}
                     <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">{t('sellByWeightOrPcs')}</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Sell Mode</label>
                       <div className="flex bg-white rounded-lg p-1 border border-slate-200">
                         <button 
                           type="button"
@@ -1883,45 +1906,44 @@ export default function DashboardProducts({
                     {/* Inputs */}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">{t('buyIn')} (Qty)</label>
-                        <input type="number" value={bulkPurchaseQty} onChange={e => setBulkPurchaseQty(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">1 {purchaseUnit || 'Package'} contains</label>
+                        <input type="number" step="0.001" value={conversionToBaseUnit} onChange={e => {
+                          const value = e.target.value === '' ? '' : Number(e.target.value);
+                          setConversionToBaseUnit(value);
+                          setBulkPurchaseQty(value);
+                        }} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">{t('buyIn')} (Unit)</label>
-                        <select value={bulkUnit} onChange={e => setBulkUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl">
-                          <option value="KG">KG</option>
-                          <option value="Crate">Crate</option>
-                          <option value="Sack">Sack</option>
-                          <option value="Box">Box</option>
-                          <option value="Litre">Litre</option>
-                          <option value="Bundle">Bundle</option>
-                          <option value="Dozen">Dozen</option>
-                        </select>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Base Unit</label>
+                        <input value={baseUnit} onChange={e => {
+                          setBaseUnit(e.target.value);
+                          setSellUnit(e.target.value);
+                        }} placeholder="kg, litre, pcs" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">{t('sellIn')} (Qty / Name)</label>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Quick Sale Portions</label>
                         {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
                            <div className="flex space-x-1 overflow-x-auto scrollbar-hide flex-wrap gap-y-1">
                              {['0.25', '0.5', '0.75', '1'].map(f => (
-                               <button type="button" key={f} onClick={() => { setSellUnit(`${f} ${bulkUnit.toLowerCase()}`); setSellUnitQty(Number(f)); }} className="px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 rounded">{f}</button>
+                               <button type="button" key={f} onClick={() => { setSellUnit(baseUnit); setSellUnitQty(Number(f)); }} className="px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 rounded">{f} {baseUnit}</button>
                              ))}
-                             <input type="text" value={sellUnit} onChange={e => setSellUnit(e.target.value)} className="w-16 bg-white border border-slate-200 text-[10px] px-2 py-1 rounded mt-1" />
+                             <input type="text" value={sellUnit} onChange={e => setSellUnit(e.target.value)} className="w-20 bg-white border border-slate-200 text-[10px] px-2 py-1 rounded mt-1" />
                            </div>
                         ) : (
                            <input type="text" value={sellUnit} onChange={e => setSellUnit(e.target.value)} placeholder="Per piece" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                         )}
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Ratio / Portion Qty</label>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Default Portion Qty</label>
                         <input type="number" step="0.01" value={sellUnitQty} onChange={e => setSellUnitQty(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                       </div>
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">{t('pricePerUnit')}</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Price per 1 {baseUnit || 'unit'}</label>
                       <input type="number" value={sellUnitPrice} onChange={e => setSellUnitPrice(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold" />
                     </div>
 
@@ -1929,11 +1951,11 @@ export default function DashboardProducts({
                     <div className="bg-emerald-600 text-white rounded-2xl p-4 space-y-2 text-xs font-mono shadow-md shadow-emerald-600/20">
                       <div className="flex justify-between font-bold">
                         <span>{t('totalUnitsFromPurchase')}</span>
-                        <span>{Number(bulkPurchaseQty) || 0} ÷ {Number(sellUnitQty) || 1} = {formatProductQuantity(((Number(bulkPurchaseQty) || 0) / (Number(sellUnitQty) || 1)), { unit: sellUnit || baseUnit } as Product)}</span>
+                        <span>1 {purchaseUnit || 'package'} = {formatProductQuantity(Number(conversionToBaseUnit) || 0, { unit: baseUnit } as Product)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>{t('totalRevenueIfAllSold')}</span>
-                        <span>{currency}{(((Number(bulkPurchaseQty) || 0) / (Number(sellUnitQty) || 1)) * (Number(sellUnitPrice) || 0)).toLocaleString()}</span>
+                        <span>Whole package sale value</span>
+                        <span>{currency}{((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Cost of purchase:</span>
@@ -1941,7 +1963,7 @@ export default function DashboardProducts({
                       </div>
                       <div className="flex justify-between font-bold border-t border-emerald-500 pt-2 text-emerald-100">
                         <span>{t('grossProfit')}:</span>
-                        <span>{currency}{((((Number(bulkPurchaseQty) || 0) / (Number(sellUnitQty) || 1)) * (Number(sellUnitPrice) || 0)) - costPrice).toLocaleString()}</span>
+                        <span>{currency}{(((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)) - costPrice).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between font-bold text-emerald-100">
                         <span>{t('breakevenUnits')}:</span>
@@ -3819,26 +3841,28 @@ export default function DashboardProducts({
 
                   <div className="grid grid-cols-2 gap-3 pb-1 font-mono">
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Shop shelf (Units)</label>
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Shop shelf ({editForm.isBulkProduct && activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || 'units') : 'Units'})</label>
                       <input 
                         type="number" 
                         min="0"
+                        step="0.001"
                         value={editForm.shopStockQty ?? 0}
                         onChange={(e) => {
-                          const val = Math.max(0, parseInt(e.target.value) || 0);
+                          const val = Math.max(0, parseFloat(e.target.value) || 0);
                           setEditForm(prev => ({ ...prev, shopStockQty: val }));
                         }}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-mono outline-none"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">store rooms (Units)</label>
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">store rooms ({editForm.isBulkProduct && activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || 'units') : 'Units'})</label>
                       <input 
                         type="number" 
                         min="0"
+                        step="0.001"
                         value={editForm.storeStockQty ?? 0}
                         onChange={(e) => {
-                          const val = Math.max(0, parseInt(e.target.value) || 0);
+                          const val = Math.max(0, parseFloat(e.target.value) || 0);
                           setEditForm(prev => ({ ...prev, storeStockQty: val }));
                         }}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-mono outline-none"
@@ -3851,9 +3875,10 @@ export default function DashboardProducts({
                     <input 
                       type="number" 
                       min="1"
+                      step="0.001"
                       value={editForm.alertQty ?? 5}
                       onChange={(e) => {
-                        const val = Math.max(1, parseInt(e.target.value) || 1);
+                        const val = Math.max(0.001, parseFloat(e.target.value) || 1);
                         setEditForm(prev => ({ ...prev, alertQty: val }));
                       }}
                       className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-mono outline-none"
@@ -4030,15 +4055,15 @@ export default function DashboardProducts({
                   {activeTenant.businessType !== 'pharmacy' && (
                     <div className="grid grid-cols-3 gap-3">
                       <div className="space-y-1">
-                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Purchase Unit</label>
+                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Package Name</label>
                         <input value={editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, purchaseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Base Unit</label>
+                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Sell / Count Unit</label>
                         <input value={editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, baseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Conversion</label>
+                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">1 Package Contains</label>
                         <input type="number" step="0.001" value={editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1} onChange={e => setEditForm(prev => ({ ...prev, conversionToBaseUnit: Number(e.target.value) || 1 }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                       </div>
                     </div>
@@ -4089,7 +4114,7 @@ export default function DashboardProducts({
                   <div className="bg-slate-50 border-b border-slate-200 px-4 py-2.5 flex justify-between items-center">
                     <div className="flex items-center space-x-2">
                       <Scale className="w-3.5 h-3.5 text-slate-500" />
-                      <span className="font-bold text-[11px] text-slate-700 uppercase tracking-widest">{t('bulkProduct')}</span>
+                      <span className="font-bold text-[11px] text-slate-700 uppercase tracking-widest">Retail Package Selling</span>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
@@ -4135,31 +4160,26 @@ export default function DashboardProducts({
                       {/* Inputs */}
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <label className="text-[9.5px] font-bold text-slate-450 uppercase block">{t('buyIn')} (Qty)</label>
-                          <input type="number" value={editForm.bulkPurchaseQty ?? ''} onChange={e => setEditForm(prev => ({ ...prev, bulkPurchaseQty: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                          <label className="text-[9.5px] font-bold text-slate-450 uppercase block">1 Package Contains</label>
+                          <input type="number" step="0.001" value={editForm.conversionToBaseUnit ?? editForm.inventorySettings?.conversionToBaseUnit ?? editForm.bulkPurchaseQty ?? ''} onChange={e => {
+                            const value = e.target.value === '' ? undefined : Number(e.target.value);
+                            setEditForm(prev => ({ ...prev, conversionToBaseUnit: value, bulkPurchaseQty: value }));
+                          }} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[9.5px] font-bold text-slate-450 uppercase block">{t('buyIn')} (Unit)</label>
-                          <select value={editForm.bulkUnit ?? 'KG'} onChange={e => setEditForm(prev => ({ ...prev, bulkUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-[11px] px-2 py-2 rounded-xl">
-                            <option value="KG">KG</option>
-                            <option value="Crate">Crate</option>
-                            <option value="Sack">Sack</option>
-                            <option value="Box">Box</option>
-                            <option value="Litre">Litre</option>
-                            <option value="Bundle">Bundle</option>
-                            <option value="Dozen">Dozen</option>
-                          </select>
+                          <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Base Unit</label>
+                          <input value={editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, baseUnit: e.target.value, sellUnit: e.target.value }))} placeholder="kg, litre, pcs" className="w-full bg-slate-50 border border-slate-200 text-[11px] px-2 py-2 rounded-xl" />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <label className="text-[9.5px] font-bold text-slate-450 uppercase block">{t('sellIn')} (Qty/Name)</label>
+                          <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Quick Sale Portions</label>
                           {editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid' ? (
                             <div className="flex flex-col space-y-1">
                              <div className="flex space-x-1 overflow-x-auto scrollbar-hide flex-wrap gap-y-1">
                                {['0.25', '0.5', '0.75', '1'].map(f => (
-                                 <button type="button" key={f} onClick={() => setEditForm(prev => ({ ...prev, sellUnit: `${f} ${editForm.bulkUnit?.toLowerCase() || 'kg'}`, sellUnitQty: Number(f) }))} className="px-1.5 py-0.5 text-[9px] font-bold bg-slate-50 border border-slate-200 rounded">{f}</button>
+                                 <button type="button" key={f} onClick={() => setEditForm(prev => ({ ...prev, sellUnit: prev.baseUnit || prev.inventorySettings?.baseUnit || 'kg', sellUnitQty: Number(f) }))} className="px-1.5 py-0.5 text-[9px] font-bold bg-slate-50 border border-slate-200 rounded">{f}</button>
                                ))}
                              </div>
                              <input type="text" value={editForm.sellUnit ?? ''} onChange={e => setEditForm(prev => ({ ...prev, sellUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-[10px] px-2 py-1.5 rounded-lg" />
@@ -4169,25 +4189,25 @@ export default function DashboardProducts({
                           )}
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Portion Qty</label>
+                          <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Default Portion Qty</label>
                           <input type="number" step="0.01" value={editForm.sellUnitQty ?? ''} onChange={e => setEditForm(prev => ({ ...prev, sellUnitQty: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-slate-50 border border-slate-200 text-[11px] px-3 py-2 rounded-xl" />
                         </div>
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">{t('pricePerUnit')}</label>
-                        <input type="number" value={editForm.sellUnitPrice ?? ''} onChange={e => setEditForm(prev => ({ ...prev, sellUnitPrice: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold" />
+                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Price per 1 {editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || 'unit'}</label>
+                        <input type="number" value={editForm.sellUnitPrice ?? editForm.defaultPricePerBaseUnit ?? editForm.inventorySettings?.defaultPricePerBaseUnit ?? ''} onChange={e => setEditForm(prev => ({ ...prev, sellUnitPrice: e.target.value === '' ? undefined : Number(e.target.value), defaultPricePerBaseUnit: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold" />
                       </div>
 
                       {/* Auto-calculation display */}
                       <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 space-y-1 mt-2 text-[10px] font-mono text-emerald-800">
                         <div className="flex justify-between font-bold">
                           <span>{t('totalUnitsFromPurchase')}</span>
-                          <span>{formatProductQuantity(((Number(editForm.bulkPurchaseQty) || 0) / (Number(editForm.sellUnitQty) || 1)), { unit: editForm.sellUnit || editForm.baseUnit || editForm.unit } as Product)}</span>
+                          <span>1 {editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'package'} = {formatProductQuantity(Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || editForm.bulkPurchaseQty || 0), { unit: editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || editForm.unit } as Product)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>{t('totalRevenueIfAllSold')}</span>
-                          <span>{currency}{(((Number(editForm.bulkPurchaseQty) || 0) / (Number(editForm.sellUnitQty) || 1)) * (Number(editForm.sellUnitPrice) || 0)).toLocaleString()}</span>
+                          <span>Whole package value</span>
+                          <span>{currency}{((Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || editForm.bulkPurchaseQty || 0)) * (Number(editForm.sellUnitPrice || editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || 0))).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Cost:</span>
@@ -4195,7 +4215,7 @@ export default function DashboardProducts({
                         </div>
                         <div className="flex justify-between font-bold border-t border-emerald-200 pt-1 mt-1 text-emerald-900">
                           <span>{t('grossProfit')}:</span>
-                          <span>{currency}{((((Number(editForm.bulkPurchaseQty) || 0) / (Number(editForm.sellUnitQty) || 1)) * (Number(editForm.sellUnitPrice) || 0)) - (editForm.costPrice ?? 0)).toLocaleString()}</span>
+                          <span>{currency}{(((Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || editForm.bulkPurchaseQty || 0)) * (Number(editForm.sellUnitPrice || editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || 0))) - (editForm.costPrice ?? 0)).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between font-bold text-emerald-900">
                           <span>{t('breakevenUnits')}:</span>

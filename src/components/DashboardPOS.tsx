@@ -527,6 +527,30 @@ export default function DashboardPOS({
     return `${fullPackets} packet${fullPackets === 1 ? '' : 's'}, ${fullDoses} dose${fullDoses === 1 ? '' : 's'}, ${tabs} tab${tabs === 1 ? '' : 's'}`;
   };
 
+  const getRetailPackageConfig = (product: Product) => {
+    const baseUnit = product.inventorySettings?.baseUnit || product.baseUnit || product.sellUnit || product.unit || 'unit';
+    const purchaseUnit = product.inventorySettings?.purchaseUnit || product.purchaseUnit || product.bulkUnit || 'package';
+    const conversionToBaseUnit = Math.max(0.001, Number(product.inventorySettings?.conversionToBaseUnit || product.conversionToBaseUnit || product.bulkPurchaseQty || 1));
+    const pricePerBaseUnit = Number(product.inventorySettings?.defaultPricePerBaseUnit || product.defaultPricePerBaseUnit || product.packageUnitPrice || product.sellUnitPrice || product.sellingPrice || 0);
+    return {
+      baseUnit,
+      purchaseUnit,
+      conversionToBaseUnit,
+      pricePerBaseUnit,
+      wholePrice: pricePerBaseUnit * conversionToBaseUnit,
+      halfPrice: pricePerBaseUnit * (conversionToBaseUnit / 2),
+    };
+  };
+
+  const formatRetailPackageRemaining = (baseQty: number, product: Product) => {
+    const cfg = getRetailPackageConfig(product);
+    if (!product.isBulkProduct) return `${formatProductQuantity(baseQty, product)} left`;
+    const safeQty = Math.max(0, Number(baseQty || 0));
+    const wholePackages = Math.floor(safeQty / cfg.conversionToBaseUnit);
+    const remainingBase = Number((safeQty - (wholePackages * cfg.conversionToBaseUnit)).toFixed(3));
+    return `${formatProductQuantity(safeQty, { ...product, unit: cfg.baseUnit } as Product)} left (${wholePackages} ${cfg.purchaseUnit}, ${formatProductQuantity(remainingBase, { ...product, unit: cfg.baseUnit } as Product)})`;
+  };
+
   // Filtering products for current tenant active list
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -618,7 +642,9 @@ export default function DashboardPOS({
           const boxWeight = activeTenant.businessType === 'pharmacy' ? getPharmacyDoseWeight(i.product, activeType, i.tabsSelected) : 1;
 
           if (newQty * boxWeight > shopQty) {
-            const maxQty = Math.max(1, Math.floor(shopQty / boxWeight));
+            const maxQty = activeTenant.businessType === 'pharmacy'
+              ? Math.max(1, Math.floor(shopQty / boxWeight))
+              : Number(shopQty.toFixed(3));
             setPosWarning(`Stock Limit: Maximum possible quantity for "${i.product.name}" is ${formatProductQuantity(maxQty, i.product)} based on stock!`);
             return { ...i, qty: maxQty };
           }
@@ -734,10 +760,8 @@ export default function DashboardPOS({
 
     if (item.product.isBulkProduct) {
       const bMode = item.bulkSellMode || (item.product.sellingMode === 'hybrid' ? 'scale' : item.product.sellingMode);
-      if (bMode === 'scale') {
-        unitPrice = (item.product.sellUnitPrice || channelBasePrice) / (item.product.sellUnitQty || 1);
-      } else if (bMode === 'pcs') {
-        unitPrice = item.product.sellUnitPrice || channelBasePrice;
+      if (bMode === 'scale' || bMode === 'pcs') {
+        unitPrice = getRetailPackageConfig(item.product).pricePerBaseUnit || channelBasePrice;
       }
     }
 
@@ -860,11 +884,8 @@ export default function DashboardPOS({
       let ratioScaling = 1;
 
       if (isBulk) {
-        if (bMode === 'scale') {
-           unitPrice = (i.product.sellUnitPrice || 0) / (i.product.sellUnitQty || 1);
-        } else if (bMode === 'pcs') {
-           unitPrice = i.product.sellUnitPrice || 0;
-           ratioScaling = (Number(i.product.bulkPurchaseQty) || 1) / (Number(i.product.sellUnitQty) || 1);
+        if (bMode === 'scale' || bMode === 'pcs') {
+           unitPrice = getRetailPackageConfig(i.product).pricePerBaseUnit || channelBasePrice;
         }
       }
 
@@ -888,9 +909,7 @@ export default function DashboardPOS({
 
       // Process Batches deduction!
       let deductQtyReal = i.qty;
-      if (bMode === 'pcs' && isBulk) {
-          deductQtyReal = i.qty / Math.max(ratioScaling, 1);
-      } else if (isPharmacy && dType !== 'packet') {
+      if (isPharmacy && dType !== 'packet') {
           deductQtyReal = i.qty / ratioScaling;
       }
       
@@ -989,12 +1008,7 @@ export default function DashboardPOS({
         
         if (prod.isBulkProduct) {
           const bMode = soldItem.bulkSellMode || (prod.sellingMode === 'hybrid' ? 'scale' : prod.sellingMode);
-          if (bMode === 'scale') {
-            deductQty = soldItem.qty;
-          } else if (bMode === 'pcs') {
-            const ratio = (Number(prod.bulkPurchaseQty) || 1) / (Number(prod.sellUnitQty) || 1);
-            deductQty = soldItem.qty / Math.max(ratio, 1);
-          }
+          deductQty = soldItem.qty;
         } else if (activeTenant.businessType === 'pharmacy') {
           const dType = soldItem.dosageType || 'packet';
           if (dType !== 'packet') {
@@ -1439,7 +1453,7 @@ export default function DashboardPOS({
                           {prod.category}
                         </span>
                         <span className="text-[9px] font-mono text-slate-450 font-bold bg-slate-100 px-1.5 py-0.5 rounded-xs leading-none">
-                          {activeTenant.businessType === 'pharmacy' ? formatPharmacyRemaining(shopQty, prod) : `${formatProductQuantity(shopQty, prod)} left`}
+                          {activeTenant.businessType === 'pharmacy' ? formatPharmacyRemaining(shopQty, prod) : formatRetailPackageRemaining(shopQty, prod)}
                         </span>
                       </div>
                       <h5 className={`font-extrabold text-xs text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 md:min-h-[2.25rem]' : 'truncate md:text-sm'}`} title={prod.name}>
@@ -1587,7 +1601,9 @@ export default function DashboardPOS({
               }
               const projectedRemaining = isPharmacy
                 ? formatPharmacyRemaining((item.product.shopStockQty || 0) - (item.qty * getPharmacyDoseWeight(item.product, dosageType, item.tabsSelected)), item.product)
-                : '';
+                : item.product.isBulkProduct
+                  ? formatRetailPackageRemaining((item.product.shopStockQty || 0) - item.qty, item.product)
+                  : '';
 
               const isCash = item.discountType === 'cash';
               const discountPrice = isCash
@@ -1631,7 +1647,14 @@ export default function DashboardPOS({
                           )}
                           {((item.bulkSellMode || (item.product.sellingMode === 'hybrid' ? 'scale' : item.product.sellingMode)) === 'scale') ? (
                             <div className="flex space-x-1">
-                              {[{ label: '1/4', val: 0.25 }, { label: '1/2', val: 0.5 }, { label: '3/4', val: 0.75 }, { label: '1', val: 1 }].map(f => (
+                              {[
+                                { label: 'Whole', val: getRetailPackageConfig(item.product).conversionToBaseUnit },
+                                { label: 'Half', val: getRetailPackageConfig(item.product).conversionToBaseUnit / 2 },
+                                { label: '1/4', val: 0.25 },
+                                { label: '1/2', val: 0.5 },
+                                { label: '3/4', val: 0.75 },
+                                { label: `1 ${getRetailPackageConfig(item.product).baseUnit}`, val: 1 },
+                              ].map(f => (
                                 <button type="button" key={f.label} onClick={() => updateCartQtyDirect(item.product.id, f.val)} className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px] font-bold text-slate-700 hover:bg-slate-50">{f.label}</button>
                               ))}
                               <input type="number" step="0.01" value={item.qty} onChange={(e) => updateCartQtyDirect(item.product.id, Number(e.target.value))} className="w-12 text-center font-black font-mono text-slate-800 bg-white border border-slate-200 rounded py-0.5 text-[10px] focus:outline-emerald-500" />
@@ -1723,6 +1746,14 @@ export default function DashboardPOS({
                           Remain: {projectedRemaining}
                         </span>
                       </div>
+                    </div>
+                  )}
+                  {!isPharmacy && item.product.isBulkProduct && (
+                    <div className="pt-1.5 border-t border-dashed border-slate-200/50 flex flex-wrap gap-1.5 justify-start items-center text-[9px] font-mono text-slate-400">
+                      <span>
+                        {item.qty} {getRetailPackageConfig(item.product).baseUnit} x {currency}{Math.round(getRetailPackageConfig(item.product).pricePerBaseUnit).toLocaleString()}
+                      </span>
+                      <span>Remain: {projectedRemaining}</span>
                     </div>
                   )}
                 </div>

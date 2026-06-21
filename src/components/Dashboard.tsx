@@ -166,6 +166,18 @@ interface DashboardProps {
 
 import { NotificationCenterModal } from './NotificationCenterModal';
 
+const loadStoredRecord = <T,>(key: string, fallback: Record<string, T[]>): Record<string, T[]> => {
+  try {
+    const cached = localStorage.getItem(key);
+    if (!cached) return fallback;
+    const parsed = JSON.parse(cached);
+    return parsed && typeof parsed === 'object' ? { ...fallback, ...parsed } : fallback;
+  } catch (error) {
+    console.warn(`Failed to load ${key} from local storage`, error);
+    return fallback;
+  }
+};
+
 export default function Dashboard({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
   const { logoUrl, getFallbackInitials } = useTenantLogo();
@@ -288,9 +300,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     localStorage.setItem(`jasper_active_dashboard_tab_${user.id}_${activeTenant.id}`, activeTab);
   }, [activeTab, activeTenant.id, user.id]);
   const [actingStaffId, setActingStaffId] = useState<string>('logged-in-user');
-  const [productsMap, setProductsMap] = useState<Record<string, Product[]>>(() => DEFAULT_PRODUCTS);
-  const [salesMap, setSalesMap] = useState<Record<string, Sale[]>>(() => MOCK_SALES_HISTORY);
-  const [expensesMap, setExpensesMap] = useState<Record<string, Expense[]>>(() => MOCK_EXPENSES_HISTORY);
+  const [productsMap, setProductsMap] = useState<Record<string, Product[]>>(() => loadStoredRecord<Product>('jasper_products_map', DEFAULT_PRODUCTS));
+  const [salesMap, setSalesMap] = useState<Record<string, Sale[]>>(() => loadStoredRecord<Sale>('jasper_sales_map', MOCK_SALES_HISTORY));
+  const [expensesMap, setExpensesMap] = useState<Record<string, Expense[]>>(() => loadStoredRecord<Expense>('jasper_expenses_map', MOCK_EXPENSES_HISTORY));
   
   const [pendingDeliveryNotesMap, setPendingDeliveryNotesMap] = useState<Record<string, any[]>>(() => {
     const cached = localStorage.getItem('jasper_pending_delivery_notes_map');
@@ -858,6 +870,18 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const currentProductCount = activeProducts.length;
   const currentStoreCount = systemSettings.business?.registeredStores?.length || 1;
   const currentStaffCount = systemSettings.staffs?.length || 0;
+
+  useEffect(() => {
+    localStorage.setItem('jasper_products_map', JSON.stringify(productsMap));
+  }, [productsMap]);
+
+  useEffect(() => {
+    localStorage.setItem('jasper_sales_map', JSON.stringify(salesMap));
+  }, [salesMap]);
+
+  useEffect(() => {
+    localStorage.setItem('jasper_expenses_map', JSON.stringify(expensesMap));
+  }, [expensesMap]);
 
   const subStatus = checkSubscriptionStatus(
     subState,
