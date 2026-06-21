@@ -115,9 +115,17 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
 
   useEffect(() => {
     // Load dynamic SSP banners from admin platform
-    const savedBanners = localStorage.getItem("saas_promotional_banners");
+    const savedBanners =
+      localStorage.getItem("saas_promotional_banners") ||
+      localStorage.getItem("saas_ops_banners");
     if (savedBanners) {
-      setSspInventory(JSON.parse(savedBanners));
+      try {
+        const parsed = JSON.parse(savedBanners);
+        setSspInventory(Array.isArray(parsed) ? parsed : []);
+      } catch (error) {
+        console.error("Failed to load SSP inventory", error);
+        setSspInventory([]);
+      }
     }
     
     // Parse URL query arguments to support separate pathway links
@@ -4139,71 +4147,96 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                         )}
 
                         {/* Rendering dynamic SSP Ad Exchanges */}
-                        {sspInventory.find(
-                          (s) => s.id === activeCreativeTab,
-                        ) && (
-                          <div
-                            className="bg-slate-900 border border-emerald-500/50 flex flex-col items-center justify-center text-center p-6 shrink-0 relative overflow-hidden"
-                            style={{
-                              width:
-                                sspInventory
-                                  .find((s) => s.id === activeCreativeTab)
-                                  ?.size.split("x")[0] + "px",
-                              height:
-                                sspInventory
-                                  .find((s) => s.id === activeCreativeTab)
-                                  ?.size.split("x")[1] + "px",
-                              maxWidth: "100%",
-                              minHeight: "100px",
-                            }}
-                          >
-                            {sspInventory.find(
-                              (s) => s.id === activeCreativeTab,
-                            )?.creativeName ? (
-                              <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-slate-500">
-                                <span className="text-[10px] uppercase font-mono tracking-widest">
-                                  [SSP Ad:{" "}
-                                  {
-                                    sspInventory.find(
-                                      (s) => s.id === activeCreativeTab,
-                                    )?.creativeName
-                                  }
-                                  ]
-                                </span>
+                        {(() => {
+                          const sspAd = sspInventory.find(
+                            (s) => s.id === activeCreativeTab,
+                          );
+                          if (!sspAd) return null;
+
+                          const [rawWidth, rawHeight] = (sspAd.size || "300x250")
+                            .split("x")
+                            .map((value: string) => Number(value));
+                          const width = Number.isFinite(rawWidth) ? rawWidth : 300;
+                          const height = Number.isFinite(rawHeight) ? rawHeight : 250;
+                          const isVideo =
+                            sspAd.adType === "video" ||
+                            (sspAd.creativeMime || "").startsWith("video/");
+                          const isMedia =
+                            !!sspAd.assetData &&
+                            (sspAd.adType === "image" ||
+                              sspAd.adType === "motion" ||
+                              isVideo);
+
+                          return (
+                            <div
+                              className="bg-slate-900 border border-emerald-500/50 flex flex-col items-center justify-center text-center shrink-0 relative overflow-hidden"
+                              style={{
+                                width: `${width}px`,
+                                height: `${height}px`,
+                                maxWidth: "100%",
+                                minHeight: "100px",
+                              }}
+                            >
+                              {isMedia && isVideo && (
+                                <video
+                                  src={sspAd.assetData}
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                  controls
+                                  loop
+                                  muted
+                                  playsInline
+                                />
+                              )}
+                              {isMedia && !isVideo && (
+                                <img
+                                  src={sspAd.assetData}
+                                  alt={sspAd.title || "SSP creative"}
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                />
+                              )}
+                              {!isMedia && sspAd.message && (
+                                <div className="absolute inset-0 bg-slate-950 flex items-center justify-center p-4">
+                                  <p className="text-sm text-white font-bold leading-snug">
+                                    {sspAd.message}
+                                  </p>
+                                </div>
+                              )}
+                              {!isMedia && !sspAd.message && sspAd.creativeName && (
+                                <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-slate-500">
+                                  <span className="text-[10px] uppercase font-mono tracking-widest">
+                                    [SSP Ad: {sspAd.creativeName}]
+                                  </span>
+                                </div>
+                              )}
+                              <div className="relative z-10 w-full h-full flex flex-col justify-between bg-gradient-to-b from-slate-950/70 via-transparent to-slate-950/75 p-3 pointer-events-none">
+                                <div className="flex justify-end">
+                                  <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1 py-0.5 text-[7px] font-mono whitespace-nowrap">
+                                    Ads by Jasper Exchange
+                                  </span>
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="text-sm font-black text-white leading-tight uppercase px-2 line-clamp-2">
+                                    {sspAd.title}
+                                  </h4>
+                                  <p className="text-[9px] text-slate-200">
+                                    SSP Promo Code:{" "}
+                                    <span className="font-mono text-emerald-300 font-bold">
+                                      {activeAffiliate?.promoCode}
+                                    </span>
+                                  </p>
+                                  <a
+                                    href={sspAd.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-block mt-1 bg-emerald-500 text-slate-950 px-3 py-1 font-bold text-[9px] uppercase hover:bg-emerald-400 transition-colors pointer-events-auto"
+                                  >
+                                    Act Now
+                                  </a>
+                                </div>
                               </div>
-                            ) : null}
-                            <div className="relative z-10 w-full">
-                              <div className="absolute top-0 right-0 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1 py-0.5 text-[7px] font-mono whitespace-nowrap">
-                                Ads by Jasper Exchange
-                              </div>
-                              <h4 className="text-sm font-black text-white leading-tight uppercase px-4 truncate">
-                                {
-                                  sspInventory.find(
-                                    (s) => s.id === activeCreativeTab,
-                                  )?.title
-                                }
-                              </h4>
-                              <p className="text-[9px] text-slate-400 mt-2">
-                                SSP Promo Code:{" "}
-                                <span className="font-mono text-emerald-400 font-bold">
-                                  {activeAffiliate?.promoCode}
-                                </span>
-                              </p>
-                              <a
-                                href={
-                                  sspInventory.find(
-                                    (s) => s.id === activeCreativeTab,
-                                  )?.url
-                                }
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-block mt-3 bg-emerald-500 text-slate-950 px-3 py-1 font-bold text-[9px] uppercase hover:bg-emerald-400 transition-colors pointer-events-auto"
-                              >
-                                Act Now
-                              </a>
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
 
                       {/* Embed and direct buttons */}

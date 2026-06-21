@@ -21,6 +21,8 @@ import {
   UploadCloud,
   Heart,
   Image as ImageIcon,
+  MessageSquare,
+  Video,
   Store,
   Pill,
   Utensils,
@@ -97,6 +99,8 @@ export default function SuperSaaSAdminView({
   const [newBannerDestination, setNewBannerDestination] = useState('');
   const [newBannerStatus, setNewBannerStatus] = useState('Active');
   const [newBannerCreative, setNewBannerCreative] = useState<File | null>(null);
+  const [newBannerAdType, setNewBannerAdType] = useState<'image' | 'video' | 'motion' | 'message'>('image');
+  const [newBannerMessage, setNewBannerMessage] = useState('');
 
   const [mirroredAccount, setMirroredAccount] = useState<any | null>(null);
   const [isMirrorAffiliate, setIsMirrorAffiliate] = useState<boolean>(false);
@@ -157,7 +161,7 @@ export default function SuperSaaSAdminView({
 
   const initializeSaaSData = () => {
     const cachedPlacements = localStorage.getItem('saas_ops_placements');
-    const cachedBanners = localStorage.getItem('saas_ops_banners');
+    const cachedBanners = localStorage.getItem('saas_ops_banners') || localStorage.getItem('saas_promotional_banners');
     const cachedMessages = localStorage.getItem('saas_ops_messages');
 
     if (cachedPlacements && cachedBanners && cachedMessages) {
@@ -195,6 +199,7 @@ export default function SuperSaaSAdminView({
   const saveData = (placements: any[], activeBanners: any[], currentMessages: any[]) => {
     localStorage.setItem('saas_ops_placements', JSON.stringify(placements));
     localStorage.setItem('saas_ops_banners', JSON.stringify(activeBanners));
+    localStorage.setItem('saas_promotional_banners', JSON.stringify(activeBanners));
     localStorage.setItem('saas_ops_messages', JSON.stringify(currentMessages));
   };
 
@@ -269,35 +274,68 @@ export default function SuperSaaSAdminView({
   const handleCreateBanner = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBannerTitle.trim()) return;
+    if (newBannerAdType !== 'message' && !newBannerCreative) {
+      alert('Upload a creative file or choose Message Ad.');
+      return;
+    }
+    if (newBannerAdType === 'message' && !newBannerMessage.trim()) {
+      alert('Write the message ad text first.');
+      return;
+    }
 
-    const newAd = {
+    const persistAd = (assetData: string | null = null) => {
+      const newAd = {
       id: 'ban-' + Math.floor(Math.random() * 10000),
       title: newBannerTitle,
       size: newBannerSize,
       url: newBannerDestination || 'https://dukaplus.co.tz/upgrade',
       clicks: 0,
       status: newBannerStatus,
-      category: 'Banner Campaign',
-      creativeName: newBannerCreative ? newBannerCreative.name : null
+        category: newBannerAdType === 'message' ? 'Message Ad' : 'Media Campaign',
+        adType: newBannerAdType,
+        message: newBannerMessage.trim(),
+        creativeName: newBannerCreative ? newBannerCreative.name : null,
+        creativeMime: newBannerCreative ? newBannerCreative.type : null,
+        assetData,
+      };
+
+      const updatedBanners = [...banners, newAd];
+      setBanners(updatedBanners);
+
+      const updatedPlacements = adPlacements.map(p => {
+        if (p.size === newBannerSize) {
+          return { ...p, activeBannersCount: p.activeBannersCount + 1 };
+        }
+        return p;
+      });
+      setAdPlacements(updatedPlacements);
+
+      saveData(updatedPlacements, updatedBanners, messages);
+      setNewBannerTitle('');
+      setNewBannerDestination('');
+      setNewBannerCreative(null);
+      setNewBannerMessage('');
+      handleAuditLog(`Created SSP ad unit: ${newBannerTitle}`, 'Banner engine');
+      alert('SSP ad stored and active.');
     };
 
-    const updatedBanners = [...banners, newAd];
-    setBanners(updatedBanners);
+    if (!newBannerCreative) {
+      persistAd(null);
+      return;
+    }
 
-    const updatedPlacements = adPlacements.map(p => {
-      if (p.size === newBannerSize) {
-        return { ...p, activeBannersCount: p.activeBannersCount + 1 };
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        persistAd(typeof reader.result === 'string' ? reader.result : null);
+      } catch (error) {
+        alert('This file is too large for browser storage. Use a smaller file, or connect Supabase Storage for large video ads.');
       }
-      return p;
-    });
-    setAdPlacements(updatedPlacements);
-
-    saveData(updatedPlacements, updatedBanners, messages);
-    setNewBannerTitle('');
-    setNewBannerDestination('');
-    setNewBannerCreative(null);
-    handleAuditLog(`Created promotional flyer banner: ${newBannerTitle}`, 'Banner engine');
-    alert('🖼️ Campaign marketing flyers stored and active in promotional slider!');
+    };
+    reader.onerror = () => {
+      alert('Could not read this creative file. Please try another file.');
+    };
+    reader.readAsDataURL(newBannerCreative);
   };
 
   // Campaign Auto Code generator with automatic collision resolution
@@ -810,6 +848,36 @@ export default function SuperSaaSAdminView({
                       required
                     />
                   </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9.5px] font-mono text-slate-500 uppercase">Ad Type</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {[
+                        { id: 'image', label: 'Image', icon: ImageIcon },
+                        { id: 'video', label: 'Video', icon: Video },
+                        { id: 'motion', label: 'Motion/GIF', icon: Sparkles },
+                        { id: 'message', label: 'Message', icon: MessageSquare },
+                      ].map((type) => {
+                        const Icon = type.icon;
+                        const active = newBannerAdType === type.id;
+                        return (
+                          <button
+                            key={type.id}
+                            type="button"
+                            onClick={() => setNewBannerAdType(type.id as any)}
+                            className={`p-2 rounded-lg border text-[10px] font-mono font-bold uppercase flex items-center justify-center gap-1.5 ${
+                              active
+                                ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                                : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                            }`}
+                          >
+                            <Icon className="w-3.5 h-3.5" />
+                            <span>{type.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                   
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
@@ -840,12 +908,13 @@ export default function SuperSaaSAdminView({
                     </div>
                   </div>
 
+                  {newBannerAdType !== 'message' && (
                   <div className="space-y-1">
                     <label className="text-[9.5px] font-mono text-slate-500 uppercase">Upload Creative Asset (Image / Video / Motion Graphics)</label>
                     <div className="w-full bg-slate-950 border border-slate-800 border-dashed rounded p-4 text-center cursor-pointer hover:bg-slate-900 transition-colors">
                       <input 
                         type="file" 
-                        accept="image/png, image/jpeg, image/gif, video/mp4" 
+                        accept="image/png, image/jpeg, image/webp, image/gif, video/mp4, video/webm, video/quicktime" 
                         onChange={(e) => {
                           if (e.target.files && e.target.files[0]) {
                             setNewBannerCreative(e.target.files[0]);
@@ -859,10 +928,24 @@ export default function SuperSaaSAdminView({
                         <span className="text-[10px] text-slate-300">
                           {newBannerCreative ? newBannerCreative.name : "Click to select or drag and drop file"}
                         </span>
-                        <span className="text-[9px] text-slate-500">Supported: .JPG, .PNG, .GIF, .MP4. Maximum size: 100MB</span>
+                        <span className="text-[9px] text-slate-500">Supported: JPG, PNG, WEBP, GIF, MP4, WEBM, MOV. Small files save best in browser storage.</span>
                       </label>
                     </div>
                   </div>
+                  )}
+
+                  {newBannerAdType === 'message' && (
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] font-mono text-slate-500 uppercase">Message Ad Text</label>
+                      <textarea
+                        value={newBannerMessage}
+                        onChange={(e) => setNewBannerMessage(e.target.value)}
+                        placeholder="Write the short ad message customers will see..."
+                        rows={4}
+                        className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-emerald-500 resize-none"
+                      />
+                    </div>
+                  )}
 
                   <div className="space-y-1">
                     <label className="text-[9.5px] font-mono text-slate-500 uppercase">Destination URL Override</label>
@@ -891,10 +974,16 @@ export default function SuperSaaSAdminView({
                   {banners.map((ban, idx) => (
                     <div key={idx} className="bg-slate-950 border border-slate-850 p-4 rounded-xl space-y-2 relative text-left text-xs font-mono">
                       <div className="flex justify-between border-b border-slate-900 pb-1.5 text-[9px] text-slate-500">
-                        <span>FORMAT TYPE: {ban.size}</span>
+                        <span>FORMAT TYPE: {ban.size} / {(ban.adType || ban.category || 'image').toString().toUpperCase()}</span>
                         <span className="text-emerald-400 font-bold uppercase">{ban.status}</span>
                       </div>
                       <p className="font-bold text-white text-[11px] font-sans truncate">{ban.title}</p>
+                      {ban.message && (
+                        <p className="text-[10px] text-slate-300 leading-snug line-clamp-2">{ban.message}</p>
+                      )}
+                      {ban.creativeName && (
+                        <p className="text-[10px] text-cyan-300 leading-none truncate break-all">CREATIVE: {ban.creativeName}</p>
+                      )}
                       <p className="text-[10px] text-slate-400 leading-none truncate break-all">DESTINATION: {ban.url}</p>
                       <div className="flex justify-between pt-1.5 items-center text-[10px] text-slate-500">
                         <span>SSP Network: AdSense Compatible</span>
