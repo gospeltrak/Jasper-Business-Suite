@@ -2267,12 +2267,23 @@ export default function DashboardSettings({
 
           {/* TAB 6: NOTIFICATIONS & AUTO REPORTS */}
           {activeSubTab === 'notifications' && (
-             <DashboardNotificationsSettings
-               tenantId={activeTenant.id}
-               moduleName={activeTenant.businessType === 'pharmacy' ? 'pharmacy' : 'wholesale-retail'}
-               moduleLabel={activeTenant.businessType === 'pharmacy' ? 'Pharmacy' : 'Wholesale & Retail'}
-               showModuleSelector={true}
-             />
+             (() => {
+               const tenantKey = `${activeTenant.id} ${activeTenant.name}`.toLowerCase();
+               const isMicroSoko = tenantKey.includes('microsoko') || tenantKey.includes('micro soko');
+               const notificationModule = activeTenant.businessType === 'pharmacy'
+                 ? { name: 'pharmacy', label: 'Pharmacy' }
+                 : isMicroSoko
+                   ? { name: 'microsoko', label: 'MicroSoko' }
+                   : { name: 'wholesale-retail', label: 'Wholesale & Retail' };
+
+               return (
+                 <DashboardNotificationsSettings
+                   tenantId={activeTenant.id}
+                   moduleName={notificationModule.name}
+                   moduleLabel={notificationModule.label}
+                 />
+               );
+             })()
           )}
 
         </div>

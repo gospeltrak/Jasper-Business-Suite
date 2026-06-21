@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useJasperNotifications } from '../JasperNotificationContext';
 import { Save, Bell, Clock, Calendar, AlertTriangle, Send, User, MessageCircle } from 'lucide-react';
 import { JasperModuleNotificationSettings } from '../types';
@@ -7,32 +7,20 @@ interface DashboardNotificationsSettingsProps {
   tenantId?: string;
   moduleName?: string;
   moduleLabel?: string;
-  showModuleSelector?: boolean;
 }
-
-const MODULE_OPTIONS = [
-  { id: 'wholesale-retail', label: 'Wholesale & Retail' },
-  { id: 'microsoko', label: 'MicroSoko' },
-  { id: 'pharmacy', label: 'Pharmacy' }
-];
 
 const validateWhatsapp = (value: string) => /^\+[1-9]\d{8,14}$/.test(value.trim());
 
 export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSettingsProps> = ({
   tenantId = 'default-tenant',
   moduleName = 'wholesale-retail',
-  moduleLabel = 'Wholesale & Retail',
-  showModuleSelector = true
+  moduleLabel = 'Wholesale & Retail'
 }) => {
   const { getModuleSettings, updateModuleSettings, sendTestModuleWhatsappReport } = useJasperNotifications();
-  const [activeModule, setActiveModule] = useState(moduleName);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const activeMeta = useMemo(() => {
-    if (!showModuleSelector) return { id: moduleName, label: moduleLabel };
-    return MODULE_OPTIONS.find(m => m.id === activeModule) || { id: activeModule, label: activeModule };
-  }, [activeModule, moduleLabel, moduleName, showModuleSelector]);
+  const activeMeta = { id: moduleName, label: moduleLabel };
 
   const settings = getModuleSettings(tenantId, activeMeta.id);
 
@@ -66,7 +54,7 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
     setTimeout(() => setSaveStatus(null), 4000);
   };
 
-  const channelToggle = (key: keyof Pick<JasperModuleNotificationSettings, 'enableInApp' | 'enableWhatsapp' | 'enableEmail' | 'enableSms' | 'enablePush'>, label: string) => (
+  const channelToggle = (key: keyof Pick<JasperModuleNotificationSettings, 'enableInApp' | 'enableWhatsapp'>, label: string) => (
     <label className="flex items-center space-x-2 cursor-pointer bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
       <input type="checkbox" checked={!!settings[key]} onChange={e => update({ [key]: e.target.checked } as Partial<JasperModuleNotificationSettings>)} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
       <span className="font-semibold text-slate-700 text-xs">{label}</span>
@@ -91,7 +79,7 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
             <Bell className="w-4 h-4 mr-2" /> Notifications & Auto Reports
           </h3>
           <p className="text-xs text-slate-500 font-sans mt-1">
-            Configure module-specific report receivers, channels, schedules, and alert types. Global defaults can still exist, but this module overrides them.
+            Configure report receiver, In-app notifications, WhatsApp reports, schedules, and alert types.
           </p>
         </div>
         <button onClick={handleSave} className="flex items-center space-x-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-colors">
@@ -99,16 +87,6 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
           <span>Save Changes</span>
         </button>
       </div>
-
-      {showModuleSelector && (
-        <div className="flex flex-wrap gap-2">
-          {MODULE_OPTIONS.map(m => (
-            <button key={m.id} onClick={() => setActiveModule(m.id)} className={`px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-wider transition-all ${activeMeta.id === m.id ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
-              {m.label}
-            </button>
-          ))}
-        </div>
-      )}
 
       {saveStatus && (
         <div className="p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-bold flex items-center">
@@ -140,14 +118,6 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
             <input type="tel" value={settings.backupWhatsappNumber || ''} onChange={e => update({ backupWhatsappNumber: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="+255..." />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">Email address (optional)</label>
-            <input type="email" value={settings.emailAddress || ''} onChange={e => update({ emailAddress: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="owner@business.com" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">SMS phone number (optional)</label>
-            <input type="tel" value={settings.smsPhoneNumber || ''} onChange={e => update({ smsPhoneNumber: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="+255..." />
-          </div>
-          <div>
             <label className="block text-xs font-bold text-slate-500 mb-1">Role / position (optional)</label>
             <input value={settings.receiverRole || ''} onChange={e => update({ receiverRole: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="Owner, manager, pharmacist..." />
           </div>
@@ -159,9 +129,6 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
         <div className="flex flex-wrap gap-3">
           {channelToggle('enableInApp', 'In-app notification')}
           {channelToggle('enableWhatsapp', 'WhatsApp')}
-          {channelToggle('enableEmail', 'Email')}
-          {channelToggle('enableSms', 'SMS')}
-          {channelToggle('enablePush', 'Push notification')}
         </div>
       </section>
 
