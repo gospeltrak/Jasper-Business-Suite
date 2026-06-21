@@ -27,7 +27,6 @@ interface NotificationContextProps {
 const normalizeModuleName = (moduleName: string) => {
   const normalized = (moduleName || 'wholesale-retail').toLowerCase().trim();
   if (['retail', 'wholesale', 'wholesale-retail', 'wholesale & retail'].includes(normalized)) return 'wholesale-retail';
-  if (normalized.includes('micro')) return 'microsoko';
   if (normalized.includes('pharmacy')) return 'pharmacy';
   return normalized;
 };

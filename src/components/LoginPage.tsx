@@ -1595,37 +1595,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </div>
               )}
 
-              {/* MicroSoko Mod */ }
-              {!isSaasAdminPortal && (
-                <div className="p-1 border border-emerald-200/50 rounded-2xl bg-emerald-50/10">
-                  <p className="text-[8.5px] font-mono mx-2.5 my-1 text-emerald-600 font-bold uppercase tracking-wider">MicroSoko Mode (Mobile Kiosks)</p>
-                  {DEMO_USERS.filter(u => u.tenantId === 't-microsoko-01').map(user => (
-                    <button
-                      key={user.email}
-                      type="button"
-                      onClick={() => handleQuickFill(user)}
-                      className="flex w-full items-center justify-between p-3.5 bg-white border border-emerald-100 hover:border-emerald-500 rounded-xl transition-all cursor-pointer group text-left shadow-xs mb-1.5"
-                    >
-                      <div>
-                        <p className="text-xs font-black text-slate-800 group-hover:text-emerald-700">
-                          {user.name} <span className="text-[10px] font-mono text-slate-400">({user.role})</span>
-                        </p>
-                        <p className="text-[10px] text-slate-450">{user.email}</p>
-                      </div>
-                      <span className="text-[9.5px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-150 px-2 py-0.5 rounded-full">
-                        Dar es Salaam, TZ
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
               {/* Retail Quick fills (Named "Retail and Wholesale") */}
               {!isSaasAdminPortal && (
                 <div className="p-1 border border-slate-205 rounded-2xl bg-slate-50/20">
                 <p className="text-[8.5px] font-mono mx-2.5 my-1 text-slate-500 font-bold uppercase tracking-wider">Retail and Wholesale Mode</p>
                 <div className="space-y-1.5">
-                  {DEMO_USERS.filter(u => u.tenantId !== 't-hotel-01' && u.tenantId !== 't-restaurant-01' && u.tenantId !== 't-pharma-01' && u.tenantId !== 't-microsoko-01' && u.email !== 'saas.admin@jasper.com').map(user => {
+                  {DEMO_USERS.filter(u => u.tenantId !== 't-hotel-01' && u.tenantId !== 't-restaurant-01' && u.tenantId !== 't-pharma-01' && u.email !== 'saas.admin@jasper.com').map(user => {
                     const branch = user.tenantId === 't-lagos-01' ? 'Dar es Salaam, TZ (TSh)' : user.tenantId === 't-nairobi-02' ? 'Nairobi, KE (KSh)' : 'Accra, GH (₵)';
                     return (
                       <button

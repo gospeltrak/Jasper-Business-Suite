@@ -502,7 +502,7 @@ export interface JasperNotificationSettings {
   ownerWhatsapp?: string;
   ownerEmail?: string;
   timezone: string;
-  enabledModules: string[]; // 'all', 'wholesale', 'microsoko', 'pharmacy'
+  enabledModules: string[]; // 'all', 'wholesale', 'pharmacy'
   enableSaleNotifications: boolean;
   enableMorningSummary: boolean;
   enableEndDayProfitLoss: boolean;

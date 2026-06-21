@@ -2301,13 +2301,9 @@ export default function DashboardSettings({
           {/* TAB 6: NOTIFICATIONS & AUTO REPORTS */}
           {activeSubTab === 'notifications' && (
              (() => {
-               const tenantKey = `${activeTenant.id} ${activeTenant.name}`.toLowerCase();
-               const isMicroSoko = tenantKey.includes('microsoko') || tenantKey.includes('micro soko');
                const notificationModule = activeTenant.businessType === 'pharmacy'
                  ? { name: 'pharmacy', label: 'Pharmacy' }
-                 : isMicroSoko
-                   ? { name: 'microsoko', label: 'MicroSoko' }
-                   : { name: 'wholesale-retail', label: 'Wholesale & Retail' };
+                 : { name: 'wholesale-retail', label: 'Wholesale & Retail' };
 
                return (
                  <DashboardNotificationsSettings
