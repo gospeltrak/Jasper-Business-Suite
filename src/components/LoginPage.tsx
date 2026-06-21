@@ -216,13 +216,17 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     // Fetch tenant logo by domain on load
     const domain = window.location.hostname;
     fetch(`/api/tenant/logo-by-domain?domain=${encodeURIComponent(domain)}`)
-      .then(res => res.json())
+      .then(res => {
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.ok || !contentType.includes('application/json')) return null;
+        return res.json();
+      })
       .then(data => {
         if (data && data.logoUrl) {
           setLoginScreenLogoUrl(data.logoUrl);
         }
       })
-      .catch(err => console.warn('Failed to fetch login screen logo:', err?.message || err));
+      .catch(() => undefined);
 
     const handleUpdate = () => {
       const raw = localStorage.getItem('saas_launched_niches');

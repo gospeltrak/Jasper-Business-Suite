@@ -38,6 +38,11 @@ export function TenantLogoProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await fetch(`/api/tenant/logo-by-id?tenantId=${encodeURIComponent(tenantId)}`);
+      const contentType = response.headers.get('content-type') || '';
+      if (!response.ok || !contentType.includes('application/json')) {
+        setLogoState(null);
+        return null;
+      }
       const data = await response.json();
       if (data && data.logoUrl) {
         localStorage.setItem(`jasper_tenant_logo_${tenantId}`, data.logoUrl);
@@ -45,7 +50,7 @@ export function TenantLogoProvider({ children }: { children: ReactNode }) {
         return data.logoUrl;
       }
     } catch (err: any) {
-      console.warn('[TenantLogoContext] Failed to fetch logo from server:', err?.message || err);
+      // Keep the default initials/icon when the deployment has no logo API available.
     }
     
     setLogoState(null);
