@@ -1710,12 +1710,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Company / Business Name</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Company / Hotel Name</label>
                   <input
                     type="text"
                     required
                     value={orgName}
-                    placeholder="e.g. Jasper Traders Ltd"
+                    placeholder="e.g. Lagos Royal Retreat"
                     onChange={(e) => setOrgName(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none"
                   />
@@ -1724,19 +1724,14 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block flex items-center gap-1">
-                    <MessageCircle className="w-3 h-3 text-emerald-600" />
-                    WhatsApp / Mobile Number <span className="text-red-500">*</span>
-                  </label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Backup Email (Optional)</label>
                   <input
-                    type="tel"
-                    required
-                    value={regPhone}
-                    placeholder="e.g. +255 712 345 678"
-                    onChange={(e) => setRegPhone(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-850 outline-none font-sans"
+                    type="email"
+                    value={regEmail}
+                    placeholder="Optional email backup"
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-sans"
                   />
-                  <p className="text-[9.5px] text-slate-400 font-medium">Used to sign in & receive OTP resets</p>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Pin Password</label>
@@ -1751,9 +1746,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Region of Operations</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Region of operations</label>
                   <select
                     value={country}
                     onChange={(e) => {
@@ -1771,13 +1766,24 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-505 uppercase block">City / Office Location</label>
+                  <label className="text-[10px] font-bold text-slate-505 uppercase block">City Name Office</label>
                   <input
                     type="text"
                     required
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-505 uppercase block">Owner WhatsApp Number</label>
+                  <input
+                    type="tel"
+                    required
+                    value={regPhone}
+                    placeholder="e.g. +255 712 345 678"
+                    onChange={(e) => setRegPhone(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-850 outline-none font-sans"
                   />
                 </div>
               </div>
@@ -1867,162 +1873,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             </form>
           )}
 
-          <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t border-slate-150"></div>
-            <span className="flex-shrink mx-4 text-[10px] font-mono text-slate-400 uppercase tracking-wider font-bold">
-              DEMO TEST PROFILES
-            </span>
-            <div className="flex-grow border-t border-slate-150"></div>
-          </div>
 
-          {/* Quick fills - separated nicely into category blocks */}
-          <div className="space-y-3 font-sans">
-            <p className="text-[10px] font-bold text-slate-400 text-center uppercase tracking-wide flex items-center justify-center space-x-1.5 mb-1">
-              <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
-              <span>Select profile to auto-fill security codes:</span>
-            </p>
-            
-            {/* Split the mock profiles clearly */}
-            <div className="grid grid-cols-1 gap-3">
-              
-              {/* Jasper Super SaaS Admin Central Profile - Requested! */}
-              <div className="p-1 border-2 border-slate-900 rounded-2xl bg-slate-900 text-white shadow-lg overflow-hidden relative">
-                <div className="absolute top-0 right-0 p-1.5 bg-amber-500 rounded-bl-xl text-[8px] font-mono font-black text-slate-950 uppercase tracking-widest leading-none flex items-center space-x-1">
-                  <span className="animate-pulse">●</span> <span>SaaS Host Authority</span>
-                </div>
-                <p className="text-[9px] font-mono mx-2.5 mt-2 mb-1.5 text-amber-400 font-bold uppercase tracking-widest flex items-center space-x-1">
-                  <span>👑 CENTRAL SAAS ADMIN PLATFORM</span>
-                </p>
-                {DEMO_USERS.filter(u => u.email === 'saas.admin@jasper.com').map(user => (
-                  <button
-                    key={user.email}
-                    type="button"
-                    onClick={() => handleQuickFill(user)}
-                    className="flex w-full items-center justify-between p-3.5 bg-slate-950 border border-slate-800 hover:border-amber-400 rounded-xl transition-all cursor-pointer group text-left"
-                  >
-                    <div>
-                      <p className="text-xs font-black text-white group-hover:text-amber-400 transition-colors">
-                        {user.name} <span className="text-[10px] font-mono text-amber-500">({user.role})</span>
-                      </p>
-                      <p className="text-[10px] text-slate-400">{user.phone}</p>
-                    </div>
-                    <span className="text-[9px] font-mono font-extrabold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-lg">
-                      SaaS Active Controller
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Hotel Business Quick fill (Serah) */}
-              {!isSaasAdminPortal && (
-                <div className="p-1 border border-indigo-100 rounded-2xl bg-indigo-50/20">
-                  <p className="text-[8.5px] font-mono mx-2.5 my-1 text-indigo-700 font-bold uppercase tracking-wider">Hotel PMS Mode (Cloudbeds+ Adaptation)</p>
-                  {DEMO_USERS.filter(u => u.tenantId === 't-hotel-01').map(user => (
-                    <button
-                      key={user.email}
-                      type="button"
-                      onClick={() => handleQuickFill(user)}
-                      className="flex w-full items-center justify-between p-3.5 bg-white border border-slate-150 hover:border-emerald-500 rounded-xl transition-all cursor-pointer group text-left shadow-xs"
-                    >
-                      <div>
-                        <p className="text-xs font-black text-slate-800 group-hover:text-emerald-700">
-                          {user.name} <span className="text-[10px] font-mono text-slate-400">({user.role})</span>
-                        </p>
-                        <p className="text-[10px] text-slate-450">{user.phone}</p>
-                      </div>
-                      <span className="text-[9.5px] font-mono font-bold text-indigo-700 bg-indigo-55/60 border border-indigo-150 px-2 py-0.5 rounded-full">
-                        Nairobi, KE — Hotel OS
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Restaurant Business Quick fill (Juma) */}
-              {!isSaasAdminPortal && (
-                <div className="p-1 border border-orange-100 rounded-2xl bg-orange-50/20 animate-fade-in">
-                  <p className="text-[8.5px] font-mono mx-2.5 my-1 text-orange-750 font-bold uppercase tracking-wider">Restaurant QR & POS Mode</p>
-                  {DEMO_USERS.filter(u => u.tenantId === 't-restaurant-01').map(user => (
-                    <button
-                      key={user.email}
-                      type="button"
-                      onClick={() => handleQuickFill(user)}
-                      className="flex w-full items-center justify-between p-3.5 bg-white border border-slate-150 hover:border-emerald-500 rounded-xl transition-all cursor-pointer group text-left shadow-xs"
-                    >
-                      <div>
-                        <p className="text-xs font-black text-slate-800 group-hover:text-emerald-700">
-                          {user.name} <span className="text-[10px] font-mono text-slate-400">({user.role})</span>
-                        </p>
-                        <p className="text-[10px] text-slate-450">{user.phone}</p>
-                      </div>
-                      <span className="text-[9.5px] font-mono font-bold text-orange-700 bg-orange-50 border border-orange-150 px-2 py-0.5 rounded-full animate-pulse">
-                        Dar es Salaam, TZ — Restaurant OS
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Pharmacy Niche Quick fill (Amina) */}
-              {!isSaasAdminPortal && (
-                <div className="p-1 border border-emerald-100 rounded-2xl bg-emerald-50/20 animate-fade-in">
-                  <p className="text-[8.5px] font-mono mx-2.5 my-1 text-emerald-750 font-bold uppercase tracking-wider">Pharmacy Clinical & Rx Mode</p>
-                  {DEMO_USERS.filter(u => u.tenantId === 't-pharma-01').map(user => (
-                    <button
-                      key={user.email}
-                      type="button"
-                      onClick={() => handleQuickFill(user)}
-                      className="flex w-full items-center justify-between p-3.5 bg-white border border-slate-150 hover:border-emerald-500 rounded-xl transition-all cursor-pointer group text-left shadow-xs"
-                    >
-                      <div>
-                        <p className="text-xs font-black text-slate-800 group-hover:text-emerald-700">
-                          {user.name} <span className="text-[10px] font-mono text-slate-400">({user.role})</span>
-                        </p>
-                        <p className="text-[10px] text-slate-450">{user.phone}</p>
-                      </div>
-                      <span className="text-[9.5px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-150 px-2 py-0.5 rounded-full animate-pulse">
-                        Dar es Salaam, TZ — Pharmacy OS
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Retail Quick fills (Named "Retail and Wholesale") */}
-              {!isSaasAdminPortal && (
-                <div className="p-1 border border-slate-205 rounded-2xl bg-slate-50/20">
-                <p className="text-[8.5px] font-mono mx-2.5 my-1 text-slate-500 font-bold uppercase tracking-wider">Retail and Wholesale Mode</p>
-                <div className="space-y-1.5">
-                  {DEMO_USERS.filter(u => u.tenantId !== 't-hotel-01' && u.tenantId !== 't-restaurant-01' && u.tenantId !== 't-pharma-01' && u.email !== 'saas.admin@jasper.com').map(user => {
-                    const branch = user.tenantId === 't-lagos-01' ? 'Dar es Salaam, TZ (TSh)' : user.tenantId === 't-nairobi-02' ? 'Nairobi, KE (KSh)' : 'Accra, GH (₵)';
-                    return (
-                      <button
-                        key={user.email}
-                        type="button"
-                        onClick={() => handleQuickFill(user)}
-                        className="flex w-full items-center justify-between p-3 bg-white border border-slate-150 hover:border-emerald-500 rounded-xl transition-all cursor-pointer group text-left"
-                      >
-                        <div>
-                          <p className="text-xs font-bold text-slate-700 group-hover:text-emerald-700">
-                            {user.name} <span className="text-[9.5px] font-mono text-slate-400">({user.role})</span>
-                          </p>
-                          <p className="text-[9.5px] text-slate-450">{user.phone}</p>
-                        </div>
-                        <span className="text-[9px] font-mono font-bold text-slate-505 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full">
-                          {branch}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              )}
-
-            </div>
-          </div>
-        </div>
-
-        {/* Back link */}
+                {/* Back link */}
         <div className="text-center font-sans">
           <button
             onClick={() => onNavigate('/')}
