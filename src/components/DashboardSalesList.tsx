@@ -4649,7 +4649,7 @@ export default function DashboardSalesList({
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
-            <div className="relative bg-white border border-slate-205 rounded-none sm:rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto sm:max-h-[95vh] font-sans">
+            <div className="relative bg-white border border-slate-205 rounded-none sm:rounded-3xl shadow-2xl w-full max-w-5xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[95vh] font-sans" style={{overflow: 'clip'}}>
               
               {/* Header Action Tools */}
               <div className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50/95 backdrop-blur-md shrink-0 font-sans print:hidden">
@@ -5148,3 +5148,4 @@ export default function DashboardSalesList({
     </div>
   );
 }
+
