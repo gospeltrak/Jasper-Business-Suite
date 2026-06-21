@@ -1651,18 +1651,18 @@ export default function DashboardPOS({
                             </div>
                           )}
                           {((item.bulkSellMode || (item.product.sellingMode === 'hybrid' ? 'scale' : item.product.sellingMode)) === 'scale') ? (
-                            <div className="flex space-x-1">
-                              {[
-                                { label: 'Whole', val: getRetailPackageConfig(item.product).conversionToBaseUnit },
-                                { label: 'Half', val: getRetailPackageConfig(item.product).conversionToBaseUnit / 2 },
-                                { label: '1/4', val: 0.25 },
-                                { label: '1/2', val: 0.5 },
-                                { label: '3/4', val: 0.75 },
-                                { label: `1 ${getRetailPackageConfig(item.product).baseUnit}`, val: 1 },
-                              ].map(f => (
-                                <button type="button" key={f.label} onClick={() => updateCartQtyDirect(item.product.id, f.val)} className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px] font-bold text-slate-700 hover:bg-slate-50">{f.label}</button>
-                              ))}
-                              <input type="number" step="0.01" value={item.qty} onChange={(e) => updateCartQtyDirect(item.product.id, Number(e.target.value))} className="w-12 text-center font-black font-mono text-slate-800 bg-white border border-slate-200 rounded py-0.5 text-[10px] focus:outline-emerald-500" />
+                            <div className="flex flex-wrap justify-end gap-1 max-w-[190px]">
+                              {(() => {
+                                const baseUnit = getRetailPackageConfig(item.product).baseUnit;
+                                return [
+                                  { label: `1/4 ${baseUnit}`, val: 0.25 },
+                                  { label: `1/2 ${baseUnit}`, val: 0.5 },
+                                  { label: `3/4 ${baseUnit}`, val: 0.75 },
+                                  { label: `1 ${baseUnit}`, val: 1 },
+                                ].map(f => (
+                                  <button type="button" key={f.label} onClick={() => updateCartQtyDirect(item.product.id, f.val)} className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px] font-bold text-slate-700 hover:bg-slate-50">{f.label}</button>
+                                ));
+                              })()}
                             </div>
                           ) : (
                             <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-xs">

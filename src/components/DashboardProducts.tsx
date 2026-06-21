@@ -427,7 +427,7 @@ export default function DashboardProducts({
   const [sellingMode, setSellingMode] = useState<'standard' | 'scale' | 'pcs' | 'hybrid'>('scale');
   const [bulkUnit, setBulkUnit] = useState('KG');
   const [bulkPurchaseQty, setBulkPurchaseQty] = useState<number | ''>(100);
-  const [sellUnit, setSellUnit] = useState('1/4 kg');
+  const [sellUnit, setSellUnit] = useState('kg');
   const [sellUnitQty, setSellUnitQty] = useState<number | ''>(0.25);
   const [sellUnitPrice, setSellUnitPrice] = useState<number | ''>(500);
   const [costingMethod, setCostingMethod] = useState<'fifo' | 'average_price' | 'batch_price'>('fifo');
@@ -1970,10 +1970,14 @@ export default function DashboardProducts({
                         <label className="text-[10px] font-bold text-slate-500 uppercase">Quick Sale Portions</label>
                         {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
                            <div className="flex space-x-1 overflow-x-auto scrollbar-hide flex-wrap gap-y-1">
-                             {['0.25', '0.5', '0.75', '1'].map(f => (
-                               <button type="button" key={f} onClick={() => { setSellUnit(baseUnit); setSellUnitQty(Number(f)); }} className="px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 rounded">{f} {baseUnit}</button>
+                             {[
+                               { label: '1/4', value: 0.25 },
+                               { label: '1/2', value: 0.5 },
+                               { label: '3/4', value: 0.75 },
+                               { label: '1', value: 1 },
+                             ].map(f => (
+                               <button type="button" key={f.label} onClick={() => { setSellUnit(baseUnit); setSellUnitQty(f.value); }} className="px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 rounded">{f.label} {baseUnit}</button>
                              ))}
-                             <input type="text" value={sellUnit} onChange={e => setSellUnit(e.target.value)} className="w-20 bg-white border border-slate-200 text-[10px] px-2 py-1 rounded mt-1" />
                            </div>
                         ) : (
                            <input type="text" value={sellUnit} onChange={e => setSellUnit(e.target.value)} placeholder="Per piece" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
@@ -1981,7 +1985,13 @@ export default function DashboardProducts({
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold text-slate-500 uppercase">Default Portion Qty</label>
-                        <input type="number" step="0.01" value={sellUnitQty} onChange={e => setSellUnitQty(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
+                          <div className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl font-bold text-slate-700">
+                            {sellUnitQty === 0.25 ? '1/4' : sellUnitQty === 0.5 ? '1/2' : sellUnitQty === 0.75 ? '3/4' : '1'} {baseUnit}
+                          </div>
+                        ) : (
+                          <input type="number" step="1" value={sellUnitQty} onChange={e => setSellUnitQty(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        )}
                       </div>
                     </div>
 
@@ -4226,11 +4236,15 @@ export default function DashboardProducts({
                           {editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid' ? (
                             <div className="flex flex-col space-y-1">
                              <div className="flex space-x-1 overflow-x-auto scrollbar-hide flex-wrap gap-y-1">
-                               {['0.25', '0.5', '0.75', '1'].map(f => (
-                                 <button type="button" key={f} onClick={() => setEditForm(prev => ({ ...prev, sellUnit: prev.baseUnit || prev.inventorySettings?.baseUnit || 'kg', sellUnitQty: Number(f) }))} className="px-1.5 py-0.5 text-[9px] font-bold bg-slate-50 border border-slate-200 rounded">{f}</button>
+                               {[
+                                 { label: '1/4', value: 0.25 },
+                                 { label: '1/2', value: 0.5 },
+                                 { label: '3/4', value: 0.75 },
+                                 { label: '1', value: 1 },
+                               ].map(f => (
+                                 <button type="button" key={f.label} onClick={() => setEditForm(prev => ({ ...prev, sellUnit: prev.baseUnit || prev.inventorySettings?.baseUnit || 'kg', sellUnitQty: f.value }))} className="px-1.5 py-0.5 text-[9px] font-bold bg-slate-50 border border-slate-200 rounded">{f.label} {editForm.baseUnit || editForm.inventorySettings?.baseUnit || 'kg'}</button>
                                ))}
                              </div>
-                             <input type="text" value={editForm.sellUnit ?? ''} onChange={e => setEditForm(prev => ({ ...prev, sellUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-[10px] px-2 py-1.5 rounded-lg" />
                             </div>
                           ) : (
                              <input type="text" value={editForm.sellUnit ?? ''} onChange={e => setEditForm(prev => ({ ...prev, sellUnit: e.target.value }))} placeholder="Per piece" className="w-full bg-slate-50 border border-slate-200 text-[11px] px-3 py-2 rounded-xl" />
@@ -4238,7 +4252,13 @@ export default function DashboardProducts({
                         </div>
                         <div className="space-y-1">
                           <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Default Portion Qty</label>
-                          <input type="number" step="0.01" value={editForm.sellUnitQty ?? ''} onChange={e => setEditForm(prev => ({ ...prev, sellUnitQty: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-slate-50 border border-slate-200 text-[11px] px-3 py-2 rounded-xl" />
+                          {editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid' ? (
+                            <div className="w-full bg-slate-50 border border-slate-200 text-[11px] px-3 py-2 rounded-xl font-bold text-slate-700">
+                              {editForm.sellUnitQty === 0.25 ? '1/4' : editForm.sellUnitQty === 0.5 ? '1/2' : editForm.sellUnitQty === 0.75 ? '3/4' : '1'} {editForm.baseUnit || editForm.inventorySettings?.baseUnit || 'kg'}
+                            </div>
+                          ) : (
+                            <input type="number" step="1" value={editForm.sellUnitQty ?? ''} onChange={e => setEditForm(prev => ({ ...prev, sellUnitQty: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-slate-50 border border-slate-200 text-[11px] px-3 py-2 rounded-xl" />
+                          )}
                         </div>
                       </div>
 
