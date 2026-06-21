@@ -126,7 +126,7 @@ export default function DashboardCashBank({
   });
 
   // Custom accounts form states
-  const [newAccType, setNewAccType] = useState<'bank' | 'telco'>('bank');
+  const [newAccType, setNewAccType] = useState<'bank' | 'telco' | 'person'>('bank');
   const [newAccProvider, setNewAccProvider] = useState<string>('');
   const [newAccName, setNewAccName] = useState<string>('');
   const [newAccNumber, setNewAccNumber] = useState<string>('');
@@ -360,7 +360,10 @@ export default function DashboardCashBank({
     const txId = `SETTLE-TX-${Date.now().toString().slice(-6)}`;
     const timestampStr = new Date().toISOString();
     const authorizerName = user?.name || user?.email || 'Authorized Staff';
-    const descText = settleMemo.trim() || `Transferred money from ${sourceChan.name} to ${targetChan.name}`;
+    const isPersonPayout = targetChan.category === 'person';
+    const descText = settleMemo.trim() || (isPersonPayout
+      ? `Sent money from ${sourceChan.name} to ${targetChan.name}`
+      : `Transferred money from ${sourceChan.name} to ${targetChan.name}`);
 
     const debitItem: LedgerEntry = {
       id: `${txId}-DEB`,
@@ -377,7 +380,7 @@ export default function DashboardCashBank({
       muamalaFile: attachedMuamalaName || undefined
     };
 
-    const creditItem: LedgerEntry = {
+    const creditItem: LedgerEntry | null = isPersonPayout ? null : {
       id: `${txId}-CRE`,
       tenantId: activeTenant.id,
       channelId: settleTarget,
@@ -392,7 +395,7 @@ export default function DashboardCashBank({
       muamalaFile: attachedMuamalaName || undefined
     };
 
-    const updated = [...ledgerEntries, debitItem, creditItem];
+    const updated = creditItem ? [...ledgerEntries, debitItem, creditItem] : [...ledgerEntries, debitItem];
     saveLedgerState(updated);
 
     setSettleAmount('');
@@ -401,7 +404,9 @@ export default function DashboardCashBank({
     setAttachedMuamalaName('');
     setShowRuleWarning(false);
     setSettleSuccessMsg(
-      `Transfer Completed! Moved ${amountVal.toLocaleString()} ${activeTenant.currencyCode || 'TZS'} successfully from "${sourceChan.name}" to "${targetChan.name}".`
+      isPersonPayout
+        ? `Payment sent! ${amountVal.toLocaleString()} ${activeTenant.currencyCode || 'TZS'} recorded as outflow from "${sourceChan.name}" to "${targetChan.name}".`
+        : `Transfer Completed! Moved ${amountVal.toLocaleString()} ${activeTenant.currencyCode || 'TZS'} successfully from "${sourceChan.name}" to "${targetChan.name}".`
     );
     setTimeout(() => {
       setSettleSuccessMsg(null);
@@ -410,15 +415,15 @@ export default function DashboardCashBank({
 
   const handleCreateAccount = () => {
     if (!newAccProvider.trim()) {
-      alert(`⚠️ Please provide a ${newAccType === 'bank' ? 'Bank Name' : 'Mobile Provider Name'}.`);
+      alert(`⚠️ Please provide a ${newAccType === 'bank' ? 'Bank Name' : newAccType === 'person' ? 'Bank or Mobile Money Name' : 'Mobile Provider Name'}.`);
       return;
     }
     if (!newAccName.trim()) {
-      alert('⚠️ Please provide an Account Name.');
+      alert(`⚠️ Please provide ${newAccType === 'person' ? 'the recipient name' : 'an Account Name'}.`);
       return;
     }
     if (!newAccNumber.trim()) {
-      alert(`⚠️ Please provide ${newAccType === 'bank' ? 'Account Number / IBAN' : 'Mobile Number / Till Code'}.`);
+      alert(`⚠️ Please provide ${newAccType === 'bank' ? 'Account Number / IBAN' : newAccType === 'person' ? 'Account Number or Mobile Number' : 'Mobile Number / Till Code'}.`);
       return;
     }
 
@@ -441,7 +446,7 @@ export default function DashboardCashBank({
     setNewAccProvider('');
     setNewAccName('');
     setNewAccNumber('');
-    setAddAccountSuccess('Account successfully added and loaded into options!');
+    setAddAccountSuccess(newAccType === 'person' ? 'Recipient added and loaded into send options!' : 'Account successfully added and loaded into options!');
     setTimeout(() => {
       setAddAccountSuccess(null);
     }, 4000);
@@ -533,7 +538,9 @@ export default function DashboardCashBank({
       }
     });
 
-    const totalCurrentRemainingBalance = channels.reduce((sum, chan) => sum + (channelBalances[chan.id]?.current || 0), 0);
+    const totalCurrentRemainingBalance = channels
+      .filter(chan => chan.category !== 'person')
+      .reduce((sum, chan) => sum + (channelBalances[chan.id]?.current || 0), 0);
     const netChange = totalInflow - totalOutflow;
 
     return {
@@ -550,11 +557,12 @@ export default function DashboardCashBank({
 
   // Export report to CSV computer file
   const downloadAuditReportCSV = () => {
-    const headers = 'Date,Reference ID,Type,Where,Account No,Type,Amount,Note\n';
+    const headers = 'Date,Reference ID,Type,Where,Account No,Sent To,Sent To Number,Entry Type,Amount,Note\n';
     const rows = activeTenantFilterLedger
       .map(entry => {
         const chan = channels.find(c => c.id === entry.channelId);
-        return `"${entry.timestamp}","${entry.id}","${entry.sourceType}","${chan?.name || 'N/A'}","${chan?.accountNumber || ''}","${entry.entryType}",${entry.amount},"${entry.description}"`;
+        const counterParty = entry.counterPartyChannelId ? channels.find(c => c.id === entry.counterPartyChannelId) : undefined;
+        return `"${entry.timestamp}","${entry.id}","${entry.sourceType}","${chan?.name || 'N/A'}","${chan?.accountNumber || ''}","${counterParty?.name || ''}","${counterParty?.accountNumber || ''}","${entry.entryType}",${entry.amount},"${entry.description}"`;
       })
       .join('\n');
     
@@ -574,7 +582,8 @@ export default function DashboardCashBank({
     }
 
     const chan = channels.find(c => c.id === entry.channelId);
-    const rawString = `${entry.description} ${entry.id} ${chan?.name || ''} ${entry.sourceType}`.toLowerCase();
+    const counterParty = entry.counterPartyChannelId ? channels.find(c => c.id === entry.counterPartyChannelId) : undefined;
+    const rawString = `${entry.description} ${entry.id} ${chan?.name || ''} ${counterParty?.name || ''} ${counterParty?.accountNumber || ''} ${entry.sourceType}`.toLowerCase();
     
     const matchesSearch = rawString.includes(auditSearch.toLowerCase());
     const matchesPresetType = auditTypeFilter === 'ALL' || entry.sourceType === auditTypeFilter;
@@ -664,7 +673,7 @@ export default function DashboardCashBank({
         <div className="flex flex-wrap gap-2.5">
 
           {/* CHANNELS */}
-          {channels.map((chan) => {
+          {channels.filter(chan => chan.category !== 'person').map((chan) => {
             const isSelected = selectedChannelId === chan.id;
             const sums = channelBalances[chan.id] || { current: 0 };
             
@@ -767,7 +776,7 @@ export default function DashboardCashBank({
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {(() => {
-                return channels.map(chan => {
+                return channels.filter(chan => chan.category !== 'person').map(chan => {
                   const currentBalance = channelBalances[chan.id]?.current || 0;
                   
                   // Compute period range inflow and range outflow for this account specifically from the same activeTenantFilterLedger
@@ -843,8 +852,64 @@ export default function DashboardCashBank({
               </div>
               
               <p className="text-xs leading-relaxed text-slate-500 font-sans">
-                Use this plain and simple tool to deposit cash from desk drawers into bank accounts or mobile money merchant lines.
+                Move money between accounts or send it to a person.
               </p>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-700 font-mono">Payment Destinations</h3>
+                    <p className="text-[10.5px] text-slate-500">Add where money can be sent.</p>
+                  </div>
+                  {addAccountSuccess && (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-1">
+                      {addAccountSuccess}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <select
+                    value={newAccType}
+                    onChange={(e) => setNewAccType(e.target.value as 'bank' | 'telco' | 'person')}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-slate-800"
+                  >
+                    <option value="bank">Bank</option>
+                    <option value="telco">Mobile Money</option>
+                    <option value="person">Sent to Person</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={newAccProvider}
+                    onChange={(e) => setNewAccProvider(e.target.value)}
+                    placeholder={newAccType === 'bank' ? 'Bank name' : newAccType === 'person' ? 'Bank/Mobile name' : 'Mobile money name'}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-slate-800"
+                  />
+                  <input
+                    type="text"
+                    value={newAccName}
+                    onChange={(e) => setNewAccName(e.target.value)}
+                    placeholder={newAccType === 'person' ? 'Person name' : 'Account name'}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-slate-800"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+                  <input
+                    type="text"
+                    value={newAccNumber}
+                    onChange={(e) => setNewAccNumber(e.target.value)}
+                    placeholder={newAccType === 'person' ? 'Account number or mobile number' : newAccType === 'bank' ? 'Account number' : 'Till/paybill/mobile number'}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 outline-none focus:border-slate-800"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateAccount}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase border-none cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
 
               {settleSuccessMsg && (
                 <div className="p-3 bg-emerald-50 border border-emerald-150 rounded-2xl flex items-start space-x-2 animate-fadeIn">
@@ -861,7 +926,7 @@ export default function DashboardCashBank({
                     onChange={(e) => setSettleSource(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold focus:border-slate-800 outline-none cursor-pointer"
                   >
-                    {channels.map(chan => (
+                    {channels.filter(chan => chan.category !== 'person').map(chan => (
                       <option key={chan.id} value={chan.id}>
                         {chan.name} (Current: {formatCurrency(channelBalances[chan.id]?.current)})
                       </option>
@@ -900,6 +965,13 @@ export default function DashboardCashBank({
                       {channels.filter(c => c.category === 'physical').map(chan => (
                         <option key={chan.id} value={chan.id}>
                           {chan.name} (Current: {formatCurrency(channelBalances[chan.id]?.current)})
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Sent to Person">
+                      {channels.filter(c => c.category === 'person').map(chan => (
+                        <option key={chan.id} value={chan.id}>
+                          {chan.name} - {chan.provider || 'Recipient'} ({chan.accountNumber || 'No number'})
                         </option>
                       ))}
                     </optgroup>
@@ -1289,7 +1361,9 @@ export default function DashboardCashBank({
               {searchedAuditTrail.length > 0 ? (
                 searchedAuditTrail.map((entry) => {
                   const chan = channels.find(c => c.id === entry.channelId);
+                  const counterParty = entry.counterPartyChannelId ? channels.find(c => c.id === entry.counterPartyChannelId) : undefined;
                   const isPositive = entry.amount >= 0;
+                  const isPersonPayout = entry.sourceType === 'SETTLE_TILL_DEPOSIT' && counterParty?.category === 'person';
                   
                   return (
                     <tr key={entry.id} className="hover:bg-slate-50/50">
@@ -1319,12 +1393,14 @@ export default function DashboardCashBank({
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold font-mono tracking-wide ${
                           entry.sourceType === 'POS_CHECKOUT' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
+                          isPersonPayout ? 'bg-rose-50 text-rose-700 border border-rose-100' :
                           entry.channelId === 'counter-01' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
                           entry.sourceType === 'SETTLE_TILL_DEPOSIT' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
                           entry.sourceType === 'EXPENSE_WITHDRAWAL' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
                           'bg-slate-100 text-slate-600 border border-slate-200'
                         }`}>
                           {entry.sourceType === 'POS_CHECKOUT' ? 'Payment In' :
+                           isPersonPayout ? 'Sent to Person' :
                            entry.channelId === 'counter-01' ? 'Cash Counter' :
                            entry.sourceType === 'SETTLE_TILL_DEPOSIT' ? 'Transfer' :
                            entry.sourceType === 'EXPENSE_WITHDRAWAL' ? 'Cash Expense' : 'Starting Balance'}
@@ -1337,7 +1413,8 @@ export default function DashboardCashBank({
                         {entry.description}
                         {entry.counterPartyChannelId && (
                           <span className="text-[10px] block text-slate-400 italic">
-                            Other account: {channels.find(c => c.id === entry.counterPartyChannelId)?.name || 'N/A'}
+                            {isPersonPayout ? 'Sent to' : 'Other account'}: {counterParty?.name || 'N/A'}
+                            {counterParty?.accountNumber ? ` (${counterParty.accountNumber})` : ''}
                           </span>
                         )}
                         {(entry.receiptFile || entry.muamalaFile) && (

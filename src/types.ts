@@ -473,7 +473,7 @@ export interface SalesDocument {
 export interface PaymentChannel {
   id: string;
   name: string;
-  category: 'telco' | 'bank' | 'physical';
+  category: 'telco' | 'bank' | 'physical' | 'person';
   provider?: string;
   accountNumber?: string;
 }
@@ -580,4 +580,3 @@ export interface LedgerEntry {
   receiptFile?: string;
   muamalaFile?: string;
 }
-
