@@ -37,8 +37,8 @@ import {
   ChevronDown
 } from 'lucide-react';
 import DashboardBarcodeScanner from './DashboardBarcodeScanner';
-import { generateWhatsAppMessage, buildWhatsAppLink } from '../utils/whatsapp';
 import CachedImage from './CachedImage';
+import { shareElementPdfToWhatsApp } from '../utils/pdfShare';
 
 // Web Audio API helper for offline-friendly beep sound
 const playBeep = (frequency = 800, duration = 80) => {
@@ -412,6 +412,26 @@ export default function DashboardPOS({
   const [pinCode, setPinCode] = useState('');
   const [receiptResult, setReceiptResult] = useState<Sale | null>(null);
   const [recipientWhatsApp, setRecipientWhatsApp] = useState('');
+  const [receiptPdfStatus, setReceiptPdfStatus] = useState<string | null>(null);
+
+  const sharePosReceiptPdf = async () => {
+    if (!receiptResult) return;
+    try {
+      setReceiptPdfStatus('Preparing PDF...');
+      await shareElementPdfToWhatsApp({
+        elementId: 'pos-receipt-pdf-template',
+        fileName: `pos-receipt-${receiptResult.reference || receiptResult.id}.pdf`,
+        phone: recipientWhatsApp,
+        message: `Hello ${receiptResult.customerName || 'customer'}, please find attached your POS receipt PDF from ${activeTenant.name}. Thank you.`,
+        format: 'receipt'
+      });
+      setReceiptPdfStatus('PDF ready for WhatsApp.');
+    } catch (err: any) {
+      setReceiptPdfStatus(err?.message || 'Could not prepare PDF.');
+    } finally {
+      setTimeout(() => setReceiptPdfStatus(null), 4000);
+    }
+  };
 
   // Dual-channel context (Retail vs. Wholesale)
   const [sellingChannel, setSellingChannel] = useState<'retail' | 'wholesale'>('retail');
@@ -2284,7 +2304,7 @@ export default function DashboardPOS({
                 </div>
 
                 {/* PHYSICAL RECEIPT GRAPHIC CONTAINER */}
-                <div className="bg-white text-slate-905 p-5 rounded-3xl font-mono text-xs space-y-4 shadow-xl border-dashed border-2 border-slate-250">
+                <div id="pos-receipt-pdf-template" className="bg-white text-slate-905 p-5 rounded-3xl font-mono text-xs space-y-4 shadow-xl border-dashed border-2 border-slate-250">
                   <div className="text-center space-y-2 border-b border-dashed border-slate-200 pb-3 flex flex-col items-center">
                     {(systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || systemSettings?.business?.businessLogoDark || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url) && (
                       <CachedImage 
@@ -2442,18 +2462,20 @@ export default function DashboardPOS({
                           className="w-full bg-white border border-slate-250 rounded-xl text-xs pl-6 pr-3 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500 font-mono placeholder:font-sans placeholder:text-slate-400"
                         />
                       </div>
-                      <a
-                        href={buildWhatsAppLink(generateWhatsAppMessage(receiptResult, activeTenant), recipientWhatsApp)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={sharePosReceiptPdf}
                         className="inline-flex items-center space-x-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-sm hover:shadow active:scale-95 text-center justify-center decoration-transparent"
                       >
                         <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                        <span>Share Receipt</span>
-                      </a>
+                        <span>Send PDF</span>
+                      </button>
                     </div>
+                    {receiptPdfStatus && (
+                      <p className="text-[10px] font-bold text-emerald-700">{receiptPdfStatus}</p>
+                    )}
                     <p className="text-[9.5px] text-slate-450 leading-relaxed">
-                      Tip: Input country code (e.g. *254* or *234*) without "+" or spaces. Leave empty to select recipient on WhatsApp directly.
+                      Creates receipt PDF first, then opens WhatsApp.
                     </p>
                   </div>
 

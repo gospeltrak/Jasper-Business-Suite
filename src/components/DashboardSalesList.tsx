@@ -37,7 +37,7 @@ import {
   PlusCircle,
   Pencil
 } from 'lucide-react';
-import { generateWhatsAppMessage, buildWhatsAppLink } from '../utils/whatsapp';
+import { shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
@@ -353,6 +353,7 @@ export default function DashboardSalesList({
   const [viewingDocument, setViewingDocument] = useState<SalesDocument | null>(null);
   const [documentSendOpen, setDocumentSendOpen] = useState(false);
   const [documentSendPhone, setDocumentSendPhone] = useState('');
+  const [pdfShareStatus, setPdfShareStatus] = useState<string | null>(null);
   const [selectedDocTypeFilter, setSelectedDocTypeFilter] = useState<'all' | 'quotation' | 'proforma invoice'>('all');
   
   // States for wizard: document creator
@@ -591,7 +592,43 @@ export default function DashboardSalesList({
   const buildDocumentWhatsAppMessage = (doc: SalesDocument) => {
     const documentLabel = doc.type === 'quotation' ? 'price quote' : 'proforma invoice';
     const customer = doc.customerName?.trim() || 'valued customer';
-    return `Hello ${customer}, thank you for choosing ${activeTenant.name}. We have prepared your A4 ${documentLabel} ${doc.documentNumber} with a total of ${currency}${Math.round(doc.total).toLocaleString()}. Kindly review it at your convenience. We value your partnership and are happy to serve you.`;
+    return `Hello ${customer}, please find attached your ${documentLabel} PDF ${doc.documentNumber} from ${activeTenant.name}. Thank you.`;
+  };
+
+  const sharePdfDocument = async (doc: SalesDocument, phone?: string) => {
+    try {
+      setPdfShareStatus('Preparing PDF...');
+      await shareElementPdfToWhatsApp({
+        elementId: 'sales-document-a4-pdf-template',
+        fileName: `${doc.type.replace(/\s+/g, '-')}-${doc.documentNumber}.pdf`,
+        phone: phone || doc.customerPhone,
+        message: buildDocumentWhatsAppMessage(doc),
+        format: 'a4'
+      });
+      setPdfShareStatus('PDF ready for WhatsApp.');
+    } catch (err: any) {
+      setPdfShareStatus(err?.message || 'Could not prepare PDF.');
+    } finally {
+      setTimeout(() => setPdfShareStatus(null), 4000);
+    }
+  };
+
+  const shareSalePdf = async (sale: Sale, phone?: string, format: 'a4' | 'receipt' = 'a4') => {
+    try {
+      setPdfShareStatus('Preparing PDF...');
+      await shareElementPdfToWhatsApp({
+        elementId: format === 'a4' ? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template',
+        fileName: `${format === 'a4' ? 'sales-invoice' : 'pos-receipt'}-${sale.reference || sale.id}.pdf`,
+        phone: phone || sale.customerPhone,
+        message: `Hello ${sale.customerName || 'customer'}, please find attached your ${format === 'a4' ? 'sales invoice' : 'POS receipt'} PDF from ${activeTenant.name}. Thank you.`,
+        format
+      });
+      setPdfShareStatus('PDF ready for WhatsApp.');
+    } catch (err: any) {
+      setPdfShareStatus(err?.message || 'Could not prepare PDF.');
+    } finally {
+      setTimeout(() => setPdfShareStatus(null), 4000);
+    }
   };
 
   const sendDocumentToSales = (doc: SalesDocument) => {
@@ -1417,16 +1454,19 @@ export default function DashboardSalesList({
                                 <span className="font-bold">Printing Invoice (A4)</span>
                               </button>
 
-                              <a
-                                href={buildWhatsAppLink(generateWhatsAppMessage(sale, activeTenant), sale.customerPhone)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={() => setActiveMenuId(null)}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedSale(sale);
+                                  setViewA4InvoiceOpen(true);
+                                  setWhatsappPhone((sale.customerPhone || '').replace(/[^0-9]/g, ''));
+                                  setActiveMenuId(null);
+                                }}
                                 className="w-full text-left px-3 py-2 text-xs text-slate-705 hover:bg-emerald-50 hover:text-emerald-800 flex items-center space-x-2 transition-colors cursor-pointer border-none bg-transparent decoration-transparent font-semibold"
                               >
                                 <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Send via WhatsApp</span>
-                              </a>
+                                <span>Send PDF via WhatsApp</span>
+                              </button>
 
                               {onSendToDeliveryNote && (
                                 <button
@@ -2786,7 +2826,7 @@ export default function DashboardSalesList({
 
               {/* Scrollable A4 Document Sheet */}
               <div className="p-8 overflow-y-auto max-h-[75vh] space-y-8 bg-slate-50">
-                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 max-w-3xl mx-auto space-y-8 relative select-text">
+                <div id="sales-invoice-a4-pdf-template" className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 max-w-3xl mx-auto space-y-8 relative select-text">
                   
                   {/* Decorative Paid/Unpaid background watermark stamp */}
                   <div className="absolute top-8 right-8 select-none pointer-events-none opacity-10 rotate-12">
@@ -3015,15 +3055,14 @@ export default function DashboardSalesList({
                     onChange={(e) => setWhatsappPhone(e.target.value.replace(/[^0-9]/g, ''))}
                     className="w-full bg-white border border-slate-300 rounded-xl text-xs px-2.5 py-1.5 font-mono text-slate-800 focus:outline-none focus:border-emerald-500"
                   />
-                  <a
-                    href={buildWhatsAppLink(generateWhatsAppMessage(selectedSale, activeTenant), whatsappPhone)}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => shareSalePdf(selectedSale, whatsappPhone, 'a4')}
                     className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 hover:text-white text-white rounded-xl text-xs font-bold whitespace-nowrap decoration-transparent inline-flex items-center space-x-1"
                   >
                     <MessageSquare className="w-3.5 h-3.5 text-white shrink-0" />
-                    <span>WhatsApp</span>
-                  </a>
+                    <span>Send PDF</span>
+                  </button>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -3104,7 +3143,7 @@ export default function DashboardSalesList({
               </div>
 
               {/* Scrollable ticket details */}
-              <div className="p-6 overflow-y-auto max-h-[70vh] space-y-6 font-mono text-xs select-text">
+              <div id="sales-receipt-pdf-template" className="p-6 overflow-y-auto max-h-[70vh] space-y-6 font-mono text-xs select-text">
                 
                 {/* Receipt store branding block */}
                 <div className="text-center space-y-1 pb-4 border-b border-dashed border-slate-200 flex flex-col items-center">
@@ -3306,15 +3345,14 @@ export default function DashboardSalesList({
                       className="w-full bg-white border border-slate-300 rounded-xl text-[11px] pl-5 pr-2 py-1.5 font-mono text-slate-800 focus:outline-none focus:border-emerald-500"
                     />
                   </div>
-                  <a
-                    href={buildWhatsAppLink(generateWhatsAppMessage(selectedSale, activeTenant), whatsappPhone)}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => shareSalePdf(selectedSale, whatsappPhone, 'receipt')}
                     className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 hover:text-white text-white rounded-xl text-xs font-bold whitespace-nowrap decoration-transparent flex items-center justify-center space-x-1"
                   >
                     <MessageSquare className="w-3.5 h-3.5 text-white shrink-0" />
-                    <span>WhatsApp</span>
-                  </a>
+                    <span>Send PDF</span>
+                  </button>
                 </div>
 
                 <div className="gap-2.5 flex">
@@ -4625,7 +4663,7 @@ export default function DashboardSalesList({
                       type="button"
                       onClick={() => {
                         if (viewingDocument.customerPhone?.trim()) {
-                          window.open(buildWhatsAppLink(buildDocumentWhatsAppMessage(viewingDocument), viewingDocument.customerPhone), '_blank', 'noopener,noreferrer');
+                          sharePdfDocument(viewingDocument, viewingDocument.customerPhone);
                         } else {
                           setDocumentSendOpen(prev => !prev);
                         }
@@ -4666,26 +4704,31 @@ export default function DashboardSalesList({
                           className="w-full h-11 px-3 rounded-xl border border-slate-250 bg-slate-50 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         />
                       </label>
-                      <a
-                        href={buildWhatsAppLink(buildDocumentWhatsAppMessage(viewingDocument), documentSendPhone)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        disabled={!documentSendPhone.trim()}
+                        onClick={() => sharePdfDocument(viewingDocument, documentSendPhone)}
                         className={`h-11 px-4 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 transition-all ${documentSendPhone.trim() ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm' : 'bg-slate-200 text-slate-400 pointer-events-none'}`}
                       >
                         <MessageSquare className="w-4 h-4" />
-                        <span>Send WhatsApp</span>
-                      </a>
+                        <span>Send PDF</span>
+                      </button>
                     </div>
                     <p className="mt-2 text-[10.5px] text-slate-500 font-medium">
-                      Opens WhatsApp with a respectful customer message. Attach or share the printed A4 PDF from WhatsApp when ready.
+                      Creates the PDF from this document template before opening WhatsApp.
                     </p>
+                  </div>
+                )}
+                {pdfShareStatus && (
+                  <div className="px-4 pb-3 text-[11px] font-bold text-emerald-700">
+                    {pdfShareStatus}
                   </div>
                 )}
               </div>
 
               {/* Printable Area content representation matching layout templates */}
               <div className="flex-1 overflow-auto bg-slate-200/70 p-3 sm:p-6 lg:p-10 print:p-0 print:bg-white print:overflow-visible" id="printable-a4-surface">
-                <div className="w-full max-w-[794px] min-h-[1123px] mx-auto bg-white rounded-2xl sm:rounded-[2rem] shadow-xl border border-slate-200 p-6 sm:p-10 lg:p-14 space-y-8 font-sans print:max-w-none print:min-h-0 print:rounded-none print:shadow-none print:border-0 print:p-0">
+                <div id="sales-document-a4-pdf-template" className="w-full max-w-[794px] min-h-[1123px] mx-auto bg-white rounded-2xl sm:rounded-[2rem] shadow-xl border border-slate-200 p-6 sm:p-10 lg:p-14 space-y-8 font-sans print:max-w-none print:min-h-0 print:rounded-none print:shadow-none print:border-0 print:p-0">
                   
                   {/* Decorative corporate banner on top */}
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">

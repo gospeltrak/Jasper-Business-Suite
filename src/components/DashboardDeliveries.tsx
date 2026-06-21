@@ -26,6 +26,7 @@ import {
   MoreVertical,
   Eye
 } from 'lucide-react';
+import { shareElementPdfToWhatsApp } from '../utils/pdfShare';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
 function DeliveryMotorcycleIcon({ className, size = 18 }: { className?: string; size?: number }) {
@@ -221,6 +222,7 @@ export default function DashboardDeliveries({
   // WhatsApp simulation modal state
   const [whatsAppTarget, setWhatsAppTarget] = useState<Delivery | null>(null);
   const [copiedText, setCopiedText] = useState(false);
+  const [deliveryPdfStatus, setDeliveryPdfStatus] = useState<string | null>(null);
 
   // Delivery Note Creator Form States
   const [notePINo, setNotePINo] = useState(() => `PI-${Math.floor(10000 + Math.random() * 90000)}`);
@@ -572,12 +574,25 @@ Vehicle Plate Number: ${plateNumber}
     setTimeout(() => setCopiedText(false), 2000);
   };
 
-  const openWhatsAppLink = (del: Delivery) => {
-    const text = generateWhatsAppMessage(del);
-    const cleanPhone = del.customerPhone?.replace(/[^0-9+]/g, '') || '';
-    const encodedText = encodeURIComponent(text);
-    const url = `https://wa.me/${cleanPhone}?text=${encodedText}`;
-    window.open(url, '_blank');
+  const openWhatsAppLink = async (del: Delivery) => {
+    const customerName = del.customerName || 'customer';
+    const dnNo = `DN-${new Date(del.timestamp || Date.now()).getFullYear()}-${del.id.toUpperCase().replace('DLV-', '').replace('DLV_', '').slice(0, 6)}`;
+
+    try {
+      setDeliveryPdfStatus('Preparing delivery note PDF...');
+      await shareElementPdfToWhatsApp({
+        elementId: 'delivery-note-print-area',
+        fileName: `delivery-note-${dnNo}.pdf`,
+        phone: del.customerPhone,
+        message: `Hello ${customerName}, please find attached your delivery note PDF from ${activeTenant.name}. Thank you.`,
+        format: 'a4'
+      });
+      setDeliveryPdfStatus('PDF ready for WhatsApp.');
+    } catch (err: any) {
+      setDeliveryPdfStatus(err?.message || 'Open the delivery note preview first so the PDF can be created.');
+    } finally {
+      setTimeout(() => setDeliveryPdfStatus(null), 4000);
+    }
   };
 
   const filteredDeliveries = deliveries.filter(del => {
@@ -2338,12 +2353,17 @@ Vehicle Plate Number: ${plateNumber}
               <div className="relative max-w-[85%] bg-white rounded-2xl rounded-tl-none p-4.5 text-xs text-slate-800 shadow-md border-l-4 border-emerald-500 font-sans leading-relaxed">
                 {/* Visual whatsapp tail */}
                 <span className="absolute -left-1.5 top-0 w-3 h-3 bg-white transform rotate-45 rounded-sm pointer-events-none"></span>
-                <p className="whitespace-pre-wrap">{generateWhatsAppMessage(whatsAppTarget)}</p>
+                <p className="whitespace-pre-wrap">Delivery note PDF will be prepared from the system template and sent to the customer.</p>
                 <div className="text-[9.5px] text-right text-slate-400 mt-2 font-mono flex items-center justify-end">
-                  <span>Delivered - Auto-compiled</span>
+                  <span>PDF template ready</span>
                   <Check className="w-3 h-3 text-sky-500 ml-1 shrink-0" />
                 </div>
               </div>
+              {deliveryPdfStatus && (
+                <p className="mt-3 text-[11px] font-bold text-emerald-800 bg-white/80 rounded-xl px-3 py-2">
+                  {deliveryPdfStatus}
+                </p>
+              )}
             </div>
 
             {/* Footer with actions */}
@@ -2365,7 +2385,7 @@ Vehicle Plate Number: ${plateNumber}
                   className="bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold py-2 px-4 rounded-xl text-xs transition-all cursor-pointer disabled:opacity-50 flex items-center space-x-1"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
-                  <span>Send WhatsApp</span>
+                  <span>Send PDF</span>
                 </button>
               </div>
             </div>
