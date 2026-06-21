@@ -584,28 +584,30 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                           <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase shrink-0 ${u.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : u.status === 'Suspended' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>
                             {u.status}
                           </span>
-                          {isUnlocked && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMirrorTarget(u);
-                                setShowMirrorModal(true);
-                                setMirrorPass1('');
-                                setMirrorPass2('');
-                                setMirrorError('');
-                              }}
-                              title="Enter Account"
-                              className="p-1 px-2 bg-indigo-600/30 border border-indigo-500/30 hover:bg-indigo-600 text-indigo-300 hover:text-white rounded transition-colors cursor-pointer"
-                            >
-                              <AppWindow className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-slate-500">
-                        <span className="capitalize">{u.referralSource} path</span>
-                        <span>{u.dateCreated}</span>
-                      </div>
+	                        </div>
+	                      </div>
+	                      <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-slate-500">
+	                        <span className="capitalize">{u.referralSource} path</span>
+	                        {isUnlocked ? (
+	                          <button
+	                            type="button"
+	                            onClick={(e) => {
+	                              e.stopPropagation();
+	                              setMirrorTarget(u);
+	                              setShowMirrorModal(true);
+	                              setMirrorPass1('');
+	                              setMirrorPass2('');
+	                              setMirrorError('');
+	                            }}
+	                            title="Open mirror account"
+	                            className="text-indigo-300 hover:text-white underline decoration-indigo-500/40 underline-offset-2 transition-colors"
+	                          >
+	                            {u.dateCreated}
+	                          </button>
+	                        ) : (
+	                          <span>{u.dateCreated}</span>
+	                        )}
+	                      </div>
                     </div>
                   );
                 })}
