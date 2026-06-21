@@ -50,8 +50,8 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
     welcome: "Welcome to Jasper Enterprise Suite",
     welcomeSub: "Unifying POS Ledger, Hotel PMs & Multi-Tenant Channels",
-    signinTab: "Sign In Account",
-    registerTab: "Register New Business",
+    signinTab: "Sign In",
+    registerTab: "Join Us",
     emailLabel: "Account Identifier",
     passLabel: "Owner Pin Password",
     ownerName: "Owner Full Name",
@@ -62,7 +62,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     promoCode: "Affiliate Referral Promo Code (Optional)",
     promoDesc: "Promo code gives you an extended 20 days free trial instead of 10 days.",
     nicheLabel: "Business Industry Niche (Mandatory)",
-    compileBtn: "Compile Secure Tenant",
+    compileBtn: "Join Us",
     continueGoogle: "Continue with Google",
     googleOr: "OR ONE-CLICK REGISTER WITH GOOGLE",
     googleOrSig: "OR ONE-CLICK SIGN IN",
@@ -1360,13 +1360,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               onClick={() => { setAuthTab('signin'); setError(null); }}
               className={`py-3 rounded-xl transition-all cursor-pointer text-center ${authTab === 'signin' ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:text-slate-700 bg-transparent border-none'}`}
             >
-              Sign In Account
+	            Sign In
             </button>
             <button
               onClick={() => { setAuthTab('register'); setError(null); }}
               className={`py-3 rounded-xl transition-all cursor-pointer text-center ${authTab === 'register' ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:text-slate-700 bg-transparent border-none'}`}
             >
-              Register New Business
+	            Join Us
             </button>
           </div>
         )}
@@ -1680,7 +1680,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <span>Processing securely...</span>
                   </>
                 ) : emailChecked ? (
-                  <span>{loginOtpMode ? 'Access With WhatsApp OTP' : 'Access Terminal Cabin'}</span>
+	                  <span>Sign In</span>
                 ) : (
                   <span>Continue</span>
                 )}
@@ -1831,7 +1831,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <span>Allocating Cloud DB Cluster...</span>
                   </>
                 ) : (
-                  <span>Compile Secure Tenant</span>
+	                  <span>Join Us</span>
                 )}
               </button>
 
