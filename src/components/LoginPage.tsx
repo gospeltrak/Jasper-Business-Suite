@@ -52,13 +52,13 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "Unifying POS Ledger, Hotel PMs & Multi-Tenant Channels",
     signinTab: "Sign In Account",
     registerTab: "Register New Business",
-    emailLabel: "Owner WhatsApp Number",
+    emailLabel: "Account Identifier",
     passLabel: "Owner Pin Password",
     ownerName: "Owner Full Name",
     companyName: "Company / Hotel Name",
     region: "Region of operations",
     city: "City Name Office",
-    phone: "Owner WhatsApp Number",
+    phone: "Phone Number",
     promoCode: "Affiliate Referral Promo Code (Optional)",
     promoDesc: "Promo code gives you an extended 20 days free trial instead of 10 days.",
     nicheLabel: "Business Industry Niche (Mandatory)",
@@ -77,13 +77,13 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "POS Rejesta, Kitabu cha Hesabu, Usimamizi wa Hoteli na Huduma ya Pamoja",
     signinTab: "Ingia kwenye Akaunti",
     registerTab: "Sajili Biashara Mpya",
-    emailLabel: "Namba ya WhatsApp ya Mmiliki",
+    emailLabel: "Utambulisho wa Akaunti",
     passLabel: "Nenosiri la Mmiliki (Pin)",
     ownerName: "Majina Kamili ya Mmiliki",
     companyName: "Jina la Kampuni au Biashara",
     region: "Nchi/Eneo la Huduma",
     city: "Jiji/Ofisi Kuu",
-    phone: "Namba ya WhatsApp ya Mmiliki",
+    phone: "Namba ya Simu",
     promoCode: "Kuponi ya Washirika (Sio Lazima)",
     promoDesc: "Kuponi hii inakupa majaribio ya siku 20 bure badala ya siku 10.",
     nicheLabel: "Aina ya Biashara yako (Lazima)",
@@ -102,13 +102,13 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "توحيد نقاط البيع، وإدارة الفنادق والقنوات متعددة المستأجرين",
     signinTab: "تسجيل الدخول للحساب",
     registerTab: "تسجيل عمل تجاري جديد",
-    emailLabel: "رقم واتساب المالك",
+    emailLabel: "معرّف الحساب",
     passLabel: "رمز المرور السري للمالك",
     ownerName: "الاسم الكامل للمالك",
     companyName: "اسم الشركة / الفندق",
     region: "منطقة العمليات",
     city: "اسم مدينة المكتب",
-    phone: "رقم واتساب المالك",
+    phone: "رقم الهاتف",
     promoCode: "رمز ترويج الإحالة (اختياري)",
     promoDesc: "يمنحك الرمز الترويجي فترة تجريبية مجانية ممتدة لـ 20 يومًا بدلاً من 10 أيام.",
     nicheLabel: "مجال العمل التجاري (إلزامي)",
@@ -127,13 +127,13 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "Unification du registre POS, de la comptabilité et hôtelière multi-locataire",
     signinTab: "Se Connecter",
     registerTab: "Enregistrer une Entreprise",
-    emailLabel: "Numéro WhatsApp du propriétaire",
+    emailLabel: "Identifiant du compte",
     passLabel: "Code d'accès Pin",
     ownerName: "Nom Complet du Propriétaire",
     companyName: "Nom de l'Entreprise ou de l'Hôtel",
     region: "Région des opérations",
     city: "Ville du bureau principal",
-    phone: "Numéro WhatsApp du propriétaire",
+    phone: "Numéro de téléphone",
     promoCode: "Code Promo d'affiliation (Optionnel)",
     promoDesc: "Le code promo prolonge l'essai gratuit jusqu'à 20 jours au lieu de 10.",
     nicheLabel: "Niche commerciale industrielle (Obligatoire)",
@@ -194,7 +194,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [ownerName, setOwnerName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
-  const [regPhone, setRegPhone] = useState('');
   const [orgName, setOrgName] = useState('');
   const [businessType, setBusinessType] = useState<string>('Retail');
   const [country, setCountry] = useState<'Nigeria' | 'Kenya' | 'Ghana' | 'South Africa' | 'Tanzania'>('Tanzania');
@@ -414,6 +413,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const makeInternalEmailFromPhone = (phone: string) => {
     const normalized = normalizePhoneForWhatsapp(phone);
     return normalized ? `wa${normalized}@whatsapp.jasper.local` : '';
+  };
+
+  const makeInternalEmailFromBusiness = (businessName: string, owner: string) => {
+    const base = `${businessName || owner || 'owner'}-${Date.now()}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48) || 'owner';
+    return `${base}@signup.jasper.local`;
   };
 
   const isOwnerRecoveryRole = (role?: string) => {
@@ -922,7 +930,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   // Perform dynamic tenant/business registration
   const handleRegisterSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!ownerName || !regPhone || !regPassword || !orgName) {
+    if (!ownerName || !regPassword || !orgName) {
       setError('Please fill in all registration inputs.');
       return;
     }
@@ -933,7 +941,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
     setIsLoading(true);
     setError(null);
-    const ownerAuthEmail = regEmail.trim() || makeInternalEmailFromPhone(regPhone);
+    const ownerAuthEmail = regEmail.trim() || makeInternalEmailFromBusiness(orgName, ownerName);
 
     try {
       const client: any = await getDynamicSupabaseClient();
@@ -945,8 +953,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         password: regPassword,
         options: {
           data: {
-            full_name: ownerName,
-            phone: regPhone
+            full_name: ownerName
           }
         }
       });
@@ -998,7 +1005,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           role: 'Admin', // first user of a new tenant is always Admin
           tenant_id: newTenant.id,
           active_tenant: newTenant.id,
-          phone: regPhone || null,
+          phone: null,
           is_duress: false,
           is_saas_staff: false
         });
@@ -1015,7 +1022,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         role: 'Admin',
         tenantId: newTenant.id,
         activeTenant: newTenant.id,
-        phone: regPhone || undefined,
+        phone: undefined,
         isSaaSStaff: false,
         trial_start_date: new Date().toISOString(),
         trial_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
@@ -1078,7 +1085,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           role: 'Admin' as const,
           tenantId: newTenantId,
           activeTenant: newTenantId,
-          phone: regPhone || null,
+          phone: null,
           trial_start_date: userStartDate.toISOString(),
           trial_end_date: userEndDate.toISOString(),
           is_affiliate_lead: hasReferral,
@@ -1728,7 +1735,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+	              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Region of operations</label>
                   <select
@@ -1757,18 +1764,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-505 uppercase block">Owner WhatsApp Number</label>
-                  <input
-                    type="tel"
-                    required
-                    value={regPhone}
-                    placeholder="e.g. +255 712 345 678"
-                    onChange={(e) => setRegPhone(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-850 outline-none font-sans"
-                  />
-                </div>
-              </div>
+	              </div>
 
               {/* OPTIONAL AFFILIATE REFERRAL TRACKER */}
               <div className="space-y-1.5 bg-emerald-50/40 p-3.5 rounded-2xl border border-emerald-100/60">
