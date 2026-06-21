@@ -930,7 +930,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   // Perform dynamic tenant/business registration
   const handleRegisterSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!ownerName || !regPassword || !orgName) {
+    if (!ownerName || !regEmail || !regPassword || !orgName) {
       setError('Please fill in all registration inputs.');
       return;
     }
@@ -941,7 +941,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
     setIsLoading(true);
     setError(null);
-    const ownerAuthEmail = regEmail.trim() || makeInternalEmailFromBusiness(orgName, ownerName);
+    const cleanOwnerPhone = normalizePhoneForWhatsapp(regEmail);
+    const ownerAuthEmail = regEmail.includes('@')
+      ? regEmail.trim()
+      : makeInternalEmailFromPhone(regEmail) || makeInternalEmailFromBusiness(orgName, ownerName);
 
     try {
       const client: any = await getDynamicSupabaseClient();
@@ -953,7 +956,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         password: regPassword,
         options: {
           data: {
-            full_name: ownerName
+            full_name: ownerName,
+            phone: cleanOwnerPhone || regEmail.trim()
           }
         }
       });
@@ -1005,7 +1009,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           role: 'Admin', // first user of a new tenant is always Admin
           tenant_id: newTenant.id,
           active_tenant: newTenant.id,
-          phone: null,
+          phone: cleanOwnerPhone || regEmail.trim(),
           is_duress: false,
           is_saas_staff: false
         });
@@ -1022,7 +1026,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         role: 'Admin',
         tenantId: newTenant.id,
         activeTenant: newTenant.id,
-        phone: undefined,
+        phone: cleanOwnerPhone || regEmail.trim(),
         isSaaSStaff: false,
         trial_start_date: new Date().toISOString(),
         trial_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
@@ -1085,7 +1089,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           role: 'Admin' as const,
           tenantId: newTenantId,
           activeTenant: newTenantId,
-          phone: null,
+          phone: cleanOwnerPhone || regEmail.trim(),
           trial_start_date: userStartDate.toISOString(),
           trial_end_date: userEndDate.toISOString(),
           is_affiliate_lead: hasReferral,
@@ -1712,15 +1716,16 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Backup Email (Optional)</label>
-                  <input
-                    type="email"
-                    value={regEmail}
-                    placeholder="Optional email backup"
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-sans"
-                  />
+	                <div className="space-y-1.5">
+	                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner WhatsApp Number</label>
+	                  <input
+	                    type="tel"
+	                    required
+	                    value={regEmail}
+	                    placeholder="e.g. +255 712 345 678"
+	                    onChange={(e) => setRegEmail(e.target.value)}
+	                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-sans"
+	                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Pin Password</label>
