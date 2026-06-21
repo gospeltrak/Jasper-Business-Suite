@@ -87,12 +87,6 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
     }
   }, []);
   
-  useEffect(() => {
-    if (!isUnlocked) {
-      setSelectedUser(null);
-    }
-  }, [isUnlocked]);
-  
   // Immersive Mode (Seeing everything exactly as the user sees it)
   const [immersiveTab] = useState<'business'>('business');
   const [bizSubTab, setBizSubTab] = useState<'messages' | 'billing' | 'hardware'>('messages');
@@ -569,7 +563,6 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                     <div 
                       key={u.id}
                       onClick={() => {
-                        if (!isUnlocked) return;
                         setSelectedUser(u);
                         setEditName(u.name);
                         setEditUsername(u.username);
@@ -580,7 +573,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                         setEditStatus(u.status);
                         setBizSubTab('messages');
                       }}
-                      className={`p-3 transition-colors ${isUnlocked ? 'cursor-pointer hover:bg-slate-900/40 text-slate-300' : 'cursor-not-allowed opacity-80 text-slate-500'} ${isSelected ? 'bg-emerald-500/10 border-l-2 border-emerald-500 text-white font-bold' : ''}`}
+                      className={`p-3 transition-colors cursor-pointer hover:bg-slate-900/40 text-slate-300 ${isSelected ? 'bg-emerald-500/10 border-l-2 border-emerald-500 text-white font-bold' : ''}`}
                     >
                       <div className="flex justify-between items-start gap-1">
                         <div>
@@ -636,7 +629,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                   <h3 className="text-lg font-black text-white mt-1 uppercase tracking-tight">{selectedUser.name} View</h3>
                   <p className="text-xs text-slate-400 mt-0.5">View user workspace.</p>
                 </div>
-                {onLock && (
+                {isUnlocked && onLock && (
                   <button 
                     onClick={onLock}
                     className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold uppercase tracking-wider font-mono transition-colors flex items-center space-x-2 whitespace-nowrap shrink-0 cursor-pointer"
