@@ -14,13 +14,17 @@ export async function getDynamicSupabaseClient() {
   if (!url || !key) {
     try {
       const res = await fetch(`/api/auth/config`);
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        throw new Error('frontend config endpoint unavailable');
+      }
       const data = await res.json();
       if (data.supabaseUrl && data.supabaseAnonKey) {
         url = data.supabaseUrl;
         key = data.supabaseAnonKey;
       }
     } catch (e: any) {
-      console.warn('[Supabase Client] Failed to fetch frontend config:', e?.message || e);
+      // Static deployments fall back to the local/demo client when no config API is available.
     }
   }
 
