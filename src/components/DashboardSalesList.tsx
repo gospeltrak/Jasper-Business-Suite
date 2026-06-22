@@ -4925,7 +4925,7 @@ export default function DashboardSalesList({
 	                    {pdfShareStatus}
 	                  </div>
 	                )}
-	                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+	                <div className="flex flex-wrap items-center justify-end gap-2">
 	                  <button
 	                    type="button"
 	                    onClick={() => {
@@ -4935,24 +4935,24 @@ export default function DashboardSalesList({
 	                        setDocumentSendOpen(prev => !prev);
 	                      }
 	                    }}
-	                    className="h-12 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-2 shadow-sm font-sans whitespace-nowrap"
+	                    className="h-9 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl border-none cursor-pointer transition-all flex items-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
 	                  >
-	                    <MessageSquare className="w-4 h-4 text-white" />
+	                    <MessageSquare className="w-3.5 h-3.5 text-white" />
 	                    <span>Send</span>
 	                  </button>
 	                  <button
 	                    type="button"
 	                    disabled={viewingDocument.status !== 'pending'}
 	                    onClick={() => sendDocumentToSales(viewingDocument)}
-	                    className="h-12 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-2 shadow-sm font-sans whitespace-nowrap"
+	                    className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl border-none cursor-pointer transition-all flex items-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
 	                  >
-	                    <ArrowRight className="w-4 h-4" />
+	                    <ArrowRight className="w-3.5 h-3.5" />
 	                    <span>Record as Sale</span>
 	                  </button>
 	                  <button
 	                    type="button"
 	                    onClick={() => setViewingDocument(null)}
-	                    className="h-12 px-4 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-black uppercase rounded-xl cursor-pointer transition-all font-sans whitespace-nowrap"
+	                    className="h-9 px-4 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer transition-all font-sans whitespace-nowrap"
 	                  >
 	                    Close
 	                  </button>
