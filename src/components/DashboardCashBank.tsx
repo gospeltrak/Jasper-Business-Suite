@@ -468,10 +468,10 @@ export default function DashboardCashBank({
 
   // Keep track of how much cash is in each device/account
   const getChannelAggregateBalances = () => {
-    const aggregates: Record<string, { current: number; inflowSales: number; inflowDrops: number; totalMoney In: number }> = {};
+    const aggregates: Record<string, { current: number; inflowSales: number; inflowDrops: number; totalMoneyIn: number }> = {};
     
     channels.forEach(chan => {
-      aggregates[chan.id] = { current: 0, inflowSales: 0, inflowDrops: 0, totalMoney In: 0 };
+      aggregates[chan.id] = { current: 0, inflowSales: 0, inflowDrops: 0, totalMoneyIn: 0 };
     });
 
     ledgerEntries.forEach(entry => {
@@ -485,10 +485,10 @@ export default function DashboardCashBank({
         if (isWithinFilter && entry.amount > 0) {
           if (entry.sourceType === 'POS_CHECKOUT') {
             targetChan.inflowSales += entry.amount;
-            targetChan.totalMoney In += entry.amount;
+            targetChan.totalMoneyIn += entry.amount;
           } else if (entry.sourceType === 'SETTLE_TILL_DEPOSIT') {
             targetChan.inflowDrops += entry.amount;
-            targetChan.totalMoney In += entry.amount;
+            targetChan.totalMoneyIn += entry.amount;
           }
         }
       }
@@ -523,31 +523,31 @@ export default function DashboardCashBank({
 
   // Consolidated System Statistics (Responds to date range and links all payment modes)
   const getCombinedPerformanceStats = () => {
-    let totalMoney In = 0;
-    let totalMoney Out = 0;
-    let countMoney In = 0;
-    let countMoney Out = 0;
+    let totalMoneyIn = 0;
+    let totalMoneyOut = 0;
+    let countMoneyIn = 0;
+    let countMoneyOut = 0;
 
     activeTenantFilterLedger.forEach(entry => {
       if (entry.entryType === 'credit' || entry.amount >= 0) {
-        totalMoney In += entry.amount;
-        countMoney In++;
+        totalMoneyIn += entry.amount;
+        countMoneyIn++;
       } else {
-        totalMoney Out += Math.abs(entry.amount);
-        countMoney Out++;
+        totalMoneyOut += Math.abs(entry.amount);
+        countMoneyOut++;
       }
     });
 
     const totalCurrentRemainingBalance = channels
       .filter(chan => chan.category !== 'person')
       .reduce((sum, chan) => sum + (channelBalances[chan.id]?.current || 0), 0);
-    const netChange = totalMoney In - totalMoney Out;
+    const netChange = totalMoneyIn - totalMoneyOut;
 
     return {
-      totalMoney In,
-      totalMoney Out,
-      countMoney In,
-      countMoney Out,
+      totalMoneyIn,
+      totalMoneyOut,
+      countMoneyIn,
+      countMoneyOut,
       totalCurrentRemainingBalance,
       netChange
     };
@@ -678,18 +678,18 @@ export default function DashboardCashBank({
             const sums = channelBalances[chan.id] || { current: 0 };
             
             // Calculate total based on dates (using activeTenantFilterLedger)
-            let periodMoney In = 0;
-            let periodMoney Out = 0;
+            let periodMoneyIn = 0;
+            let periodMoneyOut = 0;
             activeTenantFilterLedger.forEach(entry => {
               if (entry.channelId === chan.id) {
                 if (entry.amount > 0) {
-                  periodMoney In += entry.amount;
+                  periodMoneyIn += entry.amount;
                 } else {
-                  periodMoney Out += Math.abs(entry.amount);
+                  periodMoneyOut += Math.abs(entry.amount);
                 }
               }
             });
-            const periodNet = periodMoney In - periodMoney Out;
+            const periodNet = periodMoneyIn - periodMoneyOut;
 
             let iconOfChan = <Coins className="w-4 h-4 shrink-0" />;
             let basePillStyle = 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100/80';
@@ -749,14 +749,14 @@ export default function DashboardCashBank({
 
               <div className="bg-emerald-950/20 p-4 rounded-2xl border border-emerald-900/60 text-white animate-fadeIn">
                 <span className="text-[10px] font-bold text-emerald-400 block uppercase font-mono tracking-wide">Total Payment In (Money Ins)</span>
-                <span className="text-lg font-black text-emerald-300 block mt-0.5 font-sans">+{formatCurrency(combinedStats.totalMoney In)}</span>
-                <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{combinedStats.countMoney In} credit movements</span>
+                <span className="text-lg font-black text-emerald-300 block mt-0.5 font-sans">+{formatCurrency(combinedStats.totalMoneyIn)}</span>
+                <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{combinedStats.countMoneyIn} credit movements</span>
               </div>
 
               <div className="bg-rose-950/20 p-4 rounded-2xl border border-rose-900/40 text-white animate-fadeIn">
                 <span className="text-[10px] font-bold text-rose-400 block uppercase font-mono tracking-wide">Total Payment Out (Money Outs)</span>
-                <span className="text-lg font-black text-rose-300 block mt-0.5 font-sans">-{formatCurrency(combinedStats.totalMoney Out)}</span>
-                <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{combinedStats.countMoney Out} debit movements</span>
+                <span className="text-lg font-black text-rose-300 block mt-0.5 font-sans">-{formatCurrency(combinedStats.totalMoneyOut)}</span>
+                <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{combinedStats.countMoneyOut} debit movements</span>
               </div>
 
               <div className={`p-4 rounded-2xl border ${combinedStats.netChange >= 0 ? 'bg-emerald-950/30 border-emerald-800 text-emerald-300' : 'bg-rose-950/30 border-rose-800 text-rose-300'} animate-fadeIn`}>
@@ -780,14 +780,14 @@ export default function DashboardCashBank({
                   const currentBalance = channelBalances[chan.id]?.current || 0;
                   
                   // Compute period range inflow and range outflow for this account specifically from the same activeTenantFilterLedger
-                  let periodMoney In = 0;
-                  let periodMoney Out = 0;
+                  let periodMoneyIn = 0;
+                  let periodMoneyOut = 0;
                   activeTenantFilterLedger.forEach(entry => {
                     if (entry.channelId === chan.id) {
                       if (entry.amount >= 0) {
-                        periodMoney In += entry.amount;
+                        periodMoneyIn += entry.amount;
                       } else {
-                        periodMoney Out += Math.abs(entry.amount);
+                        periodMoneyOut += Math.abs(entry.amount);
                       }
                     }
                   });
@@ -828,11 +828,11 @@ export default function DashboardCashBank({
                       <div className="grid grid-cols-2 gap-2 pt-2 border-t border-dashed border-slate-100/80 text-[10.5px]">
                         <div className="space-y-0.5">
                           <span className="block text-[9px] font-bold text-slate-400 font-mono uppercase tracking-wider">Money Ins</span>
-                          <span className="text-emerald-600 font-bold font-sans">+{formatCurrency(periodMoney In)}</span>
+                          <span className="text-emerald-600 font-bold font-sans">+{formatCurrency(periodMoneyIn)}</span>
                         </div>
                         <div className="space-y-0.5 text-right border-l border-slate-100 pl-2">
                           <span className="block text-[9px] font-bold text-slate-400 font-mono uppercase tracking-wider">Money Outs</span>
-                          <span className="text-slate-600 font-medium font-sans">-{formatCurrency(periodMoney Out)}</span>
+                          <span className="text-slate-600 font-medium font-sans">-{formatCurrency(periodMoneyOut)}</span>
                         </div>
                       </div>
                     </div>
@@ -1159,24 +1159,24 @@ export default function DashboardCashBank({
           const chan = channels.find(c => c.id === selectedChannelId)!;
           const sums = channelBalances[chan.id] || { current: 0 };
           
-          let periodMoney In = 0;
-          let periodMoney Out = 0;
-          let countMoney In = 0;
-          let countMoney Out = 0;
+          let periodMoneyIn = 0;
+          let periodMoneyOut = 0;
+          let countMoneyIn = 0;
+          let countMoneyOut = 0;
           
           activeTenantFilterLedger.forEach(entry => {
             if (entry.channelId === chan.id) {
               if (entry.amount >= 0) {
-                periodMoney In += entry.amount;
-                countMoney In++;
+                periodMoneyIn += entry.amount;
+                countMoneyIn++;
               } else {
-                periodMoney Out += Math.abs(entry.amount);
-                countMoney Out++;
+                periodMoneyOut += Math.abs(entry.amount);
+                countMoneyOut++;
               }
             }
           });
 
-          const periodNet = periodMoney In - periodMoney Out;
+          const periodNet = periodMoneyIn - periodMoneyOut;
 
           return (
             <div className="space-y-6 animate-fadeIn">
@@ -1242,14 +1242,14 @@ export default function DashboardCashBank({
 
                   <div className="bg-emerald-50/20 p-4 rounded-2xl border border-emerald-100">
                     <span className="text-[10px] font-bold text-emerald-600 block uppercase font-mono tracking-wide">Total Money In</span>
-                    <span className="text-lg font-black text-emerald-700 block mt-0.5 font-sans">+{formatCurrency(periodMoney In)}</span>
-                    <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{countMoney In} credit movements</span>
+                    <span className="text-lg font-black text-emerald-700 block mt-0.5 font-sans">+{formatCurrency(periodMoneyIn)}</span>
+                    <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{countMoneyIn} credit movements</span>
                   </div>
 
                   <div className="bg-rose-50/10 p-4 rounded-2xl border border-rose-100">
                     <span className="text-[10px] font-bold text-rose-600 block uppercase font-mono tracking-wide">Total Money Out</span>
-                    <span className="text-lg font-black text-rose-600 block mt-0.5 font-sans">-{formatCurrency(periodMoney Out)}</span>
-                    <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{countMoney Out} debit movements</span>
+                    <span className="text-lg font-black text-rose-600 block mt-0.5 font-sans">-{formatCurrency(periodMoneyOut)}</span>
+                    <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{countMoneyOut} debit movements</span>
                   </div>
 
                   <div className={`p-4 rounded-2xl border ${periodNet >= 0 ? 'bg-emerald-50/15 border-emerald-150 text-emerald-800' : 'bg-rose-50/15 border-rose-150 text-rose-800'}`}>
