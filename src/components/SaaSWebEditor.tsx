@@ -18,8 +18,10 @@ import {
   HelpCircle,
   Award,
   Users,
-  Trash2
+  Trash2,
+  Image as ImageIcon
 } from 'lucide-react';
+import { DEFAULT_TENANTS } from '../data';
 
 const DEFAULT_SECTIONS = [
   { id: 'landing-hero', label: 'Hero Section', desc: 'Main title, subtitle, registration call-to-action, and animated illustrations.' },
@@ -66,6 +68,42 @@ const DEFAULT_TRANSLATIONS: Record<string, string> = {
   footerCopyright: "© 2026 Jasper Business Suite Network. All rights reserved."
 };
 
+type FeaturedLogo = {
+  id: string;
+  name: string;
+  logoUrl?: string;
+  initials?: string;
+};
+
+const getInitials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "JS";
+
+const normalizeFeaturedLogos = (items: any[]): FeaturedLogo[] =>
+  items
+    .map((item, index) => {
+      if (typeof item === "string") {
+        return {
+          id: `legacy-${index}-${item}`,
+          name: item,
+          initials: getInitials(item),
+        };
+      }
+      if (!item || typeof item !== "object") return null;
+      const name = item.name || item.label || item.companyName || `Logo ${index + 1}`;
+      return {
+        id: item.id || item.tenantId || `logo-${index}`,
+        name,
+        logoUrl: item.logoUrl || item.logo || item.src || "",
+        initials: item.initials || getInitials(name),
+      };
+    })
+    .filter(Boolean) as FeaturedLogo[];
+
 export default function SaaSWebEditor() {
   // Sections order state
   const [sectionsOrder, setSectionsOrder] = useState<string[]>(() => {
@@ -97,7 +135,21 @@ export default function SaaSWebEditor() {
     }
   });
 
-  const [activeSubTab, setActiveSubTab] = useState<'ordering' | 'texts' | 'links' | 'partners'>('ordering');
+  const [activeSubTab, setActiveSubTab] = useState<'ordering' | 'texts' | 'links' | 'logos' | 'partners'>('ordering');
+  const logoCandidates: FeaturedLogo[] = DEFAULT_TENANTS.map((tenant) => ({
+    id: tenant.id,
+    name: tenant.name,
+    logoUrl: localStorage.getItem(`jasper_tenant_logo_${tenant.id}`) || tenant.company_settings?.logo_url || "",
+    initials: getInitials(tenant.name),
+  }));
+  const [featuredLogos, setFeaturedLogos] = useState<FeaturedLogo[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('jasper_featured_logos') || '[]');
+      return normalizeFeaturedLogos(saved);
+    } catch {
+      return [];
+    }
+  });
   const [partnerCapacity, setPartnerCapacity] = useState<number>(() => {
     const saved = localStorage.getItem('jasper_partner_capacity');
     return saved ? parseInt(saved, 10) : 5;
@@ -155,10 +207,12 @@ export default function SaaSWebEditor() {
       localStorage.removeItem('jasper_landing_sections_order');
       localStorage.removeItem('jasper_landing_hidden_sections');
       localStorage.removeItem('jasper_landing_custom_values');
+      localStorage.removeItem('jasper_featured_logos');
       
       setSectionsOrder(DEFAULT_SECTIONS.map(s => s.id));
       setHiddenSections({});
       setCustomValues(DEFAULT_TRANSLATIONS);
+      setFeaturedLogos([]);
 
       // Broadcast update event
       window.dispatchEvent(new Event('saas_landing_page_updated'));
@@ -173,6 +227,7 @@ export default function SaaSWebEditor() {
       localStorage.setItem('jasper_landing_sections_order', JSON.stringify(sectionsOrder));
       localStorage.setItem('jasper_landing_hidden_sections', JSON.stringify(hiddenSections));
       localStorage.setItem('jasper_landing_custom_values', JSON.stringify(customValues));
+      localStorage.setItem('jasper_featured_logos', JSON.stringify(featuredLogos));
       localStorage.setItem('jasper_partner_capacity', partnerCapacity.toString());
 
       // Dispatch custom document broadcast event to reload parent/iFrame Landing Page immediately!
@@ -190,6 +245,14 @@ export default function SaaSWebEditor() {
     setTimeout(() => {
       setSaveNotification(null);
     }, 4000);
+  };
+
+  const toggleFeaturedLogo = (candidate: FeaturedLogo) => {
+    setFeaturedLogos((prev) => {
+      const exists = prev.some((logo) => logo.id === candidate.id);
+      if (exists) return prev.filter((logo) => logo.id !== candidate.id);
+      return [...prev, candidate];
+    });
   };
 
   return (
@@ -284,6 +347,18 @@ export default function SaaSWebEditor() {
             >
               <Phone className="w-3.5 h-3.5" />
               <span>Button Links & Emails</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubTab('logos')}
+              className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold uppercase transition-colors ${
+                activeSubTab === 'logos' 
+                  ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' 
+                  : 'text-slate-450 text-slate-400 hover:text-white hover:bg-slate-800 border border-transparent'
+              }`}
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              <span>Homepage Logos</span>
             </button>
 
             <button
@@ -811,6 +886,89 @@ export default function SaaSWebEditor() {
                   </div>
                 </div>
 
+              </div>
+            </div>
+          )}
+
+          {/* TAB CONTENT: HOMEPAGE USER LOGOS */}
+          {activeSubTab === 'logos' && (
+            <div className="space-y-6">
+              <div className="p-3.5 bg-slate-950/40 border border-slate-850 rounded-xl">
+                <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                  <strong>Homepage Logos</strong>: choose customer/business logos to show in the trusted businesses strip on the public homepage.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {logoCandidates.map((candidate) => {
+                  const isSelected = featuredLogos.some((logo) => logo.id === candidate.id);
+                  return (
+                    <button
+                      key={candidate.id}
+                      type="button"
+                      onClick={() => toggleFeaturedLogo(candidate)}
+                      className={`text-left rounded-2xl border p-4 transition-all ${
+                        isSelected
+                          ? 'bg-sky-500/10 border-sky-400/50 shadow-lg shadow-sky-500/10'
+                          : 'bg-slate-950/40 border-slate-850 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-16 h-12 rounded-xl bg-white border border-slate-200 shadow-inner flex items-center justify-center overflow-hidden shrink-0 p-2">
+                          {candidate.logoUrl ? (
+                            <img src={candidate.logoUrl} alt={candidate.name} className="max-w-full max-h-full object-contain" />
+                          ) : (
+                            <span className="text-slate-900 text-sm font-black font-mono">{candidate.initials}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs text-white font-extrabold truncate">{candidate.name}</h4>
+                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                            {candidate.logoUrl ? 'Uploaded logo found' : 'No uploaded logo, initials fallback'}
+                          </p>
+                        </div>
+                        <span className={`text-[9px] font-mono uppercase font-bold px-2 py-1 rounded ${
+                          isSelected ? 'bg-sky-400 text-slate-950' : 'bg-slate-900 text-slate-500'
+                        }`}>
+                          {isSelected ? 'Selected' : 'Add'}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="bg-slate-950/40 border border-slate-850 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold text-sky-400 uppercase tracking-widest">
+                    Homepage logo preview
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setFeaturedLogos([])}
+                    className="text-[9px] text-rose-400 hover:text-rose-300 font-mono uppercase"
+                  >
+                    Clear all
+                  </button>
+                </div>
+
+                {featuredLogos.length === 0 ? (
+                  <div className="p-5 border border-dashed border-slate-800 rounded-xl text-center text-slate-500 text-xs">
+                    No user logos selected yet.
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-3">
+                    {featuredLogos.map((logo) => (
+                      <div key={logo.id} className="w-28 h-16 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-2 shadow-inner">
+                        {logo.logoUrl ? (
+                          <img src={logo.logoUrl} alt={logo.name} className="max-w-full max-h-full object-contain" />
+                        ) : (
+                          <span className="text-slate-900 text-sm font-black font-mono">{logo.initials}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

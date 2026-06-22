@@ -40,6 +40,42 @@ import {
   Factory
 } from 'lucide-react';
 
+type FeaturedLogo = {
+  id: string;
+  name: string;
+  logoUrl?: string;
+  initials?: string;
+};
+
+const getLogoInitials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "JS";
+
+const normalizeFeaturedLogos = (items: any[]): FeaturedLogo[] =>
+  items
+    .map((item, index) => {
+      if (typeof item === "string") {
+        return {
+          id: `legacy-${index}-${item}`,
+          name: item,
+          initials: getLogoInitials(item),
+        };
+      }
+      if (!item || typeof item !== "object") return null;
+      const name = item.name || item.label || `Logo ${index + 1}`;
+      return {
+        id: item.id || item.tenantId || `logo-${index}`,
+        name,
+        logoUrl: item.logoUrl || item.logo || item.src || "",
+        initials: item.initials || getLogoInitials(name),
+      };
+    })
+    .filter(Boolean) as FeaturedLogo[];
+
 const TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
     home: "Home",
@@ -886,6 +922,12 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
 
         const savedFaqs = localStorage.getItem('jasper_custom_faqs');
         if (savedFaqs) setCustomFaqs(JSON.parse(savedFaqs));
+
+        const savedLogos = localStorage.getItem('jasper_featured_logos');
+        if (savedLogos) {
+          const parsedLogos = normalizeFeaturedLogos(JSON.parse(savedLogos));
+          setFeaturedLogos(parsedLogos);
+        }
       } catch (e) {
         console.error(e);
       }
@@ -924,11 +966,11 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
   };
 
   // State log to track featured logos on home landing page dynamically from Super Admin
-  const [featuredLogos, setFeaturedLogos] = useState<string[]>([]);
+  const [featuredLogos, setFeaturedLogos] = useState<FeaturedLogo[]>([]);
 
   useEffect(() => {
     // Read featured logos from local storage
-    const savedLogos = JSON.parse(localStorage.getItem('jasper_featured_logos') || '[]');
+    const savedLogos = normalizeFeaturedLogos(JSON.parse(localStorage.getItem('jasper_featured_logos') || '[]'));
     const defaultLogos = [
       "Bakhresa Group",
       "Kariakoo Wholesalers",
@@ -938,7 +980,11 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       "Mwanza Grains"
     ];
     // Merge or fallback
-    setFeaturedLogos(savedLogos.length > 0 ? [...savedLogos, ...defaultLogos] : defaultLogos);
+    setFeaturedLogos(
+      savedLogos.length > 0
+        ? [...savedLogos, ...normalizeFeaturedLogos(defaultLogos)]
+        : normalizeFeaturedLogos(defaultLogos),
+    );
   }, []);
 
   // Handle conversational Lucy responses on home page
@@ -1559,19 +1605,26 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
         <div className="flex items-center space-x-8 animate-marquee whitespace-nowrap py-2">
           {featuredLogos.map((logo, idx) => {
             let LogoIcon = Store;
-            if (logo.includes('Bakhresa')) LogoIcon = Building2;
-            else if (logo.includes('Kariakoo')) LogoIcon = ShoppingCart;
-            else if (logo.includes('Pharmacy')) LogoIcon = Pill;
-            else if (logo.includes('Food')) LogoIcon = UtensilsCrossed;
-            else if (logo.includes('Hotel')) LogoIcon = Hotel;
+            const logoName = logo.name || "";
+            if (logoName.includes('Bakhresa')) LogoIcon = Building2;
+            else if (logoName.includes('Kariakoo')) LogoIcon = ShoppingCart;
+            else if (logoName.includes('Pharmacy')) LogoIcon = Pill;
+            else if (logoName.includes('Food')) LogoIcon = UtensilsCrossed;
+            else if (logoName.includes('Hotel')) LogoIcon = Hotel;
 
             return (
               <div 
-                key={idx} 
-                className={`inline-flex items-center justify-center w-28 h-14 rounded-xl shadow-inner transition-all shrink-0 select-none border ${isDark ? 'bg-slate-900/30 border-slate-850/80 hover:border-emerald-505/20' : 'bg-slate-50 border-slate-100'}`}
+                key={`${logo.id}-${idx}`} 
+                className={`inline-flex items-center justify-center w-32 h-16 rounded-xl shadow-inner transition-all shrink-0 select-none border p-2 ${isDark ? 'bg-white border-white/90 hover:border-emerald-300' : 'bg-white border-slate-200'}`}
               >
-                <LogoIcon className="w-5 h-5 mr-1.5 text-slate-400" />
-                <span className="text-[10px] font-bold">{logo}</span>
+                {logo.logoUrl ? (
+                  <img src={logo.logoUrl} alt={logo.name} className="max-w-full max-h-full object-contain" />
+                ) : (
+                  <div className="flex items-center justify-center gap-1.5 text-slate-700 min-w-0">
+                    <LogoIcon className="w-5 h-5 text-slate-500 shrink-0" />
+                    <span className="text-[10px] font-bold truncate max-w-[86px]">{logo.name}</span>
+                  </div>
+                )}
               </div>
             );
           })}
