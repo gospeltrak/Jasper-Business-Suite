@@ -1883,7 +1883,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </header>
 
           {/* 2b. Top Bar Mobile - Exact 60px height sticky glassmorphic header */}
-          <header className="md:hidden sticky top-0 z-35 h-[62px] backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-b border-slate-100/10 dark:border-slate-800/15 px-4 select-none flex items-center justify-between shrink-0 transition-all duration-300">
+          <header className="md:hidden sticky top-0 z-35 h-[60px] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 px-4 select-none flex items-center justify-between shrink-0" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)'}}>
             {/* Left: business logo or initials avatar on mobile top bar */}
             <div className="flex items-center space-x-3 animate-fade-in">
               <div 
@@ -2340,161 +2340,174 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </main>
 
           {/* Mobile Bottom Navigation Component */}
-          <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 h-16 backdrop-blur-md bg-white/90 dark:bg-slate-900/90 border-t border-emerald-500/15 pb-[calc(0.5rem+env(safe-area-inset-bottom))] px-3 pt-2 flex items-center justify-around shadow-[0_-8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_-8px_30px_rgba(0,0,0,0.35)] shrink-0 transition-all duration-300">
-             {[
-               { id: 'overview', label: 'Home', icon: LayoutDashboard },
-               { id: 'sales-list', label: 'Sales', icon: FileText },
-               { id: 'pos', label: 'POS', icon: ShoppingCart },
-               { id: 'reports', label: 'Reports', icon: PieChart },
-             ].map((tab) => {
-               const isActive = activeTab === tab.id;
-               const Icon = tab.icon;
-               return (
-                 <button 
-                   key={tab.id}
-                   onClick={() => setActiveTab(tab.id as any)}
-                   className={`flex flex-col items-center justify-between h-11 w-16 relative transition-all duration-150 active:scale-95 cursor-pointer ${
-                     isActive ? 'text-[#00C853] font-bold' : 'text-slate-400 dark:text-slate-500'
-                   }`}
-                 >
-                   <div className="flex flex-col items-center justify-center flex-1">
-                     <Icon 
-                       className={`w-5 h-5 mb-0.5 transition-transform duration-200 ${isActive ? 'scale-110 text-[#00C853] fill-emerald-500/10' : ''}`} 
-                       strokeWidth={isActive ? 2.5 : 2} 
-                     />
-                     <span className="text-[9px] font-semibold tracking-tight">{isActive ? t(tab.label) : t(tab.label)}</span>
-                   </div>
-                   {isActive && (
-                     <span className="w-1.5 h-1.5 rounded-full bg-[#00C853] shadow-[0_0_10px_#00C853] animate-bounce mb-0.5" />
-                   )}
-                 </button>
-               )
-             })}
-             
-             <button 
-               onClick={() => setMoreMenuOpen(true)}
-               className={`flex flex-col items-center justify-between h-11 w-16 relative transition-all duration-150 active:scale-95 cursor-pointer ${
-                 moreMenuOpen ? 'text-[#00C853] font-bold' : 'text-slate-400 dark:text-slate-500'
-               }`}
-             >
-               <div className="flex flex-col items-center justify-center flex-1">
-                 <Menu className={`w-5 h-5 mb-0.5 transition-transform duration-200 ${moreMenuOpen ? 'scale-110 text-[#00C853]' : ''}`} />
-                 <span className="text-[9px] font-semibold tracking-tight">{t('More')}</span>
-               </div>
-               {moreMenuOpen && (
-                 <span className="w-1.5 h-1.5 rounded-full bg-[#00C853] shadow-[0_0_10px_#00C853] mb-0.5" />
-               )}
-             </button>
+          <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800/80" style={{height:'calc(56px + env(safe-area-inset-bottom))', paddingBottom:'env(safe-area-inset-bottom)', boxShadow:'0 -1px 0 rgba(0,0,0,0.06)'}}>
+            <div className="flex items-stretch h-14">
+              {[
+                { id: 'overview', label: 'Home', icon: LayoutDashboard },
+                { id: 'sales-list', label: 'Sales', icon: FileText },
+                { id: 'pos', label: 'POS', icon: ShoppingCart },
+                { id: 'products', label: 'Stock', icon: Package },
+                { id: 'settings', label: 'More', icon: Menu },
+              ].map((tab) => {
+                const isActive = activeTab === tab.id || (tab.id === 'settings' && moreMenuOpen);
+                const Icon = tab.icon;
+                const isPOS = tab.id === 'pos';
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      if (tab.id === 'settings') {
+                        setMoreMenuOpen(true);
+                      } else {
+                        setActiveTab(tab.id as any);
+                        setMoreMenuOpen(false);
+                      }
+                    }}
+                    className="flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-all duration-150 active:scale-90 cursor-pointer bg-transparent border-none outline-none"
+                    type="button"
+                  >
+                    {isPOS ? (
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 ${isActive ? 'bg-[#00C853] shadow-lg shadow-[#00C853]/30' : 'bg-[#00C853] shadow-md shadow-[#00C853]/20'}`} style={{marginTop:'-18px'}}>
+                        <Icon className="w-5 h-5 text-white" strokeWidth={2.5} />
+                      </div>
+                    ) : (
+                      <div className={`flex flex-col items-center gap-0.5 transition-all duration-200 ${isActive ? 'text-[#00C853]' : 'text-slate-400 dark:text-slate-500'}`}>
+                        <div className={`relative flex items-center justify-center w-8 h-6 rounded-xl transition-all duration-200 ${isActive ? 'bg-emerald-50 dark:bg-emerald-500/10' : ''}`}>
+                          <Icon className={`w-5 h-5 transition-all duration-200 ${isActive ? 'scale-110' : ''}`} strokeWidth={isActive ? 2.5 : 1.8} />
+                        </div>
+                        <span className={`text-[10px] font-semibold leading-none tracking-tight transition-all duration-200 ${isActive ? 'text-[#00C853]' : 'text-slate-400 dark:text-slate-500'}`}>{t(tab.label)}</span>
+                      </div>
+                    )}
+                    {isPOS && (
+                      <span className="text-[9px] font-bold text-[#00C853] mt-0.5 leading-none tracking-tight">{t('POS')}</span>
+                    )}
+                    {isActive && !isPOS && (
+                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#00C853]" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </nav>
 
+          {/* 5. Mobile Floating Action Button (FAB)
+
           {/* 5. Mobile Floating Action Button (FAB) (Brand green, rounded-full, 56px, above bottom nav) */}
-          <button
-            onClick={() => setActiveTab('pos')}
-            className={`md:hidden fixed bottom-20 right-4 z-40 w-14 h-14 bg-[#00C853] hover:bg-[#00953D] text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all duration-150 fab-attention-pulse cursor-pointer`}
-            title="Quick POS Checkout"
-            type="button"
-          >
-            <span className="text-[28px] font-light leading-none select-none">+</span>
-          </button>
+
 
         </div>
 
         {/* Universal sub-modal anchors & floating elements */}
-        <div 
-          className={`absolute inset-0 z-[60] bg-white flex flex-col select-none transition-transform duration-300 ${moreMenuOpen ? 'translate-y-0 shadow-[-5px_0_30px_rgba(0,0,0,0.15)]' : 'translate-y-full pointer-events-none'}`}
+        {/* Native App Full-Screen More Menu */}
+        <div
+          className={`md:hidden fixed inset-0 z-[60] flex flex-col bg-slate-50 dark:bg-slate-950 select-none transition-all duration-300 ease-out ${moreMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none translate-y-4'}`}
+          style={{paddingBottom: 'env(safe-area-inset-bottom)', paddingTop: 'env(safe-area-inset-top)'}}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 shrink-0">
-            <h2 className="text-xl font-black text-slate-800 tracking-tight">Menu</h2>
-            <button 
+          {/* Top Bar */}
+          <div className="flex items-center justify-between px-5 h-[60px] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 shrink-0" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)'}}>
+            <div>
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-0.5">Menu</p>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">{activeTenant.name}</h2>
+            </div>
+            <button
               onClick={() => setMoreMenuOpen(false)}
-              className="p-2 bg-slate-100 rounded-full text-slate-500 hover:text-slate-800 transition-colors"
+              className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 active:scale-90 transition-all border-none cursor-pointer"
+              type="button"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4.5 h-4.5" />
             </button>
           </div>
 
-          {/* Menu Links Container */}
-          <div className="flex-grow overflow-y-auto px-4 py-2 pb-20">
-            <div className="flex flex-col">
-              {[
-                { id: 'purchases-list', label: 'Purchases', icon: ShoppingCart, colorTheme: 'blue' },
-                { id: 'suppliers', label: 'Partners', icon: Handshake, colorTheme: 'purple' },
-                { id: 'deliveries', label: 'Delivery', icon: MapPin, colorTheme: 'teal' },
-                { id: 'products', label: 'Products', icon: Package, colorTheme: 'emerald' },
-                { id: 'expenses', label: 'Expenses', icon: MinusCircle, colorTheme: 'rose' },
-                { id: 'settings', label: 'Settings', icon: SettingsIcon, colorTheme: 'slate' },
-                { id: 'sync', label: 'Offline Sync', icon: RefreshCw, colorTheme: 'amber' }
-              ].map((option) => {
-                const IconComponent = option.icon;
-                
-                let textColors = 'text-slate-800';
-                let bgColors = 'bg-slate-50 border-slate-100';
-                let iconColors = 'text-slate-500';
-                
-                if (option.colorTheme === 'blue') {
-                  bgColors = 'bg-blue-50 border-blue-100';
-                  iconColors = 'text-blue-500';
-                } else if (option.colorTheme === 'purple') {
-                  bgColors = 'bg-purple-50 border-purple-100';
-                  iconColors = 'text-purple-500';
-                } else if (option.colorTheme === 'teal') {
-                  bgColors = 'bg-teal-50 border-teal-100';
-                  iconColors = 'text-teal-500';
-                } else if (option.colorTheme === 'emerald') {
-                  bgColors = 'bg-emerald-50 border-emerald-100';
-                  iconColors = 'text-emerald-500';
-                } else if (option.colorTheme === 'rose') {
-                  bgColors = 'bg-rose-50 border-rose-100';
-                  iconColors = 'text-rose-500';
-                } else if (option.colorTheme === 'slate') {
-                  bgColors = 'bg-slate-100 border-slate-200';
-                  iconColors = 'text-slate-500';
-                } else if (option.colorTheme === 'amber') {
-                  bgColors = 'bg-amber-50 border-amber-100';
-                  iconColors = 'text-amber-500';
-                }
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto pb-24">
 
-                return (
-                  <button
-                    key={option.id}
-                    onClick={() => {
-                      setActiveTab(option.id as any);
-                      setMoreMenuOpen(false);
-                    }}
-                    className="w-full px-2 flex items-center justify-between min-h-[56px] py-2.5 border-b border-slate-100 transition-colors hover:bg-slate-50 active:bg-slate-100 last:border-b-0"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="relative shrink-0">
-                        <div className={`w-[44px] h-[44px] rounded-xl flex items-center justify-center border ${bgColors}`}>
-                          <IconComponent className={`w-5 h-5 ${iconColors}`} />
-                        </div>
-                        {option.id === 'sync' && (
-                          <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-[2px] border-white ${isOfflineMode ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                        )}
+            {/* App grid — 4-col icon grid like native apps */}
+            <div className="px-5 pt-5 pb-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">All Features</p>
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  { id: 'overview', label: 'Home', icon: LayoutDashboard, bg: 'bg-blue-500' },
+                  { id: 'sales-list', label: 'Sales', icon: FileText, bg: 'bg-emerald-500' },
+                  { id: 'pos', label: 'Sell', icon: ShoppingCart, bg: 'bg-[#00C853]' },
+                  { id: 'purchases-list', label: 'Buying', icon: Package, bg: 'bg-violet-500' },
+                  { id: 'products', label: 'Stock', icon: Package, bg: 'bg-orange-500' },
+                  { id: 'expenses', label: 'Expenses', icon: MinusCircle, bg: 'bg-rose-500' },
+                  { id: 'reports', label: 'Reports', icon: PieChart, bg: 'bg-indigo-500' },
+                  { id: 'deliveries', label: 'Delivery', icon: MapPin, bg: 'bg-teal-500' },
+                  { id: 'suppliers', label: 'Partners', icon: Handshake, bg: 'bg-purple-500' },
+                  { id: 'cash-bank-matrix', label: 'Money', icon: Wallet, bg: 'bg-amber-500' },
+                  { id: 'forecasting', label: 'Planning', icon: TrendingUp, bg: 'bg-cyan-500' },
+                  { id: 'staff-members', label: 'Staff', icon: Shield, bg: 'bg-slate-600' },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => { setActiveTab(item.id as any); setMoreMenuOpen(false); }}
+                      className="flex flex-col items-center gap-1.5 active:scale-90 transition-all duration-150 cursor-pointer bg-transparent border-none outline-none"
+                    >
+                      <div className={`w-14 h-14 rounded-2xl ${item.bg} flex items-center justify-center shadow-sm`}>
+                        <Icon className="w-6 h-6 text-white" strokeWidth={2} />
                       </div>
-                      <span className={`text-sm font-semibold tracking-tight ${textColors}`}>{option.label}</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300" />
-                  </button>
-                );
-              })}
+                      <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 text-center leading-tight">{t(item.label)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-              {/* Logout Button */}
+            {/* Divider */}
+            <div className="mx-5 my-4 h-px bg-slate-200 dark:bg-slate-800" />
+
+            {/* Quick actions list */}
+            <div className="px-5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">System</p>
+              <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
+                {[
+                  { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
+                  { id: 'sync', label: 'Sync', icon: RefreshCw, desc: isOfflineMode ? 'You are offline' : 'All data synced', color: isOfflineMode ? 'text-amber-600' : 'text-emerald-600', bg: isOfflineMode ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-emerald-50 dark:bg-emerald-500/10' },
+                  { id: 'inventory', label: 'Inventory', icon: Package, desc: 'View stock levels', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+                ].map((item, idx, arr) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => { setActiveTab(item.id as any); setMoreMenuOpen(false); }}
+                      className={`w-full flex items-center gap-3 px-4 py-3.5 active:bg-slate-50 dark:active:bg-slate-800/50 transition-colors cursor-pointer bg-transparent border-none text-left ${idx < arr.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''}`}
+                    >
+                      <div className={`w-9 h-9 rounded-xl ${item.bg} flex items-center justify-center shrink-0`}>
+                        <Icon className={`w-4.5 h-4.5 ${item.color}`} strokeWidth={2} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">{t(item.label)}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 leading-tight mt-0.5">{item.desc}</p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Logout */}
+            <div className="px-5 mt-4">
               <button
-                onClick={() => {
-                  setShowLogoutConfirm(true);
-                }}
-                className="w-full px-2 flex items-center justify-between min-h-[56px] py-2.5 transition-colors hover:bg-rose-50/50 active:bg-rose-50"
+                type="button"
+                onClick={() => { setShowLogoutConfirm(true); setMoreMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-4 py-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 active:bg-rose-50 transition-colors cursor-pointer text-left"
               >
-                <div className="flex items-center space-x-3">
-                  <div className="w-[44px] h-[44px] flex items-center justify-center rounded-xl bg-rose-50 border border-rose-100 shrink-0">
-                    <LogOut className="w-5 h-5 text-rose-500" />
-                  </div>
-                  <span className="text-sm font-semibold tracking-tight text-rose-600">Logout</span>
+                <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center shrink-0">
+                  <LogOut className="w-4.5 h-4.5 text-rose-500" strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-rose-600 leading-tight">Sign Out</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 leading-tight mt-0.5">{user.name}</p>
                 </div>
               </button>
             </div>
+
           </div>
         </div>
 
