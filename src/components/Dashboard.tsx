@@ -2049,6 +2049,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               isOfflineMode={isOfflineMode}
               offlinePendingCount={offlinePendingCount}
               onToggleOffline={handleToggleOnlineAndSync}
+              userName={user.name}
+              userRole={user.role}
             />
           )}
 
@@ -2346,7 +2348,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 { id: 'overview', label: 'Home', icon: LayoutDashboard },
                 { id: 'sales-list', label: 'Sales', icon: FileText },
                 { id: 'pos', label: 'POS', icon: ShoppingCart },
-                { id: 'products', label: 'Stock', icon: Package },
+                { id: 'products', label: 'Stock', icon: Database },
                 { id: 'settings', label: 'More', icon: Menu },
               ].map((tab) => {
                 const isActive = activeTab === tab.id || (tab.id === 'settings' && moreMenuOpen);
@@ -2406,8 +2408,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           {/* Top Bar */}
           <div className="flex items-center justify-between px-5 h-[60px] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 shrink-0" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)'}}>
             <div>
-              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-0.5">Menu</p>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">{activeTenant.name}</h2>
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-0.5">{user.role}</p>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">{user.name}</h2>
             </div>
             <button
               onClick={() => setMoreMenuOpen(false)}
