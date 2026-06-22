@@ -210,14 +210,14 @@ export default function DashboardReports({
     csv += `Scope Period,${startDateStr} to ${endDateStr}\r\n`;
     csv += `Generated On,${new Date().toLocaleString()}\r\n`;
     csv += `Branch,${activeTenant.name} (${activeTenant.city})\r\n\r\n`;
-    csv += "Product Name,Item Code,Barcode,Category,Cost Price,Retail Selling Price,Shop Floor Qty,Store Room Qty,Total Quantity On-Hand,Valuation at Cost,Potential Profit % Value\r\n";
+    csv += "Product Name,Item Code,Barcode,Category,Cost Price,Retail Selling Price,Shop Floor Qty,Backroom Store Qty,Total Quantity On-Hand,Valuation at Cost,Potential Margin Value\r\n";
     
     products.forEach(p => {
       const totalOnHand = p.stockQty || 0;
       const totalCostVal = totalOnHand * (p.costPrice || 0);
       const totalRetailVal = totalOnHand * (p.sellingPrice || 0);
-      const potentialProfitValue = totalRetailVal - totalCostVal;
-      csv += `"${p.name}","${p.sku || ''}","${p.barcode || ''}","${p.category || 'General'}",${p.costPrice.toFixed(2)},${p.sellingPrice.toFixed(2)},${p.shopStockQty || 0},${p.storeStockQty || 0},${totalOnHand},${totalCostVal.toFixed(2)},${potentialProfitValue.toFixed(2)}\r\n`;
+      const potentialMargin = totalRetailVal - totalCostVal;
+      csv += `"${p.name}","${p.sku || ''}","${p.barcode || ''}","${p.category || 'General'}",${p.costPrice.toFixed(2)},${p.sellingPrice.toFixed(2)},${p.shopStockQty || 0},${p.storeStockQty || 0},${totalOnHand},${totalCostVal.toFixed(2)},${potentialMargin.toFixed(2)}\r\n`;
     });
 
     const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
@@ -268,14 +268,14 @@ export default function DashboardReports({
     const grossProfit = totalSalesRev - estimatedCOGS;
     const netProfit = grossProfit - totalExp;
 
-    let csv = "A4 Consolidated Balance Statement of Profit & Loss\r\n";
+    let csv = "A4 Consolidated Balance Statement of Profit and Loss\r\n";
     csv += `Scope Period,${startDateStr} to ${endDateStr}\r\n`;
     csv += `Generated On,${new Date().toLocaleString()}\r\n`;
     csv += `Branch,${activeTenant.name} (${activeTenant.city})\r\n\r\n`;
     csv += "Financial Line Item,Statement Value,Proportion Ratio\r\n";
     csv += `1. Gross Revenue Receipts,${totalSalesRev.toFixed(2)},100%\r\n`;
-    csv += `2. Cost of Goods Sold (Cost of Goods),${estimatedCOGS.toFixed(2)},${((estimatedCOGS / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
-    csv += `3. Total Profit Margin,${grossProfit.toFixed(2)},${((grossProfit / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
+    csv += `2. Cost of Goods Sold (COGS),${estimatedCOGS.toFixed(2)},${((estimatedCOGS / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
+    csv += `3. Gross Profit Margin,${grossProfit.toFixed(2)},${((grossProfit / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
     csv += `4. Operating Expenses Charged,${totalExp.toFixed(2)},${((totalExp / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
     csv += `5. NET OPERATING PROFIT/LOSS,${netProfit.toFixed(2)},${((netProfit / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
 
@@ -325,7 +325,7 @@ export default function DashboardReports({
       }
       case 'product-monitoring': {
         csv = headerPrefix;
-        csv += "Rank,Product Name,Item Code,Cost Buy,Retail Pricing,Profit Margin,Items Sold,Gross Money Earned,Profit % Earned\r\n";
+        csv += "Rank,Product Name,Item Code,Cost Buy,Retail Pricing,Profit Margin,Units Sold,Gross Revenue,Margin Earned\r\n";
         const prodPerfMap: Record<string, { name: string; sku: string; cost: number; price: number; margin: number; sold: number; rev: number; profit: number }> = {};
         filteredSales.forEach(s => {
           s.items.forEach(it => {
@@ -355,7 +355,7 @@ export default function DashboardReports({
       }
       case 'velocity': {
         csv = headerPrefix;
-        csv += "Rank,Product Name,Barcode,Category,Items Sold,Daily Velocity (Units/Day)\r\n";
+        csv += "Rank,Product Name,Barcode,Category,Units Sold,Daily Velocity (Units/Day)\r\n";
         const prodSells: Record<string, { name: string; sku: string; barcode: string; cat: string; qty: number }> = {};
         products.forEach(p => {
           prodSells[p.id] = { name: p.name, sku: p.sku || '', barcode: p.barcode || '', cat: p.category || '', qty: 0 };
@@ -520,8 +520,8 @@ export default function DashboardReports({
     return sum + s.items.reduce((iSum, item) => iSum + (item.price * item.qty), 0);
   }, 0);
 
-  // Compute Cost of Goods Sold (Cost of Goods) for completed sales
-  // Find Cost of Goods by fetching the target product's costPrice * quantity sold
+  // Compute Cost of Goods Sold (COGS) for completed sales
+  // Find COGS by fetching the target product's costPrice * quantity sold
   const totalCOGS = filteredSales.reduce((acc, sale) => {
     const saleCOGS = sale.items.reduce((sAcc, item) => {
       const matchProd = products.find(p => p.id === item.productId);
@@ -547,7 +547,7 @@ export default function DashboardReports({
     const end = new Date(endDateStr);
     
     // Safety check - build chronological date list
-    const dateMap: Record<string, { salesCount: number; salesMoney Earned: number; cogs: number; expenses: number; profit: number }> = {};
+    const dateMap: Record<string, { salesCount: number; salesRevenue: number; cogs: number; expenses: number; profit: number }> = {};
     
     let current = new Date(start);
     let daysCount = 0;
@@ -556,7 +556,7 @@ export default function DashboardReports({
       const dStr = current.toISOString().split('T')[0];
       dateMap[dStr] = {
         salesCount: 0,
-        salesMoney Earned: 0,
+        salesRevenue: 0,
         cogs: 0,
         expenses: 0,
         profit: 0
@@ -567,7 +567,7 @@ export default function DashboardReports({
 
     if (Object.keys(dateMap).length === 0) {
       const todayStr = new Date().toISOString().split('T')[0];
-      dateMap[todayStr] = { salesCount: 0, salesMoney Earned: 0, cogs: 0, expenses: 0, profit: 0 };
+      dateMap[todayStr] = { salesCount: 0, salesRevenue: 0, cogs: 0, expenses: 0, profit: 0 };
     }
 
     filteredSales.forEach(sale => {
@@ -575,7 +575,7 @@ export default function DashboardReports({
       const dStr = sale.timestamp.split('T')[0];
       if (dateMap[dStr]) {
         dateMap[dStr].salesCount += 1;
-        dateMap[dStr].salesMoney Earned += sale.total;
+        dateMap[dStr].salesRevenue += sale.total;
         
         const saleCogs = sale.items.reduce((sAcc, item) => {
           const matchProd = products.find(p => p.id === item.productId);
@@ -597,7 +597,7 @@ export default function DashboardReports({
 
     Object.keys(dateMap).forEach(dStr => {
       const day = dateMap[dStr];
-      day.profit = day.salesMoney Earned - day.cogs - day.expenses;
+      day.profit = day.salesRevenue - day.cogs - day.expenses;
     });
 
     return Object.keys(dateMap).sort().map(dStr => {
@@ -607,7 +607,7 @@ export default function DashboardReports({
         dateStr: dStr,
         label: formattedDate,
         salesCount: dateMap[dStr].salesCount,
-        salesMoney Earned: Math.round(dateMap[dStr].salesMoney Earned),
+        salesRevenue: Math.round(dateMap[dStr].salesRevenue),
         cogs: Math.round(dateMap[dStr].cogs),
         expenses: Math.round(dateMap[dStr].expenses),
         profit: Math.round(dateMap[dStr].profit)
@@ -1143,14 +1143,14 @@ export default function DashboardReports({
             <h2 className="text-xl font-bold tracking-tight text-slate-800">Unified Branch Accounts & Reports</h2>
           </div>
           <p className="text-xs text-slate-450 leading-relaxed font-sans">
-            Reports, stock value, staff, and Profit & Loss.
+            Reports, stock value, staff, and P&L.
           </p>
         </div>
 
         {/* Unified Date Filter Rails */}
         <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-slate-700">
           <div className="flex items-center bg-slate-100 rounded-xl px-3 py-2 border border-slate-200">
-            <Calendar className="w-5 h-5 text-slate-400 mr-2 shrink-0" />
+            <Calendar className="w-4.5 h-4.5 text-slate-400 mr-2 shrink-0" />
             <span className="text-[10px] text-slate-400 uppercase font-black mr-2">From:</span>
             <input
               type="date"
@@ -1160,7 +1160,7 @@ export default function DashboardReports({
             />
           </div>
           <div className="flex items-center bg-slate-100 rounded-xl px-3 py-2 border border-slate-200">
-            <Calendar className="w-5 h-5 text-slate-400 mr-2 shrink-0" />
+            <Calendar className="w-4.5 h-4.5 text-slate-400 mr-2 shrink-0" />
             <span className="text-[10px] text-slate-400 uppercase font-black mr-2">To:</span>
             <input
               type="date"
@@ -1300,21 +1300,21 @@ export default function DashboardReports({
             <TrendingUp className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Total Sales Money Earned</p>
+            <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Total Sales Revenue</p>
             <h4 className="text-xl font-black text-slate-905 mt-1">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</h4>
             <p className="text-[9.5px] font-mono text-slate-400 mt-0.5 leading-none">{filteredSales.length} approved sales receipts</p>
           </div>
         </div>
 
-        {/* Cost of Goods (Cost of goods sold) */}
+        {/* COGS (Cost of goods sold) */}
         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center space-x-4">
           <div className="p-3 bg-slate-100 text-slate-650 rounded-2xl border border-slate-200 shrink-0">
             <Package className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Cost of Goods (Cost of Goods)</p>
+            <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Cost of Goods (COGS)</p>
             <h4 className="text-xl font-black text-slate-905 mt-1">{currency}{Math.round(totalCOGS).toLocaleString()}</h4>
-            <p className="text-[9.5px] font-mono text-slate-400 mt-0.5 leading-none">Profit %: {totalSalesRevenue > 0 ? Math.round(((totalSalesRevenue - totalCOGS)/totalSalesRevenue) * 100) : 0}%</p>
+            <p className="text-[9.5px] font-mono text-slate-400 mt-0.5 leading-none">Gross Margin: {totalSalesRevenue > 0 ? Math.round(((totalSalesRevenue - totalCOGS)/totalSalesRevenue) * 100) : 0}%</p>
           </div>
         </div>
 
@@ -1337,7 +1337,7 @@ export default function DashboardReports({
           </div>
         </div>
 
-        {/* Profit */}
+        {/* Net Profit */}
         <div className={`p-5 rounded-3xl border shadow-sm flex items-center space-x-4 ${netProfit >= 0 ? 'bg-emerald-500/5 border-emerald-200 text-emerald-950' : 'bg-rose-500/5 border-rose-200 text-rose-950'}`}>
           <div className={`p-3 rounded-2xl shrink-0 border ${netProfit >= 0 ? 'bg-emerald-100 text-emerald-700 border-emerald-200/50' : 'bg-rose-100 text-rose-700 border-rose-200/50'}`}>
             <DollarSign className="w-6 h-6" />
@@ -1356,7 +1356,7 @@ export default function DashboardReports({
               ) : (
                 <>
                   <ArrowDownRight className="w-3 h-3 text-rose-600 mr-0.5" />
-                  <span className="text-rose-700 font-bold">Deficit Profit %</span>
+                  <span className="text-rose-700 font-bold">Deficit Margin</span>
                 </>
               )}
             </span>
@@ -1384,13 +1384,13 @@ export default function DashboardReports({
           </div>
         </div>
 
-        {/* Money Earned */}
+        {/* Revenue */}
         <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-blue-500 flex flex-col justify-between min-h-[92px]">
           <div className="flex items-center space-x-2">
             <div className="p-1.5 bg-blue-50 dark:bg-blue-955 text-blue-600 rounded-lg shrink-0">
               <DollarSign className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Money Earned</span>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Revenue</span>
           </div>
           <div className="mt-1">
             <h4 className="text-sm font-black text-slate-850 dark:text-slate-100 font-sans">
@@ -1400,20 +1400,20 @@ export default function DashboardReports({
           </div>
         </div>
 
-        {/* Cost of Goods */}
+        {/* COGS */}
         <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-amber-500 flex flex-col justify-between min-h-[92px]">
           <div className="flex items-center space-x-2">
             <div className="p-1.5 bg-amber-50 dark:bg-amber-955 text-amber-600 rounded-lg shrink-0">
               <Package className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Cost of Goods</span>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">COGS</span>
           </div>
           <div className="mt-1">
             <h4 className="text-sm font-black text-slate-850 dark:text-slate-100 font-sans">
               {currency}{Math.round(totalCOGS).toLocaleString()}
             </h4>
             <p className="text-[9px] text-slate-400 font-mono leading-none mt-0.5">
-              Profit %: {totalSalesRevenue > 0 ? Math.round(((totalSalesRevenue - totalCOGS)/totalSalesRevenue) * 100) : 0}%
+              Margin: {totalSalesRevenue > 0 ? Math.round(((totalSalesRevenue - totalCOGS)/totalSalesRevenue) * 100) : 0}%
             </p>
           </div>
         </div>
@@ -1440,13 +1440,13 @@ export default function DashboardReports({
           </div>
         </div>
 
-        {/* Profit (Centered as 5th item) */}
+        {/* Net Profit (Centered as 5th item) */}
         <div className="col-span-2 bg-white dark:bg-slate-900 p-3.5 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-purple-500 flex flex-col items-center justify-center text-center space-y-2 min-h-[100px]">
           <div className="flex items-center space-x-2">
             <div className="p-1.5 bg-purple-50 dark:bg-purple-955 text-purple-600 rounded-lg shrink-0">
               <BarChart3 className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Profit</span>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Net Profit</span>
           </div>
           <div className="mt-1">
             <h4 className={`text-base font-black font-sans ${netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-450' : 'text-rose-650 dark:text-rose-450'}`}>
@@ -1522,7 +1522,7 @@ export default function DashboardReports({
                 );
               })()}
             </div>
-            <ChevronDown className="w-5 h-5 text-slate-400" />
+            <ChevronDown className="w-4.5 h-4.5 text-slate-400" />
           </button>
 
           {/* DROP DOWN BOTTOM SHEET LIST (When Opened) */}
@@ -1614,12 +1614,12 @@ export default function DashboardReports({
       {/* ------------------------------------------------------------- */}
       <div className="space-y-6">
         
-        {/* TAB 1: Profit & Loss COMMERCIAL SUMMARY */}
+        {/* TAB 1: P&L COMMERCIAL SUMMARY */}
         {reportTab === 'p&l' && (
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-6">
             <div className="border-b border-slate-100 pb-4">
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Commercial Profit & Loss Account</h3>
-              <p className="text-xs text-slate-450 mt-1">Profit & Loss for selected range.</p>
+              <p className="text-xs text-slate-450 mt-1">P&L for selected range.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1699,7 +1699,7 @@ export default function DashboardReports({
                   Chronological Financial Ledger Variance Graph
                 </h3>
                 <p className="text-xs text-slate-450 mt-1">
-                  Interactive real-time comparison of sales count volume (secondary axis), sales revenue, Cost of Goods, expenses, and net profit trends.
+                  Interactive real-time comparison of sales count volume (secondary axis), sales revenue, COGS, expenses, and net profit trends.
                 </p>
               </div>
 
@@ -1759,8 +1759,8 @@ export default function DashboardReports({
                     <Line 
                       yAxisId="left"
                       type="monotone" 
-                      dataKey="salesMoney Earned" 
-                      name="Sales (Money Earned)" 
+                      dataKey="salesRevenue" 
+                      name="Sales (Revenue)" 
                       stroke="#10b981" 
                       strokeWidth={2.5}
                       dot={{ r: 2 }}
@@ -1769,7 +1769,7 @@ export default function DashboardReports({
                       yAxisId="left"
                       type="monotone" 
                       dataKey="cogs" 
-                      name="Cost of Goods (Cost of Goods)" 
+                      name="Cost of Goods (COGS)" 
                       stroke="#f59e0b" 
                       strokeWidth={2}
                       strokeDasharray="4 4"
@@ -1818,9 +1818,9 @@ export default function DashboardReports({
             totalTax: totalRecordsTax,
             avgTicket: avgTicketSize,
             paidCount: paidSalesCount,
-            paidRevenue: paidSalesMoney EarnedVal,
+            paidRevenue: paidSalesRevenueVal,
             unpaidCount: unpaidSalesCount,
-            unpaidRevenue: unpaidSalesMoney EarnedVal,
+            unpaidRevenue: unpaidSalesRevenueVal,
             totalProfit: totalSalesProfitVal
           } = salesReportMetrics;
           
@@ -1909,14 +1909,14 @@ export default function DashboardReports({
                   </div>
                 </div>
  
-                {/* Money Earned Generated */}
+                {/* Money Earned */}
                 <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
                   <div className="flex items-start space-x-2">
                     <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
                       <TrendingUp className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="text-xs uppercase text-slate-500 font-medium tracking-tight">Money Earned Generated</p>
+                      <p className="text-xs uppercase text-slate-500 font-medium tracking-tight">Money Earned</p>
                       <h4 className="text-lg font-black text-slate-900 mt-1">{currency}{Math.round(totalSalesRevenueVal).toLocaleString()}</h4>
                     </div>
                   </div>
@@ -1931,7 +1931,7 @@ export default function DashboardReports({
                     </div>
                     <div>
                       <p className="text-xs uppercase text-slate-500 font-medium tracking-tight">Paid orders</p>
-                      <h4 className="text-lg font-black text-emerald-800 mt-1">{currency}{Math.round(paidSalesMoney EarnedVal).toLocaleString()}</h4>
+                      <h4 className="text-lg font-black text-emerald-800 mt-1">{currency}{Math.round(paidSalesRevenueVal).toLocaleString()}</h4>
                     </div>
                   </div>
                   <p className="text-xs text-slate-500 font-sans mt-3 border-t border-slate-100 pt-2 leading-tight">{paidSalesCount} orders paid & cleared</p>
@@ -1945,13 +1945,13 @@ export default function DashboardReports({
                     </div>
                     <div>
                       <p className="text-xs uppercase text-slate-500 font-medium tracking-tight">Unpaid orders</p>
-                      <h4 className="text-lg font-bold text-amber-700 mt-1">{currency}{Math.round(unpaidSalesMoney EarnedVal).toLocaleString()}</h4>
+                      <h4 className="text-lg font-bold text-amber-700 mt-1">{currency}{Math.round(unpaidSalesRevenueVal).toLocaleString()}</h4>
                     </div>
                   </div>
                   <p className="text-xs text-slate-500 font-sans mt-3 border-t border-slate-100 pt-2 leading-tight">{unpaidSalesCount} on-credit outstanding</p>
                 </div>
 
-                {/* Profit Made */}
+                {/* Profit Generated */}
                 <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[108px] text-left col-span-2 lg:col-span-1">
                   <div className="flex items-start space-x-2">
                     <div className="p-1.5 rounded-lg bg-purple-50 text-purple-600 shrink-0">
@@ -1962,7 +1962,7 @@ export default function DashboardReports({
                       <h4 className="text-lg font-black text-indigo-700 mt-1">{currency}{Math.round(totalSalesProfitVal).toLocaleString()}</h4>
                     </div>
                   </div>
-                  <p className="text-xs text-slate-400 font-sans mt-3 border-t border-slate-100 pt-2 leading-tight">Profit %: {totalSalesRevenueVal > 0 ? Math.round((totalSalesProfitVal / totalSalesRevenueVal) * 100) : 0}% of sales</p>
+                  <p className="text-xs text-slate-400 font-sans mt-3 border-t border-slate-100 pt-2 leading-tight">Margin: {totalSalesRevenueVal > 0 ? Math.round((totalSalesProfitVal / totalSalesRevenueVal) * 100) : 0}% of sales</p>
                 </div>
               </div>
 
@@ -2117,7 +2117,7 @@ export default function DashboardReports({
                 <h5 className="text-lg font-black text-slate-800 mt-1.5">{currency}{paymentBreakdown.MobileMoney.toLocaleString()}</h5>
               </div>
               <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl bg-amber-500/5 border-amber-200">
-                <p className="text-[10px] font-mono font-bold text-slate-405 uppercase tracking-widest leading-none text-amber-700">Issued Credit Sales</p>
+                <p className="text-[10px] font-mono font-bold text-slate-405 uppercase tracking-widest leading-none text-amber-700">Issued Store Credit</p>
                 <h5 className="text-lg font-black text-amber-750 mt-1.5">{currency}{paymentBreakdown.Credit.toLocaleString()}</h5>
               </div>
             </div>
@@ -2131,7 +2131,7 @@ export default function DashboardReports({
                   <thead>
                     <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-mono font-black text-slate-500 uppercase tracking-wider">
                       <th className="p-4">Timeline / Date String</th>
-                      <th className="p-4 text-center">Number of Sales</th>
+                      <th className="p-4 text-center">Receipt Count</th>
                       <th className="p-4 text-right">Cash Received</th>
                       <th className="p-4 text-right">Card Volume</th>
                       <th className="p-4 text-right">MOMO Volume</th>
@@ -2210,9 +2210,9 @@ export default function DashboardReports({
                   <span className="absolute top-2 right-2 bg-emerald-100 text-emerald-800 text-[8px] font-black font-mono tracking-widest rounded px-1.5 py-0.5">SHOP FLOOR</span>
                   <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest">Shelf Valuation</p>
                   <div className="mt-2 text-xs space-y-1">
-                    {showProfitCogs && <div className="flex justify-between"><span className="text-slate-500">Total Cost of Goods Cost:</span><span className="font-mono font-bold text-slate-800">{currency}{Math.round(currentValuationTotals.shopCogs).toLocaleString()}</span></div>}
+                    {showProfitCogs && <div className="flex justify-between"><span className="text-slate-500">Total COGS Cost:</span><span className="font-mono font-bold text-slate-800">{currency}{Math.round(currentValuationTotals.shopCogs).toLocaleString()}</span></div>}
                     <div className="flex justify-between"><span className="text-slate-500">{activeTenant.businessType === 'pharmacy' ? 'Dispensing Worth:' : 'Retail Worth:'}</span><span className="font-mono font-bold text-slate-800">{currency}{Math.round(currentValuationTotals.shopSell).toLocaleString()}</span></div>
-                    {showProfitCogs && <div className="flex justify-between pt-1 border-t border-slate-200 text-emerald-800 font-bold"><span>Profit % Outlook:</span><span className="font-mono">{currency}{Math.round(currentValuationTotals.shopProfit).toLocaleString()}</span></div>}
+                    {showProfitCogs && <div className="flex justify-between pt-1 border-t border-slate-200 text-emerald-800 font-bold"><span>Margin Outlook:</span><span className="font-mono">{currency}{Math.round(currentValuationTotals.shopProfit).toLocaleString()}</span></div>}
                   </div>
                 </div>
 
@@ -2221,9 +2221,9 @@ export default function DashboardReports({
                   <span className="absolute top-2 right-2 bg-blue-105 text-blue-800 text-[8px] font-black font-mono tracking-widest rounded px-1.5 py-0.5">BACKROOM STORE</span>
                   <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest">Store Valuation</p>
                   <div className="mt-2 text-xs space-y-1">
-                    {showProfitCogs && <div className="flex justify-between"><span className="text-slate-500">Total Cost of Goods Cost:</span><span className="font-mono font-bold text-slate-800">{currency}{Math.round(currentValuationTotals.storeCogs).toLocaleString()}</span></div>}
+                    {showProfitCogs && <div className="flex justify-between"><span className="text-slate-500">Total COGS Cost:</span><span className="font-mono font-bold text-slate-800">{currency}{Math.round(currentValuationTotals.storeCogs).toLocaleString()}</span></div>}
                     <div className="flex justify-between"><span className="text-slate-500">{activeTenant.businessType === 'pharmacy' ? 'Dispensing Worth:' : 'Retail Worth:'}</span><span className="font-mono font-bold text-slate-800">{currency}{Math.round(currentValuationTotals.storeSell).toLocaleString()}</span></div>
-                    {showProfitCogs && <div className="flex justify-between pt-1 border-t border-slate-200 text-emerald-800 font-bold"><span>Profit % Outlook:</span><span className="font-mono">{currency}{Math.round(currentValuationTotals.storeProfit).toLocaleString()}</span></div>}
+                    {showProfitCogs && <div className="flex justify-between pt-1 border-t border-slate-200 text-emerald-800 font-bold"><span>Margin Outlook:</span><span className="font-mono">{currency}{Math.round(currentValuationTotals.storeProfit).toLocaleString()}</span></div>}
                   </div>
                 </div>
 
@@ -2232,7 +2232,7 @@ export default function DashboardReports({
                   <span className="absolute top-2 right-2 bg-amber-200 text-amber-800 text-[8px] font-black font-mono tracking-widest rounded px-1.5 py-0.5">OUTSTANDING CREDIT</span>
                   <p className="text-[10px] font-mono font-bold text-amber-600 uppercase tracking-widest">On-Credit Worth</p>
                   <div className="mt-2 text-xs space-y-1">
-                    {showProfitCogs && <div className="flex justify-between"><span className="text-slate-500">Cost of Goods Outlay:</span><span className="font-mono font-bold text-slate-800">{currency}{Math.round(currentValuationTotals.creditCogs).toLocaleString()}</span></div>}
+                    {showProfitCogs && <div className="flex justify-between"><span className="text-slate-500">COGS Outlay:</span><span className="font-mono font-bold text-slate-800">{currency}{Math.round(currentValuationTotals.creditCogs).toLocaleString()}</span></div>}
                     <div className="flex justify-between"><span className="text-slate-500">Invoiced Receivables:</span><span className="font-mono font-bold text-amber-800">{currency}{Math.round(currentValuationTotals.creditSell).toLocaleString()}</span></div>
                     {showProfitCogs && <div className="flex justify-between pt-1 border-t border-amber-200 text-amber-850 font-bold"><span>Unrealized Earnings:</span><span className="font-mono">{currency}{Math.round(currentValuationTotals.creditProfit).toLocaleString()}</span></div>}
                   </div>
@@ -2244,7 +2244,7 @@ export default function DashboardReports({
               <div className="p-4 bg-slate-900 text-slate-100 rounded-2xl font-mono text-xs flex flex-wrap justify-between items-center gap-4">
                 <span className="text-[10px] tracking-widest font-black uppercase text-slate-400">Grand Total Combined Valuation:</span>
                 <div className="flex space-x-6">
-                  {showProfitCogs && <div><span className="text-slate-500">Cost of Goods:</span> <span className="text-white font-bold">{currency}{Math.round(currentValuationTotals.combinedCogs).toLocaleString()}</span></div>}
+                  {showProfitCogs && <div><span className="text-slate-500">COGS:</span> <span className="text-white font-bold">{currency}{Math.round(currentValuationTotals.combinedCogs).toLocaleString()}</span></div>}
                   <div><span className="text-slate-500">{activeTenant.businessType === 'pharmacy' ? 'DISPENSING WORTH:' : 'RETAIL WORTH:'}</span> <span className="text-emerald-400 font-bold">{currency}{Math.round(currentValuationTotals.combinedSell).toLocaleString()}</span></div>
                   {showProfitCogs && <div><span className="text-slate-500">POSSIBLE PROFIT:</span> <span className="text-white font-extrabold">{currency}{Math.round(currentValuationTotals.combinedProfit).toLocaleString()}</span></div>}
                 </div>
@@ -2261,7 +2261,7 @@ export default function DashboardReports({
                       <th className="p-4 text-center">Units</th>
                       <th className="p-4 text-center">Store Units</th>
                       <th className="p-4 text-center text-amber-700 font-bold">Sold on Credit</th>
-                      {showProfitCogs && <th className="p-4 text-right">Cost Price (Cost of Goods)</th>}
+                      {showProfitCogs && <th className="p-4 text-right">Cost Price (COGS)</th>}
                       <th className="p-4 text-right">Sel. Price</th>
                       {showProfitCogs && <th className="p-4 text-right font-black">Valued Profits Potential</th>}
                     </tr>
@@ -2345,7 +2345,7 @@ export default function DashboardReports({
             {/* 1.5 Suppliers trade log */}
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
               <div>
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Wholesale Suppliers & Buying Trade Log</h3>
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Wholesale Suppliers & Procurements Trade Log</h3>
                 <p className="text-xs text-slate-450 mt-1">Supplier totals.</p>
               </div>
 
@@ -2357,7 +2357,7 @@ export default function DashboardReports({
                       <th className="p-4">Contact Info</th>
                       <th className="p-4">Procured Category</th>
                       <th className="p-4 text-center">Orders Count</th>
-                      <th className="p-4 text-right">Aggregate Buying Cost</th>
+                      <th className="p-4 text-right">Aggregate Procurement Cost</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-sans">
@@ -2559,12 +2559,12 @@ export default function DashboardReports({
                             <div className="flex justify-between border-t border-slate-100 pt-1"><span>Breakeven:</span> <span className="font-bold text-slate-800">{breakeven} {baseUnit} required</span></div>
                           </div>
                           <div className="pt-2 border-t border-slate-100 space-y-1">
-                            <div className="flex justify-between text-emerald-600"><span>Gross Money Earned:</span> <span className="font-bold">{currency}{totalRevenue.toLocaleString()}</span></div>
-                            <div className="flex justify-between text-emerald-700"><span>Total Profit:</span> <span className="font-bold">{currency}{grossProfit.toLocaleString()}</span></div>
+                            <div className="flex justify-between text-emerald-600"><span>Gross Revenue:</span> <span className="font-bold">{currency}{totalRevenue.toLocaleString()}</span></div>
+                            <div className="flex justify-between text-emerald-700"><span>Gross Profit:</span> <span className="font-bold">{currency}{grossProfit.toLocaleString()}</span></div>
                           </div>
                           <div className="mt-2 bg-indigo-50 border border-indigo-100 rounded-xl p-2.5 space-y-1">
                             <div className="flex justify-between text-indigo-700 font-bold"><span>Period Sold:</span> <span>{unitsSold.toFixed(2)} {baseUnit}</span></div>
-                            <div className="flex justify-between text-indigo-800 font-bold"><span>Period Money Earned:</span> <span>{currency}{periodRevenue.toLocaleString()}</span></div>
+                            <div className="flex justify-between text-indigo-800 font-bold"><span>Period Revenue:</span> <span>{currency}{periodRevenue.toLocaleString()}</span></div>
                             <div className="flex justify-between text-indigo-900 font-bold"><span>Period Profit:</span> <span>{currency}{periodProfit.toLocaleString()}</span></div>
                           </div>
                         </div>
@@ -2609,7 +2609,7 @@ export default function DashboardReports({
           });
 
           const totalProductProfit = totalRevenue - totalCogs;
-          const productProfitProfit % = totalRevenue > 0 ? (totalProductProfit / totalRevenue) * 100 : 0;
+          const productProfitMargin = totalRevenue > 0 ? (totalProductProfit / totalRevenue) * 100 : 0;
 
           // Simple Search & Select filtered product lookup
           const filteredOptions = products.filter(p => 
@@ -2768,7 +2768,7 @@ export default function DashboardReports({
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-100">
                 <div className="space-y-4 max-w-xl w-full">
                   <div className="space-y-1">
-                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Product Performance & Profit % Tracker</h3>
+                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Product Performance & Margin Tracker</h3>
                     <p className="text-xs text-slate-450 leading-relaxed font-sans">
                       Select a product or view all stock.
                     </p>
@@ -2916,7 +2916,7 @@ export default function DashboardReports({
                       {!isAll && monitoredProduct && (
                         ((monitoredProduct.shopStockQty ?? 0) + (monitoredProduct.storeStockQty ?? 0)) <= (monitoredProduct.alertQty ?? 5) ? (
                           <div className="p-3 bg-amber-50 rounded-xl border border-amber-200/60 flex items-center space-x-2 text-[10.5px] font-bold text-amber-800 leading-normal font-sans animate-pulse">
-                            <span>Low stock: below alert ({formatProductQuantity(monitoredProduct.alertQty ?? 5, monitoredProduct)}). Consider purchasing restock batch.</span>
+                            <span>Low stock: below alert ({formatProductQuantity(monitoredProduct.alertQty ?? 5, monitoredProduct)}). Consider purchasing replenishment batch.</span>
                           </div>
                         ) : (
                           <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center space-x-2 text-[10.5px] font-bold text-emerald-800 leading-normal font-sans">
@@ -2968,27 +2968,27 @@ export default function DashboardReports({
                     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                       <div className="flex items-center space-x-2">
                         <DollarSign className="w-4 h-4 text-emerald-600" />
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 font-mono">Commercial Profit % Analysis</h4>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 font-mono">Commercial Margin Analysis</h4>
                       </div>
 
                       <div className="space-y-2.5 text-xs">
                         <div className="flex justify-between items-center py-1 border-b border-slate-200">
-                          <span className="text-slate-500 font-medium">Cost of Goods Worth (Cost):</span>
+                          <span className="text-slate-500 font-medium">COGS Worth (Cost):</span>
                           <span className="font-mono font-bold text-rose-650">({currency}{Math.round(totalCogs).toLocaleString()})</span>
                         </div>
                         <div className="flex justify-between items-center py-1 border-b border-slate-200">
-                          <span className="text-slate-500 font-medium">Sales Money Earned:</span>
+                          <span className="text-slate-500 font-medium">Sales Revenue:</span>
                           <span className="font-mono font-extrabold text-emerald-700">{currency}{Math.round(totalRevenue).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between items-center py-1">
-                          <span className="text-slate-505 font-black">Net Profit % Profit:</span>
+                          <span className="text-slate-505 font-black">Net Margin Profit:</span>
                           <span className="font-mono font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">{currency}{Math.round(totalProductProfit).toLocaleString()}</span>
                         </div>
                       </div>
 
                       <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-[10.5px] font-bold text-emerald-850 flex justify-between items-center font-sans">
-                        <span>Adjusted Segment Markup Profit %:</span>
-                        <span className="font-mono font-black text-xs text-emerald-950">{Math.round(productProfitProfit %)}%</span>
+                        <span>Adjusted Segment Markup Margin:</span>
+                        <span className="font-mono font-black text-xs text-emerald-950">{Math.round(productProfitMargin)}%</span>
                       </div>
                     </div>
 
@@ -3016,10 +3016,10 @@ export default function DashboardReports({
                               onChange={(e) => setProductSortBy(e.target.value as any)}
                               className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-705 cursor-pointer outline-none focus:ring-1 focus:ring-emerald-500"
                             >
-                              <option value="qtySold">Items Sold</option>
-                              <option value="revenue">Total Money Earned</option>
+                              <option value="qtySold">Units Sold</option>
+                              <option value="revenue">Total Revenue</option>
                               <option value="profit">Profit Created</option>
-                              <option value="margin">Profit % %</option>
+                              <option value="margin">Margin %</option>
                               <option value="totOnHand">Stock On Hand</option>
                               <option value="name">Product Name</option>
                               <option value="sku">Item Code</option>
@@ -3086,7 +3086,7 @@ export default function DashboardReports({
                                 className="p-3 text-right text-indigo-700 cursor-pointer hover:bg-indigo-50/50 transition-colors"
                               >
                                 <div className="flex items-center space-x-1 justify-end">
-                                  <span>Items Sold</span>
+                                  <span>Units Sold</span>
                                   {productSortBy === 'qtySold' && (
                                     <span className="text-indigo-600 font-extrabold">{productSortOrder === 'desc' ? '▼' : '▲'}</span>
                                   )}
@@ -3097,13 +3097,13 @@ export default function DashboardReports({
                                 className="p-3 text-right text-indigo-700 cursor-pointer hover:bg-indigo-50/50 transition-colors font-mono"
                               >
                                 <div className="flex items-center space-x-1 justify-end">
-                                  <span>Total Money Earned</span>
+                                  <span>Total Revenue</span>
                                   {productSortBy === 'revenue' && (
                                     <span className="text-indigo-600 font-extrabold">{productSortOrder === 'desc' ? '▼' : '▲'}</span>
                                   )}
                                 </div>
                               </th>
-                              <th className="p-3 text-right text-rose-600 font-mono">Total Cost of Goods</th>
+                              <th className="p-3 text-right text-rose-600 font-mono">Total COGS</th>
                               <th 
                                 onClick={() => handleProductHeaderSort('profit')}
                                 className="p-3 text-right text-emerald-700 cursor-pointer hover:bg-emerald-50/50 transition-colors font-mono"
@@ -3120,7 +3120,7 @@ export default function DashboardReports({
                                 className="p-3 text-right text-emerald-800 cursor-pointer hover:bg-emerald-50/50 transition-colors font-mono"
                               >
                                 <div className="flex items-center space-x-1 justify-end">
-                                  <span>Profit % %</span>
+                                  <span>Margin %</span>
                                   {productSortBy === 'margin' && (
                                     <span className="text-emerald-605 font-extrabold">{productSortOrder === 'desc' ? '▼' : '▲'}</span>
                                   )}
@@ -3376,8 +3376,8 @@ export default function DashboardReports({
           const totalChannelCogs = retailCogs + wholesaleCogs;
           const grandChannelProfit = totalChannelRev - totalChannelCogs;
 
-          const retailProfit % = retailRevenue > 0 ? (retailProfit / retailRevenue) * 100 : 0;
-          const wholesaleProfit % = wholesaleRevenue > 0 ? (wholesaleProfit / wholesaleRevenue) * 100 : 0;
+          const retailMargin = retailRevenue > 0 ? (retailProfit / retailRevenue) * 100 : 0;
+          const wholesaleMargin = wholesaleRevenue > 0 ? (wholesaleProfit / wholesaleRevenue) * 100 : 0;
 
           // Convert stats map to array for tabular loop
           const productListStats = Object.values(productStats).filter(st => {
@@ -3391,8 +3391,8 @@ export default function DashboardReports({
             csv += `Generational Range: ${startDateStr} to ${endDateStr}\r\n\r\n`;
             
             csv += "CHANNEL LEVEL PERFORMANCE SUMMARY\r\n";
-            csv += `Retail Channel Money Earned: ${currency}${Math.round(retailRevenue).toLocaleString()}, Cost Cost of Goods: ${currency}${Math.round(retailCogs).toLocaleString()}, Profit %: ${retailProfit %.toFixed(1)}%, Sales Orders: ${retailOrders}\r\n`;
-            csv += `Wholesale Channel Money Earned: ${currency}${Math.round(wholesaleRevenue).toLocaleString()}, Cost Cost of Goods: ${currency}${Math.round(wholesaleCogs).toLocaleString()}, Profit %: ${wholesaleProfit %.toFixed(1)}%, Sales Orders: ${wholesaleOrders}\r\n`;
+            csv += `Retail Channel Revenue: ${currency}${Math.round(retailRevenue).toLocaleString()}, Cost COGS: ${currency}${Math.round(retailCogs).toLocaleString()}, Margin: ${retailMargin.toFixed(1)}%, Sales Orders: ${retailOrders}\r\n`;
+            csv += `Wholesale Channel Revenue: ${currency}${Math.round(wholesaleRevenue).toLocaleString()}, Cost COGS: ${currency}${Math.round(wholesaleCogs).toLocaleString()}, Margin: ${wholesaleMargin.toFixed(1)}%, Sales Orders: ${wholesaleOrders}\r\n`;
             csv += `Combined Net Channel Profits: ${currency}${Math.round(grandChannelProfit).toLocaleString()}\r\n\r\n`;
 
             csv += "PER-PRODUCT DUAL SELLING CHANNEL PERFORMANCE\r\n";
@@ -3453,20 +3453,20 @@ export default function DashboardReports({
                   </div>
                   <div className="py-2.5 space-y-1.5 text-left">
                     <div className="flex justify-between items-baseline">
-                      <span className="text-xs text-slate-500 font-medium">Retail Money Earned:</span>
+                      <span className="text-xs text-slate-500 font-medium">Retail Revenue:</span>
                       <span className="font-mono text-xs font-extrabold text-slate-800">{currency}{Math.round(retailRevenue).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-baseline">
-                      <span className="text-xs text-slate-500 font-medium">Retail Cost Cost of Goods:</span>
+                      <span className="text-xs text-slate-500 font-medium">Retail Cost COGS:</span>
                       <span className="font-mono text-xs font-bold text-slate-600">{currency}{Math.round(retailCogs).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-baseline border-t border-dashed border-slate-100 pt-1.5">
-                      <span className="text-xs font-bold text-slate-705">Profit:</span>
+                      <span className="text-xs font-bold text-slate-705">Net Profit:</span>
                       <span className="font-mono text-sm font-black text-emerald-700">{currency}{Math.round(retailProfit).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-baseline">
-                      <span className="text-[10px] text-slate-400 font-bold">Estimated Profit %:</span>
-                      <span className="text-xs font-black text-emerald-650 font-mono">{(retailProfit % > 100 ? 100 : retailProfit %).toFixed(1)}%</span>
+                      <span className="text-[10px] text-slate-400 font-bold">Estimated Margin:</span>
+                      <span className="text-xs font-black text-emerald-650 font-mono">{(retailMargin > 100 ? 100 : retailMargin).toFixed(1)}%</span>
                     </div>
                   </div>
                 </div>
@@ -3480,20 +3480,20 @@ export default function DashboardReports({
                   </div>
                   <div className="py-2.5 space-y-1.5 text-left">
                     <div className="flex justify-between items-baseline">
-                      <span className="text-xs text-slate-500 font-medium">Wholesale Money Earned:</span>
+                      <span className="text-xs text-slate-500 font-medium">Wholesale Revenue:</span>
                       <span className="font-mono text-xs font-extrabold text-slate-800">{currency}{Math.round(wholesaleRevenue).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-baseline">
-                      <span className="text-xs text-slate-500 font-medium">Wholesale Cost Cost of Goods:</span>
+                      <span className="text-xs text-slate-500 font-medium">Wholesale Cost COGS:</span>
                       <span className="font-mono text-xs font-bold text-slate-600">{currency}{Math.round(wholesaleCogs).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-baseline border-t border-dashed border-slate-100 pt-1.5">
-                      <span className="text-xs font-bold text-slate-705">Profit:</span>
+                      <span className="text-xs font-bold text-slate-705">Net Profit:</span>
                       <span className="font-mono text-sm font-black text-teal-700">{currency}{Math.round(wholesaleProfit).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-baseline">
-                      <span className="text-[10px] text-slate-400 font-bold">Estimated Profit %:</span>
-                      <span className="text-xs font-black text-teal-650 font-mono">{(wholesaleProfit % > 100 ? 100 : wholesaleProfit %).toFixed(1)}%</span>
+                      <span className="text-[10px] text-slate-400 font-bold">Estimated Margin:</span>
+                      <span className="text-xs font-black text-teal-650 font-mono">{(wholesaleMargin > 100 ? 100 : wholesaleMargin).toFixed(1)}%</span>
                     </div>
                   </div>
                 </div>
@@ -3529,9 +3529,9 @@ export default function DashboardReports({
                         <th className="py-3.5 px-4 text-center">Base Cost</th>
                         <th className="py-3.5 px-4 text-center">Retail Channel</th>
                         <th className="py-3.5 px-4 text-center">Wholesale Channel</th>
-                        <th className="py-3.5 px-4 text-center">Total Money Earned</th>
-                        <th className="py-3.5 px-4 text-center">Cost Cost of Goods</th>
-                        <th className="py-3.5 px-4 text-right pr-5">Profits</th>
+                        <th className="py-3.5 px-4 text-center">Total Revenue</th>
+                        <th className="py-3.5 px-4 text-center">Cost COGS</th>
+                        <th className="py-3.5 px-4 text-right pr-5">Net Profits</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-[11.5px] font-medium text-slate-750">
@@ -3572,7 +3572,7 @@ export default function DashboardReports({
                               <p className={`font-mono font-black ${netProf >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                                 {currency}{Math.round(netProf).toLocaleString()}
                               </p>
-                              <span className="text-[9px] font-bold text-slate-400 font-sans">Profit %: {margin.toFixed(1)}%</span>
+                              <span className="text-[9px] font-bold text-slate-400 font-sans">Margin: {margin.toFixed(1)}%</span>
                             </td>
                           </tr>
                         );
@@ -3767,7 +3767,7 @@ export default function DashboardReports({
                 className="w-11 h-11 flex items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100 transition-all cursor-pointer"
                 title="Export Spreadsheet"
               >
-                <Download className="w-5 h-5" />
+                <Download className="w-4.5 h-4.5" />
               </button>
             </div>
 
@@ -3841,7 +3841,7 @@ export default function DashboardReports({
                     <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                       <div className="flex items-center space-x-1.5 text-amber-500">
                         <Package className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider font-mono">Total Cost of Goods</span>
+                        <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider font-mono">Total COGS</span>
                       </div>
                       <span className="text-sm font-black text-slate-800 font-sans mt-2">{currency}{Math.round(totalCOGS).toLocaleString()}</span>
                     </div>
@@ -3857,7 +3857,7 @@ export default function DashboardReports({
                     <div className={`p-3 rounded-xl border shadow-xs flex flex-col justify-between min-h-[84px] text-left ${netProfit >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
                       <div className={`flex items-center space-x-1.5 ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                         <DollarSign className="w-4 h-4" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider font-mono">Profit</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider font-mono">Net Profit</span>
                       </div>
                       <span className={`text-sm font-black font-sans mt-2 ${netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                         {netProfit < 0 ? '-' : ''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}
@@ -3867,7 +3867,7 @@ export default function DashboardReports({
 
                   {/* Charts with horizontal scroll and max height 200px */}
                   <div className="bg-white border border-slate-150 p-4 rounded-xl shadow-xs space-y-2 text-left">
-                    <h4 className="text-sm font-bold text-slate-800">Consolidated Profit % Curve</h4>
+                    <h4 className="text-sm font-bold text-slate-800">Consolidated Margin Curve</h4>
                     <div className="w-full overflow-x-auto scrollbar-none">
                       <div className="min-w-[340px] h-[180px]">
                         <ResponsiveContainer width="105%" height="100%">
@@ -3876,7 +3876,7 @@ export default function DashboardReports({
                             <XAxis dataKey="label" stroke="#94a3b8" fontSize={9} tickLine={false} />
                             <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} />
                             <Tooltip />
-                            <Line type="monotone" dataKey="salesMoney Earned" name="Sales" stroke="#10b981" strokeWidth={1.5} dot={false} />
+                            <Line type="monotone" dataKey="salesRevenue" name="Sales" stroke="#10b981" strokeWidth={1.5} dot={false} />
                             <Line type="monotone" dataKey="profit" name="Profit" stroke="#a855f7" strokeWidth={1.5} dot={false} />
                           </LineChart>
                         </ResponsiveContainer>
@@ -3889,11 +3889,11 @@ export default function DashboardReports({
                     <h4 className="text-xs font-semibold text-slate-800 font-sans px-1">Statement Line Items</h4>
                     <div className="space-y-2.5">
                       {[
-                        { label: 'Total Sales Money Earned', value: totalSalesRevenue, type: 'plus' },
-                        { label: 'Cost of Goods Sold (Cost of Goods)', value: totalCOGS, type: 'minus' },
+                        { label: 'Total Sales Revenue', value: totalSalesRevenue, type: 'plus' },
+                        { label: 'Cost of Goods Sold (COGS)', value: totalCOGS, type: 'minus' },
                         { label: 'Gross Operating Profit', value: grossProfit, type: 'summary' },
                         { label: 'Operating Expenses Burden', value: totalExpensesCharged, type: 'minus' },
-                        { label: 'Consolidated Profit/Loss', value: netProfit, type: 'net' }
+                        { label: 'Consolidated Net Profit/Loss', value: netProfit, type: 'net' }
                       ].map((item, idx) => (
                         <div key={idx} className={`flex items-center justify-between px-4 py-3 rounded-xl border border-slate-150 bg-white text-left ${
                           item.type === 'summary' ? 'bg-emerald-50 border-emerald-200' :
@@ -3902,7 +3902,7 @@ export default function DashboardReports({
                           <div>
                             <span className="text-xs font-bold text-slate-800 block">{item.label}</span>
                             <span className="text-[10px] text-slate-450 block mt-0.5">
-                              {item.type === 'minus' ? 'Debit/Expense' : item.type === 'plus' ? 'Gross Credit' : 'Accounting Profit %'}
+                              {item.type === 'minus' ? 'Debit/Expense' : item.type === 'plus' ? 'Gross Credit' : 'Accounting Margin'}
                             </span>
                           </div>
                           <span className={`text-sm font-extrabold font-mono ${
@@ -3935,7 +3935,7 @@ export default function DashboardReports({
                     <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                       <div className="flex items-center space-x-1.5 text-emerald-600">
                         <DollarSign className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Gross Money Earned</span>
+                        <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Gross Revenue</span>
                       </div>
                       <span className="text-sm font-black text-emerald-650 font-sans mt-2">{currency}{Math.round(salesReportMetrics.totalRevenue).toLocaleString()}</span>
                     </div>
@@ -4101,7 +4101,7 @@ export default function DashboardReports({
                           <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-amber-500">
                               <Archive className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Store Room</span>
+                              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Backroom Store</span>
                             </div>
                             <span className="text-sm font-black text-slate-800 mt-2">{currency}{Math.round(totalStoreVal).toLocaleString()}</span>
                           </div>
@@ -4259,7 +4259,7 @@ export default function DashboardReports({
                           <div className="bg-rose-50 border border-rose-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-rose-600">
                               <DollarSign className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider font-mono">Aggregate Money Out</span>
+                              <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider font-mono">Aggregate Outflow</span>
                             </div>
                             <span className="text-sm font-black text-rose-800 mt-2">{currency}{Math.round(totalSpent).toLocaleString()}</span>
                           </div>
@@ -4268,7 +4268,7 @@ export default function DashboardReports({
                         {/* List representations */}
                         <div className="space-y-2.5">
                           <div className="flex justify-between items-center px-1">
-                            <h4 className="text-xs font-semibold text-slate-800">Operating Money Out Logs</h4>
+                            <h4 className="text-xs font-semibold text-slate-800">Operating Outflow Logs</h4>
                             <span className="text-[10px] font-mono text-slate-400">{filteredExpenses.length} entries</span>
                           </div>
 
@@ -4359,7 +4359,7 @@ export default function DashboardReports({
                           const totalUnits = matchItems.reduce((sum, item) => sum + item.sold, 0);
                           const totalRevenue = matchItems.reduce((sum, item) => sum + item.rev, 0);
                           const totalProfit = matchItems.reduce((sum, item) => sum + item.profit, 0);
-                          const avgProfitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+                          const avgMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
                           return (
                             <>
@@ -4367,7 +4367,7 @@ export default function DashboardReports({
                                 <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                                   <div className="flex items-center space-x-1.5 text-indigo-505">
                                     <ShoppingBag className="w-4 h-4" />
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Items Sold</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Units Sold</span>
                                   </div>
                                   <span className="text-sm font-black text-slate-800 font-sans mt-2">{formatProductQuantity(totalUnits, products.find(p => p.id === selectedMonitoredProductId))}</span>
                                 </div>
@@ -4383,15 +4383,15 @@ export default function DashboardReports({
                                 <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                                   <div className="flex items-center space-x-1.5 text-indigo-505">
                                     <Percent className="w-4 h-4" />
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Average Profit %</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Average Margin</span>
                                   </div>
-                                  <span className="text-sm font-black text-indigo-700 mt-2">{Math.round(avgProfitMargin)}%</span>
+                                  <span className="text-sm font-black text-indigo-700 mt-2">{Math.round(avgMargin)}%</span>
                                 </div>
 
                                 <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                                   <div className="flex items-center space-x-1.5 text-emerald-600">
                                     <TrendingUp className="w-4 h-4" />
-                                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Net Total Profit</span>
+                                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Net Gross Profit</span>
                                   </div>
                                   <span className="text-sm font-black text-emerald-800 mt-2">{currency}{Math.round(totalProfit).toLocaleString()}</span>
                                 </div>
@@ -4498,7 +4498,7 @@ export default function DashboardReports({
                           <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-emerald-600">
                               <TrendingUp className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Retail Profit %</span>
+                              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Retail Margin</span>
                             </div>
                             <span className="text-sm font-black text-emerald-800 mt-1">{currency}{Math.round(retailProfit).toLocaleString()}</span>
                           </div>
@@ -4506,7 +4506,7 @@ export default function DashboardReports({
                           <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-emerald-600">
                               <TrendingUp className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Wholesale Profit %</span>
+                              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Wholesale Margin</span>
                             </div>
                             <span className="text-sm font-black text-emerald-800 mt-1">{currency}{Math.round(wholesaleProfit).toLocaleString()}</span>
                           </div>
@@ -4576,7 +4576,7 @@ export default function DashboardReports({
                           <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-rose-500">
                               <Receipt className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider font-mono">Fleet Money Out</span>
+                              <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider font-mono">Fleet Outflow</span>
                             </div>
                             <span className="text-sm font-black text-rose-600 mt-1">{currency}{totalDeliveryExpenses.toLocaleString()}</span>
                           </div>
@@ -4957,7 +4957,7 @@ export default function DashboardReports({
                   )}
                   <div className="flex justify-between">
                     <span className="text-slate-500">
-                      {activeTenant.businessType === 'pharmacy' ? 'Dispensed By:' : 'Prepared by:'}
+                      {activeTenant.businessType === 'pharmacy' ? 'Dispensed By:' : 'Prepared By:'}
                     </span>
                     <span className="font-bold text-slate-800">{selectedInspectSale.cashierName || 'Primary Staff Member'}</span>
                   </div>
@@ -5100,7 +5100,7 @@ export default function DashboardReports({
             Active Statement Segment: {reportTab.replace('-', ' ').toUpperCase()}
           </h2>
 
-          {/* TAB: Profit & Loss SUMMARY */}
+          {/* TAB: P&L SUMMARY */}
           {reportTab === 'p&l' && (
             <div className="space-y-4">
               <table className="w-full text-left font-sans">
@@ -5166,7 +5166,7 @@ export default function DashboardReports({
                   <span className="font-bold text-xs">{salesReportMetrics.totalOrders} Tickets</span>
                 </div>
                 <div>
-                  <span className="text-[8px] text-slate-400 block font-mono uppercase">Money Earned gen.</span>
+                  <span className="text-[8px] text-slate-400 block font-mono uppercase">Revenue gen.</span>
                   <span className="font-bold text-xs text-emerald-800">{currency}{Math.round(salesReportMetrics.totalRevenue).toLocaleString()}</span>
                 </div>
                 <div>
@@ -5412,8 +5412,8 @@ export default function DashboardReports({
                       <th className="p-1.5">Product SKU</th>
                       <th className="p-1.5 text-right">Cost Price</th>
                       <th className="p-1.5 text-right">Selling Price</th>
-                      <th className="p-1.5 text-right">Items Sold</th>
-                      <th className="p-1.5 text-right">Money Earned Generated</th>
+                      <th className="p-1.5 text-right">Units Sold</th>
+                      <th className="p-1.5 text-right">Money Earned</th>
                       <th className="p-1.5 text-right">Profit Contribution</th>
                     </tr>
                   </thead>
@@ -5517,7 +5517,7 @@ export default function DashboardReports({
                         <span className="text-2xl font-black text-slate-800">{validDeliveries.length}</span>
                       </div>
                       <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 text-center">
-                        <span className="block text-[10px] font-mono font-bold uppercase text-indigo-600 tracking-wider mb-2">Total Delivery Money Earned</span>
+                        <span className="block text-[10px] font-mono font-bold uppercase text-indigo-600 tracking-wider mb-2">Total Delivery Revenue</span>
                         <span className="text-2xl font-black font-mono text-indigo-900">{currency}{deliveryIncome.toLocaleString()}</span>
                       </div>
                       <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-center">
@@ -5536,7 +5536,7 @@ export default function DashboardReports({
                       {/* Income by Payment Method */}
                       <div className="bg-white border text-left border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col md:col-span-2">
                         <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
-                          <h4 className="font-bold text-xs text-slate-800 tracking-tight uppercase">Delivery Money Earned by Payment Method</h4>
+                          <h4 className="font-bold text-xs text-slate-800 tracking-tight uppercase">Delivery Revenue by Payment Method</h4>
                         </div>
                         <div className="p-4 flex gap-4 overflow-x-auto">
                           {(() => {
@@ -5719,7 +5719,7 @@ export default function DashboardReports({
         <div className="hidden print:block mt-12 pt-8 border-t border-dashed border-slate-300">
           <div className="grid grid-cols-3 gap-6 text-center text-[9px] text-slate-600 font-mono">
             <div className="border-t border-slate-300 pt-3">
-              <p className="font-bold uppercase">Prepared by</p>
+              <p className="font-bold uppercase">Prepared By</p>
               <p className="mt-1 font-semibold">{userName}</p>
               <p className="text-slate-400 mt-0.5">System Operator</p>
             </div>
