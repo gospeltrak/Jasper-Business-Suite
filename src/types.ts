@@ -11,6 +11,8 @@ export interface User {
   saasPermissions?: Record<string, boolean>;
   phone?: string;
   password?: string;
+  securityQuestion?: string;
+  securityAnswer?: string;
   // Subscription trial assignment tracking
   trial_start_date?: string;
   trial_end_date?: string;

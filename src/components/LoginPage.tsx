@@ -189,14 +189,17 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [recoveryOtp, setRecoveryOtp] = useState('');
   const [recoveryInputOtp, setRecoveryInputOtp] = useState('');
   const [recoveryNewPassword, setRecoveryNewPassword] = useState('');
+  const [recoverySecurityAnswer, setRecoverySecurityAnswer] = useState('');
   const [recoveryUser, setRecoveryUser] = useState<any | null>(null);
-  const [recoveryStep, setRecoveryStep] = useState<'identify' | 'verify'>('identify');
+  const [recoveryStep, setRecoveryStep] = useState<'identify' | 'security' | 'verify'>('identify');
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
 
   // Registration Form States
   const [ownerName, setOwnerName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [regSecurityQuestion, setRegSecurityQuestion] = useState('');
+  const [regSecurityAnswer, setRegSecurityAnswer] = useState('');
   const [orgName, setOrgName] = useState('');
   const [businessType, setBusinessType] = useState<string>('Retail');
   const [country, setCountry] = useState<'Nigeria' | 'Kenya' | 'Ghana' | 'South Africa' | 'Tanzania'>('Tanzania');
@@ -432,6 +435,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     return ['admin', 'manager', 'superadmin', 'owner'].some(r => normalized.includes(r));
   };
 
+  const normalizeSecurityAnswer = (answer: string) =>
+    answer.trim().toLowerCase().replace(/\s+/g, ' ');
+
   const handleStartRecovery = (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -457,17 +463,43 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       return;
     }
 
+    if (!found.securityQuestion || !found.securityAnswer) {
+      setRecoveryMessage('Sorry, we could not verify that it was you. If you are confident it is you, please contact Jasper support.');
+      return;
+    }
+
+    setRecoveryUser(found);
+    setRecoveryWhatsapp(normalizePhoneForWhatsapp(found.phone || identifier));
+    setRecoverySecurityAnswer('');
+    setRecoveryStep('security');
+    setRecoveryMessage(null);
+  };
+
+  const handleVerifyRecoverySecurity = (e: FormEvent) => {
+    e.preventDefault();
+    setRecoveryMessage(null);
+
+    if (!recoveryUser) {
+      setRecoveryStep('identify');
+      setRecoveryMessage('Start the reset again.');
+      return;
+    }
+
+    if (normalizeSecurityAnswer(recoverySecurityAnswer) !== normalizeSecurityAnswer(recoveryUser.securityAnswer || '')) {
+      setRecoveryMessage('Sorry, we could not verify that it was you. If you are confident it is you, please contact Jasper support.');
+      return;
+    }
+
     const otp = String(Math.floor(100000 + Math.random() * 900000));
-    const whatsappNumber = normalizePhoneForWhatsapp(recoveryWhatsapp || found.phone || identifier);
+    const whatsappNumber = normalizePhoneForWhatsapp(recoveryWhatsapp || recoveryUser.phone || recoveryIdentifier);
     if (!whatsappNumber) {
       setRecoveryMessage('Enter the owner/admin WhatsApp number to receive OTP.');
       return;
     }
-    setRecoveryUser(found);
     setRecoveryOtp(otp);
     setRecoveryWhatsapp(whatsappNumber);
     setRecoveryStep('verify');
-    setRecoveryMessage('OTP prepared. Send it to the owner/admin WhatsApp, then enter it here.');
+    setRecoveryMessage('Security answer verified. OTP prepared. Send it to the owner/admin WhatsApp, then enter it here.');
 
     const message = `Jasper Suite password reset OTP: ${otp}. Use this code to reset your admin account password. If you did not request this, please ignore it.`;
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
@@ -536,6 +568,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setRecoveryOtp('');
     setRecoveryInputOtp('');
     setRecoveryNewPassword('');
+    setRecoverySecurityAnswer('');
     setRecoveryUser(null);
     setSuccessMessage('Password reset successfully. You can sign in now.');
   };
@@ -933,7 +966,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   // Perform dynamic tenant/business registration
   const handleRegisterSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!ownerName || !regEmail || !regPassword || !orgName) {
+    if (!ownerName || !regEmail || !regPassword || !orgName || !regSecurityQuestion || !regSecurityAnswer) {
       setError('Please fill in all registration inputs.');
       return;
     }
@@ -1030,6 +1063,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         tenantId: newTenant.id,
         activeTenant: newTenant.id,
         phone: cleanOwnerPhone || regEmail.trim(),
+        securityQuestion: regSecurityQuestion.trim(),
+        securityAnswer: normalizeSecurityAnswer(regSecurityAnswer),
         isSaaSStaff: false,
         trial_start_date: new Date().toISOString(),
         trial_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
@@ -1043,7 +1078,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       const savedCustomUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
       localStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, {
         ...registeredUser,
-        password: regPassword
+        password: regPassword,
+        securityQuestion: regSecurityQuestion.trim(),
+        securityAnswer: normalizeSecurityAnswer(regSecurityAnswer)
       }]));
 
       setIsLoading(false);
@@ -1093,6 +1130,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           tenantId: newTenantId,
           activeTenant: newTenantId,
           phone: cleanOwnerPhone || regEmail.trim(),
+          securityQuestion: regSecurityQuestion.trim(),
+          securityAnswer: normalizeSecurityAnswer(regSecurityAnswer),
           trial_start_date: userStartDate.toISOString(),
           trial_end_date: userEndDate.toISOString(),
           is_affiliate_lead: hasReferral,
@@ -1498,27 +1537,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <label className="text-[10px] font-bold text-slate-500 uppercase block">
                       {loginOtpMode ? 'WHATSAPP OTP' : 'SECURITY PIN PASSWORD'}
                     </label>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleSendLoginOtp}
-                        className="text-[10px] font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-800"
-                      >
-                        Send OTP
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowRecovery(true);
-                          setRecoveryIdentifier(email);
-                          setRecoveryStep('identify');
-                          setRecoveryMessage(null);
-                        }}
-                        className="text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-800"
-                      >
-                        Forgot?
-                      </button>
-                    </div>
                   </div>
                   <div className="relative">
                     {loginOtpMode ? (
@@ -1574,6 +1592,22 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                       Use PIN/password instead
                     </button>
                   )}
+                  {!loginOtpMode && (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowRecovery(true);
+                          setRecoveryIdentifier(email);
+                          setRecoveryStep('identify');
+                          setRecoveryMessage(null);
+                        }}
+                        className="text-[10px] font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-800"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : null}
 
@@ -1600,10 +1634,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <div>
                       <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
                         <MessageCircle className="w-4 h-4 text-emerald-700" />
-                        WhatsApp OTP Reset
+                        Password Recovery
                       </h4>
                       <p className="text-[11px] text-slate-700 mt-1 leading-snug">
-                        Owner and admin accounts reset by WhatsApp OTP. Staff accounts are reset by the business admin.
+                        Admin recovery verifies your security question first, then sends WhatsApp OTP.
                       </p>
                     </div>
                     <button
@@ -1635,8 +1669,30 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                         onClick={handleStartRecovery}
                         className="w-full py-2.5 rounded-xl bg-emerald-700 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
                       >
+                        <Shield className="w-4 h-4" />
+                        Continue
+                      </button>
+                    </div>
+                  ) : recoveryStep === 'security' ? (
+                    <div className="space-y-2">
+                      <div className="bg-white border border-emerald-150 rounded-xl px-3 py-2.5">
+                        <span className="block text-[9px] font-black uppercase tracking-wider text-slate-500">Security Question</span>
+                        <p className="text-xs font-bold text-slate-800 mt-1">{recoveryUser?.securityQuestion}</p>
+                      </div>
+                      <input
+                        type="text"
+                        value={recoverySecurityAnswer}
+                        onChange={e => setRecoverySecurityAnswer(e.target.value)}
+                        placeholder="Your answer"
+                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleVerifyRecoverySecurity}
+                        className="w-full py-2.5 rounded-xl bg-emerald-700 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
+                      >
                         <MessageCircle className="w-4 h-4" />
-                        Send WhatsApp OTP
+                        Verify & Send OTP
                       </button>
                     </div>
                   ) : (
@@ -1749,6 +1805,31 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     placeholder="••••••••"
                     onChange={(e) => setRegPassword(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Security Question</label>
+                  <input
+                    type="text"
+                    required
+                    value={regSecurityQuestion}
+                    placeholder="e.g. What is your first shop name?"
+                    onChange={(e) => setRegSecurityQuestion(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-sans"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Security Answer</label>
+                  <input
+                    type="text"
+                    required
+                    value={regSecurityAnswer}
+                    placeholder="Answer you will remember"
+                    onChange={(e) => setRegSecurityAnswer(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-sans"
                   />
                 </div>
               </div>
