@@ -236,11 +236,11 @@ export default function DashboardSalesList({
     if (cached) {
       try {
         const parsed = JSON.parse(cached) as SalesDocument[];
-        // Map legacy document types gracefully to unified 'proforma invoice' and add mock defaults if empty
+        // Map legacy document types gracefully to unified 'price quote invoice' and add mock defaults if empty
         return parsed.map(d => {
           const typeStr = d.type as string;
-          if (typeStr === 'proforma' || typeStr === 'invoice' || typeStr === 'proforma invoice') {
-            return { ...d, type: 'proforma invoice' as const };
+          if (typeStr === 'price quote' || typeStr === 'invoice' || typeStr === 'price quote invoice') {
+            return { ...d, type: 'price quote invoice' as const };
           }
           return d;
         });
@@ -252,7 +252,7 @@ export default function DashboardSalesList({
     const defaultDocs: SalesDocument[] = [
       {
         id: 'doc-qt-001',
-        type: 'quotation',
+        type: 'price quote',
         documentNumber: 'QUO-2026-0001',
         items: [
           { productId: 'p-1', productName: 'Premium Brown Rice (Sacks)', qty: 10, price: 42, discount: 0, discountType: 'percent' }
@@ -268,7 +268,7 @@ export default function DashboardSalesList({
       },
       {
         id: 'doc-pf-002',
-        type: 'proforma invoice',
+        type: 'price quote invoice',
         documentNumber: 'PRO-2026-0002',
         items: [
           { productId: 'p-2', productName: 'White Sugar (Fine Grain Box)', qty: 20, price: 30, discount: 5, discountType: 'percent' }
@@ -348,16 +348,16 @@ export default function DashboardSalesList({
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
 
-  // States for Documents Tab (Quotations, Proforma, Invoices)
+  // States for Documents Tab (Quotes, Quote, Invoices)
   const [showNewDocModal, setShowNewDocModal] = useState(false);
   const [viewingDocument, setViewingDocument] = useState<SalesDocument | null>(null);
   const [documentSendOpen, setDocumentSendOpen] = useState(false);
   const [documentSendPhone, setDocumentSendPhone] = useState('');
   const [pdfShareStatus, setPdfShareStatus] = useState<string | null>(null);
-  const [selectedDocTypeFilter, setSelectedDocTypeFilter] = useState<'all' | 'quotation' | 'proforma invoice'>('all');
+  const [selectedDocTypeFilter, setSelectedDocTypeFilter] = useState<'all' | 'price quote' | 'price quote invoice'>('all');
   
   // States for wizard: document creator
-  const [newDocType, setNewDocType] = useState<'quotation' | 'proforma invoice'>('quotation');
+  const [newDocType, setNewDocType] = useState<'price quote' | 'price quote invoice'>('price quote');
   const [newDocCustomerName, setNewDocCustomerName] = useState('');
   const [newDocCustomerPhone, setNewDocCustomerPhone] = useState('');
   const [newDocCustomerAddress, setNewDocCustomerAddress] = useState('');
@@ -590,7 +590,7 @@ export default function DashboardSalesList({
   };
 
   const buildDocumentWhatsAppMessage = (doc: SalesDocument) => {
-    const documentLabel = doc.type === 'quotation' ? 'price quote' : 'proforma invoice';
+    const documentLabel = doc.type === 'price quote' ? 'price quote' : 'price quote invoice';
     const customer = doc.customerName?.trim() || 'valued customer';
     return `Hello ${customer}, please find attached your ${documentLabel} PDF ${doc.documentNumber} from ${activeTenant.name}. Thank you.`;
   };
@@ -654,7 +654,7 @@ export default function DashboardSalesList({
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
             <FileText className="w-5 h-5 text-emerald-600" />
-            <h2 className="text-xl font-bold tracking-tight text-slate-800">Sales Transactions Ledger</h2>
+            <h2 className="text-xl font-bold tracking-tight text-slate-800">Sales History</h2>
           </div>
           <p className="text-xs text-slate-450 leading-relaxed font-sans mt-1">
             {activeTenant.businessType === 'pharmacy' 
@@ -722,7 +722,7 @@ export default function DashboardSalesList({
           }`}
         >
           <FileText className="w-4 h-4 text-teal-600 font-sans" />
-          <span>Quotations & Proforma Invoices</span>
+          <span>Quotes & Quotes</span>
         </button>
       </div>
 
@@ -784,7 +784,7 @@ export default function DashboardSalesList({
           }`}
         >
           <FileText className={`w-[18px] h-[18px] mb-1 shrink-0 ${activeSubTab === 'documents' ? 'text-white' : 'text-teal-600'}`} />
-          <span className="text-[10px] font-semibold text-center leading-tight whitespace-nowrap">Proformas</span>
+          <span className="text-[10px] font-semibold text-center leading-tight whitespace-nowrap">Quotes</span>
         </button>
       </div>
 
@@ -798,7 +798,7 @@ export default function DashboardSalesList({
               </div>
               <div className="text-left">
                 <h3 className="text-xs font-bold text-slate-800">Date Range Filter</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">Filter invoice ledger list by customized date intervals</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Filter by date</p>
               </div>
             </div>
 
@@ -909,7 +909,7 @@ export default function DashboardSalesList({
             <TrendingUp className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Receipt Count</p>
+            <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Number of Sales</p>
             <h4 className="text-lg font-black text-slate-800 mt-1">{filteredSales.length} Transactions</h4>
           </div>
         </div>
@@ -938,13 +938,13 @@ export default function DashboardSalesList({
           </div>
         </div>
 
-        {/* Issued Store Credits */}
+        {/* Issued Credit Saless */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-3">
           <div className="p-2.5 bg-amber-500/5 text-amber-700 rounded-xl border border-amber-100 shrink-0">
             <CreditCard className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] font-mono font-bold text-amber-600 uppercase tracking-widest leading-none">Store Credits</p>
+            <p className="text-[10px] font-mono font-bold text-amber-600 uppercase tracking-widest leading-none">Credit Saless</p>
             <h4 className="text-lg font-black text-slate-800 mt-1">{currency}{Math.round(creditsVolume).toLocaleString()} ({creditsCount} files)</h4>
           </div>
         </div>
@@ -959,7 +959,7 @@ export default function DashboardSalesList({
           </div>
           <div className="min-w-0">
             <h4 className="text-sm font-black text-slate-800 truncate">{filteredSales.length}</h4>
-            <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Receipt Count</p>
+            <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Number of Sales</p>
           </div>
         </div>
 
@@ -979,7 +979,7 @@ export default function DashboardSalesList({
           </div>
           <div className="min-w-0">
             <h4 className="text-sm font-black text-slate-800 truncate">{pendingSyncCount}</h4>
-            <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Offline Dockets</p>
+            <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Offline Bills</p>
           </div>
         </div>
 
@@ -1000,7 +1000,7 @@ export default function DashboardSalesList({
           <div className="min-w-0 flex-1 flex justify-between items-center">
             <div>
               <h4 className="text-sm font-black text-slate-800 truncate">{currency}{Math.round(creditsVolume).toLocaleString()}</h4>
-              <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Store Credit</p>
+              <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Credit Sales</p>
             </div>
             <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-1 rounded-md">{creditsCount} docs</span>
           </div>
@@ -1037,7 +1037,7 @@ export default function DashboardSalesList({
               <option value="Cash">Cash Channel Only</option>
               <option value="Card">Card & Online Tills</option>
               <option value="Mobile Money">Smart MOMO Express</option>
-              <option value="Credit">Issued Store Credit</option>
+              <option value="Credit">Issued Credit Sales</option>
             </select>
           </div>
 
@@ -1188,7 +1188,7 @@ export default function DashboardSalesList({
                 <th className="p-4 text-right text-rose-750">Amount Due</th>
                 <th className="p-4 text-center">Payment Status</th>
                 <th className="p-4 text-right">Taxes Charged</th>
-                <th className="p-4 text-right font-black text-slate-900">Grand Invoice Sum</th>
+                <th className="p-4 text-right font-black text-slate-900">Grand Total Amount</th>
                 <th className="p-4 text-center">Actions</th>
               </tr>
             </thead>
@@ -2593,7 +2593,7 @@ export default function DashboardSalesList({
                                 </td>
                                 <td className="p-2.5 font-sans leading-tight">
                                   <span className="block font-bold text-indigo-200">
-                                    {entry.type === 'cash_outflow' ? 'Cash Register Outflow' : 'Destination Asset Influx'}
+                                    {entry.type === 'cash_outflow' ? 'Cash Register Money Out' : 'Destination Asset Influx'}
                                   </span>
                                   <span className="text-[10px] text-slate-400">
                                     {entry.destinationName} ({entry.entryType})
@@ -2661,7 +2661,7 @@ export default function DashboardSalesList({
                   <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
                 </div>
                 <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200">
-                  {(['all', 'quotation', 'proforma invoice'] as const).map(t => (
+                  {(['all', 'price quote', 'price quote invoice'] as const).map(t => (
                     <button
                       key={t}
                       type="button"
@@ -2690,7 +2690,7 @@ export default function DashboardSalesList({
                 className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center space-x-1 border-none cursor-pointer shadow-sm"
               >
                 <Plus className="w-4 h-4 text-white" />
-                <span>New Quotation / Invoice</span>
+                <span>New Quote / Invoice</span>
               </button>
             </div>
 
@@ -2706,7 +2706,7 @@ export default function DashboardSalesList({
                     <div>
                       <div className="flex items-center justify-between">
                         <span className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider font-mono ${
-                          doc.type === 'quotation' ? 'bg-indigo-55 text-indigo-700 border border-indigo-200' :
+                          doc.type === 'price quote' ? 'bg-indigo-55 text-indigo-700 border border-indigo-200' :
                           'bg-amber-100/70 text-amber-700 border border-amber-200'
                         }`}>
                           {doc.type}
@@ -2760,7 +2760,7 @@ export default function DashboardSalesList({
                             className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[10.5px] transition-all border-none cursor-pointer flex items-center space-x-1 shadow-sm"
                           >
                             <ArrowRight className="w-3.5 h-3.5" />
-                            <span>Send to Sales</span>
+                            <span>Record as Sale</span>
                           </button>
                         ) : (
                           <span className="px-2 py-1.5 bg-slate-100 text-slate-450 border border-slate-200 rounded-lg text-[10px] font-bold inline-flex items-center space-x-1">
@@ -2856,7 +2856,7 @@ export default function DashboardSalesList({
                         <h2 className="text-2xl font-black tracking-tight text-slate-850">{activeTenant.name}</h2>
                       </div>
                       <p className="text-xs text-slate-500 max-w-sm uppercase leading-relaxed font-semibold">
-                        {activeTenant.businessType === 'pharmacy' ? 'Clinical Pharmacy Dispensary' : 'Retail Branch Office'} — {activeTenant.city}, West Africa Operations • Smart POS Ledger Verified
+                        {activeTenant.businessType === 'pharmacy' ? 'Clinical Pharmacy Dispensary' : 'Retail Branch'} — {activeTenant.city}, West Africa Operations • Smart POS Ledger Verified
                       </p>
                     </div>
 
@@ -3294,7 +3294,7 @@ export default function DashboardSalesList({
                         <span className="font-bold text-rose-800 select-all shrink-0">{selectedSale.vfdSignature}</span>
                       </div>
                       <p className="text-[8px] text-emerald-700 text-center italic mt-1.5 font-sans font-semibold">
-                        ✓ Registered with Tanzania Revenue Authority Gateway VFD Server.
+                        ✓ Registered with Tanzania Money Earned Authority Gateway VFD Server.
                       </p>
                     </div>
                   )}
@@ -3523,7 +3523,7 @@ export default function DashboardSalesList({
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="text-slate-500 flex items-center space-x-1">
                             <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span>{activeTenant.businessType === 'pharmacy' ? 'Dispensed By (Pharmacist):' : 'Prepared By (Cashier):'}</span>
+                            <span>{activeTenant.businessType === 'pharmacy' ? 'Dispensed By (Pharmacist):' : 'Prepared by (Cashier):'}</span>
                           </span>
                           <span className="font-bold text-slate-800 uppercase text-[10px] bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md">
                             {selectedSale.cashierName || 'Primary Teller'}
@@ -4000,7 +4000,7 @@ export default function DashboardSalesList({
                     <option value="MTN MoMo">MTN MoMo API</option>
                     <option value="Paystack">Direct Paystack Gateway</option>
                     <option value="Airtel Money">Airtel Money</option>
-                    <option value="Credit">Issued Store Credit</option>
+                    <option value="Credit">Issued Credit Sales</option>
                   </select>
                 </div>
                 <div>
@@ -4283,7 +4283,7 @@ export default function DashboardSalesList({
                 <div>
                   <label className="block text-xs font-bold text-slate-650 mb-1">Select Document Class</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {(['quotation', 'proforma invoice'] as const).map(t => (
+                    {(['price quote', 'price quote invoice'] as const).map(t => (
                       <button
                         key={t}
                         type="button"
@@ -4590,8 +4590,8 @@ export default function DashboardSalesList({
                     disabled={newDocItems.length === 0}
                     onClick={() => {
                       const prefixMap = {
-                        quotation: 'QUO',
-                        'proforma invoice': 'PFI'
+                        price quote: 'QUO',
+                        'price quote invoice': 'PFI'
                       };
                       const prefix = prefixMap[newDocType] || 'DOC';
                       const nextNum = `${prefix}-2026-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -4680,7 +4680,7 @@ export default function DashboardSalesList({
                       className="h-10 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
                     >
                       <ArrowRight className="w-4 h-4" />
-                      <span>Send to Sales</span>
+                      <span>Record as Sale</span>
                     </button>
                     <button
                       type="button"
@@ -4721,20 +4721,20 @@ export default function DashboardSalesList({
                     </div>
 
                     <div className="text-left sm:text-right font-sans shrink-0">
-                      <span className="text-[11px] font-black uppercase tracking-widest font-mono text-slate-400">Official Document</span>
+                      <span className="text-[11px] font-black uppercase tracking-widest font-mono text-slate-400">Document</span>
                       <h2 className="text-2xl sm:text-3xl font-black text-slate-800 uppercase mt-1 tracking-tight">
-                        {viewingDocument.type === 'quotation' ? 'Price Quote' :
-                         viewingDocument.type === 'proforma invoice' ? 'Proforma' : 'Invoice'}
+                        {viewingDocument.type === 'price quote' ? 'Quote' :
+                         viewingDocument.type === 'price quote invoice' ? 'Quote' : 'Invoice'}
                       </h2>
                       <div className="mt-4 font-mono text-xs text-slate-600 space-y-1">
                         <div>
                           <span className="text-slate-400">
-                            {viewingDocument.type === 'quotation' ? 'Quot No:' : 'Inv No:'}
+                            {viewingDocument.type === 'price quote' ? 'Quot No:' : 'Inv No:'}
                           </span>{' '}
                           <strong className="font-bold text-slate-800">{viewingDocument.documentNumber}</strong>
                         </div>
-                        <div><span className="text-slate-400">Date Issued:</span> <span className="font-medium text-slate-705">{new Date(viewingDocument.timestamp).toLocaleDateString()}</span></div>
-                        <div><span className="text-slate-400">Branch Office:</span> <span className="font-medium text-slate-705">{activeTenant.city}, {activeTenant.country}</span></div>
+                        <div><span className="text-slate-400">Date:</span> <span className="font-medium text-slate-705">{new Date(viewingDocument.timestamp).toLocaleDateString()}</span></div>
+                        <div><span className="text-slate-400">Branch:</span> <span className="font-medium text-slate-705">{activeTenant.city}, {activeTenant.country}</span></div>
                       </div>
                     </div>
                   </div>
@@ -4742,13 +4742,13 @@ export default function DashboardSalesList({
                   {/* Client billed address template wrapper */}
                   <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/85 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <span className="block text-[9px] uppercase tracking-wider font-bold text-slate-450 mb-1">Billed To (Client):</span>
+                      <span className="block text-[9px] uppercase tracking-wider font-bold text-slate-450 mb-1">Customer (Client):</span>
                       <h4 className="font-bold text-slate-800 text-xs font-sans capitalize">{viewingDocument.customerName || 'Loyal Client'}</h4>
                       {viewingDocument.customerPhone && <p className="text-[11px] text-slate-500 font-mono mt-1">📞 {viewingDocument.customerPhone}</p>}
                     </div>
                     {viewingDocument.customerAddress ? (
                       <div className="sm:border-l border-slate-200 sm:pl-4 font-sans">
-                        <span className="block text-[9px] uppercase tracking-wider font-bold text-slate-450 mb-1">Delivery Destination:</span>
+                        <span className="block text-[9px] uppercase tracking-wider font-bold text-slate-450 mb-1">Delivery Address:</span>
                         <p className="text-[11px] text-slate-600 leading-relaxed font-sans mt-0.5">{viewingDocument.customerAddress}</p>
                       </div>
                     ) : (
@@ -4769,7 +4769,7 @@ export default function DashboardSalesList({
                           <th className="p-3">No.</th>
                           <th className="p-3">Product Name</th>
                           <th className="p-3 text-right">Qty</th>
-                          <th className="p-3 text-right">Unit Rate</th>
+                          <th className="p-3 text-right">Price Each</th>
                           <th className="p-3 text-right">Total</th>
                         </tr>
                       </thead>
@@ -4798,7 +4798,7 @@ export default function DashboardSalesList({
                     <div>
                       {systemSettings?.invoiceSettings?.bankName ? (
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-[11px] space-y-1">
-                          <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400 font-mono mb-1">Corporate Settlements Account</span>
+                          <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400 font-mono mb-1">Corporate Payment Account</span>
                           <div>Bank Name: <strong className="font-bold text-slate-800">{systemSettings.invoiceSettings.bankName}</strong></div>
                           <div>Account Number: <strong className="font-bold text-slate-850 font-mono select-all shrink-0">{systemSettings.invoiceSettings.accountNumber}</strong></div>
                           <div>Account Name: <strong className="font-bold text-slate-850">{systemSettings.invoiceSettings.accountName}</strong></div>
@@ -4808,7 +4808,7 @@ export default function DashboardSalesList({
                         </div>
                       ) : (
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-[11px] space-y-1">
-                          <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400 font-mono">Settlements Account</span>
+                          <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400 font-mono">Payment Account</span>
                           <span className="text-slate-400 italic">Configure corporate accounts & bank keys in settings.</span>
                         </div>
                       )}
@@ -4841,7 +4841,7 @@ export default function DashboardSalesList({
                         className="flex justify-between text-base font-black text-slate-900 border-t border-slate-250 pt-2.5 font-sans"
                         style={{ color: systemSettings?.invoiceSettings?.invoiceColor }}
                       >
-                        <span>Grand Total Due:</span>
+                        <span>Total to Pay:</span>
                         <span className="font-mono font-black">{currency}{(viewingDocument.total).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                       </div>
                     </div>
@@ -4862,7 +4862,7 @@ export default function DashboardSalesList({
                   {/* Representative Authorised Signature sections */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-6 border-t border-slate-100 items-end text-xs font-sans">
                     <div>
-                      <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400 font-mono mb-1">Prepared By</span>
+                      <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400 font-mono mb-1">Prepared by</span>
                       <p className="font-bold text-slate-800 border-b border-slate-200 pb-1 w-full max-w-xs">{preparerName}</p>
                       <p className="text-[10px] text-slate-400 font-medium mt-1">Title: {preparerRole}</p>
                     </div>
@@ -4887,7 +4887,7 @@ export default function DashboardSalesList({
                   {/* Elegant decorative invoice footer with editable tagline */}
                   <div className="pt-8 border-t border-slate-200/60 text-center space-y-2.5">
                     <p className="text-[11.5px] italic font-sans text-slate-500 px-6 font-medium leading-relaxed">
-                      "{viewingDocument.tagline || systemSettings?.business?.tagline || 'Thank you for your business. We value your partnership!'}"
+                      "{viewingDocument.tagline || systemSettings?.business?.tagline || 'Thank you. We appreciate you!'}"
                     </p>
                   </div>
 
@@ -4947,7 +4947,7 @@ export default function DashboardSalesList({
 	                    className="h-12 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-2 shadow-sm font-sans whitespace-nowrap"
 	                  >
 	                    <ArrowRight className="w-4 h-4" />
-	                    <span>Send to Sales</span>
+	                    <span>Record as Sale</span>
 	                  </button>
 	                  <button
 	                    type="button"
