@@ -468,10 +468,10 @@ export default function DashboardCashBank({
 
   // Keep track of how much cash is in each device/account
   const getChannelAggregateBalances = () => {
-    const aggregates: Record<string, { current: number; inflowSales: number; inflowDrops: number; totalInflow: number }> = {};
+    const aggregates: Record<string, { current: number; inflowSales: number; inflowDrops: number; totalMoney In: number }> = {};
     
     channels.forEach(chan => {
-      aggregates[chan.id] = { current: 0, inflowSales: 0, inflowDrops: 0, totalInflow: 0 };
+      aggregates[chan.id] = { current: 0, inflowSales: 0, inflowDrops: 0, totalMoney In: 0 };
     });
 
     ledgerEntries.forEach(entry => {
@@ -485,10 +485,10 @@ export default function DashboardCashBank({
         if (isWithinFilter && entry.amount > 0) {
           if (entry.sourceType === 'POS_CHECKOUT') {
             targetChan.inflowSales += entry.amount;
-            targetChan.totalInflow += entry.amount;
+            targetChan.totalMoney In += entry.amount;
           } else if (entry.sourceType === 'SETTLE_TILL_DEPOSIT') {
             targetChan.inflowDrops += entry.amount;
-            targetChan.totalInflow += entry.amount;
+            targetChan.totalMoney In += entry.amount;
           }
         }
       }
@@ -523,31 +523,31 @@ export default function DashboardCashBank({
 
   // Consolidated System Statistics (Responds to date range and links all payment modes)
   const getCombinedPerformanceStats = () => {
-    let totalInflow = 0;
-    let totalOutflow = 0;
-    let countInflow = 0;
-    let countOutflow = 0;
+    let totalMoney In = 0;
+    let totalMoney Out = 0;
+    let countMoney In = 0;
+    let countMoney Out = 0;
 
     activeTenantFilterLedger.forEach(entry => {
       if (entry.entryType === 'credit' || entry.amount >= 0) {
-        totalInflow += entry.amount;
-        countInflow++;
+        totalMoney In += entry.amount;
+        countMoney In++;
       } else {
-        totalOutflow += Math.abs(entry.amount);
-        countOutflow++;
+        totalMoney Out += Math.abs(entry.amount);
+        countMoney Out++;
       }
     });
 
     const totalCurrentRemainingBalance = channels
       .filter(chan => chan.category !== 'person')
       .reduce((sum, chan) => sum + (channelBalances[chan.id]?.current || 0), 0);
-    const netChange = totalInflow - totalOutflow;
+    const netChange = totalMoney In - totalMoney Out;
 
     return {
-      totalInflow,
-      totalOutflow,
-      countInflow,
-      countOutflow,
+      totalMoney In,
+      totalMoney Out,
+      countMoney In,
+      countMoney Out,
       totalCurrentRemainingBalance,
       netChange
     };
@@ -603,7 +603,7 @@ export default function DashboardCashBank({
             </div>
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">MONEY OVERVIEW</span>
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">My Cash & Bank Accounts</h1>
+              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">My Money & Bank Accounts</h1>
             </div>
           </div>
           <p className="text-xs text-slate-500 mt-1 sm:max-w-xl">
@@ -678,18 +678,18 @@ export default function DashboardCashBank({
             const sums = channelBalances[chan.id] || { current: 0 };
             
             // Calculate total based on dates (using activeTenantFilterLedger)
-            let periodInflow = 0;
-            let periodOutflow = 0;
+            let periodMoney In = 0;
+            let periodMoney Out = 0;
             activeTenantFilterLedger.forEach(entry => {
               if (entry.channelId === chan.id) {
                 if (entry.amount > 0) {
-                  periodInflow += entry.amount;
+                  periodMoney In += entry.amount;
                 } else {
-                  periodOutflow += Math.abs(entry.amount);
+                  periodMoney Out += Math.abs(entry.amount);
                 }
               }
             });
-            const periodNet = periodInflow - periodOutflow;
+            const periodNet = periodMoney In - periodMoney Out;
 
             let iconOfChan = <Coins className="w-4 h-4 shrink-0" />;
             let basePillStyle = 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100/80';
@@ -731,7 +731,7 @@ export default function DashboardCashBank({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
               <div>
                 <span className="text-[10px] font-bold text-emerald-400 font-mono uppercase tracking-widest block">Combined System Dashboard</span>
-                <h2 className="text-sm font-extrabold text-white tracking-tight mt-1">Liquidity & Consolidated Cash Flow</h2>
+                <h2 className="text-sm font-extrabold text-white tracking-tight mt-1">Available Cash & Total Cash Movement</h2>
                 <p className="text-xs text-slate-400 mt-0.5">All account balances.</p>
               </div>
             </div>
@@ -748,15 +748,15 @@ export default function DashboardCashBank({
               </div>
 
               <div className="bg-emerald-950/20 p-4 rounded-2xl border border-emerald-900/60 text-white animate-fadeIn">
-                <span className="text-[10px] font-bold text-emerald-400 block uppercase font-mono tracking-wide">Total Payment In (Inflows)</span>
-                <span className="text-lg font-black text-emerald-300 block mt-0.5 font-sans">+{formatCurrency(combinedStats.totalInflow)}</span>
-                <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{combinedStats.countInflow} credit movements</span>
+                <span className="text-[10px] font-bold text-emerald-400 block uppercase font-mono tracking-wide">Total Payment In (Money Ins)</span>
+                <span className="text-lg font-black text-emerald-300 block mt-0.5 font-sans">+{formatCurrency(combinedStats.totalMoney In)}</span>
+                <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{combinedStats.countMoney In} credit movements</span>
               </div>
 
               <div className="bg-rose-950/20 p-4 rounded-2xl border border-rose-900/40 text-white animate-fadeIn">
-                <span className="text-[10px] font-bold text-rose-400 block uppercase font-mono tracking-wide">Total Payment Out (Outflows)</span>
-                <span className="text-lg font-black text-rose-300 block mt-0.5 font-sans">-{formatCurrency(combinedStats.totalOutflow)}</span>
-                <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{combinedStats.countOutflow} debit movements</span>
+                <span className="text-[10px] font-bold text-rose-400 block uppercase font-mono tracking-wide">Total Payment Out (Money Outs)</span>
+                <span className="text-lg font-black text-rose-300 block mt-0.5 font-sans">-{formatCurrency(combinedStats.totalMoney Out)}</span>
+                <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{combinedStats.countMoney Out} debit movements</span>
               </div>
 
               <div className={`p-4 rounded-2xl border ${combinedStats.netChange >= 0 ? 'bg-emerald-950/30 border-emerald-800 text-emerald-300' : 'bg-rose-950/30 border-rose-800 text-rose-300'} animate-fadeIn`}>
@@ -771,7 +771,7 @@ export default function DashboardCashBank({
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
               <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">Central Vaults & Bank Accounts</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">Accounts & Wallets</span>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -780,14 +780,14 @@ export default function DashboardCashBank({
                   const currentBalance = channelBalances[chan.id]?.current || 0;
                   
                   // Compute period range inflow and range outflow for this account specifically from the same activeTenantFilterLedger
-                  let periodInflow = 0;
-                  let periodOutflow = 0;
+                  let periodMoney In = 0;
+                  let periodMoney Out = 0;
                   activeTenantFilterLedger.forEach(entry => {
                     if (entry.channelId === chan.id) {
                       if (entry.amount >= 0) {
-                        periodInflow += entry.amount;
+                        periodMoney In += entry.amount;
                       } else {
-                        periodOutflow += Math.abs(entry.amount);
+                        periodMoney Out += Math.abs(entry.amount);
                       }
                     }
                   });
@@ -827,12 +827,12 @@ export default function DashboardCashBank({
 
                       <div className="grid grid-cols-2 gap-2 pt-2 border-t border-dashed border-slate-100/80 text-[10.5px]">
                         <div className="space-y-0.5">
-                          <span className="block text-[9px] font-bold text-slate-400 font-mono uppercase tracking-wider">Inflows</span>
-                          <span className="text-emerald-600 font-bold font-sans">+{formatCurrency(periodInflow)}</span>
+                          <span className="block text-[9px] font-bold text-slate-400 font-mono uppercase tracking-wider">Money Ins</span>
+                          <span className="text-emerald-600 font-bold font-sans">+{formatCurrency(periodMoney In)}</span>
                         </div>
                         <div className="space-y-0.5 text-right border-l border-slate-100 pl-2">
-                          <span className="block text-[9px] font-bold text-slate-400 font-mono uppercase tracking-wider">Outflows</span>
-                          <span className="text-slate-600 font-medium font-sans">-{formatCurrency(periodOutflow)}</span>
+                          <span className="block text-[9px] font-bold text-slate-400 font-mono uppercase tracking-wider">Money Outs</span>
+                          <span className="text-slate-600 font-medium font-sans">-{formatCurrency(periodMoney Out)}</span>
                         </div>
                       </div>
                     </div>
@@ -859,7 +859,7 @@ export default function DashboardCashBank({
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-700 font-mono">Payment Destinations</h3>
-                    <p className="text-[10.5px] text-slate-500">Add where money can be sent.</p>
+                    <p className="text-[10.5px] text-slate-500">Add an account.</p>
                   </div>
                   {addAccountSuccess && (
                     <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-1">
@@ -1080,7 +1080,7 @@ export default function DashboardCashBank({
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">6. Short note/memo:</label>
                   <input
                     type="text"
-                    placeholder="Why are you moving this money?"
+                    placeholder="Reason for transfer?"
                     value={settleMemo}
                     onChange={(e) => setSettleMemo(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-slate-800 outline-none placeholder-slate-400 text-slate-800"
@@ -1104,7 +1104,7 @@ export default function DashboardCashBank({
               <div>
                 <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                   <div>
-                    <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">Accounts Transfer Guidelines</h2>
+                    <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">How to transfer money</h2>
                     <p className="text-xs text-slate-500 font-sans">Transfer rules.</p>
                   </div>
                   <span className="text-[9px] font-mono font-bold bg-slate-100 border border-slate-200 text-slate-500 px-2 py-0.5 rounded-full uppercase">
@@ -1118,7 +1118,7 @@ export default function DashboardCashBank({
                       1
                     </div>
                     <div className="space-y-0.5 text-xs">
-                      <strong className="text-slate-800 font-bold block">Select Core Source Account</strong>
+                      <strong className="text-slate-800 font-bold block">From account</strong>
                       <p className="leading-relaxed text-slate-500">Select source account.</p>
                     </div>
                   </div>
@@ -1128,7 +1128,7 @@ export default function DashboardCashBank({
                       2
                     </div>
                     <div className="space-y-0.5 text-xs">
-                      <strong className="text-slate-800 font-bold block">Select Target Wallet or Bank</strong>
+                      <strong className="text-slate-800 font-bold block">To account</strong>
                       <p className="leading-relaxed text-slate-500">Select destination.</p>
                     </div>
                   </div>
@@ -1138,7 +1138,7 @@ export default function DashboardCashBank({
                       3
                     </div>
                     <div className="space-y-0.5 text-xs text-slate-600">
-                      <strong className="text-rose-750 font-bold block">Provide Audited Verification Slip</strong>
+                      <strong className="text-rose-750 font-bold block">Upload receipt or proof</strong>
                       <p className="leading-relaxed text-rose-800 bg-rose-50/50 p-2.5 rounded-xl border border-rose-100">
                         Attach bank slip or mobile screenshot before transfer.
                       </p>
@@ -1159,24 +1159,24 @@ export default function DashboardCashBank({
           const chan = channels.find(c => c.id === selectedChannelId)!;
           const sums = channelBalances[chan.id] || { current: 0 };
           
-          let periodInflow = 0;
-          let periodOutflow = 0;
-          let countInflow = 0;
-          let countOutflow = 0;
+          let periodMoney In = 0;
+          let periodMoney Out = 0;
+          let countMoney In = 0;
+          let countMoney Out = 0;
           
           activeTenantFilterLedger.forEach(entry => {
             if (entry.channelId === chan.id) {
               if (entry.amount >= 0) {
-                periodInflow += entry.amount;
-                countInflow++;
+                periodMoney In += entry.amount;
+                countMoney In++;
               } else {
-                periodOutflow += Math.abs(entry.amount);
-                countOutflow++;
+                periodMoney Out += Math.abs(entry.amount);
+                countMoney Out++;
               }
             }
           });
 
-          const periodNet = periodInflow - periodOutflow;
+          const periodNet = periodMoney In - periodMoney Out;
 
           return (
             <div className="space-y-6 animate-fadeIn">
@@ -1241,15 +1241,15 @@ export default function DashboardCashBank({
                   </div>
 
                   <div className="bg-emerald-50/20 p-4 rounded-2xl border border-emerald-100">
-                    <span className="text-[10px] font-bold text-emerald-600 block uppercase font-mono tracking-wide">Total Inflow</span>
-                    <span className="text-lg font-black text-emerald-700 block mt-0.5 font-sans">+{formatCurrency(periodInflow)}</span>
-                    <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{countInflow} credit movements</span>
+                    <span className="text-[10px] font-bold text-emerald-600 block uppercase font-mono tracking-wide">Total Money In</span>
+                    <span className="text-lg font-black text-emerald-700 block mt-0.5 font-sans">+{formatCurrency(periodMoney In)}</span>
+                    <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{countMoney In} credit movements</span>
                   </div>
 
                   <div className="bg-rose-50/10 p-4 rounded-2xl border border-rose-100">
-                    <span className="text-[10px] font-bold text-rose-600 block uppercase font-mono tracking-wide">Total Outflow</span>
-                    <span className="text-lg font-black text-rose-600 block mt-0.5 font-sans">-{formatCurrency(periodOutflow)}</span>
-                    <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{countOutflow} debit movements</span>
+                    <span className="text-[10px] font-bold text-rose-600 block uppercase font-mono tracking-wide">Total Money Out</span>
+                    <span className="text-lg font-black text-rose-600 block mt-0.5 font-sans">-{formatCurrency(periodMoney Out)}</span>
+                    <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{countMoney Out} debit movements</span>
                   </div>
 
                   <div className={`p-4 rounded-2xl border ${periodNet >= 0 ? 'bg-emerald-50/15 border-emerald-150 text-emerald-800' : 'bg-rose-50/15 border-rose-150 text-rose-800'}`}>
@@ -1285,7 +1285,7 @@ export default function DashboardCashBank({
                       className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-2.5 px-5 rounded-2xl text-xs transition-style cursor-pointer flex items-center space-x-2 max-w-full"
                     >
                       <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Set as Transfer Source & Open Panel</span>
+                      <span>Transfer from this account</span>
                     </button>
                   </div>
                 </div>
@@ -1300,7 +1300,7 @@ export default function DashboardCashBank({
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div>
-            <h3 className="text-sm font-extrabold text-slate-900">Account History & Transactions</h3>
+            <h3 className="text-sm font-extrabold text-slate-900">Account History</h3>
             <p className="text-xs text-slate-400 select-none">Money in and out.</p>
           </div>
 
@@ -1326,9 +1326,9 @@ export default function DashboardCashBank({
             >
               <option value="ALL">All Payments</option>
               <option value="INITIAL_BALANCE">Opening Reserves</option>
-              <option value="POS_CHECKOUT">Shop Sales Inflow</option>
+              <option value="POS_CHECKOUT">Shop Sales Money In</option>
               <option value="SETTLE_TILL_DEPOSIT">Account Transfers</option>
-              <option value="EXPENSE_WITHDRAWAL">Cash Expense Outflow</option>
+              <option value="EXPENSE_WITHDRAWAL">Cash Expense Money Out</option>
             </select>
 
             {/* CSV report download button */}
