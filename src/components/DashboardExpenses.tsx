@@ -890,7 +890,7 @@ export default function DashboardExpenses({
           
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center space-x-2.5">
             <div className="p-2.5 bg-emerald-50 text-emerald-650 rounded-xl">
-              <Receipt className="w-4.5 h-4.5" />
+              <Receipt className="w-5 h-5" />
             </div>
             <div className="text-left">
               <h3 className="font-extrabold text-sm text-slate-950 dark:text-white">Add Expense</h3>
