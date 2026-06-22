@@ -19,9 +19,7 @@ import {
   Shield,
   Globe,
   MessageCircle,
-  RefreshCw,
-  Eye,
-  EyeOff
+  RefreshCw
 } from 'lucide-react';
 import { DEMO_USERS, DEFAULT_TENANTS } from '../data';
 import { User, Tenant } from '../types';
@@ -52,19 +50,19 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
     welcome: "Welcome to Jasper Enterprise Suite",
     welcomeSub: "Unifying POS Ledger, Hotel PMs & Multi-Tenant Channels",
-    signinTab: "Sign In",
-    registerTab: "Join Us",
-    emailLabel: "Account Identifier",
+    signinTab: "Sign In Account",
+    registerTab: "Register New Business",
+    emailLabel: "Owner WhatsApp Number",
     passLabel: "Owner Pin Password",
     ownerName: "Owner Full Name",
     companyName: "Company / Hotel Name",
     region: "Region of operations",
     city: "City Name Office",
-    phone: "Phone Number",
+    phone: "Owner WhatsApp Number",
     promoCode: "Affiliate Referral Promo Code (Optional)",
     promoDesc: "Promo code gives you an extended 20 days free trial instead of 10 days.",
     nicheLabel: "Business Industry Niche (Mandatory)",
-    compileBtn: "Join Us",
+    compileBtn: "Compile Secure Tenant",
     continueGoogle: "Continue with Google",
     googleOr: "OR ONE-CLICK REGISTER WITH GOOGLE",
     googleOrSig: "OR ONE-CLICK SIGN IN",
@@ -79,13 +77,13 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "POS Rejesta, Kitabu cha Hesabu, Usimamizi wa Hoteli na Huduma ya Pamoja",
     signinTab: "Ingia kwenye Akaunti",
     registerTab: "Sajili Biashara Mpya",
-    emailLabel: "Utambulisho wa Akaunti",
+    emailLabel: "Namba ya WhatsApp ya Mmiliki",
     passLabel: "Nenosiri la Mmiliki (Pin)",
     ownerName: "Majina Kamili ya Mmiliki",
     companyName: "Jina la Kampuni au Biashara",
     region: "Nchi/Eneo la Huduma",
     city: "Jiji/Ofisi Kuu",
-    phone: "Namba ya Simu",
+    phone: "Namba ya WhatsApp ya Mmiliki",
     promoCode: "Kuponi ya Washirika (Sio Lazima)",
     promoDesc: "Kuponi hii inakupa majaribio ya siku 20 bure badala ya siku 10.",
     nicheLabel: "Aina ya Biashara yako (Lazima)",
@@ -104,13 +102,13 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "توحيد نقاط البيع، وإدارة الفنادق والقنوات متعددة المستأجرين",
     signinTab: "تسجيل الدخول للحساب",
     registerTab: "تسجيل عمل تجاري جديد",
-    emailLabel: "معرّف الحساب",
+    emailLabel: "رقم واتساب المالك",
     passLabel: "رمز المرور السري للمالك",
     ownerName: "الاسم الكامل للمالك",
     companyName: "اسم الشركة / الفندق",
     region: "منطقة العمليات",
     city: "اسم مدينة المكتب",
-    phone: "رقم الهاتف",
+    phone: "رقم واتساب المالك",
     promoCode: "رمز ترويج الإحالة (اختياري)",
     promoDesc: "يمنحك الرمز الترويجي فترة تجريبية مجانية ممتدة لـ 20 يومًا بدلاً من 10 أيام.",
     nicheLabel: "مجال العمل التجاري (إلزامي)",
@@ -129,13 +127,13 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "Unification du registre POS, de la comptabilité et hôtelière multi-locataire",
     signinTab: "Se Connecter",
     registerTab: "Enregistrer une Entreprise",
-    emailLabel: "Identifiant du compte",
+    emailLabel: "Numéro WhatsApp du propriétaire",
     passLabel: "Code d'accès Pin",
     ownerName: "Nom Complet du Propriétaire",
     companyName: "Nom de l'Entreprise ou de l'Hôtel",
     region: "Région des opérations",
     city: "Ville du bureau principal",
-    phone: "Numéro de téléphone",
+    phone: "Numéro WhatsApp du propriétaire",
     promoCode: "Code Promo d'affiliation (Optionnel)",
     promoDesc: "Le code promo prolonge l'essai gratuit jusqu'à 20 jours au lieu de 10.",
     nicheLabel: "Niche commerciale industrielle (Obligatoire)",
@@ -175,7 +173,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   // Sign in Form States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loginOtpMode, setLoginOtpMode] = useState(false);
@@ -189,17 +186,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [recoveryOtp, setRecoveryOtp] = useState('');
   const [recoveryInputOtp, setRecoveryInputOtp] = useState('');
   const [recoveryNewPassword, setRecoveryNewPassword] = useState('');
-  const [recoverySecurityAnswer, setRecoverySecurityAnswer] = useState('');
   const [recoveryUser, setRecoveryUser] = useState<any | null>(null);
-  const [recoveryStep, setRecoveryStep] = useState<'identify' | 'security' | 'verify'>('identify');
+  const [recoveryStep, setRecoveryStep] = useState<'identify' | 'verify'>('identify');
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
 
   // Registration Form States
   const [ownerName, setOwnerName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
-  const [regSecurityQuestion, setRegSecurityQuestion] = useState('');
-  const [regSecurityAnswer, setRegSecurityAnswer] = useState('');
+  const [regPhone, setRegPhone] = useState('');
   const [orgName, setOrgName] = useState('');
   const [businessType, setBusinessType] = useState<string>('Retail');
   const [country, setCountry] = useState<'Nigeria' | 'Kenya' | 'Ghana' | 'South Africa' | 'Tanzania'>('Tanzania');
@@ -421,22 +416,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     return normalized ? `wa${normalized}@whatsapp.jasper.local` : '';
   };
 
-  const makeInternalEmailFromBusiness = (businessName: string, owner: string) => {
-    const base = `${businessName || owner || 'owner'}-${Date.now()}`
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 48) || 'owner';
-    return `${base}@signup.jasper.local`;
-  };
-
   const isOwnerRecoveryRole = (role?: string) => {
     const normalized = (role || '').toLowerCase();
     return ['admin', 'manager', 'superadmin', 'owner'].some(r => normalized.includes(r));
   };
-
-  const normalizeSecurityAnswer = (answer: string) =>
-    answer.trim().toLowerCase().replace(/\s+/g, ' ');
 
   const handleStartRecovery = (e: FormEvent) => {
     e.preventDefault();
@@ -463,43 +446,17 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       return;
     }
 
-    if (!found.securityQuestion || !found.securityAnswer) {
-      setRecoveryMessage('Sorry, we could not verify that it was you. If you are confident it is you, please contact Jasper support.');
-      return;
-    }
-
-    setRecoveryUser(found);
-    setRecoveryWhatsapp(normalizePhoneForWhatsapp(found.phone || identifier));
-    setRecoverySecurityAnswer('');
-    setRecoveryStep('security');
-    setRecoveryMessage(null);
-  };
-
-  const handleVerifyRecoverySecurity = (e: FormEvent) => {
-    e.preventDefault();
-    setRecoveryMessage(null);
-
-    if (!recoveryUser) {
-      setRecoveryStep('identify');
-      setRecoveryMessage('Start the reset again.');
-      return;
-    }
-
-    if (normalizeSecurityAnswer(recoverySecurityAnswer) !== normalizeSecurityAnswer(recoveryUser.securityAnswer || '')) {
-      setRecoveryMessage('Sorry, we could not verify that it was you. If you are confident it is you, please contact Jasper support.');
-      return;
-    }
-
     const otp = String(Math.floor(100000 + Math.random() * 900000));
-    const whatsappNumber = normalizePhoneForWhatsapp(recoveryWhatsapp || recoveryUser.phone || recoveryIdentifier);
+    const whatsappNumber = normalizePhoneForWhatsapp(recoveryWhatsapp || found.phone || identifier);
     if (!whatsappNumber) {
       setRecoveryMessage('Enter the owner/admin WhatsApp number to receive OTP.');
       return;
     }
+    setRecoveryUser(found);
     setRecoveryOtp(otp);
     setRecoveryWhatsapp(whatsappNumber);
     setRecoveryStep('verify');
-    setRecoveryMessage('Security answer verified. OTP prepared. Send it to the owner/admin WhatsApp, then enter it here.');
+    setRecoveryMessage('OTP prepared. Send it to the owner/admin WhatsApp, then enter it here.');
 
     const message = `Jasper Suite password reset OTP: ${otp}. Use this code to reset your admin account password. If you did not request this, please ignore it.`;
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
@@ -568,7 +525,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setRecoveryOtp('');
     setRecoveryInputOtp('');
     setRecoveryNewPassword('');
-    setRecoverySecurityAnswer('');
     setRecoveryUser(null);
     setSuccessMessage('Password reset successfully. You can sign in now.');
   };
@@ -966,7 +922,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   // Perform dynamic tenant/business registration
   const handleRegisterSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!ownerName || !regEmail || !regPassword || !orgName || !regSecurityQuestion || !regSecurityAnswer) {
+    if (!ownerName || !regPhone || !regPassword || !orgName) {
       setError('Please fill in all registration inputs.');
       return;
     }
@@ -977,10 +933,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
     setIsLoading(true);
     setError(null);
-    const cleanOwnerPhone = normalizePhoneForWhatsapp(regEmail);
-    const ownerAuthEmail = regEmail.includes('@')
-      ? regEmail.trim()
-      : makeInternalEmailFromPhone(regEmail) || makeInternalEmailFromBusiness(orgName, ownerName);
+    const ownerAuthEmail = regEmail.trim() || makeInternalEmailFromPhone(regPhone);
 
     try {
       const client: any = await getDynamicSupabaseClient();
@@ -993,7 +946,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         options: {
           data: {
             full_name: ownerName,
-            phone: cleanOwnerPhone || regEmail.trim()
+            phone: regPhone
           }
         }
       });
@@ -1045,7 +998,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           role: 'Admin', // first user of a new tenant is always Admin
           tenant_id: newTenant.id,
           active_tenant: newTenant.id,
-          phone: cleanOwnerPhone || regEmail.trim(),
+          phone: regPhone || null,
           is_duress: false,
           is_saas_staff: false
         });
@@ -1062,9 +1015,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         role: 'Admin',
         tenantId: newTenant.id,
         activeTenant: newTenant.id,
-        phone: cleanOwnerPhone || regEmail.trim(),
-        securityQuestion: regSecurityQuestion.trim(),
-        securityAnswer: normalizeSecurityAnswer(regSecurityAnswer),
+        phone: regPhone || undefined,
         isSaaSStaff: false,
         trial_start_date: new Date().toISOString(),
         trial_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
@@ -1078,9 +1029,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       const savedCustomUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
       localStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, {
         ...registeredUser,
-        password: regPassword,
-        securityQuestion: regSecurityQuestion.trim(),
-        securityAnswer: normalizeSecurityAnswer(regSecurityAnswer)
+        password: regPassword
       }]));
 
       setIsLoading(false);
@@ -1129,9 +1078,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           role: 'Admin' as const,
           tenantId: newTenantId,
           activeTenant: newTenantId,
-          phone: cleanOwnerPhone || regEmail.trim(),
-          securityQuestion: regSecurityQuestion.trim(),
-          securityAnswer: normalizeSecurityAnswer(regSecurityAnswer),
+          phone: regPhone || null,
           trial_start_date: userStartDate.toISOString(),
           trial_end_date: userEndDate.toISOString(),
           is_affiliate_lead: hasReferral,
@@ -1402,13 +1349,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               onClick={() => { setAuthTab('signin'); setError(null); }}
               className={`py-3 rounded-xl transition-all cursor-pointer text-center ${authTab === 'signin' ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:text-slate-700 bg-transparent border-none'}`}
             >
-	            Sign In
+              Sign In Account
             </button>
             <button
               onClick={() => { setAuthTab('register'); setError(null); }}
               className={`py-3 rounded-xl transition-all cursor-pointer text-center ${authTab === 'register' ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:text-slate-700 bg-transparent border-none'}`}
             >
-	            Join Us
+              Register New Business
             </button>
           </div>
         )}
@@ -1537,6 +1484,27 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <label className="text-[10px] font-bold text-slate-500 uppercase block">
                       {loginOtpMode ? 'WHATSAPP OTP' : 'SECURITY PIN PASSWORD'}
                     </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSendLoginOtp}
+                        className="text-[10px] font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-800"
+                      >
+                        Send OTP
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowRecovery(true);
+                          setRecoveryIdentifier(email);
+                          setRecoveryStep('identify');
+                          setRecoveryMessage(null);
+                        }}
+                        className="text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-800"
+                      >
+                        Forgot?
+                      </button>
+                    </div>
                   </div>
                   <div className="relative">
                     {loginOtpMode ? (
@@ -1552,25 +1520,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     ) : (
                       <input
                         id="login-password"
-                        type={showLoginPassword ? "text" : "password"}
+                        type="password"
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 pr-11 text-sm text-slate-800 placeholder-slate-400 font-mono tracking-wider transition-all outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 text-sm text-slate-800 placeholder-slate-400 font-mono tracking-wider transition-all outline-none"
                         placeholder="••••••••••••"
                       />
                     )}
                     <KeyRound className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-                    {!loginOtpMode && (
-                      <button
-                        type="button"
-                        onClick={() => setShowLoginPassword((prev) => !prev)}
-                        className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-700 transition-colors"
-                        aria-label={showLoginPassword ? "Hide password" : "Show password"}
-                      >
-                        {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    )}
                   </div>
                   {loginOtpMessage && (
                     <div className="text-[11px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-150 rounded-xl px-3 py-2">
@@ -1591,22 +1549,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     >
                       Use PIN/password instead
                     </button>
-                  )}
-                  {!loginOtpMode && (
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowRecovery(true);
-                          setRecoveryIdentifier(email);
-                          setRecoveryStep('identify');
-                          setRecoveryMessage(null);
-                        }}
-                        className="text-[10px] font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-800"
-                      >
-                        Forgot password?
-                      </button>
-                    </div>
                   )}
                 </div>
               ) : null}
@@ -1634,10 +1576,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <div>
                       <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
                         <MessageCircle className="w-4 h-4 text-emerald-700" />
-                        Password Recovery
+                        WhatsApp OTP Reset
                       </h4>
                       <p className="text-[11px] text-slate-700 mt-1 leading-snug">
-                        Admin recovery verifies your security question first, then sends WhatsApp OTP.
+                        Owner and admin accounts reset by WhatsApp OTP. Staff accounts are reset by the business admin.
                       </p>
                     </div>
                     <button
@@ -1669,30 +1611,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                         onClick={handleStartRecovery}
                         className="w-full py-2.5 rounded-xl bg-emerald-700 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
                       >
-                        <Shield className="w-4 h-4" />
-                        Continue
-                      </button>
-                    </div>
-                  ) : recoveryStep === 'security' ? (
-                    <div className="space-y-2">
-                      <div className="bg-white border border-emerald-150 rounded-xl px-3 py-2.5">
-                        <span className="block text-[9px] font-black uppercase tracking-wider text-slate-500">Security Question</span>
-                        <p className="text-xs font-bold text-slate-800 mt-1">{recoveryUser?.securityQuestion}</p>
-                      </div>
-                      <input
-                        type="text"
-                        value={recoverySecurityAnswer}
-                        onChange={e => setRecoverySecurityAnswer(e.target.value)}
-                        placeholder="Your answer"
-                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleVerifyRecoverySecurity}
-                        className="w-full py-2.5 rounded-xl bg-emerald-700 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
-                      >
                         <MessageCircle className="w-4 h-4" />
-                        Verify & Send OTP
+                        Send WhatsApp OTP
                       </button>
                     </div>
                   ) : (
@@ -1749,7 +1669,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <span>Processing securely...</span>
                   </>
                 ) : emailChecked ? (
-	                  <span>Sign In</span>
+                  <span>{loginOtpMode ? 'Access With WhatsApp OTP' : 'Access Terminal Cabin'}</span>
                 ) : (
                   <span>Continue</span>
                 )}
@@ -1785,16 +1705,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-	                <div className="space-y-1.5">
-	                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner WhatsApp Number</label>
-	                  <input
-	                    type="tel"
-	                    required
-	                    value={regEmail}
-	                    placeholder="e.g. +255 712 345 678"
-	                    onChange={(e) => setRegEmail(e.target.value)}
-	                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-sans"
-	                  />
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Backup Email (Optional)</label>
+                  <input
+                    type="email"
+                    value={regEmail}
+                    placeholder="Optional email backup"
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-sans"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Pin Password</label>
@@ -1809,32 +1728,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Security Question</label>
-                  <input
-                    type="text"
-                    required
-                    value={regSecurityQuestion}
-                    placeholder="e.g. What is your first shop name?"
-                    onChange={(e) => setRegSecurityQuestion(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-sans"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Security Answer</label>
-                  <input
-                    type="text"
-                    required
-                    value={regSecurityAnswer}
-                    placeholder="Answer you will remember"
-                    onChange={(e) => setRegSecurityAnswer(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-sans"
-                  />
-                </div>
-              </div>
-
-	              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Region of operations</label>
                   <select
@@ -1863,7 +1757,18 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none"
                   />
                 </div>
-	              </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-505 uppercase block">Owner WhatsApp Number</label>
+                  <input
+                    type="tel"
+                    required
+                    value={regPhone}
+                    placeholder="e.g. +255 712 345 678"
+                    onChange={(e) => setRegPhone(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-850 outline-none font-sans"
+                  />
+                </div>
+              </div>
 
               {/* OPTIONAL AFFILIATE REFERRAL TRACKER */}
               <div className="space-y-1.5 bg-emerald-50/40 p-3.5 rounded-2xl border border-emerald-100/60">
@@ -1925,7 +1830,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <span>Allocating Cloud DB Cluster...</span>
                   </>
                 ) : (
-	                  <span>Join Us</span>
+                  <span>Compile Secure Tenant</span>
                 )}
               </button>
 
@@ -1942,7 +1847,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             ← Back to Jasper Landing Hub
           </button>
         </div>
-      </div>
       </div>
 
       {/* GOOGLE SSO FLOW MODAL */}
@@ -2276,3 +2180,4 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     </div>
   );
 }
+
