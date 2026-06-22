@@ -59,7 +59,7 @@ export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
       orderPayments: { read: true, write: true, edit: false },
       paymentIn: { read: true, write: true, edit: false },
       paymentOut: { read: false, write: false, edit: false },
-      quotation: { read: true, write: true, edit: false },
+      price quote: { read: true, write: true, edit: false },
       stockAdjustment: { read: false, write: false, edit: false },
       stockTransfer: { read: true, write: false, edit: false },
       companySettings: { read: false, write: false, edit: false },
@@ -113,7 +113,7 @@ export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
       orderPayments: { read: true, write: true, edit: true },
       paymentIn: { read: true, write: true, edit: true },
       paymentOut: { read: true, write: true, edit: true },
-      quotation: { read: true, write: true, edit: true },
+      price quote: { read: true, write: true, edit: true },
       stockAdjustment: { read: true, write: true, edit: true },
       stockTransfer: { read: true, write: true, edit: true },
       companySettings: { read: true, write: true, edit: false },
@@ -167,7 +167,7 @@ export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
       orderPayments: { read: true, write: true, edit: false },
       paymentIn: { read: true, write: true, edit: false },
       paymentOut: { read: false, write: false, edit: false },
-      quotation: { read: true, write: false, edit: false },
+      price quote: { read: true, write: false, edit: false },
       stockAdjustment: { read: false, write: false, edit: false },
       stockTransfer: { read: true, write: false, edit: false },
       companySettings: { read: false, write: false, edit: false },
@@ -221,7 +221,7 @@ export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
       orderPayments: { read: true, write: true, edit: true },
       paymentIn: { read: true, write: true, edit: true },
       paymentOut: { read: true, write: true, edit: true },
-      quotation: { read: true, write: true, edit: true },
+      price quote: { read: true, write: true, edit: true },
       stockAdjustment: { read: true, write: true, edit: true },
       stockTransfer: { read: true, write: true, edit: true },
       companySettings: { read: true, write: true, edit: true },
@@ -275,7 +275,7 @@ export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
       orderPayments: { read: false, write: false, edit: false },
       paymentIn: { read: false, write: false, edit: false },
       paymentOut: { read: false, write: false, edit: false },
-      quotation: { read: true, write: false, edit: false },
+      price quote: { read: true, write: false, edit: false },
       stockAdjustment: { read: true, write: true, edit: true },
       stockTransfer: { read: true, write: true, edit: true },
       companySettings: { read: false, write: false, edit: false },
@@ -329,7 +329,7 @@ export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
       orderPayments: { read: true, write: true, edit: false },
       paymentIn: { read: true, write: true, edit: false },
       paymentOut: { read: false, write: false, edit: false },
-      quotation: { read: false, write: false, edit: false },
+      price quote: { read: false, write: false, edit: false },
       stockAdjustment: { read: false, write: false, edit: false },
       stockTransfer: { read: true, write: true, edit: false },
       companySettings: { read: false, write: false, edit: false },
@@ -383,7 +383,7 @@ export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
       orderPayments: { read: true, write: true, edit: false },
       paymentIn: { read: true, write: true, edit: false },
       paymentOut: { read: false, write: false, edit: false },
-      quotation: { read: true, write: true, edit: false },
+      price quote: { read: true, write: true, edit: false },
       stockAdjustment: { read: true, write: true, edit: false },
       stockTransfer: { read: true, write: false, edit: false },
       companySettings: { read: false, write: false, edit: false },
@@ -437,7 +437,7 @@ export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
       orderPayments: { read: true, write: true, edit: true },
       paymentIn: { read: true, write: true, edit: true },
       paymentOut: { read: true, write: true, edit: true },
-      quotation: { read: true, write: false, edit: false },
+      price quote: { read: true, write: false, edit: false },
       stockAdjustment: { read: true, write: false, edit: false },
       stockTransfer: { read: true, write: false, edit: false },
       companySettings: { read: false, write: false, edit: false },
@@ -491,7 +491,7 @@ export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
       orderPayments: { read: true, write: true, edit: false },
       paymentIn: { read: true, write: true, edit: false },
       paymentOut: { read: false, write: false, edit: false },
-      quotation: { read: true, write: true, edit: false },
+      price quote: { read: true, write: true, edit: false },
       stockAdjustment: { read: true, write: true, edit: false },
       stockTransfer: { read: true, write: false, edit: false },
       companySettings: { read: false, write: false, edit: false },
@@ -709,7 +709,7 @@ export default function DashboardSettings({
         orderPayments: { read: true, write: true, edit: false },
         paymentIn: { read: true, write: true, edit: false },
         paymentOut: { read: false, write: false, edit: false },
-        quotation: { read: true, write: false, edit: false },
+        price quote: { read: true, write: false, edit: false },
         stockAdjustment: { read: false, write: false, edit: false },
         stockTransfer: { read: true, write: false, edit: false },
         companySettings: { read: false, write: false, edit: false },
@@ -1031,7 +1031,7 @@ export default function DashboardSettings({
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
             <Sliders className="w-5 h-5 text-emerald-500" />
-            <h2 className="text-lg font-bold text-slate-800 uppercase tracking-tight">System & Branch Configurations</h2>
+            <h2 className="text-lg font-bold text-slate-800 uppercase tracking-tight">Settings & Branches</h2>
           </div>
           <p className="text-xs text-slate-450 font-sans">
             Customize corporate identities, receipts layout, active POS payment channels, store physical stock bins, and permanent HRM human resources.
@@ -1109,7 +1109,7 @@ export default function DashboardSettings({
             }`}
           >
             <FileText className="w-4 h-4 text-slate-500" />
-            <span>Invoice & Branding Customization</span>
+            <span>Invoice & Logo</span>
           </button>
 
           <button
@@ -1133,7 +1133,7 @@ export default function DashboardSettings({
             }`}
           >
             <ShieldCheck className="w-4 h-4 text-slate-500" />
-            <span>Custom Roles & Permissions</span>
+            <span>Staff Roles & Access</span>
           </button>
 
           <button
@@ -1145,7 +1145,7 @@ export default function DashboardSettings({
             }`}
           >
             <Bell className="w-4 h-4 text-slate-500" />
-            <span>Notifications & Auto Reports</span>
+            <span>Alerts & Reports</span>
           </button>
         </div>
 
@@ -1176,7 +1176,7 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Generated Company Username/Key</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Company Code</label>
                   <div className="flex bg-slate-100 border border-slate-210 rounded-xl overflow-hidden font-mono font-bold text-slate-600">
                     <span className="px-3.5 py-2.5 bg-slate-200 text-slate-500 select-none text-[11px]">@</span>
                     <input
@@ -1187,11 +1187,11 @@ export default function DashboardSettings({
                       placeholder="auto-generated-key"
                     />
                   </div>
-                  <span className="text-[10px] text-slate-400 font-medium block">Generated based on company name for subdomain routing.</span>
+                  <span className="text-[10px] text-slate-400 font-medium block">Auto-created from your company name.</span>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Verification Email Address</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Email Address</label>
                   <input
                     type="email"
                     value={companyForm.email}
@@ -1213,7 +1213,7 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5 md:col-span-2">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Corporate Headquarters Address</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Company Address</label>
                   <input
                     type="text"
                     value={companyForm.address}
@@ -1224,7 +1224,7 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Company TIN (Taxpayer Identification Number)</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Tax ID Number (TIN)</label>
                   <input
                     type="text"
                     value={companyForm.tin}
@@ -1235,18 +1235,18 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Company VAT Registration Number</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">VAT Number</label>
                   <input
                     type="text"
                     value={companyForm.vat}
                     onChange={(e) => setCompanyForm(prev => ({ ...prev, vat: e.target.value }))}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                    placeholder="VAT-YYYYYY-Y (if applicable)"
+                    placeholder="e.g. VAT-123456-7"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Legal Payment Currency Symbol</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Currency</label>
                   <select
                     value={companyForm.currency}
                     onChange={(e) => setCompanyForm(prev => ({ ...prev, currency: e.target.value }))}
@@ -1422,13 +1422,13 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">Contact Helpline / Phone No.</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">Phone Number.</label>
                   <input
                     type="text"
                     value={businessForm.businessPhone}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, businessPhone: e.target.value }))}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                    placeholder="Helpline displayed on layouts..."
+                    placeholder="Shown on receipts and invoices..."
                   />
                 </div>
 
@@ -1589,7 +1589,7 @@ export default function DashboardSettings({
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
                     <CreditCard className="w-4 h-4 text-slate-500" />
-                    <span>Active Cashier Till Payments</span>
+                    <span>Payment Methods</span>
                   </h4>
                   <p className="text-[10.5px] text-slate-450 leading-relaxed font-sans mt-0.5">
                     Add payment methods.
@@ -1608,7 +1608,7 @@ export default function DashboardSettings({
                           type="button" 
                           onClick={() => handleRemovePaymentMode(mode)}
                           className="hover:text-rose-650 cursor-pointer p-0.5"
-                          title="Click to remove payment channel"
+                          title="Click to remove"
                         >
                           <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
                         </button>
@@ -1639,7 +1639,7 @@ export default function DashboardSettings({
                   <div className="mb-4">
                     <h4 className="font-extrabold text-xs text-slate-700 tracking-tight flex items-center space-x-1.5 uppercase font-mono">
                       <Truck className="w-4 h-4 text-slate-500" />
-                      <span>Active Delivery Settings (Payment Methods)</span>
+                      <span>Delivery Payment Methods</span>
                     </h4>
                     <p className="text-[10.5px] text-slate-450 leading-relaxed font-sans mt-0.5">
                       Add delivery payment methods.
@@ -1658,7 +1658,7 @@ export default function DashboardSettings({
                             type="button" 
                             onClick={() => handleRemoveDeliveryPaymentMode(mode)}
                             className="hover:text-rose-650 cursor-pointer p-0.5"
-                            title="Click to remove payment channel"
+                            title="Click to remove"
                           >
                             <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
                           </button>
@@ -1696,7 +1696,7 @@ export default function DashboardSettings({
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
                     <Store className="w-4 h-4 text-slate-500" />
-                    <span>Registered Warehouses & Store Stock Locations</span>
+                    <span>Store Locations</span>
                   </h4>
                   <p className="text-[10.5px] text-slate-450 leading-relaxed font-sans mt-0.5">
                     Register distinct physical bins or storages where bulk cargo or in-shelf products can be allocated.
@@ -1814,7 +1814,7 @@ export default function DashboardSettings({
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
                     <Package className="w-4 h-4 text-slate-500" />
-                    <span>Authorized Measurement Units (UOM)</span>
+                    <span>Units of Measure</span>
                   </h4>
                   <p className="text-[10.5px] text-slate-450 leading-relaxed font-sans mt-0.5">
                     Define authorized weighing or counting metrics by which checkout lines and stock takes operate.
@@ -1870,7 +1870,7 @@ export default function DashboardSettings({
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🎨 Invoice Template & Brand Customization</h3>
                 <p className="text-xs text-slate-450 mt-1 font-sans">
-                  Customize colors, compliance credentials, bank details, and terms displayed on Quotations and Proforma Invoices to align with your brand guidelines.
+                  Customize colors, compliance credentials, bank details, and terms displayed on Quotes and Quotes to align with your brand guidelines.
                 </p>
               </div>
 
@@ -1938,7 +1938,7 @@ export default function DashboardSettings({
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                   <div>
-                    <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">Tax Identification Number (TIN)</label>
+                    <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">Tax ID (TIN)</label>
                     <input
                       type="text"
                       placeholder="e.g. 140-763-403"
@@ -2006,7 +2006,7 @@ export default function DashboardSettings({
                     className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
                   />
                   <label htmlFor="hasVatByDefaultCheck" className="font-semibold text-slate-700 cursor-pointer select-none">
-                    Include Value Added Tax (VAT 18%) by default on every new Quotation or Proforma Invoice
+                    Include Value Added Tax (VAT 18%) by default on every new Quote or Quote
                   </label>
                 </div>
               </div>
@@ -2016,7 +2016,7 @@ export default function DashboardSettings({
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">4. Default Legal Terms & Conditions</h4>
                   <p className="text-[11px] text-slate-450 mt-0.5">
-                    Define policies, warrant declarations or client legal rules printed on the bottom of quotations & proforma invoices.
+                    Define policies, warrant declarations or client legal rules printed on the bottom of price quotes & price quote invoices.
                   </p>
                 </div>
 
@@ -2041,7 +2041,7 @@ export default function DashboardSettings({
                   <div className="flex space-x-2 max-w-xl">
                     <input
                       type="text"
-                      placeholder="Add a new term or policy clause..."
+                      placeholder="Add a new term..."
                       id="newTermBodyInput"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -2094,7 +2094,7 @@ export default function DashboardSettings({
 
               {/* Staff Registry Form */}
               <form onSubmit={handleRegisterStaff} className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-4">
-                <h4 className="text-xs font-extrabold uppercase text-slate-700 font-mono">Register New Staff Profile</h4>
+                <h4 className="text-xs font-extrabold uppercase text-slate-700 font-mono">Add New Staff</h4>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs font-sans">
                   
@@ -2168,7 +2168,7 @@ export default function DashboardSettings({
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-455 font-mono">Profile Photo (500x500 pix)</label>
+                    <label className="text-[10px] uppercase font-bold text-slate-455 font-mono">Profile Photo</label>
                     <div className="flex items-center space-x-2 bg-white rounded-xl border border-slate-200 p-1.5 h-10 overflow-hidden">
                       <div className="relative w-7 h-7 rounded-full bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
                         {staffForm.profileImage ? (
@@ -2187,7 +2187,7 @@ export default function DashboardSettings({
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-455 font-mono">PNG Signature (500x500 pix)</label>
+                    <label className="text-[10px] uppercase font-bold text-slate-455 font-mono">Signature Image</label>
                     <div className="flex items-center space-x-2 bg-white rounded-xl border border-slate-200 p-1.5 h-10 overflow-hidden">
                       <div className="relative w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
                         {staffForm.signatureImage ? (
@@ -2337,19 +2337,19 @@ export default function DashboardSettings({
               { key: 'deleteSale', category: 'Sales & Cashier Till', name: 'Delete Sale Menu (Ticket Voiding)', desc: 'Enables delete menu button to void paid sales or delete incorrect cash ticket records' },
               { key: 'salesReturn', category: 'Sales & Cashier Till', name: 'Receipt Returns & Customer Refunds', desc: 'Allows entering product sales returns, credit adjustments, and refunding store cash' },
               { key: 'paymentIn', category: 'Sales & Cashier Till', name: 'Debt Payments & Installments (Pay-In)', desc: 'Authorizes accepting payments towards pending buyer invoices or active store credits' },
-              { key: 'quotation', category: 'Sales & Cashier Till', name: 'Quotes & Proforma Invoices', desc: 'Allows issuing price quotes and proforma invoices' },
+              { key: 'price quote', category: 'Sales & Cashier Till', name: 'Quotes & Quotes', desc: 'Allows issuing price quotes and price quote invoices' },
               { key: 'customersList', category: 'Sales & Cashier Till', name: 'Customers Profiles & Balance Ledgers', desc: 'Allows managing buyer contact listings, credit allocation thresholds, and histories' },
 
-              // Category: Inventory & Procurements
-              { key: 'products', category: 'Inventory & Procurements', name: 'Product Catalog & Inventory Listing', desc: 'Authorize editing base product fields, barcodes, pricing, and viewing current stock items' },
-              { key: 'productCategories', category: 'Inventory & Procurements', name: 'Classifications, Categories & Brands', desc: 'Authorizes managing item folders, generic grouping tags, brands, and units of measure' },
-              { key: 'units', category: 'Inventory & Procurements', name: 'Product Units of Measure', desc: 'Authorizes adding and editing units used for stock counting' },
-              { key: 'brands', category: 'Inventory & Procurements', name: 'Product Brands Database', desc: 'Manages catalog item brands' },
-              { key: 'stockAdjustment', category: 'Inventory & Procurements', name: 'Inventory Level Audits & Adjustments', desc: 'Grants access to manual stock level overrides, warehouse counts, and shelf transfers' },
-              { key: 'stockTransfer', category: 'Inventory & Procurements', name: 'Warehouse & Shelf Transfers', desc: 'Transfer physical inventory between virtual branches or backrooms' },
-              { key: 'purchases', category: 'Inventory & Procurements', name: 'Supplier Purchases & COGS Ledgers', desc: 'Allows entering wholesale stock purchases, vendor costs (COGS), and purchase bills' },
-              { key: 'purchaseReturn', category: 'Inventory & Procurements', name: 'Purchase Return to Vendors', desc: 'Handling damaged or defect purchases returned to the supplier' },
-              { key: 'suppliers', category: 'Inventory & Procurements', name: 'Suppliers Profiles & Vendor Credit Lines', desc: 'Allows managing wholesale vendor directories, contact cards, and trade debt records' },
+              // Category: Inventory & Buying
+              { key: 'products', category: 'Inventory & Buying', name: 'Product Catalog & Inventory Listing', desc: 'Authorize editing base product fields, barcodes, pricing, and viewing current stock items' },
+              { key: 'productCategories', category: 'Inventory & Buying', name: 'Classifications, Categories & Brands', desc: 'Authorizes managing item folders, generic grouping tags, brands, and units of measure' },
+              { key: 'units', category: 'Inventory & Buying', name: 'Product Units of Measure', desc: 'Authorizes adding and editing units used for stock counting' },
+              { key: 'brands', category: 'Inventory & Buying', name: 'Product Brands Database', desc: 'Manages catalog item brands' },
+              { key: 'stockAdjustment', category: 'Inventory & Buying', name: 'Inventory Level Audits & Adjustments', desc: 'Grants access to manual stock level overrides, warehouse counts, and shelf transfers' },
+              { key: 'stockTransfer', category: 'Inventory & Buying', name: 'Warehouse & Shelf Transfers', desc: 'Transfer physical inventory between virtual branches or backrooms' },
+              { key: 'purchases', category: 'Inventory & Buying', name: 'Supplier Purchases & Cost of Goods Ledgers', desc: 'Allows entering wholesale stock purchases, vendor costs (Cost of Goods), and purchase bills' },
+              { key: 'purchaseReturn', category: 'Inventory & Buying', name: 'Purchase Return to Vendors', desc: 'Handling damaged or defect purchases returned to the supplier' },
+              { key: 'suppliers', category: 'Inventory & Buying', name: 'Suppliers Profiles & Vendor Credit Lines', desc: 'Allows managing wholesale vendor directories, contact cards, and trade debt records' },
 
               // Category: Finance & Accounting Reports
               { key: 'expenses', category: 'Finance & Accounting', name: 'Operating Expenses Records', desc: 'Allows logging rent costs, store licensing, salaries, and operating branch payouts' },
@@ -2357,7 +2357,7 @@ export default function DashboardSettings({
               { key: 'paymentOut', category: 'Finance & Accounting', name: 'Supplier Bill Payments (Pay-Out)', desc: 'Authorizes outgoing cash to suppliers or cost contractors' },
               { key: 'cashAndBank', category: 'Finance & Accounting', name: 'Cash Register Float & Vault Safes', desc: 'Allows checking register drawer floats, cash safety vaults, and branch bank balances' },
               { key: 'reportsSalesExpenses', category: 'Finance & Accounting', name: 'General Sales & Expense Reports', desc: 'Access overall profit-and-loss, cash flow performance metrics' },
-              { key: 'reportsProfitCogs', category: 'Finance & Accounting', name: 'COGS & Profit Audits', desc: 'Detailed view to product margins, net profit after cost of goods calculations' },
+              { key: 'reportsProfitCogs', category: 'Finance & Accounting', name: 'Cost of Goods & Profit Audits', desc: 'Detailed view to product margins, net profit after cost of goods calculations' },
 
               // Category: Office & Operations Systems
               { key: 'staffMembers', category: 'Office & Operations Systems', name: 'Staff HR & Cashier Users', desc: 'Grants access to employeer credentials setup and pin resets' },
@@ -2375,7 +2375,7 @@ export default function DashboardSettings({
                 <div className="border-b border-slate-100 pb-4">
                   <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🛡️ System Security Roles & Permissions</h3>
                   <p className="text-xs text-slate-455 mt-1 font-sans">
-                    Construct fine-grain security roles for your floor {activeTenant.businessType === 'restaurant' ? 'waiters' : 'sellers'}, cashiers, and managers. Assign permissions checkmark-by-checkmark to restrict access to secret revenues, cost of goods (COGS), or system setup.
+                    Construct fine-grain security roles for your floor {activeTenant.businessType === 'restaurant' ? 'waiters' : 'sellers'}, cashiers, and managers. Assign permissions checkmark-by-checkmark to restrict access to secret revenues, cost of goods (Cost of Goods), or system setup.
                   </p>
                 </div>
 
@@ -2464,7 +2464,7 @@ export default function DashboardSettings({
                       
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                         <div className="space-y-0.5">
-                          <span className="text-[10px] font-mono font-bold uppercase text-emerald-600 font-bold">Active Configurations Layout</span>
+                          <span className="text-[10px] font-mono font-bold uppercase text-emerald-600 font-bold">Current Setup</span>
                           <div className="flex items-center space-x-2">
                             {isPreset ? (
                               <h4 className="text-sm font-black text-slate-800">{activeRole.name} Preset (Locked)</h4>
@@ -2493,7 +2493,7 @@ export default function DashboardSettings({
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-mono font-black text-slate-500 uppercase tracking-widest">
-                              <th className="p-3">System Module / Functionality</th>
+                              <th className="p-3">Feature</th>
                               <th className="p-3 text-center">Read</th>
                               <th className="p-3 text-center">Write</th>
                               <th className="p-3 text-center">Edit</th>
