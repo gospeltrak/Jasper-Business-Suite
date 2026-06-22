@@ -78,7 +78,7 @@ export default function DashboardProducts({
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   
-  // Smart Batch Pricing & Replenishment
+  // Smart Batch Pricing & Restock
   const [replenishProduct, setReplenishProduct] = useState<Product | null>(null);
   const [replenishQty, setReplenishQty] = useState<number | ''>('');
   const [replenishCost, setReplenishCost] = useState<number | ''>('');
@@ -1392,7 +1392,7 @@ export default function DashboardProducts({
               : 'border-transparent text-slate-400 hover:text-slate-700'
           }`}
         >
-          📋 Product Catalogue
+          📋 Products List
         </button>
         <button
           onClick={() => handleTabSwitch('category')}
@@ -1435,7 +1435,7 @@ export default function DashboardProducts({
           <div className="bg-white border border-slate-205 p-6 rounded-3xl shadow-xs space-y-5">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-0.5">
-                <h4 className="text-sm font-bold text-slate-800">Unified Stock Registry Desk</h4>
+                <h4 className="text-sm font-bold text-slate-800">All Stock Desk</h4>
                 <p className="text-[11px] font-medium text-slate-400">
                   Branch Code: <span className="text-slate-500 font-bold font-mono">{activeTenant.name} ({activeTenant.city})</span> | Catalog Search and barcode assignment active.
                 </p>
@@ -1456,7 +1456,7 @@ export default function DashboardProducts({
                   title="Download CSV template"
                 >
                   <Download className="w-4 h-4 text-emerald-600" />
-                  <span>Download Spreadsheet Template</span>
+                  <span>Download Template</span>
                 </button>
               </div>
             </div>
@@ -1611,7 +1611,7 @@ export default function DashboardProducts({
                             <span>Upload Product Image</span>
                           </button>
                         </div>
-                        <p className="text-[9px] text-slate-400">Fits images & separates background instantly.</p>
+                        <p className="text-[9px] text-slate-400">Removes image background.</p>
                       </div>
                     </div>
 
@@ -1651,7 +1651,7 @@ export default function DashboardProducts({
                       onChange={(e) => setBarcode(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono tracking-wide transition-all outline-none"
                     />
-                    <p className="text-[9px] text-slate-400">Leave blank to auto-create SKU.</p>
+                    <p className="text-[9px] text-slate-400">Leave empty to auto-create.</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3.5 border-b border-dashed border-slate-100 pb-3">
@@ -1788,7 +1788,7 @@ export default function DashboardProducts({
 
                   <div className="bg-slate-50 font-mono text-[11px] p-4 rounded-2xl border border-slate-150 space-y-1.5 text-slate-500">
                     <div className="flex justify-between items-center text-xs border-b border-slate-200 pb-1 mb-1 text-slate-700 font-sans font-bold">
-                      <span>Ledger Margin metrics:</span>
+                      <span>Ledger Profit % metrics:</span>
                       <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
                     </div>
                     <div className="flex justify-between font-mono">
@@ -1796,11 +1796,11 @@ export default function DashboardProducts({
                       <span className="text-slate-800 font-bold">{markup.toFixed(1)}%</span>
                     </div>
                     <div className="flex justify-between font-mono">
-                      <span>Profit Margin:</span>
+                      <span>Profit Profit %:</span>
                       <span className="text-emerald-600 font-bold">{margin.toFixed(1)}%</span>
                     </div>
                     <div className="flex justify-between font-sans font-bold text-slate-805 pt-1 mt-0.5 border-t border-slate-200">
-                      <span>Margin Gain per Unit:</span>
+                      <span>Profit % Gain per Unit:</span>
                       <span>{currency}{Math.round(profit).toLocaleString()}</span>
                     </div>
                   </div>
@@ -1867,7 +1867,7 @@ export default function DashboardProducts({
                 <div className="space-y-4 pt-2 border-t border-slate-150">
                   <div>
                     <span className="font-bold text-sm text-slate-800">Pharmacy Dose Setup</span>
-                    <p className="text-[10.5px] text-slate-450 mt-0.5">Define packet, dose and tab selling.</p>
+                    <p className="text-[10.5px] text-slate-450 mt-0.5">Set how to sell this item.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
                     <div className="space-y-1">
@@ -2498,7 +2498,7 @@ export default function DashboardProducts({
             <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-4 lg:col-span-2">
               <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row items-center justify-between gap-2">
                 <span className="font-bold text-slate-800">1. Product print queue selection</span>
-                <span className="text-[10px] italic text-slate-400 font-medium">Search and select items to print barcodes for</span>
+                <span className="text-[10px] italic text-slate-400 font-medium">Choose items to print barcodes</span>
               </div>
 
               {/* Product search box */}
@@ -2704,7 +2704,7 @@ export default function DashboardProducts({
                     />
                     <div className="text-left font-sans">
                       <p className="text-[11px] font-bold">Only Barcode</p>
-                      <p className="text-[9px] text-slate-400 leading-tight">Shows only the scan barcode bars</p>
+                      <p className="text-[9px] text-slate-400 leading-tight">Barcode only</p>
                     </div>
                   </label>
                 </div>
@@ -2856,7 +2856,7 @@ export default function DashboardProducts({
                   <div className="border-b border-dashed border-slate-205 pb-3 flex items-center justify-between text-slate-500 font-mono select-none">
                     <div className="text-left">
                       <span className="font-bold text-[11px] block">📄 A4 Label Sheet Outline (4 x 6 = 24 Labels layout)</span>
-                      <span className="text-[9px] text-slate-400 font-sans">Ready for direct printing or local downloads.</span>
+                      <span className="text-[9px] text-slate-400 font-sans">Ready to print or download.</span>
                     </div>
                     <button
                       type="button"
@@ -3237,7 +3237,7 @@ export default function DashboardProducts({
 
             {/* Interactive category listings */}
             <div className="bg-white border border-slate-200 p-5 rounded-3xl shadow-xs space-y-4">
-              <h4 className="font-bold text-slate-800 text-xs border-b border-slate-100 pb-2">Category Directories</h4>
+              <h4 className="font-bold text-slate-800 text-xs border-b border-slate-100 pb-2">Categories</h4>
               
               <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
                 <button
@@ -3444,7 +3444,7 @@ export default function DashboardProducts({
 
             {/* Interactive brand directories */}
             <div className="bg-white border border-slate-200 p-5 rounded-3xl shadow-xs space-y-4">
-              <h4 className="font-bold text-slate-800 text-xs border-b border-slate-100 pb-2">Product Brand Directories</h4>
+              <h4 className="font-bold text-slate-800 text-xs border-b border-slate-100 pb-2">Product Brands</h4>
               
               <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
                 <button
@@ -3685,9 +3685,9 @@ export default function DashboardProducts({
                   </div>
                 </div>
 
-                {/* Sells & Margin statistics */}
+                {/* Sells & Profit % statistics */}
                 <div className="space-y-4 font-mono">
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">3. Financial Margin metrics</h5>
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">3. Financial Profit % metrics</h5>
                   
                   <div className="grid grid-cols-2 gap-3 pb-1">
                     <div className="space-y-1">
@@ -3729,13 +3729,13 @@ export default function DashboardProducts({
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Earned Profit Margin:</span>
+                        <span>Earned Profit Profit %:</span>
                         <span className="text-emerald-600 font-bold">
                           {(((viewingProduct.sellingPrice - viewingProduct.costPrice) / (viewingProduct.sellingPrice || 1)) * 105).toFixed(1)}%
                         </span>
                       </div>
                       <div className="flex justify-between font-sans font-bold text-slate-850 pt-1 border-t border-slate-200">
-                        <span>Margin Gain / Unit:</span>
+                        <span>Profit % Gain / Unit:</span>
                         <span className="text-emerald-700">{currency}{(viewingProduct.sellingPrice - viewingProduct.costPrice).toLocaleString()}</span>
                       </div>
                     </div>
@@ -3985,9 +3985,9 @@ export default function DashboardProducts({
                   </div>
                 </div>
 
-                {/* Sells & Margin statistics */}
+                {/* Sells & Profit % statistics */}
                 <div className="space-y-4 font-mono">
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">3. Financial Margin metrics</h5>
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">3. Financial Profit % metrics</h5>
                   
                   <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 space-y-2">
                     <span className="text-[10px] font-bold text-slate-450 uppercase block tracking-wider font-mono">Active Selling Channels</span>
@@ -4082,7 +4082,7 @@ export default function DashboardProducts({
                   </div>
 
                   <div className="space-y-1 pt-1 font-mono">
-                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Outbound Stock Pulling Logic</label>
+                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">How Stock is Used</label>
                     <select 
                       value={editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo'}
                       onChange={(e) => {
@@ -4363,7 +4363,7 @@ export default function DashboardProducts({
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Package className="w-4 h-4 text-emerald-600" />
-                  <h4 className="font-bold text-slate-850 text-xs uppercase tracking-wider font-mono">Stock Replenishment & Prices</h4>
+                  <h4 className="font-bold text-slate-850 text-xs uppercase tracking-wider font-mono">Stock Restock & Prices</h4>
                 </div>
                 <button type="button" onClick={() => setReplenishProduct(null)} className="text-slate-450 hover:text-slate-700 cursor-pointer">
                   <X className="w-4 h-4" />
@@ -4385,7 +4385,7 @@ export default function DashboardProducts({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">New Buying Cost (Per Unit)</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">New Buy Price</label>
                 <div className="relative">
                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">{currency}</span>
                  <input required type="number" min="0" step="0.01" value={replenishCost} onChange={e => setReplenishCost(e.target.value ? Number(e.target.value) : '')} className="w-full pl-10 pr-3 bg-white border-2 border-emerald-100 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-emerald-800 font-mono outline-none font-bold placeholder-slate-300" placeholder="0.00" />
@@ -4450,7 +4450,7 @@ export default function DashboardProducts({
                          </div>
 
                          <div className="pt-2">
-                           <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">Configure New Selling Price</span>
+                           <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">Set New Sell Price</span>
                            <div className="space-y-2">
                              
                              <label className={`flex items-start p-3 border rounded-xl cursor-pointer transition-colors ${replenishPriceAction === 'suggested' ? 'bg-emerald-50 border-emerald-500' : 'bg-white border-slate-200 hover:border-emerald-300'}`}>
