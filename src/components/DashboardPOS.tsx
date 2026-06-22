@@ -1249,7 +1249,7 @@ export default function DashboardPOS({
                   placeholder="Search Code, Barcode or Title..."
                   className="w-full bg-transparent text-sm pl-10 pr-24 py-2.5 text-slate-800 placeholder-slate-400 font-sans font-medium outline-none border-none focus:ring-0"
                 />
-                <Search className="absolute left-3.5 top-3 w-4.5 h-4.5 text-slate-400 pointer-events-none" />
+                <Search className="absolute left-3.5 top-3 w-5 h-5 text-slate-400 pointer-events-none" />
                 
                 {/* SCAN BARCODE ICON BUTTON IN THE RIGHT OF SEARCH BAR */}
                 <button 
@@ -2503,7 +2503,7 @@ export default function DashboardPOS({
                         <span className="font-black text-rose-850 shrink-0 select-all">{receiptResult.vfdSignature}</span>
                       </div>
                       <p className="text-[8px] text-emerald-700 text-center italic mt-1.5 font-sans font-semibold">
-                        ✓ Registered with Tanzania Money Earned Authority Gateway VFD Server.
+                        ✓ Registered with Tanzania Revenue Authority Gateway VFD Server.
                       </p>
                     </div>
                   )}
