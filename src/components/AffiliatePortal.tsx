@@ -1661,9 +1661,9 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors focus:outline-none cursor-pointer p-1"
                       >
                         {showPassword ? (
-                          <EyeOff className="w-4.5 h-4.5" />
+                          <EyeOff className="w-5 h-5" />
                         ) : (
-                          <Eye className="w-4.5 h-4.5" />
+                          <Eye className="w-5 h-5" />
                         )}
                       </button>
                     </div>
@@ -2985,7 +2985,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                               <div className="absolute bottom-11 left-4 right-4 flex gap-0.5 h-1 items-end opacity-60">
                                 <span className="bg-teal-400 w-1.5 h-2.5 animate-pulse" />
                                 <span className="bg-teal-400 w-1.5 h-1.5 animate-pulse" />
-                                <span className="bg-teal-400 w-1.5 h-4.5 animate-pulse" />
+                                <span className="bg-teal-400 w-1.5 h-5 animate-pulse" />
                                 <span className="bg-teal-400 w-1.5 h-3 animate-pulse" />
                               </div>
                             </div>
