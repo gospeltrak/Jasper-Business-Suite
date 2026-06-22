@@ -52,7 +52,7 @@ export default function DashboardSuppliers({
   // Search filter
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Selected supplier details ID for the Procurement expanding report drawer
+  // Selected supplier details ID for the Buying expanding report drawer
   const [activeReportSupplierId, setActiveReportSupplierId] = useState<string | null>(null);
 
   const currency = activeTenant.currency;
@@ -133,7 +133,7 @@ export default function DashboardSuppliers({
             <span>Master Partners & Logistics Directory</span>
           </h4>
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest font-mono">
-            Unified Client Portals & B2B Warehouse Supplier Audits
+            Unified Client Portals & B2B Supplier Audits
           </p>
         </div>
 
@@ -375,7 +375,7 @@ export default function DashboardSuppliers({
                       }`}
                     >
                       <ClipboardList className="w-3.5 h-3.5" />
-                      <span>{isRepExpanded ? 'Close Purchase Audit' : 'Procurements Report'}</span>
+                      <span>{isRepExpanded ? 'Close Purchase Audit' : 'Buying Report'}</span>
                       {isRepExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                     </button>
 
@@ -396,7 +396,7 @@ export default function DashboardSuppliers({
             )}
           </div>
 
-          {/* Supplier Historical Procurements Expandable Drawer */}
+          {/* Supplier Historical Buying Expandable Drawer */}
           {activeReportSupplierId && (() => {
             const matchedSup = suppliers.find(s => s.id === activeReportSupplierId);
             if (!matchedSup) return null;
@@ -486,7 +486,7 @@ export default function DashboardSuppliers({
                                 ) : (
                                   <span className="inline-flex items-center space-x-1 bg-amber-50 text-amber-700 border border-amber-100 text-[9.5px] font-extrabold uppercase py-0.5 px-2 rounded-md font-sans">
                                     <Archive className="w-3 h-3 text-amber-600" />
-                                    <span>Backroom Store</span>
+                                    <span>Store Room</span>
                                   </span>
                                 )}
                               </td>
