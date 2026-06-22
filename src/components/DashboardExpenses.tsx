@@ -949,7 +949,7 @@ export default function DashboardExpenses({
               </div>
 
               <div className="space-y-1">
-                <label className="block text-slate-600 dark:text-slate-400 font-extrabold">Expense Outflow Amount ({currency})</label>
+                <label className="block text-slate-600 dark:text-slate-400 font-extrabold">Expense Money Out Amount ({currency})</label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold select-none">
                     {currency}
@@ -1028,7 +1028,7 @@ export default function DashboardExpenses({
 
             {/* "and another to add transaction message" */}
             <div className="space-y-1">
-              <label className="block text-slate-600 dark:text-slate-400 font-extrabold">Transaction Message / Reference Code</label>
+              <label className="block text-slate-600 dark:text-slate-400 font-extrabold">Note / Reference Code</label>
               <input
                 type="text"
                 placeholder="Payment reference..."
