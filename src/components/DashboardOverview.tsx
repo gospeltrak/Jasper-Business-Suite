@@ -95,7 +95,7 @@ export default function DashboardOverview({
   }, [sales, timeframe]);
 
   // Derived financial indicators
-  const totalRevenue = useMemo(() => {
+  const totalMoney Earned = useMemo(() => {
     return filteredSales.reduce((sum, s) => sum + s.total, 0);
   }, [filteredSales]);
 
@@ -110,11 +110,11 @@ export default function DashboardOverview({
     }, 0);
   }, [filteredSales, products]);
 
-  const grossProfit = totalRevenue - totalCost;
-  const avgMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : (sales.length === 0 ? 0 : 34.5);
+  const grossProfit = totalMoney Earned - totalCost;
+  const avgProfit % = totalMoney Earned > 0 ? (grossProfit / totalMoney Earned) * 100 : (sales.length === 0 ? 0 : 34.5);
 
-  // Calculation of Revenue Summary Metrics
-  const todayTotalRevenue = useMemo(() => {
+  // Calculation of Money Earned Summary Metrics
+  const todayTotalMoney Earned = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
     return sales
       .filter(s => s.timestamp && s.timestamp.startsWith(todayStr))
@@ -157,8 +157,8 @@ export default function DashboardOverview({
         return method === 'credit' || method === 'unpaid' || method === 'pending';
       })
       .reduce((sum, s) => sum + s.total, 0);
-    return creditSalesTotal > 0 ? creditSalesTotal : (sales.length === 0 ? 0 : Math.round(totalRevenue * 0.125));
-  }, [sales, totalRevenue]);
+    return creditSalesTotal > 0 ? creditSalesTotal : (sales.length === 0 ? 0 : Math.round(totalMoney Earned * 0.125));
+  }, [sales, totalMoney Earned]);
 
   // Filter expenses based on selected timeframe
   const filteredExpenses = useMemo(() => {
@@ -216,10 +216,10 @@ export default function DashboardOverview({
     return sum > 0 ? sum : Math.round(totalCost * 1.15);
   }, [filteredPurchases, totalCost]);
 
-  // Total Net Profit
+  // Total Profit
   const netProfit = useMemo(() => {
-    return totalRevenue - totalCost - totalExpensesAmt;
-  }, [totalRevenue, totalCost, totalExpensesAmt]);
+    return totalMoney Earned - totalCost - totalExpensesAmt;
+  }, [totalMoney Earned, totalCost, totalExpensesAmt]);
   
   // Low stock warning alerts
   const lowStockProducts = useMemo(() => {
@@ -365,7 +365,7 @@ export default function DashboardOverview({
         { name: 'Week 1', daysRange: [22, 30], target: 220000, fallbackSale: 185000, fallbackPurchase: 110000 },
         { name: 'Week 2', daysRange: [15, 21], target: 240000, fallbackSale: 195000, fallbackPurchase: 125000 },
         { name: 'Week 3', daysRange: [8, 14], target: 250000, fallbackSale: 210000, fallbackPurchase: 135000 },
-        { name: 'Week 4', daysRange: [0, 7], target: 280000, fallbackSale: totalRevenue > 0 ? totalRevenue : 235000, fallbackPurchase: simulatedPurchases > 0 ? simulatedPurchases : 155000 }
+        { name: 'Week 4', daysRange: [0, 7], target: 280000, fallbackSale: totalMoney Earned > 0 ? totalMoney Earned : 235000, fallbackPurchase: simulatedPurchases > 0 ? simulatedPurchases : 155000 }
       ];
 
       return weeks.map(wk => {
@@ -437,7 +437,7 @@ export default function DashboardOverview({
         purchases: purchasesVal
       };
     });
-  }, [sales, products, statusTimeframe, totalRevenue, simulatedPurchases]);
+  }, [sales, products, statusTimeframe, totalMoney Earned, simulatedPurchases]);
 
   const maxChartVal = useMemo(() => {
     return Math.max(...chartData.map(d => Math.max(d.target, d.sales, d.purchases)), 10000);
@@ -685,7 +685,7 @@ export default function DashboardOverview({
           </div>
         </div>
 
-        {/* Card 2: COGS */}
+        {/* Card 2: Cost of Goods */}
         <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-gradient-to-tr from-amber-500 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-amber-100">
@@ -696,7 +696,7 @@ export default function DashboardOverview({
             </span>
           </div>
           <div className="mt-4 text-left">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">COGS</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cost of Goods</p>
             <p className="text-xl font-black text-[#1a1a2e] tracking-tight mt-1">
               {currency} {Math.round(totalCost).toLocaleString()}
             </p>
@@ -720,11 +720,11 @@ export default function DashboardOverview({
           <div className="mt-4 text-left">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Sales</p>
             <p className="text-xl font-black text-[#1a1a2e] tracking-tight mt-1">
-              {currency} {Math.round(totalRevenue).toLocaleString()}
+              {currency} {Math.round(totalMoney Earned).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-450 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              Inflow verified
+              Money In verified
             </p>
           </div>
         </div>
@@ -736,7 +736,7 @@ export default function DashboardOverview({
               <Layers className="w-4.5 h-4.5 text-white" />
             </div>
             <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100/40">
-              Procurements
+              Buying
             </span>
           </div>
           <div className="mt-4 text-left">
@@ -792,7 +792,7 @@ export default function DashboardOverview({
             </p>
             <p className="text-[10px] text-slate-450 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className={`w-1.5 h-1.5 rounded-full ${netProfit >= 0 ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-              Net profit share: {avgMargin.toFixed(1)}%
+              Net profit share: {avgProfit %.toFixed(1)}%
             </p>
           </div>
         </div>
@@ -1392,7 +1392,7 @@ export default function DashboardOverview({
             {lowStockAlertProducts.length === 0 ? (
               <div className="py-12 text-center text-slate-450">
                 <ShieldAlert className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-800">Operational Integrity Intact</p>
+                <p className="text-xs font-bold text-slate-800">System OK Intact</p>
                 <p className="text-[10px] mt-1 text-slate-400">All items are stocked above target safety levels.</p>
               </div>
             ) : (
@@ -1456,7 +1456,7 @@ export default function DashboardOverview({
                       <button
                         type="button"
                         onClick={() => {
-                          setFeedbackToast(`Procurement request drafted for ${product.name} (${Math.max(50, limit * 3)} items)!`);
+                          setFeedbackToast(`Buying request drafted for ${product.name} (${Math.max(50, limit * 3)} items)!`);
                         }}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-2.5 py-1 text-[10px] font-bold shadow-sm flex items-center space-x-1 transition-all duration-150"
                       >
@@ -1476,7 +1476,7 @@ export default function DashboardOverview({
             <div className="bg-[#fffbeb] p-3 rounded-xl border border-amber-100 flex items-center space-x-2 shrink-0">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
               <p className="text-[10px] leading-relaxed font-semibold text-amber-800">
-                Supply chain warning activated. Replenishment logs queued for {lowStockAlertProducts.filter(p => p.stockQty <= (p.alertQty || 15)).length} lines.
+                Supply chain warning activated. Restock logs queued for {lowStockAlertProducts.filter(p => p.stockQty <= (p.alertQty || 15)).length} lines.
               </p>
             </div>
           )}
