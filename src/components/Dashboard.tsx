@@ -83,7 +83,6 @@ import {
   Inbox,
   Layers,
   MonitorPlay,
-  BookOpen,
   Menu,
   MoreHorizontal,
   X,
@@ -259,7 +258,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     'admin-chats',
     'admin-inbox',
     'admin-promotions',
-    'admin-tutorials',
     'admin-web-editor',
     'admin-settings',
     'hotel-pms',
@@ -1374,7 +1372,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         { id: 'admin-chats', label: 'Chats / Broadcasts', icon: MessageSquare },
         { id: 'admin-inbox', label: 'User Inbox', icon: Inbox },
         { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
-        { id: 'admin-tutorials', label: 'Tutorials', icon: BookOpen },
         { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
         { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
       ]
@@ -1431,7 +1428,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         { id: 'admin-chats', label: 'Chats', icon: MessageSquare },
         { id: 'admin-inbox', label: 'Inbox', icon: Inbox },
         { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
-        { id: 'admin-tutorials', label: 'Tutorials', icon: BookOpen },
         { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
         { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
       ]
@@ -1499,7 +1495,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     { id: 'admin-chats', label: 'Chats', icon: MessageSquare, tabId: 'admin-chats' },
     { id: 'admin-inbox', label: 'Inbox', icon: Inbox, tabId: 'admin-inbox' },
     { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay, tabId: 'admin-promotions' },
-    { id: 'admin-tutorials', label: 'Tutorials', icon: BookOpen, tabId: 'admin-tutorials' },
     { id: 'admin-web-editor', label: 'Web Editor', icon: Globe, tabId: 'admin-web-editor' },
     { id: 'admin-settings', label: 'Settings', icon: SettingsIcon, tabId: 'admin-settings' }
   ] : [
@@ -1514,7 +1509,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     { id: 'cash-bank', label: 'Sales Forecasting', icon: TrendingUp, tabId: 'forecasting' },
     { id: 'ledger-balance-matrix', label: 'Cash & Bank', icon: Wallet, tabId: 'cash-bank-matrix' },
     { id: 'reports-menu', label: 'Reports', icon: PieChart, tabId: 'reports' },
-    { id: 'staff', label: 'Staff Members', icon: Shield, tabId: 'staff-members' },
+    { id: 'staff', label: 'staff members', icon: Shield, tabId: 'staff-members' },
     { id: 'settings', label: 'Settings', icon: SettingsIcon, tabId: 'settings' },
     { id: 'subscription', label: 'Subscription', icon: CardIcon, tabId: 'subscription-modal' }
   ];
@@ -1782,7 +1777,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                     {activeTenant.name}
                   </span>
                   <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mt-0.5">
-                    {t(customSidebarItems.find((m: any) => m.id === activeTab || m.tabId === activeTab)?.label || activeTab.replace(/-/g, ' '))} Screen
+                    {t(customSidebarItems.find((m: any) => m.id === activeTab || m.tabId === activeTab)?.label || activeTab.replace(/-/g, ' '))}
                   </span>
                 </div>
               </div>
@@ -2317,7 +2312,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                  activeTab === 'admin-chats' ? 'chats' :
                  activeTab === 'admin-inbox' ? 'inbox' :
                  activeTab === 'admin-promotions' ? 'promotions' :
-                 activeTab === 'admin-tutorials' ? 'tutorials' :
                  activeTab === 'admin-web-editor' ? 'web-editor' :
                  activeTab === 'admin-settings' ? 'settings' : 'dashboard'
                }
@@ -2335,7 +2329,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                    subTab === 'chats' ? 'admin-chats' :
                    subTab === 'inbox' ? 'admin-inbox' :
                    subTab === 'promotions' ? 'admin-promotions' :
-                   subTab === 'tutorials' ? 'admin-tutorials' :
                    subTab === 'web-editor' ? 'admin-web-editor' :
                    subTab === 'settings' ? 'admin-settings' : 'admin-dashboard';
                  setActiveTab(mappedTab);
@@ -2708,3 +2701,4 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     </div>
   );
 }
+
