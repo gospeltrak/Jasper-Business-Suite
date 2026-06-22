@@ -1662,7 +1662,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                       : 'bg-transparent border-l-4 border-transparent hover:bg-white/5 text-slate-400 hover:text-white'
                   }`}
                 >
-                  <IconComponent className={`w-4.5 h-4.5 shrink-0 transition-colors ${isActive ? 'text-[#6c63ff]' : 'text-slate-450 group-hover:text-slate-200'}`} />
+                  <IconComponent className={`w-5 h-5 shrink-0 transition-colors ${isActive ? 'text-[#6c63ff]' : 'text-slate-450 group-hover:text-slate-200'}`} />
                   
                   {/* Label with clean fade transition */}
                   <span 
@@ -1936,7 +1936,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             {/* Right: Search icon + Language + Notification bell with unread dot indicator */}
             <div className="flex items-center space-x-1">
               <button className="p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer">
-                <Search className="w-4.5 h-4.5" />
+                <Search className="w-5 h-5" />
               </button>
 
               {/* Mobile Language Button */}
@@ -1947,7 +1947,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   className="p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 flex items-center justify-center cursor-pointer"
                   title="Select Language / Badili Lugha"
                 >
-                  <Globe className="w-4.5 h-4.5 text-emerald-500" />
+                  <Globe className="w-5 h-5 text-emerald-500" />
                 </button>
 
                 {showDashLangMenu && (
@@ -1986,7 +1986,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 className="relative p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer"
                 onClick={() => setIsNotificationCenterOpen(true)}
               >
-                <Bell className="w-4.5 h-4.5" />
+                <Bell className="w-5 h-5" />
                 {unreadCount > 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900" />}
                 {offlinePendingCount > 0 && unreadCount === 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#ef4444] rounded-full border-2 border-white dark:border-slate-900" />}
               </div>
@@ -2414,7 +2414,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 active:scale-90 transition-all border-none cursor-pointer"
               type="button"
             >
-              <X className="w-4.5 h-4.5" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
@@ -2478,7 +2478,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                       className={`w-full flex items-center gap-3 px-4 py-3.5 active:bg-slate-50 dark:active:bg-slate-800/50 transition-colors cursor-pointer bg-transparent border-none text-left ${idx < arr.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''}`}
                     >
                       <div className={`w-9 h-9 rounded-xl ${item.bg} flex items-center justify-center shrink-0`}>
-                        <Icon className={`w-4.5 h-4.5 ${item.color}`} strokeWidth={2} />
+                        <Icon className={`w-5 h-5 ${item.color}`} strokeWidth={2} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">{t(item.label)}</p>
@@ -2499,7 +2499,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 className="w-full flex items-center gap-3 px-4 py-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 active:bg-rose-50 transition-colors cursor-pointer text-left"
               >
                 <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center shrink-0">
-                  <LogOut className="w-4.5 h-4.5 text-rose-500" strokeWidth={2} />
+                  <LogOut className="w-5 h-5 text-rose-500" strokeWidth={2} />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-rose-600 leading-tight">Sign Out</p>
