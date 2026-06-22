@@ -875,7 +875,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
   };
 
   const handleQuickDemoAffiliate = () => {
-    setLoginEmail("partner@jasper.africa");
+    setLoginEmail("+255700000010");
     setLoginPassword("password123");
     const defaultAffiliate: Affiliate = {
       id: "aff-demo-99",
@@ -897,7 +897,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
   };
 
   const handleQuickDemoPartner = () => {
-    setLoginEmail("langa@jasper.com");
+    setLoginEmail("+255700000011");
     setLoginPassword("password123");
     const defaultAffiliate: Affiliate = {
       id: "langa-super",
@@ -933,7 +933,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
       try {
         const parsed = JSON.parse(rawImmersive);
         const match = parsed.find(
-          (a: any) => a.email.toLowerCase() === loginEmail.toLowerCase(),
+          (a: any) => (a.phone?.replace(/[^\d]/g, '') === loginEmail.replace(/[^\d]/g, '') || a.email?.toLowerCase() === loginEmail.toLowerCase()),
         );
         if (match) {
           const mappedAff: Affiliate = {
@@ -966,7 +966,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
       localStorage.getItem("jasper_affiliates") || "[]",
     );
     const match = existing.find(
-      (a) => a.email.toLowerCase() === loginEmail.toLowerCase(),
+      (a) => (a.phone?.replace(/[^\d]/g, '') === loginEmail.replace(/[^\d]/g, '') || a.email?.toLowerCase() === loginEmail.toLowerCase()),
     );
 
     if (match) {
@@ -1378,45 +1378,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
 
             {/* Right side: Login & Sign up Forms */}
             <div className="lg:col-span-6 bg-slate-900/80 border border-slate-850 p-8 rounded-3xl shadow-xl relative backdrop-blur-md">
-              {/* TOP LEVEL PATHWAY SWITCHER */}
-              <div className="space-y-2 mb-6 text-left">
-                <label className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold">
-                  Select System Pathway:
-                </label>
-                <div
-                  id="portal-role-selector"
-                  className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-850/80"
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPortalRole("affiliate");
-                      setAuthMode("login");
-                    }}
-                    className={`py-2 px-1.5 rounded-xl text-[11px] font-bold uppercase transition-all cursor-pointer text-center ${
-                      portalRole === "affiliate"
-                        ? "bg-emerald-500 text-slate-950 font-black shadow-md shadow-emerald-500/10"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    🤝 Direct Affiliate
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPortalRole("partner");
-                      setAuthMode("login");
-                    }}
-                    className={`py-2 px-1.5 rounded-xl text-[11px] font-bold uppercase transition-all cursor-pointer text-center ${
-                      portalRole === "partner"
-                        ? "bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/10"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    👑 Become a Partner
-                  </button>
-                </div>
-              </div>
+
 
               {/* Tabs Switcher */}
               <div className="flex bg-slate-950 p-1 rounded-2xl border border-slate-850/80 mb-6">
@@ -1457,18 +1419,12 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                   <form onSubmit={handleLoginAffiliate} className="space-y-4">
                     <div className="space-y-1.5 text-left">
                       <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
-                        {portalRole === "partner"
-                          ? "Partner Accounts Email"
-                          : "Direct Affiliate Email"}
+                        WhatsApp / Phone Number
                       </label>
                       <input
-                        type="email"
+                        type="tel"
                         required
-                        placeholder={
-                          portalRole === "partner"
-                            ? "e.g. langa@jasper.com"
-                            : "e.g. partner@jasper.africa"
-                        }
+                        placeholder="e.g. +255 712 345 678"
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 text-xs focus:border-emerald-500 font-mono"
@@ -1515,41 +1471,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                       <ArrowRight className="w-4 h-4" />
                     </button>
 
-                    <div className="relative flex py-2 items-center">
-                      <div className="flex-grow border-t border-slate-800"></div>
-                      <span className="flex-shrink mx-3 text-[9px] font-mono text-slate-550 text-slate-500 uppercase tracking-wildest font-bold">
-                        DEMO TEST PROFILE
-                      </span>
-                      <div className="flex-grow border-t border-slate-800"></div>
-                    </div>
 
-                    {portalRole === "partner" ? (
-                      <button
-                        type="button"
-                        onClick={handleQuickDemoPartner}
-                        className="w-full py-3 bg-slate-950 border border-slate-850 hover:border-amber-500 text-amber-400 font-extrabold uppercase tracking-widest text-xs font-mono rounded-2xl transition-all cursor-pointer flex items-center justify-center space-x-2 shadow-inner"
-                      >
-                        <Award className="w-4 h-4" />
-                        <span>Quick Demo Login — Deogratius Langa</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleQuickDemoAffiliate}
-                        className="w-full py-3 bg-slate-950 border border-slate-850 hover:border-emerald-500 text-emerald-400 font-extrabold uppercase tracking-widest text-xs font-mono rounded-2xl transition-all cursor-pointer flex items-center justify-center space-x-2 shadow-inner"
-                      >
-                        <Award className="w-4 h-4" />
-                        <span>Quick Demo Login — Sarah Mwakasege</span>
-                      </button>
-                    )}
-
-                    <p className="text-[10px] text-slate-500 text-center font-mono">
-                      Any credentials fill triggers the secure Sandbox{" "}
-                      {portalRole === "partner"
-                        ? "Partner Recruiter"
-                        : "Direct Affiliate"}{" "}
-                      suite view.
-                    </p>
                   </form>
                 </>
               ) : portalRole === "partner" && getPartnersCount() >= getPartnerCapacity() ? (
@@ -1699,8 +1621,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                       </label>
                       <input
                         type="text"
-                        required
-                        placeholder="e.g. 124-954-122"
+                        placeholder="e.g. 124-954-122 (optional)"
                         value={tinNumber}
                         onChange={(e) => setTinNumber(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 text-xs focus:border-emerald-500 font-mono text-left"
@@ -5141,3 +5062,4 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
     </div>
   );
 }
+
