@@ -239,7 +239,7 @@ export default function DashboardSalesList({
         // Map legacy document types gracefully to unified 'price quote invoice' and add mock defaults if empty
         return parsed.map(d => {
           const typeStr = d.type as string;
-          if (typeStr === 'price quote' || typeStr === 'invoice' || typeStr === 'price quote invoice') {
+          if (typeStr === 'quotation' || typeStr === 'invoice' || typeStr === 'price quote invoice') {
             return { ...d, type: 'price quote invoice' as const };
           }
           return d;
@@ -590,7 +590,7 @@ export default function DashboardSalesList({
   };
 
   const buildDocumentWhatsAppMessage = (doc: SalesDocument) => {
-    const documentLabel = doc.type === 'price quote' ? 'price quote' : 'price quote invoice';
+    const documentLabel = doc.type === 'quotation' ? 'quotation' : 'price quote invoice';
     const customer = doc.customerName?.trim() || 'valued customer';
     return `Hello ${customer}, please find attached your ${documentLabel} PDF ${doc.documentNumber} from ${activeTenant.name}. Thank you.`;
   };
@@ -2706,7 +2706,7 @@ export default function DashboardSalesList({
                     <div>
                       <div className="flex items-center justify-between">
                         <span className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider font-mono ${
-                          doc.type === 'price quote' ? 'bg-indigo-55 text-indigo-700 border border-indigo-200' :
+                          doc.type === 'quotation' ? 'bg-indigo-55 text-indigo-700 border border-indigo-200' :
                           'bg-amber-100/70 text-amber-700 border border-amber-200'
                         }`}>
                           {doc.type}
@@ -4590,8 +4590,8 @@ export default function DashboardSalesList({
                     disabled={newDocItems.length === 0}
                     onClick={() => {
                       const prefixMap = {
-                        price quote: 'QUO',
-                        'price quote invoice': 'PFI'
+                        quotation: 'QUO',
+                        'proforma invoice': 'PFI'
                       };
                       const prefix = prefixMap[newDocType] || 'DOC';
                       const nextNum = `${prefix}-2026-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -4723,13 +4723,13 @@ export default function DashboardSalesList({
                     <div className="text-left sm:text-right font-sans shrink-0">
                       <span className="text-[11px] font-black uppercase tracking-widest font-mono text-slate-400">Document</span>
                       <h2 className="text-2xl sm:text-3xl font-black text-slate-800 uppercase mt-1 tracking-tight">
-                        {viewingDocument.type === 'price quote' ? 'Quote' :
+                        {viewingDocument.type === 'quotation' ? 'Quote' :
                          viewingDocument.type === 'price quote invoice' ? 'Quote' : 'Invoice'}
                       </h2>
                       <div className="mt-4 font-mono text-xs text-slate-600 space-y-1">
                         <div>
                           <span className="text-slate-400">
-                            {viewingDocument.type === 'price quote' ? 'Quot No:' : 'Inv No:'}
+                            {viewingDocument.type === 'quotation' ? 'Quot No:' : 'Inv No:'}
                           </span>{' '}
                           <strong className="font-bold text-slate-800">{viewingDocument.documentNumber}</strong>
                         </div>
