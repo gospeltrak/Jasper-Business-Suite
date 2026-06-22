@@ -1465,7 +1465,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               { id: 'settings', label: 'System Settings', icon: SettingsIcon }
             ]
           : [
-              { id: 'overview', label: 'Ledger Analytics', icon: LayoutDashboard },
+              { id: 'overview', label: 'Sales Summary', icon: LayoutDashboard },
               { id: 'pos', label: 'Cashier Till (POS)', icon: ShoppingCart },
               { id: 'expenses', label: 'Expenses', icon: Receipt },
               { id: 'sales-list', label: 'Sales List', icon: FileText },
@@ -1506,10 +1506,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     { id: 'expenses', label: 'Expenses', icon: TrendingDown, tabId: 'expenses' },
     { id: 'products', label: 'Product Manager', icon: Package, tabId: 'products', hasSubmenu: true },
     { id: 'stock-transfer', label: 'Delivery Menu', icon: DeliveryMotorcycleIcon, tabId: 'deliveries' },
-    { id: 'cash-bank', label: 'Sales Forecasting', icon: TrendingUp, tabId: 'forecasting' },
-    { id: 'ledger-balance-matrix', label: 'Cash & Bank', icon: Wallet, tabId: 'cash-bank-matrix' },
+    { id: 'cash-bank', label: 'Future Planning', icon: TrendingUp, tabId: 'forecasting' },
+    { id: 'ledger-balance-matrix', label: 'Money & Bank', icon: Wallet, tabId: 'cash-bank-matrix' },
     { id: 'reports-menu', label: 'Reports', icon: PieChart, tabId: 'reports' },
-    { id: 'staff', label: 'staff members', icon: Shield, tabId: 'staff-members' },
+    { id: 'staff', label: 'staff', icon: Shield, tabId: 'staff-members' },
     { id: 'settings', label: 'Settings', icon: SettingsIcon, tabId: 'settings' },
     { id: 'subscription', label: 'Subscription', icon: CardIcon, tabId: 'subscription-modal' }
   ];
@@ -2221,7 +2221,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             />
           )}
 
-          {/* TAB ROOT: Cash & Bank Balance Matrix (Double-Entry Treasury Ledger) */}
+          {/* TAB ROOT: Money & Bank Balance Matrix (Double-Entry Treasury Ledger) */}
           {activeTab === 'cash-bank-matrix' && (
             <DashboardCashBank 
               activeTenant={activeTenant}
@@ -2239,7 +2239,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             />
           )}
 
-          {/* TAB ROOT: Staff Members */}
+          {/* TAB ROOT: Staff */}
           {activeTab === 'staff-members' && (
             <DashboardStaff 
               systemSettings={systemSettings}
