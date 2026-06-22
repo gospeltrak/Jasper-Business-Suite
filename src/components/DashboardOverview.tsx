@@ -34,7 +34,8 @@ import {
   MoreVertical,
   Printer,
   Share2,
-  XOctagon
+  XOctagon,
+  Receipt
 } from 'lucide-react';
 
 interface DashboardOverviewProps {
@@ -47,6 +48,8 @@ interface DashboardOverviewProps {
   isOfflineMode?: boolean;
   offlinePendingCount?: number;
   onToggleOffline?: () => void;
+  userName?: string;
+  userRole?: string;
 }
 
 export default function DashboardOverview({ 
@@ -56,6 +59,8 @@ export default function DashboardOverview({
   sales = [], 
   expenses = [], 
   purchases = [],
+  userName,
+  userRole,
   isOfflineMode = false,
   offlinePendingCount = 0,
   onToggleOffline
@@ -571,31 +576,43 @@ export default function DashboardOverview({
           })()}
           
           <div className="leading-tight">
-            <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
-              {activeTenant.name}
-            </h2>
-            <div className="flex flex-wrap items-center gap-x-2 mt-0.5 text-slate-650 dark:text-slate-400">
+            <div className="flex items-center gap-2 mb-0.5">
+              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                {(() => {
+                  const hour = new Date().getHours();
+                  const greet = hour >= 5 && hour < 12 ? '☀️' : hour >= 12 && hour < 17 ? '🌤️' : hour >= 17 && hour < 21 ? '🌆' : '🌙';
+                  const name = userName ? userName.split(' ')[0] : activeTenant.name;
+                  return `${greet} ${name}`;
+                })()}
+              </h2>
+              {userRole && (
+                <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-500/20 uppercase tracking-wider">
+                  {userRole}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 text-slate-650 dark:text-slate-400">
               <span className="text-[11.5px] font-bold text-emerald-600 dark:text-emerald-400">
                 {(() => {
                   const currentLang = lang;
                   const hour = new Date().getHours();
                   if (hour >= 5 && hour < 12) {
-                    return currentLang === 'sw' ? 'Habari za asubuhi ☀️' : t('Good morning') + ' ☀️';
+                    return currentLang === 'sw' ? 'Habari za asubuhi' : t('Good morning');
                   } else if (hour >= 12 && hour < 17) {
-                    return currentLang === 'sw' ? 'Habari za mchana 🌤️' : t('Good afternoon') + ' 🌤️';
+                    return currentLang === 'sw' ? 'Habari za mchana' : t('Good afternoon');
                   } else if (hour >= 17 && hour < 21) {
-                    return currentLang === 'sw' ? 'Habari za jioni 🌆' : t('Good evening') + ' 🌆';
+                    return currentLang === 'sw' ? 'Habari za jioni' : t('Good evening');
                   } else {
-                    return currentLang === 'sw' ? 'Usiku mwema 🌙' : t('Good night') + ' 🌙';
+                    return currentLang === 'sw' ? 'Usiku mwema' : t('Good night');
                   }
                 })()}
               </span>
-              <span className="text-[10px] text-slate-350 dark:text-slate-600 hidden sm:inline">•</span>
+              <span className="text-[10px] text-slate-350 dark:text-slate-600">•</span>
               <span className="text-[11px] font-medium text-slate-450 dark:text-slate-450 font-sans">
                 {(() => {
                   const currentLang = lang;
-                  const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-                  return new Date().toLocaleDateString(currentLang === 'sw' ? 'sw-TZ' : currentLang === 'fr' ? 'fr-FR' : currentLang === 'ar' ? 'ar' : 'en-US', options);
+                  const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
+                  return new Date().toLocaleDateString(currentLang === 'sw' ? 'sw-TZ' : currentLang === 'fr' ? 'fr-FR' : 'en-US', options);
                 })()}
               </span>
             </div>
@@ -680,8 +697,15 @@ export default function DashboardOverview({
             </p>
             <p className="text-[10px] text-slate-450 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-              {totalQtySold} units sold
+              {totalQtySold} items sold today
             </p>
+            <div className="mt-2 flex gap-0.5 items-end h-6">
+              {[40,65,45,80,55,90,70].map((h,i) => (
+                <div key={i} className="flex-1 rounded-sm bg-indigo-100 dark:bg-indigo-900/30 relative overflow-hidden">
+                  <div className="absolute bottom-0 left-0 right-0 bg-indigo-400 dark:bg-indigo-500 rounded-sm transition-all" style={{height: `${h}%`}} />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -689,20 +713,20 @@ export default function DashboardOverview({
         <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-gradient-to-tr from-amber-500 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-amber-100">
-              <Package className="w-4.5 h-4.5 text-white" />
+              <Receipt className="w-5 h-5 text-white" />
             </div>
             <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100/40">
-              Product Costs
+              Credit Dues
             </span>
           </div>
           <div className="mt-4 text-left">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cost of Goods</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Dues Owed</p>
             <p className="text-xl font-black text-[#1a1a2e] tracking-tight mt-1">
-              {currency} {Math.round(totalCost).toLocaleString()}
+              {currency} {Math.round(filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').reduce((sum:number,s:any)=>sum+(s.dueAmount||s.amountDue||0),0)).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-450 mt-1.5 font-mono tracking-wide flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              Dynamic cost ledger
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              {filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').length} unpaid orders
             </p>
           </div>
         </div>
@@ -723,9 +747,16 @@ export default function DashboardOverview({
               {currency} {Math.round(totalMoney Earned).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-450 mt-1.5 font-mono tracking-wide flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              Money In verified
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Money earned today
             </p>
+            <div className="mt-2 flex gap-0.5 items-end h-6">
+              {[30,50,45,70,60,85,75].map((h,i) => (
+                <div key={i} className="flex-1 rounded-sm bg-purple-100 dark:bg-purple-900/30 relative overflow-hidden">
+                  <div className="absolute bottom-0 left-0 right-0 bg-purple-400 dark:bg-purple-500 rounded-sm" style={{height: `${h}%`}} />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
