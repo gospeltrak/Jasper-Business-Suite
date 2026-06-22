@@ -801,9 +801,9 @@ export default function DashboardCashBank({
                             chan.category === 'telco' ? 'bg-indigo-50 text-indigo-600' :
                             'bg-amber-50 text-amber-600'
                           }`}>
-                            {chan.category === 'bank' ? <Landmark className="w-4.5 h-4.5" /> : 
-                             chan.category === 'telco' ? <Wallet className="w-4.5 h-4.5" /> :
-                             <Coins className="w-4.5 h-4.5" />}
+                            {chan.category === 'bank' ? <Landmark className="w-5 h-5" /> : 
+                             chan.category === 'telco' ? <Wallet className="w-5 h-5" /> :
+                             <Coins className="w-5 h-5" />}
                           </div>
                           <div className="min-w-0 flex-1">
                             <h4 className="font-extrabold text-slate-900 text-xs truncate" title={chan.name}>{chan.name}</h4>
