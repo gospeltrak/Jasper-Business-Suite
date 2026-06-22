@@ -30,6 +30,25 @@ export default function App() {
     '/dashboard/settings': 'settings'
   };
 
+  const isDashboardRoute = (path: string) => (
+    path === '/dashboard' ||
+    path.startsWith('/dashboard/') ||
+    Object.prototype.hasOwnProperty.call(dashboardRouteMap, path)
+  );
+
+  const getDashboardTab = (path: string) => {
+    if (Object.prototype.hasOwnProperty.call(dashboardRouteMap, path)) {
+      return dashboardRouteMap[path];
+    }
+
+    if (path.startsWith('/dashboard/')) {
+      const shortPath = `/${path.replace(/^\/dashboard\//, '')}`;
+      return dashboardRouteMap[shortPath];
+    }
+
+    return undefined;
+  };
+
   const [currentPath, setCurrentPath] = useState<string>(() => normalizePath(window.location.pathname || '/'));
   const [user, setUser] = useState<User | null>(() => {
     try {
@@ -76,9 +95,9 @@ export default function App() {
 
   // Perform route protection redirects check
   useEffect(() => {
-    if (currentPath in dashboardRouteMap && !user) {
+    if (isDashboardRoute(currentPath) && !user) {
       setRedirectMessage('Please log in to continue.');
-      window.history.pushState({}, '', '/login');
+      window.history.replaceState({}, '', '/login');
       setCurrentPath('/login');
     }
   }, [currentPath, user]);
@@ -97,23 +116,52 @@ export default function App() {
 
   // Dynamic Component switcher based on pathname
   const renderRoute = () => {
+    if (currentPath === '/login' || currentPath.startsWith('/login/')) {
+      return (
+        <LoginPage
+          onLogin={handleLoginSuccess}
+          onNavigate={navigateTo}
+          redirectMessage={redirectMessage}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
+        />
+      );
+    }
+
+    if (currentPath === '/affiliate' || currentPath.startsWith('/affiliate/')) {
+      return <AffiliatePortal onNavigate={navigateTo} />;
+    }
+
+    if (isDashboardRoute(currentPath)) {
+      if (user) {
+        return (
+          <Dashboard
+            user={user}
+            onLogout={handleLogoutSuccess}
+            onNavigate={navigateTo}
+            isDark={isDark}
+            onToggleTheme={toggleTheme}
+            initialTab={getDashboardTab(currentPath)}
+          />
+        );
+      }
+
+      return (
+        <LoginPage
+          onLogin={handleLoginSuccess}
+          onNavigate={navigateTo}
+          redirectMessage={redirectMessage || 'Please log in to continue.'}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
+        />
+      );
+    }
+
     switch (currentPath) {
       case '/':
         return <LandingPage isDark={isDark} onToggleTheme={toggleTheme} onNavigate={navigateTo} />;
-      case '/affiliate':
-        return <AffiliatePortal onNavigate={navigateTo} />;
       case '/tools':
         return <ToolsHub isDark={isDark} onToggleTheme={toggleTheme} onNavigate={navigateTo} />;
-      case '/login':
-        return (
-          <LoginPage 
-            onLogin={handleLoginSuccess} 
-            onNavigate={navigateTo} 
-            redirectMessage={redirectMessage} 
-            isDark={isDark}
-            onToggleTheme={toggleTheme}
-          />
-        );
       case '/admin':
         return (
           <LoginPage 
@@ -123,40 +171,6 @@ export default function App() {
             isDark={isDark}
             onToggleTheme={toggleTheme}
             isSaasAdminPortal={true}
-          />
-        );
-      case '/dashboard':
-      case '/sales':
-      case '/dashboard/sales':
-      case '/sales-list':
-      case '/dashboard/sales-list':
-      case '/reports':
-      case '/dashboard/reports':
-      case '/pos':
-      case '/dashboard/pos':
-      case '/products':
-      case '/dashboard/products':
-      case '/settings':
-      case '/dashboard/settings':
-        if (user) {
-          return (
-            <Dashboard 
-              user={user} 
-              onLogout={handleLogoutSuccess} 
-              onNavigate={navigateTo} 
-              isDark={isDark}
-              onToggleTheme={toggleTheme}
-              initialTab={dashboardRouteMap[currentPath]}
-            />
-          );
-        }
-        return (
-          <LoginPage
-            onLogin={handleLoginSuccess}
-            onNavigate={navigateTo}
-            redirectMessage={redirectMessage || 'Please log in to continue.'}
-            isDark={isDark}
-            onToggleTheme={toggleTheme}
           />
         );
       default:
