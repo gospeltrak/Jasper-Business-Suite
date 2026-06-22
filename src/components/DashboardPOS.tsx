@@ -309,7 +309,7 @@ export default function DashboardPOS({
     return `${year}-${month}-${day}`;
   });
 
-  // Effect to absorb preloaded cart items (such as Quotation or Proforma conversion)
+  // Effect to absorb preloaded cart items (such as Quote or Quote conversion)
   useEffect(() => {
     if (preloadedCart && preloadedCart.items && preloadedCart.items.length > 0) {
       const mapped = preloadedCart.items.map(item => {
@@ -1501,7 +1501,7 @@ export default function DashboardPOS({
         <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <ShoppingCart className="w-4 h-4 text-emerald-650" />
-            <span className="font-bold text-slate-800 text-sm">Shopping Till Basket</span>
+            <span className="font-bold text-slate-800 text-sm">Shopping Cart</span>
           </div>
           <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
             <span className="text-xs font-mono font-bold bg-white border border-slate-200 px-3 py-1 rounded-lg text-slate-700 shadow-xs">
@@ -1808,7 +1808,7 @@ export default function DashboardPOS({
 
             <div className="flex justify-between items-center text-slate-500 border-t border-dashed border-slate-200 py-1.5">
               <div className="flex flex-col">
-                <span className="font-bold text-slate-600 font-sans">Compliance Choice:</span>
+                <span className="font-bold text-slate-600 font-sans">Tax Type:</span>
                 <span className="text-[9.5px] text-slate-400 font-sans">Customer VAT status</span>
               </div>
               <select
@@ -1816,7 +1816,7 @@ export default function DashboardPOS({
                 onChange={(e) => setVatStatus(e.target.value as 'vat' | 'non-vat')}
                 className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-[10.5px] font-extrabold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
               >
-                <option value="non-vat">Non-VAT (0% Normal)</option>
+                <option value="non-vat">No Tax (0%)</option>
                 <option value="vat">VAT ({Math.round(activeTenant.taxRate * 100)}% TRA VFD)</option>
               </select>
             </div>
@@ -1915,7 +1915,7 @@ export default function DashboardPOS({
             </div>
             <div className="text-left">
               <h5 className="font-extrabold text-[11px] font-sans tracking-wide uppercase text-slate-100">Jasper Security Rails</h5>
-              <p className="text-[9px] font-mono text-slate-400">Live Manager Override Station</p>
+              <p className="text-[9px] font-mono text-slate-400">Manager Approval</p>
             </div>
           </div>
           <span className="text-[8.5px] font-mono font-black tracking-widest bg-emerald-950/40 text-emerald-400 border border-emerald-900 px-2 py-0.5 rounded-md">
@@ -2048,7 +2048,7 @@ export default function DashboardPOS({
         {/* Live Logs Table Header */}
         <div className="space-y-2 text-left pt-2 border-t border-slate-800">
           <div className="flex items-center justify-between">
-            <span className="text-[9px] font-bold text-slate-400 tracking-tight uppercase block font-sans">Conflict Overrides Action Log</span>
+            <span className="text-[9px] font-bold text-slate-400 tracking-tight uppercase block font-sans">Approval History</span>
             <span className="text-[8px] font-mono text-slate-500 font-extrabold uppercase">Audit Mode</span>
           </div>
           <div className="max-h-[160px] overflow-y-auto space-y-1.5 pr-1 scrollbar-thin scrollbar-thumb-slate-850">
@@ -2106,7 +2106,7 @@ export default function DashboardPOS({
 
                 {/* Customer Assignment (New feature) */}
                 <div className="space-y-2 pb-2 border-b border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Customer Identity (Required for Store Credit)</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Customer Identity (Required for Credit Sales)</span>
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       type="text"
@@ -2150,7 +2150,7 @@ export default function DashboardPOS({
 
                 {/* Gateway channels selectors */}
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Select Active Payment Rail</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Choose Payment Method</label>
                   <div className="grid grid-cols-1 gap-2">
                     {(() => {
                       const baseModes = systemSettings?.business?.paymentModes && systemSettings.business.paymentModes.length > 0
@@ -2208,7 +2208,7 @@ export default function DashboardPOS({
 
                             {isMulti && isSelected && (
                               <div className="bg-white border border-slate-200 rounded-2xl p-4.5 space-y-3 animate-fade-in shadow-xs">
-                                <p className="text-[10px] font-mono font-black text-indigo-700 uppercase tracking-wider">Multi-Channel Split Breakdown</p>
+                                <p className="text-[10px] font-mono font-black text-indigo-700 uppercase tracking-wider">Split Payment</p>
                                 <div className="grid grid-cols-2 gap-3.5">
                                   <div>
                                     <label className="block text-[9.5px] uppercase font-bold text-slate-450 mb-1">Cash In ({currency})</label>
@@ -2287,7 +2287,7 @@ export default function DashboardPOS({
                           <span>🔒 Awaiting Manager Pin Authentication...</span>
                         </span>
                       ) : (
-                        <span>Confirm & Initialize Payment</span>
+                        <span>Confirm Payment</span>
                       )}
                     </button>
                   );
@@ -2300,7 +2300,7 @@ export default function DashboardPOS({
               <div className="p-8 text-center flex flex-col items-center justify-center space-y-4">
                 <RefreshCw className="w-10 h-10 text-emerald-600 animate-spin" />
                 <div className="space-y-1">
-                  <h5 className="font-bold text-sm uppercase tracking-wider text-slate-800">Communicating with Payment Server</h5>
+                  <h5 className="font-bold text-sm uppercase tracking-wider text-slate-800">Processing Payment...</h5>
                   <p className="text-xs text-slate-450">Checking customer...</p>
                 </div>
               </div>
@@ -2503,7 +2503,7 @@ export default function DashboardPOS({
                         <span className="font-black text-rose-850 shrink-0 select-all">{receiptResult.vfdSignature}</span>
                       </div>
                       <p className="text-[8px] text-emerald-700 text-center italic mt-1.5 font-sans font-semibold">
-                        ✓ Registered with Tanzania Revenue Authority Gateway VFD Server.
+                        ✓ Registered with Tanzania Money Earned Authority Gateway VFD Server.
                       </p>
                     </div>
                   )}
