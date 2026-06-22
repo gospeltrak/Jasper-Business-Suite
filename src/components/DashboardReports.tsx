@@ -216,8 +216,8 @@ export default function DashboardReports({
       const totalOnHand = p.stockQty || 0;
       const totalCostVal = totalOnHand * (p.costPrice || 0);
       const totalRetailVal = totalOnHand * (p.sellingPrice || 0);
-      const potentialProfit % = totalRetailVal - totalCostVal;
-      csv += `"${p.name}","${p.sku || ''}","${p.barcode || ''}","${p.category || 'General'}",${p.costPrice.toFixed(2)},${p.sellingPrice.toFixed(2)},${p.shopStockQty || 0},${p.storeStockQty || 0},${totalOnHand},${totalCostVal.toFixed(2)},${potentialProfit %.toFixed(2)}\r\n`;
+      const potentialProfitValue = totalRetailVal - totalCostVal;
+      csv += `"${p.name}","${p.sku || ''}","${p.barcode || ''}","${p.category || 'General'}",${p.costPrice.toFixed(2)},${p.sellingPrice.toFixed(2)},${p.shopStockQty || 0},${p.storeStockQty || 0},${totalOnHand},${totalCostVal.toFixed(2)},${potentialProfitValue.toFixed(2)}\r\n`;
     });
 
     const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
@@ -253,19 +253,19 @@ export default function DashboardReports({
     const totalSalesRev = filteredSales.reduce((sum, s) => sum + s.total, 0);
     const totalExp = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
     
-    let estimatedCost of Goods = 0;
+    let estimatedCOGS = 0;
     filteredSales.forEach(s => {
       s.items.forEach(item => {
         const matchingProd = products.find(p => p.id === item.productId);
         if (matchingProd) {
-          estimatedCost of Goods += ((item.costPriceAtSale ?? matchingProd.costPrice) * item.qty);
+          estimatedCOGS += ((item.costPriceAtSale ?? matchingProd.costPrice) * item.qty);
         } else {
-          estimatedCost of Goods += (item.price * item.qty * 0.75);
+          estimatedCOGS += (item.price * item.qty * 0.75);
         }
       });
     });
 
-    const grossProfit = totalSalesRev - estimatedCost of Goods;
+    const grossProfit = totalSalesRev - estimatedCOGS;
     const netProfit = grossProfit - totalExp;
 
     let csv = "A4 Consolidated Balance Statement of Profit & Loss\r\n";
@@ -273,9 +273,9 @@ export default function DashboardReports({
     csv += `Generated On,${new Date().toLocaleString()}\r\n`;
     csv += `Branch,${activeTenant.name} (${activeTenant.city})\r\n\r\n`;
     csv += "Financial Line Item,Statement Value,Proportion Ratio\r\n";
-    csv += `1. Gross Money Earned Receipts,${totalSalesRev.toFixed(2)},100%\r\n`;
-    csv += `2. Cost of Goods Sold (Cost of Goods),${estimatedCost of Goods.toFixed(2)},${((estimatedCost of Goods / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
-    csv += `3. Total Profit Profit %,${grossProfit.toFixed(2)},${((grossProfit / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
+    csv += `1. Gross Revenue Receipts,${totalSalesRev.toFixed(2)},100%\r\n`;
+    csv += `2. Cost of Goods Sold (Cost of Goods),${estimatedCOGS.toFixed(2)},${((estimatedCOGS / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
+    csv += `3. Total Profit Margin,${grossProfit.toFixed(2)},${((grossProfit / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
     csv += `4. Operating Expenses Charged,${totalExp.toFixed(2)},${((totalExp / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
     csv += `5. NET OPERATING PROFIT/LOSS,${netProfit.toFixed(2)},${((netProfit / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
 
@@ -325,7 +325,7 @@ export default function DashboardReports({
       }
       case 'product-monitoring': {
         csv = headerPrefix;
-        csv += "Rank,Product Name,Item Code,Cost Buy,Retail Pricing,Profit Profit %,Items Sold,Gross Money Earned,Profit % Earned\r\n";
+        csv += "Rank,Product Name,Item Code,Cost Buy,Retail Pricing,Profit Margin,Items Sold,Gross Money Earned,Profit % Earned\r\n";
         const prodPerfMap: Record<string, { name: string; sku: string; cost: number; price: number; margin: number; sold: number; rev: number; profit: number }> = {};
         filteredSales.forEach(s => {
           s.items.forEach(it => {
@@ -513,7 +513,7 @@ export default function DashboardReports({
   // 1. Profit & Loss Computation
   // -------------------------------------------------------------
   // Gross sales receipts
-  const totalSalesMoney Earned = filteredSales.reduce((acc, s) => acc + s.total, 0);
+  const totalSalesRevenue = filteredSales.reduce((acc, s) => acc + s.total, 0);
 
   // Compute total gross sales before discounts or VAT
   const totalGrossSales = filteredSales.reduce((sum, s) => {
@@ -522,16 +522,16 @@ export default function DashboardReports({
 
   // Compute Cost of Goods Sold (Cost of Goods) for completed sales
   // Find Cost of Goods by fetching the target product's costPrice * quantity sold
-  const totalCost of Goods = filteredSales.reduce((acc, sale) => {
-    const saleCost of Goods = sale.items.reduce((sAcc, item) => {
+  const totalCOGS = filteredSales.reduce((acc, sale) => {
+    const saleCOGS = sale.items.reduce((sAcc, item) => {
       const matchProd = products.find(p => p.id === item.productId);
       const unitCost = item.costPriceAtSale ?? (matchProd ? matchProd.costPrice : (item.price * 0.6)); // Fallback: 60% of price
       return sAcc + (unitCost * item.qty);
     }, 0);
-    return acc + saleCost of Goods;
+    return acc + saleCOGS;
   }, 0);
 
-  const grossProfit = totalSalesMoney Earned - totalCost of Goods;
+  const grossProfit = totalSalesRevenue - totalCOGS;
   const totalExpensesCharged = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
   const netProfit = grossProfit - totalExpensesCharged;
 
@@ -637,17 +637,17 @@ export default function DashboardReports({
 
   const salesReportMetrics = useMemo(() => {
     const totalOrders = recordsFilteredSales.length;
-    const totalMoney Earned = recordsFilteredSales.reduce((sum, s) => sum + s.total, 0);
+    const totalRevenue = recordsFilteredSales.reduce((sum, s) => sum + s.total, 0);
     const totalTax = recordsFilteredSales.reduce((sum, s) => sum + s.tax, 0);
-    const avgTicket = totalOrders > 0 ? (totalMoney Earned / totalOrders) : 0;
+    const avgTicket = totalOrders > 0 ? (totalRevenue / totalOrders) : 0;
 
     const paidRecords = recordsFilteredSales.filter(s => s.paymentMethod !== 'Credit');
     const paidCount = paidRecords.length;
-    const paidMoney Earned = paidRecords.reduce((sum, s) => sum + s.total, 0);
+    const paidRevenue = paidRecords.reduce((sum, s) => sum + s.total, 0);
 
     const unpaidRecords = recordsFilteredSales.filter(s => s.paymentMethod === 'Credit');
     const unpaidCount = unpaidRecords.length;
-    const unpaidMoney Earned = unpaidRecords.reduce((sum, s) => sum + s.total, 0);
+    const unpaidRevenue = unpaidRecords.reduce((sum, s) => sum + s.total, 0);
 
     const totalProfit = recordsFilteredSales.reduce((sum, s) => {
       const cogs = s.items.reduce((acc, item) => {
@@ -660,13 +660,13 @@ export default function DashboardReports({
 
     return {
       totalOrders,
-      totalMoney Earned,
+      totalRevenue,
       totalTax,
       avgTicket,
       paidCount,
-      paidMoney Earned,
+      paidRevenue,
       unpaidCount,
-      unpaidMoney Earned,
+      unpaidRevenue,
       totalProfit
     };
   }, [recordsFilteredSales, products]);
@@ -834,26 +834,26 @@ export default function DashboardReports({
   // -------------------------------------------------------------
   const getProductVelocityRates = () => {
     // Aggregator counts
-    const mapRates: Record<string, { id: string; name: string; sku: string; unitsSold: number; totalMoney Earned: number; totalCogs: number; profit: number }> = {};
+    const mapRates: Record<string, { id: string; name: string; sku: string; unitsSold: number; totalRevenue: number; totalCogs: number; profit: number }> = {};
     
     // Initializer
     products.forEach(p => {
-      mapRates[p.id] = { id: p.id, name: p.name, sku: p.sku, unitsSold: 0, totalMoney Earned: 0, totalCogs: 0, profit: 0 };
+      mapRates[p.id] = { id: p.id, name: p.name, sku: p.sku, unitsSold: 0, totalRevenue: 0, totalCogs: 0, profit: 0 };
     });
 
     filteredSales.forEach(s => {
       s.items.forEach(item => {
         if (!mapRates[item.productId]) {
-          mapRates[item.productId] = { id: item.productId, name: item.productName, sku: 'N/A', unitsSold: 0, totalMoney Earned: 0, totalCogs: 0, profit: 0 };
+          mapRates[item.productId] = { id: item.productId, name: item.productName, sku: 'N/A', unitsSold: 0, totalRevenue: 0, totalCogs: 0, profit: 0 };
         }
         const state = mapRates[item.productId];
         const prodMatch = products.find(pr => pr.id === item.productId);
         const costVal = item.costPriceAtSale ?? (prodMatch ? prodMatch.costPrice : (item.price * 0.6));
         
         state.unitsSold += item.qty;
-        state.totalMoney Earned += (item.price * item.qty * (1 - item.discount / 100));
+        state.totalRevenue += (item.price * item.qty * (1 - item.discount / 100));
         state.totalCogs += (costVal * item.qty);
-        state.profit = state.totalMoney Earned - state.totalCogs;
+        state.profit = state.totalRevenue - state.totalCogs;
       });
     });
 
@@ -1150,7 +1150,7 @@ export default function DashboardReports({
         {/* Unified Date Filter Rails */}
         <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-slate-700">
           <div className="flex items-center bg-slate-100 rounded-xl px-3 py-2 border border-slate-200">
-            <Calendar className="w-4.5 h-4.5 text-slate-400 mr-2 shrink-0" />
+            <Calendar className="w-5 h-5 text-slate-400 mr-2 shrink-0" />
             <span className="text-[10px] text-slate-400 uppercase font-black mr-2">From:</span>
             <input
               type="date"
@@ -1160,7 +1160,7 @@ export default function DashboardReports({
             />
           </div>
           <div className="flex items-center bg-slate-100 rounded-xl px-3 py-2 border border-slate-200">
-            <Calendar className="w-4.5 h-4.5 text-slate-400 mr-2 shrink-0" />
+            <Calendar className="w-5 h-5 text-slate-400 mr-2 shrink-0" />
             <span className="text-[10px] text-slate-400 uppercase font-black mr-2">To:</span>
             <input
               type="date"
@@ -1301,7 +1301,7 @@ export default function DashboardReports({
           </div>
           <div>
             <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Total Sales Money Earned</p>
-            <h4 className="text-xl font-black text-slate-905 mt-1">{currency}{Math.round(totalSalesMoney Earned).toLocaleString()}</h4>
+            <h4 className="text-xl font-black text-slate-905 mt-1">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</h4>
             <p className="text-[9.5px] font-mono text-slate-400 mt-0.5 leading-none">{filteredSales.length} approved sales receipts</p>
           </div>
         </div>
@@ -1313,8 +1313,8 @@ export default function DashboardReports({
           </div>
           <div>
             <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Cost of Goods (Cost of Goods)</p>
-            <h4 className="text-xl font-black text-slate-905 mt-1">{currency}{Math.round(totalCost of Goods).toLocaleString()}</h4>
-            <p className="text-[9.5px] font-mono text-slate-400 mt-0.5 leading-none">Profit %: {totalSalesMoney Earned > 0 ? Math.round(((totalSalesMoney Earned - totalCost of Goods)/totalSalesMoney Earned) * 100) : 0}%</p>
+            <h4 className="text-xl font-black text-slate-905 mt-1">{currency}{Math.round(totalCOGS).toLocaleString()}</h4>
+            <p className="text-[9.5px] font-mono text-slate-400 mt-0.5 leading-none">Profit %: {totalSalesRevenue > 0 ? Math.round(((totalSalesRevenue - totalCOGS)/totalSalesRevenue) * 100) : 0}%</p>
           </div>
         </div>
 
@@ -1394,7 +1394,7 @@ export default function DashboardReports({
           </div>
           <div className="mt-1">
             <h4 className="text-sm font-black text-slate-850 dark:text-slate-100 font-sans">
-              {currency}{Math.round(totalSalesMoney Earned).toLocaleString()}
+              {currency}{Math.round(totalSalesRevenue).toLocaleString()}
             </h4>
             <p className="text-[9px] text-slate-400 font-mono leading-none mt-0.5">Net receipts</p>
           </div>
@@ -1410,10 +1410,10 @@ export default function DashboardReports({
           </div>
           <div className="mt-1">
             <h4 className="text-sm font-black text-slate-850 dark:text-slate-100 font-sans">
-              {currency}{Math.round(totalCost of Goods).toLocaleString()}
+              {currency}{Math.round(totalCOGS).toLocaleString()}
             </h4>
             <p className="text-[9px] text-slate-400 font-mono leading-none mt-0.5">
-              Profit %: {totalSalesMoney Earned > 0 ? Math.round(((totalSalesMoney Earned - totalCost of Goods)/totalSalesMoney Earned) * 100) : 0}%
+              Profit %: {totalSalesRevenue > 0 ? Math.round(((totalSalesRevenue - totalCOGS)/totalSalesRevenue) * 100) : 0}%
             </p>
           </div>
         </div>
@@ -1522,7 +1522,7 @@ export default function DashboardReports({
                 );
               })()}
             </div>
-            <ChevronDown className="w-4.5 h-4.5 text-slate-400" />
+            <ChevronDown className="w-5 h-5 text-slate-400" />
           </button>
 
           {/* DROP DOWN BOTTOM SHEET LIST (When Opened) */}
@@ -1631,12 +1631,12 @@ export default function DashboardReports({
                 <div className="space-y-2.5">
                   <div className="flex justify-between items-center text-xs p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                     <span className="text-slate-600 font-medium">total sales</span>
-                    <span className="font-mono font-bold text-slate-800">{currency}{Math.round(totalSalesMoney Earned).toLocaleString()}</span>
+                    <span className="font-mono font-bold text-slate-800">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</span>
                   </div>
 
                   <div className="flex justify-between items-center text-xs p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                     <span className="text-slate-600 font-medium">cost of goods sold</span>
-                    <span className="font-mono font-bold text-slate-800">({currency}{Math.round(totalCost of Goods).toLocaleString()})</span>
+                    <span className="font-mono font-bold text-slate-800">({currency}{Math.round(totalCOGS).toLocaleString()})</span>
                   </div>
 
                   <div className="flex justify-between items-center text-xs p-3.5 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-100">
@@ -1814,13 +1814,13 @@ export default function DashboardReports({
         {reportTab === 'sales-report' && (() => {
           const {
             totalOrders: totalSalesOrdersCount,
-            totalMoney Earned: totalSalesMoney EarnedVal,
+            totalRevenue: totalSalesRevenueVal,
             totalTax: totalRecordsTax,
             avgTicket: avgTicketSize,
             paidCount: paidSalesCount,
-            paidMoney Earned: paidSalesMoney EarnedVal,
+            paidRevenue: paidSalesMoney EarnedVal,
             unpaidCount: unpaidSalesCount,
-            unpaidMoney Earned: unpaidSalesMoney EarnedVal,
+            unpaidRevenue: unpaidSalesMoney EarnedVal,
             totalProfit: totalSalesProfitVal
           } = salesReportMetrics;
           
@@ -1841,7 +1841,7 @@ export default function DashboardReports({
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => {
-                      const msg = `Excel CSV Compiled: Successfully exported ${recordsFilteredSales.length} records totaling ${currency}${Math.round(totalSalesMoney EarnedVal).toLocaleString()} for ${activeTenant.name}. Check your local system downloads folder.`;
+                      const msg = `Excel CSV Compiled: Successfully exported ${recordsFilteredSales.length} records totaling ${currency}${Math.round(totalSalesRevenueVal).toLocaleString()} for ${activeTenant.name}. Check your local system downloads folder.`;
                       alert(msg);
                     }}
                     className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-220 rounded-xl text-xs uppercase font-mono transition-all flex items-center space-x-1 active:scale-95 cursor-pointer"
@@ -1917,7 +1917,7 @@ export default function DashboardReports({
                     </div>
                     <div>
                       <p className="text-xs uppercase text-slate-500 font-medium tracking-tight">Money Earned Generated</p>
-                      <h4 className="text-lg font-black text-slate-900 mt-1">{currency}{Math.round(totalSalesMoney EarnedVal).toLocaleString()}</h4>
+                      <h4 className="text-lg font-black text-slate-900 mt-1">{currency}{Math.round(totalSalesRevenueVal).toLocaleString()}</h4>
                     </div>
                   </div>
                   <p className="text-xs text-slate-400 font-sans mt-3 border-t border-slate-100 pt-2 leading-tight">VAT: {currency}{Math.round(totalRecordsTax).toLocaleString()} | Avg: {currency}{Math.round(avgTicketSize).toLocaleString()}</p>
@@ -1962,7 +1962,7 @@ export default function DashboardReports({
                       <h4 className="text-lg font-black text-indigo-700 mt-1">{currency}{Math.round(totalSalesProfitVal).toLocaleString()}</h4>
                     </div>
                   </div>
-                  <p className="text-xs text-slate-400 font-sans mt-3 border-t border-slate-100 pt-2 leading-tight">Profit %: {totalSalesMoney EarnedVal > 0 ? Math.round((totalSalesProfitVal / totalSalesMoney EarnedVal) * 100) : 0}% of sales</p>
+                  <p className="text-xs text-slate-400 font-sans mt-3 border-t border-slate-100 pt-2 leading-tight">Profit %: {totalSalesRevenueVal > 0 ? Math.round((totalSalesProfitVal / totalSalesRevenueVal) * 100) : 0}% of sales</p>
                 </div>
               </div>
 
@@ -2528,24 +2528,24 @@ export default function DashboardReports({
                       const pricePerBase = Number(p.inventorySettings?.defaultPricePerBaseUnit || p.defaultPricePerBaseUnit || p.sellUnitPrice || p.sellingPrice || 0);
                       const costPerBase = Number(p.costPrice || 0);
                       const packageCost = Number(p.packageBuyingCost || p.inventorySettings?.packageBuyingCost || (costPerBase * conversion));
-                      const totalMoney Earned = conversion * pricePerBase;
-                      const grossProfit = totalMoney Earned - packageCost;
+                      const totalRevenue = conversion * pricePerBase;
+                      const grossProfit = totalRevenue - packageCost;
                       const breakeven = pricePerBase > 0 ? Math.ceil(packageCost / pricePerBase) : 0;
 
                       let unitsSold = 0;
-                      let periodMoney Earned = 0;
+                      let periodRevenue = 0;
                       let periodCogs = 0;
                       filteredSales.forEach(s => {
                           s.items.forEach(it => {
                               if (it.productId === p.id) {
                                   unitsSold += it.baseQuantityDeducted ?? it.qty;
-                                  periodMoney Earned += it.qty * it.price * (1 - (it.discount || 0) / 100);
+                                  periodRevenue += it.qty * it.price * (1 - (it.discount || 0) / 100);
                                   periodCogs += (it.costPriceAtSale ?? costPerBase) * it.qty;
                               }
                           });
                       });
 
-                      const periodProfit = periodMoney Earned - periodCogs;
+                      const periodProfit = periodRevenue - periodCogs;
 
                       return (
                         <div key={p.id} className="bg-white border border-slate-200 shadow-sm rounded-2xl p-4 space-y-3 font-mono text-xs shrink-0">
@@ -2559,12 +2559,12 @@ export default function DashboardReports({
                             <div className="flex justify-between border-t border-slate-100 pt-1"><span>Breakeven:</span> <span className="font-bold text-slate-800">{breakeven} {baseUnit} required</span></div>
                           </div>
                           <div className="pt-2 border-t border-slate-100 space-y-1">
-                            <div className="flex justify-between text-emerald-600"><span>Gross Money Earned:</span> <span className="font-bold">{currency}{totalMoney Earned.toLocaleString()}</span></div>
+                            <div className="flex justify-between text-emerald-600"><span>Gross Money Earned:</span> <span className="font-bold">{currency}{totalRevenue.toLocaleString()}</span></div>
                             <div className="flex justify-between text-emerald-700"><span>Total Profit:</span> <span className="font-bold">{currency}{grossProfit.toLocaleString()}</span></div>
                           </div>
                           <div className="mt-2 bg-indigo-50 border border-indigo-100 rounded-xl p-2.5 space-y-1">
                             <div className="flex justify-between text-indigo-700 font-bold"><span>Period Sold:</span> <span>{unitsSold.toFixed(2)} {baseUnit}</span></div>
-                            <div className="flex justify-between text-indigo-800 font-bold"><span>Period Money Earned:</span> <span>{currency}{periodMoney Earned.toLocaleString()}</span></div>
+                            <div className="flex justify-between text-indigo-800 font-bold"><span>Period Money Earned:</span> <span>{currency}{periodRevenue.toLocaleString()}</span></div>
                             <div className="flex justify-between text-indigo-900 font-bold"><span>Period Profit:</span> <span>{currency}{periodProfit.toLocaleString()}</span></div>
                           </div>
                         </div>
@@ -2586,7 +2586,7 @@ export default function DashboardReports({
               );
 
           let totalQtySold = 0;
-          let totalMoney Earned = 0;
+          let totalRevenue = 0;
           let totalCogs = 0;
 
           salesForMonitoredProduct.forEach(sale => {
@@ -2600,7 +2600,7 @@ export default function DashboardReports({
                 } else {
                   itemSub = itemSub * (1 - itemDiscount / 100);
                 }
-                totalMoney Earned += itemSub;
+                totalRevenue += itemSub;
                 
                 const itemProd = products.find(p => p.id === item.productId);
                 totalCogs += (item.costPriceAtSale ?? itemProd?.costPrice ?? 0) * item.qty;
@@ -2608,8 +2608,8 @@ export default function DashboardReports({
             });
           });
 
-          const totalProductProfit = totalMoney Earned - totalCogs;
-          const productProfitProfit % = totalMoney Earned > 0 ? (totalProductProfit / totalMoney Earned) * 100 : 0;
+          const totalProductProfit = totalRevenue - totalCogs;
+          const productProfitProfit % = totalRevenue > 0 ? (totalProductProfit / totalRevenue) * 100 : 0;
 
           // Simple Search & Select filtered product lookup
           const filteredOptions = products.filter(p => 
@@ -2978,7 +2978,7 @@ export default function DashboardReports({
                         </div>
                         <div className="flex justify-between items-center py-1 border-b border-slate-200">
                           <span className="text-slate-500 font-medium">Sales Money Earned:</span>
-                          <span className="font-mono font-extrabold text-emerald-700">{currency}{Math.round(totalMoney Earned).toLocaleString()}</span>
+                          <span className="font-mono font-extrabold text-emerald-700">{currency}{Math.round(totalRevenue).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between items-center py-1">
                           <span className="text-slate-505 font-black">Net Profit % Profit:</span>
@@ -3287,8 +3287,8 @@ export default function DashboardReports({
 
         {reportTab === 'dual-channel' && (() => {
           // Computations
-          let retailMoney Earned = 0;
-          let wholesaleMoney Earned = 0;
+          let retailRevenue = 0;
+          let wholesaleRevenue = 0;
           let retailCogs = 0;
           let wholesaleCogs = 0;
           let retailOrders = 0;
@@ -3357,27 +3357,27 @@ export default function DashboardReports({
                 stats.wholesaleRev += revenue;
                 stats.wholesaleCost += cogs;
                 
-                wholesaleMoney Earned += revenue;
+                wholesaleRevenue += revenue;
                 wholesaleCogs += cogs;
               } else {
                 stats.retailQty += qty;
                 stats.retailRev += revenue;
                 stats.retailCost += cogs;
                 
-                retailMoney Earned += revenue;
+                retailRevenue += revenue;
                 retailCogs += cogs;
               }
             });
           });
 
-          const retailProfit = retailMoney Earned - retailCogs;
-          const wholesaleProfit = wholesaleMoney Earned - wholesaleCogs;
-          const totalChannelRev = retailMoney Earned + wholesaleMoney Earned;
+          const retailProfit = retailRevenue - retailCogs;
+          const wholesaleProfit = wholesaleRevenue - wholesaleCogs;
+          const totalChannelRev = retailRevenue + wholesaleRevenue;
           const totalChannelCogs = retailCogs + wholesaleCogs;
           const grandChannelProfit = totalChannelRev - totalChannelCogs;
 
-          const retailProfit % = retailMoney Earned > 0 ? (retailProfit / retailMoney Earned) * 100 : 0;
-          const wholesaleProfit % = wholesaleMoney Earned > 0 ? (wholesaleProfit / wholesaleMoney Earned) * 100 : 0;
+          const retailProfit % = retailRevenue > 0 ? (retailProfit / retailRevenue) * 100 : 0;
+          const wholesaleProfit % = wholesaleRevenue > 0 ? (wholesaleProfit / wholesaleRevenue) * 100 : 0;
 
           // Convert stats map to array for tabular loop
           const productListStats = Object.values(productStats).filter(st => {
@@ -3391,18 +3391,18 @@ export default function DashboardReports({
             csv += `Generational Range: ${startDateStr} to ${endDateStr}\r\n\r\n`;
             
             csv += "CHANNEL LEVEL PERFORMANCE SUMMARY\r\n";
-            csv += `Retail Channel Money Earned: ${currency}${Math.round(retailMoney Earned).toLocaleString()}, Cost Cost of Goods: ${currency}${Math.round(retailCogs).toLocaleString()}, Profit %: ${retailProfit %.toFixed(1)}%, Sales Orders: ${retailOrders}\r\n`;
-            csv += `Wholesale Channel Money Earned: ${currency}${Math.round(wholesaleMoney Earned).toLocaleString()}, Cost Cost of Goods: ${currency}${Math.round(wholesaleCogs).toLocaleString()}, Profit %: ${wholesaleProfit %.toFixed(1)}%, Sales Orders: ${wholesaleOrders}\r\n`;
+            csv += `Retail Channel Money Earned: ${currency}${Math.round(retailRevenue).toLocaleString()}, Cost Cost of Goods: ${currency}${Math.round(retailCogs).toLocaleString()}, Profit %: ${retailProfit %.toFixed(1)}%, Sales Orders: ${retailOrders}\r\n`;
+            csv += `Wholesale Channel Money Earned: ${currency}${Math.round(wholesaleRevenue).toLocaleString()}, Cost Cost of Goods: ${currency}${Math.round(wholesaleCogs).toLocaleString()}, Profit %: ${wholesaleProfit %.toFixed(1)}%, Sales Orders: ${wholesaleOrders}\r\n`;
             csv += `Combined Net Channel Profits: ${currency}${Math.round(grandChannelProfit).toLocaleString()}\r\n\r\n`;
 
             csv += "PER-PRODUCT DUAL SELLING CHANNEL PERFORMANCE\r\n";
-            csv += "Item Code,Product,Cost Price,Retail Price,Wholesale Price,Retail Qty,Retail Rev,Wholesale Qty,Wholesale Rev,Total Cost,Total Profit,Profit Profit %\r\n";
+            csv += "Item Code,Product,Cost Price,Retail Price,Wholesale Price,Retail Qty,Retail Rev,Wholesale Qty,Wholesale Rev,Total Cost,Total Profit,Profit Margin\r\n";
             
             productListStats.forEach(st => {
               const totalCost = st.retailCost + st.wholesaleCost;
-              const totalMoney Earned = st.retailRev + st.wholesaleRev;
-              const totalProfit = totalMoney Earned - totalCost;
-              const margin = totalMoney Earned > 0 ? (totalProfit / totalMoney Earned) * 100 : 0;
+              const totalRevenue = st.retailRev + st.wholesaleRev;
+              const totalProfit = totalRevenue - totalCost;
+              const margin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
               csv += `"${st.product.sku}","${st.product.name}",${st.product.costPrice},${st.product.sellingPrice},${st.product.wholesalePrice || 0},${st.retailQty},${st.retailRev},${st.wholesaleQty},${st.wholesaleRev},${totalCost},${totalProfit},${margin.toFixed(1)}%\r\n`;
             });
@@ -3454,7 +3454,7 @@ export default function DashboardReports({
                   <div className="py-2.5 space-y-1.5 text-left">
                     <div className="flex justify-between items-baseline">
                       <span className="text-xs text-slate-500 font-medium">Retail Money Earned:</span>
-                      <span className="font-mono text-xs font-extrabold text-slate-800">{currency}{Math.round(retailMoney Earned).toLocaleString()}</span>
+                      <span className="font-mono text-xs font-extrabold text-slate-800">{currency}{Math.round(retailRevenue).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-baseline">
                       <span className="text-xs text-slate-500 font-medium">Retail Cost Cost of Goods:</span>
@@ -3481,7 +3481,7 @@ export default function DashboardReports({
                   <div className="py-2.5 space-y-1.5 text-left">
                     <div className="flex justify-between items-baseline">
                       <span className="text-xs text-slate-500 font-medium">Wholesale Money Earned:</span>
-                      <span className="font-mono text-xs font-extrabold text-slate-800">{currency}{Math.round(wholesaleMoney Earned).toLocaleString()}</span>
+                      <span className="font-mono text-xs font-extrabold text-slate-800">{currency}{Math.round(wholesaleRevenue).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-baseline">
                       <span className="text-xs text-slate-500 font-medium">Wholesale Cost Cost of Goods:</span>
@@ -3678,7 +3678,7 @@ export default function DashboardReports({
             <div className="grid grid-cols-2 gap-3 pb-2">
               <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-xl flex flex-col justify-between min-h-[76px] text-left">
                 <span className="text-[9px] font-bold text-slate-400 font-mono uppercase tracking-wider block">Branch Yield</span>
-                <span className="text-sm font-black text-slate-800 tracking-tight block mt-1">{currency}{Math.round(totalSalesMoney Earned).toLocaleString()}</span>
+                <span className="text-sm font-black text-slate-800 tracking-tight block mt-1">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</span>
               </div>
               <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-xl flex flex-col justify-between min-h-[76px] text-left">
                 <span className="text-[9px] font-bold text-slate-400 font-mono uppercase tracking-wider block">Active Stock</span>
@@ -3767,7 +3767,7 @@ export default function DashboardReports({
                 className="w-11 h-11 flex items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100 transition-all cursor-pointer"
                 title="Export Spreadsheet"
               >
-                <Download className="w-4.5 h-4.5" />
+                <Download className="w-5 h-5" />
               </button>
             </div>
 
@@ -3835,7 +3835,7 @@ export default function DashboardReports({
                         <TrendingUp className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider font-mono">Total Sales</span>
                       </div>
-                      <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(totalSalesMoney Earned).toLocaleString()}</span>
+                      <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</span>
                     </div>
 
                     <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
@@ -3843,7 +3843,7 @@ export default function DashboardReports({
                         <Package className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider font-mono">Total Cost of Goods</span>
                       </div>
-                      <span className="text-sm font-black text-slate-800 font-sans mt-2">{currency}{Math.round(totalCost of Goods).toLocaleString()}</span>
+                      <span className="text-sm font-black text-slate-800 font-sans mt-2">{currency}{Math.round(totalCOGS).toLocaleString()}</span>
                     </div>
 
                     <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
@@ -3889,8 +3889,8 @@ export default function DashboardReports({
                     <h4 className="text-xs font-semibold text-slate-800 font-sans px-1">Statement Line Items</h4>
                     <div className="space-y-2.5">
                       {[
-                        { label: 'Total Sales Money Earned', value: totalSalesMoney Earned, type: 'plus' },
-                        { label: 'Cost of Goods Sold (Cost of Goods)', value: totalCost of Goods, type: 'minus' },
+                        { label: 'Total Sales Money Earned', value: totalSalesRevenue, type: 'plus' },
+                        { label: 'Cost of Goods Sold (Cost of Goods)', value: totalCOGS, type: 'minus' },
                         { label: 'Gross Operating Profit', value: grossProfit, type: 'summary' },
                         { label: 'Operating Expenses Burden', value: totalExpensesCharged, type: 'minus' },
                         { label: 'Consolidated Profit/Loss', value: netProfit, type: 'net' }
@@ -3937,7 +3937,7 @@ export default function DashboardReports({
                         <DollarSign className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Gross Money Earned</span>
                       </div>
-                      <span className="text-sm font-black text-emerald-650 font-sans mt-2">{currency}{Math.round(salesReportMetrics.totalMoney Earned).toLocaleString()}</span>
+                      <span className="text-sm font-black text-emerald-650 font-sans mt-2">{currency}{Math.round(salesReportMetrics.totalRevenue).toLocaleString()}</span>
                     </div>
 
                     <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
@@ -3945,7 +3945,7 @@ export default function DashboardReports({
                         <CheckCircle className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-emerald-650 uppercase tracking-wider font-mono">Paid Channel</span>
                       </div>
-                      <span className="text-sm font-black text-emerald-700 font-sans mt-2">{currency}{Math.round(salesReportMetrics.paidMoney Earned).toLocaleString()}</span>
+                      <span className="text-sm font-black text-emerald-700 font-sans mt-2">{currency}{Math.round(salesReportMetrics.paidRevenue).toLocaleString()}</span>
                     </div>
 
                     <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
@@ -3953,7 +3953,7 @@ export default function DashboardReports({
                         <ShieldAlert className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider font-mono">Credit Due</span>
                       </div>
-                      <span className="text-sm font-black text-rose-650 font-sans mt-2">{currency}{Math.round(salesReportMetrics.unpaidMoney Earned).toLocaleString()}</span>
+                      <span className="text-sm font-black text-rose-650 font-sans mt-2">{currency}{Math.round(salesReportMetrics.unpaidRevenue).toLocaleString()}</span>
                     </div>
                   </div>
 
@@ -4357,9 +4357,9 @@ export default function DashboardReports({
                           });
 
                           const totalUnits = matchItems.reduce((sum, item) => sum + item.sold, 0);
-                          const totalMoney Earned = matchItems.reduce((sum, item) => sum + item.rev, 0);
+                          const totalRevenue = matchItems.reduce((sum, item) => sum + item.rev, 0);
                           const totalProfit = matchItems.reduce((sum, item) => sum + item.profit, 0);
-                          const avgProfit % = totalMoney Earned > 0 ? (totalProfit / totalMoney Earned) * 100 : 0;
+                          const avgProfitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
                           return (
                             <>
@@ -4377,7 +4377,7 @@ export default function DashboardReports({
                                     <DollarSign className="w-4 h-4" />
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Gross Income</span>
                                   </div>
-                                  <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(totalMoney Earned).toLocaleString()}</span>
+                                  <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(totalRevenue).toLocaleString()}</span>
                                 </div>
 
                                 <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
@@ -4385,7 +4385,7 @@ export default function DashboardReports({
                                     <Percent className="w-4 h-4" />
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Average Profit %</span>
                                   </div>
-                                  <span className="text-sm font-black text-indigo-700 mt-2">{Math.round(avgProfit %)}%</span>
+                                  <span className="text-sm font-black text-indigo-700 mt-2">{Math.round(avgProfitMargin)}%</span>
                                 </div>
 
                                 <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
@@ -4436,8 +4436,8 @@ export default function DashboardReports({
               {reportTab === 'dual-channel' && (
                 <div className="space-y-4">
                   {(() => {
-                    let retailMoney Earned = 0;
-                    let wholesaleMoney Earned = 0;
+                    let retailRevenue = 0;
+                    let wholesaleRevenue = 0;
                     let retailCogs = 0;
                     let wholesaleCogs = 0;
                     let retailOrders = 0;
@@ -4461,17 +4461,17 @@ export default function DashboardReports({
                         const cogs = qty * cost;
 
                         if (isWholesaleChannel) {
-                          wholesaleMoney Earned += revenue;
+                          wholesaleRevenue += revenue;
                           wholesaleCogs += cogs;
                         } else {
-                          retailMoney Earned += revenue;
+                          retailRevenue += revenue;
                           retailCogs += cogs;
                         }
                       });
                     });
 
-                    const retailProfit = retailMoney Earned - retailCogs;
-                    const wholesaleProfit = wholesaleMoney Earned - wholesaleCogs;
+                    const retailProfit = retailRevenue - retailCogs;
+                    const wholesaleProfit = wholesaleRevenue - wholesaleCogs;
 
                     return (
                       <div className="space-y-4 font-sans text-left">
@@ -4483,7 +4483,7 @@ export default function DashboardReports({
                               <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Retail Sales</span>
                             </div>
                             <span className="text-sm font-black text-slate-820 mt-1">{retailOrders} checkouts</span>
-                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">{currency}{Math.round(retailMoney Earned).toLocaleString()}</span>
+                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">{currency}{Math.round(retailRevenue).toLocaleString()}</span>
                           </div>
 
                           <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
@@ -4492,7 +4492,7 @@ export default function DashboardReports({
                               <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Wholesale Sales</span>
                             </div>
                             <span className="text-sm font-black text-slate-820 mt-1">{wholesaleOrders} checkouts</span>
-                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">{currency}{Math.round(wholesaleMoney Earned).toLocaleString()}</span>
+                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">{currency}{Math.round(wholesaleRevenue).toLocaleString()}</span>
                           </div>
 
                           <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
@@ -5031,7 +5031,7 @@ export default function DashboardReports({
                       <span className="font-black text-rose-800 shrink-0 uppercase select-all">{selectedInspectSale.vfdSignature || 'VERIFIED'}</span>
                     </div>
                     <p className="text-[8px] text-emerald-600 text-center italic mt-1 font-sans">
-                      ✓ Registered with Tanzania Money Earned Authority Gateway VFD Server.
+                      ✓ Registered with Tanzania Revenue Authority Gateway VFD Server.
                     </p>
                   </div>
                 )}
@@ -5114,28 +5114,28 @@ export default function DashboardReports({
                 <tbody className="divide-y divide-slate-200">
                   <tr>
                     <td className="p-2 font-medium">total sales</td>
-                    <td className="p-2 text-right font-mono font-bold">{currency}{Math.round(totalSalesMoney Earned).toLocaleString()}</td>
+                    <td className="p-2 text-right font-mono font-bold">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</td>
                     <td className="p-2 text-right">100.0%</td>
                   </tr>
                   <tr>
                     <td className="p-2 font-medium">cost of goods sold</td>
-                    <td className="p-2 text-right font-mono text-rose-700">({currency}{Math.round(totalCost of Goods).toLocaleString()})</td>
-                    <td className="p-2 text-right text-rose-700">-{totalSalesMoney Earned > 0 ? ((totalCost of Goods / totalSalesMoney Earned) * 100).toFixed(1) : '0.0'}%</td>
+                    <td className="p-2 text-right font-mono text-rose-700">({currency}{Math.round(totalCOGS).toLocaleString()})</td>
+                    <td className="p-2 text-right text-rose-700">-{totalSalesRevenue > 0 ? ((totalCOGS / totalSalesRevenue) * 100).toFixed(1) : '0.0'}%</td>
                   </tr>
                   <tr className="bg-emerald-50">
                     <td className="p-2 font-bold text-emerald-950">Gross profit</td>
                     <td className="p-2 text-right font-mono font-black text-emerald-950">{currency}{Math.round(grossProfit).toLocaleString()}</td>
-                    <td className="p-2 text-right font-bold text-emerald-950">{totalSalesMoney Earned > 0 ? ((grossProfit / totalSalesMoney Earned) * 100).toFixed(1) : '0.0'}%</td>
+                    <td className="p-2 text-right font-bold text-emerald-950">{totalSalesRevenue > 0 ? ((grossProfit / totalSalesRevenue) * 100).toFixed(1) : '0.0'}%</td>
                   </tr>
                   <tr>
                     <td className="p-2 font-medium">total expenses</td>
                     <td className="p-2 text-right font-mono text-rose-705">({currency}{Math.round(totalExpensesCharged).toLocaleString()})</td>
-                    <td className="p-2 text-right text-rose-705">-{totalSalesMoney Earned > 0 ? ((totalExpensesCharged / totalSalesMoney Earned) * 100).toFixed(1) : '0.0'}%</td>
+                    <td className="p-2 text-right text-rose-705">-{totalSalesRevenue > 0 ? ((totalExpensesCharged / totalSalesRevenue) * 100).toFixed(1) : '0.0'}%</td>
                   </tr>
                   <tr className={`font-bold ${netProfit >= 0 ? 'bg-emerald-100 text-emerald-950' : 'bg-rose-50 text-rose-950'}`}>
                     <td className="p-2 text-[11px]">net profit</td>
                     <td className="p-2 text-right font-mono font-black text-[11px]">{netProfit < 0 ? '-' : ''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}</td>
-                    <td className="p-2 text-right text-[11px]">{totalSalesMoney Earned > 0 ? ((netProfit / totalSalesMoney Earned) * 100).toFixed(1) : '0.0'}%</td>
+                    <td className="p-2 text-right text-[11px]">{totalSalesRevenue > 0 ? ((netProfit / totalSalesRevenue) * 100).toFixed(1) : '0.0'}%</td>
                   </tr>
                 </tbody>
               </table>
@@ -5167,15 +5167,15 @@ export default function DashboardReports({
                 </div>
                 <div>
                   <span className="text-[8px] text-slate-400 block font-mono uppercase">Money Earned gen.</span>
-                  <span className="font-bold text-xs text-emerald-800">{currency}{Math.round(salesReportMetrics.totalMoney Earned).toLocaleString()}</span>
+                  <span className="font-bold text-xs text-emerald-800">{currency}{Math.round(salesReportMetrics.totalRevenue).toLocaleString()}</span>
                 </div>
                 <div>
                   <span className="text-[8px] text-emerald-600 block font-mono uppercase">Paid revenue</span>
-                  <span className="font-bold text-xs text-slate-700">{currency}{Math.round(salesReportMetrics.paidMoney Earned).toLocaleString()}</span>
+                  <span className="font-bold text-xs text-slate-700">{currency}{Math.round(salesReportMetrics.paidRevenue).toLocaleString()}</span>
                 </div>
                 <div>
                   <span className="text-[8px] text-amber-600 block font-mono uppercase">Unpaid credit</span>
-                  <span className="font-bold text-xs text-amber-700">{currency}{Math.round(salesReportMetrics.unpaidMoney Earned).toLocaleString()}</span>
+                  <span className="font-bold text-xs text-amber-700">{currency}{Math.round(salesReportMetrics.unpaidRevenue).toLocaleString()}</span>
                 </div>
                 <div className="col-span-2 md:col-span-1">
                   <span className="text-[8px] text-indigo-600 block font-mono uppercase">Profit generated</span>
