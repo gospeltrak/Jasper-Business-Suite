@@ -1788,7 +1788,7 @@ export default function DashboardProducts({
 
                   <div className="bg-slate-50 font-mono text-[11px] p-4 rounded-2xl border border-slate-150 space-y-1.5 text-slate-500">
                     <div className="flex justify-between items-center text-xs border-b border-slate-200 pb-1 mb-1 text-slate-700 font-sans font-bold">
-                      <span>Ledger Profit % metrics:</span>
+                      <span>Ledger Margin metrics:</span>
                       <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
                     </div>
                     <div className="flex justify-between font-mono">
@@ -1796,11 +1796,11 @@ export default function DashboardProducts({
                       <span className="text-slate-800 font-bold">{markup.toFixed(1)}%</span>
                     </div>
                     <div className="flex justify-between font-mono">
-                      <span>Profit Profit %:</span>
+                      <span>Profit Margin:</span>
                       <span className="text-emerald-600 font-bold">{margin.toFixed(1)}%</span>
                     </div>
                     <div className="flex justify-between font-sans font-bold text-slate-805 pt-1 mt-0.5 border-t border-slate-200">
-                      <span>Profit % Gain per Unit:</span>
+                      <span>Margin Gain per Unit:</span>
                       <span>{currency}{Math.round(profit).toLocaleString()}</span>
                     </div>
                   </div>
@@ -3685,9 +3685,9 @@ export default function DashboardProducts({
                   </div>
                 </div>
 
-                {/* Sells & Profit % statistics */}
+                {/* Sells & Margin statistics */}
                 <div className="space-y-4 font-mono">
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">3. Financial Profit % metrics</h5>
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">3. Financial Margin metrics</h5>
                   
                   <div className="grid grid-cols-2 gap-3 pb-1">
                     <div className="space-y-1">
@@ -3729,13 +3729,13 @@ export default function DashboardProducts({
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Earned Profit Profit %:</span>
+                        <span>Earned Profit Margin:</span>
                         <span className="text-emerald-600 font-bold">
                           {(((viewingProduct.sellingPrice - viewingProduct.costPrice) / (viewingProduct.sellingPrice || 1)) * 105).toFixed(1)}%
                         </span>
                       </div>
                       <div className="flex justify-between font-sans font-bold text-slate-850 pt-1 border-t border-slate-200">
-                        <span>Profit % Gain / Unit:</span>
+                        <span>Margin Gain / Unit:</span>
                         <span className="text-emerald-700">{currency}{(viewingProduct.sellingPrice - viewingProduct.costPrice).toLocaleString()}</span>
                       </div>
                     </div>
@@ -3985,9 +3985,9 @@ export default function DashboardProducts({
                   </div>
                 </div>
 
-                {/* Sells & Profit % statistics */}
+                {/* Sells & Margin statistics */}
                 <div className="space-y-4 font-mono">
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">3. Financial Profit % metrics</h5>
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">3. Financial Margin metrics</h5>
                   
                   <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 space-y-2">
                     <span className="text-[10px] font-bold text-slate-450 uppercase block tracking-wider font-mono">Active Selling Channels</span>
