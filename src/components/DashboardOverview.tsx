@@ -100,7 +100,7 @@ export default function DashboardOverview({
   }, [sales, timeframe]);
 
   // Derived financial indicators
-  const totalMoney Earned = useMemo(() => {
+  const totalRevenue = useMemo(() => {
     return filteredSales.reduce((sum, s) => sum + s.total, 0);
   }, [filteredSales]);
 
@@ -115,11 +115,11 @@ export default function DashboardOverview({
     }, 0);
   }, [filteredSales, products]);
 
-  const grossProfit = totalMoney Earned - totalCost;
-  const avgProfit % = totalMoney Earned > 0 ? (grossProfit / totalMoney Earned) * 100 : (sales.length === 0 ? 0 : 34.5);
+  const grossProfit = totalRevenue - totalCost;
+  const avgProfitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : (sales.length === 0 ? 0 : 34.5);
 
   // Calculation of Money Earned Summary Metrics
-  const todayTotalMoney Earned = useMemo(() => {
+  const todayTotalRevenue = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
     return sales
       .filter(s => s.timestamp && s.timestamp.startsWith(todayStr))
@@ -162,8 +162,8 @@ export default function DashboardOverview({
         return method === 'credit' || method === 'unpaid' || method === 'pending';
       })
       .reduce((sum, s) => sum + s.total, 0);
-    return creditSalesTotal > 0 ? creditSalesTotal : (sales.length === 0 ? 0 : Math.round(totalMoney Earned * 0.125));
-  }, [sales, totalMoney Earned]);
+    return creditSalesTotal > 0 ? creditSalesTotal : (sales.length === 0 ? 0 : Math.round(totalRevenue * 0.125));
+  }, [sales, totalRevenue]);
 
   // Filter expenses based on selected timeframe
   const filteredExpenses = useMemo(() => {
@@ -223,8 +223,8 @@ export default function DashboardOverview({
 
   // Total Profit
   const netProfit = useMemo(() => {
-    return totalMoney Earned - totalCost - totalExpensesAmt;
-  }, [totalMoney Earned, totalCost, totalExpensesAmt]);
+    return totalRevenue - totalCost - totalExpensesAmt;
+  }, [totalRevenue, totalCost, totalExpensesAmt]);
   
   // Low stock warning alerts
   const lowStockProducts = useMemo(() => {
@@ -370,7 +370,7 @@ export default function DashboardOverview({
         { name: 'Week 1', daysRange: [22, 30], target: 220000, fallbackSale: 185000, fallbackPurchase: 110000 },
         { name: 'Week 2', daysRange: [15, 21], target: 240000, fallbackSale: 195000, fallbackPurchase: 125000 },
         { name: 'Week 3', daysRange: [8, 14], target: 250000, fallbackSale: 210000, fallbackPurchase: 135000 },
-        { name: 'Week 4', daysRange: [0, 7], target: 280000, fallbackSale: totalMoney Earned > 0 ? totalMoney Earned : 235000, fallbackPurchase: simulatedPurchases > 0 ? simulatedPurchases : 155000 }
+        { name: 'Week 4', daysRange: [0, 7], target: 280000, fallbackSale: totalRevenue > 0 ? totalRevenue : 235000, fallbackPurchase: simulatedPurchases > 0 ? simulatedPurchases : 155000 }
       ];
 
       return weeks.map(wk => {
@@ -442,7 +442,7 @@ export default function DashboardOverview({
         purchases: purchasesVal
       };
     });
-  }, [sales, products, statusTimeframe, totalMoney Earned, simulatedPurchases]);
+  }, [sales, products, statusTimeframe, totalRevenue, simulatedPurchases]);
 
   const maxChartVal = useMemo(() => {
     return Math.max(...chartData.map(d => Math.max(d.target, d.sales, d.purchases)), 10000);
@@ -684,7 +684,7 @@ export default function DashboardOverview({
         <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-violet-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-indigo-100">
-              <ShoppingCart className="w-4.5 h-4.5 text-white" />
+              <ShoppingCart className="w-5 h-5 text-white" />
             </div>
             <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100/40">
               Active Orders
@@ -735,7 +735,7 @@ export default function DashboardOverview({
         <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-gradient-to-tr from-purple-500 to-indigo-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-purple-100">
-              <Coins className="w-4.5 h-4.5 text-white" />
+              <Coins className="w-5 h-5 text-white" />
             </div>
             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full flex items-center gap-0.5 border border-emerald-100/40">
               <ArrowUp className="w-2.5 h-2.5 text-emerald-500" /> +8.4%
@@ -744,7 +744,7 @@ export default function DashboardOverview({
           <div className="mt-4 text-left">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Sales</p>
             <p className="text-xl font-black text-[#1a1a2e] tracking-tight mt-1">
-              {currency} {Math.round(totalMoney Earned).toLocaleString()}
+              {currency} {Math.round(totalRevenue).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-450 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -764,7 +764,7 @@ export default function DashboardOverview({
         <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-gradient-to-tr from-teal-500 to-emerald-400 text-white rounded-xl flex items-center justify-center shadow-md shadow-teal-100">
-              <Layers className="w-4.5 h-4.5 text-white" />
+              <Layers className="w-5 h-5 text-white" />
             </div>
             <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100/40">
               Buying
@@ -786,7 +786,7 @@ export default function DashboardOverview({
         <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-gradient-to-tr from-blue-500 to-cyan-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-blue-100">
-              <TrendingDown className="w-4.5 h-4.5 text-white" />
+              <TrendingDown className="w-5 h-5 text-white" />
             </div>
             <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100/40">
               Opex Cash
@@ -808,7 +808,7 @@ export default function DashboardOverview({
         <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-gradient-to-tr from-emerald-500 to-green-400 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-100">
-              <TrendingUp className="w-4.5 h-4.5 text-white" />
+              <TrendingUp className="w-5 h-5 text-white" />
             </div>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
               netProfit >= 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-100/40' : 'text-rose-600 bg-rose-50 border-rose-100/40'
@@ -823,7 +823,7 @@ export default function DashboardOverview({
             </p>
             <p className="text-[10px] text-slate-450 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className={`w-1.5 h-1.5 rounded-full ${netProfit >= 0 ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-              Net profit share: {avgProfit %.toFixed(1)}%
+              Net profit share: {avgProfitMargin.toFixed(1)}%
             </p>
           </div>
         </div>
