@@ -265,7 +265,7 @@ export default function DashboardPurchases({
         <div className="space-y-1">
           <h4 className="text-base font-bold text-slate-800 flex items-center space-x-2">
             <Truck className="w-5 h-5 text-emerald-600" />
-            <span>{activeTenant.businessType === 'pharmacy' ? 'Pharmaceutical & Drug Stock Procurement' : 'Wholesale Resource Purchases (Procurement)'}</span>
+            <span>{activeTenant.businessType === 'pharmacy' ? 'Pharmaceutical & Drug Stock Buying' : 'Wholesale Resource Purchases (Buying)'}</span>
           </h4>
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest font-mono">
             Supply Chain Registry & Storage Restocking Ledger
@@ -307,7 +307,7 @@ export default function DashboardPurchases({
           {/* List title & meta banner */}
           <div className="px-6 py-5 border-b border-slate-150 flex items-center justify-between flex-wrap gap-4 bg-slate-50/50">
             <h5 className="text-xs font-black uppercase tracking-widest text-slate-600">
-              Procured Supply Records List ({purchases.length})
+              Purchase History ({purchases.length})
             </h5>
             <div className="flex items-center space-x-2 text-[10px] font-mono text-slate-400">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
@@ -339,7 +339,7 @@ export default function DashboardPurchases({
                 >
                   <option value="all">All Targets</option>
                   <option value="shop">Shop Shelves</option>
-                  <option value="store">Backroom Store</option>
+                  <option value="store">Store Room</option>
                 </select>
               </div>
 
@@ -415,7 +415,7 @@ export default function DashboardPurchases({
               <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto text-slate-400 border border-slate-200">
                 <Search className="w-6 h-6 text-slate-500" />
               </div>
-              <h6 className="font-bold text-slate-750 text-sm">No Procurement Matches</h6>
+              <h6 className="font-bold text-slate-750 text-sm">No Buying Matches</h6>
               <p className="text-slate-455 max-w-sm mx-auto text-xs font-sans">
                 No purchases matched the active search keywords or filter criteria for this branch.
               </p>
@@ -432,14 +432,14 @@ export default function DashboardPurchases({
                 <thead>
                   <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-200">
                     <th className="py-4 px-6">Timestamp / Date</th>
-                    <th className="py-4 px-6">Purchase ID</th>
-                    <th className="py-4 px-6">Warehouse Supplier</th>
-                    <th className="py-4 px-6">Restock Target</th>
-                    <th className="py-4 px-6">Procured Item Details</th>
-                    <th className="py-4 px-6 text-right">Invoice Sum</th>
-                    <th className="py-4 px-6 text-right">Settled Amount</th>
-                    <th className="py-4 px-6 text-right">Outstanding Credit</th>
-                    <th className="py-4 px-6 text-center">Dispatch Status</th>
+                    <th className="py-4 px-6">Purchase Number</th>
+                    <th className="py-4 px-6">Supplier</th>
+                    <th className="py-4 px-6">How Many to Order</th>
+                    <th className="py-4 px-6">What Was Bought</th>
+                    <th className="py-4 px-6 text-right">Total Amount</th>
+                    <th className="py-4 px-6 text-right">Amount Paid</th>
+                    <th className="py-4 px-6 text-right">Amount Still Owed</th>
+                    <th className="py-4 px-6 text-center">Delivery Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
@@ -469,7 +469,7 @@ export default function DashboardPurchases({
                           ) : (
                             <span className="inline-flex items-center space-x-1 bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-extrabold uppercase py-1 px-2.5 rounded-lg font-sans">
                               <Archive className="w-3 h-3 text-amber-600" />
-                              <span>Backroom Store</span>
+                              <span>Store Room</span>
                             </span>
                           )}
                         </td>
@@ -518,7 +518,7 @@ export default function DashboardPurchases({
                           {pc.deliveryStatus === 'Full order delivered' ? (
                             <span className="inline-flex items-center space-x-1 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-extrabold py-1 px-2.5 rounded-lg font-bold">
                               <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Full Delivered</span>
+                              <span>Fully Delivered</span>
                             </span>
                           ) : pc.deliveryStatus === 'Partial' ? (
                             <span className="inline-flex items-center space-x-1 bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-extrabold py-1 px-2.5 rounded-lg font-bold">
@@ -541,7 +541,7 @@ export default function DashboardPurchases({
           )}
         </div>
       ) : (
-        /* TAB CONTENT: Interactive Procurement Recording Till */
+        /* TAB CONTENT: Interactive Buying Recording Till */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* Left panel: Product Selector catalog */}
@@ -659,7 +659,7 @@ export default function DashboardPurchases({
                       }`}
                     >
                       <Archive className="w-4 h-4" />
-                      <span>Backroom Store</span>
+                      <span>Store Room</span>
                     </button>
                   </div>
                 </div>
