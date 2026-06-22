@@ -1398,8 +1398,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
                 {[
                   { label: t.retail, icon: ShoppingCart, color: isDark ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/15" : "text-[#007a52] bg-[#e6faf4] border-emerald-200" },
                   { label: t.wholesale, icon: Store, color: isDark ? "text-blue-400 bg-blue-500/10 border-blue-500/15" : "text-[#007a52] bg-[#e6faf4] border-emerald-200" },
-                  { label: t.pharmacies, icon: Pill, color: isDark ? "text-rose-400 bg-rose-500/10 border-rose-500/15" : "text-rose-700 bg-rose-50 border-rose-200" },
-                  { label: t.manufacturing || "Manufacturing", icon: Factory, color: isDark ? "text-amber-400 bg-amber-500/10 border-amber-500/15" : "text-amber-700 bg-amber-50 border-amber-200" }
+                  { label: t.pharmacies, icon: Pill, color: isDark ? "text-rose-400 bg-rose-500/10 border-rose-500/15" : "text-rose-700 bg-rose-50 border-rose-200" }
                 ].map((sec, i) => (
                   <div key={i} className={`flex items-center space-x-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl border transition-colors duration-300 ${sec.color}`}>
                     <sec.icon className="w-4 h-4" />
@@ -1575,16 +1574,6 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               </p>
             </div>
             
-            {/* Feat 4: SmartSoko */}
-            <div className={`p-8 rounded-2xl relative group transition-all border ${isDark ? 'bg-slate-900/45 border-slate-850 hover:border-slate-755' : 'bg-white border-slate-200 hover:border-slate-300 shadow-[0_2px_12px_rgba(0,0,0,0.06)]'}`}>
-              <div className={`p-3 w-fit rounded-xl border mb-6 group-hover:scale-110 transition-transform ${isDark ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                <Factory className="w-6 h-6 stroke-[1.75]" />
-              </div>
-              <h3 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-[#111827]'}`}>{t.featSmartSokoTitle || "SmartSoko Production"}</h3>
-              <p className={`text-sm leading-relaxed font-light ${isDark ? 'text-slate-400' : 'text-[#374151]'}`}>
-                {t.featSmartSokoDesc || "Manage raw materials, production batches, and yield efficiency with live unit cost tracking."}
-              </p>
-            </div>
 
           </div>
         </div>
@@ -1794,58 +1783,6 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
         </div>
       </section>
 
-       {/* Frequently Asked Questions (FAQs) Accordion Section (Requested) */}
-      <section id="faqs" className={`py-20 border-t transition-colors duration-300 px-4 sm:px-6 lg:px-8 order-${sectionsOrder.indexOf('faqs') + 1} ${hiddenSections['faqs'] ? 'hidden' : 'block'} ${isDark ? 'bg-slate-950 border-slate-900' : 'bg-white border-slate-200'}`}>
-        <div className="max-w-4xl mx-auto space-y-12 text-left">
-          
-          <div className="text-center space-y-3">
-            <h2 className={`text-xs font-mono uppercase tracking-widest font-bold ${isDark ? 'text-emerald-400' : 'text-[#007a52]'}`}>FAQ</h2>
-            <p className={`text-3xl font-extrabold ${isDark ? 'text-white' : 'text-[#111827]'}`}>{t.faqTitle}</p>
-          </div>
-
-          <div className="space-y-4">
-            {faqData.map((faq, idx) => {
-              const isOpen = activeFaq === idx;
-              return (
-                <div 
-                  key={idx}
-                  className={`border rounded-2xl overflow-hidden transition-all duration-300 ${isDark ? 'bg-slate-900 border-slate-850' : 'bg-[#eef0f3] border-slate-200 shadow-xs'}`}
-                >
-                  <button
-                    onClick={() => setActiveFaq(isOpen ? null : idx)}
-                    className={`w-full p-5 flex justify-between items-center text-left text-sm font-bold uppercase tracking-tight focus:outline-none cursor-pointer ${isDark ? 'text-white' : 'text-[#111827]'}`}
-                  >
-                    <span>{faq.q}</span>
-                    <ChevronDown className={`w-4 h-4 transition-transform duration-305 duration-300 ${isDark ? 'text-emerald-400' : 'text-[#007a52]'} ${isOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                  
-                  {isOpen && (
-                    <div className={`px-5 pb-5 pt-1 text-xs leading-relaxed font-light border-t font-mono animate-fade-in ${isDark ? 'text-slate-350 border-slate-850/40 bg-slate-950/20' : 'text-[#374151] border-slate-200 bg-white'}`}>
-                      {faq.a}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Collapsible FAQ Help desk Call-to-action */}
-          <div className={`border p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left ${isDark ? 'bg-slate-900 border-slate-850' : 'bg-[#eef0f3] border-slate-205 border-slate-220 border-slate-200 shadow-xs'}`}>
-            <div className="space-y-1">
-              <h5 className={`text-xs font-bold uppercase tracking-tight ${isDark ? 'text-white' : 'text-[#111827]'}`}>Kama hujaona swali lako katika maswali ya kawaida...</h5>
-              <p className={`text-[11px] font-light ${isDark ? 'text-slate-400' : 'text-[#6b7280]'}`}>Ask Lucy. Swahili supported.</p>
-            </div>
-            
-            <button
-              onClick={() => setIsLucyOpen(true)}
-              className={`font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl cursor-pointer ${isDark ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950' : 'bg-[#00b87a] hover:bg-[#009966] text-white shadow-[#00b87a]/15 shadow-md'}`}
-            >
-              Ask Lucy
-            </button>
-          </div>
-
-        </div>
-      </section>
 
       {/* Contact Section (Requested) – Form and Headquarters labels completely removed */}
       <section id="contact" className={`py-20 border-t transition-colors duration-300 px-4 sm:px-6 lg:px-8 order-${sectionsOrder.indexOf('contact') + 1} ${hiddenSections['contact'] ? 'hidden' : 'block'} ${isDark ? 'bg-slate-950 border-slate-900' : 'bg-[#f4f6f8] border-slate-200'}`}>
@@ -1861,18 +1798,22 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
 
           <div className="flex flex-col sm:flex-row justify-center items-center gap-6 pt-4 max-w-2xl mx-auto">
             <a 
-              href={customValues.contactPhone ? `tel:${customValues.contactPhone}` : "tel:+255754002991"} 
+              href="tel:+255655746552"
               className={`w-full sm:w-auto flex items-center justify-center space-x-3 font-bold text-sm uppercase tracking-wider px-8 py-4 rounded-2xl transition-all cursor-pointer shadow-lg ${isDark ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/10' : 'bg-[#00b87a] hover:bg-[#009966] text-white shadow-[#00b87a]/15'}`}
             >
               <Phone className={`w-5 h-5 ${isDark ? 'fill-slate-950' : 'fill-white'}`} />
-              <span>{customValues.contactPhoneLabel || t.callLocalAgent || "Call Local Agent"}</span>
+              <span>Call Local Agent</span>
             </a>
             <a 
-              href={customValues.contactEmail ? `mailto:${customValues.contactEmail}` : "mailto:deployments@jasper.africa"} 
+              href="https://wa.me/255655746552?text=Hello%2C%20I%20am%20interested%20in%20deploying%20Jasper%20Business%20Suite%20for%20my%20business.%20Please%20assist%20me%20with%20deployment."
+              target="_blank"
+              rel="noopener noreferrer"
               className={`w-full sm:w-auto flex items-center justify-center space-x-3 border font-bold text-sm uppercase tracking-wider px-8 py-4 rounded-2xl transition-all cursor-pointer ${isDark ? 'bg-slate-900 hover:bg-slate-800 text-white border-slate-800 hover:border-slate-755' : 'bg-white hover:bg-slate-50 text-[#111827] border-slate-200'}`}
             >
-              <Mail className={`w-5 h-5 ${isDark ? 'text-emerald-400' : 'text-[#00b87a]'}`} />
-              <span>{customValues.contactEmailLabel || t.contactDeployments || "Contact Deployments"}</span>
+              <svg className={`w-5 h-5 ${isDark ? 'text-emerald-400' : 'text-[#00b87a]'}`} viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+              </svg>
+              <span>Contact for Deployment</span>
             </a>
           </div>
 
@@ -2002,10 +1943,9 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             <h5 className={`font-mono text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-slate-400' : 'text-[#111827]'}`}>{t.footerCol1Title || "Company Suite"}</h5>
             <ul className={`space-y-2 ${isDark ? 'text-slate-400' : 'text-[#374151]'}`}>
               <li><a href="#landing-hero" className={`transition-colors ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`}>{t.footerHome || "Home Page"}</a></li>
-              <li><a href="#faqs" className={`transition-colors ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`}>{t.footerFaq || "FAQ"}</a></li>
               <li><span className={`transition-colors cursor-pointer ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`} onClick={() => setIsPrivacyOpen(true)}>{t.footerPrivacy || "Privacy Policy"}</span></li>
               <li><span className={`transition-colors cursor-pointer ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`} onClick={() => setIsTermsOpen(true)}>{t.footerTerms || "Terms and Conditions"}</span></li>
-              <li><a href="#contact" className={`transition-colors ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`}>{t.footerContact || "Contact Support"}</a></li>
+              <li><a href="https://wa.me/255655746552?text=Hello%2C%20I%20need%20support%20with%20Jasper%20Business%20Suite." target="_blank" rel="noopener noreferrer" className={`transition-colors ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`}>Contact Support</a></li>
             </ul>
           </div>
 
@@ -2076,3 +2016,4 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
     </div>
   );
 }
+
