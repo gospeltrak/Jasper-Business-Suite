@@ -57,7 +57,7 @@ const DEFAULT_TRANSLATIONS: Record<string, string> = {
   footerCol2Title: "Affiliates",
   footerJoinAffiliate: "Join Affiliate Program",
   footerAffiliateLogin: "Affiliate Log In",
-  footerCol3Title: "Becoming a Partner",
+  footerCol3Title: "Partner",
   footerBecomePartner: "Become a Partner",
   footerPartnerLogin: "Partner Log In",
   footerCol4Title: "Follow Us",
@@ -621,7 +621,7 @@ export default function SaaSWebEditor() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider font-bold">Footer Column 2 Title</label>
+                  <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider font-bold">Footer Affiliate Link</label>
                   <input 
                     type="text" 
                     value={customValues.footerCol2Title || ''}
@@ -632,13 +632,13 @@ export default function SaaSWebEditor() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider font-bold">Footer Column 3 Title</label>
+                  <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider font-bold">Footer Partner Link</label>
                   <input 
                     type="text" 
                     value={customValues.footerCol3Title || ''}
                     onChange={(e) => handleInputChange('footerCol3Title', e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500"
-                    placeholder="e.g. Becoming a Partner"
+                    placeholder="e.g. Partner"
                   />
                 </div>
 
@@ -798,43 +798,25 @@ export default function SaaSWebEditor() {
 
                 <div className="bg-slate-950/40 border border-slate-850 rounded-2xl p-4.5 space-y-4">
                   <span className="text-[10px] font-mono font-bold text-emerald-400 block uppercase tracking-widest flex items-center gap-1.5">
-                    🤝 Footer Affiliate & Partner Links
+                    🤝 Footer Affiliate & Partner Link Labels
                   </span>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider">Join Affiliate Label</label>
+                      <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider">Affiliate Link Label</label>
                       <input 
                         type="text" 
-                        value={customValues.footerJoinAffiliate || ''}
-                        onChange={(e) => handleInputChange('footerJoinAffiliate', e.target.value)}
+                        value={customValues.footerCol2Title || ''}
+                        onChange={(e) => handleInputChange('footerCol2Title', e.target.value)}
                         className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider">Affiliate Log In Label</label>
+                      <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider">Partner Link Label</label>
                       <input 
                         type="text" 
-                        value={customValues.footerAffiliateLogin || ''}
-                        onChange={(e) => handleInputChange('footerAffiliateLogin', e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider">Become a Partner Label</label>
-                      <input 
-                        type="text" 
-                        value={customValues.footerBecomePartner || ''}
-                        onChange={(e) => handleInputChange('footerBecomePartner', e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider">Partner Log In Label</label>
-                      <input 
-                        type="text" 
-                        value={customValues.footerPartnerLogin || ''}
-                        onChange={(e) => handleInputChange('footerPartnerLogin', e.target.value)}
+                        value={customValues.footerCol3Title || ''}
+                        onChange={(e) => handleInputChange('footerCol3Title', e.target.value)}
                         className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500"
                       />
                     </div>
