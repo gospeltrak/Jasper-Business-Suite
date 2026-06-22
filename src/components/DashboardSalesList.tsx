@@ -794,7 +794,7 @@ export default function DashboardSalesList({
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 animate-fade-in">
             <div className="flex items-center space-x-2.5">
               <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                <Calendar className="w-4.5 h-4.5" />
+                <Calendar className="w-5 h-5" />
               </div>
               <div className="text-left">
                 <h3 className="text-xs font-bold text-slate-800">Date Range Filter</h3>
@@ -3294,7 +3294,7 @@ export default function DashboardSalesList({
                         <span className="font-bold text-rose-800 select-all shrink-0">{selectedSale.vfdSignature}</span>
                       </div>
                       <p className="text-[8px] text-emerald-700 text-center italic mt-1.5 font-sans font-semibold">
-                        ✓ Registered with Tanzania Money Earned Authority Gateway VFD Server.
+                        ✓ Registered with Tanzania Revenue Authority Gateway VFD Server.
                       </p>
                     </div>
                   )}
