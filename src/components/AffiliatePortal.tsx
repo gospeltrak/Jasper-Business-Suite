@@ -91,6 +91,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
   const [claimSuccess, setClaimSuccess] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [portalRole, setPortalRole] = useState<"affiliate" | "partner">(
     "affiliate",
   );
@@ -1478,14 +1479,28 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
                       <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
                         Account Password
                       </label>
-                      <input
-                        type="password"
-                        required
-                        placeholder="••••••••"
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 text-xs focus:border-emerald-500"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showLoginPassword ? "text" : "password"}
+                          required
+                          placeholder="••••••••"
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 pr-11 text-xs focus:border-emerald-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword((prev) => !prev)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                          aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                        >
+                          {showLoginPassword ? (
+                            <EyeOff className="w-4 h-4" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
 
                     <button

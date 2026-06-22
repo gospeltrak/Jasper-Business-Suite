@@ -19,7 +19,9 @@ import {
   Shield,
   Globe,
   MessageCircle,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { DEMO_USERS, DEFAULT_TENANTS } from '../data';
 import { User, Tenant } from '../types';
@@ -173,6 +175,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   // Sign in Form States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loginOtpMode, setLoginOtpMode] = useState(false);
@@ -1531,15 +1534,25 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     ) : (
                       <input
                         id="login-password"
-                        type="password"
+                        type={showLoginPassword ? "text" : "password"}
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 text-sm text-slate-800 placeholder-slate-400 font-mono tracking-wider transition-all outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 pr-11 text-sm text-slate-800 placeholder-slate-400 font-mono tracking-wider transition-all outline-none"
                         placeholder="••••••••••••"
                       />
                     )}
                     <KeyRound className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                    {!loginOtpMode && (
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword((prev) => !prev)}
+                        className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-700 transition-colors"
+                        aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                      >
+                        {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    )}
                   </div>
                   {loginOtpMessage && (
                     <div className="text-[11px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-150 rounded-xl px-3 py-2">
