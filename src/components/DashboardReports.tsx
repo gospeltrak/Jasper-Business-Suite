@@ -1533,7 +1533,7 @@ export default function DashboardReports({
             onClick={() => setMobileSelectorOpen(false)}
           >
             <div 
-              className={`absolute bottom-0 left-0 right-0 max-h-[80vh] bg-white dark:bg-slate-900 rounded-t-3xl border-t border-slate-200 dark:border-slate-850 flex flex-col select-none transition-transform duration-300 transform ${
+              className={`absolute bottom-0 left-0 right-0 max-h-[calc(80dvh-56px-env(safe-area-inset-bottom))] bg-white dark:bg-slate-900 rounded-t-3xl border-t border-slate-200 dark:border-slate-850 flex flex-col select-none transition-transform duration-300 transform ${
                 mobileSelectorOpen ? 'translate-y-0 shadow-[-5px_-5px_30px_rgba(0,0,0,0.15)]' : 'translate-y-full'
               }`}
               onClick={(e) => e.stopPropagation()}
@@ -4919,7 +4919,7 @@ export default function DashboardReports({
             </div>
 
             {/* Receipt Thermal Scroll Body */}
-            <div className="p-6 overflow-y-auto max-h-[70vh] bg-slate-50">
+            <div className="p-6 overflow-y-auto max-h-[calc(70dvh-56px-env(safe-area-inset-bottom))] bg-slate-50">
               <div className="bg-white border border-slate-200 p-5 rounded-3xl shadow-xs space-y-4">
                 
                 {/* Brand Banner */}
