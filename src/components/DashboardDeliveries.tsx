@@ -250,7 +250,7 @@ export default function DashboardDeliveries({
   const [showSearchResults, setShowSearchResults] = useState(false);
 
   // Dynamically computed supplier details
-  const computedLogo = systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || '';
+  const computedLogo = systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url || '';
   const computedLogoName = activeTenant?.name || 'Lim Cleaners';
   const computedCompanyTitle = systemSettings?.business?.businessName || activeTenant?.name || 'Lim Company Limited';
   const computedCompanyAddress = systemSettings?.company?.address || 'Wazo-Bwani, Dar es Salaam';
@@ -1245,24 +1245,6 @@ Vehicle Plate Number: ${plateNumber}
                 </button>
               </div>
 
-              {/* Automatic Profile Loaded Badge */}
-              <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4.5 space-y-2 text-xs">
-                <span className="text-[9px] bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded font-black font-mono uppercase tracking-wider">Automatic Profile Loaded</span>
-                <p className="text-slate-600 font-sans tracking-tight">
-                  Company name, address, phone number, email, TIN registration, and invoice color themes are dynamically loaded from your <strong>Invoice Settings</strong>.
-                </p>
-                <div className="text-[10.5px] text-slate-550 font-mono space-y-1 pt-1.5 border-t border-indigo-100">
-                  <div>🏢 {computedCompanyTitle}</div>
-                  <div>📍 {computedCompanyAddress}</div>
-                  <div>📌 TIN: {computedTIN}</div>
-                  <div className="flex items-center gap-1.5 pt-1">
-                    🎨 Theme Color: 
-                    <span className="w-3.5 h-3.5 rounded border border-slate-350" style={{ backgroundColor: computedInvoiceColor }}></span>
-                    <span className="font-bold text-slate-800">{computedInvoiceColor}</span>
-                  </div>
-                </div>
-              </div>
-
               {/* Ref Meta Block */}
               <div className="space-y-3">
                 <span className="text-[10px] font-black text-slate-400 block tracking-wider uppercase font-mono border-b pb-1">1. Note Reference Metadata</span>
@@ -1564,7 +1546,7 @@ Vehicle Plate Number: ${plateNumber}
               <div className="bg-slate-800/90 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between text-white shadow-md gap-3">
                 <span className="text-[11px] font-mono font-bold flex items-center text-emerald-400">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-ping"></span>
-                  LIVE WYSIWYG A4 DOCUMENT PREVIEW
+                  LIVE A4 DOCUMENT PREVIEW
                 </span>
                 <div className="flex items-center gap-2">
                   <button
@@ -1644,7 +1626,7 @@ Vehicle Plate Number: ${plateNumber}
                         <img 
                           src={computedLogo} 
                           alt="Merchant Logo" 
-                          className="max-h-16 max-w-[180px] object-contain rounded-xl select-none"
+                          className="max-h-10 max-w-[120px] object-contain select-none"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
