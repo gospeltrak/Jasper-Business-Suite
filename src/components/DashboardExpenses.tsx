@@ -57,6 +57,8 @@ export default function DashboardExpenses({
   // and user can filter by a single specific date or quick day options.
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>(''); // YYYY-MM-DD format
   const [quickDateOption, setQuickDateOption] = useState<'all' | 'today' | 'yesterday' | 'week'>('all');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
 
   // Load custom categories from localStorage or set defaults
   const [categories, setCategories] = useState<string[]>(() => {
@@ -168,27 +170,28 @@ export default function DashboardExpenses({
   // Filter expenses list by active dates/days
   const filteredExpenses = useMemo(() => {
     return expenses.filter(e => {
-      if (quickDateOption === 'all' && !selectedDateFilter) {
-        return true;
-      }
-      
       const expDateStr = e.timestamp.split('T')[0];
 
+      // Date range filter (From → To) takes priority
+      if (dateFrom || dateTo) {
+        if (dateFrom && expDateStr < dateFrom) return false;
+        if (dateTo && expDateStr > dateTo) return false;
+        return true;
+      }
+
+      if (quickDateOption === 'all' && !selectedDateFilter) return true;
+
       if (quickDateOption === 'week') {
-        // checks if within last 7 days
         const expTime = new Date(e.timestamp).getTime();
-        const diffTime = Date.now() - expTime;
-        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        const diffDays = (Date.now() - expTime) / (1000 * 60 * 60 * 24);
         return diffDays >= 0 && diffDays <= 7;
       }
 
-      if (selectedDateFilter) {
-        return expDateStr === selectedDateFilter;
-      }
+      if (selectedDateFilter) return expDateStr === selectedDateFilter;
 
       return true;
     });
-  }, [expenses, selectedDateFilter, quickDateOption]);
+  }, [expenses, selectedDateFilter, quickDateOption, dateFrom, dateTo]);
 
   // Reactive calculation: "instead add total expenses where it will ba changed according to the date/day selected"
   const totalExpensesAmt = useMemo(() => {
@@ -456,13 +459,28 @@ export default function DashboardExpenses({
             </button>
           </div>
 
-          <div className="relative">
+          {/* Date range: From → To */}
+          <div className="flex items-center gap-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide shrink-0">From</span>
             <input
               type="date"
-              value={selectedDateFilter}
-              onChange={(e) => handleManualDateChange(e.target.value)}
-              className="px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-semibold rounded-xl focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-700 dark:text-slate-300"
+              value={dateFrom}
+              onChange={(e) => { setDateFrom(e.target.value); setQuickDateOption('all'); setSelectedDateFilter(''); }}
+              className="bg-transparent border-none text-xs font-semibold outline-none text-slate-700 dark:text-slate-300 w-[110px] cursor-pointer"
             />
+            <span className="text-slate-300 dark:text-slate-600 font-bold shrink-0">→</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide shrink-0">To</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => { setDateTo(e.target.value); setQuickDateOption('all'); setSelectedDateFilter(''); }}
+              className="bg-transparent border-none text-xs font-semibold outline-none text-slate-700 dark:text-slate-300 w-[110px] cursor-pointer"
+            />
+            {(dateFrom || dateTo) && (
+              <button type="button" onClick={() => { setDateFrom(''); setDateTo(''); }}
+                className="ml-1 text-slate-400 hover:text-red-500 transition-colors cursor-pointer bg-transparent border-none text-[10px] font-bold"
+              >✕</button>
+            )}
           </div>
         </div>
       </div>
@@ -1077,25 +1095,7 @@ export default function DashboardExpenses({
         </div>
       )}
 
-      {/* ── MOBILE FAB: Add Expense ── */}
-      {subTab !== 'add' && (
-        <button
-          type="button"
-          onClick={() => setSubTab('add')}
-          className="md:hidden fixed z-[60] flex items-center gap-2 shadow-xl active:scale-95 transition-all duration-150 cursor-pointer border-none"
-          style={{
-            bottom: 'calc(72px + env(safe-area-inset-bottom))',
-            right: '16px',
-            background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-            borderRadius: '50px',
-            padding: '14px 20px',
-            boxShadow: '0 8px 24px rgba(5,150,105,0.35)',
-          }}
-        >
-          <Plus className="w-5 h-5 text-white" strokeWidth={2.5} />
-          <span className="text-white font-black text-sm tracking-wide">Add Expense</span>
-        </button>
-      )}
+
 
     </div>
   );
