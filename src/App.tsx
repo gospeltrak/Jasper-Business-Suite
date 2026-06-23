@@ -129,7 +129,11 @@ export default function App() {
     }
 
     if (currentPath === '/affiliate' || currentPath.startsWith('/affiliate/')) {
-      return <AffiliatePortal onNavigate={navigateTo} />;
+      return <AffiliatePortal onNavigate={navigateTo} forcedRole="affiliate" />;
+    }
+    if (currentPath === '/partner' || currentPath.startsWith('/partner/')) {
+      return <AffiliatePortal onNavigate={navigateTo} forcedRole="partner" />;
+    }
     }
 
     if (isDashboardRoute(currentPath)) {
