@@ -2788,7 +2788,7 @@ export default function DashboardSalesList({
       {/* DIALOG: VIEW AND PRINT RECEIPT RE-PRINT OVERLAY */}
       {/* ------------------------------------------------------------- */}
       {selectedSale && !viewPaymentsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
           
           {/* CONDITION A: A4 CORPORATE INVOICE MODE */}
           {viewA4InvoiceOpen ? (
@@ -3394,7 +3394,7 @@ export default function DashboardSalesList({
       {/* DIALOG: VIEW AND MANAGE INSTALLMENT PAYMENTS */}
       {/* ------------------------------------------------------------- */}
       {selectedSale && viewPaymentsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
           <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col font-sans">
             
             {/* Header */}
@@ -3715,7 +3715,7 @@ export default function DashboardSalesList({
       {/* DIALOG: VIEW SELL RECORD (READ-ONLY DETAILED ARCHIVE SUMMARY) */}
       {/* ------------------------------------------------------------- */}
       {viewingSaleDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
           <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col font-sans max-h-[85vh] animate-scale-in">
             
             {/* Header */}
@@ -3936,7 +3936,7 @@ export default function DashboardSalesList({
       {/* DIALOG: EDIT TRANSACTION TRANSACTION (CASHIER ADMIN EDITS) */}
       {/* ------------------------------------------------------------- */}
       {editingSale && editFormFields && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
           <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col font-sans max-h-[90vh]">
             
             {/* Header */}
@@ -4176,7 +4176,7 @@ export default function DashboardSalesList({
       {/* DIALOG: CONFIRM DELETE SALE (TICKET VOIDING) */}
       {/* ------------------------------------------------------------- */}
       {saleToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
           <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col font-sans">
             
             {/* Header */}
@@ -4258,7 +4258,7 @@ export default function DashboardSalesList({
 
       {/* DIALOG: NEW DOCUMENT CREATOR MODAL */}
       {showNewDocModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
           <div className="relative bg-white border border-slate-205 rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh] font-sans">
             
             <div className="p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
@@ -4648,7 +4648,7 @@ export default function DashboardSalesList({
         const preparerRole = activeStaff?.role || currentUser?.role || 'Accounts & Finance Dept';
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
             <div className="relative bg-white border border-slate-205 rounded-none sm:rounded-3xl shadow-2xl w-full max-w-5xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[95vh] font-sans" style={{overflow: 'clip'}}>
               
               {/* Header Action Tools */}
