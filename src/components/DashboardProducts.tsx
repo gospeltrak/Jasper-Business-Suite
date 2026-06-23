@@ -4391,7 +4391,7 @@ export default function DashboardProducts({
               <p className="text-xs text-slate-500">Adding new purchases for <span className="font-bold text-slate-800">{replenishProduct.name}</span></p>
             </div>
 
-            <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
+            <div className="p-6 space-y-5 overflow-y-auto max-h-[calc(70dvh-56px-env(safe-area-inset-bottom))]">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Qty Received</label>
