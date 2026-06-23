@@ -2420,20 +2420,20 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             {/* App grid — 4-col icon grid like native apps */}
             <div className="px-5 pt-5 pb-2">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">All Features</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-4 gap-4">
                 {[
-                  { id: 'overview', label: 'Home', icon: LayoutDashboard, bg: 'bg-blue-500', desc: 'Dashboard & overview' },
-                  { id: 'pos', label: 'Sell', icon: ShoppingCart, bg: 'bg-[#00C853]', desc: 'Open sell screen' },
-                  { id: 'sales-list', label: 'Sales', icon: FileText, bg: 'bg-emerald-600', desc: 'Sales history' },
-                  { id: 'products', label: 'Stock', icon: Database, bg: 'bg-orange-500', desc: 'Products & inventory' },
-                  { id: 'reports', label: 'Reports', icon: PieChart, bg: 'bg-indigo-500', desc: 'Charts & analytics' },
-                  { id: 'expenses', label: 'Expenses', icon: MinusCircle, bg: 'bg-rose-500', desc: 'Track spending' },
-                  { id: 'purchases-list', label: 'Buying', icon: Package, bg: 'bg-violet-500', desc: 'Purchase orders' },
-                  { id: 'suppliers', label: 'Partners', icon: Handshake, bg: 'bg-purple-500', desc: 'Suppliers list' },
-                  { id: 'cash-bank-matrix', label: 'Money', icon: Wallet, bg: 'bg-amber-500', desc: 'Cash & bank' },
-                  { id: 'deliveries', label: 'Delivery', icon: MapPin, bg: 'bg-teal-500', desc: 'Deliveries' },
-                  { id: 'staff-members', label: 'Staff', icon: Shield, bg: 'bg-slate-600', desc: 'Team members' },
-                  { id: 'forecasting', label: 'Planning', icon: TrendingUp, bg: 'bg-cyan-500', desc: 'Future planning' },
+                  { id: 'overview', label: 'Home', icon: LayoutDashboard, bg: 'bg-blue-500' },
+                  { id: 'sales-list', label: 'Sales', icon: FileText, bg: 'bg-emerald-500' },
+                  { id: 'pos', label: 'Sell', icon: ShoppingCart, bg: 'bg-[#00C853]' },
+                  { id: 'purchases-list', label: 'Buying', icon: Package, bg: 'bg-violet-500' },
+                  { id: 'products', label: 'Stock', icon: Database, bg: 'bg-orange-500' },
+                  { id: 'expenses', label: 'Expenses', icon: MinusCircle, bg: 'bg-rose-500' },
+                  { id: 'reports', label: 'Reports', icon: PieChart, bg: 'bg-indigo-500' },
+                  { id: 'deliveries', label: 'Delivery', icon: MapPin, bg: 'bg-teal-500' },
+                  { id: 'suppliers', label: 'Partners', icon: Handshake, bg: 'bg-purple-500' },
+                  { id: 'cash-bank-matrix', label: 'Money', icon: Wallet, bg: 'bg-amber-500' },
+                  { id: 'forecasting', label: 'Planning', icon: TrendingUp, bg: 'bg-cyan-500' },
+                  { id: 'staff-members', label: 'Staff', icon: Shield, bg: 'bg-slate-700' },
                 ].map((item) => {
                   const Icon = item.icon;
                   return (
@@ -2441,15 +2441,12 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                       key={item.id}
                       type="button"
                       onClick={() => { setActiveTab(item.id as any); setMoreMenuOpen(false); }}
-                      className="flex items-center gap-3 p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 active:scale-95 transition-all duration-150 cursor-pointer text-left shadow-sm hover:shadow-md"
+                      className="flex flex-col items-center gap-1.5 active:scale-90 transition-all duration-150 cursor-pointer bg-transparent border-none outline-none"
                     >
-                      <div className={`w-11 h-11 rounded-xl ${item.bg} flex items-center justify-center shadow-sm shrink-0`}>
-                        <Icon className="w-5 h-5 text-white" strokeWidth={2.2} />
+                      <div className={`w-14 h-14 rounded-2xl ${item.bg} flex items-center justify-center shadow-sm`}>
+                        <Icon className="w-6 h-6 text-white" strokeWidth={2} />
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 leading-tight">{t(item.label)}</p>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight mt-0.5 truncate">{item.desc}</p>
-                      </div>
+                      <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 text-center leading-tight">{t(item.label)}</span>
                     </button>
                   );
                 })}
