@@ -3143,7 +3143,7 @@ export default function DashboardSalesList({
               </div>
 
               {/* Scrollable ticket details */}
-              <div id="sales-receipt-pdf-template" className="p-6 overflow-y-auto max-h-[70vh] space-y-6 font-mono text-xs select-text">
+              <div id="sales-receipt-pdf-template" className="p-6 overflow-y-auto max-h-[calc(70dvh-56px-env(safe-area-inset-bottom))] space-y-6 font-mono text-xs select-text">
                 
                 {/* Receipt store branding block */}
                 <div className="text-center space-y-1 pb-4 border-b border-dashed border-slate-200 flex flex-col items-center">
@@ -3960,7 +3960,7 @@ export default function DashboardSalesList({
             </div>
 
             {/* Edit Body panel */}
-            <div className="p-6 overflow-y-auto max-h-[70vh] space-y-5">
+            <div className="p-6 overflow-y-auto max-h-[calc(70dvh-56px-env(safe-area-inset-bottom))] space-y-5">
               
               {/* Client meta details information */}
               <div className="grid grid-cols-2 gap-3 text-xs">
@@ -4974,7 +4974,7 @@ export default function DashboardSalesList({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileActionsSale(null)}
-              className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs env-padding-safe"
+              className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm"
             />
 
             {/* Bottom Sheet */}
@@ -4983,7 +4983,7 @@ export default function DashboardSalesList({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 280 }}
-              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl shadow-xl z-50 overflow-hidden font-sans flex flex-col max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] text-[#0f172a] border border-slate-100"
+              className="fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl shadow-xl z-[80] overflow-hidden font-sans flex flex-col text-[#0f172a] border border-slate-100" style={{bottom: "calc(56px + env(safe-area-inset-bottom))", maxHeight: "calc(85vh - 56px - env(safe-area-inset-bottom))"}}
             >
               {/* Close Handle Bar */}
               <div className="w-full flex justify-center py-2 shrink-0">
