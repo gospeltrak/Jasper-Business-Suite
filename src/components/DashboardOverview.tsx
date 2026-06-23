@@ -548,7 +548,7 @@ export default function DashboardOverview({
         {/* Stat cards 2x2 grid */}
         <div className="grid grid-cols-2 gap-3">
           {[
-            { label: 'Total Orders', value: sales.filter((s:any) => new Date(s.timestamp).toDateString() === new Date().toDateString()).length, sub: `${filteredSales.length} this period`, color: '#2196F3', up: true },
+            { label: 'Total Orders', value: sales.filter((s:any) => new Date(s.timestamp).toDateString() === new Date().toDateString()).length, sub: `${filteredSales.reduce((sum:number,s:any)=>sum+(s.items?.reduce((a:number,i:any)=>a+(i.qty||0),0)||0),0)} items sold`, color: '#2196F3', up: true },
             { label: "Today's Sales", value: `${currency} ${Math.round(todayTotalRevenue).toLocaleString()}`, sub: todayTotalRevenue > 0 ? '↑ Today' : 'No sales yet', color: '#00C853', up: todayTotalRevenue > 0 },
             { label: 'Expenses', value: `${currency} ${Math.round(expenses.reduce((s:number,e:any)=>s+(e.amount||0),0)).toLocaleString()}`, sub: 'Total spending', color: '#ef4444', up: false },
             { label: 'Profit', value: `${currency} ${Math.round(netProfit).toLocaleString()}`, sub: `${avgProfitMargin.toFixed(1)}% margin`, color: netProfit >= 0 ? '#00C853' : '#ef4444', up: netProfit >= 0 },
