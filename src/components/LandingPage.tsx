@@ -1953,7 +1953,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           <div className="space-y-2 text-xs">
             <h5 className={`font-mono text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-slate-400' : 'text-[#111827]'}`}>Affiliates</h5>
             <button
-              onClick={() => onNavigate('/affiliate?role=affiliate&mode=login')}
+              onClick={() => onNavigate('/affiliate')}
               className={`transition-colors bg-transparent border-none p-0 outline-none cursor-pointer text-left font-sans text-base ${isDark ? 'text-slate-300 hover:text-emerald-400' : 'text-[#374151] hover:text-[#00b87a]'}`}
             >
               {t.footerCol2Title || "Affiliates"}
@@ -1964,7 +1964,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           <div className="space-y-2 text-xs">
             <h5 className={`font-mono text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-slate-400' : 'text-[#111827]'}`}>Partner</h5>
             <button
-              onClick={() => onNavigate('/affiliate?role=partner&mode=login')}
+              onClick={() => onNavigate('/partner')}
               className={`transition-colors bg-transparent border-none p-0 outline-none cursor-pointer text-left font-sans text-base ${isDark ? 'text-slate-300 hover:text-emerald-400' : 'text-[#374151] hover:text-[#00b87a]'}`}
             >
               {t.footerCol3Title || "Partner"}
