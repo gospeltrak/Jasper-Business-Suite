@@ -1077,6 +1077,26 @@ export default function DashboardExpenses({
         </div>
       )}
 
+      {/* ── MOBILE FAB: Add Expense ── */}
+      {subTab !== 'add' && (
+        <button
+          type="button"
+          onClick={() => setSubTab('add')}
+          className="md:hidden fixed z-[60] flex items-center gap-2 shadow-xl active:scale-95 transition-all duration-150 cursor-pointer border-none"
+          style={{
+            bottom: 'calc(72px + env(safe-area-inset-bottom))',
+            right: '16px',
+            background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+            borderRadius: '50px',
+            padding: '14px 20px',
+            boxShadow: '0 8px 24px rgba(5,150,105,0.35)',
+          }}
+        >
+          <Plus className="w-5 h-5 text-white" strokeWidth={2.5} />
+          <span className="text-white font-black text-sm tracking-wide">Add Expense</span>
+        </button>
+      )}
+
     </div>
   );
 }
