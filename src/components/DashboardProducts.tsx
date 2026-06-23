@@ -3593,7 +3593,7 @@ export default function DashboardProducts({
       {/* VIEW MODAL */}
       {viewingProduct && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] overflow-y-auto flex flex-col">
             {/* Header */}
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -3803,7 +3803,7 @@ export default function DashboardProducts({
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
           <form 
             onSubmit={handleSaveProductEdit}
-            className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col uppercase text-xs"
+            className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] overflow-y-auto flex flex-col uppercase text-xs"
           >
             {/* Header */}
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
