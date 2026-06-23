@@ -27,7 +27,8 @@ import {
   MoreVertical,
   Eye,
   Edit,
-  Scale
+  Scale,
+  ChevronRight
 } from 'lucide-react';
 import { useTranslation } from '../LanguageContext';
 import CachedImage from './CachedImage';
@@ -2067,92 +2068,171 @@ export default function DashboardProducts({
 
             <div className="overflow-x-auto bg-transparent md:bg-white pb-6 md:pb-0">
               
-              {/* Mobile View: Cards - Redesigned */}
-              <div className="md:hidden grid grid-cols-1 gap-3">
+              {/* ═══════════════════════════════════════════════
+                  MOBILE STOCK SCREEN — PREMIUM REDESIGN
+                  Like Shopify/Loyverse but better
+              ═══════════════════════════════════════════════ */}
+              <div className="md:hidden space-y-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
                 {filteredProducts.map((prod) => {
                   const shopQty = prod.shopStockQty ?? 0;
                   const storeQty = prod.storeStockQty ?? 0;
                   const totalQty = prod.stockQty ?? (shopQty + storeQty);
                   const isOutOfStock = totalQty <= 0;
-                  const isLow = !isOutOfStock && shopQty <= prod.alertQty;
+                  const isLow = !isOutOfStock && shopQty <= (prod.alertQty || 5);
+                  const isCritical = isLow && shopQty <= Math.floor((prod.alertQty || 5) / 2);
+                  const shopPct = Math.min(100, Math.round((shopQty / Math.max(1, (prod.alertQty || 5) * 4)) * 100));
+                  const storePct = Math.min(100, Math.round((storeQty / Math.max(1, (prod.alertQty || 5) * 4)) * 100));
+
+                  // Color theme per status
+                  const avatarBg = isOutOfStock ? '#f1f5f9' : isCritical ? '#fff1f2' : isLow ? '#fff7ed' : '#f0fdf4';
+                  const avatarColor = isOutOfStock ? '#94a3b8' : isCritical ? '#e11d48' : isLow ? '#ea580c' : '#16a34a';
+                  const barColor = isOutOfStock ? '#e2e8f0' : isCritical ? '#f43f5e' : isLow ? '#f97316' : '#22c55e';
+                  const statusBg = isOutOfStock ? '#f8fafc' : isCritical ? '#fff1f2' : isLow ? '#fff7ed' : '#f0fdf4';
+                  const statusColor = isOutOfStock ? '#64748b' : isCritical ? '#e11d48' : isLow ? '#c2410c' : '#15803d';
+                  const statusText = isOutOfStock ? 'Out of Stock' : isCritical ? 'Critical Low' : isLow ? 'Low Stock' : 'In Stock';
+                  const statusDot = isOutOfStock ? '#94a3b8' : isCritical ? '#f43f5e' : isLow ? '#f97316' : '#22c55e';
 
                   return (
-                    <div key={prod.id} className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden active:scale-[0.98] transition-all">
-                      {/* Top row: name + price + menu */}
-                      <div className="flex items-start justify-between px-4 pt-4 pb-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          {/* Color avatar */}
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black text-sm ${isOutOfStock ? 'bg-slate-100 text-slate-400' : isLow ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-700'}`}>
-                            {prod.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-slate-900 text-sm leading-tight truncate">{prod.name}</p>
-                            <p className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">{prod.category} {prod.sku ? `· ${prod.sku}` : ''}</p>
+                    <div key={prod.id}
+                      className="bg-white rounded-2xl overflow-hidden active:scale-[0.99] transition-all duration-150"
+                      style={{border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.04)'}}
+                    >
+                      {/* ── HEADER ROW ── */}
+                      <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+                        {/* Avatar with product initial or image */}
+                        <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 font-black text-base overflow-hidden" style={{background: avatarBg, color: avatarColor}}>
+                          {prod.image
+                            ? <img src={prod.image} alt={prod.name} className="w-full h-full object-cover" />
+                            : prod.name.charAt(0).toUpperCase()
+                          }
+                        </div>
+
+                        {/* Name + meta */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-slate-900 text-[13px] leading-snug truncate">{prod.name}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {prod.category && <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[100px]">{prod.category}</span>}
+                            {prod.brand && <><span className="text-slate-200">·</span><span className="text-[10px] font-semibold text-slate-400 truncate max-w-[80px]">{prod.brand}</span></>}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <div className="text-right">
-                            <p className="font-black text-emerald-600 text-sm">{currency}{Math.round(prod.sellingPrice).toLocaleString()}</p>
-                            <p className="text-[9px] text-slate-400 font-mono">cost {currency}{Math.round(prod.costPrice).toLocaleString()}</p>
+
+                        {/* Price + menu button */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <div className="text-right mr-1">
+                            <p className="font-black text-[13px]" style={{color: '#16a34a'}}>{currency}{Math.round(prod.sellingPrice).toLocaleString()}</p>
+                            <p className="text-[9px] text-slate-400 font-mono leading-tight">cost {currency}{Math.round(prod.costPrice).toLocaleString()}</p>
                           </div>
                           <button
+                            type="button"
                             onClick={() => setOpenDropdownId(openDropdownId === prod.id ? null : prod.id)}
-                            className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
+                            className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors active:scale-90"
+                            style={{background: '#f8fafc'}}
                           >
-                            <MoreVertical className="w-4 h-4" />
+                            <MoreVertical className="w-4 h-4 text-slate-400" />
                           </button>
                         </div>
                       </div>
 
-                      {/* Stock bar */}
-                      <div className="flex items-center gap-3 px-4 pb-3">
-                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${isOutOfStock ? 'w-0' : isLow ? 'bg-rose-400' : 'bg-emerald-400'}`}
-                            style={{width: isOutOfStock ? '0%' : `${Math.min(100, (shopQty / Math.max(1, prod.alertQty * 3)) * 100)}%`}}
-                          />
+                      {/* ── STOCK BARS ── */}
+                      <div className="px-4 pb-3 space-y-2">
+                        {/* Shop stock bar */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide w-10 shrink-0">Shop</span>
+                          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{background: '#f1f5f9'}}>
+                            <div className="h-full rounded-full transition-all duration-500" style={{width: `${shopPct}%`, background: barColor}} />
+                          </div>
+                          <span className="text-[11px] font-black w-12 text-right shrink-0" style={{color: isOutOfStock ? '#94a3b8' : avatarColor}}>
+                            {formatProductQuantity(shopQty, prod)}
+                          </span>
                         </div>
-                        <span className={`text-[10px] font-bold whitespace-nowrap ${isOutOfStock ? 'text-slate-400' : isLow ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          {isOutOfStock ? 'Out of stock' : isLow ? `Low: ${formatProductQuantity(shopQty, prod)}` : `${formatProductQuantity(shopQty, prod)} in shop`}
-                        </span>
+                        {/* Store stock bar */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide w-10 shrink-0">Store</span>
+                          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{background: '#f1f5f9'}}>
+                            <div className="h-full rounded-full transition-all duration-500" style={{width: `${storePct}%`, background: '#94a3b8'}} />
+                          </div>
+                          <span className="text-[11px] font-black w-12 text-right shrink-0 text-slate-500">
+                            {formatProductQuantity(storeQty, prod)}
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Action sheet dropdown */}
-                      <div className="relative">
-                          {openDropdownId === prod.id && (
-                            <>
-                              {/* Full-screen backdrop */}
-                              <div className="fixed inset-0 z-[70]" onClick={() => setOpenDropdownId(null)} />
-                              {/* Bottom sheet action menu - always above nav bar */}
-                              <div className="fixed left-0 right-0 bottom-0 z-[80] bg-white rounded-t-2xl shadow-2xl border-t border-slate-100 animate-in slide-in-from-bottom-2" style={{paddingBottom: 'calc(56px + env(safe-area-inset-bottom))'}}>
-                                <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-2" />
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-5 pb-2 truncate">{prod.name}</p>
-                                {[
-                                  { label: 'View Details', icon: Eye, color: 'text-slate-600', action: () => { setViewingProduct(prod); setOpenDropdownId(null); } },
-                                  { label: 'Edit Item', icon: Edit, color: 'text-slate-600', action: () => { handleBeginEdit(prod); setOpenDropdownId(null); } },
-                                  { label: 'Replenish Stock', icon: Package, color: 'text-emerald-600', action: () => { setReplenishProduct(prod); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo'); setOpenDropdownId(null); } },
-                                ].map(item => {
-                                  const Icon = item.icon;
-                                  return (
-                                    <button key={item.label} type="button" onClick={item.action}
-                                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 active:bg-slate-100 transition-colors border-b border-slate-50 last:border-0"
-                                    >
-                                      <Icon className={`w-5 h-5 ${item.color} shrink-0`} />
-                                      <span className={`text-sm font-semibold ${item.color}`}>{item.label}</span>
-                                    </button>
-                                  );
-                                })}
-                                <button type="button"
-                                  onClick={() => { onDeleteProduct(prod.id); setOpenDropdownId(null); }}
-                                  className="w-full flex items-center gap-4 px-5 py-4 hover:bg-red-50 active:bg-red-100 transition-colors"
-                                >
-                                  <Trash2 className="w-5 h-5 text-red-500 shrink-0" />
-                                  <span className="text-sm font-bold text-red-600">Delete Item</span>
-                                </button>
-                              </div>
-                            </>
+                      {/* ── FOOTER ROW: Status + Total ── */}
+                      <div className="flex items-center justify-between px-4 py-2.5 border-t" style={{borderColor: '#f8fafc', background: '#fafafa'}}>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{background: statusDot, animation: isCritical ? 'pulse 1.5s infinite' : 'none'}} />
+                          <span className="text-[10px] font-bold" style={{color: statusColor, background: statusBg, padding: '2px 8px', borderRadius: '20px'}}>
+                            {statusText}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Total</span>
+                            <span className="text-[11px] font-black text-slate-700 ml-1.5 font-mono">{formatProductQuantity(totalQty, prod)}</span>
+                          </div>
+                          {prod.alertQty && (
+                            <div className="text-right">
+                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Alert</span>
+                              <span className="text-[11px] font-black text-slate-500 ml-1.5 font-mono">{prod.alertQty}</span>
+                            </div>
                           )}
                         </div>
+                      </div>
+
+                      {/* ── BOTTOM SHEET ACTION MENU ── */}
+                      {openDropdownId === prod.id && (
+                        <>
+                          <div className="fixed inset-0 z-[70] bg-black/20 backdrop-blur-[2px]" onClick={() => setOpenDropdownId(null)} />
+                          <div className="fixed left-0 right-0 bottom-0 z-[80] bg-white rounded-t-3xl shadow-2xl" style={{paddingBottom: 'calc(56px + env(safe-area-inset-bottom))'}}>
+                            {/* Handle */}
+                            <div className="w-9 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-1" />
+                            {/* Product header in sheet */}
+                            <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-50">
+                              <div className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0" style={{background: avatarBg, color: avatarColor}}>
+                                {prod.image ? <img src={prod.image} alt="" className="w-full h-full object-cover rounded-xl" /> : prod.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-slate-900 truncate">{prod.name}</p>
+                                <p className="text-[10px] text-slate-400">{statusText} · {formatProductQuantity(totalQty, prod)} total</p>
+                              </div>
+                            </div>
+                            {/* Action buttons */}
+                            {[
+                              { label: 'View Details', sub: 'See full product info', icon: Eye, color: '#1d4ed8', bg: '#eff6ff', action: () => { setViewingProduct(prod); setOpenDropdownId(null); } },
+                              { label: 'Edit Product', sub: 'Update name, price, settings', icon: Edit, color: '#0f766e', bg: '#f0fdfa', action: () => { handleBeginEdit(prod); setOpenDropdownId(null); } },
+                              { label: 'Add Stock', sub: 'Restock shop or store', icon: Package, color: '#15803d', bg: '#f0fdf4', action: () => { setReplenishProduct(prod); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo'); setOpenDropdownId(null); } },
+                            ].map(item => {
+                              const Icon = item.icon;
+                              return (
+                                <button key={item.label} type="button" onClick={item.action}
+                                  className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50 active:bg-slate-100 transition-colors border-b border-slate-50"
+                                >
+                                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{background: item.bg}}>
+                                    <Icon className="w-4.5 h-4.5" style={{color: item.color}} />
+                                  </div>
+                                  <div className="text-left">
+                                    <p className="text-[13px] font-bold text-slate-800">{item.label}</p>
+                                    <p className="text-[10px] text-slate-400 mt-0.5">{item.sub}</p>
+                                  </div>
+                                  <ChevronRight className="w-4 h-4 text-slate-300 ml-auto shrink-0" />
+                                </button>
+                              );
+                            })}
+                            <button type="button"
+                              onClick={() => { onDeleteProduct(prod.id); setOpenDropdownId(null); }}
+                              className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-red-50 active:bg-red-100 transition-colors"
+                            >
+                              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-red-50">
+                                <Trash2 className="w-4.5 h-4.5 text-red-500" />
+                              </div>
+                              <div className="text-left">
+                                <p className="text-[13px] font-bold text-red-600">Delete Product</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5">Remove from catalogue permanently</p>
+                              </div>
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}
