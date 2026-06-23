@@ -1737,7 +1737,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       <div className={`flex-1 flex flex-col h-full min-w-0 overflow-hidden relative ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950' : 'bg-[#f5f6fa] dark:bg-slate-950'} select-none`}>
         
         {/* Screen container */}
-        <div className={`flex-grow flex flex-col ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950' : 'bg-[#f5f6fa] dark:bg-slate-950'} min-h-0 overflow-y-auto relative scrollbar-none pb-20 md:pb-0`}>
+        <div className={`flex-grow flex flex-col ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950' : 'bg-[#f5f6fa] dark:bg-slate-950'} min-h-0 overflow-y-auto relative scrollbar-none pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0`}>
 
         
           {/* 2. Top Bar Desktop */}
@@ -2053,7 +2053,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </header>
 
           {/* Core workspace content viewports */}
-          <main id="workspace-content" className={`flex-grow ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-4 md:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-6 pb-24'} min-h-[500px]`}>
+          <main id="workspace-content" className={`flex-grow ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-4 md:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-6 pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-6'} min-h-[500px]`}>
             
             {user.role !== 'SuperAdmin' && renderSubscriptionStatusBlock()}
 
