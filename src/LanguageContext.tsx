@@ -356,7 +356,6 @@ const BUSINESS_DICTIONARY: Record<LanguageType, Record<string, string>> = {
     // Roles
     "staff members": "Wafanyakazi",
     "seller": "Muuzaji",
-    "cashier": "Keshia",
     "manager": "Meneja",
     "admin": "Msimamizi",
     "stock controller": "Mdhibiti wa Stoki",
@@ -376,7 +375,6 @@ const BUSINESS_DICTIONARY: Record<LanguageType, Record<string, string>> = {
     // UI labels that were mixing languages
     "search workspace...": "Tafuta...",
     "search workspace": "Tafuta",
-    "product manager": "Msimamizi wa Bidhaa",
     "delivery menu": "Menyu ya Utoaji",
     "sales forecasting": "Utabiri wa Mauzo",
     "cash & bank": "Pesa na Benki",
@@ -398,7 +396,6 @@ const BUSINESS_DICTIONARY: Record<LanguageType, Record<string, string>> = {
     "expenses management": "Usimamizi wa Matumizi",
     "sales & expenses reports": "Ripoti za Mauzo na Matumizi",
     "profit & cogs reports": "Ripoti za Faida na Gharama",
-    "online sync": "Ulandanisho wa Mtandao",
     "settings access": "Ufikiaji wa Mipangilio",
 
     // Registration & login
@@ -482,10 +479,6 @@ const BUSINESS_DICTIONARY: Record<LanguageType, Record<string, string>> = {
     "account history & transactions": "Historia ya akaunti na miamala",
     "search transactions": "Tafuta miamala",
     "all systems running normally": "Mifumo yote inaendelea vizuri",
-    "system & branch configurations": "Mipangilio ya mfumo na tawi",
-    "invoice & branding customization": "Ankara na ubinafsishaji wa chapa",
-    "custom roles & permissions": "Majukumu na ruhusa maalum",
-    "notifications & auto reports": "Arifa na ripoti za moja kwa moja",
     "enter company legal registry name": "Ingiza jina rasmi la kampuni",
     "generated company username/key": "Jina/key ya kampuni iliyotengenezwa",
     "generated based on company name for subdomain routing": "Imetengenezwa kutokana na jina la kampuni kwa ajili ya njia ya subdomain",
@@ -514,8 +507,6 @@ const BUSINESS_DICTIONARY: Record<LanguageType, Record<string, string>> = {
     "register new staff profile": "Sajili mfanyakazi mpya",
     "profile photo (500x500 pix)": "Picha ya wasifu (500x500 px)",
     "png signature (500x500 pix)": "Sahihi ya PNG (500x500 px)",
-    "active configurations layout": "Mpangilio wa usanidi unaotumika",
-    "system module / functionality": "Moduli ya mfumo / kazi",
     "unified stock registry desk": "Sehemu kuu ya usajili wa stoki",
     "download spreadsheet template": "Pakua template ya spreadsheet",
     "fits images & separates background instantly": "Inatosha picha na kuondoa background papo hapo",
@@ -1241,7 +1232,6 @@ const BUSINESS_DICTIONARY: Record<LanguageType, Record<string, string>> = {
     // Rôles
     "staff members": "Membres du Personnel",
     "seller": "Vendeur",
-    "cashier": "Caissier",
     "manager": "Gestionnaire",
     "admin": "Administrateur",
     "stock controller": "Contrôleur de Stock",
@@ -1261,7 +1251,6 @@ const BUSINESS_DICTIONARY: Record<LanguageType, Record<string, string>> = {
     // Labels d'interface
     "search workspace...": "Rechercher...",
     "search workspace": "Rechercher",
-    "product manager": "Gestionnaire de Produits",
     "delivery menu": "Menu de Livraison",
     "sales forecasting": "Prévision des Ventes",
     "cash & bank": "Caisse et Banque",
@@ -1278,7 +1267,6 @@ const BUSINESS_DICTIONARY: Record<LanguageType, Record<string, string>> = {
     "expenses management": "Gestion des Dépenses",
     "sales & expenses reports": "Rapports Ventes et Dépenses",
     "profit & cogs reports": "Rapports Bénéfices et Coûts",
-    "online sync": "Synchronisation en Ligne",
     "settings access": "Accès aux Paramètres",
 
     // Inscription et connexion
