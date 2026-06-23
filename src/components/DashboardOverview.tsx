@@ -582,27 +582,6 @@ export default function DashboardOverview({
           </div>
         </div>
 
-        {/* Recent Sales */}
-        {filteredSales.length > 0 && (
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Recent Sales</p>
-            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
-              {filteredSales.slice(0,4).map((sale: any, i: number, arr: any[]) => (
-                <div key={sale.id} className={`flex items-center gap-3 px-4 py-3 ${i < arr.length-1 ? 'border-b border-slate-50' : ''}`}>
-                  <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                    <ShoppingCart className="w-4 h-4 text-emerald-600" strokeWidth={2.2} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-bold text-slate-900 truncate leading-tight">{sale.customerName || 'Walk-in'}</p>
-                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">{sale.paymentMethod || 'Cash'} · {new Date(sale.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</p>
-                  </div>
-                  <p className="text-[13px] font-black text-slate-900 shrink-0">{currency} {Math.round(sale.total).toLocaleString()}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
       </div>
       {/* ══════════ END MOBILE HERO ══════════ */}
 
