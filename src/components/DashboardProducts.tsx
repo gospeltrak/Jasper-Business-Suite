@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo, FormEvent } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Tenant, Product, ProductBatch } from '../types';
 import { 
   Plus, 
@@ -2193,8 +2194,8 @@ export default function DashboardProducts({
                 )}
               </div>
 
-              {/* ═══ MOBILE BOTTOM SHEET — mobile only, never shown on md+ screens ═══ */}
-              <div className="md:hidden">
+              {/* ═══ MOBILE BOTTOM SHEET — md:hidden, exact same motion as Sales ═══ */}
+              <AnimatePresence>
               {openDropdownId && (() => {
                 const activeProd = filteredProducts.find(p => p.id === openDropdownId);
                 if (!activeProd) return null;
@@ -2210,125 +2211,115 @@ export default function DashboardProducts({
                 const sCol = outOfStock ? '#64748b' : critical ? '#e11d48' : low ? '#c2410c' : '#15803d';
                 const sTxt = outOfStock ? 'Out of Stock' : critical ? 'Critical Low' : low ? 'Low Stock' : 'In Stock';
                 return (
-                  <>
-                    <style>{`
-                      @keyframes nativeSheetUp {
-                        from { transform: translateY(100%); }
-                        to   { transform: translateY(0); }
-                      }
-                      @keyframes nativeBackdropIn {
-                        from { opacity: 0; }
-                        to   { opacity: 1; }
-                      }
-                      .native-sheet-backdrop {
-                        animation: nativeBackdropIn 0.22s ease both;
-                      }
-                      .native-sheet-panel {
-                        animation: nativeSheetUp 0.32s cubic-bezier(0.32, 1.1, 0.58, 1) both;
-                      }
-                    `}</style>
-
-                    {/* Dim backdrop — no blur */}
-                    <div
-                      className="native-sheet-backdrop fixed inset-0 z-[70]"
-                      style={{ background: 'rgba(0,0,0,0.4)' }}
+                  <div className="md:hidden">
+                    {/* Backdrop */}
+                    <motion.div
+                      key="products-sheet-backdrop"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
                       onClick={() => setOpenDropdownId(null)}
+                      className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm"
                     />
 
-                    {/* Bottom sheet — slides up from bottom, no shadow on sheet itself */}
-                    <div
-                      className="native-sheet-panel fixed bottom-0 left-0 right-0 z-[80] bg-white"
+                    {/* Bottom sheet — same positioning as Sales: sits above bottom nav */}
+                    <motion.div
+                      key="products-sheet-panel"
+                      initial={{ y: '100%' }}
+                      animate={{ y: 0 }}
+                      exit={{ y: '100%' }}
+                      transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+                      className="fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl z-[80] overflow-hidden font-sans flex flex-col text-[#0f172a] border border-slate-100"
                       style={{
-                        borderRadius: '20px 20px 0 0',
-                        maxHeight: '85dvh',
-                        overflowY: 'auto',
-                        paddingBottom: 'env(safe-area-inset-bottom)',
+                        bottom: 'calc(56px + env(safe-area-inset-bottom))',
+                        maxHeight: 'calc(85vh - 56px - env(safe-area-inset-bottom))',
+                        boxShadow: 'none',
                       }}
                     >
                       {/* Drag handle */}
-                      <div className="flex justify-center pt-3 pb-1">
-                        <div className="w-10 h-1 rounded-full bg-slate-200" />
+                      <div className="w-full flex justify-center py-2 shrink-0">
+                        <div className="w-12 h-1 bg-slate-200 rounded-full" />
                       </div>
 
                       {/* Product header */}
-                      <div className="flex items-center gap-3 px-5 pt-2 pb-4 border-b border-slate-100">
-                        <div
-                          className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-base shrink-0 overflow-hidden"
-                          style={{ background: aBg, color: aCol }}
-                        >
-                          {activeProd.image
-                            ? <img src={activeProd.image} alt="" className="w-full h-full object-cover" />
-                            : activeProd.name.charAt(0).toUpperCase()}
+                      <div className="px-5 pb-3 pt-1 shrink-0">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-base shrink-0 overflow-hidden"
+                            style={{ background: aBg, color: aCol }}
+                          >
+                            {activeProd.image
+                              ? <img src={activeProd.image} alt="" className="w-full h-full object-cover" />
+                              : activeProd.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-base font-extrabold text-slate-800 truncate leading-tight">{activeProd.name}</p>
+                            <p className="text-xs text-slate-400 mt-0.5 flex items-center justify-between">
+                              <span>Shop: {formatProductQuantity(sQ, activeProd)} · Store: {formatProductQuantity(stQ, activeProd)}</span>
+                              <span className="font-extrabold text-slate-900 ml-3">{currency}{Math.round(activeProd.sellingPrice).toLocaleString()}</span>
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1 pr-8">
-                          <p className="text-[15px] font-black text-slate-900 truncate leading-tight">{activeProd.name}</p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">Shop: {formatProductQuantity(sQ, activeProd)} · Store: {formatProductQuantity(stQ, activeProd)}</p>
+                        <div className="mt-2">
+                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ background: sBg, color: sCol }}>{sTxt}</span>
                         </div>
-                        {/* Close pill */}
+                      </div>
+
+                      <div className="bg-slate-100 h-[1px] w-full shrink-0" />
+
+                      {/* Scrollable action list — exact same style as Sales */}
+                      <div className="overflow-y-auto p-4 space-y-2.5">
+                        {[
+                          { label: 'View Details',   sub: 'See full product information',  icon: Eye,            bg: 'bg-blue-50',    color: 'text-blue-600',   action: () => { setViewingProduct(activeProd);   setOpenDropdownId(null); } },
+                          { label: 'Edit Item',       sub: 'Update name, price, settings', icon: Edit,           bg: 'bg-teal-50',    color: 'text-teal-700',   action: () => { handleBeginEdit(activeProd);       setOpenDropdownId(null); } },
+                          { label: 'Replenish Stock', sub: 'Add new stock from supplier',  icon: Package,        bg: 'bg-emerald-50', color: 'text-emerald-600', action: () => { setReplenishProduct(activeProd); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(activeProd.costingMethod || activeProd.inventorySettings?.costingMethod || 'fifo'); setOpenDropdownId(null); } },
+                          { label: 'Transfer Stock',  sub: 'Move stock between Shop & Store', icon: ArrowLeftRight, bg: 'bg-purple-50',  color: 'text-purple-600', action: () => { setTransferProduct(activeProd); setTransferQty(1); setTransferDirection('store_to_shop'); setTransferError(null); setTransferSuccess(false); setOpenDropdownId(null); } },
+                        ].map(item => {
+                          const Icon = item.icon;
+                          return (
+                            <button
+                              key={item.label}
+                              type="button"
+                              onClick={item.action}
+                              className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-xs cursor-pointer text-left transition-colors"
+                            >
+                              <div className="flex items-center space-x-3.5">
+                                <div className={`w-10 h-10 rounded-xl ${item.bg} flex items-center justify-center shrink-0`}>
+                                  <Icon className={`w-5 h-5 ${item.color}`} />
+                                </div>
+                                <div>
+                                  <span className="text-sm font-bold text-slate-800 block">{item.label}</span>
+                                  <span className="text-[10px] text-slate-400 block mt-0.5">{item.sub}</span>
+                                </div>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                            </button>
+                          );
+                        })}
+
+                        {/* Delete — destructive */}
                         <button
                           type="button"
-                          onClick={() => setOpenDropdownId(null)}
-                          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center cursor-pointer active:bg-slate-200 transition-colors"
+                          onClick={() => { onDeleteProduct(activeProd.id); setOpenDropdownId(null); }}
+                          className="w-full h-14 min-h-[52px] bg-white hover:bg-red-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-red-100 shadow-xs cursor-pointer text-left transition-colors"
                         >
-                          <X className="w-4 h-4 text-slate-500" />
+                          <div className="flex items-center space-x-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                              <Trash2 className="w-5 h-5 text-red-500" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-bold text-red-600 block">Delete Item</span>
+                              <span className="text-[10px] text-slate-400 block mt-0.5">Remove from catalogue permanently</span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
                         </button>
                       </div>
-
-                      {/* Status + price row */}
-                      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
-                        <span className="text-[11px] font-bold px-3 py-1 rounded-full" style={{ background: sBg, color: sCol }}>{sTxt}</span>
-                        <span className="text-[14px] font-black text-emerald-600">{currency} {Math.round(activeProd.sellingPrice).toLocaleString()}</span>
-                      </div>
-
-                      {/* Action rows */}
-                      {[
-                        { label: 'View Details',    sub: 'See full product information',  icon: Eye,           bg: '#eff6ff', color: '#1d4ed8', action: () => { setViewingProduct(activeProd); setOpenDropdownId(null); } },
-                        { label: 'Edit Item',        sub: 'Update name, price, settings', icon: Edit,          bg: '#f0fdfa', color: '#0f766e', action: () => { handleBeginEdit(activeProd); setOpenDropdownId(null); } },
-                        { label: 'Replenish Stock',  sub: 'Add new stock from supplier',  icon: Package,       bg: '#f0fdf4', color: '#15803d', action: () => { setReplenishProduct(activeProd); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(activeProd.costingMethod || activeProd.inventorySettings?.costingMethod || 'fifo'); setOpenDropdownId(null); } },
-                        { label: 'Transfer Stock',   sub: 'Shop ↔ Store',                 icon: ArrowLeftRight, bg: '#faf5ff', color: '#7c3aed', action: () => { setTransferProduct(activeProd); setTransferQty(1); setTransferDirection('store_to_shop'); setTransferError(null); setTransferSuccess(false); setOpenDropdownId(null); } },
-                      ].map((item, idx, arr) => {
-                        const Icon = item.icon;
-                        return (
-                          <button
-                            key={item.label}
-                            type="button"
-                            onClick={item.action}
-                            className={`w-full flex items-center gap-4 px-5 py-4 active:bg-slate-50 transition-colors cursor-pointer bg-white text-left ${idx < arr.length - 1 ? 'border-b border-slate-100' : ''}`}
-                          >
-                            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{ background: item.bg }}>
-                              <Icon className="w-[18px] h-[18px]" style={{ color: item.color }} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[14px] font-semibold text-slate-800 leading-tight">{item.label}</p>
-                              <p className="text-[11px] text-slate-400 mt-0.5">{item.sub}</p>
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
-                          </button>
-                        );
-                      })}
-
-                      {/* Divider before destructive */}
-                      <div className="mx-5 my-1 h-px bg-slate-100" />
-
-                      {/* Delete — destructive row */}
-                      <button
-                        type="button"
-                        onClick={() => { onDeleteProduct(activeProd.id); setOpenDropdownId(null); }}
-                        className="w-full flex items-center gap-4 px-5 py-4 active:bg-red-50 transition-colors cursor-pointer bg-white text-left mb-2"
-                      >
-                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 bg-red-50">
-                          <Trash2 className="w-[18px] h-[18px] text-red-500" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-[14px] font-semibold text-red-600 leading-tight">Delete Item</p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">Remove from catalogue permanently</p>
-                        </div>
-                      </button>
-                    </div>
-                  </>
+                    </motion.div>
+                  </div>
                 );
               })()}
-              </div>{/* end md:hidden mobile sheet */}
+              </AnimatePresence>
 
               {/* Desktop View: Table */}
               <table className="hidden md:table w-full text-left border-collapse">
