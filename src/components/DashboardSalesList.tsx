@@ -791,7 +791,7 @@ export default function DashboardSalesList({
       {activeSubTab === 'sales' && (
         <>
           {/* DATE RANGE SELECTOR BAR */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 animate-fade-in">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 animate-fade-in">
             <div className="flex items-center space-x-2.5">
               <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
                 <Calendar className="w-5 h-5" />
@@ -826,7 +826,7 @@ export default function DashboardSalesList({
               </div>
 
               {/* Quick presets */}
-              <div className="flex flex-row items-center gap-2 overflow-x-auto pb-1 lg:pb-0 hide-scrollbar w-full lg:w-auto">
+              <div className="flex flex-row items-center gap-2 overflow-x-auto pb-1 lg:pb-0 scrollbar-none w-full lg:w-auto flex-nowrap">
                 <button
                   type="button"
                   onClick={() => {
@@ -1088,10 +1088,10 @@ export default function DashboardSalesList({
       </div>
 
       {/* SALES MAIN DATA LIST */}
-      <div className="bg-transparent md:bg-white md:rounded-2xl md:border md:border-slate-200 shadow-none md:shadow-xs overflow-hidden">
+      <div className="bg-transparent md:bg-white md:rounded-2xl md:border md:border-slate-200 shadow-none md:shadow-xs md:overflow-hidden">
         
         {/* Mobile View: Cards */}
-        <div className="md:hidden flex flex-col space-y-3 pb-8">
+        <div className="md:hidden flex flex-col space-y-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
           {filteredSales.map((sale) => {
             const totalVal = sale.total;
             const isCredit = sale.paymentMethod === 'Credit';
