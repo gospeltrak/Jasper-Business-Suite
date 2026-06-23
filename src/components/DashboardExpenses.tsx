@@ -398,7 +398,7 @@ export default function DashboardExpenses({
   }, [expenses]);
 
   return (
-    <div id="expenses-scaffold-layout" className="space-y-6 font-sans text-left">
+    <div id="expenses-scaffold-layout" className="space-y-4 font-sans text-left pb-[calc(80px+env(safe-area-inset-bottom))]">
       
       {/* 1. SECTION HEADER */}
       <div className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/80 p-5 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 select-none">
@@ -485,159 +485,83 @@ export default function DashboardExpenses({
         </div>
       </div>
 
-      {/* 2. DYNAMIC 'TOTAL EXPENSES' CARDS SECTION */}
-      {/* This strictly meets "instead add total expenses where it will be changed according to the date/day selected" */}
+      {/* 2. ACTIVE LEDGER SUM — compact, green, attractive */}
       <div className="w-full">
-        <div className="w-full bg-gradient-to-br from-slate-900 to-slate-950 text-white p-6 rounded-3xl border border-slate-800 shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[175px]">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-20 -mt-20" />
-          
-          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center w-full">
-            
-            {/* Left Column - Financial Ledger Values */}
+        <div className="w-full rounded-2xl overflow-hidden" style={{background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', boxShadow: '0 4px 20px rgba(5,150,105,0.25)'}}>
+          <div className="flex items-center justify-between px-5 py-4">
+            {/* Left: amount */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingDown className="w-3.5 h-3.5 text-emerald-200" />
+                <span className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest">Total Expenses</span>
+              </div>
+              <p className="text-2xl font-black text-white leading-none tracking-tight">
+                {currency} {Math.round(totalExpensesAmt).toLocaleString()}
+              </p>
+              <p className="text-[10px] text-emerald-200 mt-1 font-medium">
+                {filteredExpenses.length} {filteredExpenses.length === 1 ? 'entry' : 'entries'} · {
+                  dateFrom || dateTo
+                    ? `${dateFrom || '...'} → ${dateTo || '...'}`
+                    : quickDateOption === 'today' ? 'Today'
+                    : quickDateOption === 'yesterday' ? 'Yesterday'
+                    : quickDateOption === 'week' ? 'Last 7 days'
+                    : 'All time'
+                }
+              </p>
+            </div>
+            {/* Right: category mini breakdown */}
+            <div className="shrink-0 text-right space-y-1.5 min-w-[120px]">
+              {totalExpensesAmt > 0 ? (
+                categoryBreakdown.filter(c => c.total > 0).slice(0, 3).map(cat => (
+                  <div key={cat.name} className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{background: 'rgba(255,255,255,0.2)'}}>
+                      <div className="h-full rounded-full bg-white transition-all" style={{width: `${Math.min(100, cat.percentage)}%`, opacity: 0.85}} />
+                    </div>
+                    <span className="text-[9px] font-bold text-emerald-100 w-8 text-right">{cat.percentage.toFixed(0)}%</span>
+                  </div>
+                ))
+              ) : (
+                <span className="text-[10px] text-emerald-200 font-medium">No entries yet</span>
+              )}
+              {categoryBreakdown.filter(c => c.total > 0).length > 3 && (
+                <span className="text-[9px] text-emerald-200">+{categoryBreakdown.filter(c => c.total > 0).length - 3} more</span>
+              )}
+            </div>
+          </div>
+
+          {/* Trend chart strip at bottom */}
+          <div className="px-5 pb-3" style={{height: '52px'}}>
+            {expenses && expenses.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={expensesTrendData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="expGreen" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#fff" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#fff" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <Area type="monotone" dataKey="expense" stroke="rgba(255,255,255,0.6)" strokeWidth={1.5} fillOpacity={1} fill="url(#expGreen)" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Hidden original grid - keeping data but replacing visual */}
+        <div className="hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center w-full">
             <div className="lg:col-span-4 space-y-4">
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
                   <span className="text-[10px] font-mono font-black text-amber-405 uppercase tracking-widest bg-amber-400/10 px-2 py-0.5 rounded-md">
                     Active Ledger Sum
                   </span>
-                  <p className="text-xs text-slate-400 font-medium pt-1">
-                    {selectedDateFilter 
-                      ? `Operating expenditure for: ${new Date(selectedDateFilter).toLocaleDateString()}`
-                      : quickDateOption === 'week'
-                      ? 'Summary for the past 7 days operating expenditure ledger'
-                      : 'Cumulative branch operational expenditure ledger (all time)'}
-                  </p>
-                </div>
-                <div className="p-2 bg-rose-500/10 text-rose-400 rounded-xl border border-rose-500/20 lg:hidden shrink-0">
-                  <TrendingDown className="w-4 h-4" />
                 </div>
               </div>
-
               <div>
                 <h3 className="text-3xl font-black text-white leading-none tracking-tight">
                   {currency} {Math.round(totalExpensesAmt).toLocaleString()}
                 </h3>
-                <p className="text-[11px] text-slate-400 mt-2 font-mono flex items-center">
-                  <Info className="w-3 h-3 text-emerald-400 mr-1 shrink-0" />
-                  Calculated dynamically from {filteredExpenses.length} matching operational ledger receipt(s)
-                </p>
-              </div>
-            </div>
-
-            {/* Middle Column - Category Distribution Live Graph */}
-            <div className="lg:col-span-3">
-              <div className="bg-slate-950/55 border border-slate-800/80 p-4 rounded-2xl flex flex-col justify-between min-h-[130px] space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1">
-                    <Coins className="w-3 h-3 text-emerald-500" />
-                    Category Distribution
-                  </span>
-                  <span className="text-[9px] font-mono font-bold bg-slate-900 text-slate-400 px-2 py-0.5 rounded-md">
-                    {categoryBreakdown.filter(c => c.total > 0).length} active
-                  </span>
-                </div>
-
-                {totalExpensesAmt > 0 ? (
-                  <div className="space-y-2">
-                    {categoryBreakdown.filter(c => c.total > 0).slice(0, 2).map((cat) => (
-                      <div key={cat.name} className="space-y-0.5">
-                        <div className="flex justify-between text-[10px] font-bold text-slate-300">
-                          <span className="truncate max-w-[100px]">{cat.name}</span>
-                          <span className="font-mono text-slate-400 text-[9px]">
-                            {cat.percentage.toFixed(0)}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-800/60 h-1.5 rounded-full overflow-hidden">
-                          <div 
-                            className="bg-emerald-450 h-full rounded-full transition-all duration-700"
-                            style={{ width: `${Math.min(100, Math.max(3, cat.percentage))}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                    {categoryBreakdown.filter(c => c.total > 0).length > 2 && (
-                      <div className="text-[9px] text-right font-bold text-emerald-450">
-                        + {categoryBreakdown.filter(c => c.total > 0).length - 2} other categories
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-4 text-center space-y-1 h-full">
-                    <p className="text-[9px] text-slate-500 font-bold">No active range data</p>
-                    <p className="text-[8px] text-slate-600 max-w-[180px] leading-tight">Book a cash-out voucher to see metrics</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Right Column - 30-Day Daily Expenses Trends Line Chart */}
-            <div className="lg:col-span-5">
-              <div className="bg-slate-950/55 border border-slate-800/80 p-4 rounded-2xl flex flex-col justify-between min-h-[130px] space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono font-black text-rose-400 uppercase tracking-widest flex items-center gap-1">
-                    <TrendingDown className="w-3 h-3 text-rose-500" />
-                    30-Day Expenses Trend
-                  </span>
-                  <span className="text-[9px] font-mono font-bold bg-slate-900 text-slate-400 px-2 py-0.5 rounded-md">
-                    Daily Expenses
-                  </span>
-                </div>
-
-                <div className="w-full h-[90px] mt-1 relative">
-                  {expenses && expenses.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={expensesTrendData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <XAxis 
-                          dataKey="date" 
-                          stroke="#475569" 
-                          fontSize={8} 
-                          tickLine={false} 
-                          axisLine={false}
-                          dy={3}
-                          interval={4}
-                        />
-                        <YAxis 
-                          stroke="#475569" 
-                          fontSize={8} 
-                          tickLine={false} 
-                          axisLine={false}
-                          tickFormatter={(v) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}
-                          width={28}
-                        />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: '#020617', 
-                            borderColor: '#1e293b', 
-                            fontSize: '9px',
-                            borderRadius: '8px',
-                            color: '#fff',
-                            padding: '4px 8px'
-                          }} 
-                          formatter={(value: any) => [`${currency} ${Number(value).toLocaleString()}`, 'Expenses']}
-                          labelStyle={{ color: '#94a3b8', fontWeight: 'bold' }}
-                        />
-                        <Area 
-                          type="monotone" 
-                          dataKey="expense" 
-                          stroke="#f43f5e" 
-                          strokeWidth={1.5}
-                          fillOpacity={1} 
-                          fill="url(#colorExpense)" 
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-center">
-                      <p className="text-[9px] text-slate-500">No expenses data available</p>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
 
@@ -645,44 +569,36 @@ export default function DashboardExpenses({
         </div>
       </div>
 
-      {/* 3. DYNAMIC SUB-NAV MENU TABS */}
-      {/* "expenses list", "expenses categories", "add new expense" */}
-      <div className="border-b border-slate-200 dark:border-slate-800 flex flex-wrap gap-2 pt-2">
-        <button
-          onClick={() => setSubTab('list')}
-          className={`pb-3 px-4 text-xs font-bold leading-none cursor-pointer transition-all border-b-2 flex items-center space-x-2 ${
-            subTab === 'list' 
-              ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-black border-b-[3px]' 
-              : 'border-transparent text-slate-450 hover:text-slate-800 dark:hover:text-slate-300'
-          }`}
-        >
-          <Receipt className="w-4 h-4 shrink-0" />
-          <span>Expenses List</span>
-        </button>
-
-        <button
-          onClick={() => setSubTab('categories')}
-          className={`pb-3 px-4 text-xs font-bold leading-none cursor-pointer transition-all border-b-2 flex items-center space-x-2 ${
-            subTab === 'categories' 
-              ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-black border-b-[3px]' 
-              : 'border-transparent text-slate-450 hover:text-slate-800 dark:hover:text-slate-300'
-          }`}
-        >
-          <FolderKanban className="w-4 h-4 shrink-0" />
-          <span>Expenses Categories</span>
-        </button>
-
-        <button
-          onClick={() => setSubTab('add')}
-          className={`pb-3 px-4 text-xs font-bold leading-none cursor-pointer transition-all border-b-2 flex items-center space-x-2 ${
-            subTab === 'add' 
-              ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-black border-b-[3px]' 
-              : 'border-transparent text-slate-450 hover:text-slate-800 dark:hover:text-slate-300'
-          }`}
-        >
-          <PlusCircle className="w-4 h-4 shrink-0" />
-          <span>Add New Expense</span>
-        </button>
+            {/* 3. TAB NAVIGATION — clean pill design */}
+      <div className="flex gap-2 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl">
+        {([
+          { id: 'list', label: 'Expenses', icon: Receipt, color: 'text-emerald-600' },
+          { id: 'categories', label: 'Categories', icon: FolderKanban, color: 'text-violet-600' },
+          { id: 'add', label: '+ Add Expense', icon: PlusCircle, color: 'text-white' },
+        ] as const).map(tab => {
+          const Icon = tab.icon;
+          const isActive = subTab === tab.id;
+          const isAdd = tab.id === 'add';
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setSubTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer border-none ${
+                isAdd
+                  ? isActive
+                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/20'
+                    : 'bg-emerald-600/90 text-white hover:bg-emerald-600 shadow-sm shadow-emerald-500/10'
+                  : isActive
+                    ? 'bg-white dark:bg-slate-800 shadow-sm text-slate-800 dark:text-white'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              <Icon className={`w-3.5 h-3.5 shrink-0 ${isAdd ? 'text-white' : isActive ? tab.color : ''}`} />
+              <span className="leading-none whitespace-nowrap">{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* 4. MAIN INTERACTIVE VIEWER AREAS */}
