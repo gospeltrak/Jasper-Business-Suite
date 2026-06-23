@@ -4925,7 +4925,7 @@ export default function DashboardSalesList({
 	                    {pdfShareStatus}
 	                  </div>
 	                )}
-	                <div className="flex flex-wrap items-center justify-end gap-2">
+	                <div className="flex flex-wrap items-center justify-end gap-2 pb-[env(safe-area-inset-bottom)]">
 	                  <button
 	                    type="button"
 	                    onClick={() => {
