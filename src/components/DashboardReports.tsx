@@ -4698,7 +4698,7 @@ export default function DashboardReports({
       {/* DIALOG: CREATE NEW EXPENSE MODAL */}
       {/* ------------------------------------------------------------- */}
       {isExpenseModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
           <div className="relative bg-white border border-slate-205 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
             
             {/* Header */}
@@ -4848,7 +4848,7 @@ export default function DashboardReports({
       {/* ------------------------------------------------------------- */}
       {previewReceiptImage && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
           onClick={() => setPreviewReceiptImage(null)}
         >
           <div 
@@ -4895,7 +4895,7 @@ export default function DashboardReports({
       {/* ------------------------------------------------------------- */}
       {selectedInspectSale && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
           onClick={() => setSelectedInspectSale(null)}
         >
           <div 
