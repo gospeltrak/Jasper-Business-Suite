@@ -541,8 +541,73 @@ export default function DashboardOverview({
 
   return (
     <div id="overview-component" className="space-y-6 font-sans">
+
+      {/* ══════════ MOBILE-ONLY HERO SECTION ══════════ */}
+      <div className="md:hidden space-y-4">
+
+        {/* Stat cards 2x2 grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { label: 'Total Orders', value: sales.filter((s:any) => new Date(s.timestamp).toDateString() === new Date().toDateString()).length, sub: `${filteredSales.length} this period`, color: '#2196F3', up: true },
+            { label: "Today's Sales", value: `${currency} ${Math.round(todayTotalRevenue).toLocaleString()}`, sub: todayTotalRevenue > 0 ? '↑ Today' : 'No sales yet', color: '#00C853', up: todayTotalRevenue > 0 },
+            { label: 'Expenses', value: `${currency} ${Math.round(expenses.reduce((s:number,e:any)=>s+(e.amount||0),0)).toLocaleString()}`, sub: 'Total spending', color: '#ef4444', up: false },
+            { label: 'Profit', value: `${currency} ${Math.round(netProfit).toLocaleString()}`, sub: `${avgProfitMargin.toFixed(1)}% margin`, color: netProfit >= 0 ? '#00C853' : '#ef4444', up: netProfit >= 0 },
+            { label: 'Purchases', value: `${currency} ${Math.round(purchases.reduce((s:number,p:any)=>s+(p.total||p.amount||0),0)).toLocaleString()}`, sub: `${purchases.length} orders`, color: '#7c3aed', up: false },
+            { label: 'Dues Owed', value: `${currency} ${Math.round(filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').reduce((sum:number,s:any)=>sum+(s.dueAmount||s.amountDue||0),0)).toLocaleString()}`, sub: `${filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').length} unpaid`, color: '#f59e0b', up: false },
+          ].map((card, i) => (
+            <div key={i} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 leading-none">{card.label}</p>
+              <p className="text-[17px] font-black text-slate-900 tracking-tight leading-tight">{card.value}</p>
+              <p className="text-[10px] font-semibold mt-1 leading-none" style={{color: card.color}}>{card.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* POS Hero Banner */}
+        <div
+          className="rounded-2xl p-5 flex items-center justify-between cursor-pointer active:scale-98 transition-all"
+          style={{background: 'linear-gradient(135deg, #00C853 0%, #00953D 100%)'}}
+          onClick={() => {
+            const el = document.querySelector('[data-tab="pos"]') as HTMLElement;
+            if (el) el.click();
+          }}
+        >
+          <div>
+            <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mb-1">Quick action</p>
+            <p className="text-[17px] font-black text-white leading-tight">Open Sell Screen</p>
+            <p className="text-[11px] text-white/75 font-medium mt-0.5">Tap to start selling now</p>
+          </div>
+          <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+            <ShoppingCart className="w-6 h-6 text-white" strokeWidth={2.5} />
+          </div>
+        </div>
+
+        {/* Recent Sales */}
+        {filteredSales.length > 0 && (
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Recent Sales</p>
+            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+              {filteredSales.slice(0,4).map((sale: any, i: number, arr: any[]) => (
+                <div key={sale.id} className={`flex items-center gap-3 px-4 py-3 ${i < arr.length-1 ? 'border-b border-slate-50' : ''}`}>
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                    <ShoppingCart className="w-4 h-4 text-emerald-600" strokeWidth={2.2} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-bold text-slate-900 truncate leading-tight">{sale.customerName || 'Walk-in'}</p>
+                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">{sale.paymentMethod || 'Cash'} · {new Date(sale.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</p>
+                  </div>
+                  <p className="text-[13px] font-black text-slate-900 shrink-0">{currency} {Math.round(sale.total).toLocaleString()}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </div>
+      {/* ══════════ END MOBILE HERO ══════════ */}
+
       {/* 2. OVERVIEW HEADER WITH DYNAMIC DAY SELECTOR */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-150/80 dark:border-slate-800 p-5 rounded-2xl shadow-xs text-left select-none animate-fade-in">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-150/80 dark:border-slate-800 p-5 rounded-2xl shadow-xs text-left select-none animate-fade-in hidden md:flex">
         <div className="flex items-center space-x-4">
           {/* Circular logo or Initials Avatar */}
           {(() => {
@@ -677,8 +742,8 @@ export default function DashboardOverview({
 
 
 
-      {/* 3. KPI CARDS ROW (6 cards, equal width, responsive grid: 3-column x 2-row on PC/wide screens) */}
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 select-none animate-fade-in">
+      {/* 3. KPI CARDS ROW - desktop only, mobile uses hero above */}
+      <div className="hidden md:grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 select-none animate-fade-in">
         
         {/* Card 1: Total Orders */}
         <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
