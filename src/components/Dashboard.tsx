@@ -1933,11 +1933,26 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             {/* Center: Clean whitespace (nothing, per design) */}
             <div className="flex-1" />
 
-            {/* Right: Search icon + Language + Notification bell with unread dot indicator */}
+            {/* Right: Search icon + Dark Mode + Language + Notification bell */}
             <div className="flex items-center space-x-1">
               <button className="p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer">
                 <Search className="w-5 h-5" />
               </button>
+
+              {/* Dark / Light Mode Toggle */}
+              {onToggleTheme && (
+                <button
+                  type="button"
+                  onClick={onToggleTheme}
+                  className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer"
+                  title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                >
+                  {isDark
+                    ? <Sun className="w-5 h-5 text-amber-400" />
+                    : <Moon className="w-5 h-5 text-slate-500" />
+                  }
+                </button>
+              )}
 
               {/* Mobile Language Button */}
               <div className="relative">
