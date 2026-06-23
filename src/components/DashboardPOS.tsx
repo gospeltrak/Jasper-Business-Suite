@@ -28,8 +28,7 @@ import {
   Pill,
   Coins,
   ShieldAlert,
-  Lock,
-  Unlock,
+
   History,
   UserCheck,
   Calendar,
@@ -438,36 +437,7 @@ export default function DashboardPOS({
   const [sellingChannel, setSellingChannel] = useState<'retail' | 'wholesale'>('retail');
   const [posWarning, setPosWarning] = useState<string | null>(null);
 
-  // Live security, pin validation and manager overrides
-  const [supervisorPin, setSupervisorPin] = useState('');
-  const [supervisorError, setSupervisorError] = useState<string | null>(null);
-  const [isWholesaleBypassed, setIsWholesaleBypassed] = useState(false);
-  const [isDiscountBypassed, setIsDiscountBypassed] = useState(false);
-  const [isVoidBypassed, setIsVoidBypassed] = useState(false);
 
-  // Persistent-like dynamic logs tracker for reports
-  const [approvals, setApprovals] = useState<Array<{
-    id: string;
-    timestamp: string;
-    type: 'wholesale_qty' | 'discount' | 'void';
-    description: string;
-    status: 'PENDING' | 'BYPASSED' | 'CANCELLED';
-  }>>([
-    {
-      id: 'app-101',
-      timestamp: new Date(Date.now() - 3600000 * 24).toISOString().replace('T', ' ').substring(0, 16),
-      type: 'wholesale_qty',
-      description: 'Metformin 850mg - Qty 8 (Wholesale Min: 15) for Kunle Adebayo',
-      status: 'BYPASSED'
-    },
-    {
-      id: 'app-102',
-      timestamp: new Date(Date.now() - 3600000 * 12).toISOString().replace('T', ' ').substring(0, 16),
-      type: 'discount',
-      description: 'Grace Eze - 15% custom item discount authorized by manager pin.',
-      status: 'BYPASSED'
-    }
-  ]);
 
   const currency = systemSettings?.company?.currency || activeTenant.currency;
 
@@ -809,22 +779,6 @@ export default function DashboardPOS({
   const triggerCheckout = () => {
     if (cart.length === 0) return;
 
-    // Check if there are active, un-bypassed security exceptions
-    const hasPendingWholesale = sellingChannel === 'wholesale' && 
-      cart.some(item => item.qty < (item.product.minWholesaleQty || 1)) && 
-      !isWholesaleBypassed;
-    
-    const hasPendingDiscount = (cart.some(item => item.discount > 0) || orderDiscount > 0) && 
-      !isDiscountBypassed;
-
-    const hasPendingVoid = approvals.some(app => app.type === 'void' && app.status === 'PENDING') && 
-      !isVoidBypassed;
-
-    if (hasPendingWholesale || hasPendingDiscount || hasPendingVoid) {
-      setPosWarning("CHECKOUT LOCKED: You have pending manager review overrides. Please enter the Supervisor pin code in the Security Station at the bottom right before checking out.");
-      return;
-    }
-
     setPaymentStatus('idle');
     setPaymentMethod('Cash');
     const availableDeliveryModes = systemSettings?.business?.deliveryPaymentModes && systemSettings.business.deliveryPaymentModes.length > 0 
@@ -999,7 +953,7 @@ export default function DashboardPOS({
       multiCashAmount: paymentMethod === 'Multi-Channel' ? multiCashAmount : undefined,
       multiBankAmount: paymentMethod === 'Multi-Channel' ? multiBankAmount : undefined,
       channel: sellingChannel,
-      approvals: approvals
+
     };
 
     // Deduct stock quantities directly from shop stock taking fractional dosages into account
@@ -1054,135 +1008,10 @@ export default function DashboardPOS({
     setSupervisorError(null);
   };
 
-  // Handlers for security overrides & manager validations
   const handleRequestVoid = () => {
-    // Add pending void override!
-    const newPendingVoid = {
-      id: 'app-void-' + Math.floor(Math.random() * 1000),
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      type: 'void' as const,
-      description: `Void request for cash basket carrying ${cart.length} unique items (Subtotal ${currency}${Math.round(subtotal).toLocaleString()})`,
-      status: 'PENDING' as const
-    };
-    
-    setApprovals(prev => [newPendingVoid, ...prev]);
-    setIsVoidBypassed(false);
-    setPosWarning("CRITICAL: Basket Void cancellation requires Supervisor Pin validation!");
+    setCart([]);
+    setPosWarning("Till basket cleared.");
   };
-
-  const handleEnterSupervisorPin = (pin: string) => {
-    if (pin === '5544') {
-      // Find pending ones and bypass them
-      setApprovals(prev => prev.map(app => app.status === 'PENDING' ? { ...app, status: 'BYPASSED' } : app));
-      
-      // Clear bypass flags
-      setIsWholesaleBypassed(true);
-      setIsDiscountBypassed(true);
-      
-      // If there was a pending void, clear the Cart too!
-      const hasPendingVoid = approvals.some(app => app.type === 'void' && app.status === 'PENDING');
-      if (hasPendingVoid) {
-        setCart([]);
-        setIsVoidBypassed(true);
-        setPosWarning("SUCCESS: Till basket void approved. Shop register reset.");
-      } else {
-        setPosWarning("SUCCESS: Supervisor overrides approved. Checkout authorized.");
-      }
-      
-      setSupervisorPin('');
-      setSupervisorError(null);
-    } else {
-      setSupervisorError("Invalid Code. Master Security override PIN required.");
-    }
-  };
-
-  const handleSimulateSwipeApproval = () => {
-    // Direct simulate button click for quick sandbox evaluation
-    setApprovals(prev => prev.map(app => app.status === 'PENDING' ? { ...app, status: 'BYPASSED' } : app));
-    setIsWholesaleBypassed(true);
-    setIsDiscountBypassed(true);
-    
-    const hasPendingVoid = approvals.some(app => app.type === 'void' && app.status === 'PENDING');
-    if (hasPendingVoid) {
-      setCart([]);
-      setIsVoidBypassed(true);
-      setPosWarning("DEMO OVERRIDE: Till basket void approved dynamically.");
-    } else {
-      setPosWarning("DEMO OVERRIDE: Supervisor swipe bypass completed.");
-    }
-    setSupervisorPin('');
-    setSupervisorError(null);
-  };
-
-  const handleRejectPendingOverrides = () => {
-    setApprovals(prev => prev.map(app => app.status === 'PENDING' ? { ...app, status: 'CANCELLED' } : app));
-    setIsWholesaleBypassed(false);
-    setIsDiscountBypassed(false);
-    setIsVoidBypassed(false);
-    setSupervisorPin('');
-    setSupervisorError(null);
-    setPosWarning("MANAGER ACTION: Pending overrides rejected.");
-  };
-
-  // Automated effect to detect violations when cart/rules mutate
-  useEffect(() => {
-    if (cart.length === 0) return;
-
-    // 1. Verify wholesale minimum bounds
-    if (sellingChannel === 'wholesale') {
-      const failedItems = cart.filter(item => {
-        const minQty = item.product.minWholesaleQty || 1;
-        return item.qty < minQty;
-      });
-      
-      if (failedItems.length > 0 && !isWholesaleBypassed) {
-        const alreadyExists = approvals.some(app => app.type === 'wholesale_qty' && app.status === 'PENDING');
-        if (!alreadyExists) {
-          const itemNames = failedItems.map(i => `${i.product.name} (Qty ${i.qty}/${i.product.minWholesaleQty || 1})`).join(', ');
-          const newExc = {
-            id: 'app-w-' + Math.floor(Math.random() * 1000),
-            timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-            type: 'wholesale_qty' as const,
-            description: `Wholesale exception: ${itemNames}`,
-            status: 'PENDING' as const
-          };
-          setApprovals(prev => {
-            const filtered = prev.filter(app => !(app.type === 'wholesale_qty' && app.status === 'PENDING'));
-            return [newExc, ...filtered];
-          });
-        }
-      } else if (failedItems.length === 0 && isWholesaleBypassed) {
-        setIsWholesaleBypassed(false);
-      }
-    }
-
-    // 2. Verify line item or grand total custom discounts
-    const lineDiscountItems = cart.filter(item => item.discount > 0);
-    const hasDiscount = lineDiscountItems.length > 0 || orderDiscount > 0;
-    
-    if (hasDiscount && !isDiscountBypassed) {
-      const alreadyExists = approvals.some(app => app.type === 'discount' && app.status === 'PENDING');
-      if (!alreadyExists) {
-        const desc = lineDiscountItems.length > 0 
-          ? `Discount exceptions: ${lineDiscountItems.map(i => `${i.product.name} (-${i.discount}${i.discountType === 'cash' ? currency : '%'})`).join(', ')}`
-          : `Total order discount (-${orderDiscount}${orderDiscountType === 'cash' ? currency : '%'}) applied`;
-        
-        const newExc = {
-          id: 'app-d-' + Math.floor(Math.random() * 1000),
-          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-          type: 'discount' as const,
-          description: desc,
-          status: 'PENDING' as const
-        };
-        setApprovals(prev => {
-          const filtered = prev.filter(app => !(app.type === 'discount' && app.status === 'PENDING'));
-          return [newExc, ...filtered];
-        });
-      }
-    } else if (!hasDiscount && isDiscountBypassed) {
-      setIsDiscountBypassed(false);
-    }
-  }, [cart, sellingChannel, orderDiscount, orderDiscountType, isWholesaleBypassed, isDiscountBypassed]);
 
   return (
     <div id="pos-view-container" className="relative pb-[160px] md:pb-0 pt-[56px] md:pt-0">
@@ -1906,172 +1735,7 @@ export default function DashboardPOS({
         </div>
       </div>
 
-      {/* 🔒 Jasper Live Security & Manager Override Station */}
-      <div className="lg:col-span-5 xl:col-span-4 bg-slate-900 text-slate-100 rounded-3xl p-5 space-y-4 shadow-xl border border-slate-950/20 animate-fade-in self-start mt-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center space-x-2">
-            <div className="bg-amber-500/10 p-1.5 rounded-lg border border-amber-500/20">
-              <Lock className="w-4 h-4 text-amber-500 animate-pulse" />
-            </div>
-            <div className="text-left">
-              <h5 className="font-extrabold text-[11px] font-sans tracking-wide uppercase text-slate-100">Jasper Security Rails</h5>
-              <p className="text-[9px] font-mono text-slate-400">Manager Approval</p>
-            </div>
-          </div>
-          <span className="text-[8.5px] font-mono font-black tracking-widest bg-emerald-950/40 text-emerald-400 border border-emerald-900 px-2 py-0.5 rounded-md">
-            ● SHIELD ACTIVE
-          </span>
-        </div>
 
-        {/* Dynamic Exception Analysis Block */}
-        {(() => {
-          const pendingWholesale = sellingChannel === 'wholesale' && 
-            cart.filter(item => item.qty < (item.product.minWholesaleQty || 1));
-          
-          const pendingDiscount = (cart.filter(item => item.discount > 0).length > 0 || orderDiscount > 0);
-          
-          const pendingVoid = approvals.some(app => app.type === 'void' && app.status === 'PENDING');
-
-          const hasExceptions = (pendingWholesale && pendingWholesale.length > 0 && !isWholesaleBypassed) || 
-                                (pendingDiscount && !isDiscountBypassed) || 
-                                (pendingVoid && !isVoidBypassed);
-
-          return (
-            <div className="space-y-3.5">
-              {/* Active Security Threat Status Indicator */}
-              {hasExceptions ? (
-                <div className="bg-red-950/40 border border-red-900/45 rounded-2xl p-3 space-y-2.5">
-                  <div className="flex items-start space-x-2 text-left">
-                    <ShieldAlert className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                    <div className="space-y-0.5">
-                      <p className="text-[11px] font-black uppercase text-rose-400 tracking-wider">🔒 Exception Blockade Alert</p>
-                      <p className="text-[9.5px] text-slate-450 leading-snug font-sans">Supervisor PIN required.</p>
-                    </div>
-                  </div>
-
-                  {/* Bullet out conflict lists details */}
-                  <div className="space-y-1.5 border-t border-slate-850 pt-2 text-[10px] font-mono text-slate-300 bg-black/20 p-2 rounded-xl text-left leading-relaxed">
-                    {pendingWholesale && pendingWholesale.length > 0 && !isWholesaleBypassed && (
-                      <div className="flex items-start space-x-1.5">
-                        <span className="text-amber-500">•</span>
-                        <span>
-                          Wholesale minimum is violated: {pendingWholesale.map(i => `${i.product.name} (Qty ${i.qty}/${i.product.minWholesaleQty || 1})`).join(', ')}
-                        </span>
-                      </div>
-                    )}
-                    {pendingDiscount && !isDiscountBypassed && (
-                      <div className="flex items-start space-x-1.5">
-                        <span className="text-amber-500">•</span>
-                        <span>
-                          Discount exceptions: Custom cashier discounts applied without authorization.
-                        </span>
-                      </div>
-                    )}
-                    {pendingVoid && !isVoidBypassed && (
-                      <div className="flex items-start space-x-1.5">
-                        <span className="text-rose-500">•</span>
-                        <span>
-                          Till void requested: basket wipe carries security exception logs.
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* PIN Input & Simulator Blocks */}
-                  <div className="space-y-2 border-t border-slate-850 pt-2.5 text-left">
-                    <label className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Enter Supervisor Override Code (PIN: 5544)</label>
-                    <div className="flex gap-1.5">
-                      <input
-                        type="password"
-                        placeholder="PIN"
-                        maxLength={4}
-                        value={supervisorPin}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '');
-                          setSupervisorPin(val);
-                          if (val.length === 4) {
-                            handleEnterSupervisorPin(val);
-                          }
-                        }}
-                        className="bg-slate-950/80 border border-slate-800 focus:border-amber-500 text-center font-black font-mono text-xs tracking-widest px-2.5 py-1.5 rounded-xl w-20 text-slate-100 outline-none transition-all"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleEnterSupervisorPin(supervisorPin)}
-                        className="bg-amber-600 hover:bg-amber-500 text-slate-950 text-[10px] font-black uppercase rounded-xl px-2.5 outline-none cursor-pointer transition-all flex-grow font-sans active:scale-95"
-                      >
-                        Verify Override PIN
-                      </button>
-                    </div>
-
-                    {supervisorError && (
-                      <p className="text-[9.5px] font-mono text-rose-450 font-bold bg-rose-950/30 border border-rose-900 p-1.5 rounded-lg text-center">
-                        {supervisorError}
-                      </p>
-                    )}
-
-                    {/* Simulation Sandboxed Assist actions */}
-                    <div className="flex gap-1 pt-1">
-                      <button
-                        type="button"
-                        onClick={handleSimulateSwipeApproval}
-                        className="bg-indigo-955/90 hover:bg-indigo-900 border border-indigo-900/40 text-indigo-405 text-[8.5px] font-extrabold py-1.5 rounded-lg cursor-pointer transition-colors flex-grow text-center"
-                        title="Manager override"
-                      >
-                        ⚡ Simulate Owner Overpass
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleRejectPendingOverrides}
-                        className="bg-slate-805 hover:bg-slate-700 text-slate-350 text-[8.5px] font-bold py-1.5 rounded-lg cursor-pointer transition-colors px-2 text-center"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-emerald-955/30 border border-emerald-900/30 rounded-2xl p-4 flex items-center space-x-2.5 text-left">
-                  <Unlock className="w-5 h-5 text-emerald-450 shrink-0" />
-                  <div className="space-y-0.5">
-                    <p className="text-[11px] font-black uppercase text-emerald-400 tracking-wider">🔒 Verified Compliance Mode</p>
-                    <p className="text-[9.5px] text-slate-400 leading-relaxed font-sans font-medium">
-                      All transaction lines fully match retail/wholesale guidelines. No blockades.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* Live Logs Table Header */}
-        <div className="space-y-2 text-left pt-2 border-t border-slate-800">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] font-bold text-slate-400 tracking-tight uppercase block font-sans">Approval History</span>
-            <span className="text-[8px] font-mono text-slate-500 font-extrabold uppercase">Audit Mode</span>
-          </div>
-          <div className="max-h-[160px] overflow-y-auto space-y-1.5 pr-1 scrollbar-thin scrollbar-thumb-slate-850">
-            {approvals.map(app => (
-              <div key={app.id} className="p-2.5 bg-slate-950/40 border border-slate-800/45 rounded-xl space-y-0.5 flex flex-col hover:bg-slate-950/60 transition-colors">
-                <div className="flex justify-between items-center text-[8.5px] font-mono text-slate-500 font-bold">
-                  <span>ID: {app.id.toUpperCase()} • {app.timestamp}</span>
-                  <span className={`px-1.5 rounded font-black text-[7.5px] border shrink-0 ${
-                    app.status === 'PENDING'
-                      ? 'bg-amber-950 text-amber-500 border-amber-900 active:animate-ping'
-                      : app.status === 'BYPASSED'
-                        ? 'bg-emerald-950 text-emerald-450 border-emerald-900'
-                        : 'bg-slate-900 text-slate-400 border-slate-800'
-                  }`}>
-                    {app.status}
-                  </span>
-                </div>
-                <p className="text-[9px] text-slate-300 font-mono leading-normal font-medium break-words">{app.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
       {/* CHECKOUT MODAL SYSTEM */}
       {isCheckoutOpen && (
