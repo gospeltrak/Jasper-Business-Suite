@@ -231,6 +231,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const [moreMenuOpen, setMoreMenuOpen] = useState<boolean>(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState<boolean>(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
 
   const handleConfirmLogout = async () => {
     try {
@@ -1868,15 +1869,58 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 {offlinePendingCount > 0 && unreadCount === 0 && <div className="absolute top-1 right-1 w-2 h-2 bg-[#ef4444] rounded-full border border-white" />}
               </div>
 
-              {/* User Avatar Circle */}
-              <div 
-                className="w-8.5 h-8.5 bg-white text-slate-800 rounded-full flex-center font-black text-xs uppercase shadow cursor-pointer hover:opacity-90 hover:scale-102 active:scale-97 transition-all leading-none select-none flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700"
-                onClick={() => setMoreMenuOpen(true)}
-              >
-                {user.profileImage ? (
-                  <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
-                ) : (
-                  user.name.charAt(0).toUpperCase()
+              {/* User Avatar Circle with dropdown */}
+              <div className="relative">
+                <div 
+                  className="w-9 h-9 bg-white text-slate-800 rounded-full flex items-center justify-center font-black text-xs uppercase shadow cursor-pointer hover:opacity-90 hover:scale-105 active:scale-95 transition-all leading-none select-none overflow-hidden border border-slate-200 dark:border-slate-700"
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                >
+                  {user.profileImage ? (
+                    <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
+                  ) : (
+                    user.name.charAt(0).toUpperCase()
+                  )}
+                </div>
+
+                {showUserMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                    <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden animate-fade-in">
+                      {/* User info header */}
+                      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                        <p className="text-xs font-black text-slate-800 dark:text-white truncate">{user.name}</p>
+                        <p className="text-[10px] text-slate-400 capitalize mt-0.5">{user.role}</p>
+                      </div>
+                      {/* Menu items */}
+                      <div className="py-1">
+                        <button
+                          type="button"
+                          onClick={() => { setActiveTab('settings' as any); setShowUserMenu(false); }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        >
+                          <Shield className="w-4 h-4 text-slate-400" />
+                          <span className="font-semibold">Profile</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setActiveTab('settings' as any); setShowUserMenu(false); }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        >
+                          <SettingsIcon className="w-4 h-4 text-slate-400" />
+                          <span className="font-semibold">Settings</span>
+                        </button>
+                        <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+                        <button
+                          type="button"
+                          onClick={() => { setShowUserMenu(false); setShowLogoutConfirm(true); }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
+                        >
+                          <LogOut className="w-4 h-4 text-rose-500" />
+                          <span className="font-semibold">Sign Out</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
