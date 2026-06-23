@@ -916,6 +916,20 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     setLogs(prev => [newLog, ...prev]);
   };
 
+  const handleDeleteExpense = (expenseId: string) => {
+    setExpensesMap(prev => ({
+      ...prev,
+      [activeTenant.id]: (prev[activeTenant.id] || []).filter(e => e.id !== expenseId)
+    }));
+  };
+
+  const handleUpdateExpense = (updatedExpense: Expense) => {
+    setExpensesMap(prev => ({
+      ...prev,
+      [activeTenant.id]: (prev[activeTenant.id] || []).map(e => e.id === updatedExpense.id ? updatedExpense : e)
+    }));
+  };
+
   const handleUpdateActiveStocks = (updatedProducts: Product[]) => {
     setProductsMap(prev => ({
       ...prev,
@@ -2251,6 +2265,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               activeTenant={activeTenant}
               expenses={activeExpenses}
               onAddExpense={handleAddExpense}
+              onDeleteExpense={handleDeleteExpense}
+              onUpdateExpense={handleUpdateExpense}
               userName={user.name}
               sales={activeSales}
             />
