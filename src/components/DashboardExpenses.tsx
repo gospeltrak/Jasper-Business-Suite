@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Receipt, 
   Plus, 
@@ -1027,76 +1028,97 @@ export default function DashboardExpenses({
         </div>
       )}
 
-      {/* ── MOBILE EXPENSE ACTION SHEET ── */}
-      {expenseActionItem && (
-        <>
-          <div className="fixed inset-0 z-[70] bg-black/25 backdrop-blur-[2px]" onClick={() => setExpenseActionItem(null)} />
-          <div className="fixed left-0 right-0 z-[80] bg-white dark:bg-slate-900 rounded-t-3xl"
-            style={{bottom: 'calc(56px + env(safe-area-inset-bottom))', maxHeight: 'calc(75dvh - 56px)', overflowY: 'auto', boxShadow: '0 -8px 30px rgba(0,0,0,0.12)'}}>
-            <div className="w-9 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-1" />
-            {/* Header */}
-            <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800">
-              <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{expenseActionItem.description}</p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">{expenseActionItem.category}</span>
-                <span className="text-[10px] text-slate-400">{new Date(expenseActionItem.timestamp).toLocaleDateString()}</span>
-                <span className="text-sm font-black text-rose-600 ml-auto">{currency} {Math.round(expenseActionItem.amount).toLocaleString()}</span>
-              </div>
-            </div>
-            {/* Extra details */}
-            <div className="px-5 py-3 border-b border-slate-50 dark:border-slate-800 space-y-1.5">
-              <div className="flex justify-between text-[11px]">
-                <span className="text-slate-400 font-medium">Staff</span>
-                <span className="text-slate-800 dark:text-white font-bold">{expenseActionItem.staffName || 'Admin'}</span>
-              </div>
-              {expenseActionItem.note && (
-                <div className="flex justify-between text-[11px] gap-3">
-                  <span className="text-slate-400 font-medium shrink-0">Note</span>
-                  <span className="text-slate-700 dark:text-slate-300 text-right">{expenseActionItem.note}</span>
-                </div>
-              )}
-              {expenseActionItem.receiptRef && (
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-slate-400 font-medium">Receipt</span>
-                  <span className="text-emerald-600 font-bold">{expenseActionItem.receiptRef}</span>
-                </div>
-              )}
-            </div>
-            {/* Actions */}
-            {[
-              { label: 'Edit Expense', sub: 'Update amount, category or name', icon: Edit, bg: '#fef3c7', color: '#b45309', action: () => { setEditingExpense(expenseActionItem); setEditForm({description: expenseActionItem.description, amount: String(expenseActionItem.amount), category: expenseActionItem.category, note: expenseActionItem.note || ''}); setExpenseActionItem(null); } },
-            ].map(item => {
-              const Icon = item.icon;
-              return (
-                <button key={item.label} type="button" onClick={item.action}
-                  className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-b border-slate-50 dark:border-slate-800 cursor-pointer bg-transparent text-left"
-                >
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{background: item.bg}}>
-                    <Icon className="w-4 h-4" style={{color: item.color}} />
-                  </div>
-                  <div>
-                    <p className="text-[13px] font-bold text-slate-800 dark:text-white">{item.label}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">{item.sub}</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-300 ml-auto shrink-0" />
-                </button>
-              );
-            })}
-            <button type="button"
-              onClick={() => { if (window.confirm('Delete this expense?')) { onDeleteExpense?.(expenseActionItem.id); setExpenseActionItem(null); } }}
-              className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer bg-transparent text-left mb-1"
+      {/* ── MOBILE EXPENSE ACTION SHEET — motion spring, matches Sales exactly ── */}
+      <AnimatePresence>
+        {expenseActionItem && (
+          <>
+            <motion.div
+              key="expense-sheet-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setExpenseActionItem(null)}
+              className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div
+              key="expense-sheet-panel"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+              className="fixed left-0 right-0 max-w-lg mx-auto bg-white dark:bg-slate-900 rounded-t-3xl z-[80] overflow-hidden font-sans flex flex-col border border-slate-100 dark:border-slate-800"
+              style={{
+                bottom: 'calc(56px + env(safe-area-inset-bottom))',
+                maxHeight: 'calc(85vh - 56px - env(safe-area-inset-bottom))',
+                boxShadow: 'none',
+              }}
             >
-              <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center shrink-0">
-                <Trash2 className="w-4 h-4 text-red-500" />
+              {/* Drag handle */}
+              <div className="w-full flex justify-center py-2 shrink-0">
+                <div className="w-12 h-1 bg-slate-200 dark:bg-slate-700 rounded-full" />
               </div>
-              <div>
-                <p className="text-[13px] font-bold text-red-600">Delete Expense</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Remove this record permanently</p>
+
+              {/* Header */}
+              <div className="px-5 pb-3 pt-1 shrink-0">
+                <h3 className="text-base font-extrabold text-slate-800 dark:text-white leading-tight truncate">
+                  {expenseActionItem.description}
+                </h3>
+                <p className="text-xs text-slate-400 mt-1 flex items-center justify-between flex-wrap gap-1">
+                  <span className="font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-md text-[10px]">{expenseActionItem.category}</span>
+                  <span>{new Date(expenseActionItem.timestamp).toLocaleDateString()}</span>
+                  <span className="font-extrabold text-slate-900 dark:text-white">{currency} {Math.round(expenseActionItem.amount).toLocaleString()}</span>
+                </p>
+                {(expenseActionItem.staffName || expenseActionItem.note || expenseActionItem.receiptRef) && (
+                  <div className="mt-2 space-y-1">
+                    {expenseActionItem.staffName && <p className="text-[11px] text-slate-500"><span className="text-slate-400">Staff:</span> {expenseActionItem.staffName}</p>}
+                    {expenseActionItem.note && <p className="text-[11px] text-slate-500"><span className="text-slate-400">Note:</span> {expenseActionItem.note}</p>}
+                    {expenseActionItem.receiptRef && <p className="text-[11px] text-emerald-600 font-bold"><span className="text-slate-400 font-normal">Receipt:</span> {expenseActionItem.receiptRef}</p>}
+                  </div>
+                )}
               </div>
-            </button>
-          </div>
-        </>
-      )}
+
+              <div className="bg-slate-100 dark:bg-slate-800 h-[1px] w-full shrink-0" />
+
+              {/* Action rows */}
+              <div className="overflow-y-auto p-4 space-y-2.5">
+                <button
+                  type="button"
+                  onClick={() => { setEditingExpense(expenseActionItem); setEditForm({description: expenseActionItem.description, amount: String(expenseActionItem.amount), category: expenseActionItem.category, note: expenseActionItem.note || ''}); setExpenseActionItem(null); }}
+                  className="w-full h-14 min-h-[52px] bg-white dark:bg-slate-800 hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs cursor-pointer text-left transition-colors"
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center shrink-0">
+                      <Edit className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold text-slate-800 dark:text-white block">Edit Expense</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Update amount, category or name</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { if (window.confirm('Delete this expense?')) { onDeleteExpense?.(expenseActionItem.id); setExpenseActionItem(null); } }}
+                  className="w-full h-14 min-h-[52px] bg-white dark:bg-slate-800 hover:bg-red-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-red-100 dark:border-red-500/20 shadow-xs cursor-pointer text-left transition-colors"
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center shrink-0">
+                      <Trash2 className="w-5 h-5 text-red-500" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold text-red-600 block">Delete Expense</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Remove this record permanently</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* ── EDIT EXPENSE MODAL ── */}
       {editingExpense && (
