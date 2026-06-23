@@ -35,7 +35,12 @@ import {
   MoreVertical,
   ChevronRight,
   PlusCircle,
-  Pencil
+  Pencil,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Share2,
+  ChevronLeft
 } from 'lucide-react';
 import { shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
@@ -342,6 +347,7 @@ export default function DashboardSalesList({
   // Modal triggers
   const [viewPaymentsOpen, setViewPaymentsOpen] = useState(false);
   const [viewA4InvoiceOpen, setViewA4InvoiceOpen] = useState(false);
+  const [docZoom, setDocZoom] = useState(1.0); // WYSIWYG zoom level
   const [payInInputVal, setPayInInputVal] = useState<string>('');
 
   // Editing transaction fields
@@ -2788,45 +2794,95 @@ export default function DashboardSalesList({
       {/* DIALOG: VIEW AND PRINT RECEIPT RE-PRINT OVERLAY */}
       {/* ------------------------------------------------------------- */}
       {selectedSale && !viewPaymentsOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+        <div className={viewA4InvoiceOpen ? "fixed inset-0 z-[200]" : "fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800"}>
           
           {/* CONDITION A: A4 CORPORATE INVOICE MODE */}
           {viewA4InvoiceOpen ? (
-            <div className="relative bg-white border border-slate-205 rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] font-sans">
-              
-              {/* Header branding */}
-              <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0 select-none">
-                <div className="flex items-center space-x-2">
-                  <FileText className="w-5 h-5 text-indigo-400" />
-                  <div>
-                    <span className="text-xs font-mono font-bold tracking-wider uppercase text-indigo-400">Official ERP Suite Document</span>
-                    <h4 className="text-sm font-black tracking-tight text-white leading-none">Corporate A4 Invoice Viewer</h4>
+            <div className="fixed inset-0 z-[70] flex flex-col bg-[#404040] font-sans" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
+
+              {/* WYSIWYG Toolbar */}
+              <div className="shrink-0 bg-[#2c2c2c] border-b border-[#1a1a1a] px-3 py-2 flex items-center justify-between gap-2 print:hidden select-none" style={{paddingTop: 'env(safe-area-inset-top)'}}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <button
+                    onClick={() => { setSelectedSale(null); setViewA4InvoiceOpen(false); setDocZoom(1.0); }}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors cursor-pointer text-white shrink-0"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <div className="min-w-0">
+                    <p className="text-white text-xs font-black truncate leading-tight">Sales Invoice — {selectedSale.reference || selectedSale.id.slice(0, 8).toUpperCase()}</p>
+                    <p className="text-white/40 text-[10px] font-mono truncate">{selectedSale.customerName || 'Walk-In'} · {new Date(selectedSale.timestamp).toLocaleDateString()}</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <button 
-                    onClick={() => {
-                      setViewA4InvoiceOpen(false); // Quick toggle back to POS narrow mode
-                    }}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-705 text-xs font-bold rounded-lg text-slate-305 transition-all select-none cursor-pointer"
+
+                <div className="hidden sm:flex items-center gap-1 bg-white/10 rounded-xl px-2 py-1">
+                  <button type="button" onClick={() => setDocZoom(z => Math.max(0.5, +(z - 0.1).toFixed(1)))} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-white cursor-pointer"><ZoomOut className="w-4 h-4" /></button>
+                  <button type="button" onClick={() => setDocZoom(1.0)} className="text-white/70 hover:text-white text-xs font-mono font-bold w-12 text-center cursor-pointer">{Math.round(docZoom * 100)}%</button>
+                  <button type="button" onClick={() => setDocZoom(z => Math.min(2.0, +(z + 0.1).toFixed(1)))} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-white cursor-pointer"><ZoomIn className="w-4 h-4" /></button>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => { setViewA4InvoiceOpen(false); }}
+                    className="hidden sm:flex h-8 px-3 bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold rounded-lg cursor-pointer transition-all items-center gap-1.5"
                   >
-                    Switch to Narrow Thermal POS
+                    <Receipt className="w-3.5 h-3.5" />
+                    <span>Thermal Receipt</span>
                   </button>
-                  <button 
-                    onClick={() => {
-                      setSelectedSale(null);
-                      setViewA4InvoiceOpen(false);
-                    }}
-                    className="p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                  <button
+                    onClick={() => shareSalePdf(selectedSale, selectedSale.customerPhone, 'a4')}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer text-white"
+                    title="Send via WhatsApp"
                   >
-                    <X className="w-5 h-5" />
+                    <MessageSquare className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer text-white"
+                    title="Print"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => { setSelectedSale(null); setViewA4InvoiceOpen(false); setDocZoom(1.0); }}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-red-500/70 transition-colors cursor-pointer text-white"
+                  >
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
-              {/* Scrollable A4 Document Sheet */}
-              <div className="p-8 overflow-y-auto max-h-[calc(100dvh-56px-env(safe-area-inset-bottom))] space-y-8 bg-slate-50">
-                <div id="sales-invoice-a4-pdf-template" className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 max-w-3xl mx-auto space-y-8 relative select-text">
+              {/* Mobile zoom + switch bar */}
+              <div className="sm:hidden shrink-0 bg-[#363636] border-b border-[#1a1a1a] px-3 py-2 flex items-center gap-2 print:hidden">
+                <div className="flex items-center gap-1 bg-white/10 rounded-xl px-2 py-1">
+                  <button type="button" onClick={() => setDocZoom(z => Math.max(0.5, +(z - 0.1).toFixed(1)))} className="w-7 h-7 flex items-center justify-center rounded-lg text-white cursor-pointer"><ZoomOut className="w-3.5 h-3.5" /></button>
+                  <span className="text-white/70 text-xs font-mono font-bold w-10 text-center">{Math.round(docZoom * 100)}%</span>
+                  <button type="button" onClick={() => setDocZoom(z => Math.min(2.0, +(z + 0.1).toFixed(1)))} className="w-7 h-7 flex items-center justify-center rounded-lg text-white cursor-pointer"><ZoomIn className="w-3.5 h-3.5" /></button>
+                </div>
+                <button onClick={() => setViewA4InvoiceOpen(false)} className="flex-1 h-8 px-3 bg-white/10 text-white text-[11px] font-bold rounded-lg cursor-pointer flex items-center justify-center gap-1.5">
+                  <Receipt className="w-3.5 h-3.5" /> Thermal Receipt
+                </button>
+              </div>
+
+              {/* A4 Canvas */}
+              <div className="flex-1 overflow-auto print:overflow-visible print:bg-white" style={{background: '#404040'}}>
+                <div className="print:hidden text-center py-2">
+                  <span className="text-white/20 text-[10px] font-mono select-none">A4 · Sales Invoice · {selectedSale.reference || selectedSale.id}</span>
+                </div>
+                <div className="flex justify-center pb-16 print:pb-0 print:block">
+                  <div
+                    id="sales-invoice-a4-pdf-template"
+                    style={{
+                      width: '794px',
+                      minHeight: '1123px',
+                      transform: `scale(${docZoom})`,
+                      transformOrigin: 'top center',
+                      marginBottom: docZoom < 1 ? `${(1123 * docZoom) - 1123}px` : 0,
+                    }}
+                    className="bg-white shadow-2xl font-sans relative print:shadow-none print:min-h-0"
+                  >
+                  <style>{`@media print { body * { visibility: hidden !important; } #sales-invoice-a4-pdf-template, #sales-invoice-a4-pdf-template * { visibility: visible !important; } #sales-invoice-a4-pdf-template { position: fixed !important; left: 0 !important; top: 0 !important; width: 100% !important; transform: none !important; } }`}</style>
+                  <div className="p-10 space-y-8">
                   
                   {/* Decorative Paid/Unpaid background watermark stamp */}
                   <div className="absolute top-8 right-8 select-none pointer-events-none opacity-10 rotate-12">
@@ -3042,78 +3098,8 @@ export default function DashboardSalesList({
 
                 </div>
               </div>
-
-              {/* Bottom Print Buttons */}
-              <div className="p-5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
-                {/* WhatsApp Quick Link */}
-                <div className="flex items-center space-x-2 flex-grow max-w-sm">
-                  <span className="text-xs font-mono font-bold text-slate-500">+</span>
-                  <input
-                    type="text"
-                    placeholder="WhatsApp Phone (e.g. 234803...)"
-                    value={whatsappPhone}
-                    onChange={(e) => setWhatsappPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                    className="w-full bg-white border border-slate-300 rounded-xl text-xs px-2.5 py-1.5 font-mono text-slate-800 focus:outline-none focus:border-emerald-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => shareSalePdf(selectedSale, whatsappPhone, 'a4')}
-                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 hover:text-white text-white rounded-xl text-xs font-bold whitespace-nowrap decoration-transparent inline-flex items-center space-x-1"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-white shrink-0" />
-                    <span>Send PDF</span>
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => {
-                      setSelectedSale(null);
-                      setViewA4InvoiceOpen(false);
-                    }}
-                    className="px-6 py-2.5 bg-white border border-slate-300 hover:bg-slate-150 font-bold rounded-xl text-slate-650 transition-all text-xs uppercase cursor-pointer select-none"
-                    disabled={isReceiptPrinting}
-                  >
-                    Close Document
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      if (!selectedSale) return;
-                      simulatePrint();
-                      
-                      // Download CSV representation of A4 Statement
-                      const invoiceHeaders = "Invoice Line Item,Quantity,Unit Price (Base),Subtotal\r\n";
-                      const invoiceRows = selectedSale.items.map(it => `"${it.productName}",${it.qty},${it.price},${it.qty * it.price}`).join("\r\n");
-                      const invoiceSummary = `\r\nInvoice ID,${selectedSale.id}\r\nCustomer,${selectedSale.customerName || 'Walk-in Client'}\r\nDate,${new Date(selectedSale.timestamp).toLocaleDateString()}\r\nTotal Invoiced,${selectedSale.total}\r\nTax,${selectedSale.tax}\r\nRemaining Bal,${selectedSale.amountDue || 0}\r\nPayment Mode,${selectedSale.paymentMethod}\r\n`;
-                      
-                      const csvContent = "data:text/csv;charset=utf-8," + invoiceHeaders + invoiceRows + invoiceSummary;
-                      const encodedUri = encodeURI(csvContent);
-                      const link = document.createElement("a");
-                      link.setAttribute("href", encodedUri);
-                      link.setAttribute("download", `Invoice_A4_${selectedSale.id}.csv`);
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                    }}
-                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl border-none transition-all text-xs uppercase flex items-center space-x-2 cursor-pointer shadow-md select-none"
-                    disabled={isReceiptPrinting}
-                  >
-                    {isReceiptPrinting ? (
-                      <>
-                        <Clock className="w-4 h-4 animate-spin text-white" />
-                        <span>PREPARING DOWNLOAD...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4 text-emerald-200" />
-                        <span>Download A4 Invoice Only</span>
-                      </>
-                    )}
-                  </button>
                 </div>
               </div>
-
             </div>
           ) : (
             
@@ -4647,319 +4633,340 @@ export default function DashboardSalesList({
         const preparerName = activeStaff?.name || currentUser?.name || systemSettings?.invoiceSettings?.authorisedPerson || 'Lilian Mbawala';
         const preparerRole = activeStaff?.role || currentUser?.role || 'Accounts & Finance Dept';
 
+        const docTypeLabel =
+          viewingDocument.type === 'quotation' ? 'Quotation' :
+          viewingDocument.type === 'proforma invoice' ? 'Proforma Invoice' :
+          viewingDocument.type === 'price quote invoice' ? 'Price Quote Invoice' :
+          'Invoice';
+
         return (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
-            <div className="relative bg-white border border-slate-205 rounded-none sm:rounded-3xl shadow-2xl w-full max-w-5xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] font-sans" style={{overflow: 'clip'}}>
-              
-              {/* Header Action Tools */}
-              <div className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50/95 backdrop-blur-md shrink-0 font-sans print:hidden">
-                <div className="p-3 sm:p-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex items-center space-x-2 min-w-0">
-                    <Printer className="w-5 h-5 text-indigo-600 shrink-0" />
-                    <span className="text-[11px] sm:text-xs font-black font-mono text-slate-800 uppercase truncate">A4 Office Print Preview Mode</span>
-                  </div>
-	                  <div className="hidden">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (viewingDocument.customerPhone?.trim()) {
-                          sharePdfDocument(viewingDocument, viewingDocument.customerPhone);
-                        } else {
-                          setDocumentSendOpen(prev => !prev);
-                        }
-                      }}
-                      className="h-10 px-3 sm:px-4 bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
-                    >
-                      <MessageSquare className="w-4 h-4 text-white" />
-                      <span>Send</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={viewingDocument.status !== 'pending'}
-                      onClick={() => sendDocumentToSales(viewingDocument)}
-                      className="h-10 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-[11px] sm:text-xs font-black uppercase rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
-                    >
-                      <ArrowRight className="w-4 h-4" />
-                      <span>Record as Sale</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewingDocument(null)}
-                      className="h-10 px-3 sm:px-4 bg-white hover:bg-slate-100 border border-slate-300 text-slate-650 text-[11px] sm:text-xs font-bold rounded-xl cursor-pointer transition-all font-sans whitespace-nowrap"
-                    >
-                      Close Preview
-                    </button>
-                  </div>
+          <div className="fixed inset-0 z-[70] flex flex-col bg-[#404040] font-sans" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
+
+            {/* ── WYSIWYG TOOLBAR ─────────────────────────────────────────── */}
+            <div className="shrink-0 bg-[#2c2c2c] border-b border-[#1a1a1a] px-3 py-2 flex items-center justify-between gap-2 print:hidden select-none" style={{paddingTop: 'env(safe-area-inset-top)'}}>
+
+              {/* Left: back + doc title */}
+              <div className="flex items-center gap-2 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => { setViewingDocument(null); setDocZoom(1.0); }}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors cursor-pointer text-white shrink-0"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="min-w-0">
+                  <p className="text-white text-xs font-black truncate leading-tight">{docTypeLabel} — {viewingDocument.documentNumber}</p>
+                  <p className="text-white/40 text-[10px] font-mono truncate">{viewingDocument.customerName || 'No Customer'} · {new Date(viewingDocument.timestamp).toLocaleDateString()}</p>
                 </div>
-	              </div>
+              </div>
 
-              {/* Printable Area content representation matching layout templates */}
-	              <div className="flex-1 overflow-auto bg-slate-200/70 p-3 sm:p-6 lg:p-10 print:p-0 print:bg-white print:overflow-visible" id="printable-a4-surface">
-                <div id="sales-document-a4-pdf-template" className="w-full max-w-[794px] min-h-[1123px] mx-auto bg-white rounded-2xl sm:rounded-[2rem] shadow-xl border border-slate-200 p-6 sm:p-10 lg:p-14 space-y-8 font-sans print:max-w-none print:min-h-0 print:rounded-none print:shadow-none print:border-0 print:p-0">
-                  
-                  {/* Decorative corporate banner on top */}
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
-                    <div className="min-w-0">
-                      {(systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url) ? (
-                        <img 
-                          src={systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url || undefined} 
-                          alt="Merchant Logo" 
-                          referrerPolicy="no-referrer"
-                          className="max-h-16 max-w-[200px] object-contain rounded-xl select-none mb-3"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-indigo-600 text-white font-black rounded-2xl flex items-center justify-center text-sm mb-3 font-sans">
-                          {activeTenant.name.slice(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                      <h1 className="text-lg sm:text-xl font-black text-slate-900 leading-tight uppercase tracking-tight break-words">{activeTenant.name}</h1>
-                      <p className="text-[11px] text-slate-500 font-mono mt-0.5 select-all">{systemSettings?.company?.address || 'Merchant Head Office'}</p>
-                      {systemSettings?.business?.businessEmail && (
-                        <p className="text-[11px] text-slate-500 font-mono select-all mt-0.5">📧 {systemSettings.business.businessEmail}</p>
-                      )}
-                      <p className="text-[11px] text-slate-505 font-mono select-all mt-0.5">📞 {systemSettings?.company?.phone || '+254 Merchant Admin'}</p>
-                    </div>
+              {/* Centre: zoom controls */}
+              <div className="hidden sm:flex items-center gap-1 bg-white/10 rounded-xl px-2 py-1">
+                <button
+                  type="button"
+                  onClick={() => setDocZoom(z => Math.max(0.5, +(z - 0.1).toFixed(1)))}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors cursor-pointer text-white"
+                  title="Zoom Out"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDocZoom(1.0)}
+                  className="text-white/70 hover:text-white text-xs font-mono font-bold w-12 text-center cursor-pointer"
+                  title="Reset zoom"
+                >
+                  {Math.round(docZoom * 100)}%
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDocZoom(z => Math.min(2.0, +(z + 0.1).toFixed(1)))}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors cursor-pointer text-white"
+                  title="Zoom In"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+              </div>
 
-                    <div className="text-left sm:text-right font-sans shrink-0">
-                      <span className="text-[11px] font-black uppercase tracking-widest font-mono text-slate-400">Document</span>
-                      <h2 className="text-2xl sm:text-3xl font-black text-slate-800 uppercase mt-1 tracking-tight">
-                        {viewingDocument.type === 'quotation' ? 'Quote' :
-                         viewingDocument.type === 'price quote invoice' ? 'Quote' : 'Invoice'}
-                      </h2>
-                      <div className="mt-4 font-mono text-xs text-slate-600 space-y-1">
-                        <div>
-                          <span className="text-slate-400">
-                            {viewingDocument.type === 'quotation' ? 'Quot No:' : 'Inv No:'}
-                          </span>{' '}
-                          <strong className="font-bold text-slate-800">{viewingDocument.documentNumber}</strong>
-                        </div>
-                        <div><span className="text-slate-400">Date:</span> <span className="font-medium text-slate-705">{new Date(viewingDocument.timestamp).toLocaleDateString()}</span></div>
-                        <div><span className="text-slate-400">Branch:</span> <span className="font-medium text-slate-705">{activeTenant.city}, {activeTenant.country}</span></div>
-                      </div>
-                    </div>
-                  </div>
+              {/* Right: actions */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* Record as Sale */}
+                {viewingDocument.status === 'pending' && (
+                  <button
+                    type="button"
+                    onClick={() => sendDocumentToSales(viewingDocument)}
+                    className="hidden sm:flex h-8 px-3 bg-emerald-500 hover:bg-emerald-400 text-white text-[11px] font-black uppercase rounded-lg cursor-pointer transition-all items-center gap-1.5"
+                    title="Convert to Sale"
+                  >
+                    <ArrowRight className="w-3.5 h-3.5" />
+                    <span>Record as Sale</span>
+                  </button>
+                )}
 
-                  {/* Client billed address template wrapper */}
-                  <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/85 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <span className="block text-[9px] uppercase tracking-wider font-bold text-slate-450 mb-1">Customer (Client):</span>
-                      <h4 className="font-bold text-slate-800 text-xs font-sans capitalize">{viewingDocument.customerName || 'Loyal Client'}</h4>
-                      {viewingDocument.customerPhone && <p className="text-[11px] text-slate-500 font-mono mt-1">📞 {viewingDocument.customerPhone}</p>}
-                    </div>
-                    {viewingDocument.customerAddress ? (
-                      <div className="sm:border-l border-slate-200 sm:pl-4 font-sans">
-                        <span className="block text-[9px] uppercase tracking-wider font-bold text-slate-450 mb-1">Delivery Address:</span>
-                        <p className="text-[11px] text-slate-600 leading-relaxed font-sans mt-0.5">{viewingDocument.customerAddress}</p>
-                      </div>
-                    ) : (
-                      <div className="sm:border-l border-slate-200 sm:pl-4 font-sans">
-                        {/* Blank */}
-                      </div>
-                    )}
-                  </div>
+                {/* Send via WhatsApp */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (viewingDocument.customerPhone?.trim()) {
+                      sharePdfDocument(viewingDocument, viewingDocument.customerPhone);
+                    } else {
+                      setDocumentSendOpen(prev => !prev);
+                    }
+                  }}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer text-white"
+                  title="Send via WhatsApp"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                </button>
 
-                  {/* Ledger lines table with brand color header */}
-                  <div className="border border-slate-200 rounded-2xl overflow-x-auto font-sans">
-                    <table className="w-full min-w-[520px] text-left border-collapse text-xs">
-                      <thead>
-                        <tr 
-                          className="text-[10px] text-white font-bold uppercase tracking-wider select-none font-sans"
-                          style={{ backgroundColor: systemSettings?.invoiceSettings?.invoiceColor || '#1e3a8a' }}
-                        >
-                          <th className="p-3">No.</th>
-                          <th className="p-3">Product Name</th>
-                          <th className="p-3 text-right">Qty</th>
-                          <th className="p-3 text-right">Price Each</th>
-                          <th className="p-3 text-right">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-105 font-medium font-sans">
-                        {viewingDocument.items.map((item, index) => {
-                          const itemPrice = item.discountType === 'cash' ? Math.max(0, item.price - item.discount) : item.price * (1 - item.discount / 100);
-                          const itemProduct = products.find(p => p.id === item.productId);
-                          return (
-                            <tr key={index} className="hover:bg-slate-50/50 transition-colors text-slate-750">
-                              <td className="p-3 font-mono text-[10px] text-slate-450">{String(index + 1).padStart(2, '0')}</td>
-                              <td className="p-3 font-bold text-slate-800">{item.productName}</td>
-                              <td className="p-3 text-right font-mono font-bold">{formatSaleItemQuantity(item, itemProduct)}</td>
-                              <td className="p-3 text-right font-mono">{currency}{item.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                              <td className="p-3 text-right font-mono font-bold text-slate-800">{currency}{(itemPrice * item.qty).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                {/* Print */}
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer text-white"
+                  title="Print Document"
+                >
+                  <Printer className="w-4 h-4" />
+                </button>
 
-                  {/* Financial sum ledger columns and banking info columns */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 items-start font-sans">
-                    
-                    {/* Bank settling details */}
-                    <div>
-                      {systemSettings?.invoiceSettings?.bankName ? (
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-[11px] space-y-1">
-                          <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400 font-mono mb-1">Corporate Payment Account</span>
-                          <div>Bank Name: <strong className="font-bold text-slate-800">{systemSettings.invoiceSettings.bankName}</strong></div>
-                          <div>Account Number: <strong className="font-bold text-slate-850 font-mono select-all shrink-0">{systemSettings.invoiceSettings.accountNumber}</strong></div>
-                          <div>Account Name: <strong className="font-bold text-slate-850">{systemSettings.invoiceSettings.accountName}</strong></div>
-                          {systemSettings.invoiceSettings.tin && (
-                            <div className="pt-1.5 mt-1.5 border-t border-dashed border-slate-200"><span className="text-slate-400">Merchant TIN:</span> <strong className="font-mono font-bold text-slate-800">{systemSettings.invoiceSettings.tin}</strong></div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-[11px] space-y-1">
-                          <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400 font-mono">Payment Account</span>
-                          <span className="text-slate-400 italic">Configure corporate accounts & bank keys in settings.</span>
-                        </div>
-                      )}
-                    </div>
+                {/* Close */}
+                <button
+                  type="button"
+                  onClick={() => { setViewingDocument(null); setDocZoom(1.0); }}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-red-500/70 transition-colors cursor-pointer text-white"
+                  title="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
 
-                    {/* Bottom financial summary columns */}
-                    <div className="space-y-2 text-xs text-slate-650 font-sans border-t-2 border-slate-200 pt-3">
-                      <div className="flex justify-between">
-                        <span>Items Sub-Total:</span>
-                        <span className="font-bold text-slate-800 font-mono">{currency}{subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                      </div>
-                      
-                      {/* Conditional VAT line */}
-                      {!!viewingDocument.hasVat && (
-                        <div className="flex justify-between text-emerald-700">
-                          <span>Output Tax (VAT 18%):</span>
-                          <span className="font-bold font-mono">+{currency}{(viewingDocument.tax || subTotal * 0.18).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                        </div>
-                      )}
+            {/* ── PDF SHARE STATUS TOAST ───────────────────────────────────── */}
+            {pdfShareStatus && (
+              <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[90] bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg border border-slate-700 print:hidden whitespace-nowrap">
+                {pdfShareStatus}
+              </div>
+            )}
 
-                      {/* Conditional Shipping line */}
-                      {!!viewingDocument.deliveryCost && viewingDocument.deliveryCost > 0 && (
-                        <div className="flex justify-between text-indigo-700">
-                          <span>Delivery / Freight Cost:</span>
-                          <span className="font-bold font-mono">+{currency}{viewingDocument.deliveryCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                        </div>
-                      )}
+            {/* ── MOBILE ACTION BAR (below toolbar) ───────────────────────── */}
+            <div className="sm:hidden shrink-0 bg-[#363636] border-b border-[#1a1a1a] px-3 py-2 flex items-center gap-2 print:hidden">
+              <div className="flex items-center gap-1 bg-white/10 rounded-xl px-2 py-1">
+                <button type="button" onClick={() => setDocZoom(z => Math.max(0.5, +(z - 0.1).toFixed(1)))} className="w-7 h-7 flex items-center justify-center rounded-lg text-white cursor-pointer">
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-white/70 text-xs font-mono font-bold w-10 text-center">{Math.round(docZoom * 100)}%</span>
+                <button type="button" onClick={() => setDocZoom(z => Math.min(2.0, +(z + 0.1).toFixed(1)))} className="w-7 h-7 flex items-center justify-center rounded-lg text-white cursor-pointer">
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              {viewingDocument.status === 'pending' && (
+                <button
+                  type="button"
+                  onClick={() => sendDocumentToSales(viewingDocument)}
+                  className="flex-1 h-8 px-3 bg-emerald-500 hover:bg-emerald-400 text-white text-[11px] font-black uppercase rounded-lg cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                >
+                  <ArrowRight className="w-3.5 h-3.5" />
+                  <span>Record as Sale</span>
+                </button>
+              )}
+            </div>
 
-                      <div 
-                        className="flex justify-between text-base font-black text-slate-900 border-t border-slate-250 pt-2.5 font-sans"
-                        style={{ color: systemSettings?.invoiceSettings?.invoiceColor }}
-                      >
-                        <span>Total to Pay:</span>
-                        <span className="font-mono font-black">{currency}{(viewingDocument.total).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                      </div>
-                    </div>
-                  </div>
+            {/* ── A4 CANVAS ───────────────────────────────────────────────── */}
+            <div className="flex-1 overflow-auto print:overflow-visible print:bg-white" style={{background: '#404040'}}>
+              {/* Page ruler hint */}
+              <div className="print:hidden text-center py-2">
+                <span className="text-white/20 text-[10px] font-mono select-none">A4 · 210mm × 297mm · {viewingDocument.documentNumber}</span>
+              </div>
 
-                  {/* Standard Terms list configuration dynamically loaded */}
-                  {systemSettings?.invoiceSettings?.termsAndConditions && systemSettings.invoiceSettings.termsAndConditions.length > 0 && (
-                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl text-[10.5px] font-sans">
-                      <span className="block text-[8px] font-black uppercase tracking-wider text-slate-450 font-mono mb-1.5">Standard terms & warranty clauses</span>
-                      <ol className="list-decimal list-inside space-y-0.5 text-slate-600 font-medium">
-                        {systemSettings.invoiceSettings.termsAndConditions.map((term, i) => (
-                          <li key={i}>{term}</li>
-                        ))}
-                      </ol>
-                    </div>
-                  )}
+              {/* Zoomed A4 page */}
+              <div className="flex justify-center pb-16 print:pb-0 print:block">
+                <div
+                  id="sales-document-a4-pdf-template"
+                  style={{
+                    width: '794px',
+                    minHeight: '1123px',
+                    transform: `scale(${docZoom})`,
+                    transformOrigin: 'top center',
+                    marginBottom: docZoom < 1 ? `${(1123 * docZoom) - 1123}px` : 0,
+                  }}
+                  className="bg-white shadow-2xl font-sans relative print:shadow-none print:min-h-0"
+                >
+                  {/* Print styles injected inline */}
+                  <style>{`
+                    @media print {
+                      body * { visibility: hidden !important; }
+                      #sales-document-a4-pdf-template, #sales-document-a4-pdf-template * { visibility: visible !important; }
+                      #sales-document-a4-pdf-template { position: fixed !important; left: 0 !important; top: 0 !important; width: 100% !important; transform: none !important; }
+                    }
+                  `}</style>
 
-                  {/* Representative Authorised Signature sections */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-6 border-t border-slate-100 items-end text-xs font-sans">
-                    <div>
-                      <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400 font-mono mb-1">Prepared by</span>
-                      <p className="font-bold text-slate-800 border-b border-slate-200 pb-1 w-full max-w-xs">{preparerName}</p>
-                      <p className="text-[10px] text-slate-400 font-medium mt-1">Title: {preparerRole}</p>
-                    </div>
-                    <div className="text-left sm:text-right">
-                      <span className="block text-[8px] font-black uppercase tracking-wider text-slate-450 font-mono mb-1">Signature</span>
-                      <div className="border-b border-dashed border-slate-300 w-full max-w-xs ml-auto h-12 flex items-center justify-end overflow-hidden pb-1 select-none">
-                        {activeStaff?.signatureImage ? (
-                          <img 
-                            src={activeStaff.signatureImage} 
-                            className="max-h-12 w-auto object-contain transition-all" 
-                            alt={`${preparerName} Signature`} 
+                  {/* ── DOCUMENT CONTENT (same as before, just inside new shell) ── */}
+                  <div className="p-10 space-y-8">
+
+                    {/* Header: logo + doc meta */}
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+                      <div className="min-w-0">
+                        {(systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url) ? (
+                          <img
+                            src={systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url || undefined}
+                            alt="Logo"
+                            referrerPolicy="no-referrer"
+                            className="max-h-16 max-w-[200px] object-contain rounded-xl select-none mb-3"
                           />
                         ) : (
-                          <span className="text-indigo-450 font-serif italic text-sm tracking-wider opacity-65">
-                            {preparerName}
-                          </span>
+                          <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl mb-3">
+                            {activeTenant.name.charAt(0)}
+                          </div>
                         )}
+                        <h2 className="text-xl font-black text-slate-900 tracking-tight">{activeTenant.name}</h2>
+                        <p className="text-[11px] text-slate-400 mt-0.5 uppercase tracking-wide font-semibold">{activeTenant.city || ''}</p>
+                        {systemSettings?.company?.phone && <p className="text-[11px] text-slate-500 mt-0.5">Tel: {systemSettings.company.phone}</p>}
+                        {systemSettings?.company?.email && <p className="text-[11px] text-slate-500">Email: {systemSettings.company.email}</p>}
+                        {systemSettings?.company?.address && <p className="text-[11px] text-slate-500">{systemSettings.company.address}</p>}
+                        {systemSettings?.invoiceSettings?.tinNumber && <p className="text-[11px] text-slate-500 font-mono">TIN: {systemSettings.invoiceSettings.tinNumber}</p>}
+                        {systemSettings?.invoiceSettings?.vatNumber && <p className="text-[11px] text-slate-500 font-mono">VAT: {systemSettings.invoiceSettings.vatNumber}</p>}
+                      </div>
+
+                      <div className="text-right space-y-1 font-mono text-xs shrink-0">
+                        <div className="inline-block bg-indigo-600 text-white text-sm font-black uppercase px-4 py-1.5 rounded-xl mb-2 tracking-wider">
+                          {docTypeLabel}
+                        </div>
+                        <p className="text-slate-400">No: <strong className="text-slate-800">{viewingDocument.documentNumber}</strong></p>
+                        <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(viewingDocument.timestamp).toLocaleDateString([], {dateStyle: 'long'})}</span></p>
+                        {viewingDocument.validUntil && <p className="text-slate-400">Valid Until: <span className="text-slate-700">{new Date(viewingDocument.validUntil).toLocaleDateString()}</span></p>}
+                        <p className="text-slate-400">Prepared by: <span className="text-slate-700">{preparerName}</span></p>
+                        <div className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-2 py-0.5 rounded-lg mt-1 ${
+                          viewingDocument.status === 'pending' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                          viewingDocument.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                          'bg-slate-100 text-slate-500 border border-slate-200'
+                        }`}>
+                          {viewingDocument.status === 'pending' ? '● Pending' : viewingDocument.status === 'approved' ? '✓ Approved' : viewingDocument.status}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Bill To */}
+                    <div className="grid grid-cols-2 gap-6 bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">Bill To</p>
+                        <p className="font-black text-slate-800 text-sm">{viewingDocument.customerName || 'Walk-In Customer'}</p>
+                        {viewingDocument.customerPhone && <p className="text-xs text-slate-500 mt-0.5">{viewingDocument.customerPhone}</p>}
+                        {viewingDocument.customerAddress && <p className="text-xs text-slate-500 mt-0.5">{viewingDocument.customerAddress}</p>}
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">From</p>
+                        <p className="font-black text-slate-800 text-sm">{activeTenant.name}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{preparerRole}</p>
+                      </div>
+                    </div>
+
+                    {/* Items Table */}
+                    <div>
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-900 text-white">
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] rounded-l-xl w-8">#</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px]">Description</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-center">Qty</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right">Unit Price</th>
+                            {viewingDocument.items.some(i => i.discount > 0) && <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right">Disc.</th>}
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right rounded-r-xl">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {viewingDocument.items.map((item, idx) => {
+                            const effectivePrice = item.discountType === 'cash'
+                              ? Math.max(0, item.price - item.discount)
+                              : item.price * (1 - item.discount / 100);
+                            const lineTotal = effectivePrice * item.qty;
+                            return (
+                              <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                                <td className="py-3 px-4 text-slate-400 font-mono">{idx + 1}</td>
+                                <td className="py-3 px-4">
+                                  <span className="font-semibold text-slate-800">{item.name}</span>
+                                  {item.description && <span className="block text-[10px] text-slate-400 mt-0.5">{item.description}</span>}
+                                </td>
+                                <td className="py-3 px-4 text-center font-mono text-slate-700">{item.qty} {item.unit || ''}</td>
+                                <td className="py-3 px-4 text-right font-mono text-slate-700">{currency}{item.price.toLocaleString()}</td>
+                                {viewingDocument.items.some(i => i.discount > 0) && (
+                                  <td className="py-3 px-4 text-right font-mono text-amber-600 text-[10px]">
+                                    {item.discount > 0 ? (item.discountType === 'cash' ? `-${currency}${item.discount}` : `-${item.discount}%`) : '—'}
+                                  </td>
+                                )}
+                                <td className="py-3 px-4 text-right font-black font-mono text-slate-900">{currency}{Math.round(lineTotal).toLocaleString()}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Totals */}
+                    <div className="flex justify-end">
+                      <div className="w-72 space-y-2 font-mono text-xs">
+                        <div className="flex justify-between text-slate-500 pb-1">
+                          <span>Subtotal</span>
+                          <span className="font-bold text-slate-800">{currency}{Math.round(subTotal).toLocaleString()}</span>
+                        </div>
+                        {viewingDocument.discountAmount > 0 && (
+                          <div className="flex justify-between text-amber-600 pb-1">
+                            <span>Discount</span>
+                            <span className="font-bold">-{currency}{Math.round(viewingDocument.discountAmount).toLocaleString()}</span>
+                          </div>
+                        )}
+                        {viewingDocument.hasVat && (
+                          <div className="flex justify-between text-slate-500 pb-1">
+                            <span>VAT ({Math.round((activeTenant.taxRate || 0.18) * 100)}%)</span>
+                            <span className="font-bold text-slate-700">{currency}{Math.round((subTotal - (viewingDocument.discountAmount || 0)) * (activeTenant.taxRate || 0.18)).toLocaleString()}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between bg-slate-900 text-white rounded-xl px-4 py-3">
+                          <span className="font-black text-sm uppercase tracking-wide">Total</span>
+                          <span className="font-black text-base">{currency}{Math.round(viewingDocument.totalAmount).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Notes / Terms */}
+                    {(viewingDocument.notes || systemSettings?.invoiceSettings?.footerNote) && (
+                      <div className="border-t border-slate-100 pt-6 space-y-2">
+                        {viewingDocument.notes && (
+                          <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Notes</p>
+                            <p className="text-xs text-slate-600 leading-relaxed">{viewingDocument.notes}</p>
+                          </div>
+                        )}
+                        {systemSettings?.invoiceSettings?.footerNote && (
+                          <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Terms &amp; Conditions</p>
+                            <p className="text-xs text-slate-500 leading-relaxed">{systemSettings.invoiceSettings.footerNote}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Signature line */}
+                    <div className="border-t border-slate-100 pt-6 grid grid-cols-2 gap-8 text-xs text-slate-500">
+                      <div>
+                        <div className="h-10 border-b border-slate-300 mb-1" />
+                        <p className="font-semibold text-slate-700">{preparerName}</p>
+                        <p className="text-slate-400">{preparerRole}</p>
+                      </div>
+                      <div>
+                        <div className="h-10 border-b border-slate-300 mb-1" />
+                        <p className="font-semibold text-slate-700">Customer Signature</p>
+                        <p className="text-slate-400">{viewingDocument.customerName || '—'}</p>
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="text-center text-[10px] text-slate-300 font-mono border-t border-slate-100 pt-4">
+                      {activeTenant.name} · {systemSettings?.company?.phone || ''} · Powered by Jasper Business Suite
+                    </div>
                   </div>
-
-                  {/* Elegant decorative invoice footer with editable tagline */}
-                  <div className="pt-8 border-t border-slate-200/60 text-center space-y-2.5">
-                    <p className="text-[11.5px] italic font-sans text-slate-500 px-6 font-medium leading-relaxed">
-                      "{viewingDocument.tagline || systemSettings?.business?.tagline || 'Thank you. We appreciate you!'}"
-                    </p>
-                  </div>
-
-	                </div>
-	              </div>
-
-	              <div className="shrink-0 border-t border-slate-200 bg-white/98 p-3 sm:p-4 print:hidden shadow-[0_-12px_30px_rgba(15,23,42,0.08)]">
-	                {documentSendOpen && (
-	                  <div className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50/45 p-3">
-	                    <div className="flex flex-col sm:flex-row sm:items-end gap-2">
-	                      <label className="flex-1">
-	                        <span className="block text-[10px] font-black uppercase tracking-wider text-slate-600 mb-1">Customer WhatsApp Number</span>
-	                        <input
-	                          type="tel"
-	                          value={documentSendPhone}
-	                          onChange={(e) => setDocumentSendPhone(e.target.value.replace(/[^\d+\s-]/g, ''))}
-	                          placeholder="+255 700 000 000"
-	                          className="w-full h-12 px-3 rounded-xl border border-emerald-250 bg-white text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-	                        />
-	                      </label>
-	                      <button
-	                        type="button"
-	                        disabled={!documentSendPhone.trim()}
-	                        onClick={() => sharePdfDocument(viewingDocument, documentSendPhone)}
-	                        className={`h-12 px-5 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 transition-all ${documentSendPhone.trim() ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm' : 'bg-slate-200 text-slate-400 pointer-events-none'}`}
-	                      >
-	                        <MessageSquare className="w-4 h-4" />
-	                        <span>Send PDF</span>
-	                      </button>
-	                    </div>
-	                  </div>
-	                )}
-	                {pdfShareStatus && (
-	                  <div className="mb-3 rounded-xl bg-emerald-50 border border-emerald-150 px-3 py-2 text-[11px] font-bold text-emerald-700">
-	                    {pdfShareStatus}
-	                  </div>
-	                )}
-	                <div className="flex flex-wrap items-center justify-end gap-2 pb-[env(safe-area-inset-bottom)]">
-	                  <button
-	                    type="button"
-	                    onClick={() => {
-	                      if (viewingDocument.customerPhone?.trim()) {
-	                        sharePdfDocument(viewingDocument, viewingDocument.customerPhone);
-	                      } else {
-	                        setDocumentSendOpen(prev => !prev);
-	                      }
-	                    }}
-	                    className="h-9 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl border-none cursor-pointer transition-all flex items-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
-	                  >
-	                    <MessageSquare className="w-3.5 h-3.5 text-white" />
-	                    <span>Send</span>
-	                  </button>
-	                  <button
-	                    type="button"
-	                    disabled={viewingDocument.status !== 'pending'}
-	                    onClick={() => sendDocumentToSales(viewingDocument)}
-	                    className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl border-none cursor-pointer transition-all flex items-center gap-1.5 shadow-sm font-sans whitespace-nowrap"
-	                  >
-	                    <ArrowRight className="w-3.5 h-3.5" />
-	                    <span>Record as Sale</span>
-	                  </button>
-	                  <button
-	                    type="button"
-	                    onClick={() => setViewingDocument(null)}
-	                    className="h-9 px-4 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer transition-all font-sans whitespace-nowrap"
-	                  >
-	                    Close
-	                  </button>
-	                </div>
-	              </div>
-
-	            </div>
+                </div>
+              </div>
+            </div>
           </div>
         );
       })()}
