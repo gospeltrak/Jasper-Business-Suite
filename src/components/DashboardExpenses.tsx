@@ -18,7 +18,11 @@ import {
   TrendingDown,
   X,
   Sparkles,
-  TrendingUp
+  TrendingUp,
+  MoreVertical,
+  Eye,
+  Edit,
+  ChevronRight
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -37,6 +41,8 @@ interface DashboardExpensesProps {
   activeTenant: Tenant;
   expenses: Expense[];
   onAddExpense: (expense: Expense) => void;
+  onDeleteExpense?: (id: string) => void;
+  onUpdateExpense?: (expense: Expense) => void;
   userName?: string;
   sales?: Sale[];
 }
@@ -45,6 +51,8 @@ export default function DashboardExpenses({
   activeTenant, 
   expenses = [], 
   onAddExpense,
+  onDeleteExpense,
+  onUpdateExpense,
   userName = 'Admin',
   sales = []
 }: DashboardExpensesProps) {
@@ -52,6 +60,9 @@ export default function DashboardExpenses({
 
   // State for submenu nav tabs: 'list' | 'categories' | 'add'
   const [subTab, setSubTab] = useState<'list' | 'categories' | 'add'>('list');
+  const [expenseActionItem, setExpenseActionItem] = useState<Expense | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editForm, setEditForm] = useState<{description: string; amount: string; category: string; note: string}>({description: '', amount: '', category: '', note: ''});
 
   // Date/day selected states. Defaulting to empty starts with 'All Records'
   // and user can filter by a single specific date or quick day options.
@@ -485,87 +496,78 @@ export default function DashboardExpenses({
         </div>
       </div>
 
-      {/* 2. ACTIVE LEDGER SUM — compact, green, attractive */}
-      <div className="w-full">
-        <div className="w-full rounded-2xl overflow-hidden" style={{background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', boxShadow: '0 4px 20px rgba(5,150,105,0.25)'}}>
-          <div className="flex items-center justify-between px-5 py-4">
-            {/* Left: amount */}
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <TrendingDown className="w-3.5 h-3.5 text-emerald-200" />
-                <span className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest">Total Expenses</span>
-              </div>
-              <p className="text-2xl font-black text-white leading-none tracking-tight">
-                {currency} {Math.round(totalExpensesAmt).toLocaleString()}
-              </p>
-              <p className="text-[10px] text-emerald-200 mt-1 font-medium">
-                {filteredExpenses.length} {filteredExpenses.length === 1 ? 'entry' : 'entries'} · {
-                  dateFrom || dateTo
-                    ? `${dateFrom || '...'} → ${dateTo || '...'}`
-                    : quickDateOption === 'today' ? 'Today'
-                    : quickDateOption === 'yesterday' ? 'Yesterday'
-                    : quickDateOption === 'week' ? 'Last 7 days'
-                    : 'All time'
-                }
-              </p>
+      {/* 2. ACTIVE LEDGER SUM — green card with chart + categories */}
+      <div className="w-full rounded-2xl overflow-hidden" style={{background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', boxShadow: '0 4px 20px rgba(5,150,105,0.25)'}}>
+        {/* Top: amount + categories */}
+        <div className="flex items-start justify-between px-5 pt-4 pb-2 gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              <TrendingDown className="w-3.5 h-3.5 text-emerald-200" />
+              <span className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest">Total Expenses</span>
             </div>
-            {/* Right: category mini breakdown */}
-            <div className="shrink-0 text-right space-y-1.5 min-w-[120px]">
-              {totalExpensesAmt > 0 ? (
-                categoryBreakdown.filter(c => c.total > 0).slice(0, 3).map(cat => (
-                  <div key={cat.name} className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{background: 'rgba(255,255,255,0.2)'}}>
-                      <div className="h-full rounded-full bg-white transition-all" style={{width: `${Math.min(100, cat.percentage)}%`, opacity: 0.85}} />
-                    </div>
-                    <span className="text-[9px] font-bold text-emerald-100 w-8 text-right">{cat.percentage.toFixed(0)}%</span>
-                  </div>
-                ))
-              ) : (
-                <span className="text-[10px] text-emerald-200 font-medium">No entries yet</span>
-              )}
-              {categoryBreakdown.filter(c => c.total > 0).length > 3 && (
-                <span className="text-[9px] text-emerald-200">+{categoryBreakdown.filter(c => c.total > 0).length - 3} more</span>
-              )}
-            </div>
+            <p className="text-3xl font-black text-white leading-none tracking-tight">
+              {currency} {Math.round(totalExpensesAmt).toLocaleString()}
+            </p>
+            <p className="text-[10px] text-emerald-200 mt-1.5 font-medium">
+              {filteredExpenses.length} {filteredExpenses.length === 1 ? 'entry' : 'entries'} · {
+                dateFrom || dateTo
+                  ? `${dateFrom || '...'} → ${dateTo || '...'}`
+                  : quickDateOption === 'today' ? 'Today'
+                  : quickDateOption === 'yesterday' ? 'Yesterday'
+                  : quickDateOption === 'week' ? 'Last 7 days'
+                  : 'All time'
+              }
+            </p>
           </div>
-
-          {/* Trend chart strip at bottom */}
-          <div className="px-5 pb-3" style={{height: '52px'}}>
-            {expenses && expenses.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={expensesTrendData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="expGreen" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#fff" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#fff" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="expense" stroke="rgba(255,255,255,0.6)" strokeWidth={1.5} fillOpacity={1} fill="url(#expGreen)" dot={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : null}
+          {/* Category breakdown with names and bars */}
+          <div className="shrink-0 space-y-1.5 min-w-[120px]">
+            {totalExpensesAmt > 0 ? (
+              categoryBreakdown.filter(c => c.total > 0).slice(0, 4).map(cat => (
+                <div key={cat.name} className="space-y-0.5">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[9px] font-semibold text-emerald-100 truncate max-w-[78px]">{cat.name}</span>
+                    <span className="text-[9px] font-black text-white shrink-0">{cat.percentage.toFixed(0)}%</span>
+                  </div>
+                  <div className="h-1 rounded-full overflow-hidden" style={{background: 'rgba(255,255,255,0.2)'}}>
+                    <div className="h-full rounded-full bg-white transition-all duration-700" style={{width: `${Math.min(100, cat.percentage)}%`, opacity: 0.85}} />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-[10px] text-emerald-200">No categories yet</p>
+            )}
+            {categoryBreakdown.filter(c => c.total > 0).length > 4 && (
+              <span className="text-[9px] text-emerald-200 font-medium">+{categoryBreakdown.filter(c => c.total > 0).length - 4} more</span>
+            )}
           </div>
         </div>
 
-        {/* Hidden original grid - keeping data but replacing visual */}
-        <div className="hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center w-full">
-            <div className="lg:col-span-4 space-y-4">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <span className="text-[10px] font-mono font-black text-amber-405 uppercase tracking-widest bg-amber-400/10 px-2 py-0.5 rounded-md">
-                    Active Ledger Sum
-                  </span>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-3xl font-black text-white leading-none tracking-tight">
-                  {currency} {Math.round(totalExpensesAmt).toLocaleString()}
-                </h3>
-              </div>
+        {/* Trend chart — properly sized and visible */}
+        <div className="px-4 pb-4" style={{height: '88px'}}>
+          {expenses && expenses.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={expensesTrendData} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="expGreen" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#fff" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#fff" stopOpacity={0.02}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" stroke="rgba(255,255,255,0.0)" tick={{fill: 'rgba(255,255,255,0.45)', fontSize: 8}} tickLine={false} axisLine={false} interval={4} dy={2} />
+                <YAxis stroke="rgba(255,255,255,0.0)" tick={{fill: 'rgba(255,255,255,0.45)', fontSize: 8}} tickLine={false} axisLine={false} width={26} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} />
+                <Tooltip
+                  contentStyle={{backgroundColor: '#065f46', borderColor: 'rgba(255,255,255,0.15)', fontSize: '10px', borderRadius: '8px', color: '#fff', padding: '4px 10px'}}
+                  formatter={(value: any) => [`${currency} ${Number(value).toLocaleString()}`, 'Expenses']}
+                  labelStyle={{color: 'rgba(255,255,255,0.6)', fontWeight: 'bold', fontSize: '9px'}}
+                />
+                <Area type="monotone" dataKey="expense" stroke="rgba(255,255,255,0.75)" strokeWidth={2} fillOpacity={1} fill="url(#expGreen)" dot={false} activeDot={{r: 3, fill: '#fff', stroke: 'rgba(255,255,255,0.5)', strokeWidth: 2}} />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-[10px] text-emerald-300 font-medium">Add expenses to see trend</p>
             </div>
-
-          </div>
+          )}
         </div>
       </div>
 
@@ -613,92 +615,106 @@ export default function DashboardExpenses({
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* ── MOBILE EXPENSE CARDS ── */}
+          <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-800">
+            {filteredExpenses.length === 0 ? (
+              <div className="p-10 text-center text-slate-400 text-sm">
+                <Receipt className="w-8 h-8 mx-auto mb-3 text-slate-200" />
+                <p className="font-bold">No expenses found</p>
+              </div>
+            ) : filteredExpenses.map(e => (
+              <div key={e.id} className="flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                {/* Icon */}
+                <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center shrink-0">
+                  <Receipt className="w-4 h-4 text-rose-500" />
+                </div>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-bold text-slate-900 dark:text-white truncate">{e.description}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded-md">{e.category}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{new Date(e.timestamp).toLocaleDateString([], {day:'2-digit', month:'short'})}</span>
+                  </div>
+                </div>
+                {/* Amount + menu */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <p className="text-sm font-black text-rose-600">{currency} {Math.round(e.amount).toLocaleString()}</p>
+                  <button type="button"
+                    onClick={() => setExpenseActionItem(e)}
+                    className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 active:scale-90 transition-all cursor-pointer border-none"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── DESKTOP TABLE ── */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left font-sans text-xs">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-950 font-bold border-b border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
-                  <th className="p-3">Reference / ID</th>
                   <th className="p-3">Expense Name</th>
                   <th className="p-3">Category</th>
-                  <th className="p-3 text-right">Amount Price</th>
-                  <th className="p-3 text-center">Receipt File</th>
-                  <th className="p-3">Staff Member</th>
-                  <th className="p-3">Created Date</th>
-                  <th className="p-3">Tx Message / Notes</th>
+                  <th className="p-3 text-right">Amount</th>
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Staff</th>
+                  <th className="p-3 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-105 dark:divide-slate-800 text-slate-650 dark:text-slate-400">
                 {filteredExpenses.map(e => (
-                  <tr key={e.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/10 transition-colors">
+                  <tr key={e.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/10 transition-colors group">
                     <td className="p-3">
-                      <span className="font-mono text-xs text-rose-500 font-bold bg-rose-500/5 px-2 py-0.5 rounded border border-rose-500/10 inline-block">
-                        {e.id}
-                      </span>
-                    </td>
-                    <td className="p-3 font-semibold text-slate-900 dark:text-white">
-                      {e.description}
+                      <p className="font-semibold text-slate-900 dark:text-white text-xs leading-tight">{e.description}</p>
+                      {e.note && <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[180px]">{e.note}</p>}
                     </td>
                     <td className="p-3">
-                      <span className="px-2 py-1 text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg">
+                      <span className="px-2 py-1 text-[10px] font-bold bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 rounded-lg border border-rose-100 dark:border-rose-500/20">
                         {e.category}
                       </span>
                     </td>
-                    <td className="p-3 text-right font-mono font-black text-rose-600 dark:text-rose-400">
-                      {currency} {e.amount.toLocaleString(undefined, { minimumFractionDigits: 1 })}
+                    <td className="p-3 text-right font-mono font-black text-rose-600 dark:text-rose-400 text-sm">
+                      {currency} {Math.round(e.amount).toLocaleString()}
                     </td>
-                    <td className="p-3 text-center">
-                      {e.receiptImage ? (
-                        <div className="flex items-center justify-center space-x-1">
-                          <a 
-                            href={e.receiptImage} 
-                            download={e.receiptRef || 'receipt-attachment'} 
-                            className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline inline-flex items-center space-x-1"
-                            title="Download loaded attachment representation"
-                          >
-                            <FileText className="w-3.5 h-3.5 mr-0.5 text-rose-500" />
-                            <span className="max-w-[80px] truncate">{e.receiptRef || 'Attachment.png'}</span>
-                            <Download className="w-3 h-3 text-slate-400 hover:text-emerald-500" />
-                          </a>
-                        </div>
-                      ) : e.receiptRef ? (
-                        <span className="text-[10px] font-semibold text-amber-600 inline-flex items-center bg-amber-500/5 px-2 py-0.5 rounded border border-amber-500/10">
-                          <FileText className="w-3 h-3 mr-1 text-amber-500" /> {e.receiptRef}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 italic">No document</span>
-                      )}
+                    <td className="p-3 font-mono text-[10px] text-slate-500 whitespace-nowrap">
+                      {new Date(e.timestamp).toLocaleDateString([], {day:'2-digit', month:'short', year:'numeric'})}
                     </td>
-                    <td className="p-3 font-medium">
+                    <td className="p-3 text-[11px] text-slate-600 dark:text-slate-400 font-medium">
                       {e.staffName || 'Admin'}
                     </td>
-                    <td className="p-3 font-mono text-[10px]">
-                      {new Date(e.timestamp).toLocaleDateString()}
-                    </td>
-                    <td className="p-3 text-[11px] max-w-xs space-y-1">
-                      {e.transactionMessage && (
-                        <div className="flex items-center text-slate-700 dark:text-slate-300 font-medium">
-                          <MessageSquare className="w-3 h-3 mr-1 text-slate-400 shrink-0" />
-                          <span className="truncate">{e.transactionMessage}</span>
-                        </div>
-                      )}
-                      {e.note ? (
-                        <p className="text-[10px] text-slate-500 italic bg-slate-50 dark:bg-slate-950 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800 line-clamp-2">
-                          <span className="font-bold uppercase text-[8px] font-mono block text-slate-400">Note:</span>
-                          {e.note}
-                        </p>
-                      ) : !e.transactionMessage ? (
-                        <span className="text-slate-400 italic text-[10px]">-</span>
-                      ) : null}
+                    <td className="p-3">
+                      <div className="flex items-center justify-center gap-1">
+                        <button type="button" title="View"
+                          onClick={() => setExpenseActionItem(e)}
+                          className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer bg-transparent border-none"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" title="Edit"
+                          onClick={() => { setEditingExpense(e); setEditForm({description: e.description, amount: String(e.amount), category: e.category, note: e.note || ''}); }}
+                          className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-500/10 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer bg-transparent border-none"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" title="Delete"
+                          onClick={() => { if (window.confirm('Delete this expense?')) onDeleteExpense?.(e.id); }}
+                          className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-600 transition-colors cursor-pointer bg-transparent border-none"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
 
                 {filteredExpenses.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="p-12 text-center text-slate-400 dark:text-slate-500 select-none">
+                    <td colSpan={6} className="p-12 text-center text-slate-400 dark:text-slate-500 select-none">
                       <div className="flex flex-col items-center justify-center space-y-2">
                         <Receipt className="w-10 h-10 text-slate-300 dark:text-slate-700" />
-                        <p className="font-extrabold text-sm text-slate-700 dark:text-slate-400">No Operational Expense Records Located</p>
+                        <p className="font-extrabold text-sm text-slate-700 dark:text-slate-400">No expenses found</p>
                         <p className="text-xs text-slate-400 max-w-sm">No expenses found.</p>
                       </div>
                     </td>
@@ -1011,7 +1027,130 @@ export default function DashboardExpenses({
         </div>
       )}
 
+      {/* ── MOBILE EXPENSE ACTION SHEET ── */}
+      {expenseActionItem && (
+        <>
+          <div className="fixed inset-0 z-[70] bg-black/25 backdrop-blur-[2px]" onClick={() => setExpenseActionItem(null)} />
+          <div className="fixed left-0 right-0 z-[80] bg-white dark:bg-slate-900 rounded-t-3xl"
+            style={{bottom: 'calc(56px + env(safe-area-inset-bottom))', maxHeight: 'calc(75dvh - 56px)', overflowY: 'auto', boxShadow: '0 -8px 30px rgba(0,0,0,0.12)'}}>
+            <div className="w-9 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-1" />
+            {/* Header */}
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800">
+              <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{expenseActionItem.description}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">{expenseActionItem.category}</span>
+                <span className="text-[10px] text-slate-400">{new Date(expenseActionItem.timestamp).toLocaleDateString()}</span>
+                <span className="text-sm font-black text-rose-600 ml-auto">{currency} {Math.round(expenseActionItem.amount).toLocaleString()}</span>
+              </div>
+            </div>
+            {/* Extra details */}
+            <div className="px-5 py-3 border-b border-slate-50 dark:border-slate-800 space-y-1.5">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-slate-400 font-medium">Staff</span>
+                <span className="text-slate-800 dark:text-white font-bold">{expenseActionItem.staffName || 'Admin'}</span>
+              </div>
+              {expenseActionItem.note && (
+                <div className="flex justify-between text-[11px] gap-3">
+                  <span className="text-slate-400 font-medium shrink-0">Note</span>
+                  <span className="text-slate-700 dark:text-slate-300 text-right">{expenseActionItem.note}</span>
+                </div>
+              )}
+              {expenseActionItem.receiptRef && (
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-slate-400 font-medium">Receipt</span>
+                  <span className="text-emerald-600 font-bold">{expenseActionItem.receiptRef}</span>
+                </div>
+              )}
+            </div>
+            {/* Actions */}
+            {[
+              { label: 'Edit Expense', sub: 'Update amount, category or name', icon: Edit, bg: '#fef3c7', color: '#b45309', action: () => { setEditingExpense(expenseActionItem); setEditForm({description: expenseActionItem.description, amount: String(expenseActionItem.amount), category: expenseActionItem.category, note: expenseActionItem.note || ''}); setExpenseActionItem(null); } },
+            ].map(item => {
+              const Icon = item.icon;
+              return (
+                <button key={item.label} type="button" onClick={item.action}
+                  className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-b border-slate-50 dark:border-slate-800 cursor-pointer bg-transparent text-left"
+                >
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{background: item.bg}}>
+                    <Icon className="w-4 h-4" style={{color: item.color}} />
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-bold text-slate-800 dark:text-white">{item.label}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{item.sub}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-300 ml-auto shrink-0" />
+                </button>
+              );
+            })}
+            <button type="button"
+              onClick={() => { if (window.confirm('Delete this expense?')) { onDeleteExpense?.(expenseActionItem.id); setExpenseActionItem(null); } }}
+              className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer bg-transparent text-left mb-1"
+            >
+              <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center shrink-0">
+                <Trash2 className="w-4 h-4 text-red-500" />
+              </div>
+              <div>
+                <p className="text-[13px] font-bold text-red-600">Delete Expense</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Remove this record permanently</p>
+              </div>
+            </button>
+          </div>
+        </>
+      )}
 
+      {/* ── EDIT EXPENSE MODAL ── */}
+      {editingExpense && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" style={{background: 'rgba(0,0,0,0.4)', paddingBottom: 'calc(56px + env(safe-area-inset-bottom))'}}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="font-bold text-slate-900 dark:text-white text-sm">Edit Expense</h3>
+              <button type="button" onClick={() => setEditingExpense(null)} className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center cursor-pointer border-none">
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Description</label>
+                <input type="text" value={editForm.description} onChange={e => setEditForm(p => ({...p, description: e.target.value}))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Amount ({currency})</label>
+                <input type="number" value={editForm.amount} onChange={e => setEditForm(p => ({...p, amount: e.target.value}))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 font-mono font-bold" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Category</label>
+                <select value={editForm.category} onChange={e => setEditForm(p => ({...p, category: e.target.value}))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 cursor-pointer">
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Note (optional)</label>
+                <input type="text" value={editForm.note} onChange={e => setEditForm(p => ({...p, note: e.target.value}))}
+                  placeholder="Add a note..."
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setEditingExpense(null)}
+                  className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-bold cursor-pointer border-none">
+                  Cancel
+                </button>
+                <button type="button"
+                  onClick={() => {
+                    if (!editForm.description || !editForm.amount) return;
+                    onUpdateExpense?.({...editingExpense, description: editForm.description, amount: parseFloat(editForm.amount) || 0, category: editForm.category, note: editForm.note});
+                    setEditingExpense(null);
+                  }}
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold cursor-pointer border-none transition-colors">
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
