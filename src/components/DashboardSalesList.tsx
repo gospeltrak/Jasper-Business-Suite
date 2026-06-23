@@ -765,7 +765,7 @@ export default function DashboardSalesList({
           onClick={() => setActiveSubTab('settlement')}
           className={`w-full flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-205 border min-h-[58px] ${
             activeSubTab === 'settlement'
-              ? 'bg-indigo-650 border-indigo-650 text-white shadow-xs font-bold'
+              ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold'
               : 'bg-slate-105 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-555 dark:text-slate-400'
           }`}
         >
