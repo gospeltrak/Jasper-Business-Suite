@@ -2095,7 +2095,10 @@ export default function DashboardProducts({
                   return (
                     <div key={prod.id}
                       className="bg-white rounded-2xl overflow-hidden active:scale-[0.99] transition-all duration-150"
-                      style={{border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.04)'}}
+                      style={{
+                        border: '1px solid #f0f0f0',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)'
+                      }}
                     >
                       {/* ── HEADER ROW ── */}
                       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
@@ -2182,51 +2185,62 @@ export default function DashboardProducts({
                       {/* ── BOTTOM SHEET ACTION MENU ── */}
                       {openDropdownId === prod.id && (
                         <>
-                          <div className="fixed inset-0 z-[70] bg-black/20 backdrop-blur-[2px]" onClick={() => setOpenDropdownId(null)} />
-                          <div className="fixed left-0 right-0 bottom-0 z-[80] bg-white rounded-t-3xl shadow-2xl" style={{paddingBottom: 'calc(56px + env(safe-area-inset-bottom))'}}>
+                          <div className="fixed inset-0 z-[70] bg-black/25 backdrop-blur-[2px]" onClick={() => setOpenDropdownId(null)} />
+                          <div
+                            className="fixed left-0 right-0 z-[80] bg-white rounded-t-3xl"
+                            style={{
+                              bottom: 'calc(56px + env(safe-area-inset-bottom))',
+                              maxHeight: 'calc(85dvh - 56px - env(safe-area-inset-bottom))',
+                              overflowY: 'auto',
+                              boxShadow: '0 -8px 30px rgba(0,0,0,0.12)',
+                            }}
+                          >
                             {/* Handle */}
-                            <div className="w-9 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-1" />
-                            {/* Product header in sheet */}
-                            <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-50">
-                              <div className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0" style={{background: avatarBg, color: avatarColor}}>
-                                {prod.image ? <img src={prod.image} alt="" className="w-full h-full object-cover rounded-xl" /> : prod.name.charAt(0).toUpperCase()}
+                            <div className="w-9 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-1 sticky top-0" />
+                            {/* Product header */}
+                            <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-100 sticky top-4 bg-white z-10">
+                              <div className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 overflow-hidden" style={{background: avatarBg, color: avatarColor}}>
+                                {prod.image ? <img src={prod.image} alt="" className="w-full h-full object-cover" /> : prod.name.charAt(0).toUpperCase()}
                               </div>
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <p className="text-sm font-bold text-slate-900 truncate">{prod.name}</p>
-                                <p className="text-[10px] text-slate-400">{statusText} · {formatProductQuantity(totalQty, prod)} total</p>
+                                <p className="text-[10px] text-slate-400 truncate">Shop: {formatProductQuantity(shopQty, prod)} · Store: {formatProductQuantity(storeQty, prod)}</p>
                               </div>
+                              <span className="text-[9px] font-bold px-2 py-1 rounded-full shrink-0" style={{background: statusBg, color: statusColor}}>{statusText}</span>
                             </div>
-                            {/* Action buttons */}
+                            {/* 5 Action items */}
                             {[
-                              { label: 'View Details', sub: 'See full product info', icon: Eye, color: '#1d4ed8', bg: '#eff6ff', action: () => { setViewingProduct(prod); setOpenDropdownId(null); } },
-                              { label: 'Edit Product', sub: 'Update name, price, settings', icon: Edit, color: '#0f766e', bg: '#f0fdfa', action: () => { handleBeginEdit(prod); setOpenDropdownId(null); } },
-                              { label: 'Add Stock', sub: 'Restock shop or store', icon: Package, color: '#15803d', bg: '#f0fdf4', action: () => { setReplenishProduct(prod); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo'); setOpenDropdownId(null); } },
+                              { label: 'View Details', sub: 'See full product information', icon: Eye, bg: '#eff6ff', color: '#1d4ed8', action: () => { setViewingProduct(prod); setOpenDropdownId(null); } },
+                              { label: 'Edit Item', sub: 'Update name, price, settings', icon: Edit, bg: '#f0fdfa', color: '#0f766e', action: () => { handleBeginEdit(prod); setOpenDropdownId(null); } },
+                              { label: 'Replenish Stock', sub: 'Add new stock from supplier', icon: Package, bg: '#f0fdf4', color: '#15803d', action: () => { setReplenishProduct(prod); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo'); setOpenDropdownId(null); } },
+                              { label: 'Transfer Stock', sub: `Move between shop & store`, icon: ArrowLeftRight, bg: '#faf5ff', color: '#7c3aed', action: () => { setTransferProduct(prod); setTransferQty(1); setTransferDirection('store_to_shop'); setTransferError(null); setTransferSuccess(false); setOpenDropdownId(null); } },
                             ].map(item => {
                               const Icon = item.icon;
                               return (
                                 <button key={item.label} type="button" onClick={item.action}
-                                  className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50 active:bg-slate-100 transition-colors border-b border-slate-50"
+                                  className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50 active:bg-slate-100 transition-colors border-b border-slate-50 cursor-pointer bg-transparent text-left"
                                 >
                                   <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{background: item.bg}}>
-                                    <Icon className="w-4.5 h-4.5" style={{color: item.color}} />
+                                    <Icon className="w-4 h-4" style={{color: item.color}} />
                                   </div>
-                                  <div className="text-left">
-                                    <p className="text-[13px] font-bold text-slate-800">{item.label}</p>
-                                    <p className="text-[10px] text-slate-400 mt-0.5">{item.sub}</p>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[13px] font-bold text-slate-800 leading-tight">{item.label}</p>
+                                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">{item.sub}</p>
                                   </div>
-                                  <ChevronRight className="w-4 h-4 text-slate-300 ml-auto shrink-0" />
+                                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                                 </button>
                               );
                             })}
+                            {/* Delete — always last, always visible */}
                             <button type="button"
                               onClick={() => { onDeleteProduct(prod.id); setOpenDropdownId(null); }}
-                              className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-red-50 active:bg-red-100 transition-colors"
+                              className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-red-50 active:bg-red-100 transition-colors cursor-pointer bg-transparent text-left mb-2"
                             >
                               <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-red-50">
-                                <Trash2 className="w-4.5 h-4.5 text-red-500" />
+                                <Trash2 className="w-4 h-4 text-red-500" />
                               </div>
-                              <div className="text-left">
-                                <p className="text-[13px] font-bold text-red-600">Delete Product</p>
+                              <div className="flex-1">
+                                <p className="text-[13px] font-bold text-red-600 leading-tight">Delete Item</p>
                                 <p className="text-[10px] text-slate-400 mt-0.5">Remove from catalogue permanently</p>
                               </div>
                             </button>
