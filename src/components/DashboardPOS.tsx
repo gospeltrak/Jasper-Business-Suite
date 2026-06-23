@@ -40,132 +40,83 @@ import CachedImage from './CachedImage';
 import { shareElementPdfToWhatsApp } from '../utils/pdfShare';
 
 // Web Audio API helper for offline-friendly beep sound
+// Shared AudioContext singleton — created once, reused for all beeps (eliminates init lag)
+let _sharedAudioCtx: AudioContext | null = null;
+const getAudioCtx = (): AudioContext | null => {
+  try {
+    const AC = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AC) return null;
+    if (!_sharedAudioCtx || _sharedAudioCtx.state === 'closed') {
+      _sharedAudioCtx = new AC();
+    }
+    if (_sharedAudioCtx.state === 'suspended') {
+      _sharedAudioCtx.resume();
+    }
+    return _sharedAudioCtx;
+  } catch { return null; }
+};
+
 const playBeep = (frequency = 800, duration = 80) => {
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
+    const ctx = getAudioCtx(); if (!ctx) return;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    
-    osc.frequency.value = frequency;
-    osc.type = 'sine';
-    
-    // Smooth envelope to prevent clicking noises
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = frequency; osc.type = 'sine';
     gain.gain.setValueAtTime(0, ctx.currentTime);
     gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.01);
     gain.gain.linearRampToValueAtTime(0, ctx.currentTime + (duration / 1000));
-    
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + (duration / 1000));
-  } catch (e) {
-    // silently fail
-  }
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + (duration / 1000));
+  } catch (e) {}
 };
 
 const playErrorBeep = () => {
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
+    const ctx = getAudioCtx(); if (!ctx) return;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    
+    osc.connect(gain); gain.connect(ctx.destination);
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(200, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.4);
-    
     gain.gain.setValueAtTime(0, ctx.currentTime);
     gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.02);
     gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
-    
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.4);
-  } catch (e) {
-    // silently fail
-  }
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.4);
+  } catch (e) {}
 };
 
 const playWarningBeep = () => {
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    
-    // First short beep (medium frequency 400Hz, duration 120ms)
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
-    osc1.frequency.setValueAtTime(400, ctx.currentTime);
-    osc1.type = 'sine';
-    
-    gain1.gain.setValueAtTime(0, ctx.currentTime);
-    gain1.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.01);
-    gain1.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.12);
-    
-    osc1.start(ctx.currentTime);
-    osc1.stop(ctx.currentTime + 0.12);
-
-    // Second short beep starting after a 60ms gap (at 0.18s)
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-    osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-    osc2.frequency.setValueAtTime(400, ctx.currentTime + 0.18);
-    osc2.type = 'sine';
-    
-    gain2.gain.setValueAtTime(0, ctx.currentTime + 0.18);
-    gain2.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.19);
-    gain2.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.30);
-    
-    osc2.start(ctx.currentTime + 0.18);
-    osc2.stop(ctx.currentTime + 0.30);
-  } catch (e) {
-    // silently fail
-  }
+    const ctx = getAudioCtx(); if (!ctx) return;
+    [0, 0.18].forEach((startAt, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(400, ctx.currentTime + startAt);
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0, ctx.currentTime + startAt);
+      gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + startAt + 0.01);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + startAt + 0.12);
+      osc.start(ctx.currentTime + startAt); osc.stop(ctx.currentTime + startAt + 0.12);
+    });
+  } catch (e) {}
 };
 
 const playOutOfStockBeep = () => {
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    
-    // First beep: 400Hz, 150ms
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
-    osc1.frequency.value = 400;
-    osc1.type = 'sine';
-    gain1.gain.setValueAtTime(0, ctx.currentTime);
-    gain1.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.01);
-    gain1.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
-    osc1.start(ctx.currentTime);
-    osc1.stop(ctx.currentTime + 0.15);
-
-    // Second beep: 250Hz, 150ms, starting immediately after
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-    osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-    osc2.frequency.value = 250;
-    osc2.type = 'sine';
-    gain2.gain.setValueAtTime(0, ctx.currentTime + 0.15);
-    gain2.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.16);
-    gain2.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.30);
-    osc2.start(ctx.currentTime + 0.15);
-    osc2.stop(ctx.currentTime + 0.30);
-  } catch (e) {
-    // silently fail
-  }
+    const ctx = getAudioCtx(); if (!ctx) return;
+    [[400, 0, 0.15], [250, 0.15, 0.15]].forEach(([freq, start, dur]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = freq; osc.type = 'sine';
+      gain.gain.setValueAtTime(0, ctx.currentTime + start);
+      gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + start + 0.01);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + start + dur);
+      osc.start(ctx.currentTime + start); osc.stop(ctx.currentTime + start + dur);
+    });
+  } catch (e) {}
 };
 
 interface DashboardPOSProps {
@@ -710,7 +661,7 @@ export default function DashboardPOS({
     setCart(prev => prev.filter(i => i.product.id !== id));
   };
 
-  const getBatchAwareChannelPrice = (product: Product) => {
+  const getBatchAwareChannelPrice = useCallback((product: Product) => {
     const fallbackPrice = sellingChannel === 'wholesale'
       ? (product.wholesalePrice ?? product.sellingPrice)
       : product.sellingPrice;
@@ -720,9 +671,9 @@ export default function DashboardPOS({
     }
 
     return getPosSellingPriceForCostingMethod(product, fallbackPrice);
-  };
+  }, [sellingChannel, activeTenant.businessType]);
 
-  const getCartUnitPrice = (item: {
+  const getCartUnitPrice = useCallback((item: {
     product: Product;
     bulkSellMode?: 'scale' | 'pcs';
     dosageType?: 'packet' | 'full' | 'half' | 'tabs';
@@ -755,7 +706,7 @@ export default function DashboardPOS({
     }
 
     return unitPrice;
-  };
+  }, [activeTenant.businessType, getBatchAwareChannelPrice]);
 
   // Pricing calculations — memoized for instant basket updates
   const subtotal = useMemo(() => {
@@ -1257,7 +1208,7 @@ export default function DashboardPOS({
                       <CachedImage 
                         src={getProductImage(prod)} 
                         alt={prod.name} 
-                        className={`w-full h-full transition-transform duration-500 group-hover:scale-105 select-none pointer-events-none ${
+                        className={`w-full h-full group-hover:scale-105 select-none pointer-events-none ${
                           prod.image && prod.image.startsWith('data:') ? 'object-contain p-2.5' : 'object-cover'
                         }`}
                         referrerPolicy="no-referrer"
