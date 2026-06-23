@@ -727,7 +727,21 @@ export default function DashboardPurchases({
 
             {/* Cart Items editable inputs */}
             <div className="space-y-3.5">
-              <h6 className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 font-mono">Procured Elements ({cart.length})</h6>
+              {/* Search/Scan bar at top of cart */}
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+                <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search & add product to cart..."
+                  className="flex-1 bg-transparent border-none outline-none text-xs text-slate-700 placeholder-slate-400"
+                  onFocus={(e) => e.target.closest('.space-y-3\.5')?.previousElementSibling?.querySelector('input')?.focus()}
+                />
+                <button type="button" className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg whitespace-nowrap">📷 Scan</button>
+              </div>
+              <h6 className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 font-mono flex items-center justify-between">
+                <span>Purchased Items ({cart.length})</span>
+                {cart.length > 0 && <span className="text-emerald-600">{currency}{cart.reduce((s,i) => s + i.costPrice * i.qty, 0).toLocaleString()}</span>}
+              </h6>
               
               {cart.length === 0 ? (
                 <div className="py-12 border-2 border-dashed border-slate-200 rounded-2xl text-center text-xs text-slate-400 space-y-1">
