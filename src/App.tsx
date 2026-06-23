@@ -134,7 +134,6 @@ export default function App() {
     if (currentPath === '/partner' || currentPath.startsWith('/partner/')) {
       return <AffiliatePortal onNavigate={navigateTo} forcedRole="partner" />;
     }
-    }
 
     if (isDashboardRoute(currentPath)) {
       if (user) {
