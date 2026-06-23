@@ -73,8 +73,9 @@ export default function DashboardProducts({
   // Tab selector: 'catalog' list vs 'labels' station
   const [viewTab, setViewTab] = useState<'catalog' | 'category' | 'brand' | 'labels'>('catalog');
 
-  // Dropdown / Custom Categories & Brands states
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  // Dropdown states — mobile bottom sheet vs desktop inline dropdown are separate
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);   // mobile only
+  const [desktopMenuId, setDesktopMenuId] = useState<string | null>(null);     // desktop only
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
@@ -2192,7 +2193,8 @@ export default function DashboardProducts({
                 )}
               </div>
 
-              {/* ═══ PRODUCT ACTION SHEET — rendered at component level, never clipped ═══ */}
+              {/* ═══ MOBILE BOTTOM SHEET — mobile only, never shown on md+ screens ═══ */}
+              <div className="md:hidden">
               {openDropdownId && (() => {
                 const activeProd = filteredProducts.find(p => p.id === openDropdownId);
                 if (!activeProd) return null;
@@ -2326,6 +2328,7 @@ export default function DashboardProducts({
                   </>
                 );
               })()}
+              </div>{/* end md:hidden mobile sheet */}
 
               {/* Desktop View: Table */}
               <table className="hidden md:table w-full text-left border-collapse">
@@ -2476,42 +2479,43 @@ export default function DashboardProducts({
                             <div className="relative">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setOpenDropdownId(openDropdownId === prod.id ? null : prod.id);
-                                }}
+                                onClick={() => setDesktopMenuId(desktopMenuId === prod.id ? null : prod.id)}
                                 className="p-1.5 hover:bg-slate-100 text-slate-450 hover:text-slate-700 rounded-lg cursor-pointer transition-colors flex items-center justify-center"
                                 title="Item Options"
                               >
                                 <MoreVertical className="w-4 h-4" />
                               </button>
 
-                              {openDropdownId === prod.id && (
+                              {desktopMenuId === prod.id && (
                                 <>
-                                  <div className="fixed inset-0 z-[70]" onClick={() => setOpenDropdownId(null)} />
-                                  <div className="fixed left-0 right-0 bottom-0 z-[80] bg-white rounded-t-2xl shadow-2xl border-t border-slate-100 animate-in slide-in-from-bottom-2" style={{paddingBottom: 'calc(56px + env(safe-area-inset-bottom))'}}>
-                                    <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-2" />
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-5 pb-2 truncate">{prod.name}</p>
+                                  {/* Invisible full-screen dismiss layer */}
+                                  <div className="fixed inset-0 z-[70]" onClick={() => setDesktopMenuId(null)} />
+                                  {/* Proper inline dropdown — anchored to the button, floats above */}
+                                  <div className="absolute right-0 top-full mt-1.5 z-[80] bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden w-48 py-1"
+                                    style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)' }}
+                                  >
                                     {[
-                                      { label: 'View Details', icon: Eye, color: 'text-slate-600', action: () => { setViewingProduct(prod); setOpenDropdownId(null); } },
-                                      { label: 'Edit Item', icon: Edit, color: 'text-slate-600', action: () => { handleBeginEdit(prod); setOpenDropdownId(null); } },
-                                      { label: 'Replenish Stock', icon: Package, color: 'text-emerald-600', action: () => { setReplenishProduct(prod); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo'); setOpenDropdownId(null); } },
+                                      { label: 'View Details',   icon: Eye,           color: 'text-slate-700', action: () => { setViewingProduct(prod);   setDesktopMenuId(null); } },
+                                      { label: 'Edit Item',       icon: Edit,          color: 'text-slate-700', action: () => { handleBeginEdit(prod);       setDesktopMenuId(null); } },
+                                      { label: 'Replenish Stock', icon: Package,       color: 'text-emerald-700', action: () => { setReplenishProduct(prod); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo'); setDesktopMenuId(null); } },
                                     ].map(item => {
                                       const Icon = item.icon;
                                       return (
                                         <button key={item.label} type="button" onClick={item.action}
-                                          className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 active:bg-slate-100 transition-colors border-b border-slate-50 last:border-0"
+                                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 transition-colors cursor-pointer text-left"
                                         >
-                                          <Icon className={`w-5 h-5 ${item.color} shrink-0`} />
-                                          <span className={`text-sm font-semibold ${item.color}`}>{item.label}</span>
+                                          <Icon className={`w-3.5 h-3.5 ${item.color} shrink-0`} />
+                                          <span className={item.color}>{item.label}</span>
                                         </button>
                                       );
                                     })}
+                                    <div className="h-px bg-slate-100 mx-3 my-1" />
                                     <button type="button"
-                                      onClick={() => { onDeleteProduct(prod.id); setOpenDropdownId(null); }}
-                                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-red-50 active:bg-red-100 transition-colors"
+                                      onClick={() => { onDeleteProduct(prod.id); setDesktopMenuId(null); }}
+                                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold hover:bg-red-50 transition-colors cursor-pointer text-left"
                                     >
-                                      <Trash2 className="w-5 h-5 text-red-500 shrink-0" />
-                                      <span className="text-sm font-bold text-red-600">Delete Item</span>
+                                      <Trash2 className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                                      <span className="text-red-600">Delete Item</span>
                                     </button>
                                   </div>
                                 </>
