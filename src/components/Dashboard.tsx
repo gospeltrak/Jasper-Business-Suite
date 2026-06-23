@@ -2342,49 +2342,43 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </main>
 
           {/* Mobile Bottom Navigation Component */}
-          <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800/80" style={{height:'calc(56px + env(safe-area-inset-bottom))', paddingBottom:'env(safe-area-inset-bottom)', boxShadow:'0 -1px 0 rgba(0,0,0,0.06)'}}>
+          <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800" style={{height:'calc(56px + env(safe-area-inset-bottom))', paddingBottom:'env(safe-area-inset-bottom)', boxShadow:'0 -1px 0 rgba(0,0,0,0.05)'}}>
             <div className="flex items-stretch h-14">
-              {[
+              {([
                 { id: 'overview', label: 'Home', icon: LayoutDashboard },
                 { id: 'sales-list', label: 'Sales', icon: FileText },
-                { id: 'pos', label: 'POS', icon: ShoppingCart },
+                { id: 'pos', label: 'Sell', icon: ShoppingCart, isPOS: true },
                 { id: 'products', label: 'Stock', icon: Database },
-                { id: 'settings', label: 'More', icon: Menu },
-              ].map((tab) => {
-                const isActive = activeTab === tab.id || (tab.id === 'settings' && moreMenuOpen);
+                { id: '__more__', label: 'More', icon: Menu },
+              ] as any[]).map((tab) => {
+                const isMore = tab.id === '__more__';
+                const isActive = (!isMore && activeTab === tab.id) || (isMore && moreMenuOpen);
                 const Icon = tab.icon;
-                const isPOS = tab.id === 'pos';
                 return (
                   <button
                     key={tab.id}
                     onClick={() => {
-                      if (tab.id === 'settings') {
-                        setMoreMenuOpen(true);
-                      } else {
-                        setActiveTab(tab.id as any);
-                        setMoreMenuOpen(false);
-                      }
+                      if (isMore) { setMoreMenuOpen(true); }
+                      else { setActiveTab(tab.id as any); setMoreMenuOpen(false); }
                     }}
-                    className="flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-all duration-150 active:scale-90 cursor-pointer bg-transparent border-none outline-none"
+                    className="flex-1 flex flex-col items-center justify-center relative transition-all duration-150 active:scale-90 cursor-pointer bg-transparent border-none outline-none"
                     type="button"
                   >
-                    {isPOS ? (
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 ${isActive ? 'bg-[#00C853] shadow-lg shadow-[#00C853]/30' : 'bg-[#00C853] shadow-md shadow-[#00C853]/20'}`} style={{marginTop:'-18px'}}>
-                        <Icon className="w-5 h-5 text-white" strokeWidth={2.5} />
-                      </div>
-                    ) : (
-                      <div className={`flex flex-col items-center gap-0.5 transition-all duration-200 ${isActive ? 'text-[#00C853]' : 'text-slate-400 dark:text-slate-500'}`}>
-                        <div className={`relative flex items-center justify-center w-8 h-6 rounded-xl transition-all duration-200 ${isActive ? 'bg-emerald-50 dark:bg-emerald-500/10' : ''}`}>
-                          <Icon className={`w-5 h-5 transition-all duration-200 ${isActive ? 'scale-110' : ''}`} strokeWidth={isActive ? 2.5 : 1.8} />
+                    {tab.isPOS ? (
+                      <>
+                        <div className="w-12 h-12 rounded-2xl bg-[#00C853] flex items-center justify-center shadow-lg shadow-[#00C853]/30" style={{marginTop:'-18px'}}>
+                          <Icon className="w-6 h-6 text-white" strokeWidth={2.5} />
                         </div>
-                        <span className={`text-[10px] font-semibold leading-none tracking-tight transition-all duration-200 ${isActive ? 'text-[#00C853]' : 'text-slate-400 dark:text-slate-500'}`}>{t(tab.label)}</span>
-                      </div>
-                    )}
-                    {isPOS && (
-                      <span className="text-[9px] font-bold text-[#00C853] mt-0.5 leading-none tracking-tight">{t('POS')}</span>
-                    )}
-                    {isActive && !isPOS && (
-                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#00C853]" />
+                        <span className="text-[9px] font-bold text-[#00C853] mt-0.5 leading-none">{t('Sell')}</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className={`flex items-center justify-center w-7 h-6 rounded-lg mb-0.5 transition-all ${isActive ? 'bg-emerald-50 dark:bg-emerald-500/10' : ''}`}>
+                          <Icon className={`w-5 h-5 transition-all ${isActive ? 'stroke-[#00C853]' : 'stroke-slate-400 dark:stroke-slate-500'}`} strokeWidth={isActive ? 2.5 : 1.8} />
+                        </div>
+                        <span className={`text-[9px] font-semibold leading-none ${isActive ? 'text-[#00C853]' : 'text-slate-400 dark:text-slate-500'}`}>{t(tab.label)}</span>
+                        {isActive && <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#00C853]" />}
+                      </>
                     )}
                   </button>
                 );
@@ -2408,8 +2402,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           {/* Top Bar */}
           <div className="flex items-center justify-between px-5 h-[60px] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 shrink-0" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)'}}>
             <div>
-              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-0.5">{user.role}</p>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">{user.name}</h2>
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-0.5">All Features</p>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">{activeTenant.name}</h2>
             </div>
             <button
               onClick={() => setMoreMenuOpen(false)}
@@ -2426,20 +2420,20 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             {/* App grid — 4-col icon grid like native apps */}
             <div className="px-5 pt-5 pb-2">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">All Features</p>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {[
-                  { id: 'overview', label: 'Home', icon: LayoutDashboard, bg: 'bg-blue-500' },
-                  { id: 'sales-list', label: 'Sales', icon: FileText, bg: 'bg-emerald-500' },
-                  { id: 'pos', label: 'Sell', icon: ShoppingCart, bg: 'bg-[#00C853]' },
-                  { id: 'purchases-list', label: 'Buying', icon: Package, bg: 'bg-violet-500' },
-                  { id: 'products', label: 'Stock', icon: Package, bg: 'bg-orange-500' },
-                  { id: 'expenses', label: 'Expenses', icon: MinusCircle, bg: 'bg-rose-500' },
-                  { id: 'reports', label: 'Reports', icon: PieChart, bg: 'bg-indigo-500' },
-                  { id: 'deliveries', label: 'Delivery', icon: MapPin, bg: 'bg-teal-500' },
-                  { id: 'suppliers', label: 'Partners', icon: Handshake, bg: 'bg-purple-500' },
-                  { id: 'cash-bank-matrix', label: 'Money', icon: Wallet, bg: 'bg-amber-500' },
-                  { id: 'forecasting', label: 'Planning', icon: TrendingUp, bg: 'bg-cyan-500' },
-                  { id: 'staff-members', label: 'Staff', icon: Shield, bg: 'bg-slate-600' },
+                  { id: 'overview', label: 'Home', icon: LayoutDashboard, bg: 'bg-blue-500', desc: 'Dashboard & overview' },
+                  { id: 'pos', label: 'Sell', icon: ShoppingCart, bg: 'bg-[#00C853]', desc: 'Open sell screen' },
+                  { id: 'sales-list', label: 'Sales', icon: FileText, bg: 'bg-emerald-600', desc: 'Sales history' },
+                  { id: 'products', label: 'Stock', icon: Database, bg: 'bg-orange-500', desc: 'Products & inventory' },
+                  { id: 'reports', label: 'Reports', icon: PieChart, bg: 'bg-indigo-500', desc: 'Charts & analytics' },
+                  { id: 'expenses', label: 'Expenses', icon: MinusCircle, bg: 'bg-rose-500', desc: 'Track spending' },
+                  { id: 'purchases-list', label: 'Buying', icon: Package, bg: 'bg-violet-500', desc: 'Purchase orders' },
+                  { id: 'suppliers', label: 'Partners', icon: Handshake, bg: 'bg-purple-500', desc: 'Suppliers list' },
+                  { id: 'cash-bank-matrix', label: 'Money', icon: Wallet, bg: 'bg-amber-500', desc: 'Cash & bank' },
+                  { id: 'deliveries', label: 'Delivery', icon: MapPin, bg: 'bg-teal-500', desc: 'Deliveries' },
+                  { id: 'staff-members', label: 'Staff', icon: Shield, bg: 'bg-slate-600', desc: 'Team members' },
+                  { id: 'forecasting', label: 'Planning', icon: TrendingUp, bg: 'bg-cyan-500', desc: 'Future planning' },
                 ].map((item) => {
                   const Icon = item.icon;
                   return (
@@ -2447,12 +2441,15 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                       key={item.id}
                       type="button"
                       onClick={() => { setActiveTab(item.id as any); setMoreMenuOpen(false); }}
-                      className="flex flex-col items-center gap-1.5 active:scale-90 transition-all duration-150 cursor-pointer bg-transparent border-none outline-none"
+                      className="flex items-center gap-3 p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 active:scale-95 transition-all duration-150 cursor-pointer text-left shadow-sm hover:shadow-md"
                     >
-                      <div className={`w-14 h-14 rounded-2xl ${item.bg} flex items-center justify-center shadow-sm`}>
-                        <Icon className="w-6 h-6 text-white" strokeWidth={2} />
+                      <div className={`w-11 h-11 rounded-xl ${item.bg} flex items-center justify-center shadow-sm shrink-0`}>
+                        <Icon className="w-5 h-5 text-white" strokeWidth={2.2} />
                       </div>
-                      <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 text-center leading-tight">{t(item.label)}</span>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 leading-tight">{t(item.label)}</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight mt-0.5 truncate">{item.desc}</p>
+                      </div>
                     </button>
                   );
                 })}
