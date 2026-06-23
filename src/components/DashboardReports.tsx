@@ -1128,7 +1128,7 @@ export default function DashboardReports({
   };
 
   return (
-    <div className="space-y-8 animate-fade-in pb-20" id="reports-view-root">
+    <div className="space-y-8 animate-fade-in pb-[calc(80px+env(safe-area-inset-bottom))]" id="reports-view-root">
       
       {/* DESKTOP-ONLY INTERFACE CONTAINER */}
       <div className="hidden md:block space-y-8">
