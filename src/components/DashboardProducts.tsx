@@ -2130,59 +2130,35 @@ export default function DashboardProducts({
                           
                           {openDropdownId === prod.id && (
                             <>
-                              <div className="fixed inset-0 z-40" onClick={() => setOpenDropdownId(null)}></div>
-                            <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-150 rounded-xl shadow-xl py-1.5 z-50 text-left">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setViewingProduct(prod);
-                                    setOpenDropdownId(null);
-                                  }}
-                                  className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center space-x-2 transition-colors"
+                              {/* Full-screen backdrop */}
+                              <div className="fixed inset-0 z-[70]" onClick={() => setOpenDropdownId(null)} />
+                              {/* Bottom sheet action menu - always above nav bar */}
+                              <div className="fixed left-0 right-0 bottom-0 z-[80] bg-white rounded-t-2xl shadow-2xl border-t border-slate-100 animate-in slide-in-from-bottom-2" style={{paddingBottom: 'calc(56px + env(safe-area-inset-bottom))'}}>
+                                <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-2" />
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-5 pb-2 truncate">{prod.name}</p>
+                                {[
+                                  { label: 'View Details', icon: Eye, color: 'text-slate-600', action: () => { setViewingProduct(prod); setOpenDropdownId(null); } },
+                                  { label: 'Edit Item', icon: Edit, color: 'text-slate-600', action: () => { handleBeginEdit(prod); setOpenDropdownId(null); } },
+                                  { label: 'Replenish Stock', icon: Package, color: 'text-emerald-600', action: () => { setReplenishProduct(prod); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo'); setOpenDropdownId(null); } },
+                                ].map(item => {
+                                  const Icon = item.icon;
+                                  return (
+                                    <button key={item.label} type="button" onClick={item.action}
+                                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 active:bg-slate-100 transition-colors border-b border-slate-50 last:border-0"
+                                    >
+                                      <Icon className={`w-5 h-5 ${item.color} shrink-0`} />
+                                      <span className={`text-sm font-semibold ${item.color}`}>{item.label}</span>
+                                    </button>
+                                  );
+                                })}
+                                <button type="button"
+                                  onClick={() => { onDeleteProduct(prod.id); setOpenDropdownId(null); }}
+                                  className="w-full flex items-center gap-4 px-5 py-4 hover:bg-red-50 active:bg-red-100 transition-colors"
                                 >
-                                  <Eye className="w-3.5 h-3.5 text-slate-400" />
-                                  <span>View Details</span>
+                                  <Trash2 className="w-5 h-5 text-red-500 shrink-0" />
+                                  <span className="text-sm font-bold text-red-600">Delete Item</span>
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleBeginEdit(prod);
-                                    setOpenDropdownId(null);
-                                  }}
-                                  className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center space-x-2 transition-colors"
-                                >
-                                  <Edit className="w-3.5 h-3.5 text-slate-400" />
-                                  <span>Edit Item</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setReplenishProduct(prod);
-                                    setReplenishCost('');
-                                    setReplenishQty('');
-                                    setReplenishSupplier('');
-                                    setReplenishPriceAction('suggested');
-                                    setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo');
-                                    setOpenDropdownId(null);
-                                  }}
-                                  className="w-full px-3 py-2 text-slate-700 hover:bg-emerald-50 text-xs font-semibold flex items-center space-x-2 transition-colors"
-                                >
-                                  <Package className="w-3.5 h-3.5 text-emerald-500" />
-                                  <span>Replenish Stock</span>
-                                </button>
-                                <div className="border-t border-slate-100 my-1"></div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    onDeleteProduct(prod.id);
-                                    setOpenDropdownId(null);
-                                  }}
-                                  className="w-full px-3 py-2 text-red-650 hover:bg-red-50 text-xs font-bold flex items-center space-x-2 transition-colors"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                                  <span>Delete Item</span>
-                                </button>
-                            </div>
+                              </div>
                             </>
                           )}
                         </div>
@@ -2357,58 +2333,31 @@ export default function DashboardProducts({
 
                               {openDropdownId === prod.id && (
                                 <>
-                                  {/* Backdrop layer */}
-                                  <div className="fixed inset-0 z-40" onClick={() => setOpenDropdownId(null)}></div>
-                                  <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-50 animate-fade-in text-left">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setViewingProduct(prod);
-                                        setOpenDropdownId(null);
-                                      }}
-                                      className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center space-x-2 transition-colors"
+                                  <div className="fixed inset-0 z-[70]" onClick={() => setOpenDropdownId(null)} />
+                                  <div className="fixed left-0 right-0 bottom-0 z-[80] bg-white rounded-t-2xl shadow-2xl border-t border-slate-100 animate-in slide-in-from-bottom-2" style={{paddingBottom: 'calc(56px + env(safe-area-inset-bottom))'}}>
+                                    <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-2" />
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-5 pb-2 truncate">{prod.name}</p>
+                                    {[
+                                      { label: 'View Details', icon: Eye, color: 'text-slate-600', action: () => { setViewingProduct(prod); setOpenDropdownId(null); } },
+                                      { label: 'Edit Item', icon: Edit, color: 'text-slate-600', action: () => { handleBeginEdit(prod); setOpenDropdownId(null); } },
+                                      { label: 'Replenish Stock', icon: Package, color: 'text-emerald-600', action: () => { setReplenishProduct(prod); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo'); setOpenDropdownId(null); } },
+                                    ].map(item => {
+                                      const Icon = item.icon;
+                                      return (
+                                        <button key={item.label} type="button" onClick={item.action}
+                                          className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 active:bg-slate-100 transition-colors border-b border-slate-50 last:border-0"
+                                        >
+                                          <Icon className={`w-5 h-5 ${item.color} shrink-0`} />
+                                          <span className={`text-sm font-semibold ${item.color}`}>{item.label}</span>
+                                        </button>
+                                      );
+                                    })}
+                                    <button type="button"
+                                      onClick={() => { onDeleteProduct(prod.id); setOpenDropdownId(null); }}
+                                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-red-50 active:bg-red-100 transition-colors"
                                     >
-                                      <Eye className="w-3.5 h-3.5 text-slate-400" />
-                                      <span>View Details</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        handleBeginEdit(prod);
-                                        setOpenDropdownId(null);
-                                      }}
-                                      className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center space-x-2 transition-colors"
-                                    >
-                                      <Edit className="w-3.5 h-3.5 text-slate-400" />
-                                      <span>Edit Item</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setReplenishProduct(prod);
-                                        setReplenishCost('');
-                                        setReplenishQty('');
-                                        setReplenishSupplier('');
-                                        setReplenishPriceAction('suggested');
-                                        setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo');
-                                        setOpenDropdownId(null);
-                                      }}
-                                      className="w-full px-3 py-2 text-slate-700 hover:bg-emerald-50 text-xs font-semibold flex items-center space-x-2 transition-colors"
-                                    >
-                                      <Package className="w-3.5 h-3.5 text-emerald-500" />
-                                      <span>Replenish Stock</span>
-                                    </button>
-                                    <div className="border-t border-slate-100 my-1"></div>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        onDeleteProduct(prod.id);
-                                        setOpenDropdownId(null);
-                                      }}
-                                      className="w-full px-3 py-2 text-red-650 hover:bg-red-50 text-xs font-bold flex items-center space-x-2 transition-colors"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                                      <span>Delete Item</span>
+                                      <Trash2 className="w-5 h-5 text-red-500 shrink-0" />
+                                      <span className="text-sm font-bold text-red-600">Delete Item</span>
                                     </button>
                                   </div>
                                 </>
