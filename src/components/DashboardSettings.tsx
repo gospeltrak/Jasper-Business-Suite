@@ -2590,7 +2590,7 @@ export default function DashboardSettings({
 
       {/* MODAL: STAFF PERFORMANCE REPORT */}
       {viewingStaffReport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in text-slate-800">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in text-slate-800">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col font-sans animate-scale-in">
             {/* Header */}
             <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
