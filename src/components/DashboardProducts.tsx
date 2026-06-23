@@ -2926,7 +2926,7 @@ export default function DashboardProducts({
 
       {/* MODAL I: CAMERA/SCANNER OVERLAY SIMULATOR MODAL (IN FORM) */}
       {isFormScannerOpen && (
-        <div id="modal-form-scanner" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+        <div id="modal-form-scanner" className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
           <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
             
             <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
@@ -3001,7 +3001,7 @@ export default function DashboardProducts({
 
       {/* MODAL II: THERMAL HARDWARE SUCCESS DIAGNOSTIC TEST PAGE */}
       {showTestPrintModal && (
-        <div id="modal-test-print" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-mono text-[11px] text-slate-900 select-none">
+        <div id="modal-test-print" className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-mono text-[11px] text-slate-900 select-none">
           <div className="bg-white border border-slate-350 rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden flex flex-col relative">
             
             {/* Header tab */}
@@ -3073,7 +3073,7 @@ export default function DashboardProducts({
 
       {/* METAMODAL: INVENTORY TRANSFER HUB */}
       {transferProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
           <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col uppercase text-xs">
             
             {/* Header */}
@@ -3592,7 +3592,7 @@ export default function DashboardProducts({
 
       {/* VIEW MODAL */}
       {viewingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
           <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col">
             {/* Header */}
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
@@ -3800,7 +3800,7 @@ export default function DashboardProducts({
 
       {/* EDIT PRODUCT MODAL */}
       {editingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
           <form 
             onSubmit={handleSaveProductEdit}
             className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col uppercase text-xs"
@@ -4357,7 +4357,7 @@ export default function DashboardProducts({
       )}
       {/* REPLENISH BATCH MODAL */}
       {replenishProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
           <form onSubmit={handleReplenishSubmit} className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-150 flex flex-col space-y-1">
               <div className="flex items-center justify-between">
