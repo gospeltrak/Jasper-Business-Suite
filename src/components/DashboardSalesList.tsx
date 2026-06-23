@@ -2825,7 +2825,7 @@ export default function DashboardSalesList({
               </div>
 
               {/* Scrollable A4 Document Sheet */}
-              <div className="p-8 overflow-y-auto max-h-[75vh] space-y-8 bg-slate-50">
+              <div className="p-8 overflow-y-auto max-h-[calc(100dvh-56px-env(safe-area-inset-bottom))] space-y-8 bg-slate-50">
                 <div id="sales-invoice-a4-pdf-template" className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 max-w-3xl mx-auto space-y-8 relative select-text">
                   
                   {/* Decorative Paid/Unpaid background watermark stamp */}
