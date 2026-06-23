@@ -71,9 +71,10 @@ interface Affiliate {
 
 interface AffiliatePortalProps {
   onNavigate: (route: string) => void;
+  forcedRole?: "affiliate" | "partner";
 }
 
-export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
+export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePortalProps) {
   const { lang, t } = useTranslation();
   const [authMode, setAuthMode] = useState<"login" | "register" | "dashboard">(
     "login",
@@ -93,7 +94,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
   const [loginPassword, setLoginPassword] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [portalRole, setPortalRole] = useState<"affiliate" | "partner">(
-    "affiliate",
+    forcedRole ?? "affiliate",
   );
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -147,7 +148,7 @@ export default function AffiliatePortal({ onNavigate }: AffiliatePortalProps) {
       const params = new URLSearchParams(window.location.search);
       const roleParam = params.get("role");
       const modeParam = params.get("mode");
-      if (roleParam === "partner" || roleParam === "affiliate") {
+      if (!forcedRole && (roleParam === "partner" || roleParam === "affiliate")) {
         setPortalRole(roleParam);
       }
       if (modeParam === "login" || modeParam === "register" || modeParam === "dashboard") {
