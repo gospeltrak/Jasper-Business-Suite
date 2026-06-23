@@ -2792,7 +2792,7 @@ export default function DashboardSalesList({
           
           {/* CONDITION A: A4 CORPORATE INVOICE MODE */}
           {viewA4InvoiceOpen ? (
-            <div className="relative bg-white border border-slate-205 rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] font-sans">
+            <div className="relative bg-white border border-slate-205 rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] font-sans">
               
               {/* Header branding */}
               <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0 select-none">
@@ -3716,7 +3716,7 @@ export default function DashboardSalesList({
       {/* ------------------------------------------------------------- */}
       {viewingSaleDetail && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
-          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col font-sans max-h-[85vh] animate-scale-in">
+          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col font-sans max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] animate-scale-in">
             
             {/* Header */}
             <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0 select-none">
@@ -3937,7 +3937,7 @@ export default function DashboardSalesList({
       {/* ------------------------------------------------------------- */}
       {editingSale && editFormFields && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
-          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col font-sans max-h-[90vh]">
+          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col font-sans max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))]">
             
             {/* Header */}
             <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0 select-none">
@@ -4259,7 +4259,7 @@ export default function DashboardSalesList({
       {/* DIALOG: NEW DOCUMENT CREATOR MODAL */}
       {showNewDocModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
-          <div className="relative bg-white border border-slate-205 rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh] font-sans">
+          <div className="relative bg-white border border-slate-205 rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] font-sans">
             
             <div className="p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -4649,7 +4649,7 @@ export default function DashboardSalesList({
 
         return (
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
-            <div className="relative bg-white border border-slate-205 rounded-none sm:rounded-3xl shadow-2xl w-full max-w-5xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[95vh] font-sans" style={{overflow: 'clip'}}>
+            <div className="relative bg-white border border-slate-205 rounded-none sm:rounded-3xl shadow-2xl w-full max-w-5xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] font-sans" style={{overflow: 'clip'}}>
               
               {/* Header Action Tools */}
               <div className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50/95 backdrop-blur-md shrink-0 font-sans print:hidden">
@@ -4983,7 +4983,7 @@ export default function DashboardSalesList({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 280 }}
-              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl shadow-xl z-50 overflow-hidden font-sans flex flex-col max-h-[85vh] text-[#0f172a] border border-slate-100"
+              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl shadow-xl z-50 overflow-hidden font-sans flex flex-col max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] text-[#0f172a] border border-slate-100"
             >
               {/* Close Handle Bar */}
               <div className="w-full flex justify-center py-2 shrink-0">
