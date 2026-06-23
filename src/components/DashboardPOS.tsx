@@ -2075,7 +2075,7 @@ export default function DashboardPOS({
 
       {/* CHECKOUT MODAL SYSTEM */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 md:slide-in-from-bottom-0" style={{paddingBottom: 'calc(56px + env(safe-area-inset-bottom))'}}>
+        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 md:slide-in-from-bottom-0" style={{paddingBottom: 'calc(56px + env(safe-area-inset-bottom))' }}>
           <div className="relative bg-white border border-slate-205 md:rounded-3xl rounded-t-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col mt-auto md:mt-0 animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0" style={{maxHeight: 'calc(100vh - 56px - env(safe-area-inset-bottom) - env(safe-area-inset-top))' }}>
             {/* Mobile Drag Handle */}
             <div className="w-full flex justify-center pt-3 pb-2 md:hidden bg-slate-50">
@@ -2361,7 +2361,7 @@ export default function DashboardPOS({
 
             {/* Completed state / Receipt print */}
             {paymentStatus === 'completed' && receiptResult && (
-              <div className="p-6 space-y-5 max-h-[85vh] overflow-y-auto bg-slate-50">
+              <div className="p-6 space-y-5 max-h-[calc(100dvh-56px-env(safe-area-inset-bottom))] overflow-y-auto bg-slate-50">
                 <div className="flex flex-col items-center text-center space-y-2 py-2">
                   <div className="p-2.5 bg-emerald-100 rounded-full border border-emerald-200 flex items-center justify-center">
                     <CheckCircle className="w-8 h-8 text-emerald-600" />
