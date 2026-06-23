@@ -3188,7 +3188,7 @@ export default function DashboardProducts({
             <div className="bg-white border border-slate-200 p-5 rounded-3xl shadow-xs space-y-4">
               <h4 className="font-bold text-slate-800 text-xs border-b border-slate-100 pb-2">Categories</h4>
               
-              <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
+              <div className="space-y-1.5 overflow-y-auto pr-1">
                 <button
                   onClick={() => setSelectedCategoryFilter(null)}
                   className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between font-medium cursor-pointer ${
@@ -3237,7 +3237,7 @@ export default function DashboardProducts({
                             if (selectedCategoryFilter === cat) setSelectedCategoryFilter(null);
                           }
                         }}
-                        className="ml-2 p-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0 cursor-pointer bg-transparent border-none"
+                        className="ml-2 p-2 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors flex-shrink-0 cursor-pointer bg-transparent border-none min-w-[36px] min-h-[36px] flex items-center justify-center"
                         title="Delete Category"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -3395,7 +3395,7 @@ export default function DashboardProducts({
             <div className="bg-white border border-slate-200 p-5 rounded-3xl shadow-xs space-y-4">
               <h4 className="font-bold text-slate-800 text-xs border-b border-slate-100 pb-2">Product Brands</h4>
               
-              <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
+              <div className="space-y-1.5 overflow-y-auto pr-1">
                 <button
                   onClick={() => setSelectedBrandFilter(null)}
                   className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between font-medium cursor-pointer ${
@@ -3459,7 +3459,7 @@ export default function DashboardProducts({
                             if (selectedBrandFilter === b.name) setSelectedBrandFilter(null);
                           }
                         }}
-                        className="ml-2 p-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0 cursor-pointer bg-transparent border-none"
+                        className="ml-2 p-2 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors flex-shrink-0 cursor-pointer bg-transparent border-none min-w-[36px] min-h-[36px] flex items-center justify-center"
                         title="Delete Brand"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
