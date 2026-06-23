@@ -497,7 +497,7 @@ export default function DashboardExpenses({
       </div>
 
       {/* 2. ACTIVE LEDGER SUM — green card with chart + categories */}
-      <div className="w-full rounded-2xl overflow-hidden" style={{background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', boxShadow: '0 4px 20px rgba(5,150,105,0.25)'}}>
+      <div className="w-full rounded-2xl" style={{background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', boxShadow: '0 4px 20px rgba(5,150,105,0.25)'}}>
         {/* Top: amount + categories */}
         <div className="flex items-start justify-between px-5 pt-4 pb-2 gap-4">
           <div className="min-w-0">
@@ -542,8 +542,8 @@ export default function DashboardExpenses({
           </div>
         </div>
 
-        {/* Trend chart — properly sized and visible */}
-        <div className="px-4 pb-4" style={{height: '88px'}}>
+        {/* Trend chart — full width, not clipped */}
+        <div className="w-full px-2 pb-3" style={{height: '96px'}}>
           {expenses && expenses.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={expensesTrendData} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
@@ -560,7 +560,7 @@ export default function DashboardExpenses({
                   formatter={(value: any) => [`${currency} ${Number(value).toLocaleString()}`, 'Expenses']}
                   labelStyle={{color: 'rgba(255,255,255,0.6)', fontWeight: 'bold', fontSize: '9px'}}
                 />
-                <Area type="monotone" dataKey="expense" stroke="rgba(255,255,255,0.75)" strokeWidth={2} fillOpacity={1} fill="url(#expGreen)" dot={false} activeDot={{r: 3, fill: '#fff', stroke: 'rgba(255,255,255,0.5)', strokeWidth: 2}} />
+                <Area type="monotone" dataKey="expense" stroke="rgba(255,255,255,0.85)" strokeWidth={2.5} fillOpacity={1} fill="url(#expGreen)" dot={false} activeDot={{r: 4, fill: '#fff', stroke: 'rgba(255,255,255,0.5)', strokeWidth: 2}} />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
