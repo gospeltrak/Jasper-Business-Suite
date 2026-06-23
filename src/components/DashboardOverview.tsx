@@ -1528,16 +1528,6 @@ export default function DashboardOverview({
                       <p className="text-[9.5px] text-slate-450 italic">
                         {product.stockQty === 0 ? 'Critical supply break!' : `Below limit by ${formatProductQuantity(Math.max(1, limit - product.stockQty), product)}`}
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFeedbackToast(`Buying request drafted for ${product.name} (${Math.max(50, limit * 3)} items)!`);
-                        }}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-2.5 py-1 text-[10px] font-bold shadow-sm flex items-center space-x-1 transition-all duration-150"
-                      >
-                        <span>Reorder</span>
-                        <ArrowRight className="w-3 h-3 text-white/90" />
-                      </button>
                     </div>
 
                   </div>
