@@ -2067,67 +2067,58 @@ export default function DashboardProducts({
 
             <div className="overflow-x-auto bg-transparent md:bg-white pb-6 md:pb-0">
               
-              {/* Mobile View: Cards */}
-              <div className="md:hidden flex flex-col space-y-3">
+              {/* Mobile View: Cards - Redesigned */}
+              <div className="md:hidden grid grid-cols-1 gap-3">
                 {filteredProducts.map((prod) => {
                   const shopQty = prod.shopStockQty ?? 0;
                   const storeQty = prod.storeStockQty ?? 0;
                   const totalQty = prod.stockQty ?? (shopQty + storeQty);
-                  
                   const isOutOfStock = totalQty <= 0;
                   const isLow = !isOutOfStock && shopQty <= prod.alertQty;
-                  
+
                   return (
-                    <div key={prod.id} className="bg-white border border-slate-100 shadow-sm rounded-2xl p-4 flex flex-col active:scale-[0.98] transition-all">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-800 text-sm tracking-tight">{prod.name}</span>
-                          <span className="text-[11px] text-slate-450 font-mono mt-0.5">{prod.barcode || 'N/A'} • {prod.category}</span>
+                    <div key={prod.id} className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden active:scale-[0.98] transition-all">
+                      {/* Top row: name + price + menu */}
+                      <div className="flex items-start justify-between px-4 pt-4 pb-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* Color avatar */}
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black text-sm ${isOutOfStock ? 'bg-slate-100 text-slate-400' : isLow ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-700'}`}>
+                            {prod.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-900 text-sm leading-tight truncate">{prod.name}</p>
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">{prod.category} {prod.sku ? `· ${prod.sku}` : ''}</p>
+                          </div>
                         </div>
-                        <div className="flex flex-col items-end shrink-0">
-                          <span className="font-bold text-emerald-600 tracking-tight">{currency} {Math.round(prod.sellingPrice).toLocaleString()}</span>
-                          <span className="text-[10px] text-slate-400 font-mono line-through mt-0.5">{currency} {Math.round(prod.costPrice).toLocaleString()} cost</span>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-2 mb-3 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                         <div className="flex flex-col justify-center">
-                           <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Shop Stock</span>
-                           <span className={`text-xs font-bold font-mono ${shopQty <= prod.alertQty ? 'text-red-500' : 'text-slate-800'}`}>{formatProductQuantity(shopQty, prod)}</span>
-                         </div>
-                         <div className="flex flex-col justify-center">
-                           <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Store Stock</span>
-                           <span className="text-xs font-bold font-mono text-slate-800">{formatProductQuantity(storeQty, prod)}</span>
-                         </div>
-                      </div>
-
-                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50">
-                        <div className="flex items-center">
-                          {isOutOfStock ? (
-                            <span className="px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border border-slate-200 bg-slate-100/50 text-slate-500">
-                              OUT OF STOCK
-                            </span>
-                          ) : isLow ? (
-                            <span className="text-rose-600 bg-rose-50 border border-rose-200/50 rounded-lg px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                              LOW: {formatProductQuantity(shopQty, prod)} In-Shop
-                            </span>
-                          ) : (
-                            <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/50 rounded-lg px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                              ACTIVE STOCK
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="relative">
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-right">
+                            <p className="font-black text-emerald-600 text-sm">{currency}{Math.round(prod.sellingPrice).toLocaleString()}</p>
+                            <p className="text-[9px] text-slate-400 font-mono">cost {currency}{Math.round(prod.costPrice).toLocaleString()}</p>
+                          </div>
                           <button
                             onClick={() => setOpenDropdownId(openDropdownId === prod.id ? null : prod.id)}
-                            className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
+                            className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
                           >
-                            <MoreVertical className="w-5 h-5" />
+                            <MoreVertical className="w-4 h-4" />
                           </button>
-                          
+                        </div>
+                      </div>
+
+                      {/* Stock bar */}
+                      <div className="flex items-center gap-3 px-4 pb-3">
+                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${isOutOfStock ? 'w-0' : isLow ? 'bg-rose-400' : 'bg-emerald-400'}`}
+                            style={{width: isOutOfStock ? '0%' : `${Math.min(100, (shopQty / Math.max(1, prod.alertQty * 3)) * 100)}%`}}
+                          />
+                        </div>
+                        <span className={`text-[10px] font-bold whitespace-nowrap ${isOutOfStock ? 'text-slate-400' : isLow ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          {isOutOfStock ? 'Out of stock' : isLow ? `Low: ${formatProductQuantity(shopQty, prod)}` : `${formatProductQuantity(shopQty, prod)} in shop`}
+                        </span>
+                      </div>
+
+                      {/* Action sheet dropdown */}
+                      <div className="relative">
                           {openDropdownId === prod.id && (
                             <>
                               {/* Full-screen backdrop */}
@@ -2162,7 +2153,6 @@ export default function DashboardProducts({
                             </>
                           )}
                         </div>
-                      </div>
                     </div>
                   );
                 })}
