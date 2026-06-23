@@ -2411,7 +2411,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         {/* Universal sub-modal anchors & floating elements */}
         {/* Native App Full-Screen More Menu */}
         <div
-          className={`md:hidden fixed inset-0 z-[60] flex flex-col bg-slate-50 dark:bg-slate-950 select-none transition-all duration-300 ease-out ${moreMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none translate-y-4'}`}
+          className={`md:hidden fixed inset-0 z-[70] flex flex-col bg-slate-50 dark:bg-slate-950 select-none transition-all duration-300 ease-out ${moreMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none translate-y-4'}`}
           style={{paddingBottom: 'env(safe-area-inset-bottom)', paddingTop: 'env(safe-area-inset-top)'}}
         >
           {/* Top Bar */}
@@ -2536,8 +2536,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
       {/* Live Premium Subscription upgrade popups */}
       {subModal && subModal.show && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-4 z-50 animate-in fade-in slide-in-from-bottom-5 md:slide-in-from-bottom-0">
-          <div className="bg-slate-900 border border-slate-800 rounded-t-3xl md:rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 md:p-8 space-y-6 relative shadow-2xl mt-auto md:mt-0 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:pb-8 animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0">
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-4 z-[70] animate-in fade-in slide-in-from-bottom-5 md:slide-in-from-bottom-0">
+          <div className="bg-slate-900 border border-slate-800 rounded-t-3xl md:rounded-3xl max-w-2xl w-full max-h-[calc(100dvh-56px-env(safe-area-inset-bottom))] overflow-y-auto p-6 md:p-8 space-y-6 relative shadow-2xl mt-auto md:mt-0 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:pb-8 animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0">
             {/* Mobile Drag Handle */}
             <div className="w-full flex justify-center pb-2 md:hidden">
               <div className="w-12 h-1.5 bg-slate-700/50 rounded-full" />
