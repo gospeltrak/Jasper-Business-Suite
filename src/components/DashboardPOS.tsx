@@ -2075,7 +2075,7 @@ export default function DashboardPOS({
 
       {/* CHECKOUT MODAL SYSTEM */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 md:slide-in-from-bottom-0">
+        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 md:slide-in-from-bottom-0">
           <div className="relative bg-white border border-slate-205 md:rounded-3xl rounded-t-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col mt-auto md:mt-0 animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0">
             {/* Mobile Drag Handle */}
             <div className="w-full flex justify-center pt-3 pb-2 md:hidden bg-slate-50">
@@ -2098,7 +2098,7 @@ export default function DashboardPOS({
 
             {/* Steps router */}
             {paymentStatus === 'idle' && (
-              <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+              <div className="p-6 space-y-5 overflow-y-auto" style={{maxHeight:"calc(85vh - env(safe-area-inset-bottom) - 120px)", paddingBottom:"calc(1.5rem + env(safe-area-inset-bottom))"}}>  
                 <div className="text-center py-2 space-y-1">
                   <p className="text-3xl font-black text-slate-950">{currency}{Math.round(grandTotal).toLocaleString()}</p>
                   <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest font-black">Awaiting layout selection and customer assignment</p>
