@@ -2209,84 +2209,117 @@ export default function DashboardProducts({
                 const sTxt = outOfStock ? 'Out of Stock' : critical ? 'Critical Low' : low ? 'Low Stock' : 'In Stock';
                 return (
                   <>
-                    {/* Full-screen tap-to-dismiss backdrop */}
+                    <style>{`
+                      @keyframes nativeSheetUp {
+                        from { transform: translateY(100%); }
+                        to   { transform: translateY(0); }
+                      }
+                      @keyframes nativeBackdropIn {
+                        from { opacity: 0; }
+                        to   { opacity: 1; }
+                      }
+                      .native-sheet-backdrop {
+                        animation: nativeBackdropIn 0.22s ease both;
+                      }
+                      .native-sheet-panel {
+                        animation: nativeSheetUp 0.32s cubic-bezier(0.32, 1.1, 0.58, 1) both;
+                      }
+                    `}</style>
+
+                    {/* Dim backdrop — no blur */}
                     <div
-                      className="fixed inset-0 z-[70]"
-                      style={{background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(3px)'}}
+                      className="native-sheet-backdrop fixed inset-0 z-[70]"
+                      style={{ background: 'rgba(0,0,0,0.4)' }}
                       onClick={() => setOpenDropdownId(null)}
                     />
-                    {/* Action sheet — centered on screen, never clipped */}
+
+                    {/* Bottom sheet — slides up from bottom, no shadow on sheet itself */}
                     <div
-                      className="fixed left-4 right-4 z-[80] bg-white rounded-3xl overflow-hidden"
+                      className="native-sheet-panel fixed bottom-0 left-0 right-0 z-[80] bg-white"
                       style={{
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        maxHeight: '80dvh',
+                        borderRadius: '20px 20px 0 0',
+                        maxHeight: '85dvh',
                         overflowY: 'auto',
-                        boxShadow: '0 25px 60px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.05)',
-                        maxWidth: '420px',
-                        margin: '0 auto',
+                        paddingBottom: 'env(safe-area-inset-bottom)',
                       }}
                     >
-                      {/* Close button */}
-                      <button
-                        type="button"
-                        onClick={() => setOpenDropdownId(null)}
-                        className="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center z-10 cursor-pointer border-none active:scale-90 transition-all"
-                      >
-                        <X className="w-4 h-4 text-slate-500" />
-                      </button>
+                      {/* Drag handle */}
+                      <div className="flex justify-center pt-3 pb-1">
+                        <div className="w-10 h-1 rounded-full bg-slate-200" />
+                      </div>
 
                       {/* Product header */}
-                      <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-                        <div className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-base shrink-0 overflow-hidden" style={{background: aBg, color: aCol}}>
-                          {activeProd.image ? <img src={activeProd.image} alt="" className="w-full h-full object-cover" /> : activeProd.name.charAt(0).toUpperCase()}
+                      <div className="flex items-center gap-3 px-5 pt-2 pb-4 border-b border-slate-100">
+                        <div
+                          className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-base shrink-0 overflow-hidden"
+                          style={{ background: aBg, color: aCol }}
+                        >
+                          {activeProd.image
+                            ? <img src={activeProd.image} alt="" className="w-full h-full object-cover" />
+                            : activeProd.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0 flex-1 pr-8">
-                          <p className="text-[14px] font-black text-slate-900 truncate leading-tight">{activeProd.name}</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">Shop: {formatProductQuantity(sQ, activeProd)} · Store: {formatProductQuantity(stQ, activeProd)}</p>
+                          <p className="text-[15px] font-black text-slate-900 truncate leading-tight">{activeProd.name}</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">Shop: {formatProductQuantity(sQ, activeProd)} · Store: {formatProductQuantity(stQ, activeProd)}</p>
                         </div>
+                        {/* Close pill */}
+                        <button
+                          type="button"
+                          onClick={() => setOpenDropdownId(null)}
+                          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center cursor-pointer active:bg-slate-200 transition-colors"
+                        >
+                          <X className="w-4 h-4 text-slate-500" />
+                        </button>
                       </div>
 
                       {/* Status + price row */}
-                      <div className="flex items-center justify-between px-5 py-2.5 border-b border-slate-50">
-                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{background: sBg, color: sCol}}>{sTxt}</span>
-                        <span className="text-[13px] font-black text-emerald-600">{currency} {Math.round(activeProd.sellingPrice).toLocaleString()}</span>
+                      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+                        <span className="text-[11px] font-bold px-3 py-1 rounded-full" style={{ background: sBg, color: sCol }}>{sTxt}</span>
+                        <span className="text-[14px] font-black text-emerald-600">{currency} {Math.round(activeProd.sellingPrice).toLocaleString()}</span>
                       </div>
 
-                      {/* Action buttons */}
+                      {/* Action rows */}
                       {[
-                        { label: 'View Details', sub: 'See full product information', icon: Eye, bg: '#eff6ff', color: '#1d4ed8', action: () => { setViewingProduct(activeProd); setOpenDropdownId(null); } },
-                        { label: 'Edit Item', sub: 'Update name, price, settings', icon: Edit, bg: '#f0fdfa', color: '#0f766e', action: () => { handleBeginEdit(activeProd); setOpenDropdownId(null); } },
-                        { label: 'Replenish Stock', sub: 'Add new stock from supplier', icon: Package, bg: '#f0fdf4', color: '#15803d', action: () => { setReplenishProduct(activeProd); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(activeProd.costingMethod || activeProd.inventorySettings?.costingMethod || 'fifo'); setOpenDropdownId(null); } },
-                        { label: 'Transfer Stock', sub: `Shop ↔ Store`, icon: ArrowLeftRight, bg: '#faf5ff', color: '#7c3aed', action: () => { setTransferProduct(activeProd); setTransferQty(1); setTransferDirection('store_to_shop'); setTransferError(null); setTransferSuccess(false); setOpenDropdownId(null); } },
-                      ].map(item => {
+                        { label: 'View Details',    sub: 'See full product information',  icon: Eye,           bg: '#eff6ff', color: '#1d4ed8', action: () => { setViewingProduct(activeProd); setOpenDropdownId(null); } },
+                        { label: 'Edit Item',        sub: 'Update name, price, settings', icon: Edit,          bg: '#f0fdfa', color: '#0f766e', action: () => { handleBeginEdit(activeProd); setOpenDropdownId(null); } },
+                        { label: 'Replenish Stock',  sub: 'Add new stock from supplier',  icon: Package,       bg: '#f0fdf4', color: '#15803d', action: () => { setReplenishProduct(activeProd); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(activeProd.costingMethod || activeProd.inventorySettings?.costingMethod || 'fifo'); setOpenDropdownId(null); } },
+                        { label: 'Transfer Stock',   sub: 'Shop ↔ Store',                 icon: ArrowLeftRight, bg: '#faf5ff', color: '#7c3aed', action: () => { setTransferProduct(activeProd); setTransferQty(1); setTransferDirection('store_to_shop'); setTransferError(null); setTransferSuccess(false); setOpenDropdownId(null); } },
+                      ].map((item, idx, arr) => {
                         const Icon = item.icon;
                         return (
-                          <button key={item.label} type="button" onClick={item.action}
-                            className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50 active:bg-slate-100 transition-colors border-b border-slate-50 cursor-pointer bg-transparent text-left"
+                          <button
+                            key={item.label}
+                            type="button"
+                            onClick={item.action}
+                            className={`w-full flex items-center gap-4 px-5 py-4 active:bg-slate-50 transition-colors cursor-pointer bg-white text-left ${idx < arr.length - 1 ? 'border-b border-slate-100' : ''}`}
                           >
-                            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{background: item.bg}}>
-                              <Icon className="w-4.5 h-4.5" style={{color: item.color}} />
+                            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{ background: item.bg }}>
+                              <Icon className="w-[18px] h-[18px]" style={{ color: item.color }} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-[13px] font-bold text-slate-800 leading-tight">{item.label}</p>
-                              <p className="text-[10px] text-slate-400 mt-0.5">{item.sub}</p>
+                              <p className="text-[14px] font-semibold text-slate-800 leading-tight">{item.label}</p>
+                              <p className="text-[11px] text-slate-400 mt-0.5">{item.sub}</p>
                             </div>
                             <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                           </button>
                         );
                       })}
-                      <button type="button"
+
+                      {/* Divider before destructive */}
+                      <div className="mx-5 my-1 h-px bg-slate-100" />
+
+                      {/* Delete — destructive row */}
+                      <button
+                        type="button"
                         onClick={() => { onDeleteProduct(activeProd.id); setOpenDropdownId(null); }}
-                        className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-red-50 active:bg-red-100 transition-colors cursor-pointer bg-transparent text-left"
+                        className="w-full flex items-center gap-4 px-5 py-4 active:bg-red-50 transition-colors cursor-pointer bg-white text-left mb-2"
                       >
                         <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 bg-red-50">
-                          <Trash2 className="w-4.5 h-4.5 text-red-500" />
+                          <Trash2 className="w-[18px] h-[18px] text-red-500" />
                         </div>
                         <div className="flex-1">
-                          <p className="text-[13px] font-bold text-red-600 leading-tight">Delete Item</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">Remove from catalogue permanently</p>
+                          <p className="text-[14px] font-semibold text-red-600 leading-tight">Delete Item</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">Remove from catalogue permanently</p>
                         </div>
                       </button>
                     </div>
