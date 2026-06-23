@@ -2881,7 +2881,18 @@ export default function DashboardSalesList({
                     }}
                     className="bg-white shadow-2xl font-sans relative print:shadow-none print:min-h-0"
                   >
-                  <style>{`@media print { body * { visibility: hidden !important; } #sales-invoice-a4-pdf-template, #sales-invoice-a4-pdf-template * { visibility: visible !important; } #sales-invoice-a4-pdf-template { position: fixed !important; left: 0 !important; top: 0 !important; width: 100% !important; transform: none !important; } }`}</style>
+                  <style>{`
+                    @media (max-width: 820px) {
+                      #sales-invoice-a4-pdf-template {
+                        --vw: calc(100vw - 16px);
+                        --scale: calc(var(--vw) / 794);
+                        transform: scale(var(--scale)) !important;
+                        transform-origin: top center !important;
+                        margin-bottom: calc((1123px * var(--scale)) - 1123px) !important;
+                      }
+                    }
+                    @media print { body * { visibility: hidden !important; } #sales-invoice-a4-pdf-template, #sales-invoice-a4-pdf-template * { visibility: visible !important; } #sales-invoice-a4-pdf-template { position: fixed !important; left: 0 !important; top: 0 !important; width: 100% !important; transform: none !important; } }
+                  `}</style>
                   <div className="p-10 space-y-8">
                   
                   {/* Decorative Paid/Unpaid background watermark stamp */}
@@ -4778,7 +4789,7 @@ export default function DashboardSalesList({
                 <span className="text-white/20 text-[10px] font-mono select-none">A4 · 210mm × 297mm · {viewingDocument.documentNumber}</span>
               </div>
 
-              {/* Zoomed A4 page */}
+              {/* Zoomed A4 page — auto-scales on mobile to fit screen width */}
               <div className="flex justify-center pb-16 print:pb-0 print:block">
                 <div
                   id="sales-document-a4-pdf-template"
@@ -4791,12 +4802,21 @@ export default function DashboardSalesList({
                   }}
                   className="bg-white shadow-2xl font-sans relative print:shadow-none print:min-h-0"
                 >
-                  {/* Print styles injected inline */}
+                  {/* Auto-fit on mobile: inject a CSS rule that scales the A4 page to viewport width */}
                   <style>{`
+                    @media (max-width: 820px) {
+                      #sales-document-a4-pdf-template {
+                        --vw: calc(100vw - 16px);
+                        --scale: calc(var(--vw) / 794);
+                        transform: scale(var(--scale)) !important;
+                        transform-origin: top center !important;
+                        margin-bottom: calc((1123px * var(--scale)) - 1123px) !important;
+                      }
+                    }
                     @media print {
                       body * { visibility: hidden !important; }
                       #sales-document-a4-pdf-template, #sales-document-a4-pdf-template * { visibility: visible !important; }
-                      #sales-document-a4-pdf-template { position: fixed !important; left: 0 !important; top: 0 !important; width: 100% !important; transform: none !important; }
+                      #sales-document-a4-pdf-template { position: fixed !important; left: 0 !important; top: 0 !important; width: 100% !important; transform: none !important; margin: 0 !important; }
                     }
                   `}</style>
 

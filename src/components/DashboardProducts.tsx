@@ -2049,7 +2049,7 @@ export default function DashboardProducts({
           )}
 
           {/* Catalog Filter and Table */}
-          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs space-y-4">
+          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs">
             
             <div className="p-5 border-b border-slate-150/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
               <div className="relative w-full sm:max-w-xs">
@@ -2068,14 +2068,9 @@ export default function DashboardProducts({
               </div>
             </div>
 
-            <div className="overflow-x-auto bg-transparent md:bg-white pb-6 md:pb-0">
-              
-              {/* ═══════════════════════════════════════════════
-                  MOBILE STOCK SCREEN — PREMIUM REDESIGN
-                  Like Shopify/Loyverse but better
-              ═══════════════════════════════════════════════ */}
-              <div className="md:hidden space-y-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
-                {filteredProducts.map((prod) => {
+            {/* ── MOBILE STOCK CARDS — sit flush below search bar, no extra bg ── */}
+            <div className="md:hidden bg-slate-50 px-3 pt-3 pb-[calc(80px+env(safe-area-inset-bottom))] space-y-3">
+              {filteredProducts.map((prod) => {
                   const shopQty = prod.shopStockQty ?? 0;
                   const storeQty = prod.storeStockQty ?? 0;
                   const totalQty = prod.stockQty ?? (shopQty + storeQty);
@@ -2321,8 +2316,9 @@ export default function DashboardProducts({
               })()}
               </AnimatePresence>
 
-              {/* Desktop View: Table */}
-              <table className="hidden md:table w-full text-left border-collapse">
+              {/* Desktop View: Table — inside the white card */}
+              <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/75 text-[10px] text-slate-455 font-bold uppercase tracking-wider border-b border-slate-150 font-mono">
                     <th className="py-4 px-5">Product Name</th>
@@ -2526,6 +2522,7 @@ export default function DashboardProducts({
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
 
