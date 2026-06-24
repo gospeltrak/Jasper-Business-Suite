@@ -2211,7 +2211,7 @@ export default function DashboardProducts({
                       animate={{ y: 0 }}
                       exit={{ y: '100%' }}
                       transition={{ type: 'spring', damping: 25, stiffness: 280 }}
-                      className="md:hidden fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl shadow-xl z-[80] overflow-hidden font-sans flex flex-col text-[#0f172a] border border-slate-100"
+                      className="md:hidden fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl z-[80] overflow-hidden font-sans flex flex-col text-[#0f172a] border border-slate-100"
                       style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))', maxHeight: 'calc(85vh - 56px - env(safe-area-inset-bottom))' }}
                     >
                       {/* Drag handle */}
