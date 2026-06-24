@@ -956,12 +956,8 @@ export default function DashboardPOS({
       <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 w-[calc(100%-2rem)] max-w-md pointer-events-none">
         <AnimatePresence>
           {scanToasts.map((toast) => (
-            <motion.div
+            <div
               key={toast.id}
-              initial={{ opacity: 0, y: -20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.95 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
               className={`pointer-events-auto p-4 rounded-xl shadow-md border text-sm font-semibold text-white flex items-center justify-between gap-3 ${
                 toast.type === 'error'
                   ? 'bg-rose-600 border-rose-500'
@@ -977,11 +973,11 @@ export default function DashboardPOS({
                   e.stopPropagation();
                   setScanToasts((prev) => prev.filter((t) => t.id !== toast.id));
                 }}
-                className="text-white hover:opacity-80 transition-opacity bg-transparent border-none cursor-pointer p-1 font-extrabold text-xs select-none"
+                className="text-white hover:opacity-80 bg-transparent border-none cursor-pointer p-1 font-extrabold text-xs select-none"
               >
                 ✕
               </button>
-            </motion.div>
+            </div>
           ))}
         </AnimatePresence>
       </div>
@@ -1004,7 +1000,7 @@ export default function DashboardPOS({
         {/* Product selection grid (8/12 scope) */}
         <div className="lg:col-span-7 xl:col-span-8 space-y-4 md:space-y-6">
           {/* Search and Categories controls */}
-          <div className="bg-white px-3 py-3 md:border border-slate-200 md:p-6 rounded-none md:rounded-3xl space-y-4 shadow-none md:shadow-sm animate-fade-in">
+          <div className="bg-white px-3 py-3 md:border border-slate-200 md:p-6 rounded-none md:rounded-3xl space-y-4 shadow-none md:shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-100/70 border border-slate-200 rounded-2xl p-1.5 relative md:mx-0">
               <div className="relative flex-grow">
                 <input
@@ -1075,7 +1071,7 @@ export default function DashboardPOS({
           </div>
 
           {posWarning && (
-            <div className="bg-amber-55 border border-amber-200 rounded-2xl py-3 px-4 flex items-center justify-between text-[11.5px] text-amber-900 animate-fade-in font-medium shadow-xs">
+            <div className="bg-amber-55 border border-amber-200 rounded-2xl py-3 px-4 flex items-center justify-between text-[11.5px] text-amber-900 font-medium shadow-xs">
               <div className="flex items-center space-x-2">
                 <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>{posWarning}</span>
@@ -1248,7 +1244,7 @@ export default function DashboardPOS({
       </div>
 
       {/* Cart Summary right panel (4/12 scope) */}
-      <div className="lg:col-span-5 xl:col-span-4 bg-white border border-slate-200 rounded-3xl lg:max-h-[calc(100vh-130px)] max-h-none sticky top-24 flex flex-col justify-between overflow-y-auto lg:overflow-hidden shadow-sm animate-fade-in">
+      <div className="lg:col-span-5 xl:col-span-4 bg-white border border-slate-200 rounded-3xl lg:max-h-[calc(100vh-130px)] max-h-none sticky top-24 flex flex-col justify-between overflow-y-auto lg:overflow-hidden shadow-sm">
         {/* Cart Header */}
         <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -1289,7 +1285,7 @@ export default function DashboardPOS({
 
         {/* 🛒 / 📦 Highly prominent Dual-Channel Selector inside the Basket column - only visible if wholesale is enabled for at least 1 product */}
         {hasAnyWholesaleProduct && (
-          <div className="bg-slate-100 border-b border-slate-200 p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 animate-fade-in animate-duration-200">
+          <div className="bg-slate-100 border-b border-slate-200 p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider pl-1 font-sans">
               Choose Channel:
             </span>
@@ -1365,7 +1361,7 @@ export default function DashboardPOS({
                 : basePrice * (1 - item.discount / 100);
 
               return (
-                <div key={item.product.id} className="p-2.5 bg-slate-50 border border-slate-200/60 rounded-xl space-y-1.5 relative group animate-fade-in text-left">
+                <div key={item.product.id} className="p-2.5 bg-slate-50 border border-slate-200/60 rounded-xl space-y-1.5 relative group text-left">
                   {/* Main Line: Name + price on Left, Qty Controls + Total Price on Right */}
                   <div className="flex items-center justify-between gap-2.5">
                     {/* Left: Name and price directly below it */}
@@ -1794,7 +1790,7 @@ export default function DashboardPOS({
                             </button>
 
                             {isMulti && isSelected && (
-                              <div className="bg-white border border-slate-200 rounded-2xl p-4.5 space-y-3 animate-fade-in shadow-xs">
+                              <div className="bg-white border border-slate-200 rounded-2xl p-4.5 space-y-3 shadow-xs">
                                 <p className="text-[10px] font-mono font-black text-indigo-700 uppercase tracking-wider">Split Payment</p>
                                 <div className="grid grid-cols-2 gap-3.5">
                                   <div>
