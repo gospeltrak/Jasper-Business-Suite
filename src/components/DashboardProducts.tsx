@@ -74,7 +74,8 @@ export default function DashboardProducts({
   // Tab selector: 'catalog' list vs 'labels' station
   const [viewTab, setViewTab] = useState<'catalog' | 'category' | 'brand' | 'labels'>('catalog');
 
-  // Dropdown state removed — menus deleted per user request
+  // Dropdown states — desktop inline dropdown only (mobile menus removed)
+  const [desktopMenuId, setDesktopMenuId] = useState<string | null>(null);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
@@ -2198,6 +2199,7 @@ export default function DashboardProducts({
                     <th className="py-4 px-4 text-center">Store Units</th>
                     <th className="py-4 px-4 text-center">Total Units</th>
                     <th className="py-4 px-4 text-center">Status</th>
+                    <th className="py-4 px-5 text-center font-mono uppercase">Ledger Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-150/50 text-slate-600 text-xs font-sans">
@@ -2327,6 +2329,50 @@ export default function DashboardProducts({
                             >
                               <ArrowLeftRight className="w-4 h-4" />
                             </button>
+
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() => setDesktopMenuId(desktopMenuId === prod.id ? null : prod.id)}
+                                className="p-1.5 hover:bg-slate-100 text-slate-450 hover:text-slate-700 rounded-lg cursor-pointer transition-colors flex items-center justify-center"
+                                title="Item Options"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+
+                              {desktopMenuId === prod.id && (
+                                <>
+                                  <div className="fixed inset-0 z-[70]" onClick={() => setDesktopMenuId(null)} />
+                                  <div className="absolute right-0 top-full mt-1.5 z-[80] bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden w-48 py-1"
+                                    style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)' }}
+                                  >
+                                    {[
+                                      { label: 'View Details',   icon: Eye,     color: 'text-slate-700',   action: () => { setViewingProduct(prod); setDesktopMenuId(null); } },
+                                      { label: 'Edit Item',      icon: Edit,    color: 'text-slate-700',   action: () => { handleBeginEdit(prod); setDesktopMenuId(null); } },
+                                      { label: 'Replenish Stock',icon: Package, color: 'text-emerald-700', action: () => { setReplenishProduct(prod); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo'); setDesktopMenuId(null); } },
+                                    ].map(item => {
+                                      const Icon = item.icon;
+                                      return (
+                                        <button key={item.label} type="button" onClick={item.action}
+                                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                                        >
+                                          <Icon className={`w-3.5 h-3.5 ${item.color} shrink-0`} />
+                                          <span className={item.color}>{item.label}</span>
+                                        </button>
+                                      );
+                                    })}
+                                    <div className="h-px bg-slate-100 mx-3 my-1" />
+                                    <button type="button"
+                                      onClick={() => { onDeleteProduct(prod.id); setDesktopMenuId(null); }}
+                                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold hover:bg-red-50 transition-colors cursor-pointer text-left"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                                      <span className="text-red-600">Delete Item</span>
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
 
                         </div>
                       </td>
