@@ -1453,81 +1453,120 @@ export default function DashboardProducts({
 
       {/* VIEW A: STORE ITEM CATALOG TAB */}
       {viewTab === 'catalog' && (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-4 md:space-y-6 animate-fade-in">
           
-          {/* Action Header & Bulk Loader Control */}
-          <div className="bg-white border border-slate-205 p-6 rounded-3xl shadow-xs space-y-5">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="space-y-0.5">
-                <h4 className="text-sm font-bold text-slate-800">All Stock Desk</h4>
-                <p className="text-[11px] font-medium text-slate-400">
-                  Branch Code: <span className="text-slate-500 font-bold font-mono">{activeTenant.name} ({activeTenant.city})</span> | Catalog Search and barcode assignment active.
-                </p>
-              </div>
-              
-              <div className="flex items-center gap-2 flex-wrap">
+          {/* ── HEADER CARD ─────────────────────────────────────────────────
+              Mobile:  stacked — title row → action buttons grid → upload row
+              Desktop: 3-column flex — title | buttons | upload
+              No jargon: removed "All Stock Desk", "Branch Code", "CSV Ledger"
+          ──────────────────────────────────────────────────────────────── */}
+          <div className="bg-white border border-slate-100 rounded-3xl shadow-xs overflow-hidden">
+
+            {/* ── MOBILE LAYOUT (hidden on md+) ── */}
+            <div className="md:hidden">
+              {/* Top: title + product count */}
+              <div className="px-4 pt-4 pb-3 flex items-center justify-between">
+                <div>
+                  <h4 className="text-[15px] font-extrabold text-slate-900 leading-tight">{activeTenant.name}</h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{activeTenant.city} · {products.length} product{products.length !== 1 ? 's' : ''}</p>
+                </div>
+                {/* Add product — primary CTA prominent on mobile */}
                 <button
                   onClick={() => setIsOpen(!isOpen)}
-                  className="bg-emerald-600 hover:bg-emerald-505 text-white px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center space-x-1.5 cursor-pointer shadow-md shadow-emerald-505/10 transition-all active:scale-95"
+                  className="w-11 h-11 rounded-2xl bg-emerald-600 flex items-center justify-center shadow-md shadow-emerald-500/20 active:scale-95 transition-transform"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>{isOpen ? 'Collapse Form' : 'Register New Product'}</span>
+                  {isOpen ? <X className="w-5 h-5 text-white" /> : <Plus className="w-5 h-5 text-white" />}
                 </button>
-                
+              </div>
+
+              {/* Divider */}
+              <div className="h-px bg-slate-50 mx-4" />
+
+              {/* Action row: Download template + Upload spreadsheet */}
+              <div className="flex gap-3 px-4 py-3">
                 <button
                   onClick={downloadCsvTemplate}
-                  className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-220 px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs transition-colors cursor-pointer"
-                  title="Download CSV template"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-[12px] font-bold text-slate-700 active:bg-slate-100 transition-colors"
                 >
-                  <Download className="w-4 h-4 text-emerald-600" />
-                  <span>Download Template</span>
+                  <Download className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Template</span>
                 </button>
-              </div>
-            </div>
 
-            {/* Bulk Loader Drawer */}
-            <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs">
-              <div className="flex items-center space-x-2.5">
-                <FileSpreadsheet className="w-5 h-5 text-emerald-600 shrink-0" />
-                <div>
-                  <p className="font-bold text-slate-850">Bulk Product Feed Import</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    Select your Excel or CSV spreadsheet file to feed catalog items instantly.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2 flex-shrink-0">
-                <div className="relative">
-                  <input 
-                    type="file" 
+                <div className="flex-1 relative">
+                  <input
+                    type="file"
                     accept=".csv"
                     ref={csvInputRef}
                     onChange={handleCsvImport}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                   />
-                  <button className="px-4 py-2 bg-slate-900 text-white rounded-xl font-bold font-mono text-[11px] uppercase tracking-wider shadow-sm flex items-center space-x-1.5 cursor-pointer">
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Upload CSV Ledger</span>
+                  <button className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-slate-900 text-[12px] font-bold text-white active:bg-slate-800 transition-colors">
+                    <Upload className="w-4 h-4 shrink-0" />
+                    <span>Upload Spreadsheet</span>
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Bulk loader feedback alerts */}
-            {csvUploadError && (
-              <div id="csv-error-alert" className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold flex items-center space-x-2 font-mono">
-                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                <span>Error: {csvUploadError}</span>
+            {/* ── DESKTOP / TABLET LAYOUT (hidden on mobile) ── */}
+            <div className="hidden md:flex items-center justify-between gap-6 px-6 py-5">
+              {/* Left: identity */}
+              <div className="min-w-0">
+                <h4 className="text-sm font-extrabold text-slate-900">{activeTenant.name}</h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">{activeTenant.city} · {products.length} products in catalogue</p>
               </div>
-            )}
-            {csvUploadSuccess && (
-              <div id="csv-success-alert" className="p-3 bg-emerald-50 border border-emerald-150 text-emerald-800 rounded-xl text-xs font-semibold flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>{csvUploadSuccess}</span>
-              </div>
-            )}
 
+              {/* Right: actions */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={downloadCsvTemplate}
+                  className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Download Template</span>
+                </button>
+
+                <div className="relative h-9">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    ref={csvInputRef}
+                    onChange={handleCsvImport}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                  />
+                  <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-bold text-white transition-colors">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload Spreadsheet</span>
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setIsOpen(!isOpen)}
+                  className="h-9 px-4 flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors shadow-sm shadow-emerald-500/20"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isOpen ? 'Close Form' : 'Add Product'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Upload feedback */}
+            {(csvUploadError || csvUploadSuccess) && (
+              <div className="px-4 md:px-6 pb-4">
+                {csvUploadError && (
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>{csvUploadError}</span>
+                  </div>
+                )}
+                {csvUploadSuccess && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{csvUploadSuccess}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Creation Form expansion */}
