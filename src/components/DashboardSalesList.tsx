@@ -5166,6 +5166,29 @@ export default function DashboardSalesList({
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </button>
 
+                {/* 5b. Add to Delivery */}
+                {onSendToDeliveryNote && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSendToDeliveryNote(mobileActionsSale);
+                      setMobileActionsSale(null);
+                    }}
+                    className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                  >
+                    <div className="flex items-center space-x-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0 select-none">
+                        <DeliveryMotorcycleIcon className="w-5 h-5 text-indigo-600" size={20} />
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-slate-800 block">Add to Delivery</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Send to delivery note dispatch</span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </button>
+                )}
+
                 {/* Divider below main actions */}
                 <div className="my-2 border-t border-slate-100" />
 
