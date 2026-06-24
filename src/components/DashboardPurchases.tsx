@@ -799,14 +799,14 @@ export default function DashboardPurchases({
 
         ) : (
           /* ── ADD PURCHASE TAB ─────────────────────────────────────────── */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pb-4">
             
-            {/* Left panel: Product List */}
-            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-6 space-y-5 shadow-xs">
+            {/* Left panel: Product List — hidden on mobile (use search in cart) */}
+            <div className="hidden sm:block lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-6 space-y-5 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h5 className="font-black text-slate-800 text-sm font-sans hidden sm:block">Product List</h5>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono hidden sm:block">Select items to procure</p>
+                  <h5 className="font-black text-slate-800 text-sm font-sans">Product List</h5>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">Select items to procure</p>
                 </div>
 
                 {/* Search bar */}
@@ -862,8 +862,8 @@ export default function DashboardPurchases({
               </div>
             </div>
 
-            {/* Right panel: Cart & Order Metadata */}
-            <div className="lg:col-span-5 bg-white border border-slate-200 rounded-3xl p-6 space-y-5 shadow-xs">
+            {/* Right panel: Cart & Order Metadata — full width on mobile */}
+            <div className="lg:col-span-5 col-span-1 bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs">
               
               {/* Supplier & Destination */}
               <div className="space-y-3 border-b border-slate-150 pb-4">
@@ -978,19 +978,38 @@ export default function DashboardPurchases({
                   />
                   <button type="button" className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg whitespace-nowrap">📷 Scan</button>
                 </div>
+                {/* On mobile: show inline product search results */}
+                {searchTerm && filteredProducts.length > 0 && (
+                  <div className="sm:hidden space-y-1.5 border border-emerald-100 rounded-xl bg-emerald-50/30 p-2">
+                    <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest px-1">Tap to add</p>
+                    {filteredProducts.slice(0, 5).map(prod => (
+                      <button
+                        key={prod.id}
+                        type="button"
+                        onClick={() => { handleAddToCart(prod); setSearchTerm(''); }}
+                        className="w-full flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-slate-100 text-left"
+                      >
+                        <span className="text-xs font-semibold text-slate-800 truncate">{prod.name}</span>
+                        <span className="text-[10px] font-bold text-emerald-600 ml-2 shrink-0">+ Add</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <h6 className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 font-mono flex items-center justify-between">
                   <span>Purchased Items ({cart.length})</span>
                   {cart.length > 0 && <span className="text-emerald-600">{currency}{cart.reduce((s,i) => s + i.costPrice * i.qty, 0).toLocaleString()}</span>}
                 </h6>
                 
                 {cart.length === 0 ? (
-                  <div className="py-12 border-2 border-dashed border-slate-200 rounded-2xl text-center text-xs text-slate-400 space-y-1">
+                  <div className="py-10 border-2 border-dashed border-slate-200 rounded-2xl text-center text-xs text-slate-400 space-y-1">
                     <ClipboardList className="w-7 h-7 mx-auto text-slate-300" />
                     <p className="font-bold">Cart is empty</p>
-                    <p className="text-[10px] text-slate-400 font-sans">Click products on the left to add them</p>
+                    <p className="text-[10px] text-slate-400 font-sans sm:hidden">Search a product above to add it</p>
+                    <p className="text-[10px] text-slate-400 font-sans hidden sm:block">Click products on the left to add them</p>
                   </div>
                 ) : (
-                  <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-[320px] sm:max-h-[220px] overflow-y-auto pr-1">
                     {cart.map(item => (
                       <div key={item.product.id} className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
                         <div className="flex justify-between items-start gap-2">
