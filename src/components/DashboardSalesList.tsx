@@ -347,7 +347,8 @@ export default function DashboardSalesList({
   // Modal triggers
   const [viewPaymentsOpen, setViewPaymentsOpen] = useState(false);
   const [viewA4InvoiceOpen, setViewA4InvoiceOpen] = useState(false);
-  const [docZoom, setDocZoom] = useState(1.0); // WYSIWYG zoom level
+  const [docZoom, setDocZoom] = useState(1.0);
+  const [showMobileDatePicker, setShowMobileDatePicker] = useState(false); // WYSIWYG zoom level
   const [payInInputVal, setPayInInputVal] = useState<string>('');
 
   // Editing transaction fields
@@ -770,14 +771,14 @@ export default function DashboardSalesList({
         </button>
       </div>
 
-      {/* MOBILE ONLY TAB NAVIGATION — beautiful pill tabs */}
-      <div className="md:hidden px-0 pb-2 select-none">
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl gap-1">
+      {/* MOBILE ONLY TAB NAVIGATION — visible pill tabs */}
+      <div className="md:hidden pb-3 select-none">
+        <div className="flex bg-slate-200/70 dark:bg-slate-800 p-1 rounded-2xl gap-1">
           {[
-            { id: 'sales',      icon: <Receipt className="w-4 h-4" />,  label: 'Receipts',   color: '#4f46e5' },
-            { id: 'debts',      icon: <Coins className="w-4 h-4" />,    label: 'Debts',      color: '#f97316', badge: sales.filter(s => s.paymentMethod === 'Credit' && (s.total - (s.amountPaid !== undefined ? s.amountPaid : 0)) > 0).length },
-            { id: 'settlement', icon: <Building className="w-4 h-4" />, label: 'Settle',     color: '#4f46e5' },
-            { id: 'documents',  icon: <FileText className="w-4 h-4" />, label: 'Quotes',     color: '#0d9488' },
+            { id: 'sales',      icon: <Receipt className="w-[18px] h-[18px]" />,  label: 'Receipts', color: '#4f46e5', activeBg: '#4f46e5' },
+            { id: 'debts',      icon: <Coins className="w-[18px] h-[18px]" />,    label: 'Debts',    color: '#ea580c', activeBg: '#ea580c', badge: sales.filter(s => s.paymentMethod === 'Credit' && (s.total - (s.amountPaid !== undefined ? s.amountPaid : 0)) > 0).length },
+            { id: 'settlement', icon: <Building className="w-[18px] h-[18px]" />, label: 'Settle',   color: '#7c3aed', activeBg: '#7c3aed' },
+            { id: 'documents',  icon: <FileText className="w-[18px] h-[18px]" />, label: 'Quotes',   color: '#0d9488', activeBg: '#0d9488' },
           ].map(tab => {
             const active = activeSubTab === tab.id;
             return (
@@ -785,16 +786,16 @@ export default function DashboardSalesList({
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveSubTab(tab.id as any)}
-                className="flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl relative transition-all"
+                className="flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl relative"
                 style={{
-                  background: active ? '#ffffff' : 'transparent',
-                  boxShadow: active ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+                  background: active ? tab.activeBg : 'transparent',
+                  boxShadow: active ? `0 2px 8px ${tab.activeBg}40` : 'none',
                 }}
               >
-                <span style={{ color: active ? tab.color : '#94a3b8' }}>{tab.icon}</span>
-                <span className="text-[10px] font-bold mt-1" style={{ color: active ? '#0f172a' : '#94a3b8' }}>{tab.label}</span>
+                <span style={{ color: active ? '#ffffff' : '#64748b' }}>{tab.icon}</span>
+                <span className="text-[10px] font-bold mt-1" style={{ color: active ? '#ffffff' : '#64748b' }}>{tab.label}</span>
                 {tab.badge && tab.badge > 0 && (
-                  <span className="absolute top-1.5 right-2.5 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                  <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-rose-500 border border-white dark:border-slate-800" />
                 )}
               </button>
             );
@@ -1074,31 +1075,87 @@ export default function DashboardSalesList({
       </div>
 
       {/* FILTER & CONTROL PANEL BAR (MOBILE) */}
-      <div className="md:hidden flex flex-row gap-2 items-center">
-        {/* Search */}
-        <div className="flex-1 flex items-center bg-white border border-slate-200 px-3 py-2.5 rounded-xl shadow-xs">
-          <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-          <input
-            type="text"
-            placeholder="Search Receipt ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-transparent border-none focus:outline-none w-full text-xs text-slate-800 placeholder-slate-400 font-sans"
-          />
+      <div className="md:hidden space-y-2">
+        {/* Compact date filter row */}
+        <div className="flex items-center gap-2">
+          {/* Quick date chips */}
+          <div className="flex gap-1.5 flex-1 overflow-x-auto scrollbar-none">
+            {[
+              { label: 'Today',     value: 'today' },
+              { label: 'Week',      value: 'week' },
+              { label: 'Month',     value: 'month' },
+              { label: 'All',       value: 'all' },
+            ].map(opt => {
+              const active = selectedDateFilter === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSelectedDateFilter(opt.value as any)}
+                  className="shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-colors"
+                  style={{
+                    background: active ? '#0f172a' : '#f1f5f9',
+                    color: active ? '#ffffff' : '#64748b',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+          {/* Custom date — calendar icon opens inline pickers */}
+          <button
+            type="button"
+            onClick={() => setShowMobileDatePicker(prev => !prev)}
+            className="w-9 h-9 flex items-center justify-center rounded-xl shrink-0"
+            style={{ background: (startDate || endDate) ? '#0f172a' : '#f1f5f9' }}
+          >
+            <Calendar className="w-4 h-4" style={{ color: (startDate || endDate) ? '#ffffff' : '#64748b' }} />
+          </button>
         </div>
 
-        {/* Channel Dropdown */}
-        <select
-          value={selectedPaymentMethod}
-          onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-          className="bg-slate-900 border border-slate-800 text-white px-3 py-2.5 rounded-xl font-bold cursor-pointer outline-none text-xs shadow-xs shrink-0 max-w-[120px]"
-        >
-          <option value="All">All Channels</option>
-          <option value="Cash">Cash</option>
-          <option value="Card">Card</option>
-          <option value="Mobile Money">MOMO</option>
-          <option value="Credit">Credit</option>
-        </select>
+        {/* Inline date pickers — only shown when calendar tapped */}
+        {showMobileDatePicker && (
+          <div className="flex gap-2 items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+              className="flex-1 bg-transparent text-xs font-semibold text-slate-700 outline-none" />
+            <span className="text-slate-300 text-xs">→</span>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+              className="flex-1 bg-transparent text-xs font-semibold text-slate-700 outline-none" />
+            {(startDate || endDate) && (
+              <button type="button" onClick={() => { setStartDate(''); setEndDate(''); }}
+                className="text-slate-400 ml-1">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Search + filter row */}
+        <div className="flex gap-2 items-center">
+          <div className="flex-1 flex items-center bg-white border border-slate-200 px-3 py-2.5 rounded-xl shadow-xs">
+            <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+            <input
+              type="text"
+              placeholder="Search sales..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-transparent border-none focus:outline-none w-full text-xs text-slate-800 placeholder-slate-400 font-sans"
+            />
+          </div>
+          <select
+            value={selectedPaymentMethod}
+            onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+            className="bg-slate-900 border border-slate-800 text-white px-3 py-2.5 rounded-xl font-bold cursor-pointer outline-none text-xs shadow-xs shrink-0"
+          >
+            <option value="All">All</option>
+            <option value="Cash">Cash</option>
+            <option value="Card">Card</option>
+            <option value="Mobile Money">MOMO</option>
+            <option value="Credit">Credit</option>
+          </select>
+        </div>
       </div>
 
       {/* SALES MAIN DATA LIST */}
@@ -2721,79 +2778,85 @@ export default function DashboardSalesList({
             </div>
 
             {/* List of generated documents */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
               {filteredDocs.map(doc => {
                 const subTotal = doc.items.reduce((sum, item) => {
                   const itemPrice = item.discountType === 'cash' ? Math.max(0, item.price - item.discount) : item.price * (1 - item.discount / 100);
                   return sum + (itemPrice * item.qty);
                 }, 0);
+
+                const typeColor = doc.type === 'quotation' || doc.type === 'price quote'
+                  ? { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' }
+                  : { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0' };
+
                 return (
-                  <div key={doc.id} className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-sm hover:border-slate-355 transition-all flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider font-mono ${
-                          doc.type === 'quotation' ? 'bg-indigo-55 text-indigo-700 border border-indigo-200' :
-                          'bg-amber-100/70 text-amber-700 border border-amber-200'
-                        }`}>
-                          {doc.type}
-                        </span>
-                        <span className="text-[10px] font-mono font-bold text-slate-500">
-                          {doc.documentNumber}
-                        </span>
-                      </div>
-
-                      <div className="mt-4 space-y-1">
-                        <h4 className="font-bold text-slate-800 text-sm font-sans">{doc.customerName || 'Walk-In Customer'}</h4>
-                        {doc.customerPhone && <p className="text-[11px] text-slate-500 font-mono">📞 {doc.customerPhone}</p>}
-                        <p className="text-[10px] text-slate-400 font-mono">📅 {new Date(doc.timestamp).toLocaleDateString()}</p>
-                      </div>
-
-                      <div className="mt-3 pt-3 border-t border-slate-100 space-y-1">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Document Items ({doc.items.length})</div>
-                        <div className="max-h-24 overflow-y-auto space-y-1 pr-1">
-                          {doc.items.map((it, idx) => (
-                            <div key={idx} className="flex justify-between text-xs text-slate-650 font-sans">
-                              <span>{it.qty}x {it.productName}</span>
-                              <span className="font-bold font-mono text-slate-700">{currency}{Math.round(it.price * it.qty).toLocaleString()}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                  <div key={doc.id}
+                    className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-xs active:scale-[0.985] cursor-pointer"
+                    onClick={() => setViewingDocument(doc)}
+                    style={{boxShadow: '0 1px 6px rgba(0,0,0,0.06)'}}
+                  >
+                    {/* Top accent + type + doc number */}
+                    <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg"
+                        style={{ background: typeColor.bg, color: typeColor.text, border: `1px solid ${typeColor.border}` }}>
+                        {doc.type === 'quotation' ? 'Quote' : doc.type === 'price quote invoice' ? 'Invoice' : doc.type}
+                      </span>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                        doc.status === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
+                      }`}>
+                        {doc.status === 'pending' ? 'Pending' : '✓ Converted'}
+                      </span>
                     </div>
 
-                    <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                      <div>
-                        <div className="text-[8px] uppercase tracking-wider font-bold text-slate-400 font-sans">Grand Total</div>
-                        <div className="text-sm font-black font-mono text-slate-900">{currency}{Math.round(subTotal).toLocaleString()}</div>
+                    <div className="px-4 pb-3">
+                      {/* Customer + date */}
+                      <p className="font-extrabold text-slate-900 text-[13px] leading-tight truncate">
+                        {doc.customerName || 'Walk-in Customer'}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {doc.documentNumber}
+                        </span>
+                        <span className="text-slate-200">·</span>
+                        <span className="text-[10px] text-slate-400">
+                          {new Date(doc.timestamp).toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'})}
+                        </span>
+                        <span className="text-slate-200">·</span>
+                        <span className="text-[10px] text-slate-400">
+                          {doc.items.length} item{doc.items.length !== 1 ? 's' : ''}
+                        </span>
                       </div>
 
-                      <div className="flex items-center space-x-1.5 font-sans">
-                        <button
-                          type="button"
-                          onClick={() => setViewingDocument(doc)}
-                          className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-205 hover:border-slate-300 text-slate-650 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer flex items-center space-x-1"
-                        >
-                          <FileText className="w-3.5 h-3.5 text-slate-450" />
-                          <span>A4 View</span>
-                        </button>
-                        
-                        {doc.status === 'pending' ? (
+                      {/* Total + actions */}
+                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
+                        <p className="font-black text-slate-900 text-[15px] font-mono">
+                          {currency}{Math.round(subTotal).toLocaleString()}
+                        </p>
+                        <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
                           <button
                             type="button"
-                            onClick={() => {
-                              sendDocumentToSales(doc);
-                            }}
-                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[10.5px] transition-all border-none cursor-pointer flex items-center space-x-1 shadow-sm"
+                            onClick={() => setViewingDocument(doc)}
+                            className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 border border-slate-200 bg-slate-50 text-slate-700"
                           >
-                            <ArrowRight className="w-3.5 h-3.5" />
-                            <span>Record as Sale</span>
+                            <FileText className="w-3 h-3" />
+                            <span>View</span>
                           </button>
-                        ) : (
-                          <span className="px-2 py-1.5 bg-slate-100 text-slate-450 border border-slate-200 rounded-lg text-[10px] font-bold inline-flex items-center space-x-1">
-                            <Check className="w-3 h-3 text-emerald-600" />
-                            <span>Converted ✓</span>
-                          </span>
-                        )}
+                          {doc.status === 'pending' ? (
+                            <button
+                              type="button"
+                              onClick={() => sendDocumentToSales(doc)}
+                              className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 bg-emerald-600 text-white border-none"
+                            >
+                              <ArrowRight className="w-3 h-3" />
+                              <span>Record</span>
+                            </button>
+                          ) : (
+                            <span className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-400 flex items-center gap-1">
+                              <Check className="w-3 h-3 text-emerald-500" />
+                              <span>Done</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
