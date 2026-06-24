@@ -1425,7 +1425,7 @@ export default function DashboardProducts({
       </div>
 
       {/* DESKTOP: horizontal pill tabs */}
-      <div className="hidden md:flex bg-white border border-slate-200 rounded-2xl p-1.5 gap-1 shadow-xs">
+      <div className="hidden md:flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1.5 gap-1 shadow-xs">
         {[
           { id: 'catalog',  icon: '📦', label: 'Product List' },
           { id: 'category', icon: '📁', label: 'Product Category' },
@@ -1456,19 +1456,19 @@ export default function DashboardProducts({
         <div className="space-y-4 md:space-y-6 animate-fade-in">
           
           {/* ── HEADER CARD ── */}
-          <div className="bg-white border border-slate-100 rounded-3xl shadow-xs overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-xs overflow-hidden">
 
             {/* ── MOBILE: stacked native app style ── */}
             <div className="md:hidden">
-              {/* Hero strip — store name + count */}
+              {/* Hero strip */}
               <div className="px-5 pt-5 pb-4 flex items-center gap-4"
                 style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)' }}>
                 <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
                   <span className="text-2xl">📦</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-extrabold text-[15px] leading-tight truncate">{activeTenant.name}</p>
-                  <p className="text-white/50 text-[11px] mt-0.5">{products.length} product{products.length !== 1 ? 's' : ''} · {activeTenant.city || 'Main Store'}</p>
+                  <p className="text-white font-extrabold text-[15px] leading-tight">Register New Product</p>
+                  <p className="text-white/50 text-[11px] mt-0.5">{products.length} product{products.length !== 1 ? 's' : ''} in catalogue</p>
                 </div>
                 {/* Add product FAB */}
                 <button
@@ -1484,27 +1484,27 @@ export default function DashboardProducts({
               <div className="grid grid-cols-2 gap-3 p-4">
                 <button
                   onClick={downloadCsvTemplate}
-                  className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 active:bg-slate-100 text-left"
+                  className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                    <Download className="w-4 h-4 text-emerald-600" />
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+                    <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div>
-                    <p className="text-[12px] font-bold text-slate-800 leading-tight">Template</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Download</p>
+                    <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Bulk Template</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Download to fill</p>
                   </div>
                 </button>
 
                 <div className="relative">
                   <input type="file" accept=".csv" ref={csvInputRef} onChange={handleCsvImport}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
-                  <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-left">
-                    <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                      <Upload className="w-4 h-4 text-blue-600" />
+                  <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
+                    <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
+                      <Upload className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-[12px] font-bold text-slate-800 leading-tight">Upload</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Spreadsheet</p>
+                      <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Bulk Upload</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Import spreadsheet</p>
                     </div>
                   </div>
                 </div>
@@ -1513,31 +1513,31 @@ export default function DashboardProducts({
 
             {/* ── DESKTOP / TABLET: horizontal command bar ── */}
             <div className="hidden md:flex items-center justify-between gap-4 px-6 py-4">
-              {/* Left: identity */}
+              {/* Left: title */}
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-slate-700 flex items-center justify-center shrink-0">
                   <span className="text-base">📦</span>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-extrabold text-slate-900 leading-tight truncate">{activeTenant.name}</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{products.length} products · {activeTenant.city || 'Main Store'}</p>
+                  <p className="text-sm font-extrabold text-slate-900 dark:text-white leading-tight">Register New Product</p>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{products.length} products in catalogue</p>
                 </div>
               </div>
 
-              {/* Right: action buttons — clearly separated from identity */}
+              {/* Right: action buttons */}
               <div className="flex items-center gap-2 shrink-0">
                 <button onClick={downloadCsvTemplate}
-                  className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-colors">
+                  className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
                   <Download className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Template</span>
+                  <span>Bulk Template</span>
                 </button>
 
                 <div className="relative h-9">
                   <input type="file" accept=".csv" ref={csvInputRef} onChange={handleCsvImport}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
-                  <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-colors">
+                  <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
                     <Upload className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Upload Spreadsheet</span>
+                    <span>Bulk Upload</span>
                   </button>
                 </div>
 
@@ -1554,14 +1554,14 @@ export default function DashboardProducts({
             {(csvUploadError || csvUploadSuccess) && (
               <div className="px-4 md:px-6 pb-4">
                 {csvUploadError && (
-                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-xl text-xs font-bold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
                     <span>{csvUploadError}</span>
                   </div>
                 )}
                 {csvUploadSuccess && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-semibold flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 shrink-0" />
                     <span>{csvUploadSuccess}</span>
                   </div>
                 )}
@@ -2109,9 +2109,9 @@ export default function DashboardProducts({
           )}
 
           {/* Catalog Filter and Table */}
-          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs">
             
-            <div className="p-5 border-b border-slate-150/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="p-5 border-b border-slate-150/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
               <div className="relative w-full sm:max-w-xs">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input 
@@ -2119,20 +2119,20 @@ export default function DashboardProducts({
                   placeholder="Search products..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 px-3 pl-9 py-2 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-800 transition-all font-semibold"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 pl-9 py-2 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-slate-800 dark:focus:border-slate-500 transition-all font-semibold"
                 />
               </div>
 
-              <div className="text-[11px] text-slate-400 font-semibold shrink-0">
+              <div className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold shrink-0">
                 {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}
               </div>
             </div>
 
             {/* Inner content wrapper */}
-            <div className="overflow-x-auto bg-white">
+            <div className="overflow-x-auto bg-white dark:bg-slate-900">
 
-            {/* ── MOBILE STOCK CARDS — sit flush below search bar ── */}
-            <div className="md:hidden bg-slate-50 px-3 pt-3 pb-[calc(80px+env(safe-area-inset-bottom))] space-y-3">
+            {/* ── MOBILE STOCK CARDS ── */}
+            <div className="md:hidden bg-slate-50 dark:bg-slate-950 px-3 pt-3 pb-[calc(80px+env(safe-area-inset-bottom))] space-y-3">
               {filteredProducts.map((prod) => {
                   const shopQty = prod.shopStockQty ?? 0;
                   const storeQty = prod.storeStockQty ?? 0;
@@ -2154,7 +2154,7 @@ export default function DashboardProducts({
 
                   return (
                     <div key={prod.id}
-                      className="bg-white rounded-2xl overflow-hidden active:scale-[0.99] transition-all duration-150"
+                      className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden active:scale-[0.99] transition-all duration-150"
                       style={{
                         border: '1px solid #f0f0f0',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)'
@@ -2162,7 +2162,7 @@ export default function DashboardProducts({
                     >
                       {/* ── HEADER ROW ── */}
                       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-                        {/* Avatar with product initial or image */}
+                        {/* Avatar */}
                         <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 font-black text-base overflow-hidden" style={{background: avatarBg, color: avatarColor}}>
                           {prod.image
                             ? <img src={prod.image} alt={prod.name} className="w-full h-full object-cover" />
@@ -2172,34 +2172,33 @@ export default function DashboardProducts({
 
                         {/* Name + meta */}
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-slate-900 text-[13px] leading-snug truncate">{prod.name}</p>
+                          <p className="font-bold text-slate-900 dark:text-white text-[13px] leading-snug truncate">{prod.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
-                            {prod.category && <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[100px]">{prod.category}</span>}
-                            {prod.brand && <><span className="text-slate-200">·</span><span className="text-[10px] font-semibold text-slate-400 truncate max-w-[80px]">{prod.brand}</span></>}
+                            {prod.category && <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 truncate max-w-[100px]">{prod.category}</span>}
+                            {prod.brand && <><span className="text-slate-200 dark:text-slate-700">·</span><span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 truncate max-w-[80px]">{prod.brand}</span></>}
                           </div>
                         </div>
 
-                        {/* Price + menu button */}
+                        {/* Price + menu */}
                         <div className="flex items-center gap-1 shrink-0">
                           <div className="text-right mr-1">
                             <p className="font-black text-[13px]" style={{color: '#16a34a'}}>{currency}{Math.round(prod.sellingPrice).toLocaleString()}</p>
-                            <p className="text-[9px] text-slate-400 font-mono leading-tight">cost {currency}{Math.round(prod.costPrice).toLocaleString()}</p>
+                            <p className="text-[9px] text-slate-400 dark:text-slate-500 font-mono leading-tight">cost {currency}{Math.round(prod.costPrice).toLocaleString()}</p>
                           </div>
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); setMobileProductMenu(prod); }}
-                            className="w-8 h-8 rounded-xl flex items-center justify-center active:bg-slate-100"
+                            className="w-8 h-8 rounded-xl flex items-center justify-center active:bg-slate-100 dark:active:bg-slate-800"
                           >
-                            <MoreVertical className="w-4 h-4 text-slate-400" />
+                            <MoreVertical className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                           </button>
                         </div>
                       </div>
 
                       {/* ── STOCK BARS ── */}
                       <div className="px-4 pb-3 space-y-2">
-                        {/* Shop stock bar */}
                         <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide w-10 shrink-0">Shop</span>
+                          <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide w-10 shrink-0">Shop</span>
                           <div className="flex-1 h-2 rounded-full overflow-hidden" style={{background: '#f1f5f9'}}>
                             <div className="h-full rounded-full transition-all duration-500" style={{width: `${shopPct}%`, background: barColor}} />
                           </div>
@@ -2207,35 +2206,34 @@ export default function DashboardProducts({
                             {formatProductQuantity(shopQty, prod)}
                           </span>
                         </div>
-                        {/* Store stock bar */}
                         <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide w-10 shrink-0">Store</span>
+                          <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide w-10 shrink-0">Store</span>
                           <div className="flex-1 h-2 rounded-full overflow-hidden" style={{background: '#f1f5f9'}}>
                             <div className="h-full rounded-full transition-all duration-500" style={{width: `${storePct}%`, background: '#94a3b8'}} />
                           </div>
-                          <span className="text-[11px] font-black w-12 text-right shrink-0 text-slate-500">
+                          <span className="text-[11px] font-black w-12 text-right shrink-0 text-slate-500 dark:text-slate-400">
                             {formatProductQuantity(storeQty, prod)}
                           </span>
                         </div>
                       </div>
 
-                      {/* ── FOOTER ROW: Status + Total ── */}
-                      <div className="flex items-center justify-between px-4 py-2.5 border-t" style={{borderColor: '#f8fafc', background: '#fafafa'}}>
+                      {/* ── FOOTER ROW ── */}
+                      <div className="flex items-center justify-between px-4 py-2.5 border-t dark:border-slate-800" style={{background: '#fafafa'}}>
                         <div className="flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{background: statusDot, animation: isCritical ? 'pulse 1.5s infinite' : 'none'}} />
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{background: statusDot}} />
                           <span className="text-[10px] font-bold" style={{color: statusColor, background: statusBg, padding: '2px 8px', borderRadius: '20px'}}>
                             {statusText}
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="text-right">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Total</span>
-                            <span className="text-[11px] font-black text-slate-700 ml-1.5 font-mono">{formatProductQuantity(totalQty, prod)}</span>
+                            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Total</span>
+                            <span className="text-[11px] font-black text-slate-700 dark:text-slate-300 ml-1.5 font-mono">{formatProductQuantity(totalQty, prod)}</span>
                           </div>
                           {prod.alertQty && (
                             <div className="text-right">
-                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Alert</span>
-                              <span className="text-[11px] font-black text-slate-500 ml-1.5 font-mono">{prod.alertQty}</span>
+                              <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Alert</span>
+                              <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 ml-1.5 font-mono">{prod.alertQty}</span>
                             </div>
                           )}
                         </div>
@@ -2245,7 +2243,7 @@ export default function DashboardProducts({
                   );
                 })}
                 {filteredProducts.length === 0 && (
-                   <div className="p-10 text-center text-slate-455 text-sm bg-white rounded-2xl shadow-sm">
+                   <div className="p-10 text-center text-slate-455 dark:text-slate-500 text-sm bg-white dark:bg-slate-900 rounded-2xl shadow-sm">
                       No matching products under this term or category.
                    </div>
                 )}
