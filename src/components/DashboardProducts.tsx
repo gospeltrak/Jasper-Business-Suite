@@ -74,9 +74,7 @@ export default function DashboardProducts({
   // Tab selector: 'catalog' list vs 'labels' station
   const [viewTab, setViewTab] = useState<'catalog' | 'category' | 'brand' | 'labels'>('catalog');
 
-  // Dropdown states — mobile bottom sheet vs desktop inline dropdown are separate
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);   // mobile only
-  const [desktopMenuId, setDesktopMenuId] = useState<string | null>(null);     // desktop only
+  // Dropdown state removed — menus deleted per user request
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
@@ -2125,14 +2123,6 @@ export default function DashboardProducts({
                             <p className="font-black text-[13px]" style={{color: '#16a34a'}}>{currency}{Math.round(prod.sellingPrice).toLocaleString()}</p>
                             <p className="text-[9px] text-slate-400 font-mono leading-tight">cost {currency}{Math.round(prod.costPrice).toLocaleString()}</p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setOpenDropdownId(openDropdownId === prod.id ? null : prod.id)}
-                            className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors active:scale-90"
-                            style={{background: '#f8fafc'}}
-                          >
-                            <MoreVertical className="w-4 h-4 text-slate-400" />
-                          </button>
                         </div>
                       </div>
 
@@ -2192,133 +2182,6 @@ export default function DashboardProducts({
                 )}
               </div>
 
-              {/* ═══ MOBILE BOTTOM SHEET — md:hidden, exact same motion as Sales ═══ */}
-              <AnimatePresence>
-              {openDropdownId && (() => {
-                const activeProd = filteredProducts.find(p => p.id === openDropdownId);
-                if (!activeProd) return null;
-                const sQ = activeProd.shopStockQty ?? 0;
-                const stQ = activeProd.storeStockQty ?? 0;
-                const tQ = activeProd.stockQty ?? (sQ + stQ);
-                const outOfStock = tQ <= 0;
-                const low = !outOfStock && sQ <= (activeProd.alertQty || 5);
-                const critical = low && sQ <= Math.floor((activeProd.alertQty || 5) / 2);
-                const aBg = outOfStock ? '#f1f5f9' : critical ? '#fff1f2' : low ? '#fff7ed' : '#f0fdf4';
-                const aCol = outOfStock ? '#94a3b8' : critical ? '#e11d48' : low ? '#ea580c' : '#16a34a';
-                const sBg = outOfStock ? '#f8fafc' : critical ? '#fff1f2' : low ? '#fff7ed' : '#f0fdf4';
-                const sCol = outOfStock ? '#64748b' : critical ? '#e11d48' : low ? '#c2410c' : '#15803d';
-                const sTxt = outOfStock ? 'Out of Stock' : critical ? 'Critical Low' : low ? 'Low Stock' : 'In Stock';
-                return (
-                  <div className="md:hidden">
-                    {/* Backdrop */}
-                    <motion.div
-                      key="products-sheet-backdrop"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      onClick={() => setOpenDropdownId(null)}
-                      className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm"
-                    />
-
-                    {/* Bottom sheet — same positioning as Sales: sits above bottom nav */}
-                    <motion.div
-                      key="products-sheet-panel"
-                      initial={{ y: '100%' }}
-                      animate={{ y: 0 }}
-                      exit={{ y: '100%' }}
-                      transition={{ type: 'spring', damping: 25, stiffness: 280 }}
-                      className="fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl z-[80] overflow-hidden font-sans flex flex-col text-[#0f172a] border border-slate-100"
-                      style={{
-                        bottom: 'calc(56px + env(safe-area-inset-bottom))',
-                        maxHeight: 'calc(85vh - 56px - env(safe-area-inset-bottom))',
-                        boxShadow: 'none',
-                      }}
-                    >
-                      {/* Drag handle */}
-                      <div className="w-full flex justify-center py-2 shrink-0">
-                        <div className="w-12 h-1 bg-slate-200 rounded-full" />
-                      </div>
-
-                      {/* Product header */}
-                      <div className="px-5 pb-3 pt-1 shrink-0">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-base shrink-0 overflow-hidden"
-                            style={{ background: aBg, color: aCol }}
-                          >
-                            {activeProd.image
-                              ? <img src={activeProd.image} alt="" className="w-full h-full object-cover" />
-                              : activeProd.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-base font-extrabold text-slate-800 truncate leading-tight">{activeProd.name}</p>
-                            <p className="text-xs text-slate-400 mt-0.5 flex items-center justify-between">
-                              <span>Shop: {formatProductQuantity(sQ, activeProd)} · Store: {formatProductQuantity(stQ, activeProd)}</span>
-                              <span className="font-extrabold text-slate-900 ml-3">{currency}{Math.round(activeProd.sellingPrice).toLocaleString()}</span>
-                            </p>
-                          </div>
-                        </div>
-                        <div className="mt-2">
-                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ background: sBg, color: sCol }}>{sTxt}</span>
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-100 h-[1px] w-full shrink-0" />
-
-                      {/* Scrollable action list — exact same style as Sales */}
-                      <div className="overflow-y-auto p-4 space-y-2.5">
-                        {[
-                          { label: 'View Details',   sub: 'See full product information',  icon: Eye,            bg: 'bg-blue-50',    color: 'text-blue-600',   action: () => { setViewingProduct(activeProd);   setOpenDropdownId(null); } },
-                          { label: 'Edit Item',       sub: 'Update name, price, settings', icon: Edit,           bg: 'bg-teal-50',    color: 'text-teal-700',   action: () => { handleBeginEdit(activeProd);       setOpenDropdownId(null); } },
-                          { label: 'Replenish Stock', sub: 'Add new stock from supplier',  icon: Package,        bg: 'bg-emerald-50', color: 'text-emerald-600', action: () => { setReplenishProduct(activeProd); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(activeProd.costingMethod || activeProd.inventorySettings?.costingMethod || 'fifo'); setOpenDropdownId(null); } },
-                          { label: 'Transfer Stock',  sub: 'Move stock between Shop & Store', icon: ArrowLeftRight, bg: 'bg-purple-50',  color: 'text-purple-600', action: () => { setTransferProduct(activeProd); setTransferQty(1); setTransferDirection('store_to_shop'); setTransferError(null); setTransferSuccess(false); setOpenDropdownId(null); } },
-                        ].map(item => {
-                          const Icon = item.icon;
-                          return (
-                            <button
-                              key={item.label}
-                              type="button"
-                              onClick={item.action}
-                              className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-xs cursor-pointer text-left transition-colors"
-                            >
-                              <div className="flex items-center space-x-3.5">
-                                <div className={`w-10 h-10 rounded-xl ${item.bg} flex items-center justify-center shrink-0`}>
-                                  <Icon className={`w-5 h-5 ${item.color}`} />
-                                </div>
-                                <div>
-                                  <span className="text-sm font-bold text-slate-800 block">{item.label}</span>
-                                  <span className="text-[10px] text-slate-400 block mt-0.5">{item.sub}</span>
-                                </div>
-                              </div>
-                              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                            </button>
-                          );
-                        })}
-
-                        {/* Delete — destructive */}
-                        <button
-                          type="button"
-                          onClick={() => { onDeleteProduct(activeProd.id); setOpenDropdownId(null); }}
-                          className="w-full h-14 min-h-[52px] bg-white hover:bg-red-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-red-100 shadow-xs cursor-pointer text-left transition-colors"
-                        >
-                          <div className="flex items-center space-x-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
-                              <Trash2 className="w-5 h-5 text-red-500" />
-                            </div>
-                            <div>
-                              <span className="text-sm font-bold text-red-600 block">Delete Item</span>
-                              <span className="text-[10px] text-slate-400 block mt-0.5">Remove from catalogue permanently</span>
-                            </div>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                        </button>
-                      </div>
-                    </motion.div>
-                  </div>
-                );
-              })()}
-              </AnimatePresence>
-
               {/* Desktop View: Table — inside the white card */}
               <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -2335,7 +2198,6 @@ export default function DashboardProducts({
                     <th className="py-4 px-4 text-center">Store Units</th>
                     <th className="py-4 px-4 text-center">Total Units</th>
                     <th className="py-4 px-4 text-center">Status</th>
-                    <th className="py-4 px-5 text-center font-mono uppercase">Ledger Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-150/50 text-slate-600 text-xs font-sans">
@@ -2466,54 +2328,9 @@ export default function DashboardProducts({
                               <ArrowLeftRight className="w-4 h-4" />
                             </button>
 
-                            <div className="relative">
-                              <button
-                                type="button"
-                                onClick={() => setDesktopMenuId(desktopMenuId === prod.id ? null : prod.id)}
-                                className="p-1.5 hover:bg-slate-100 text-slate-450 hover:text-slate-700 rounded-lg cursor-pointer transition-colors flex items-center justify-center"
-                                title="Item Options"
-                              >
-                                <MoreVertical className="w-4 h-4" />
-                              </button>
-
-                              {desktopMenuId === prod.id && (
-                                <>
-                                  {/* Invisible full-screen dismiss layer */}
-                                  <div className="fixed inset-0 z-[70]" onClick={() => setDesktopMenuId(null)} />
-                                  {/* Proper inline dropdown — anchored to the button, floats above */}
-                                  <div className="absolute right-0 top-full mt-1.5 z-[80] bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden w-48 py-1"
-                                    style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)' }}
-                                  >
-                                    {[
-                                      { label: 'View Details',   icon: Eye,           color: 'text-slate-700', action: () => { setViewingProduct(prod);   setDesktopMenuId(null); } },
-                                      { label: 'Edit Item',       icon: Edit,          color: 'text-slate-700', action: () => { handleBeginEdit(prod);       setDesktopMenuId(null); } },
-                                      { label: 'Replenish Stock', icon: Package,       color: 'text-emerald-700', action: () => { setReplenishProduct(prod); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo'); setDesktopMenuId(null); } },
-                                    ].map(item => {
-                                      const Icon = item.icon;
-                                      return (
-                                        <button key={item.label} type="button" onClick={item.action}
-                                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 transition-colors cursor-pointer text-left"
-                                        >
-                                          <Icon className={`w-3.5 h-3.5 ${item.color} shrink-0`} />
-                                          <span className={item.color}>{item.label}</span>
-                                        </button>
-                                      );
-                                    })}
-                                    <div className="h-px bg-slate-100 mx-3 my-1" />
-                                    <button type="button"
-                                      onClick={() => { onDeleteProduct(prod.id); setDesktopMenuId(null); }}
-                                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold hover:bg-red-50 transition-colors cursor-pointer text-left"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                                      <span className="text-red-600">Delete Item</span>
-                                    </button>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
+                        </div>
+                      </td>
+                    </tr>
                     );
                   })}
                   {filteredProducts.length === 0 && (
