@@ -1534,7 +1534,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   }
 
   return (
-    <div id="dashboard-scaffold" className="w-full h-screen bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
+    <div id="dashboard-scaffold" className="w-full h-dvh bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
       
       {/* 0. HIGH-FIDELITY FLOATING TOAST STACK (Centered at top on mobile, max 3 stacked) */}
       <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center space-y-2 w-full max-w-sm px-4 pointer-events-none">
@@ -1750,12 +1750,12 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       {/* Main Independence Dashboard Right scroll-container (independent scroll-box) */}
       <div className={`flex-1 flex flex-col h-full min-w-0 overflow-hidden relative ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950' : 'bg-[#f5f6fa] dark:bg-slate-950'} select-none`}>
         
-        {/* Screen container */}
-        <div className={`flex-grow flex flex-col ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950' : 'bg-[#f5f6fa] dark:bg-slate-950'} min-h-0 overflow-y-auto relative scrollbar-none pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0`}>
+        {/* Screen container — flex-col, header shrink-0, main scrolls, bottom nav fixed */}
+        <div className={`flex-1 flex flex-col ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950' : 'bg-[#f5f6fa] dark:bg-slate-950'} min-h-0 overflow-hidden relative`}>
 
         
           {/* 2. Top Bar Desktop */}
-          <header className={`hidden md:flex sticky top-0 z-35 ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950 border-slate-800' : 'bg-white dark:bg-slate-905 border-slate-100/80 dark:border-slate-800/80 shadow-xs'} border-b px-6 py-4.5 select-none items-center justify-between shrink-0 transition-colors duration-300`}>
+          <header className={`hidden md:flex sticky top-0 z-35 shrink-0 ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950 border-slate-800' : 'bg-white dark:bg-slate-905 border-slate-100/80 dark:border-slate-800/80 shadow-xs'} border-b px-6 py-4.5 select-none items-center justify-between transition-colors duration-300`}>
             <div className="flex items-center space-x-3.5 flex-1 animate-fade-in">
               {/* Business Logo / Avatar and Name */}
               <div className="flex items-center space-x-3 shrink-0">
@@ -1941,7 +1941,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </header>
 
           {/* 2b. Top Bar Mobile - Exact 60px height sticky glassmorphic header */}
-          <header className="md:hidden sticky top-0 z-35 h-[60px] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 px-4 select-none flex items-center justify-between shrink-0" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)'}}>
+          <header className="md:hidden shrink-0 z-50 h-[60px] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 px-4 select-none flex items-center justify-between" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)'}}>
             {/* Left: business logo or initials avatar on mobile top bar */}
             <div className="flex items-center space-x-3 animate-fade-in">
               <div 
@@ -2067,7 +2067,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </header>
 
           {/* Core workspace content viewports */}
-          <main id="workspace-content" className={`flex-grow ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-4 md:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-6 pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-6'} min-h-[500px]`}>
+          <main id="workspace-content" className={`flex-1 overflow-y-auto scrollbar-none ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-4 md:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-6 min-h-0`}>
             
             {user.role !== 'SuperAdmin' && renderSubscriptionStatusBlock()}
 
@@ -2417,7 +2417,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </main>
 
           {/* Mobile Bottom Navigation Component */}
-          <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800" style={{height:'calc(56px + env(safe-area-inset-bottom))', paddingBottom:'env(safe-area-inset-bottom)', boxShadow:'0 -1px 0 rgba(0,0,0,0.05)'}}>
+          <nav className="md:hidden shrink-0 z-50 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800" style={{height:'calc(56px + env(safe-area-inset-bottom))', paddingBottom:'env(safe-area-inset-bottom)', boxShadow:'0 -1px 0 rgba(0,0,0,0.05)'}}>
             <div className="flex items-stretch h-14">
               {([
                 { id: 'overview', label: 'Home', icon: LayoutDashboard },
