@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import LandingPage from './components/LandingPage';
 import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
 import AffiliatePortal from './components/AffiliatePortal';
 import ToolsHub from './components/ToolsHub';
+import JasperSplashScreen from './components/JasperSplashScreen';
 import { User } from './types';
 import { useTheme } from './ThemeContext';
 import { useTenantLogo } from './TenantLogoContext';
@@ -63,7 +64,11 @@ export default function App() {
   const [redirectMessage, setRedirectMessage] = useState<string>('');
   
   const { isDark, toggleTheme } = useTheme();
-  const { fetchLogoUrl } = useTenantLogo();
+  const { fetchLogoUrl, logoUrl } = useTenantLogo();
+
+  // Splash: show once per session when user first enters dashboard
+  const [showSplash, setShowSplash] = useState(false);
+  const splashShownRef = useRef(false);
 
   useEffect(() => {
     if (user?.activeTenant) {
@@ -105,6 +110,11 @@ export default function App() {
   const handleLoginSuccess = (authenticatedUser: User) => {
     setUser(authenticatedUser);
     localStorage.setItem('jasper_cashier_user', JSON.stringify(authenticatedUser));
+    // Show splash on fresh login — only once per session
+    if (!splashShownRef.current) {
+      splashShownRef.current = true;
+      setShowSplash(true);
+    }
     navigateTo('/dashboard');
   };
 
@@ -129,9 +139,11 @@ export default function App() {
     }
 
     if (currentPath === '/affiliate' || currentPath.startsWith('/affiliate/')) {
+      if (!splashShownRef.current) { splashShownRef.current = true; setShowSplash(true); }
       return <AffiliatePortal onNavigate={navigateTo} forcedRole="affiliate" />;
     }
     if (currentPath === '/partner' || currentPath.startsWith('/partner/')) {
+      if (!splashShownRef.current) { splashShownRef.current = true; setShowSplash(true); }
       return <AffiliatePortal onNavigate={navigateTo} forcedRole="partner" />;
     }
 
@@ -182,8 +194,19 @@ export default function App() {
     }
   };
 
+  // Resolve logo: tenant custom logo → system default
+  const splashLogo = logoUrl || '/jasper_logo_transparent.png';
+
   return (
     <div id="jasper-app-root" className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-emerald-100 selection:text-emerald-900 transition-colors duration-300">
+      {/* Premium animated splash — shown only on fresh dashboard login */}
+      {showSplash && (
+        <JasperSplashScreen
+          logoSrc={splashLogo}
+          duration={2600}
+          onFinish={() => setShowSplash(false)}
+        />
+      )}
       {renderRoute()}
     </div>
   );
