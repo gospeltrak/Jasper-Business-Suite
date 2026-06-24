@@ -2794,14 +2794,14 @@ export default function DashboardSalesList({
       {/* DIALOG: VIEW AND PRINT RECEIPT RE-PRINT OVERLAY */}
       {/* ------------------------------------------------------------- */}
       {selectedSale && !viewPaymentsOpen && (
-        <div className={viewA4InvoiceOpen ? "fixed inset-0 z-[200]" : "fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800"}>
+        <div className={viewA4InvoiceOpen ? "fixed inset-0 z-[200] flex flex-col bg-[#404040] font-sans" : "fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm text-slate-800"}
+          style={viewA4InvoiceOpen ? {paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)'} : {}}>
           
           {/* CONDITION A: A4 CORPORATE INVOICE MODE */}
           {viewA4InvoiceOpen ? (
-            <div className="fixed inset-0 z-[70] flex flex-col bg-[#404040] font-sans" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
-
-              {/* WYSIWYG Toolbar */}
-              <div className="shrink-0 bg-[#2c2c2c] border-b border-[#1a1a1a] px-3 py-2 flex items-center justify-between gap-2 print:hidden select-none" style={{paddingTop: 'env(safe-area-inset-top)'}}>
+            <>
+              {/* WYSIWYG Toolbar — shrink-0 */}
+              <div className="shrink-0 bg-[#2c2c2c] border-b border-[#1a1a1a] px-3 py-2 flex items-center justify-between gap-2 print:hidden select-none">
                 <div className="flex items-center gap-2 min-w-0">
                   <button
                     onClick={() => { setSelectedSale(null); setViewA4InvoiceOpen(false); setDocZoom(1.0); }}
@@ -3111,7 +3111,7 @@ export default function DashboardSalesList({
               </div>
                 </div>
               </div>
-            </div>
+            </>
           ) : (
             
             /* CONDITION B: NARROW THERMAL POS SLIP RECEIPT MODE (ORIGINAL PRISTINE TICKET) */
@@ -4651,10 +4651,11 @@ export default function DashboardSalesList({
           'Invoice';
 
         return (
-          <div className="fixed inset-0 z-[70] flex flex-col bg-[#404040] font-sans" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
+          <div className="fixed inset-0 z-[200] flex flex-col bg-[#404040] font-sans print:bg-white"
+            style={{paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)'}}>
 
-            {/* ── WYSIWYG TOOLBAR ─────────────────────────────────────────── */}
-            <div className="shrink-0 bg-[#2c2c2c] border-b border-[#1a1a1a] px-3 py-2 flex items-center justify-between gap-2 print:hidden select-none" style={{paddingTop: 'env(safe-area-inset-top)'}}>
+            {/* ── WYSIWYG TOOLBAR ── shrink-0 ───────────────────────────────── */}
+            <div className="shrink-0 bg-[#2c2c2c] border-b border-[#1a1a1a] px-3 py-2 flex items-center justify-between gap-2 print:hidden select-none">
 
               {/* Left: back + doc title */}
               <div className="flex items-center gap-2 min-w-0">
