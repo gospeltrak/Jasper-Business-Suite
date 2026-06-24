@@ -653,23 +653,61 @@ export default function DashboardSalesList({
   };
 
   return (
-    <div className="space-y-6 animate-fade-in" id="sales-list-view-root">
-      
-      {/* HEADER CONTROLS SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm animate-slide-in">
+    <div className="space-y-0 md:space-y-6 animate-fade-in" id="sales-list-view-root">
+
+      {/* ── MOBILE HERO BANNER — replaces old "Sales History" card ────────── */}
+      <div className="md:hidden">
+        {/* Gradient hero strip */}
+        <div className="relative overflow-hidden rounded-3xl mx-0 mb-4"
+          style={{background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #6d28d9 100%)'}}>
+          {/* Decorative blobs */}
+          <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full opacity-20" style={{background: 'rgba(255,255,255,0.3)'}} />
+          <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full opacity-15" style={{background: 'rgba(255,255,255,0.4)'}} />
+
+          <div className="relative px-5 pt-5 pb-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-white/60 text-[11px] font-semibold uppercase tracking-widest mb-1">Sales Overview</p>
+                <p className="text-white font-black text-2xl leading-none">{currency}{Math.round(totalVolume).toLocaleString()}</p>
+                <p className="text-white/60 text-[11px] mt-1">{filteredSales.length} transaction{filteredSales.length !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{background: 'rgba(255,255,255,0.15)'}}>
+                <TrendingUp className="w-6 h-6 text-white" />
+              </div>
+            </div>
+
+            {/* 3 mini KPI pills */}
+            <div className="flex gap-2 mt-4">
+              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
+                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Credit</p>
+                <p className="text-white font-black text-[13px] mt-0.5">{currency}{Math.round(creditsVolume).toLocaleString()}</p>
+              </div>
+              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
+                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Offline</p>
+                <p className="text-white font-black text-[13px] mt-0.5">{pendingSyncCount} bills</p>
+              </div>
+              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
+                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Pending</p>
+                <p className="text-white font-black text-[13px] mt-0.5">{pendingCount} due</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── DESKTOP: keep original header ────────────────────────────────── */}
+      <div className="hidden md:flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
             <FileText className="w-5 h-5 text-emerald-600" />
-            <h2 className="text-xl font-bold tracking-tight text-slate-800">Sales History</h2>
+            <h2 className="text-xl font-bold tracking-tight text-slate-800">Sales</h2>
           </div>
           <p className="text-xs text-slate-450 leading-relaxed font-sans mt-1">
-            {activeTenant.businessType === 'pharmacy' 
-              ? 'Real-time catalog of active pharmaceutical tickets, clinical checkout records, and generated prescription receipts.' 
-              : 'Real-time catalog of active cashier tickets, checkout records, payment statuses, and generated receipt files.'}
+            {activeTenant.businessType === 'pharmacy'
+              ? 'Real-time catalog of active pharmaceutical tickets and checkout records.'
+              : 'Real-time catalog of cashier tickets, payment statuses, and receipts.'}
           </p>
         </div>
-
-        {/* Quick total metric label */}
         <div className="bg-slate-900 text-white rounded-xl px-4 py-2 font-mono text-xs flex items-center space-x-3 shadow-sm select-none">
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">Total Value:</span>
           <span className="font-bold text-emerald-400 text-sm leading-none">{currency}{Math.round(totalVolume).toLocaleString()}</span>
@@ -732,72 +770,42 @@ export default function DashboardSalesList({
         </button>
       </div>
 
-      {/* MOBILE ONLY TAB NAVIGATION */}
-      <div className="md:hidden grid grid-cols-4 gap-1.5 px-3 pb-2 select-none w-full" id="mobile-sales-tabs-grid">
-        {/* 1. Receipts */}
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('sales')}
-          className={`w-full flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-205 border min-h-[58px] ${
-            activeSubTab === 'sales'
-              ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold'
-              : 'bg-slate-105 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-555 dark:text-slate-400'
-          }`}
-        >
-          <FileText className={`w-[18px] h-[18px] mb-1 shrink-0 ${activeSubTab === 'sales' ? 'text-white' : 'text-indigo-500'}`} />
-          <span className="text-[10px] font-semibold text-center leading-tight whitespace-nowrap">Receipts</span>
-        </button>
-
-        {/* 2. Debts */}
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('debts')}
-          className={`w-full flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-205 border min-h-[58px] relative ${
-            activeSubTab === 'debts'
-              ? 'bg-orange-500 border-orange-500 text-white shadow-xs font-bold'
-              : 'bg-slate-105 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-555 dark:text-slate-400'
-          }`}
-        >
-          <Coins className={`w-[18px] h-[18px] mb-1 shrink-0 ${activeSubTab === 'debts' ? 'text-white' : 'text-orange-500'}`} />
-          <span className="text-[10px] font-semibold text-center leading-tight whitespace-nowrap">Debts</span>
-          {sales.filter(s => s.paymentMethod === 'Credit' && (s.total - (s.amountPaid !== undefined ? s.amountPaid : 0)) > 0).length > 0 && (
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 animate-pulse border border-white" />
-          )}
-        </button>
-
-        {/* 3. Settle Till */}
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('settlement')}
-          className={`w-full flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-205 border min-h-[58px] ${
-            activeSubTab === 'settlement'
-              ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold'
-              : 'bg-slate-105 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-555 dark:text-slate-400'
-          }`}
-        >
-          <Building className={`w-[18px] h-[18px] mb-1 shrink-0 ${activeSubTab === 'settlement' ? 'text-white' : 'text-indigo-600'}`} />
-          <span className="text-[10px] font-semibold text-center leading-tight whitespace-nowrap">Settle Till</span>
-        </button>
-
-        {/* 4. Documents */}
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('documents')}
-          className={`w-full flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-205 border min-h-[58px] ${
-            activeSubTab === 'documents'
-              ? 'bg-teal-650 border-teal-650 text-white shadow-xs font-bold'
-              : 'bg-slate-105 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-555 dark:text-slate-400'
-          }`}
-        >
-          <FileText className={`w-[18px] h-[18px] mb-1 shrink-0 ${activeSubTab === 'documents' ? 'text-white' : 'text-teal-600'}`} />
-          <span className="text-[10px] font-semibold text-center leading-tight whitespace-nowrap">Quotes</span>
-        </button>
+      {/* MOBILE ONLY TAB NAVIGATION — beautiful pill tabs */}
+      <div className="md:hidden px-0 pb-2 select-none">
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl gap-1">
+          {[
+            { id: 'sales',      icon: <Receipt className="w-4 h-4" />,  label: 'Receipts',   color: '#4f46e5' },
+            { id: 'debts',      icon: <Coins className="w-4 h-4" />,    label: 'Debts',      color: '#f97316', badge: sales.filter(s => s.paymentMethod === 'Credit' && (s.total - (s.amountPaid !== undefined ? s.amountPaid : 0)) > 0).length },
+            { id: 'settlement', icon: <Building className="w-4 h-4" />, label: 'Settle',     color: '#4f46e5' },
+            { id: 'documents',  icon: <FileText className="w-4 h-4" />, label: 'Quotes',     color: '#0d9488' },
+          ].map(tab => {
+            const active = activeSubTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveSubTab(tab.id as any)}
+                className="flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl relative transition-all"
+                style={{
+                  background: active ? '#ffffff' : 'transparent',
+                  boxShadow: active ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+                }}
+              >
+                <span style={{ color: active ? tab.color : '#94a3b8' }}>{tab.icon}</span>
+                <span className="text-[10px] font-bold mt-1" style={{ color: active ? '#0f172a' : '#94a3b8' }}>{tab.label}</span>
+                {tab.badge && tab.badge > 0 && (
+                  <span className="absolute top-1.5 right-2.5 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {activeSubTab === 'sales' && (
         <>
-          {/* DATE RANGE SELECTOR BAR */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 animate-fade-in">
+          {/* DATE RANGE SELECTOR BAR — desktop only, mobile uses quick buttons below */}
+          <div className="hidden md:flex bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
             <div className="flex items-center space-x-2.5">
               <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
                 <Calendar className="w-5 h-5" />
@@ -957,8 +965,8 @@ export default function DashboardSalesList({
 
       </div>
 
-      {/* KPI METADATA CARDS (MOBILE) */}
-      <div className="md:hidden grid grid-cols-2 gap-3 pb-2 w-full">
+      {/* KPI METADATA CARDS (MOBILE) — hidden, replaced by hero banner above */}
+      <div className="hidden">
         <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100/50 shadow-sm flex items-center space-x-2">
           <div className="p-2 bg-blue-100 text-blue-600 rounded-lg shrink-0">
             <Receipt className="w-4 h-4" />
@@ -1106,75 +1114,87 @@ export default function DashboardSalesList({
             const totalCollectedSoFar = isCredit ? (amountPaid + pastInstallments) : totalVal;
             const amountDueRaw = isCredit ? Math.max(0, totalVal - totalCollectedSoFar) : 0;
 
-            let paymentStatusTag = '';
-            let paymentStatusColor = '';
+            const isPaid = !isCredit;
+            const isSettled = isCredit && amountDueRaw <= 0;
+            const isPartial = isCredit && totalCollectedSoFar > 0 && amountDueRaw > 0;
+            const isUnpaid = isCredit && totalCollectedSoFar <= 0;
 
-            if (!isCredit) {
-              paymentStatusTag = 'PAID IN FULL';
-              paymentStatusColor = 'bg-emerald-50 text-emerald-600 border-emerald-100';
-            } else if (amountDueRaw <= 0) {
-              paymentStatusTag = 'SETTLED';
-              paymentStatusColor = 'bg-indigo-50 text-indigo-700 border-indigo-100';
-            } else if (totalCollectedSoFar > 0) {
-              paymentStatusTag = 'PARTIAL PAYMENT';
-              paymentStatusColor = 'bg-amber-50 text-amber-700 border-amber-100';
-            } else {
-              paymentStatusTag = 'UNPAID / RAW';
-              paymentStatusColor = 'bg-rose-50 text-rose-700 border-rose-100';
-            }
+            const statusLabel = isPaid ? 'Paid' : isSettled ? 'Settled' : isPartial ? 'Partial' : 'Unpaid';
+            const statusDot = isPaid || isSettled ? '#22c55e' : isPartial ? '#f59e0b' : '#ef4444';
 
             return (
-              <div key={sale.id} className="bg-white border text-sm border-slate-100 shadow-sm rounded-xl p-3 pr-9 flex flex-col relative overflow-hidden active:scale-[0.98] transition-all cursor-pointer" onClick={() => setViewingSaleDetail(sale)}>
-                {/* Vertical Three-Dots Menu Icon */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMobileActionsSale(sale);
-                  }}
-                  className="absolute top-2.5 right-2 p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 active:scale-95 transition-all cursor-pointer z-10"
-                  aria-label="Open sales Actions menu"
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </button>
+              <div
+                key={sale.id}
+                className="relative overflow-hidden rounded-2xl active:scale-[0.985] cursor-pointer"
+                style={{ background: '#ffffff', border: '1px solid #f1f5f9', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}
+                onClick={() => setViewingSaleDetail(sale)}
+              >
+                {/* Accent left bar */}
+                <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: statusDot }} />
 
-                {/* Top Row */}
-                <div className="flex items-start justify-between mb-2 truncate pr-2">
-                  <span className="font-bold text-slate-800 tracking-tight truncate pr-2">{sale.customerName || 'Walk-in Customer'}</span>
-                  <span className="font-bold text-slate-900 tracking-tight text-right text-base shrink-0">{currency} {Math.round(sale.total).toLocaleString()}</span>
-                </div>
+                <div className="pl-4 pr-3 py-3.5">
+                  {/* Row 1: customer + amount + menu */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-extrabold text-slate-900 text-[14px] leading-tight truncate">
+                        {sale.customerName || 'Walk-in Customer'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                        #{sale.reference || sale.id.substring(0,6)} · {sale.items.reduce((s,i) => s+i.qty, 0)} items
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <div className="text-right">
+                        <p className="font-black text-[15px] leading-tight" style={{ color: '#0f172a' }}>
+                          {currency}{Math.round(totalVal).toLocaleString()}
+                        </p>
+                        {isCredit && amountDueRaw > 0 && (
+                          <p className="text-[10px] font-bold text-rose-500 leading-tight">
+                            -{currency}{Math.round(amountDueRaw).toLocaleString()} due
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setMobileActionsSale(sale); }}
+                        className="w-8 h-8 flex items-center justify-center rounded-xl active:bg-slate-100"
+                        aria-label="Sale actions"
+                      >
+                        <MoreVertical className="w-4 h-4 text-slate-400" />
+                      </button>
+                    </div>
+                  </div>
 
-                {/* Second Row */}
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] text-slate-400 font-mono truncate mr-2">
-                    #{sale.reference || sale.id.substring(0, 5)} &bull; {sale.items.reduce((sum, item) => sum + item.qty, 0)} Items
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
-                    {sale.paymentMethod || 'Cash'}
-                  </span>
-                </div>
-
-                {/* Third Row */}
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-slate-400">
-                    <span className="mr-1">{new Date(sale.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    <span>{new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  </span>
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border shrink-0 ${paymentStatusColor}`}>
-                    {paymentStatusTag}
-                  </span>
+                  {/* Row 2: date + method + status */}
+                  <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-slate-50">
+                    <p className="text-[10px] text-slate-400 font-mono">
+                      {new Date(sale.timestamp).toLocaleDateString([], {month:'short',day:'numeric',year:'numeric'})}
+                      {' · '}
+                      {new Date(sale.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                        {sale.paymentMethod || 'Cash'}
+                      </span>
+                      <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md"
+                        style={{ color: statusDot, background: `${statusDot}15` }}>
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: statusDot }} />
+                        {statusLabel}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
           })}
           {filteredSales.length === 0 && (
-             <div className="p-12 flex flex-col items-center justify-center text-center text-slate-455 text-sm bg-white rounded-2xl shadow-sm">
-                <div className="w-16 h-16 bg-slate-50 border border-slate-100 mt-4 rounded-full flex items-center justify-center mb-4">
-                  <FileText className="w-8 h-8 text-slate-300" />
-                </div>
-                <h4 className="text-sm font-bold text-slate-700 mb-1">No sales yet</h4>
-                <p className="text-xs text-slate-455 mb-4">No matching sales.</p>
-             </div>
+            <div className="py-16 flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 rounded-3xl flex items-center justify-center mb-4" style={{background: '#f8fafc', border: '1px solid #f1f5f9'}}>
+                <FileText className="w-7 h-7 text-slate-300" />
+              </div>
+              <p className="font-bold text-slate-700 text-sm">No sales yet</p>
+              <p className="text-xs text-slate-400 mt-1">Start selling to see transactions here.</p>
+            </div>
           )}
         </div>
 

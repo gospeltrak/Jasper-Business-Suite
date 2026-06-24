@@ -3,6 +3,33 @@
 @import "tailwindcss";
 @variant dark (&:where(.dark, .dark *));
 
+/* Lock to portrait in PWA / installed mode */
+@media (display-mode: standalone) {
+  html {
+    overflow: hidden;
+  }
+}
+@media screen and (orientation: landscape) and (max-height: 500px) {
+  /* Phone landscape — show a rotate prompt instead of broken layout */
+  #jasper-app-root > * {
+    display: none !important;
+  }
+  #jasper-app-root::before {
+    content: 'Please rotate your device to portrait mode';
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100dvh;
+    width: 100%;
+    font-family: system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #64748b;
+    text-align: center;
+    padding: 24px;
+  }
+}
+
 /* ── NATIVE APP STABILITY ──────────────────────────────────────────────────
    Prevents bounce scroll, prevents bottom nav shake, prevents iPhone swipe
    glitches. Every rule here targets a specific mobile instability symptom.
