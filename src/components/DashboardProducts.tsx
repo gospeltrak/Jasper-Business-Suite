@@ -1490,8 +1490,8 @@ export default function DashboardProducts({
                     <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div>
-                    <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Bulk Template</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Download to fill</p>
+                    <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Bulk Upload</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Download template</p>
                   </div>
                 </button>
 
@@ -1503,8 +1503,8 @@ export default function DashboardProducts({
                       <Upload className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Bulk Upload</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Import spreadsheet</p>
+                      <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Import</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Upload spreadsheet</p>
                     </div>
                   </div>
                 </div>
