@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { Tenant, Product, Sale, SaleItem, SystemSettings } from '../types';
 import {
   calculateWeightedAverageCost,
@@ -701,6 +701,52 @@ export default function DashboardPOS({
     return unitPrice;
   }, [activeTenant.businessType, getBatchAwareChannelPrice]);
 
+  // Pre-compute prices for ALL filtered products once — not per card per render
+  const productPriceMap = useMemo(() => {
+    const map = new Map<string, number>();
+    filteredProducts.forEach(p => map.set(p.id, getBatchAwareChannelPrice(p)));
+    return map;
+  }, [filteredProducts, getBatchAwareChannelPrice]);
+
+  // Pre-compute remaining stock labels once per render
+  const productRemainingMap = useMemo(() => {
+    const map = new Map<string, string>();
+    filteredProducts.forEach(p => {
+      const shopQty = p.shopStockQty ?? 0;
+      map.set(p.id, activeTenant.businessType === 'pharmacy'
+        ? formatPharmacyRemaining(shopQty, p)
+        : formatRetailPackageRemaining(shopQty, p));
+    });
+    return map;
+  }, [filteredProducts, activeTenant.businessType]);
+
+  // Pre-compute ALL cart item display values once — avoids calling getPharmacyDoseConfig etc per render
+  const cartDisplayData = useMemo(() => {
+    return cart.map(item => {
+      const isPharmacy = activeTenant.businessType === 'pharmacy';
+      const dosageType = item.dosageType || 'packet';
+      const doseCfg = getPharmacyDoseConfig(item.product);
+      const tabsSelected = item.tabsSelected || 1;
+      const basePrice = getCartUnitPrice(item);
+      const isCash = item.discountType === 'cash';
+      const discountPrice = isCash
+        ? Math.max(0, basePrice - item.discount)
+        : basePrice * (1 - item.discount / 100);
+      let dosageLabel = 'Packet';
+      if (isPharmacy) {
+        if (dosageType === 'full') dosageLabel = `Full Dose (${doseCfg.tabsPerDose} tabs)`;
+        else if (dosageType === 'half') dosageLabel = `Half Dose (${doseCfg.halfDoseTabs} tabs)`;
+        else if (dosageType === 'tabs') dosageLabel = `${tabsSelected} tabs`;
+      }
+      const projectedRemaining = isPharmacy
+        ? formatPharmacyRemaining((item.product.shopStockQty || 0) - (item.qty * getPharmacyDoseWeight(item.product, dosageType, item.tabsSelected)), item.product)
+        : item.product.isBulkProduct
+          ? formatRetailPackageRemaining((item.product.shopStockQty || 0) - item.qty, item.product)
+          : '';
+      return { item, dosageType, doseCfg, tabsSelected, basePrice, discountPrice, dosageLabel, projectedRemaining, isPharmacy };
+    });
+  }, [cart, activeTenant.businessType, getCartUnitPrice]);
+
   // Pricing calculations — memoized for instant basket updates
   const subtotal = useMemo(() => {
     return cart.reduce((sum, item) => {
@@ -711,7 +757,7 @@ export default function DashboardPOS({
         : unitPrice * (1 - item.discount / 100);
       return sum + (discountedPrice * item.qty);
     }, 0);
-  }, [cart, sellingChannel]);
+  }, [cart, getCartUnitPrice]);
   const orderDiscountAmt = orderDiscountType === 'cash'
     ? Math.max(0, Math.min(subtotal, orderDiscount))
     : subtotal * (Math.max(0, Math.min(100, orderDiscount)) / 100);
@@ -1129,6 +1175,8 @@ export default function DashboardPOS({
               const shopQty = prod.shopStockQty ?? 0;
               const isLow = shopQty <= prod.alertQty;
               const isOut = shopQty <= 0;
+              const displayPrice = productPriceMap.get(prod.id) ?? prod.sellingPrice;
+              const remainingLabel = productRemainingMap.get(prod.id) ?? '';
               return (
                 <div 
                   key={prod.id}
@@ -1140,14 +1188,14 @@ export default function DashboardPOS({
                       playOutOfStockBeep();
                     }
                   }}
-                  className={`bg-white border rounded-xl transition-all select-none relative shadow-xs active:scale-95 group ${
+                  className={`bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${
                     showProductImages
                       ? 'p-0 md:p-5 flex flex-col justify-between overflow-hidden md:overflow-visible md:rounded-3xl'
                       : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'
                   } ${
                     isOut 
                       ? 'border-slate-200 opacity-55 cursor-not-allowed bg-slate-50' 
-                      : 'border-slate-200 hover:border-slate-350 hover:shadow-md cursor-pointer md:hover:-translate-y-0.5'
+                      : 'border-slate-200 hover:border-slate-350 cursor-pointer'
                   }`}
                 >
                   {/* Proportional Product Image Container (cached) */}
@@ -1183,7 +1231,7 @@ export default function DashboardPOS({
                           {prod.category}
                         </span>
                         <span className="text-[9px] font-mono text-slate-450 font-bold bg-slate-100 px-1.5 py-0.5 rounded-xs leading-none">
-                          {activeTenant.businessType === 'pharmacy' ? formatPharmacyRemaining(shopQty, prod) : formatRetailPackageRemaining(shopQty, prod)}
+                          {remainingLabel}
                         </span>
                       </div>
                       <h5 className={`font-extrabold text-xs text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 md:min-h-[2.25rem]' : 'truncate md:text-sm'}`} title={prod.name}>
@@ -1196,7 +1244,7 @@ export default function DashboardPOS({
                     <div className={`${showProductImages ? 'flex items-center justify-between pt-2 border-t border-slate-100 mt-2' : 'contents md:flex md:items-center md:gap-3 md:justify-end'} shrink-0`}>
                       <div className="space-y-0.5">
                         <p className="hidden md:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
-                        <span className="text-sm md:text-[14px] font-black text-emerald-700 md:text-slate-900 leading-none whitespace-nowrap">{currency}{Math.round(getBatchAwareChannelPrice(prod)).toLocaleString()}</span>
+                        <span className="text-sm md:text-[14px] font-black text-emerald-700 md:text-slate-900 leading-none whitespace-nowrap">{currency}{Math.round(displayPrice).toLocaleString()}</span>
                         {prod.batches && prod.batches.some(batch => batch.status === 'active') && (
                           <span className={`${showProductImages ? 'block' : 'hidden md:block'} text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5`}>
                             {getProductCostingMethod(prod).replace('_', ' ')}
@@ -1309,36 +1357,7 @@ export default function DashboardPOS({
               <ShoppingCart className="w-8 h-8 text-slate-300 stroke-[1.25]" />
             </div>
           ) : (
-            cart.map(item => {
-              const isPharmacy = activeTenant.businessType === 'pharmacy';
-              const dosageType = item.dosageType || 'packet';
-              const doseCfg = getPharmacyDoseConfig(item.product);
-              const tabsPerPack = doseCfg.tabsPerPacket;
-              const tabsSelected = item.tabsSelected || 1;
-
-              let basePrice = getCartUnitPrice(item);
-
-              let dosageLabel = 'Packet';
-
-              if (isPharmacy) {
-                if (dosageType === 'full') {
-                  dosageLabel = `Full Dose (${doseCfg.tabsPerDose} tabs)`;
-                } else if (dosageType === 'half') {
-                  dosageLabel = `Half Dose (${doseCfg.halfDoseTabs} tabs)`;
-                } else if (dosageType === 'tabs') {
-                  dosageLabel = `${tabsSelected} tabs`;
-                }
-              }
-              const projectedRemaining = isPharmacy
-                ? formatPharmacyRemaining((item.product.shopStockQty || 0) - (item.qty * getPharmacyDoseWeight(item.product, dosageType, item.tabsSelected)), item.product)
-                : item.product.isBulkProduct
-                  ? formatRetailPackageRemaining((item.product.shopStockQty || 0) - item.qty, item.product)
-                  : '';
-
-              const isCash = item.discountType === 'cash';
-              const discountPrice = isCash
-                ? Math.max(0, basePrice - item.discount)
-                : basePrice * (1 - item.discount / 100);
+            cartDisplayData.map(({ item, dosageType, doseCfg, tabsSelected, basePrice, discountPrice, dosageLabel, projectedRemaining, isPharmacy }) => {
 
               return (
                 <div key={item.product.id} className="p-2.5 bg-slate-50 border border-slate-200/60 rounded-xl space-y-1.5 relative group text-left">
