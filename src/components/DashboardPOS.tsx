@@ -737,12 +737,13 @@ export default function DashboardPOS({
   };
 
   const submitPayment = () => {
-    setPaymentStatus('processing');
     const isCash = paymentMethod.toLowerCase().includes('cash');
     const isBank = paymentMethod.toLowerCase().includes('bank') || paymentMethod.toLowerCase().includes('card') || paymentMethod === 'Multi-Channel';
     if (isCash || isBank) {
+      // Skip processing state entirely — instant checkout
       finalizeSale();
     } else {
+      // Mobile Money — show verify PIN step
       setPaymentStatus('verify');
       const dict = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ2';
       let code = 'MPESA-';
@@ -752,10 +753,7 @@ export default function DashboardPOS({
   };
 
   const verifyMoMoPIN = () => {
-    setPaymentStatus('processing');
-    setTimeout(() => {
-      finalizeSale();
-    }, 1000);
+    finalizeSale();
   };
 
   const finalizeSale = () => {
@@ -945,9 +943,9 @@ export default function DashboardPOS({
   };
 
   return (
-    <div id="pos-view-container" className="relative pb-[160px] md:pb-0 pt-[56px] md:pt-0">
+    <div id="pos-view-container" className="relative">
       
-      {/* SCAN FEEDBACK INDEPENDENT TOAST STACK */}
+      {/* SCAN FEEDBACK TOAST STACK */}
       <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 w-[calc(100%-2rem)] max-w-md pointer-events-none">
         <AnimatePresence>
           {scanToasts.map((toast) => (
@@ -975,19 +973,6 @@ export default function DashboardPOS({
             </div>
           ))}
         </AnimatePresence>
-      </div>
-
-      {/* Top Header (mobile only) */}
-      <div className="md:hidden fixed top-0 left-0 w-full h-[56px] bg-white border-b border-slate-100 flex items-center justify-between px-4 z-50 shadow-sm">
-        <h1 className="text-lg font-bold text-slate-800">POS</h1>
-        <div className="flex items-center space-x-3">
-          <button className="text-slate-500 hover:text-emerald-600 transition-colors" title="History/Receipts">
-            <History className="w-5 h-5" />
-          </button>
-          <button className="text-slate-500 hover:text-emerald-600 transition-colors" title="Settings">
-            <Settings className="w-5 h-5" />
-          </button>
-        </div>
       </div>
 
       <div id="pos-view" className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8">
@@ -1623,7 +1608,7 @@ export default function DashboardPOS({
       </div>
 
       {/* Mobile Sticky Cart Summary */}
-      <div className="md:hidden fixed bottom-[60px] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]">
+      <div className="md:hidden fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]">
         <div className="flex flex-col space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
