@@ -2202,88 +2202,132 @@ export default function DashboardProducts({
                 )}
               </div>
 
-              {/* ── MOBILE BOTTOM SHEET — md:hidden, exact same pattern as Sales ── */}
+
+              {/* ══════════════════════════════════════════════════════
+                  NATIVE PRODUCT ACTION MODAL — mobile only (md:hidden)
+                  Full-screen overlay, z-[200], safe-area aware,
+                  slides up 220ms, background frozen, X close button
+              ══════════════════════════════════════════════════════ */}
               <AnimatePresence>
                 {mobileProductMenu && (
-                  <>
-                    {/* Backdrop — dims screen, no blur */}
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      onClick={() => setMobileProductMenu(null)}
-                      className="md:hidden fixed inset-0 z-[70] bg-slate-900/40"
-                    />
+                  <motion.div
+                    key="product-action-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`Actions for ${mobileProductMenu.name}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="md:hidden fixed inset-0 z-[200] flex flex-col"
+                    style={{
+                      paddingTop: 'env(safe-area-inset-top)',
+                      paddingBottom: 'env(safe-area-inset-bottom)',
+                      background: 'rgba(15,23,42,0.45)',
+                    }}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setMobileProductMenu(null); }}
+                  >
+                    {/* Tap-outside-to-close area (top portion) */}
+                    <div className="flex-1" onClick={() => setMobileProductMenu(null)} />
 
-                    {/* Bottom Sheet */}
+                    {/* Modal panel — slides up from bottom */}
                     <motion.div
                       initial={{ y: '100%' }}
                       animate={{ y: 0 }}
                       exit={{ y: '100%' }}
-                      transition={{ type: 'spring', damping: 25, stiffness: 280 }}
-                      className="md:hidden fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl z-[80] overflow-hidden font-sans flex flex-col text-[#0f172a] border border-slate-100"
-                      style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))', maxHeight: 'calc(85vh - 56px - env(safe-area-inset-bottom))' }}
+                      transition={{ type: 'tween', duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+                      className="bg-white rounded-t-[28px] overflow-hidden flex flex-col"
+                      style={{ maxHeight: '88dvh' }}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {/* Drag handle */}
-                      <div className="w-full flex justify-center py-2 shrink-0">
-                        <div className="w-12 h-1 bg-slate-200 rounded-full" />
+                      {/* ── MODAL HEADER ── */}
+                      <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          {/* Product avatar */}
+                          <div
+                            className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 font-black text-lg overflow-hidden"
+                            style={{
+                              background: (mobileProductMenu.stockQty ?? 0) <= 0 ? '#f1f5f9' : '#f0fdf4',
+                              color: (mobileProductMenu.stockQty ?? 0) <= 0 ? '#94a3b8' : '#16a34a',
+                            }}
+                          >
+                            {mobileProductMenu.image
+                              ? <img src={mobileProductMenu.image} alt="" className="w-full h-full object-cover" />
+                              : mobileProductMenu.name.charAt(0).toUpperCase()
+                            }
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[15px] font-extrabold text-slate-900 leading-tight truncate">{mobileProductMenu.name}</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5 font-mono truncate">
+                              {mobileProductMenu.sku && <span>{mobileProductMenu.sku}</span>}
+                              {mobileProductMenu.category && <span className="ml-1 text-slate-300">· {mobileProductMenu.category}</span>}
+                            </p>
+                          </div>
+                        </div>
+                        {/* X close button */}
+                        <button
+                          type="button"
+                          onClick={() => setMobileProductMenu(null)}
+                          aria-label="Close menu"
+                          className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0 ml-3 active:bg-slate-200"
+                        >
+                          <X className="w-4 h-4 text-slate-600" />
+                        </button>
                       </div>
 
-                      {/* Header */}
-                      <div className="px-5 pb-3 pt-1 text-left shrink-0">
-                        <h3 className="text-base font-extrabold text-slate-800 leading-tight truncate">
-                          {mobileProductMenu.name}
-                        </h3>
-                        <p className="text-xs text-slate-400 mt-1 flex items-center justify-between">
-                          <span>Shop: <strong className="text-slate-700">{formatProductQuantity(mobileProductMenu.shopStockQty ?? 0, mobileProductMenu)}</strong> · Store: <strong className="text-slate-700">{formatProductQuantity(mobileProductMenu.storeStockQty ?? 0, mobileProductMenu)}</strong></span>
-                          <span className="font-extrabold text-emerald-600">{currency}{Math.round(mobileProductMenu.sellingPrice).toLocaleString()}</span>
-                        </p>
+                      {/* Stock + price strip */}
+                      <div className="flex items-center justify-between px-5 py-2.5 mx-4 mb-3 rounded-2xl shrink-0" style={{ background: '#f8fafc' }}>
+                        <div className="flex items-center gap-4 text-xs font-mono">
+                          <span className="text-slate-400">Shop <strong className="text-slate-700 font-black">{formatProductQuantity(mobileProductMenu.shopStockQty ?? 0, mobileProductMenu)}</strong></span>
+                          <span className="text-slate-300">·</span>
+                          <span className="text-slate-400">Store <strong className="text-slate-700 font-black">{formatProductQuantity(mobileProductMenu.storeStockQty ?? 0, mobileProductMenu)}</strong></span>
+                        </div>
+                        <span className="text-[13px] font-black text-emerald-600 font-mono">{currency}{Math.round(mobileProductMenu.sellingPrice).toLocaleString()}</span>
                       </div>
 
-                      <div className="bg-slate-100 h-[1px] w-full" />
-
-                      {/* Action list */}
-                      <div className="overflow-y-auto p-4 space-y-2.5">
+                      {/* ── ACTION ROWS ── */}
+                      <div className="overflow-y-auto px-4 pb-4 space-y-2 shrink-0">
 
                         {/* View Details */}
                         <button
                           type="button"
+                          aria-label="View product details"
                           onClick={() => { setViewingProduct(mobileProductMenu); setMobileProductMenu(null); }}
-                          className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 cursor-pointer text-left"
+                          className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-slate-50 text-left"
+                          style={{ border: '1px solid #f1f5f9' }}
                         >
-                          <div className="flex items-center space-x-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                              <Eye className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <span className="text-sm font-bold text-slate-800 block">View Details</span>
-                              <span className="text-[10px] text-slate-400 block mt-0.5">See full product information</span>
-                            </div>
+                          <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                            <Eye className="w-5 h-5 text-blue-600" />
                           </div>
-                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-bold text-slate-800">View Details</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">See full product information</p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                         </button>
 
                         {/* Edit Item */}
                         <button
                           type="button"
+                          aria-label="Edit product"
                           onClick={() => { handleBeginEdit(mobileProductMenu); setMobileProductMenu(null); }}
-                          className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 cursor-pointer text-left"
+                          className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-slate-50 text-left"
+                          style={{ border: '1px solid #f1f5f9' }}
                         >
-                          <div className="flex items-center space-x-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600 shrink-0">
-                              <Edit className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <span className="text-sm font-bold text-slate-800 block">Edit Item</span>
-                              <span className="text-[10px] text-slate-400 block mt-0.5">Update name, price, settings</span>
-                            </div>
+                          <div className="w-11 h-11 rounded-xl bg-teal-50 flex items-center justify-center shrink-0">
+                            <Edit className="w-5 h-5 text-teal-600" />
                           </div>
-                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-bold text-slate-800">Edit Item</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Update name, price, settings</p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                         </button>
 
                         {/* Replenish Stock */}
                         <button
                           type="button"
+                          aria-label="Replenish stock"
                           onClick={() => {
                             setReplenishProduct(mobileProductMenu);
                             setReplenishCost('');
@@ -2293,44 +2337,43 @@ export default function DashboardProducts({
                             setReplenishCostingMethod(mobileProductMenu.costingMethod || mobileProductMenu.inventorySettings?.costingMethod || 'fifo');
                             setMobileProductMenu(null);
                           }}
-                          className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 cursor-pointer text-left"
+                          className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-slate-50 text-left"
+                          style={{ border: '1px solid #f1f5f9' }}
                         >
-                          <div className="flex items-center space-x-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
-                              <Package className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <span className="text-sm font-bold text-slate-800 block">Replenish Stock</span>
-                              <span className="text-[10px] text-slate-400 block mt-0.5">Add new stock from supplier</span>
-                            </div>
+                          <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                            <Package className="w-5 h-5 text-emerald-600" />
                           </div>
-                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-bold text-slate-800">Replenish Stock</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Add new stock from supplier</p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                         </button>
 
                         {/* Divider */}
-                        <div className="h-px bg-slate-100 mx-1" />
+                        <div className="h-px bg-slate-100 my-1" />
 
-                        {/* Delete Item */}
+                        {/* Delete — danger */}
                         <button
                           type="button"
+                          aria-label="Delete product"
                           onClick={() => { onDeleteProduct(mobileProductMenu.id); setMobileProductMenu(null); }}
-                          className="w-full h-14 min-h-[52px] bg-white hover:bg-red-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-red-100 cursor-pointer text-left"
+                          className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-red-50 text-left"
+                          style={{ border: '1px solid #fff1f2' }}
                         >
-                          <div className="flex items-center space-x-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500 shrink-0">
-                              <Trash2 className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <span className="text-sm font-bold text-red-600 block">Delete Item</span>
-                              <span className="text-[10px] text-slate-400 block mt-0.5">Remove from catalogue permanently</span>
-                            </div>
+                          <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                            <Trash2 className="w-5 h-5 text-red-500" />
                           </div>
-                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-bold text-red-600">Delete Item</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Remove from catalogue permanently</p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-red-200 shrink-0" />
                         </button>
 
                       </div>
                     </motion.div>
-                  </>
+                  </motion.div>
                 )}
               </AnimatePresence>
 
