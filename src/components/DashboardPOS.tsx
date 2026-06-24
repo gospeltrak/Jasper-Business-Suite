@@ -937,11 +937,6 @@ export default function DashboardPOS({
     setOrderDiscountType('percent');
     setCustomerName('');
     setCustomerPhone('');
-    setIsWholesaleBypassed(false);
-    setIsDiscountBypassed(false);
-    setIsVoidBypassed(false);
-    setSupervisorPin('');
-    setSupervisorError(null);
   };
 
   const handleRequestVoid = () => {
@@ -1840,41 +1835,13 @@ export default function DashboardPOS({
 
                 {/* Delivery Payment Mode removed (moved to basket) */}
 
-                {(() => {
-                  const hasPendingWholesale = sellingChannel === 'wholesale' && 
-                    cart.some(item => item.qty < (item.product.minWholesaleQty || 1)) && 
-                    !isWholesaleBypassed;
-                  
-                  const hasPendingDiscount = (cart.some(item => item.discount > 0) || orderDiscount > 0) && 
-                    !isDiscountBypassed;
-
-                  const hasPendingVoid = approvals.some(app => app.type === 'void' && app.status === 'PENDING') && 
-                    !isVoidBypassed;
-
-                  const isBlocked = hasPendingWholesale || hasPendingDiscount || hasPendingVoid;
-
-                  return (
-                    <button
-                      type="button"
-                      disabled={isBlocked}
-                      onClick={submitPayment}
-                      className={`w-full py-4 font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer active:scale-98 shadow-md ${
-                        isBlocked
-                          ? 'bg-slate-200 border border-slate-300 text-slate-400 cursor-not-allowed shadow-none'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/10'
-                      }`}
-                    >
-                      {isBlocked ? (
-                        <span className="flex items-center justify-center space-x-1.5">
-                          <Lock className="w-3.5 h-3.5" />
-                          <span>🔒 Awaiting Manager Pin Authentication...</span>
-                        </span>
-                      ) : (
-                        <span>Confirm Payment</span>
-                      )}
-                    </button>
-                  );
-                })()}
+                <button
+                  type="button"
+                  onClick={submitPayment}
+                  className="w-full py-4 font-bold rounded-2xl text-xs uppercase tracking-wider cursor-pointer active:scale-98 shadow-md bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/10"
+                >
+                  <span>Confirm Payment</span>
+                </button>
               </div>
             )}
 
