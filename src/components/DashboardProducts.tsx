@@ -1055,17 +1055,91 @@ export default function DashboardProducts({
 
   // Trigger print queue
   const handleTriggerPrintLabels = () => {
-    const chosenCount = Object.keys(selectedLabels).filter(k => selectedLabels[k]).length;
-    if (chosenCount === 0) return;
+    const chosenLabels = flattenedLabelsForPreview;
+    if (chosenLabels.length === 0) return;
 
-    setIsPrintingJob(true);
-    setTimeout(() => {
-      setIsPrintingJob(false);
-      setPrintJobSuccess(true);
-      setTimeout(() => {
-        setPrintJobSuccess(false);
-      }, 3000);
-    }, 1500);
+    // Thermal label dimensions: 50mm wide × 30mm per label
+    const LABEL_H_MM = 30;
+    const totalHeightMm = chosenLabels.length * LABEL_H_MM;
+
+    const generateBarcodeHtmlString = (code: string) => {
+      const hash = code.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + 7;
+      let barsHtml = '';
+      for (let i = 0; i < 59; i++) {
+        const isBlack = (i % 2 === 0);
+        const isGuard = i < 3 || (i >= 28 && i <= 30) || i > 55;
+        let width = '2px';
+        if (isGuard) { width = '1.5px'; }
+        else {
+          const w = (hash * (i + 17)) % 10;
+          width = w < 4 ? '1.5px' : w < 7 ? '2.5px' : w < 9 ? '3.8px' : '5px';
+        }
+        barsHtml += `<div style="height:28px;flex-shrink:0;background:${isBlack ? '#000' : 'transparent'};width:${width};"></div>`;
+      }
+      return `<div style="display:flex;justify-content:center;align-items:flex-end;width:100%;overflow:hidden;">${barsHtml}</div>`;
+    };
+
+    const labelsHtml = chosenLabels.map(item => `
+      <div style="width:50mm;height:${LABEL_H_MM}mm;box-sizing:border-box;padding:2mm 3mm;display:flex;flex-direction:column;justify-content:space-between;border-bottom:1px dashed #e2e8f0;background:#fff;page-break-inside:avoid;">
+        ${printLayoutOption !== 'only_barcode' ? `<p style="font-family:monospace;font-size:8px;font-weight:800;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0;">${escapeHtml(item.name)}</p>` : ''}
+        ${printLayoutOption === 'name_price' ? `<p style="font-family:monospace;font-size:8px;font-weight:900;text-align:center;margin:0;">${currency}${item.sellingPrice.toLocaleString()}</p>` : ''}
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          ${generateBarcodeHtmlString(item.barcode || item.sku || item.id)}
+          <p style="font-family:monospace;font-size:7px;font-weight:700;text-align:center;margin:1px 0 0;letter-spacing:0.5px;">${escapeHtml(item.barcode || item.sku || '')}</p>
+        </div>
+      </div>`).join('');
+
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Jasper Thermal Labels</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    @page { size: 50mm ${totalHeightMm}mm; margin: 0; }
+    body { background: #e2e8f0; font-family: monospace; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .toolbar { background: #fff; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 10; }
+    .toolbar h2 { font-size: 14px; font-weight: 800; color: #0f172a; }
+    .toolbar p { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .btn { background: #0f172a; color: #fff; border: none; padding: 8px 16px; border-radius: 7px; font-weight: 700; font-size: 12px; cursor: pointer; }
+    .wrap { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .preview-strip { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 50mm; }
+    @media print {
+      body { background: transparent; }
+      .toolbar { display: none !important; }
+      .wrap { padding: 0; gap: 0; }
+      .preview-strip { border: none; border-radius: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div>
+      <h2>Jasper Thermal Labels</h2>
+      <p>${chosenLabels.length} label${chosenLabels.length !== 1 ? 's' : ''} · 50mm wide · ${totalHeightMm}mm total length</p>
+    </div>
+    <button class="btn" onclick="window.print()">🖨️ Print / Send to Thermal</button>
+  </div>
+  <div class="wrap">
+    <div class="preview-strip">
+      ${labelsHtml}
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `jasper_thermal_labels_${chosenLabels.length}pcs_${new Date().toISOString().split('T')[0]}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+    setPrintJobSuccess(true);
+    setTimeout(() => setPrintJobSuccess(false), 3000);
   };
 
   // Download printable A4 sticker sheet
@@ -1073,10 +1147,14 @@ export default function DashboardProducts({
     const chosenLabels = flattenedLabelsForPreview;
     if (chosenLabels.length === 0) return;
 
-    // Split chosenLabels into groups of 24 (A4 labels limit per sheet)
-    const pages: Product[][] = [];
-    for (let i = 0; i < chosenLabels.length; i += 24) {
-      pages.push(chosenLabels.slice(i, i + 24));
+    // A4 grid: 4 columns × 6 rows = 24 labels per page
+    const COLS = 4;
+    const ROWS = 6;
+    const PER_PAGE = COLS * ROWS;
+
+    const pages: typeof chosenLabels[] = [];
+    for (let i = 0; i < chosenLabels.length; i += PER_PAGE) {
+      pages.push(chosenLabels.slice(i, i + PER_PAGE));
     }
 
     const generateBarcodeHtmlString = (code: string) => {
@@ -1086,246 +1164,156 @@ export default function DashboardProducts({
         const isBlack = (i % 2 === 0);
         const isGuard = i < 3 || (i >= 28 && i <= 30) || i > 55;
         let width = '2px';
-        if (isGuard) {
-          width = '1.5px';
-        } else {
-          const widthSeed = (hash * (i + 17)) % 10;
-          if (widthSeed < 4) {
-            width = '1.5px';
-          } else if (widthSeed < 7) {
-            width = '2.5px';
-          } else if (widthSeed < 9) {
-            width = '3.8px';
-          } else {
-            width = '5px';
-          }
+        if (isGuard) { width = '1.5px'; }
+        else {
+          const w = (hash * (i + 17)) % 10;
+          width = w < 4 ? '1.5px' : w < 7 ? '2.5px' : w < 9 ? '3.8px' : '5px';
         }
-        barsHtml += `<div style="height: 38px; flex-shrink: 0; background-color: ${isBlack ? '#090d16' : 'transparent'}; width: ${width};"></div>`;
+        barsHtml += `<div style="height:34px;flex-shrink:0;background:${isBlack ? '#000' : 'transparent'};width:${width};"></div>`;
       }
-      return `<div style="display: flex; justify-content: center; align-items: flex-end; width: 100%; overflow: hidden; margin-top: 4px;">${barsHtml}</div>`;
+      return `<div style="display:flex;justify-content:center;align-items:flex-end;width:100%;overflow:hidden;">${barsHtml}</div>`;
     };
 
-    let htmlContent = `<!DOCTYPE html>
+    const pagesHtml = pages.map((pageItems, pageIdx) => {
+      const slots = Array.from({ length: PER_PAGE }, (_, i) => pageItems[i] || null);
+      const stickerRows = [];
+      for (let r = 0; r < ROWS; r++) {
+        const rowCells = [];
+        for (let c = 0; c < COLS; c++) {
+          const item = slots[r * COLS + c];
+          if (item) {
+            const onlyBarcode = printLayoutOption === 'only_barcode';
+            const withPrice = printLayoutOption === 'name_price';
+            rowCells.push(`
+              <div class="sticker">
+                ${!onlyBarcode ? `<p class="prod-name">${escapeHtml(item.name)}</p>` : ''}
+                ${!onlyBarcode && withPrice ? `<div class="price-tag"><span class="price-badge">${currency}${item.sellingPrice.toLocaleString()}</span></div>` : ''}
+                <div class="barcode-wrap">
+                  ${generateBarcodeHtmlString(item.barcode || item.sku || item.id)}
+                  <p class="barcode-num">${escapeHtml(item.barcode || item.sku || '')}</p>
+                </div>
+              </div>`);
+          } else {
+            rowCells.push(`<div class="sticker empty"></div>`);
+          }
+        }
+        stickerRows.push(`<div class="row">${rowCells.join('')}</div>`);
+      }
+      return `
+      <div class="a4-page">
+        ${stickerRows.join('')}
+        <div class="footer">
+          <span>Jasper Business Suite</span>
+          <span>Page ${pageIdx + 1} / ${pages.length}</span>
+          <span>${chosenLabels.length} label${chosenLabels.length !== 1 ? 's' : ''}</span>
+        </div>
+      </div>`;
+    }).join('\n');
+
+    const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Jasper - A4 Printable Sticker Sheet</title>
+  <title>Jasper A4 Sticker Sheet</title>
   <style>
-    @page {
-      size: A4;
-      margin: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    @page { size: A4 portrait; margin: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #f1f5f9;
-      margin: 0;
-      padding: 20px 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #e2e8f0;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
-    .controls {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 16px 24px;
-      margin-bottom: 24px;
-      width: 210mm;
-      box-sizing: border-box;
+    .toolbar {
+      background: #fff;
+      padding: 14px 24px;
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+      border-bottom: 1px solid #e2e8f0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
-    .btn-print {
-      background-color: #0f172a;
-      color: #ffffff;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-weight: bold;
-      font-size: 13px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .btn-print:hover {
-      background-color: #1e293b;
-    }
+    .toolbar h2 { font-size: 15px; color: #0f172a; font-weight: 800; }
+    .toolbar p { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .btn { background: #0f172a; color: #fff; border: none; padding: 9px 20px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .btn:hover { background: #1e293b; }
+    .pages-wrap { padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
     .a4-page {
-      background: #ffffff;
+      background: #fff;
       width: 210mm;
       height: 297mm;
-      padding: 15mm 10mm;
-      box-sizing: border-box;
-      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-      margin-bottom: 15mm;
-      page-break-after: always;
+      padding: 12mm 10mm 16mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.12);
       position: relative;
+      page-break-after: always;
+      break-after: page;
     }
-    .grid {
+    .a4-page:last-child { page-break-after: avoid; break-after: avoid; }
+    .row {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      grid-auto-rows: 42mm;
-      grid-gap: 4mm;
-      height: 100%;
+      grid-template-columns: repeat(${COLS}, 1fr);
+      gap: 3mm;
+      flex: 1;
     }
+    /* 6 equal rows in 297mm - 28mm padding = 269mm / 6 = ~44mm each */
     .sticker {
       border: 1px dashed #cbd5e1;
-      border-radius: 8px;
-      padding: 8px;
-      box-sizing: border-box;
+      border-radius: 6px;
+      padding: 5px 6px 4px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      position: relative;
-      background: #ffffff;
-    }
-    .placeholder-sticker {
-      border: 1px dashed #e2e8f0;
-      border-radius: 8px;
-      display: flex;
       align-items: center;
-      justify-content: center;
-      color: #94a3b8;
-      font-size: 11px;
-      font-style: italic;
-      background: #fafafa;
-    }
-    .prod-name {
-      font-weight: 800;
-      font-size: 11px;
-      text-align: center;
-      color: #0f172a;
-      white-space: nowrap;
+      background: #fff;
       overflow: hidden;
-      text-overflow: ellipsis;
-      margin: 0;
+      height: 41mm;
     }
-    .price-tag {
-      text-align: center;
-      margin-top: 3px;
-    }
-    .price-badge {
-      background-color: #f1f5f9;
-      color: #0f172a;
-      font-weight: 900;
-      font-size: 10px;
-      padding: 2px 8px;
-      border-radius: 4px;
-      display: inline-block;
-    }
-    .barcode-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-end;
-    }
-    .barcode-num {
-      font-family: monospace;
-      font-size: 9px;
-      font-weight: bold;
-      color: #475569;
-      margin: 2px 0 0 0;
-      letter-spacing: 0.5px;
-    }
-    .footer-stamp {
-      position: absolute;
-      bottom: 5mm;
-      left: 10mm;
-      right: 10mm;
-      display: flex;
-      justify-content: space-between;
-      font-size: 8px;
-      color: #94a3b8;
-      border-top: 1px solid #f1f5f9;
-      padding-top: 4px;
-    }
+    .sticker.empty { border-color: #f1f5f9; background: #fafafa; }
+    .prod-name { font-size: 9.5px; font-weight: 800; color: #0f172a; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+    .price-tag { text-align: center; }
+    .price-badge { background: #f1f5f9; color: #0f172a; font-weight: 900; font-size: 9px; padding: 1px 7px; border-radius: 3px; display: inline-block; }
+    .barcode-wrap { display: flex; flex-direction: column; align-items: center; width: 100%; }
+    .barcode-num { font-family: monospace; font-size: 8px; font-weight: 700; color: #475569; margin-top: 2px; letter-spacing: 0.5px; }
+    .footer { position: absolute; bottom: 6mm; left: 10mm; right: 10mm; display: flex; justify-content: space-between; font-size: 7.5px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 3px; }
     @media print {
-      body {
-        background: transparent;
-        padding: 0;
-        margin: 0;
-      }
-      .controls {
-        display: none !important;
-      }
-      .a4-page {
-        box-shadow: none !important;
-        margin-bottom: 0 !important;
-        page-break-after: always;
-      }
-      .sticker {
-        border-color: #e2e8f0;
-      }
+      body { background: transparent; }
+      .toolbar { display: none !important; }
+      .pages-wrap { padding: 0; gap: 0; }
+      .a4-page { box-shadow: none; margin: 0; }
     }
   </style>
 </head>
 <body>
-
-  <div class="controls">
+  <div class="toolbar">
     <div>
-      <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #0f172a;">Jasper A4 Printable Stickers</h3>
-      <p style="margin: 0; font-size: 11px; color: #64748b;">Ready to print sheet containing ${chosenLabels.length} labels in standard 24 labels format (4x6 grid)</p>
+      <h2>Jasper A4 Printable Sticker Sheet</h2>
+      <p>${chosenLabels.length} labels · ${pages.length} page${pages.length !== 1 ? 's' : ''} · 4×6 grid (24 per page)</p>
     </div>
-    <button class="btn-print" onclick="window.print()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-      Print Stickers Sheet
+    <button class="btn" onclick="window.print()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Print / Save as PDF
     </button>
   </div>
+  <div class="pages-wrap">
+    ${pagesHtml}
+  </div>
+</body>
+</html>`;
 
-`;
-
-    pages.forEach((pageItems, pageIdx) => {
-      htmlContent += `  <div class="a4-page">\n    <div class="grid">\n`;
-      
-      for (let slot = 0; slot < 24; slot++) {
-        const item = pageItems[slot];
-        if (item) {
-          const onlyBarcode = printLayoutOption === 'only_barcode';
-          const withPrice = printLayoutOption === 'name_price';
-          
-          htmlContent += `      <div class="sticker">\n`;
-          if (!onlyBarcode) {
-            htmlContent += `        <p class="prod-name">${escapeHtml(item.name)}</p>\n`;
-            if (withPrice) {
-              htmlContent += `        <div class="price-tag"><span class="price-badge">${currency}${item.sellingPrice.toLocaleString()}</span></div>\n`;
-            }
-          }
-          
-          htmlContent += `        <div class="barcode-container">\n`;
-          htmlContent += `          ${generateBarcodeHtmlString(item.barcode)}\n`;
-          htmlContent += `          <p class="barcode-num">${item.barcode}</p>\n`;
-          htmlContent += `        </div>\n`;
-          htmlContent += `      </div>\n`;
-        } else {
-          htmlContent += `      <div class="sticker placeholder-sticker">\n        Empty Slot\n      </div>\n`;
-        }
-      }
-      
-      htmlContent += `    </div>\n`;
-      htmlContent += `    <div class="footer-stamp">\n`;
-      htmlContent += `      <span>Jasper Business Suite &copy; 2026</span>\n`;
-      htmlContent += `      <span>Page ${pageIdx + 1} of ${pages.length}</span>\n`;
-      htmlContent += `      <span>Standard A4 Sticker Sheet (4x6 Grid)</span>\n`;
-      htmlContent += `    </div>\n`;
-      htmlContent += `  </div>\n`;
-    });
-
-    htmlContent += `</body>\n</html>`;
-
-    // Trigger local download
     const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `jasper_a4_stickers_sheet_${new Date().toISOString().split('T')[0]}.html`);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `jasper_a4_stickers_${new Date().toISOString().split('T')[0]}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
   // Quick HTML escape helper
@@ -1394,51 +1382,73 @@ export default function DashboardProducts({
   };
 
   return (
-    <div id="products-view" className="space-y-6">
+    <div id="products-view" className="space-y-4 md:space-y-6">
       
-      {/* Top Navigation Tabs */}
-      <div className="flex border-b border-slate-200 overflow-x-auto">
-        <button
-          onClick={() => handleTabSwitch('catalog')}
-          className={`py-3.5 px-6 font-mono text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${
-            viewTab === 'catalog'
-              ? 'border-emerald-500 text-slate-800'
-              : 'border-transparent text-slate-400 hover:text-slate-700'
-          }`}
-        >
-          📋 Products List
-        </button>
-        <button
-          onClick={() => handleTabSwitch('category')}
-          className={`py-3.5 px-6 font-mono text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${
-            viewTab === 'category'
-              ? 'border-emerald-500 text-slate-800'
-              : 'border-transparent text-slate-400 hover:text-slate-700'
-          }`}
-        >
-          📁 Product Category
-        </button>
-        <button
-          onClick={() => handleTabSwitch('brand')}
-          className={`py-3.5 px-6 font-mono text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${
-            viewTab === 'brand'
-              ? 'border-emerald-500 text-slate-800'
-              : 'border-transparent text-slate-400 hover:text-slate-700'
-          }`}
-        >
-          🏷️ Product Brand
-        </button>
-        <button
-          onClick={() => handleTabSwitch('labels')}
-          className={`py-3.5 px-6 font-mono text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 flex items-center space-x-2 ${
-            viewTab === 'labels'
-              ? 'border-emerald-500 text-slate-800'
-              : 'border-transparent text-slate-400 hover:text-slate-700'
-          }`}
-        >
-          <Printer className="w-3.5 h-3.5" />
-          <span>🏷️ Barcode & label station</span>
-        </button>
+      {/* ── NATIVE APP TAB NAVIGATION ────────────────────────────────────
+          Mobile: 2×2 icon grid — all 4 visible, no scroll
+          Desktop: horizontal pill tabs — clean and fast
+      ──────────────────────────────────────────────────────────────── */}
+
+      {/* MOBILE: 2×2 grid */}
+      <div className="md:hidden grid grid-cols-2 gap-3 px-0">
+        {[
+          { id: 'catalog',  icon: '📦', label: 'Product List',     sub: 'Stock catalogue' },
+          { id: 'category', icon: '📁', label: 'Categories',        sub: 'Browse by type' },
+          { id: 'brand',    icon: '🏷️', label: 'Brands',            sub: 'Browse by brand' },
+          { id: 'labels',   icon: '🖨️', label: 'Barcode & Labels',  sub: 'Print station' },
+        ].map(tab => {
+          const active = viewTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => handleTabSwitch(tab.id as any)}
+              className="relative flex flex-col items-center justify-center py-4 px-3 rounded-2xl text-center transition-all active:scale-95"
+              style={{
+                background: active ? '#0f172a' : '#ffffff',
+                border: active ? '2px solid #0f172a' : '2px solid #f1f5f9',
+                boxShadow: active ? '0 4px 16px rgba(15,23,42,0.18)' : '0 1px 4px rgba(0,0,0,0.06)',
+              }}
+            >
+              {active && (
+                <div className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-emerald-400" />
+              )}
+              <span className="text-2xl mb-1.5 leading-none">{tab.icon}</span>
+              <span className="text-[12px] font-extrabold leading-tight" style={{ color: active ? '#ffffff' : '#1e293b' }}>
+                {tab.label}
+              </span>
+              <span className="text-[10px] mt-0.5 font-medium" style={{ color: active ? 'rgba(255,255,255,0.6)' : '#94a3b8' }}>
+                {tab.sub}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* DESKTOP: horizontal pill tabs */}
+      <div className="hidden md:flex bg-white border border-slate-200 rounded-2xl p-1.5 gap-1 shadow-xs">
+        {[
+          { id: 'catalog',  icon: '📦', label: 'Product List' },
+          { id: 'category', icon: '📁', label: 'Product Category' },
+          { id: 'brand',    icon: '🏷️', label: 'Product Brand' },
+          { id: 'labels',   icon: '🖨️', label: 'Barcode & Labels' },
+        ].map(tab => {
+          const active = viewTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => handleTabSwitch(tab.id as any)}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all"
+              style={{
+                background: active ? '#0f172a' : 'transparent',
+                color: active ? '#ffffff' : '#64748b',
+              }}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.label}</span>
+              {active && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 ml-0.5" />}
+            </button>
+          );
+        })}
       </div>
 
       {/* VIEW A: STORE ITEM CATALOG TAB */}
