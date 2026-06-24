@@ -2239,7 +2239,7 @@ export default function DashboardProducts({
                         <button
                           type="button"
                           onClick={() => { setViewingProduct(mobileProductMenu); setMobileProductMenu(null); }}
-                          className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-sm cursor-pointer text-left"
+                          className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 cursor-pointer text-left"
                         >
                           <div className="flex items-center space-x-3.5">
                             <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
@@ -2257,7 +2257,7 @@ export default function DashboardProducts({
                         <button
                           type="button"
                           onClick={() => { handleBeginEdit(mobileProductMenu); setMobileProductMenu(null); }}
-                          className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-sm cursor-pointer text-left"
+                          className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 cursor-pointer text-left"
                         >
                           <div className="flex items-center space-x-3.5">
                             <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600 shrink-0">
@@ -2283,7 +2283,7 @@ export default function DashboardProducts({
                             setReplenishCostingMethod(mobileProductMenu.costingMethod || mobileProductMenu.inventorySettings?.costingMethod || 'fifo');
                             setMobileProductMenu(null);
                           }}
-                          className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-sm cursor-pointer text-left"
+                          className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 cursor-pointer text-left"
                         >
                           <div className="flex items-center space-x-3.5">
                             <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
@@ -2304,7 +2304,7 @@ export default function DashboardProducts({
                         <button
                           type="button"
                           onClick={() => { onDeleteProduct(mobileProductMenu.id); setMobileProductMenu(null); }}
-                          className="w-full h-14 min-h-[52px] bg-white hover:bg-red-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-red-100 shadow-sm cursor-pointer text-left"
+                          className="w-full h-14 min-h-[52px] bg-white hover:bg-red-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-red-100 cursor-pointer text-left"
                         >
                           <div className="flex items-center space-x-3.5">
                             <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500 shrink-0">
