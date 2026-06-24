@@ -2068,7 +2068,10 @@ export default function DashboardProducts({
               </div>
             </div>
 
-            {/* ── MOBILE STOCK CARDS — sit flush below search bar, no extra bg ── */}
+            {/* Inner content wrapper */}
+            <div className="overflow-x-auto bg-white">
+
+            {/* ── MOBILE STOCK CARDS — sit flush below search bar ── */}
             <div className="md:hidden bg-slate-50 px-3 pt-3 pb-[calc(80px+env(safe-area-inset-bottom))] space-y-3">
               {filteredProducts.map((prod) => {
                   const shopQty = prod.shopStockQty ?? 0;
