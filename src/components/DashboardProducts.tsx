@@ -76,6 +76,8 @@ export default function DashboardProducts({
 
   // Dropdown states — desktop inline dropdown only (mobile menus removed)
   const [desktopMenuId, setDesktopMenuId] = useState<string | null>(null);
+  // Mobile bottom sheet state — mobile only
+  const [mobileProductMenu, setMobileProductMenu] = useState<Product | null>(null);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
@@ -2124,6 +2126,13 @@ export default function DashboardProducts({
                             <p className="font-black text-[13px]" style={{color: '#16a34a'}}>{currency}{Math.round(prod.sellingPrice).toLocaleString()}</p>
                             <p className="text-[9px] text-slate-400 font-mono leading-tight">cost {currency}{Math.round(prod.costPrice).toLocaleString()}</p>
                           </div>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setMobileProductMenu(prod); }}
+                            className="w-8 h-8 rounded-xl flex items-center justify-center active:bg-slate-100"
+                          >
+                            <MoreVertical className="w-4 h-4 text-slate-400" />
+                          </button>
                         </div>
                       </div>
 
@@ -2182,6 +2191,138 @@ export default function DashboardProducts({
                    </div>
                 )}
               </div>
+
+              {/* ── MOBILE BOTTOM SHEET — md:hidden, exact same pattern as Sales ── */}
+              <AnimatePresence>
+                {mobileProductMenu && (
+                  <>
+                    {/* Backdrop — dims screen, no blur */}
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setMobileProductMenu(null)}
+                      className="md:hidden fixed inset-0 z-[70] bg-slate-900/40"
+                    />
+
+                    {/* Bottom Sheet */}
+                    <motion.div
+                      initial={{ y: '100%' }}
+                      animate={{ y: 0 }}
+                      exit={{ y: '100%' }}
+                      transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+                      className="md:hidden fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl shadow-xl z-[80] overflow-hidden font-sans flex flex-col text-[#0f172a] border border-slate-100"
+                      style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))', maxHeight: 'calc(85vh - 56px - env(safe-area-inset-bottom))' }}
+                    >
+                      {/* Drag handle */}
+                      <div className="w-full flex justify-center py-2 shrink-0">
+                        <div className="w-12 h-1 bg-slate-200 rounded-full" />
+                      </div>
+
+                      {/* Header */}
+                      <div className="px-5 pb-3 pt-1 text-left shrink-0">
+                        <h3 className="text-base font-extrabold text-slate-800 leading-tight truncate">
+                          {mobileProductMenu.name}
+                        </h3>
+                        <p className="text-xs text-slate-400 mt-1 flex items-center justify-between">
+                          <span>Shop: <strong className="text-slate-700">{formatProductQuantity(mobileProductMenu.shopStockQty ?? 0, mobileProductMenu)}</strong> · Store: <strong className="text-slate-700">{formatProductQuantity(mobileProductMenu.storeStockQty ?? 0, mobileProductMenu)}</strong></span>
+                          <span className="font-extrabold text-emerald-600">{currency}{Math.round(mobileProductMenu.sellingPrice).toLocaleString()}</span>
+                        </p>
+                      </div>
+
+                      <div className="bg-slate-100 h-[1px] w-full" />
+
+                      {/* Action list */}
+                      <div className="overflow-y-auto p-4 space-y-2.5">
+
+                        {/* View Details */}
+                        <button
+                          type="button"
+                          onClick={() => { setViewingProduct(mobileProductMenu); setMobileProductMenu(null); }}
+                          className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-sm cursor-pointer text-left"
+                        >
+                          <div className="flex items-center space-x-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                              <Eye className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-bold text-slate-800 block">View Details</span>
+                              <span className="text-[10px] text-slate-400 block mt-0.5">See full product information</span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                        </button>
+
+                        {/* Edit Item */}
+                        <button
+                          type="button"
+                          onClick={() => { handleBeginEdit(mobileProductMenu); setMobileProductMenu(null); }}
+                          className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-sm cursor-pointer text-left"
+                        >
+                          <div className="flex items-center space-x-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600 shrink-0">
+                              <Edit className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-bold text-slate-800 block">Edit Item</span>
+                              <span className="text-[10px] text-slate-400 block mt-0.5">Update name, price, settings</span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                        </button>
+
+                        {/* Replenish Stock */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplenishProduct(mobileProductMenu);
+                            setReplenishCost('');
+                            setReplenishQty('');
+                            setReplenishSupplier('');
+                            setReplenishPriceAction('suggested');
+                            setReplenishCostingMethod(mobileProductMenu.costingMethod || mobileProductMenu.inventorySettings?.costingMethod || 'fifo');
+                            setMobileProductMenu(null);
+                          }}
+                          className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-sm cursor-pointer text-left"
+                        >
+                          <div className="flex items-center space-x-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                              <Package className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-bold text-slate-800 block">Replenish Stock</span>
+                              <span className="text-[10px] text-slate-400 block mt-0.5">Add new stock from supplier</span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                        </button>
+
+                        {/* Divider */}
+                        <div className="h-px bg-slate-100 mx-1" />
+
+                        {/* Delete Item */}
+                        <button
+                          type="button"
+                          onClick={() => { onDeleteProduct(mobileProductMenu.id); setMobileProductMenu(null); }}
+                          className="w-full h-14 min-h-[52px] bg-white hover:bg-red-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-red-100 shadow-sm cursor-pointer text-left"
+                        >
+                          <div className="flex items-center space-x-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500 shrink-0">
+                              <Trash2 className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-bold text-red-600 block">Delete Item</span>
+                              <span className="text-[10px] text-slate-400 block mt-0.5">Remove from catalogue permanently</span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                        </button>
+
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
 
               {/* Desktop View: Table — inside the white card */}
               <div className="hidden md:block overflow-x-auto">
