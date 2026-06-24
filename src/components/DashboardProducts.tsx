@@ -1392,7 +1392,7 @@ export default function DashboardProducts({
       {/* MOBILE: 2×2 grid */}
       <div className="md:hidden grid grid-cols-2 gap-3 px-0">
         {[
-          { id: 'catalog',  icon: '📦', label: 'Product List',     sub: 'Stock catalogue' },
+          { id: 'catalog',  icon: '📦', label: 'Product List',     sub: 'View all products' },
           { id: 'category', icon: '📁', label: 'Categories',        sub: 'Browse by type' },
           { id: 'brand',    icon: '🏷️', label: 'Brands',            sub: 'Browse by brand' },
           { id: 'labels',   icon: '🖨️', label: 'Barcode & Labels',  sub: 'Print station' },
@@ -1455,97 +1455,97 @@ export default function DashboardProducts({
       {viewTab === 'catalog' && (
         <div className="space-y-4 md:space-y-6 animate-fade-in">
           
-          {/* ── HEADER CARD ─────────────────────────────────────────────────
-              Mobile:  stacked — title row → action buttons grid → upload row
-              Desktop: 3-column flex — title | buttons | upload
-              No jargon: removed "All Stock Desk", "Branch Code", "CSV Ledger"
-          ──────────────────────────────────────────────────────────────── */}
+          {/* ── HEADER CARD ── */}
           <div className="bg-white border border-slate-100 rounded-3xl shadow-xs overflow-hidden">
 
-            {/* ── MOBILE LAYOUT (hidden on md+) ── */}
+            {/* ── MOBILE: stacked native app style ── */}
             <div className="md:hidden">
-              {/* Top: title + product count */}
-              <div className="px-4 pt-4 pb-3 flex items-center justify-between">
-                <div>
-                  <h4 className="text-[15px] font-extrabold text-slate-900 leading-tight">{activeTenant.name}</h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{activeTenant.city} · {products.length} product{products.length !== 1 ? 's' : ''}</p>
+              {/* Hero strip — store name + count */}
+              <div className="px-5 pt-5 pb-4 flex items-center gap-4"
+                style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)' }}>
+                <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
+                  <span className="text-2xl">📦</span>
                 </div>
-                {/* Add product — primary CTA prominent on mobile */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-extrabold text-[15px] leading-tight truncate">{activeTenant.name}</p>
+                  <p className="text-white/50 text-[11px] mt-0.5">{products.length} product{products.length !== 1 ? 's' : ''} · {activeTenant.city || 'Main Store'}</p>
+                </div>
+                {/* Add product FAB */}
                 <button
                   onClick={() => setIsOpen(!isOpen)}
-                  className="w-11 h-11 rounded-2xl bg-emerald-600 flex items-center justify-center shadow-md shadow-emerald-500/20 active:scale-95 transition-transform"
+                  className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 active:scale-95"
+                  style={{ background: isOpen ? '#ef4444' : '#22c55e' }}
                 >
                   {isOpen ? <X className="w-5 h-5 text-white" /> : <Plus className="w-5 h-5 text-white" />}
                 </button>
               </div>
 
-              {/* Divider */}
-              <div className="h-px bg-slate-50 mx-4" />
-
-              {/* Action row: Download template + Upload spreadsheet */}
-              <div className="flex gap-3 px-4 py-3">
+              {/* Action tiles */}
+              <div className="grid grid-cols-2 gap-3 p-4">
                 <button
                   onClick={downloadCsvTemplate}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-[12px] font-bold text-slate-700 active:bg-slate-100 transition-colors"
+                  className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 active:bg-slate-100 text-left"
                 >
-                  <Download className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Template</span>
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                    <Download className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-bold text-slate-800 leading-tight">Template</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Download</p>
+                  </div>
                 </button>
 
-                <div className="flex-1 relative">
-                  <input
-                    type="file"
-                    accept=".csv"
-                    ref={csvInputRef}
-                    onChange={handleCsvImport}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
-                  />
-                  <button className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-slate-900 text-[12px] font-bold text-white active:bg-slate-800 transition-colors">
-                    <Upload className="w-4 h-4 shrink-0" />
-                    <span>Upload Spreadsheet</span>
-                  </button>
+                <div className="relative">
+                  <input type="file" accept=".csv" ref={csvInputRef} onChange={handleCsvImport}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+                  <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-left">
+                    <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                      <Upload className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-[12px] font-bold text-slate-800 leading-tight">Upload</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Spreadsheet</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* ── DESKTOP / TABLET LAYOUT (hidden on mobile) ── */}
-            <div className="hidden md:flex items-center justify-between gap-6 px-6 py-5">
+            {/* ── DESKTOP / TABLET: horizontal command bar ── */}
+            <div className="hidden md:flex items-center justify-between gap-4 px-6 py-4">
               {/* Left: identity */}
-              <div className="min-w-0">
-                <h4 className="text-sm font-extrabold text-slate-900">{activeTenant.name}</h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">{activeTenant.city} · {products.length} products in catalogue</p>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center shrink-0">
+                  <span className="text-base">📦</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-extrabold text-slate-900 leading-tight truncate">{activeTenant.name}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{products.length} products · {activeTenant.city || 'Main Store'}</p>
+                </div>
               </div>
 
-              {/* Right: actions */}
+              {/* Right: action buttons — clearly separated from identity */}
               <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={downloadCsvTemplate}
-                  className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-colors"
-                >
+                <button onClick={downloadCsvTemplate}
+                  className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-colors">
                   <Download className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Download Template</span>
+                  <span>Template</span>
                 </button>
 
                 <div className="relative h-9">
-                  <input
-                    type="file"
-                    accept=".csv"
-                    ref={csvInputRef}
-                    onChange={handleCsvImport}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
-                  />
-                  <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-bold text-white transition-colors">
-                    <Upload className="w-3.5 h-3.5" />
+                  <input type="file" accept=".csv" ref={csvInputRef} onChange={handleCsvImport}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+                  <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-colors">
+                    <Upload className="w-3.5 h-3.5 text-blue-600" />
                     <span>Upload Spreadsheet</span>
                   </button>
                 </div>
 
-                <button
-                  onClick={() => setIsOpen(!isOpen)}
-                  className="h-9 px-4 flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors shadow-sm shadow-emerald-500/20"
-                >
+                <button onClick={() => setIsOpen(!isOpen)}
+                  className="h-9 px-4 flex items-center gap-1.5 rounded-xl text-white text-xs font-bold transition-colors shadow-sm"
+                  style={{ background: isOpen ? '#ef4444' : '#22c55e' }}>
                   <Plus className="w-3.5 h-3.5" />
-                  <span>{isOpen ? 'Close Form' : 'Add Product'}</span>
+                  <span>{isOpen ? 'Cancel' : 'Add Product'}</span>
                 </button>
               </div>
             </div>
@@ -1579,7 +1579,7 @@ export default function DashboardProducts({
               )}
               <div className="absolute top-0 right-6 -translate-y-1/2 bg-emerald-50 text-emerald-800 border border-emerald-100 px-3 py-1 rounded-full text-[10px] font-bold flex items-center space-x-1">
                 <Sparkles className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-                <span>UNIFORM BRANDS CONTROLS ACTIVE</span>
+                <span>New Product</span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1756,7 +1756,7 @@ export default function DashboardProducts({
                   </div>
                 </div>
 
-                {/* Column 3: Telemetry Ledger Sells & Costs */}
+                {/* Column 3: Pricing & Margins */}
                 <div className="space-y-4">
                   <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">3. Channel Rules & Costs</h5>
                   
@@ -1851,7 +1851,7 @@ export default function DashboardProducts({
 
                   <div className="bg-slate-50 font-mono text-[11px] p-4 rounded-2xl border border-slate-150 space-y-1.5 text-slate-500">
                     <div className="flex justify-between items-center text-xs border-b border-slate-200 pb-1 mb-1 text-slate-700 font-sans font-bold">
-                      <span>Ledger Margin metrics:</span>
+                      <span>Margin:</span>
                       <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
                     </div>
                     <div className="flex justify-between font-mono">
@@ -2099,7 +2099,7 @@ export default function DashboardProducts({
                 {formSuccess ? (
                   <>
                     <Check className="w-4 h-4 text-white animate-pulse" />
-                    <span className="text-white font-bold">SAVING ON BRAND LEDGER...</span>
+                    <span className="text-white font-bold">Saving...</span>
                   </>
                 ) : (
                   <span>Add Product</span>
@@ -2123,8 +2123,8 @@ export default function DashboardProducts({
                 />
               </div>
 
-              <div className="text-[11px] font-mono text-slate-450 font-bold shrink-0">
-                ACTIVE UNIQUE ITEM CODES: <span className="text-slate-800">{filteredProducts.length} items listed</span>
+              <div className="text-[11px] text-slate-400 font-semibold shrink-0">
+                {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}
               </div>
             </div>
 
@@ -2463,7 +2463,7 @@ export default function DashboardProducts({
 
       )}
 
-      {/* VIEW B: BARCODE PRINTING & THERMAL DRIVER STATION */}
+      {/* VIEW B: BARCODE & LABEL PRINTING */}
       {viewTab === 'labels' && (
         <div className="space-y-6 animate-fade-in text-xs font-sans">
           
@@ -2478,7 +2478,7 @@ export default function DashboardProducts({
                   <h4 className="font-black text-sm uppercase tracking-wide">Jasper Print Driver Engine</h4>
                 </div>
                 <p className="text-[11px] text-slate-400 max-w-xl leading-relaxed">
-                  This station connects directly to your Jasper thermal printer. Link your Jasper device via USB, Bluetooth, or local network to print barcodes and labels instantly.
+                  Connect your thermal printer via USB, Bluetooth, or network to print labels.
                 </p>
               </div>
 
@@ -2487,7 +2487,7 @@ export default function DashboardProducts({
                 <div className="flex items-center space-x-2">
                   <span className={`w-2.5 h-2.5 rounded-full ${isPrinterConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
                   <span className="font-mono text-[10px] font-bold text-slate-350">
-                    {isPrinterConnected ? 'CONNECTION STATUS: ACTIVE' : 'NO DEVICE CONNECTED'}
+                    {isPrinterConnected ? 'Connected' : 'Not connected'}
                   </span>
                 </div>
                 <span>|</span>
@@ -2784,7 +2784,7 @@ export default function DashboardProducts({
                     <span>Print via Jasper Thermal Printer</span>
                   </button>
                   <p className="text-[9.5px] text-slate-400 text-center font-mono">
-                    Direct transmit. Fully configured with 50x30mm thermal driver calibration.
+                    Ready to print 50×30mm labels.
                   </p>
                 </div>
               ) : (
@@ -3334,7 +3334,7 @@ export default function DashboardProducts({
             <div className="border-b border-slate-150 pb-3 flex items-center justify-between">
               <div className="space-y-0.5">
                 <h4 className="font-bold text-slate-805 text-sm uppercase font-mono">
-                  {selectedCategoryFilter || 'All Categories'} Catalogue
+                  {selectedCategoryFilter || 'All Categories'}
                 </h4>
                 <p className="text-[11px] text-slate-400">
                   Stock for selected category.
@@ -3668,7 +3668,7 @@ export default function DashboardProducts({
                         <CachedImage src={viewingProduct.image} alt={viewingProduct.name} className="max-h-36 object-contain" referrerPolicy="no-referrer" />
                       ) : (
                         <div className="text-slate-400 font-extrabold text-[9px] p-8 text-center bg-slate-50 w-full rounded">
-                          NO ACTIVE PRODUCT IMAGE
+                          No Image
                         </div>
                       )}
                     </div>
@@ -3820,7 +3820,7 @@ export default function DashboardProducts({
                 onClick={() => setViewingProduct(null)} 
                 className="px-5 py-2 bg-slate-900 hover:bg-slate-850 text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
               >
-                Close View desk
+                Close
               </button>
             </div>
           </div>
