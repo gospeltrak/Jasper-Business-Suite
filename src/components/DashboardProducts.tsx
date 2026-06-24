@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, FormEvent } from 'react';
+import React, { useState, useRef, useMemo, FormEvent, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Tenant, Product, ProductBatch } from '../types';
 import { 
@@ -78,6 +78,16 @@ export default function DashboardProducts({
   const [desktopMenuId, setDesktopMenuId] = useState<string | null>(null);
   // Mobile bottom sheet state — mobile only
   const [mobileProductMenu, setMobileProductMenu] = useState<Product | null>(null);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileProductMenu) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileProductMenu]);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
