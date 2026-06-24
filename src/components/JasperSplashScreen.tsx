@@ -65,7 +65,7 @@ export default function JasperSplashScreen({
           display: 'block',
           userSelect: 'none',
           pointerEvents: 'none',
-          filter: 'brightness(0) invert(1)',
+          filter: 'drop-shadow(0 0 40px rgba(255,255,255,0.15))',
         }}
       />
     </div>
