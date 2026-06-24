@@ -492,7 +492,7 @@ export default function DashboardPurchases({
 
         {/* ── HISTORY TAB ─────────────────────────────────────────────────── */}
         {activeSubTab === 'history' ? (
-          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-xs">
             
             {/* List title banner */}
             <div className="px-6 py-5 border-b border-slate-150 flex items-center justify-between flex-wrap gap-4 bg-slate-50/50">
@@ -713,8 +713,10 @@ export default function DashboardPurchases({
                               </button>
                               {openMenuId === pc.id && (
                                 <>
-                                  <div className="fixed inset-0 z-20" onClick={() => setOpenMenuId(null)} />
-                                  <div className="absolute right-4 top-12 z-30 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden w-44 py-1">
+                                  <div className="fixed inset-0 z-[60]" onClick={() => setOpenMenuId(null)} />
+                                  <div className="absolute right-0 top-full mt-1 z-[70] bg-white border border-slate-200 rounded-2xl shadow-2xl w-44 py-1"
+                                    style={{boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)'}}
+                                  >
                                     <button
                                       onClick={() => { setOpenMenuId(null); setViewPurchase(pc); }}
                                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
