@@ -306,7 +306,7 @@ export default function DashboardPOS({
 
   // Barcode Scanner integrated states
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [autoInsertOnScan, setAutoInsertOnScan] = useState(true);
+  const [autoInsertOnScan] = useState(true); // always on — supermarket style
   const [barcodeToast, setBarcodeToast] = useState<string | null>(null);
 
   interface ScanToast {
@@ -329,24 +329,17 @@ export default function DashboardPOS({
       const isOOS = (matchedProduct.shopStockQty ?? 0) <= 0 || (matchedProduct.stockQty ?? 0) <= 0;
       if (isOOS) {
         playWarningBeep();
-        addScanToast('warning', `📦 Out of stock — ${matchedProduct.name} has no available stock`);
+        addScanToast('warning', `📦 Out of stock — ${matchedProduct.name}`);
       } else {
-        if (autoInsertOnScan) {
-          playBeep(800, 80);
-          addToCart(matchedProduct);
-          addScanToast('success', `Scanned & direct added "${matchedProduct.name}" to till basket!`);
-        } else {
-          playBeep(800, 80);
-          setSearchTerm(scannedCode);
-          addScanToast('success', `Scanned match found: ${matchedProduct.name}`);
-        }
+        playBeep(800, 80);
+        addToCart(matchedProduct);
+        addScanToast('success', `✓ ${matchedProduct.name} added`);
       }
     } else {
       playErrorBeep();
-      addScanToast('error', `⚠️ Product not found — this item is not in the system`);
+      addScanToast('error', `⚠️ Not found — ${scannedCode}`);
     }
-
-    setIsScannerOpen(false);
+    // Keep scanner open for next scan — supermarket multi-scan
   };
   
   // Checkout Modal system
@@ -745,25 +738,17 @@ export default function DashboardPOS({
 
   const submitPayment = () => {
     setPaymentStatus('processing');
-    
-    // Simulate real localized channel validation delay
-    setTimeout(() => {
-      const isCash = paymentMethod.toLowerCase().includes('cash');
-      const isBank = paymentMethod.toLowerCase().includes('bank') || paymentMethod.toLowerCase().includes('card') || paymentMethod === 'Multi-Channel';
-      if (isCash || isBank) {
-        finalizeSale();
-      } else {
-        // Mobile Money triggers PIN/Ref matching prompt!
-        setPaymentStatus('verify');
-        // generate realistic transactional auth codes
-        const dict = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ2';
-        let code = 'MPESA-';
-        for (let i = 0; i < 8; i++) {
-          code += dict.charAt(Math.floor(Math.random() * dict.length));
-        }
-        setReferenceCode(code);
-      }
-    }, 1500);
+    const isCash = paymentMethod.toLowerCase().includes('cash');
+    const isBank = paymentMethod.toLowerCase().includes('bank') || paymentMethod.toLowerCase().includes('card') || paymentMethod === 'Multi-Channel';
+    if (isCash || isBank) {
+      finalizeSale();
+    } else {
+      setPaymentStatus('verify');
+      const dict = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ2';
+      let code = 'MPESA-';
+      for (let i = 0; i < 8; i++) code += dict.charAt(Math.floor(Math.random() * dict.length));
+      setReferenceCode(code);
+    }
   };
 
   const verifyMoMoPIN = () => {
@@ -1043,19 +1028,6 @@ export default function DashboardPOS({
                 </button>
               </div>
 
-              {/* Direct insert checkbox control */}
-              <div className="hidden md:flex items-center space-x-2 px-3 border-t sm:border-t-0 sm:border-l border-slate-250 pt-2 sm:pt-0 shrink-0">
-                <input 
-                  type="checkbox"
-                  id="auto-insert-toggle"
-                  checked={autoInsertOnScan}
-                  onChange={(e) => setAutoInsertOnScan(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded text-emerald-600 border-slate-300 focus:ring-emerald-500 cursor-pointer"
-                />
-                <label htmlFor="auto-insert-toggle" className="text-[10px] font-bold text-slate-500 cursor-pointer uppercase select-none">
-                  Auto-Add on Scan
-                </label>
-              </div>
             </div>
 
           {/* Selling Channel Selector and Warnings */}
@@ -1690,8 +1662,8 @@ export default function DashboardPOS({
 
       {/* CHECKOUT MODAL SYSTEM */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 md:slide-in-from-bottom-0" style={{paddingBottom: 'calc(56px + env(safe-area-inset-bottom))' }}>
-          <div className="relative bg-white border border-slate-205 md:rounded-3xl rounded-t-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col mt-auto md:mt-0 animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0" style={{maxHeight: 'calc(100vh - 56px - env(safe-area-inset-bottom) - env(safe-area-inset-top))' }}>
+        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/70" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
+          <div className="relative bg-white border border-slate-200 md:rounded-3xl rounded-t-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col" style={{maxHeight: 'calc(100dvh - 60px - env(safe-area-inset-bottom) - env(safe-area-inset-top))' }}>
             {/* Mobile Drag Handle */}
             <div className="w-full flex justify-center pt-3 pb-2 md:hidden bg-slate-50">
               <div className="w-12 h-1.5 bg-slate-300/50 rounded-full" />
