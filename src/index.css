@@ -3,6 +3,48 @@
 @import "tailwindcss";
 @variant dark (&:where(.dark, .dark *));
 
+/* ── NATIVE APP STABILITY ──────────────────────────────────────────────────
+   Prevents bounce scroll, prevents bottom nav shake, prevents iPhone swipe
+   glitches. Every rule here targets a specific mobile instability symptom.
+──────────────────────────────────────────────────────────────────────────── */
+html {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  position: fixed;       /* stops iOS elastic bounce on the body */
+  width: 100%;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+#root {
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+/* Scrollable areas must explicitly opt-in */
+.overflow-y-auto, .overflow-y-scroll {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+/* Prevent blue tap highlight on all interactive elements */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+/* Touch targets — all buttons instant, no delay */
+button, a, [role="button"] {
+  touch-action: manipulation;
+}
+
 /* GLOBAL SOLID STATE DARK THEME OVERRIDES */
 .dark {
   color-scheme: dark;

@@ -1941,7 +1941,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </header>
 
           {/* 2b. Top Bar Mobile - Exact 60px height sticky glassmorphic header */}
-          <header className="md:hidden shrink-0 z-50 h-[60px] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 px-4 select-none flex items-center justify-between" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)'}}>
+          <header className="md:hidden shrink-0 z-50 h-[60px] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 px-4 select-none flex items-center justify-between" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)', transform:'translateZ(0)', willChange:'transform'}}>
             {/* Left: business logo or initials avatar on mobile top bar */}
             <div className="flex items-center space-x-3 animate-fade-in">
               <div 
@@ -2067,7 +2067,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </header>
 
           {/* Core workspace content viewports */}
-          <main id="workspace-content" className={`flex-1 overflow-y-auto scrollbar-none ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-4 md:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-6 min-h-0`}>
+          <main id="workspace-content" className={`flex-1 overflow-y-auto scrollbar-none overscroll-none touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-4 md:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-6 min-h-0`}>
             
             {user.role !== 'SuperAdmin' && renderSubscriptionStatusBlock()}
 
@@ -2417,7 +2417,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </main>
 
           {/* Mobile Bottom Navigation Component */}
-          <nav className="md:hidden shrink-0 z-50 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800" style={{height:'calc(56px + env(safe-area-inset-bottom))', paddingBottom:'env(safe-area-inset-bottom)', boxShadow:'0 -1px 0 rgba(0,0,0,0.05)'}}>
+          <nav className="md:hidden shrink-0 z-50 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800" style={{height:'calc(56px + env(safe-area-inset-bottom))', paddingBottom:'env(safe-area-inset-bottom)', boxShadow:'0 -1px 0 rgba(0,0,0,0.05)', transform:'translateZ(0)', willChange:'transform', isolation:'isolate'}}>
             <div className="flex items-stretch h-14">
               {([
                 { id: 'overview', label: 'Home', icon: LayoutDashboard },
