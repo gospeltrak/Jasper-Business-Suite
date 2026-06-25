@@ -415,15 +415,9 @@ export default function DashboardExpenses({
       {/* 1. SECTION HEADER */}
       <div className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/80 p-5 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 select-none">
         <div>
-          <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full uppercase">
-            Account debits & vouchers
-          </span>
-          <h2 className="text-xl font-black text-slate-900 dark:text-white mt-1">
+          <h2 className="text-xl font-black text-slate-900 dark:text-white">
             Operating Expenses Ledger
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Log, categorize, track, and audit branch outgoing operational cashflow with dynamic receipt scanning.
-          </p>
         </div>
 
         {/* Date Selector Filter */}
