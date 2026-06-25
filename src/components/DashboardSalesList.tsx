@@ -696,81 +696,100 @@ export default function DashboardSalesList({
         </div>
       </div>
 
-      {/* ── DESKTOP: keep original header ────────────────────────────────── */}
-      <div className="hidden md:flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="space-y-1">
-          <div className="flex items-center space-x-2">
-            <FileText className="w-5 h-5 text-emerald-600" />
-            <h2 className="text-xl font-bold tracking-tight text-slate-800">Sales</h2>
+      {/* ── DESKTOP HEADER — beautiful command centre ── */}
+      <div className="hidden md:block space-y-5">
+
+        {/* Top bar: title + total */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Sales</h1>
+            <p className="text-sm text-slate-400 mt-0.5">
+              {filteredSales.length} transaction{filteredSales.length !== 1 ? 's' : ''} · {activeTenant.businessType === 'pharmacy' ? 'Pharmacy Receipts' : 'All Channels'}
+            </p>
           </div>
-          <p className="text-xs text-slate-450 leading-relaxed font-sans mt-1">
-            {activeTenant.businessType === 'pharmacy'
-              ? 'Real-time catalog of active pharmaceutical tickets and checkout records.'
-              : 'Real-time catalog of cashier tickets, payment statuses, and receipts.'}
-          </p>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Revenue</p>
+              <p className="text-2xl font-black text-slate-900 font-mono">{currency}{Math.round(totalVolume).toLocaleString()}</p>
+            </div>
+          </div>
         </div>
-        <div className="bg-slate-900 text-white rounded-xl px-4 py-2 font-mono text-xs flex items-center space-x-3 shadow-sm select-none">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">Total Value:</span>
-          <span className="font-bold text-emerald-400 text-sm leading-none">{currency}{Math.round(totalVolume).toLocaleString()}</span>
+
+        {/* KPI cards row */}
+        <div className="grid grid-cols-4 gap-4">
+          {[
+            {
+              label: 'Total Sales',
+              value: `${currency}${Math.round(totalVolume).toLocaleString()}`,
+              sub: `${filteredSales.length} transactions`,
+              icon: <TrendingUp className="w-5 h-5" />,
+              color: '#059669', bg: '#f0fdf4', iconBg: '#dcfce7',
+            },
+            {
+              label: 'Credit Outstanding',
+              value: `${currency}${Math.round(creditsVolume).toLocaleString()}`,
+              sub: `${sales.filter(s => s.paymentMethod === 'Credit').length} credit sales`,
+              icon: <CreditCard className="w-5 h-5" />,
+              color: '#d97706', bg: '#fffbeb', iconBg: '#fef3c7',
+            },
+            {
+              label: 'Pending Sync',
+              value: `${pendingSyncCount}`,
+              sub: 'offline bills',
+              icon: <Clock className="w-5 h-5" />,
+              color: '#7c3aed', bg: '#f5f3ff', iconBg: '#ede9fe',
+            },
+            {
+              label: 'Amount Due',
+              value: `${pendingCount}`,
+              sub: 'outstanding bills',
+              icon: <AlertCircle className="w-5 h-5" />,
+              color: '#dc2626', bg: '#fff5f5', iconBg: '#fee2e2',
+            },
+          ].map((kpi, i) => (
+            <div key={i} className="rounded-2xl p-4 flex items-center gap-4"
+              style={{background: '#ffffff', border: '1px solid #f1f5f9', boxShadow: '0 1px 8px rgba(0,0,0,0.05)'}}>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{background: kpi.iconBg, color: kpi.color}}>
+                {kpi.icon}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{kpi.label}</p>
+                <p className="text-[18px] font-black leading-tight truncate" style={{color: '#0f172a'}}>{kpi.value}</p>
+                <p className="text-[10px] text-slate-400 truncate">{kpi.sub}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Dynamic Sub-Tab Selector for general payments, documents, and cashier drawer loggers */}
-      {/* DESKTOP ONLY TAB NAVIGATION */}
-      <div className="hidden md:flex bg-slate-100 p-1 rounded-2xl border border-slate-205 overflow-x-auto scrollbar-none shadow-xs select-none">
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('sales')}
-          className={`px-4 py-2.5 rounded-xl border-none cursor-pointer font-sans text-xs font-bold transition-all duration-200 flex items-center justify-center space-x-2 shrink-0 ${
-            activeSubTab === 'sales'
-              ? 'bg-white text-slate-900 shadow-sm font-black'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <FileText className="w-4 h-4 text-indigo-500 font-sans" />
-          <span>Sales & Receipts</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('debts')}
-          className={`px-4 py-2.5 rounded-xl border-none cursor-pointer font-sans text-xs font-bold transition-all duration-200 flex items-center justify-center space-x-2 shrink-0 ${
-            activeSubTab === 'debts'
-              ? 'bg-white text-slate-900 shadow-sm font-black'
-              : 'text-slate-450 hover:text-slate-850'
-          }`}
-        >
-          <Coins className="w-4 h-4 text-orange-500" />
-          <span>Customer Debts (Pay-In)</span>
-          {sales.filter(s => s.paymentMethod === 'Credit' && (s.total - (s.amountPaid !== undefined ? s.amountPaid : 0)) > 0).length > 0 && (
-            <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0" />
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('settlement')}
-          className={`px-4 py-2.5 rounded-xl border-none cursor-pointer font-sans text-xs font-bold transition-all duration-200 flex items-center justify-center space-x-2 shrink-0 ${
-            activeSubTab === 'settlement'
-              ? 'bg-white text-slate-900 shadow-sm font-black'
-              : 'text-slate-450 hover:text-slate-850'
-          }`}
-        >
-          <Building className="w-4 h-4 text-indigo-650" />
-          <span>Settle Till</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('documents')}
-          className={`px-4 py-2.5 rounded-xl border-none cursor-pointer font-sans text-xs font-bold transition-all duration-200 flex items-center justify-center space-x-2 shrink-0 ${
-            activeSubTab === 'documents'
-              ? 'bg-white text-teal-950 shadow-sm font-black'
-              : 'text-slate-555 hover:text-slate-800'
-          }`}
-        >
-          <FileText className="w-4 h-4 text-teal-600 font-sans" />
-          <span>Quotes & Quotes</span>
-        </button>
+      {/* DESKTOP TAB NAVIGATION */}
+      <div className="hidden md:flex items-center justify-between gap-4">
+        <div className="flex bg-white border border-slate-200 p-1 rounded-2xl gap-1 shadow-xs">
+          {[
+            { id: 'sales',      icon: <Receipt className="w-4 h-4" />,    label: 'Receipts',        color: '#4f46e5' },
+            { id: 'debts',      icon: <Coins className="w-4 h-4" />,      label: 'Credit & Debts',  color: '#d97706', badge: sales.filter(s => s.paymentMethod === 'Credit' && (s.total - (s.amountPaid !== undefined ? s.amountPaid : 0)) > 0).length },
+            { id: 'settlement', icon: <Building className="w-4 h-4" />,   label: 'Till Settlement', color: '#7c3aed' },
+            { id: 'documents',  icon: <FileText className="w-4 h-4" />,   label: 'Quotes & Invoices', color: '#0d9488' },
+          ].map(tab => {
+            const active = activeSubTab === tab.id;
+            return (
+              <button key={tab.id} type="button" onClick={() => setActiveSubTab(tab.id as any)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold relative"
+                style={{
+                  background: active ? tab.color : 'transparent',
+                  color: active ? '#ffffff' : '#64748b',
+                  boxShadow: active ? `0 2px 8px ${tab.color}30` : 'none',
+                }}>
+                {tab.icon}
+                <span>{tab.label}</span>
+                {tab.badge && tab.badge > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">{tab.badge > 9 ? '9+' : tab.badge}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
-
       {/* MOBILE ONLY TAB NAVIGATION — visible pill tabs */}
       <div className="md:hidden pb-3 select-none">
         <div className="flex bg-slate-200/70 dark:bg-slate-800 p-1 rounded-2xl gap-1">
@@ -1232,336 +1251,209 @@ export default function DashboardSalesList({
           )}
         </div>
 
-        {/* Desktop View: Table */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-mono font-black text-slate-500 uppercase tracking-widest">
-                <th className="p-4">Reference</th>
-                <th className="p-4">Time</th>
-                <th className="p-4">Customer Client Details</th>
-                <th className="p-4">Item Quantities Checked</th>
-                <th className="p-4 text-center">Payment Mode</th>
-                <th className="p-4 text-center">Status</th>
-                <th className="p-4 text-right">Total Amount</th>
-                <th className="p-4 text-right">Amount Paid</th>
-                <th className="p-4 text-right text-rose-750">Amount Due</th>
-                <th className="p-4 text-center">Payment Status</th>
-                <th className="p-4 text-right">Taxes Charged</th>
-                <th className="p-4 text-right font-black text-slate-900">Grand Total Amount</th>
-                <th className="p-4 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-sans text-xs">
-              {filteredSales.map((sale) => {
-                const totalVal = sale.total;
-                const isCredit = sale.paymentMethod === 'Credit';
-                
-                // Get pre-saved amounts or fallback defaults
-                const initialPaid = sale.amountPaid !== undefined ? sale.amountPaid : (isCredit ? 0 : totalVal);
-                
-                // Incorporate installments recorded in memory
-                const installments = installmentRecords[sale.id] || [];
-                const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
-                
-                const calculatedPaid = Math.min(totalVal, initialPaid + extraPaid);
-                const calculatedDue = Math.max(0, totalVal - calculatedPaid);
+        {/* Desktop View: Redesigned Table */}
+        <div className="hidden md:block">
+          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden" style={{boxShadow: '0 1px 8px rgba(0,0,0,0.06)'}}>
+            {/* Table toolbar */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{filteredSales.length} Records</p>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-1.5">
+                  <Search className="w-3.5 h-3.5 text-slate-400" />
+                  <input type="text" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                    className="bg-transparent text-xs text-slate-700 placeholder-slate-400 outline-none w-36" />
+                </div>
+                <select value={selectedPaymentMethod} onChange={e => setSelectedPaymentMethod(e.target.value)}
+                  className="bg-white border border-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold outline-none cursor-pointer">
+                  <option value="All">All Methods</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Card">Card</option>
+                  <option value="Mobile Money">Mobile Money</option>
+                  <option value="Credit">Credit</option>
+                </select>
+              </div>
+            </div>
 
-                let paymentStatus: 'Paid' | 'Not Paid' | 'Partially Paid' = 'Paid';
-                if (calculatedPaid <= 0.05) {
-                  paymentStatus = 'Not Paid';
-                } else if (calculatedDue <= 0.05) {
-                  paymentStatus = 'Paid';
-                } else {
-                  paymentStatus = 'Partially Paid';
-                }
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Reference</th>
+                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Date & Time</th>
+                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Customer</th>
+                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Items</th>
+                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Method</th>
+                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Total</th>
+                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Paid</th>
+                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Due</th>
+                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Status</th>
+                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSales.map((sale, idx) => {
+                  const totalVal = sale.total;
+                  const isCredit = sale.paymentMethod === 'Credit';
+                  const initialPaid = sale.amountPaid !== undefined ? sale.amountPaid : (isCredit ? 0 : totalVal);
+                  const installments = installmentRecords[sale.id] || [];
+                  const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
+                  const calculatedPaid = Math.min(totalVal, initialPaid + extraPaid);
+                  const calculatedDue = Math.max(0, totalVal - calculatedPaid);
+                  let paymentStatus: 'Paid' | 'Not Paid' | 'Partially Paid' = 'Paid';
+                  if (calculatedPaid <= 0.05) paymentStatus = 'Not Paid';
+                  else if (calculatedDue <= 0.05) paymentStatus = 'Paid';
+                  else paymentStatus = 'Partially Paid';
+                  const statusColor = paymentStatus === 'Paid' ? {bg:'#f0fdf4',text:'#059669'} : paymentStatus === 'Not Paid' ? {bg:'#fff5f5',text:'#dc2626'} : {bg:'#fffbeb',text:'#d97706'};
 
-                return (
-                  <tr key={sale.id} className="hover:bg-slate-50/55 transition-all text-slate-700">
-                    
-                    {/* Receipt code reference */}
-                    <td className="p-4 font-mono font-bold text-slate-850">
-                      <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-150 text-[11px] font-bold">
-                        {getSaleReference(sale)}
-                      </span>
-                    </td>
+                  return (
+                    <tr key={sale.id}
+                      className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors cursor-pointer group"
+                      onClick={() => setViewingSaleDetail(sale)}
+                    >
+                      {/* Reference */}
+                      <td className="py-3.5 px-4" onClick={e => e.stopPropagation()}>
+                        <span className="font-mono font-bold text-[11px] text-slate-700 bg-slate-100 px-2 py-0.5 rounded-lg">{getSaleReference(sale)}</span>
+                      </td>
 
-                    {/* Date and time stamp */}
-                    <td className="p-4 whitespace-nowrap text-slate-650 font-mono text-[11px]">
-                      {formatShortDateTime(sale.timestamp)}
-                    </td>
+                      {/* Date */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <p className="font-mono text-[11px] text-slate-600">{formatShortDateTime(sale.timestamp).split(' ')[0]}</p>
+                        <p className="font-mono text-[10px] text-slate-400">{formatShortDateTime(sale.timestamp).split(' ').slice(1).join(' ')}</p>
+                      </td>
 
-                    {/* Customer Info */}
-                    <td className="p-4">
-                      {sale.customerName ? (
-                        <div className="space-y-0.5">
-                          <p className="font-bold text-slate-800 flex items-center">
-                            <User className="w-3.5 h-3.5 text-slate-400 mr-1 shrink-0" />
-                            <span>{sale.customerName}</span>
-                          </p>
-                          {sale.customerPhone && (
-                            <p className="text-[10px] text-slate-450 font-mono flex items-center">
-                              <Phone className="w-3 h-3 text-slate-400 mr-1 shrink-0" />
-                              <span>{sale.customerPhone}</span>
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 italic">Walk-In Customer</span>
-                      )}
-                    </td>
+                      {/* Customer */}
+                      <td className="py-3.5 px-4">
+                        <p className="font-semibold text-slate-800 text-[12px]">{sale.customerName || <span className="text-slate-400 italic font-normal">Walk-in</span>}</p>
+                        {sale.customerPhone && <p className="text-[10px] text-slate-400 font-mono">{sale.customerPhone}</p>}
+                      </td>
 
-                    {/* Items purchased */}
-                    <td className="p-4 max-w-[220px]">
-                      <span className="font-bold text-slate-750">
-                        {sale.items.reduce((tot, i) => tot + i.qty, 0)} Units check
-                      </span>
-                      <p className="text-[10px] text-slate-450 truncate mt-0.5" title={sale.items.map(it => `${it.productName} (x${it.qty})`).join(', ')}>
-                        {sale.items.map(it => `${it.productName} (x${it.qty})`).join(', ')}
-                      </p>
-                    </td>
+                      {/* Items */}
+                      <td className="py-3.5 px-4 max-w-[160px]">
+                        <p className="font-bold text-slate-700 text-[12px]">{sale.items.reduce((t,i) => t+i.qty, 0)} units</p>
+                        <p className="text-[10px] text-slate-400 truncate">{sale.items.slice(0,2).map(i => i.productName).join(', ')}{sale.items.length > 2 ? ` +${sale.items.length-2}` : ''}</p>
+                      </td>
 
-                    {/* Payment Method badge */}
-                    <td className="p-4 text-center">
-                      <span className={`inline-block px-2.5 py-1 text-[10px] font-bold font-sans rounded-full border ${
-                        sale.paymentMethod === 'Cash' 
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-100' 
-                          : ['Card', 'Paystack'].includes(sale.paymentMethod)
-                          ? 'bg-blue-50 text-blue-800 border-blue-105'
-                          : sale.paymentMethod === 'Credit'
-                          ? 'bg-amber-50 text-amber-800 border-amber-105'
-                          : 'bg-indigo-50 text-indigo-800 border-indigo-105'
-                      }`}>
-                        {sale.paymentMethod}
-                      </span>
-                    </td>
+                      {/* Method */}
+                      <td className="py-3.5 px-4">
+                        <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold ${
+                          sale.paymentMethod === 'Cash' ? 'bg-emerald-50 text-emerald-700' :
+                          ['Card','Paystack'].includes(sale.paymentMethod) ? 'bg-blue-50 text-blue-700' :
+                          sale.paymentMethod === 'Credit' ? 'bg-amber-50 text-amber-700' :
+                          'bg-indigo-50 text-indigo-700'
+                        }`}>{sale.paymentMethod}</span>
+                      </td>
 
-                    {/* Sync status */}
-                    <td className="p-4 text-center text-[10px] font-sans font-bold">
-                      <div className="inline-flex items-center space-x-1">
-                        {sale.syncStatus === 'synced' ? (
-                          <>
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                            <span className="text-emerald-700">Synced</span>
-                          </>
-                        ) : (
-                          <>
-                            <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                            <span className="text-amber-700">Cache</span>
-                          </>
-                        )}
-                      </div>
-                    </td>
+                      {/* Total */}
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-800 text-[12px] whitespace-nowrap">
+                        {currency}{Math.round(totalVal).toLocaleString()}
+                      </td>
 
-                    {/* NEW: Total Amount */}
-                    <td className="p-4 text-right font-mono text-slate-800 font-bold whitespace-nowrap">
-                      {currency}{Math.round(totalVal).toLocaleString()}
-                    </td>
+                      {/* Paid */}
+                      <td className="py-3.5 px-4 text-right font-mono text-emerald-600 font-bold text-[12px] whitespace-nowrap">
+                        {currency}{Math.round(calculatedPaid).toLocaleString()}
+                      </td>
 
-                    {/* NEW: Amount Paid */}
-                    <td className="p-4 text-right font-mono text-emerald-700 font-bold bg-emerald-50/10 whitespace-nowrap">
-                      {currency}{Math.round(calculatedPaid).toLocaleString()}
-                    </td>
+                      {/* Due */}
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        {calculatedDue > 0
+                          ? <span className="font-mono font-bold text-rose-600 text-[12px]">{currency}{Math.round(calculatedDue).toLocaleString()}</span>
+                          : <span className="text-slate-300 font-mono text-[11px]">—</span>}
+                      </td>
 
-                    {/* NEW: Amount Due */}
-                    <td className="p-4 text-right font-mono whitespace-nowrap">
-                      {calculatedDue > 0 ? (
-                        <span className="text-rose-700 font-bold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100/50">
-                          {currency}{Math.round(calculatedDue).toLocaleString()}
+                      {/* Status */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold"
+                          style={{background: statusColor.bg, color: statusColor.text}}>
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{background: statusColor.text}} />
+                          {paymentStatus}
                         </span>
-                      ) : (
-                        <span className="text-slate-400 font-mono">-</span>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* NEW: Payment Status (Paid / Not Paid / Partially Paid) */}
-                    <td className="p-4 text-center whitespace-nowrap">
-                      <span className={`inline-block px-2.5 py-0.5 text-[9px] font-bold uppercase rounded border ${
-                        paymentStatus === 'Paid'
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                          : paymentStatus === 'Not Paid'
-                          ? 'bg-rose-50 text-rose-800 border-rose-200'
-                          : 'bg-amber-50 text-amber-850 border-amber-200'
-                      }`}>
-                        {paymentStatus}
-                      </span>
-                    </td>
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-center relative" onClick={e => e.stopPropagation()}>
+                        <div className="relative inline-block">
+                          <button
+                            onClick={() => setActiveMenuId(activeMenuId === sale.id ? null : sale.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-colors border border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                          >
+                            <MoreVertical className="w-3.5 h-3.5" />
+                            <span>Actions</span>
+                          </button>
 
-                    {/* Tax */}
-                    <td className="p-4 text-right font-mono text-slate-650">
-                      {currency}{sale.tax ? Math.round(sale.tax).toLocaleString() : '0'}
-                    </td>
+                          {activeMenuId === sale.id && (
+                            <div className="absolute right-0 mt-1.5 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 py-1.5 overflow-hidden"
+                              style={{boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)'}}>
+                              <div className="px-3 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Sale Actions</div>
 
-                    {/* Total sales cost */}
-                    <td className="p-4 text-right font-mono text-slate-900 font-extrabold text-xs">
-                      {currency}{Math.round(sale.total).toLocaleString()}
-                    </td>
-
-                    {/* NEW: Hamburger Dropdown Actions Trigger */}
-                    <td className="p-4 text-center relative whitespace-nowrap">
-                      <div className="relative inline-block">
-                        <button
-                          onClick={() => setActiveMenuId(activeMenuId === sale.id ? null : sale.id)}
-                          className="bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-1.5 rounded-xl border border-slate-250 cursor-pointer font-sans text-xs font-bold transition-all inline-flex items-center space-x-1.5 active:scale-95 select-none shadow-xs"
-                          title="View Actions Hamburger Menu"
-                        >
-                          <Menu className="w-3.5 h-3.5 text-slate-550" />
-                          <span>View...</span>
-                        </button>
-
-                        {activeMenuId === sale.id && (
-                          <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 text-left font-sans py-2 animate-fade-in divide-y divide-slate-100">
-                            
-                            <div className="px-3 py-1 text-[9.5px] uppercase font-mono font-bold text-slate-400">
-                              MANAGE TICKET
-                            </div>
-
-                            <div className="py-1">
                               {calculatedDue > 0 && (
-                                <button
-                                  onClick={() => {
-                                    setSelectedSale(sale);
-                                    setPayInInputVal(calculatedDue.toString()); // Prefill with the dynamic amount required to be paid
-                                    setViewPaymentsOpen(true);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-xs text-emerald-850 hover:bg-emerald-50/50 flex items-center space-x-2 transition-colors cursor-pointer border-none bg-emerald-500/5 font-bold"
-                                >
-                                  <Coins className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-                                  <span>Payment In (Pay-In)</span>
+                                <button onClick={() => { setSelectedSale(sale); setPayInInputVal(calculatedDue.toString()); setViewPaymentsOpen(true); setActiveMenuId(null); }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold text-emerald-700 hover:bg-emerald-50">
+                                  <Coins className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Payment In
                                 </button>
                               )}
-
-                              <button
-                                onClick={() => {
-                                  setSelectedSale(sale);
-                                  setPayInInputVal('');
-                                  setViewPaymentsOpen(true);
-                                  setActiveMenuId(null);
-                                }}
-                                className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center space-x-2 transition-colors cursor-pointer border-none bg-transparent font-medium"
-                              >
-                                <CreditCard className="w-3.5 h-3.5 text-indigo-500" />
-                                <span>View Payments Log</span>
+                              <button onClick={() => { setSelectedSale(sale); setPayInInputVal(''); setViewPaymentsOpen(true); setActiveMenuId(null); }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                                <CreditCard className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> Payments Log
                               </button>
-                              
-                              <button
-                                onClick={() => {
-                                  setViewingSaleDetail(sale);
-                                  setActiveMenuId(null);
-                                }}
-                                className="w-full text-left px-3 py-2 text-xs text-slate-805 hover:bg-slate-50 flex items-center space-x-2 transition-colors cursor-pointer border-none bg-transparent font-bold"
-                              >
-                                <Eye className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>View Sell</span>
+                              <button onClick={() => { setViewingSaleDetail(sale); setActiveMenuId(null); }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                                <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" /> View Sale
+                              </button>
+                              <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:initialPaid,amountDue:calculatedDue,items:[...sale.items]}); setActiveMenuId(null); }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                                <Edit className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Edit Sale
                               </button>
 
-                              <button
-                                onClick={() => {
-                                  setEditingSale(sale);
-                                  setEditFormFields({
-                                    customerName: sale.customerName || '',
-                                    customerPhone: sale.customerPhone || '',
-                                    paymentMethod: sale.paymentMethod,
-                                    amountPaid: initialPaid,
-                                    amountDue: calculatedDue,
-                                    items: [...sale.items]
-                                  });
-                                  setActiveMenuId(null);
-                                }}
-                                className="w-full text-left px-3 py-2 text-xs text-slate-750 hover:bg-slate-50 flex items-center space-x-2 transition-colors cursor-pointer border-none bg-transparent font-medium"
-                              >
-                                <Edit className="w-3.5 h-3.5 text-amber-500" />
-                                <span>Edit Sell</span>
-                              </button>
+                              <div className="border-t border-slate-100 mt-1 pt-1">
+                                <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(false); setActiveMenuId(null); }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                                  <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" /> POS Receipt
+                                </button>
+                                <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(true); setActiveMenuId(null); }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                                  <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> A4 Invoice
+                                </button>
+                                <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(true); setWhatsappPhone((sale.customerPhone||'').replace(/[^0-9]/g,'')); setActiveMenuId(null); }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-50">
+                                  <MessageSquare className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Send via WhatsApp
+                                </button>
+                              </div>
 
                               {(!rolePermissions || rolePermissions.deleteSale?.write !== false) && (
-                                <button
-                                  onClick={() => {
-                                    setSaleToDelete(sale);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-xs text-rose-650 hover:bg-rose-50 flex items-center space-x-2 transition-colors cursor-pointer border-none bg-transparent font-bold"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                                  <span>Delete Sale</span>
-                                </button>
+                                <div className="border-t border-slate-100 mt-1 pt-1">
+                                  <button onClick={() => { setSaleToDelete(sale); setActiveMenuId(null); }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold text-rose-600 hover:bg-rose-50">
+                                    <Trash2 className="w-3.5 h-3.5 shrink-0" /> Delete Sale
+                                  </button>
+                                </div>
                               )}
                             </div>
+                          )}
+                          {activeMenuId === sale.id && (
+                            <div className="fixed inset-0 z-40" onClick={() => setActiveMenuId(null)} />
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
 
-                            <div className="py-1">
-                              <button
-                                onClick={() => {
-                                  setSelectedSale(sale);
-                                  setViewA4InvoiceOpen(false); // Make sure A4 invoice mode is off
-                                  setActiveMenuId(null);
-                                }}
-                                className="w-full text-left px-3 py-2 text-xs text-slate-705 hover:bg-slate-50 flex items-center space-x-2 transition-colors cursor-pointer border-none bg-transparent"
-                              >
-                                <Printer className="w-3.5 h-3.5 text-slate-500" />
-                                <span className="font-bold">Printing POS receipt</span>
-                              </button>
-
-                              <button
-                                onClick={() => {
-                                  setSelectedSale(sale);
-                                  setViewA4InvoiceOpen(true); // Switch to A4 print mode
-                                  setActiveMenuId(null);
-                                }}
-                                className="w-full text-left px-3 py-2 text-xs text-slate-705 hover:bg-slate-50 flex items-center space-x-2 transition-colors cursor-pointer border-none bg-transparent"
-                              >
-                                <FileText className="w-3.5 h-3.5 text-indigo-500" />
-                                <span className="font-bold">Printing Invoice (A4)</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedSale(sale);
-                                  setViewA4InvoiceOpen(true);
-                                  setWhatsappPhone((sale.customerPhone || '').replace(/[^0-9]/g, ''));
-                                  setActiveMenuId(null);
-                                }}
-                                className="w-full text-left px-3 py-2 text-xs text-slate-705 hover:bg-emerald-50 hover:text-emerald-800 flex items-center space-x-2 transition-colors cursor-pointer border-none bg-transparent decoration-transparent font-semibold"
-                              >
-                                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Send PDF via WhatsApp</span>
-                              </button>
-
-                              {onSendToDeliveryNote && (
-                                <button
-                                  onClick={() => {
-                                    onSendToDeliveryNote(sale);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-xs text-indigo-700 hover:bg-indigo-55 flex items-center space-x-2 transition-colors cursor-pointer border-none bg-transparent font-black mt-1"
-                                >
-                                  <DeliveryMotorcycleIcon className="w-3.5 h-3.5 text-indigo-600" />
-                                  <span>Send to Delivery Note</span>
-                                </button>
-                              )}
-                            </div>
-
-                          </div>
-                        )}
-                      </div>
-                    </td>
-
-                  </tr>
-                );
-              })}
-              {filteredSales.length === 0 && (
-                <tr>
-                  <td colSpan={13} className="p-12 text-center text-slate-455">
-                    No active transactions match your filter criteria or search keyword.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+            {filteredSales.length === 0 && (
+              <div className="py-20 text-center">
+                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                  <FileText className="w-6 h-6 text-slate-300" />
+                </div>
+                <p className="font-bold text-slate-600 text-sm">No sales found</p>
+                <p className="text-xs text-slate-400 mt-1">Try adjusting your date range or filters.</p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-        </>
+
+      </div>{/* end SALES MAIN DATA LIST */}
+
+      </>
       )}
 
       {/* SECTION B: ACCOUNTS RECEIVABLE / DEBTS COLLECTOR PORTAL & PAYMENT-IN */}
