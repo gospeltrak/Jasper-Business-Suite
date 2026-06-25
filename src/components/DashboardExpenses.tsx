@@ -28,6 +28,7 @@ import {
 import { 
   ResponsiveContainer, 
   AreaChart, 
+  ComposedChart,
   Area, 
   XAxis, 
   YAxis, 
@@ -547,7 +548,7 @@ export default function DashboardExpenses({
                 </p>
                 <div className="flex-1">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={expensesTrendData} margin={{ top: 2, right: 2, left: -20, bottom: 0 }}>
+                    <ComposedChart data={expensesTrendData} margin={{ top: 2, right: 2, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="expTrendFill" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#fff" stopOpacity={0.35}/>
@@ -588,14 +589,22 @@ export default function DashboardExpenses({
                       <Area
                         type="monotone"
                         dataKey="expense"
-                        stroke="#fff"
-                        strokeWidth={2}
+                        stroke="rgba(255,255,255,0.25)"
+                        strokeWidth={1}
                         fillOpacity={1}
                         fill="url(#expTrendFill)"
                         dot={false}
+                        activeDot={false}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="expense"
+                        stroke="#fff"
+                        strokeWidth={2.5}
+                        dot={false}
                         activeDot={{r: 4, fill: '#fff', stroke: 'rgba(255,255,255,0.4)', strokeWidth: 2}}
                       />
-                    </AreaChart>
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
               </div>

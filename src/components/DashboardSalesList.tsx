@@ -969,9 +969,8 @@ export default function DashboardSalesList({
             return (
               <div
                 key={sale.id}
-                className="relative overflow-hidden rounded-2xl active:scale-[0.985] cursor-pointer"
+                className="relative overflow-hidden rounded-2xl"
                 style={{ background: '#ffffff', border: '1px solid #f1f5f9', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}
-                onClick={() => setViewingSaleDetail(sale)}
               >
                 {/* Accent left bar */}
                 <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: statusDot }} />
@@ -1097,8 +1096,7 @@ export default function DashboardSalesList({
 
                   return (
                     <tr key={sale.id}
-                      className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors cursor-pointer group"
-                      onClick={() => setViewingSaleDetail(sale)}
+                      className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors group"
                     >
                       {/* Reference */}
                       <td className="py-3.5 px-4" onClick={e => e.stopPropagation()}>
@@ -2749,16 +2747,12 @@ export default function DashboardSalesList({
                             <th className="p-3">Product Description / Code</th>
                             <th className="p-3 text-center">Unit Price Price</th>
                             <th className="p-3 text-center">Qty Qty</th>
-                            <th className="p-3 text-center">Discount Portion</th>
+                            
                             <th className="p-3 text-right">Line Subtotal Sum</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-150 font-sans">
                           {selectedSale.items.map((item, index) => {
-                            const isItemCash = item.discountType === 'cash';
-                            const priceAfterDiscount = isItemCash 
-                              ? Math.max(0, item.price - item.discount)
-                              : item.price * (1 - item.discount / 100);
                             return (
                               <tr key={index} className="hover:bg-slate-50/40 transition-colors">
                                 <td className="p-3">
@@ -2771,11 +2765,8 @@ export default function DashboardSalesList({
                                 <td className="p-3 text-center font-bold">
                                   {item.qty}
                                 </td>
-                                <td className="p-3 text-center text-emerald-600 font-bold font-mono">
-                                  {item.discount > 0 ? (isItemCash ? `${currency}${item.discount} Off` : `${item.discount}% OFF`) : '0%'}
-                                </td>
                                 <td className="p-3 text-right font-mono font-bold text-slate-900">
-                                  {currency}{Math.round(priceAfterDiscount * item.qty).toLocaleString()}
+                                  {currency}{Math.round(item.price * item.qty).toLocaleString()}
                                 </td>
                               </tr>
                             );
@@ -3463,8 +3454,9 @@ export default function DashboardSalesList({
       {/* DIALOG: VIEW SELL RECORD (READ-ONLY DETAILED ARCHIVE SUMMARY) */}
       {/* ------------------------------------------------------------- */}
       {viewingSaleDetail && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
-          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col font-sans max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] animate-scale-in">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm text-slate-800"
+          style={{paddingTop:'calc(env(safe-area-inset-top) + 16px)', paddingBottom:'calc(env(safe-area-inset-bottom) + 16px)'}}>
+          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col font-sans" style={{maxHeight:'calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom))'}}>
             
             {/* Header */}
             <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0 select-none">
@@ -3912,7 +3904,7 @@ export default function DashboardSalesList({
                 className="px-5 py-2.5 bg-yellow-650 hover:bg-amber-600 text-white font-black rounded-xl border-none transition-all text-xs uppercase flex items-center space-x-1.5 cursor-pointer shadow-md select-none"
               >
                 <Check className="w-4 h-4 text-white" />
-                <span>Save Adjusted Ledger</span>
+                <span>Save Changes</span>
               </button>
             </div>
 
@@ -3932,7 +3924,7 @@ export default function DashboardSalesList({
               <div className="flex items-center space-x-2">
                 <Trash2 className="w-5 h-5 text-rose-400 animate-bounce" />
                 <div>
-                  <h4 className="text-sm font-black tracking-tight">Void Transaction Record</h4>
+                  <h4 className="text-sm font-black tracking-tight">Delete Transaction Record</h4>
                   <span className="text-[10px] font-mono text-rose-450 uppercase tracking-widest block font-bold leading-none mt-1">WARNING: IRREVERSIBLE OPERATION</span>
                 </div>
               </div>
@@ -3996,7 +3988,7 @@ export default function DashboardSalesList({
                 className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-xl border-none transition-all text-xs uppercase flex items-center space-x-1.5 cursor-pointer shadow-md select-none"
               >
                 <Trash2 className="w-4 h-4 text-white" />
-                <span>Confirm Void Ticket</span>
+                <span>Confirm Delete</span>
               </button>
             </div>
 
