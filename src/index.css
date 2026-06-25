@@ -285,6 +285,12 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   --color-emerald-505: #059669;
   --color-emerald-550: #047857;
   --color-emerald-755: #064e3b;
+  /* ── SYSTEM GRADIENT THEME ── */
+  --grad-primary: linear-gradient(135deg, #34D399 0%, #5EEAD4 50%, #10B981 100%);
+  --grad-secondary: linear-gradient(135deg, #10B981 0%, #4ADE80 100%);
+  --grad-dark: linear-gradient(135deg, #059669 0%, #047857 100%);
+  --theme-green: #10B981;
+  --theme-teal: #5EEAD4;
 
   --color-indigo-405: #818cf8;
   --color-indigo-955: #1e1b4b;

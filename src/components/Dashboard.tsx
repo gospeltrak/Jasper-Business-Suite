@@ -1539,7 +1539,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       {/* 0. HIGH-FIDELITY FLOATING TOAST STACK (Centered at top on mobile, max 3 stacked) */}
       <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center space-y-2 w-full max-w-sm px-4 pointer-events-none">
         {toasts.map((t) => {
-          let borderTheme = 'border-l-4 border-l-[#00C853]';
+          let borderTheme = 'border-l-4 border-l-emerald-400';
           let bgTheme = 'bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800';
           let textColor = 'text-slate-800 dark:text-slate-100';
           
@@ -1673,11 +1673,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                     sidebarCollapsed ? 'justify-center' : 'justify-start space-x-3.5'
                   } ${
                     isActive 
-                      ? 'bg-[#141824] border-l-4 border-[#6c63ff] text-white font-semibold' 
+                      ? 'bg-gradient-to-r from-emerald-500/20 to-teal-500/10 border-l-4 border-emerald-400 text-white font-semibold' 
                       : 'bg-transparent border-l-4 border-transparent hover:bg-white/5 text-slate-400 hover:text-white'
                   }`}
                 >
-                  <IconComponent className={`w-5 h-5 shrink-0 transition-colors ${isActive ? 'text-[#6c63ff]' : 'text-slate-450 group-hover:text-slate-200'}`} />
+                  <IconComponent className={`w-5 h-5 shrink-0 transition-colors ${isActive ? 'text-emerald-400' : 'text-slate-450 group-hover:text-slate-200'}`} />
                   
                   {/* Label with clean fade transition */}
                   <span 
@@ -1775,13 +1775,13 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                       <img 
                         src={logo} 
                         alt={`${activeTenant.name} Logo`} 
-                        className="w-10 h-10 rounded-full object-cover border-2 border-[#00C853] shrink-0 shadow-xs" 
+                        className="w-10 h-10 rounded-full object-cover border-2 border-emerald-400 shrink-0 shadow-xs" 
                         referrerPolicy="no-referrer"
                       />
                     );
                   } else {
                     return (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#00C853] to-teal-400 text-white flex items-center justify-center font-black text-xs tracking-wider shrink-0 shadow-xs">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-400 text-white flex items-center justify-center font-black text-xs tracking-wider shrink-0 shadow-xs">
                         {getFallbackInitials(activeTenant.name)}
                       </div>
                     );
@@ -1965,13 +1965,13 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                       <img 
                         src={logo} 
                         alt={`${activeTenant.name} Logo`} 
-                        className="w-10 h-10 rounded-full object-cover border-2 border-[#00C853] shadow-sm shrink-0" 
+                        className="w-10 h-10 rounded-full object-cover border-2 border-emerald-400 shadow-sm shrink-0" 
                         referrerPolicy="no-referrer"
                       />
                     );
                   } else {
                     return (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#00C853] to-teal-400 text-white flex items-center justify-center font-black text-xs tracking-wider shrink-0 shadow-sm">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-400 text-white flex items-center justify-center font-black text-xs tracking-wider shrink-0 shadow-sm">
                         {getFallbackInitials(activeTenant.name)}
                       </div>
                     );
@@ -2441,18 +2441,18 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   >
                     {tab.isPOS ? (
                       <>
-                        <div className="w-12 h-12 rounded-2xl bg-[#00C853] flex items-center justify-center shadow-lg shadow-[#00C853]/30" style={{marginTop:'-18px'}}>
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-400/30" style={{marginTop:'-18px'}}>
                           <Icon className="w-6 h-6 text-white" strokeWidth={2.5} />
                         </div>
-                        <span className="text-[9px] font-bold text-[#00C853] mt-0.5 leading-none">{t('Sell')}</span>
+                        <span className="text-[9px] font-bold text-emerald-400 mt-0.5 leading-none">{t('Sell')}</span>
                       </>
                     ) : (
                       <>
                         <div className={`flex items-center justify-center w-7 h-6 rounded-lg mb-0.5 transition-all ${isActive ? 'bg-emerald-50 dark:bg-emerald-500/10' : ''}`}>
-                          <Icon className={`w-5 h-5 transition-all ${isActive ? 'stroke-[#00C853]' : 'stroke-slate-400 dark:stroke-slate-500'}`} strokeWidth={isActive ? 2.5 : 1.8} />
+                          <Icon className={`w-5 h-5 transition-all ${isActive ? 'stroke-emerald-500' : 'stroke-slate-400 dark:stroke-slate-500'}`} strokeWidth={isActive ? 2.5 : 1.8} />
                         </div>
-                        <span className={`text-[9px] font-semibold leading-none ${isActive ? 'text-[#00C853]' : 'text-slate-400 dark:text-slate-500'}`}>{t(tab.label)}</span>
-                        {isActive && <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#00C853]" />}
+                        <span className={`text-[9px] font-semibold leading-none ${isActive ? 'text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>{t(tab.label)}</span>
+                        {isActive && <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-gradient-to-r from-emerald-400 to-teal-400" />}
                       </>
                     )}
                   </button>
@@ -2499,7 +2499,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 {[
                   { id: 'overview', label: 'Home', icon: LayoutDashboard, bg: 'bg-blue-500' },
                   { id: 'sales-list', label: 'Sales', icon: FileText, bg: 'bg-emerald-500' },
-                  { id: 'pos', label: 'Sell', icon: ShoppingCart, bg: 'bg-[#00C853]' },
+                  { id: 'pos', label: 'Sell', icon: ShoppingCart, bg: 'bg-gradient-to-r from-emerald-400 to-teal-400' },
                   { id: 'purchases-list', label: 'Buying', icon: Package, bg: 'bg-violet-500' },
                   { id: 'products', label: 'Stock', icon: Database, bg: 'bg-orange-500' },
                   { id: 'expenses', label: 'Expenses', icon: MinusCircle, bg: 'bg-rose-500' },
@@ -2597,7 +2597,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       {/* Live Premium Subscription upgrade popups */}
       {subModal && subModal.show && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-4 z-[70] animate-in fade-in slide-in-from-bottom-5 md:slide-in-from-bottom-0">
-          <div className="bg-slate-900 border border-slate-800 rounded-t-3xl md:rounded-3xl max-w-2xl w-full max-h-[calc(100dvh-56px-env(safe-area-inset-bottom))] overflow-y-auto p-6 md:p-8 space-y-6 relative shadow-2xl mt-auto md:mt-0 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:pb-8 animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0">
+          <div className="bg-gradient-to-br from-emerald-950 to-teal-950 border border-emerald-800/40 rounded-t-3xl md:rounded-3xl max-w-2xl w-full max-h-[calc(100dvh-56px-env(safe-area-inset-bottom))] overflow-y-auto p-6 md:p-8 space-y-6 relative shadow-2xl mt-auto md:mt-0 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:pb-8 animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0">
             {/* Mobile Drag Handle */}
             <div className="w-full flex justify-center pb-2 md:hidden">
               <div className="w-12 h-1.5 bg-slate-700/50 rounded-full" />
@@ -2689,7 +2689,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             </div>
 
             {/* Manual Payment Fallback */}
-            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-inner mt-4">
+            <div className="bg-emerald-950/80 border border-emerald-800/40 p-4 rounded-xl shadow-inner mt-4">
               <h5 className="text-[11px] uppercase font-bold text-slate-300 font-mono flex items-center space-x-2">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                 <span>Payment Gateway Failed?</span>
@@ -2700,7 +2700,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               <div className="flex flex-col md:flex-row items-center space-y-3 md:space-y-0 md:space-x-3">
                 <div className="flex-1 w-full relative">
                   <input type="file" id="receipt-upload" className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" accept="image/*,.pdf" />
-                  <div className="bg-slate-950 border border-slate-800 border-dashed hover:border-emerald-500/50 rounded-xl px-3 py-2 flex items-center justify-center space-x-2 text-slate-400 group transition-colors">
+                  <div className="bg-emerald-950/60 border border-emerald-800/40 border-dashed hover:border-emerald-400/60 rounded-xl px-3 py-2 flex items-center justify-center space-x-2 text-slate-400 group transition-colors">
                     <CloudLightning className="w-4 h-4 group-hover:text-emerald-400" />
                     <span className="text-[10px] font-bold">Attach Receipt Document</span>
                   </div>

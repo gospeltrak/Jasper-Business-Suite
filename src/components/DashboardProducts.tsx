@@ -1101,7 +1101,7 @@ export default function DashboardProducts({
     .toolbar { background: #fff; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 10; }
     .toolbar h2 { font-size: 14px; font-weight: 800; color: #0f172a; }
     .toolbar p { font-size: 11px; color: #64748b; margin-top: 2px; }
-    .btn { background: #0f172a; color: #fff; border: none; padding: 8px 16px; border-radius: 7px; font-weight: 700; font-size: 12px; cursor: pointer; }
+    .btn { background: linear-gradient(135deg,#059669,#0d9488); color: #fff; border: none; padding: 8px 16px; border-radius: 7px; font-weight: 700; font-size: 12px; cursor: pointer; }
     .wrap { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
     .preview-strip { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 50mm; }
     @media print {
@@ -1237,8 +1237,8 @@ export default function DashboardProducts({
     }
     .toolbar h2 { font-size: 15px; color: #0f172a; font-weight: 800; }
     .toolbar p { font-size: 11px; color: #64748b; margin-top: 2px; }
-    .btn { background: #0f172a; color: #fff; border: none; padding: 9px 20px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-    .btn:hover { background: #1e293b; }
+    .btn { background: linear-gradient(135deg,#059669,#0d9488); color: #fff; border: none; padding: 9px 20px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .btn:hover { background: linear-gradient(135deg,#047857,#0f766e); }
     .pages-wrap { padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
     .a4-page {
       background: #fff;
@@ -1367,7 +1367,7 @@ export default function DashboardProducts({
       bars.push(
         <div 
           key={i} 
-          className={`${heightClass} shrink-0 ${isBlack ? 'bg-slate-950' : 'bg-transparent'} ${widthClass}`} 
+          className={`${heightClass} shrink-0 ${isBlack ? 'bg-slate-900' : 'bg-transparent'} ${widthClass}`} 
         />
       );
     }
@@ -1404,8 +1404,8 @@ export default function DashboardProducts({
               onClick={() => handleTabSwitch(tab.id as any)}
               className="relative flex flex-col items-center justify-center py-4 px-3 rounded-2xl text-center transition-all active:scale-95"
               style={{
-                background: active ? '#0f172a' : '#ffffff',
-                border: active ? '2px solid #0f172a' : '2px solid #f1f5f9',
+                background: active ? 'linear-gradient(135deg,#34D399,#10B981)' : '#ffffff',
+                border: active ? '2px solid #059669' : '2px solid #f1f5f9',
                 boxShadow: active ? '0 4px 16px rgba(15,23,42,0.18)' : '0 1px 4px rgba(0,0,0,0.06)',
               }}
             >
@@ -1413,7 +1413,7 @@ export default function DashboardProducts({
                 <div className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-emerald-400" />
               )}
               <span className="text-2xl mb-1.5 leading-none">{tab.icon}</span>
-              <span className="text-[12px] font-extrabold leading-tight" style={{ color: active ? '#ffffff' : '#1e293b' }}>
+              <span className="text-[12px] font-extrabold leading-tight" style={{ color: active ? '#ffffff' : '#475569' }}>
                 {tab.label}
               </span>
               <span className="text-[10px] mt-0.5 font-medium" style={{ color: active ? 'rgba(255,255,255,0.6)' : '#94a3b8' }}>
@@ -1439,7 +1439,7 @@ export default function DashboardProducts({
               onClick={() => handleTabSwitch(tab.id as any)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all"
               style={{
-                background: active ? '#0f172a' : 'transparent',
+                background: active ? 'linear-gradient(135deg,#34D399,#10B981)' : 'transparent',
                 color: active ? '#ffffff' : '#64748b',
               }}
             >
@@ -1462,7 +1462,7 @@ export default function DashboardProducts({
             <div className="md:hidden">
               {/* Hero strip */}
               <div className="px-5 pt-5 pb-4 flex items-center gap-4"
-                style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)' }}>
+                style={{ background: 'linear-gradient(135deg,#059669 0%,#047857 100%)' }}>
                 <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
                   <span className="text-2xl">📦</span>
                 </div>
@@ -1897,7 +1897,7 @@ export default function DashboardProducts({
                       key={method}
                       type="button"
                       onClick={() => setCostingMethod(method as typeof costingMethod)}
-                      className={`p-3 rounded-xl border text-left transition-all ${costingMethod === method ? 'bg-slate-900 text-white border-slate-900 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                      className={`p-3 rounded-xl border text-left transition-all ${costingMethod === method ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
                     >
                       <span className="block text-xs font-black">{label}</span>
                       <span className={`block text-[9px] mt-1 ${costingMethod === method ? 'text-slate-300' : 'text-slate-400'}`}>{helper}</span>
@@ -2466,7 +2466,7 @@ export default function DashboardProducts({
         <div className="space-y-6 animate-fade-in text-xs font-sans">
           
           {/* Section 1: Connection Drivers setup box for Thermal and hardware models */}
-          <div className="bg-slate-900 text-white rounded-3xl p-6 border border-slate-800 shadow-xl space-y-5 relative overflow-hidden">
+          <div className="bg-gradient-to-br from-emerald-700 to-teal-700 text-white rounded-3xl p-6 border border-emerald-600/30 shadow-xl space-y-5 relative overflow-hidden">
             <div className="absolute right-0 top-0 translate-y-1/3 translate-x-1/3 bg-emerald-500/10 w-96 h-96 rounded-full blur-3xl pointer-events-none" />
             
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10 border-b border-slate-800 pb-4">
@@ -2481,7 +2481,7 @@ export default function DashboardProducts({
               </div>
 
               {/* Status lights */}
-              <div className="flex items-center space-x-3 bg-slate-950/60 p-3 rounded-2xl border border-slate-800">
+              <div className="flex items-center space-x-3 bg-emerald-900/40 p-3 rounded-2xl border border-emerald-700/50">
                 <div className="flex items-center space-x-2">
                   <span className={`w-2.5 h-2.5 rounded-full ${isPrinterConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
                   <span className="font-mono text-[10px] font-bold text-slate-350">
@@ -2491,7 +2491,7 @@ export default function DashboardProducts({
                 <span>|</span>
                 <button
                   onClick={() => setShowTestPrintModal(true)}
-                  className="px-3 py-1 bg-slate-800 hover:bg-slate-705 border border-slate-700 text-[10px] uppercase font-bold tracking-wider rounded-lg text-slate-100 transition-colors cursor-pointer"
+                  className="px-3 py-1 bg-emerald-800 hover:bg-emerald-700 border border-emerald-600 text-[10px] uppercase font-bold tracking-wider rounded-lg text-emerald-100 transition-colors cursor-pointer"
                 >
                   Trigger Test Page
                 </button>
@@ -2503,11 +2503,11 @@ export default function DashboardProducts({
               <div className="space-y-2 bg-slate-950/40 p-4 rounded-2xl border border-slate-850">
                 <span className="text-[10px] font-mono tracking-wider font-extrabold text-slate-400 uppercase block">Link & print diagnostics</span>
                 <div className="grid grid-cols-2 gap-2 pt-1">
-                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl">
+                  <div className="p-3 bg-emerald-900/50 border border-emerald-700/40 rounded-xl">
                     <span className="block text-[8px] uppercase text-slate-500 font-bold tracking-widest leading-none">Status Link</span>
                     <span className="text-[10px] font-bold text-emerald-400 mt-1.5 block">ACTIVE LINK</span>
                   </div>
-                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl">
+                  <div className="p-3 bg-emerald-900/50 border border-emerald-700/40 rounded-xl">
                     <span className="block text-[8px] uppercase text-slate-500 font-bold tracking-widest leading-none">Paper Size</span>
                     <span className="text-[10px] font-bold text-slate-300 mt-1.5 block">50MM ROLL</span>
                   </div>
@@ -2776,7 +2776,7 @@ export default function DashboardProducts({
                   <button
                     onClick={handleTriggerPrintLabels}
                     disabled={isPrintingJob || Object.keys(selectedLabels).filter(k => selectedLabels[k]).length === 0}
-                    className="w-full py-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white font-mono text-[11px] uppercase tracking-wider font-extrabold rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                    className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white font-mono text-[11px] uppercase tracking-wider font-extrabold rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
                   >
                     <Printer className="w-4 h-4 text-emerald-400 animate-pulse" />
                     <span>Print via Jasper Thermal Printer</span>
@@ -2956,7 +2956,7 @@ export default function DashboardProducts({
         <div id="modal-form-scanner" className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
           <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
             
-            <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
+            <div className="px-5 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-between">
               <div className="flex items-center space-x-1.5">
                 <Camera className="w-4 h-4 text-emerald-400 animate-pulse" />
                 <span className="text-xs font-bold uppercase tracking-wider font-mono">Barcode Scanner Laser</span>
@@ -2967,7 +2967,7 @@ export default function DashboardProducts({
             </div>
 
             <div className="p-6 space-y-4 text-xs">
-              <div className="relative h-44 bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden flex flex-col items-center justify-center text-center">
+              <div className="relative h-44 bg-gradient-to-br from-emerald-950/80 to-teal-950/80 border border-emerald-700/40 rounded-2xl overflow-hidden flex flex-col items-center justify-center text-center">
                 <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 shadow-[0_0_12px_rgba(239,68,68,1)] z-10 animate-pulse" />
                 <div className="absolute inset-x-12 inset-y-8 border-2 border-emerald-500/30 rounded-xl pointer-events-none" />
                 
@@ -3032,7 +3032,7 @@ export default function DashboardProducts({
           <div className="bg-white border border-slate-350 rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden flex flex-col relative">
             
             {/* Header tab */}
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
+            <div className="px-4 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-between">
               <span className="font-bold text-[10px] tracking-widest uppercase">Thermal Device diagnostics</span>
               <button onClick={() => setShowTestPrintModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
                 <X className="w-4 h-4" />
@@ -3088,7 +3088,7 @@ export default function DashboardProducts({
             <div className="bg-slate-50 p-3 text-center">
               <button 
                 onClick={() => setShowTestPrintModal(false)}
-                className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg text-[10px] uppercase cursor-pointer"
+                className="w-full py-1.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-lg text-[10px] uppercase cursor-pointer"
               >
                 Close Diagnostic View
               </button>
@@ -3816,7 +3816,7 @@ export default function DashboardProducts({
               <button 
                 type="button"
                 onClick={() => setViewingProduct(null)} 
-                className="px-5 py-2 bg-slate-900 hover:bg-slate-850 text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+                className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
               >
                 Close
               </button>
@@ -4467,7 +4467,7 @@ export default function DashboardProducts({
                                  key={method}
                                  type="button"
                                  onClick={() => setReplenishCostingMethod(method as typeof replenishCostingMethod)}
-                                 className={`px-2 py-2 rounded-xl border text-left transition-all ${replenishCostingMethod === method ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                                 className={`px-2 py-2 rounded-xl border text-left transition-all ${replenishCostingMethod === method ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
                                >
                                  <span className="block text-[10px] font-black uppercase">{label}</span>
                                  <span className={`block text-[8px] mt-1 leading-tight ${replenishCostingMethod === method ? 'text-slate-300' : 'text-slate-400'}`}>{helper}</span>

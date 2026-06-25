@@ -1347,7 +1347,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   return (
     <div id="login-container" className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-850 dark:text-slate-100 font-sans flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative selection:bg-emerald-100 selection:text-emerald-950 overflow-y-auto transition-colors duration-300">
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden font-sans">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-emerald-100/30 rounded-full blur-[110px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-gradient-to-br from-emerald-200/40 to-teal-200/30 rounded-full blur-[110px]" />
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-lg relative z-10 space-y-6">
@@ -1468,7 +1468,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-55 text-white font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 rounded-xl"
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 disabled:opacity-55 text-white font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 rounded-xl"
               >
                 {isLoading ? (
                   <>
@@ -1667,7 +1667,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                       <button
                         type="button"
                         onClick={handleStartRecovery}
-                        className="w-full py-2.5 rounded-xl bg-emerald-700 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
+                        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
                       >
                         <Shield className="w-4 h-4" />
                         Continue
@@ -1689,7 +1689,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                       <button
                         type="button"
                         onClick={handleVerifyRecoverySecurity}
-                        className="w-full py-2.5 rounded-xl bg-emerald-700 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
+                        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
                       >
                         <MessageCircle className="w-4 h-4" />
                         Verify & Send OTP
@@ -1726,7 +1726,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                         <button
                           type="button"
                           onClick={handleFinishRecovery}
-                          className="py-2.5 rounded-xl bg-slate-950 text-white text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5"
+                          className="py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-white text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5"
                         >
                           <RefreshCw className="w-3.5 h-3.5" />
                           Reset Password
@@ -1741,7 +1741,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 id="login-submit-btn"
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-550 disabled:opacity-55 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 shadow-md shadow-emerald-500/10 active:scale-98"
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 disabled:opacity-55 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 shadow-md shadow-emerald-500/10 active:scale-98"
               >
                 {isLoading ? (
                   <>
@@ -1917,7 +1917,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-55 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2"
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-55 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2"
               >
                 {isLoading ? (
                   <>
@@ -2049,7 +2049,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                             const capitalizedNice = nicePart.charAt(0).toUpperCase() + nicePart.slice(1);
                             handleSelectGoogleAccount(customGoogleEmailInput.trim().toLowerCase(), capitalizedNice);
                           }}
-                          className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 cursor-pointer"
+                          className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-bold rounded-xl hover:from-emerald-500 hover:to-teal-500 cursor-pointer"
                         >
                           Select Account
                         </button>
@@ -2211,7 +2211,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-55 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-1.5 shadow"
+                    className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-55 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-1.5 shadow"
                   >
                     {isLoading ? (
                       <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -2229,7 +2229,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
       {/* Personalized Welcome Splash Screen Overlay */}
       {splashInfo && (
-        <div className="fixed inset-0 z-[99999] bg-slate-900/98 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 animate-fade-in text-white select-none pointer-events-auto">
+        <div className="fixed inset-0 z-[99999] bg-gradient-to-br from-emerald-900/98 via-teal-900/98 to-emerald-950/98 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 animate-fade-in text-white select-none pointer-events-auto">
           <div className="space-y-6 max-w-sm animate-scale-in flex flex-col items-center">
             {/* User's business logo or app logo */}
             <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden bg-white/10 flex items-center justify-center shadow-2xl p-2 border border-white/20">
@@ -2253,7 +2253,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               <h1 className="text-3xl font-black tracking-tight text-white font-sans">
                 Welcome, {splashInfo.userName}!
               </h1>
-              <p className="text-xl font-extrabold font-sans text-[#00C853] tracking-wide uppercase">
+              <p className="text-xl font-extrabold font-sans bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent tracking-wide uppercase">
                 {splashInfo.businessName}
               </p>
             </div>
@@ -2268,7 +2268,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
             {/* Subtle loader line */}
             <div className="w-48 h-1 bg-white/10 rounded-full mx-auto overflow-hidden mt-3">
-              <div className="h-full bg-[#00C853] rounded-full animate-pulse" style={{ width: '100%' }} />
+              <div className="h-full bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 rounded-full animate-pulse" style={{ width: '100%' }} />
             </div>
           </div>
         </div>

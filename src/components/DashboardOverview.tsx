@@ -549,7 +549,7 @@ export default function DashboardOverview({
         <div className="grid grid-cols-2 gap-3">
           {[
             { label: 'Total Orders', value: sales.filter((s:any) => new Date(s.timestamp).toDateString() === new Date().toDateString()).length, sub: `${filteredSales.reduce((sum:number,s:any)=>sum+(s.items?.reduce((a:number,i:any)=>a+(i.qty||0),0)||0),0)} items sold`, color: '#2196F3', up: true },
-            { label: "Today's Sales", value: `${currency} ${Math.round(todayTotalRevenue).toLocaleString()}`, sub: todayTotalRevenue > 0 ? '↑ Today' : 'No sales yet', color: '#00C853', up: todayTotalRevenue > 0 },
+            { label: "Today's Sales", value: `${currency} ${Math.round(todayTotalRevenue).toLocaleString()}`, sub: todayTotalRevenue > 0 ? '↑ Today' : 'No sales yet', color: '#10B981', up: todayTotalRevenue > 0 },
             { label: 'Expenses', value: `${currency} ${Math.round(expenses.reduce((s:number,e:any)=>s+(e.amount||0),0)).toLocaleString()}`, sub: 'Total spending', color: '#ef4444', up: false },
             { label: 'Profit', value: `${currency} ${Math.round(netProfit).toLocaleString()}`, sub: `${avgProfitMargin.toFixed(1)}% margin`, color: netProfit >= 0 ? '#00C853' : '#ef4444', up: netProfit >= 0 },
             { label: 'Purchases', value: `${currency} ${Math.round(purchases.reduce((s:number,p:any)=>s+(p.total||p.amount||0),0)).toLocaleString()}`, sub: `${purchases.length} orders`, color: '#7c3aed', up: false },
@@ -566,7 +566,7 @@ export default function DashboardOverview({
         {/* POS Hero Banner */}
         <div
           className="rounded-2xl p-5 flex items-center justify-between cursor-pointer active:scale-98 transition-all"
-          style={{background: 'linear-gradient(135deg, #00C853 0%, #00953D 100%)'}}
+          style={{background: 'linear-gradient(135deg, #34D399 0%, #5EEAD4 50%, #10B981 100%)'}}
           onClick={() => {
             const el = document.querySelector('[data-tab="pos"]') as HTMLElement;
             if (el) el.click();
@@ -606,13 +606,13 @@ export default function DashboardOverview({
                 <img 
                   src={logo} 
                   alt={`${activeTenant.name} Logo`} 
-                  className="w-14 h-14 rounded-full object-cover border-2 border-[#00C853] shrink-0 shadow-xs" 
+                  className="w-14 h-14 rounded-full object-cover border-2 border-emerald-400 shrink-0 shadow-xs" 
                   referrerPolicy="no-referrer"
                 />
               );
             } else {
               return (
-                <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-[#00C853] to-teal-400 text-white flex items-center justify-center font-black text-lg tracking-wide shrink-0 shadow-xs">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-300 text-white flex items-center justify-center font-black text-lg tracking-wide shrink-0 shadow-xs">
                   {activeTenant.name ? activeTenant.name.substring(0, 2).toUpperCase() : 'JA'}
                 </div>
               );
@@ -722,7 +722,7 @@ export default function DashboardOverview({
       {/* ── QUICK ACTION — DESKTOP: same card as mobile, adapted for pc/tablet ── */}
       <div
         className="hidden md:flex items-center justify-between rounded-2xl px-6 py-4 cursor-pointer select-none group"
-        style={{background: 'linear-gradient(135deg, #00C853 0%, #00953D 100%)', boxShadow: '0 4px 20px rgba(0,200,83,0.25)'}}
+        style={{background: 'linear-gradient(135deg, #34D399 0%, #5EEAD4 50%, #10B981 100%)', boxShadow: '0 4px 20px rgba(16,185,129,0.25)'}}
         onClick={() => {
           const el = document.querySelector('[data-tab="pos"]') as HTMLElement;
           if (el) el.click();
