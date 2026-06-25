@@ -1367,7 +1367,7 @@ export default function DashboardReports({
       {/* ============================================================= */}
       {/* MOBILE KEY METRICS GRID (FIX 2) (2 columns x 2 rows grid) */}
       {/* ============================================================= */}
-      <div className="grid md:hidden grid-cols-2 gap-3" id="mobile-metrics-cards-grid">
+      <div className="hidden" id="mobile-metrics-cards-grid-old">
         {/* Total Sales */}
         <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-emerald-500 flex flex-col justify-between min-h-[92px]">
           <div className="flex items-center space-x-2">
