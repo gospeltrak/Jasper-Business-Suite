@@ -346,6 +346,25 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   animation-play-state: paused;
 }
 
+html,
+body,
+#root,
+#jasper-app-root {
+  min-height: 100%;
+  overflow-y: auto;
+}
+
+.landing-page-shell {
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+@supports not (overflow: clip) {
+  .landing-page-shell {
+    overflow-x: hidden;
+  }
+}
+
 /* Mobile-Native Styling Classes from jasper_admin_dashboard_mobile_v2.html */
 .phone {
   background: #f0f2f5;
@@ -876,7 +895,6 @@ button:active:not(:disabled),
 .dark ::-webkit-scrollbar-thumb {
   background: #4b5563;
 }
-
 
 
 

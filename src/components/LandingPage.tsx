@@ -1119,7 +1119,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
   const faqData = customFaqs && customFaqs.length > 0 ? customFaqs : (faqDataByLang[lang] || faqDataByLang.en);
 
   return (
-    <div id="landing-container" className={`min-h-screen font-sans antialiased overflow-x-hidden transition-colors duration-300 selection:bg-emerald-500 ${isDark ? 'bg-slate-950 text-slate-100 selection:text-slate-950' : 'bg-slate-50 text-slate-800 selection:text-white'}`}>
+    <div id="landing-container" className={`landing-page-shell min-h-screen font-sans antialiased transition-colors duration-300 selection:bg-emerald-500 ${isDark ? 'bg-slate-950 text-slate-100 selection:text-slate-950' : 'bg-slate-50 text-slate-800 selection:text-white'}`}>
       
       {/* Floating Glass Header with Updated Navigation Tabs Layout */}
       <header id="landing-header" className={`sticky top-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${isDark ? 'bg-slate-950/80 border-slate-900/60' : 'bg-white/80 border-slate-200 shadow-xs'}`}>
