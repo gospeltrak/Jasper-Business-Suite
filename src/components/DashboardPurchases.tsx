@@ -538,56 +538,52 @@ export default function DashboardPurchases({
           </button>
         </div>
 
-        {/* KPI cards row */}
-        <div className="grid grid-cols-4 gap-4">
+        {/* KPI cards row — compact, horizontal, with accent bar */}
+        <div className="grid grid-cols-4 gap-3">
           {[
             {
               label: 'Total Purchased',
               value: `${currency}${Math.round(purchases.reduce((s,p) => s + p.totalAmount, 0)).toLocaleString()}`,
               sub: `${purchases.length} orders`,
-              icon: <Package className="w-5 h-5" />,
-              color: '#059669', iconBg: '#dcfce7',
-              trend: '+12%',
+              icon: <Package className="w-4 h-4" />,
+              color: '#059669', iconBg: '#dcfce7', accent: '#059669',
             },
             {
               label: 'Amount Paid',
               value: `${currency}${Math.round(purchases.reduce((s,p) => s + p.amountPaid, 0)).toLocaleString()}`,
               sub: `${purchases.filter(p => p.totalAmount - p.amountPaid <= 0).length} fully paid`,
-              icon: <CheckCircle className="w-5 h-5" />,
-              color: '#2563eb', iconBg: '#dbeafe',
-              trend: null,
+              icon: <CheckCircle className="w-4 h-4" />,
+              color: '#2563eb', iconBg: '#dbeafe', accent: '#2563eb',
             },
             {
               label: 'Outstanding Due',
               value: `${currency}${Math.round(purchases.reduce((s,p) => s + Math.max(0, p.totalAmount - p.amountPaid), 0)).toLocaleString()}`,
-              sub: `${purchases.filter(p => p.totalAmount - p.amountPaid > 0).length} unpaid orders`,
-              icon: <AlertCircle className="w-5 h-5" />,
-              color: '#d97706', iconBg: '#fef3c7',
-              trend: null,
+              sub: `${purchases.filter(p => p.totalAmount - p.amountPaid > 0).length} unpaid`,
+              icon: <AlertCircle className="w-4 h-4" />,
+              color: '#d97706', iconBg: '#fef3c7', accent: '#d97706',
             },
             {
               label: 'Pending Delivery',
               value: `${purchases.filter(p => p.deliveryStatus !== 'Full order delivered').length}`,
               sub: `${purchases.filter(p => p.deliveryStatus === 'Full order delivered').length} delivered`,
-              icon: <Truck className="w-5 h-5" />,
-              color: '#7c3aed', iconBg: '#ede9fe',
-              trend: null,
+              icon: <Truck className="w-4 h-4" />,
+              color: '#7c3aed', iconBg: '#ede9fe', accent: '#7c3aed',
             },
           ].map((kpi, i) => (
-            <div key={i} className="bg-white rounded-2xl p-5 flex flex-col gap-3 relative overflow-hidden"
-              style={{border: '1px solid #f1f5f9', boxShadow: '0 1px 8px rgba(0,0,0,0.05)'}}>
-              <div className="flex items-center justify-between">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{background: kpi.iconBg, color: kpi.color}}>
+            <div key={i} className="bg-white rounded-xl overflow-hidden flex items-stretch"
+              style={{border: '1px solid #f1f5f9', boxShadow: '0 1px 6px rgba(0,0,0,0.05)'}}>
+              {/* Left accent bar */}
+              <div className="w-1 shrink-0" style={{background: kpi.accent}} />
+              {/* Content */}
+              <div className="flex items-center gap-3 px-3.5 py-3 flex-1 min-w-0">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{background: kpi.iconBg, color: kpi.color}}>
                   {kpi.icon}
                 </div>
-                {kpi.trend && (
-                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{kpi.trend}</span>
-                )}
-              </div>
-              <div>
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</p>
-                <p className="text-[20px] font-black text-slate-900 leading-tight mt-0.5">{kpi.value}</p>
-                <p className="text-[10px] text-slate-400 mt-1">{kpi.sub}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">{kpi.label}</p>
+                  <p className="text-[15px] font-black text-slate-900 leading-tight truncate">{kpi.value}</p>
+                  <p className="text-[9px] text-slate-400 truncate mt-0.5">{kpi.sub}</p>
+                </div>
               </div>
             </div>
           ))}
