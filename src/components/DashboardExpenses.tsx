@@ -525,9 +525,9 @@ export default function DashboardExpenses({
               </p>
             </div>
 
-            {/* Mini stat pills */}
+            {/* Mini stat pills — desktop only */}
             {totalExpensesAmt > 0 && (
-              <div className="flex items-center gap-2 mt-3">
+              <div className="hidden md:flex items-center gap-2 mt-3">
                 <div className="px-2.5 py-1 rounded-xl" style={{background: 'rgba(255,255,255,0.12)'}}>
                   <p className="text-[9px] font-bold text-emerald-200 uppercase tracking-wide">Avg/Entry</p>
                   <p className="text-[12px] font-black text-white">{currency} {filteredExpenses.length > 0 ? Math.round(totalExpensesAmt / filteredExpenses.length).toLocaleString() : 0}</p>
