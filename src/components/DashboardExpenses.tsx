@@ -497,78 +497,123 @@ export default function DashboardExpenses({
         </div>
       </div>
 
-      {/* 2. ACTIVE LEDGER SUM — green card with chart + categories */}
-      <div className="w-full rounded-2xl" style={{background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', boxShadow: '0 4px 20px rgba(5,150,105,0.25)'}}>
-        {/* Top: amount + categories */}
-        <div className="flex items-start justify-between px-5 pt-4 pb-2 gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 mb-1">
-              <TrendingDown className="w-3.5 h-3.5 text-emerald-200" />
-              <span className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest">Total Expenses</span>
-            </div>
-            <p className="text-3xl font-black text-white leading-none tracking-tight">
-              {currency} {Math.round(totalExpensesAmt).toLocaleString()}
-            </p>
-            <p className="text-[10px] text-emerald-200 mt-1.5 font-medium">
-              {filteredExpenses.length} {filteredExpenses.length === 1 ? 'entry' : 'entries'} · {
-                dateFrom || dateTo
+      {/* 2. ACTIVE LEDGER SUM — premium card, amount left + trend chart right in one row */}
+      <div className="w-full rounded-2xl overflow-hidden relative" style={{background: 'linear-gradient(135deg, #059669 0%, #047857 60%, #065f46 100%)', boxShadow: '0 4px 24px rgba(5,150,105,0.22)'}}>
+        {/* Decorative background circle */}
+        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full pointer-events-none" style={{background: 'rgba(255,255,255,0.05)'}} />
+        <div className="absolute -bottom-8 right-16 w-24 h-24 rounded-full pointer-events-none" style={{background: 'rgba(255,255,255,0.04)'}} />
+
+        <div className="flex items-stretch gap-0 px-5 pt-4 pb-4 relative">
+          {/* LEFT: total amount details */}
+          <div className="flex flex-col justify-between min-w-0 flex-1 pr-4">
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <TrendingDown className="w-3.5 h-3.5 text-emerald-200" />
+                <span className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest">Total Expenses</span>
+              </div>
+              <p className="text-[28px] font-black text-white leading-none tracking-tight">
+                {currency} {Math.round(totalExpensesAmt).toLocaleString()}
+              </p>
+              <p className="text-[10px] text-emerald-200 mt-2 font-medium leading-snug">
+                {filteredExpenses.length} {filteredExpenses.length === 1 ? 'entry' : 'entries'} ·{' '}
+                {dateFrom || dateTo
                   ? `${dateFrom || '...'} → ${dateTo || '...'}`
                   : quickDateOption === 'today' ? 'Today'
                   : quickDateOption === 'yesterday' ? 'Yesterday'
                   : quickDateOption === 'week' ? 'Last 7 days'
-                  : 'All time'
-              }
-            </p>
-          </div>
-          {/* Category breakdown with names and bars */}
-          <div className="shrink-0 space-y-1.5 min-w-[120px]">
-            {totalExpensesAmt > 0 ? (
-              categoryBreakdown.filter(c => c.total > 0).slice(0, 4).map(cat => (
-                <div key={cat.name} className="space-y-0.5">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[9px] font-semibold text-emerald-100 truncate max-w-[78px]">{cat.name}</span>
-                    <span className="text-[9px] font-black text-white shrink-0">{cat.percentage.toFixed(0)}%</span>
-                  </div>
-                  <div className="h-1 rounded-full overflow-hidden" style={{background: 'rgba(255,255,255,0.2)'}}>
-                    <div className="h-full rounded-full bg-white transition-all duration-700" style={{width: `${Math.min(100, cat.percentage)}%`, opacity: 0.85}} />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-[10px] text-emerald-200">No categories yet</p>
-            )}
-            {categoryBreakdown.filter(c => c.total > 0).length > 4 && (
-              <span className="text-[9px] text-emerald-200 font-medium">+{categoryBreakdown.filter(c => c.total > 0).length - 4} more</span>
-            )}
-          </div>
-        </div>
-
-        {/* Trend chart — full width, not clipped */}
-        <div className="w-full px-2 pb-3" style={{height: '96px'}}>
-          {expenses && expenses.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={expensesTrendData} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="expGreen" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#fff" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#fff" stopOpacity={0.02}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" stroke="rgba(255,255,255,0.0)" tick={{fill: 'rgba(255,255,255,0.45)', fontSize: 8}} tickLine={false} axisLine={false} interval={4} dy={2} />
-                <YAxis stroke="rgba(255,255,255,0.0)" tick={{fill: 'rgba(255,255,255,0.45)', fontSize: 8}} tickLine={false} axisLine={false} width={26} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} />
-                <Tooltip
-                  contentStyle={{backgroundColor: '#065f46', borderColor: 'rgba(255,255,255,0.15)', fontSize: '10px', borderRadius: '8px', color: '#fff', padding: '4px 10px'}}
-                  formatter={(value: any) => [`${currency} ${Number(value).toLocaleString()}`, 'Expenses']}
-                  labelStyle={{color: 'rgba(255,255,255,0.6)', fontWeight: 'bold', fontSize: '9px'}}
-                />
-                <Area type="monotone" dataKey="expense" stroke="rgba(255,255,255,0.85)" strokeWidth={2.5} fillOpacity={1} fill="url(#expGreen)" dot={false} activeDot={{r: 4, fill: '#fff', stroke: 'rgba(255,255,255,0.5)', strokeWidth: 2}} />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-[10px] text-emerald-300 font-medium">Add expenses to see trend</p>
+                  : 'All time'}
+              </p>
             </div>
-          )}
+
+            {/* Mini stat pills */}
+            {totalExpensesAmt > 0 && (
+              <div className="flex items-center gap-2 mt-3">
+                <div className="px-2.5 py-1 rounded-xl" style={{background: 'rgba(255,255,255,0.12)'}}>
+                  <p className="text-[9px] font-bold text-emerald-200 uppercase tracking-wide">Avg/Entry</p>
+                  <p className="text-[12px] font-black text-white">{currency} {filteredExpenses.length > 0 ? Math.round(totalExpensesAmt / filteredExpenses.length).toLocaleString() : 0}</p>
+                </div>
+                <div className="px-2.5 py-1 rounded-xl" style={{background: 'rgba(255,255,255,0.12)'}}>
+                  <p className="text-[9px] font-bold text-emerald-200 uppercase tracking-wide">Categories</p>
+                  <p className="text-[12px] font-black text-white">{categoryBreakdown.filter(c => c.total > 0).length}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Divider line */}
+          <div className="w-px self-stretch shrink-0" style={{background: 'rgba(255,255,255,0.12)', margin: '2px 0'}} />
+
+          {/* RIGHT: trend chart — clear, prominent, beautiful */}
+          <div className="shrink-0 pl-4" style={{width: '55%', height: '110px'}}>
+            {expenses && expenses.length > 0 ? (
+              <div className="w-full h-full flex flex-col">
+                <p className="text-[9px] font-bold text-emerald-300 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white/60 inline-block" />
+                  Spending Trend
+                </p>
+                <div className="flex-1">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={expensesTrendData} margin={{ top: 2, right: 2, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="expTrendFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#fff" stopOpacity={0.35}/>
+                          <stop offset="100%" stopColor="#fff" stopOpacity={0.02}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis
+                        dataKey="date"
+                        stroke="transparent"
+                        tick={{fill: 'rgba(255,255,255,0.4)', fontSize: 7, fontWeight: 600}}
+                        tickLine={false}
+                        axisLine={false}
+                        interval="preserveStartEnd"
+                        dy={3}
+                      />
+                      <YAxis
+                        stroke="transparent"
+                        tick={{fill: 'rgba(255,255,255,0.4)', fontSize: 7}}
+                        tickLine={false}
+                        axisLine={false}
+                        width={22}
+                        tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#064e3b',
+                          borderColor: 'rgba(255,255,255,0.2)',
+                          fontSize: '10px',
+                          borderRadius: '10px',
+                          color: '#fff',
+                          padding: '5px 10px',
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                        }}
+                        formatter={(value: any) => [`${currency} ${Number(value).toLocaleString()}`, 'Expenses']}
+                        labelStyle={{color: 'rgba(255,255,255,0.6)', fontWeight: 700, fontSize: '9px'}}
+                        cursor={{stroke: 'rgba(255,255,255,0.3)', strokeWidth: 1, strokeDasharray: '3 3'}}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="expense"
+                        stroke="#fff"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#expTrendFill)"
+                        dot={false}
+                        activeDot={{r: 4, fill: '#fff', stroke: 'rgba(255,255,255,0.4)', strokeWidth: 2}}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{background: 'rgba(255,255,255,0.1)'}}>
+                  <TrendingDown className="w-4 h-4 text-emerald-200" />
+                </div>
+                <p className="text-[9px] text-emerald-300 font-medium text-center">Add expenses<br/>to see trend</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
