@@ -578,21 +578,6 @@ export default function DashboardPurchases({
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
 
-                {/* Delivery status */}
-                <div className="md:col-span-2 relative">
-                  <select
-                    value={historyDeliveryStatus}
-                    onChange={(e) => setHistoryDeliveryStatus(e.target.value)}
-                    className="w-full appearance-none bg-white border border-slate-200 rounded-xl text-xs px-3 py-2.5 pr-8 text-slate-700 font-semibold focus:outline-none focus:border-emerald-500 cursor-pointer"
-                  >
-                    <option value="all">All Deliveries</option>
-                    <option value="Full order delivered">Fully Delivered</option>
-                    <option value="Partial">Partial</option>
-                    <option value="Pending">Pending</option>
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-
                 {/* Payment status */}
                 <div className="md:col-span-2 relative">
                   <select
@@ -791,64 +776,78 @@ export default function DashboardPurchases({
                   </table>
                 </div>
 
-                {/* ── MOBILE CARDS — native app redesign ── */}
+                {/* ── MOBILE CARDS — premium redesign ── */}
                 <div className="md:hidden space-y-3 p-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
-                  {filteredAndSortedPurchases.map(pc => {
+                  {filteredAndSortedPurchases.map((pc) => {
                     const diff = pc.totalAmount - pc.amountPaid;
                     const isPaid = diff <= 0;
                     const isDelivered = pc.deliveryStatus === 'Full order delivered';
                     const isPartial = pc.deliveryStatus === 'Partial';
-                    const accentColor = isPaid ? '#059669' : diff > 0 ? '#d97706' : '#059669';
+                    const gradientBar = isPaid && isDelivered
+                      ? 'linear-gradient(90deg,#10b981,#34d399)'
+                      : isPaid ? 'linear-gradient(90deg,#3b82f6,#60a5fa)'
+                      : !isPaid ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
+                      : 'linear-gradient(90deg,#e2e8f0,#cbd5e1)';
+                    const avatarGrad = isPaid && isDelivered
+                      ? 'linear-gradient(135deg,#10b981,#059669)'
+                      : isPaid ? 'linear-gradient(135deg,#3b82f6,#2563eb)'
+                      : !isPaid ? 'linear-gradient(135deg,#f59e0b,#d97706)'
+                      : 'linear-gradient(135deg,#94a3b8,#64748b)';
                     return (
                       <div
                         key={pc.id}
-                        className="bg-white rounded-2xl overflow-hidden active:scale-[0.985]"
-                        style={{border: '1px solid #f0fdf4', boxShadow: '0 2px 12px rgba(5,150,105,0.08)'}}
+                        className="relative overflow-hidden rounded-2xl active:scale-[0.98] cursor-pointer select-none"
+                        style={{background:'#ffffff',border:'1px solid #e2e8f0',boxShadow:'0 2px 16px rgba(0,0,0,0.07),0 1px 4px rgba(0,0,0,0.04)'}}
                         onClick={() => setMobilePurchaseMenu(pc)}
                       >
-                        {/* Top accent bar */}
-                        <div className="h-0.5 w-full" style={{background: `linear-gradient(90deg, ${accentColor}, ${accentColor}40)`}} />
+                        {/* Status gradient top bar */}
+                        <div className="h-[3px] w-full" style={{background: gradientBar}} />
 
-                        <div className="px-4 pt-3.5 pb-3">
-                          {/* Row 1: supplier + amount */}
-                          <div className="flex items-start justify-between gap-2">
+                        <div className="p-4">
+                          {/* Row 1: avatar + supplier + amount */}
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-xl shrink-0 flex items-center justify-center font-black text-[15px] text-white shadow-sm"
+                              style={{background: avatarGrad}}>
+                              {pc.supplierName.charAt(0).toUpperCase()}
+                            </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-extrabold text-slate-900 text-[14px] leading-tight truncate">{pc.supplierName}</p>
                               <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                                {pc.id} · {pc.items.length} item{pc.items.length !== 1 ? 's' : ''} · {pc.destination === 'shop' ? '🏪 Shop' : '📦 Store'}
+                                {new Date(pc.timestamp).toLocaleDateString([],{day:'numeric',month:'short',year:'numeric'})} · {pc.items.length} item{pc.items.length!==1?'s':''} · {pc.destination==='shop'?'🏪':'📦'}
                               </p>
                             </div>
-                            <div className="shrink-0 text-right">
-                              <p className="font-black text-[15px] text-slate-900 font-mono">{currency}{Math.round(pc.totalAmount).toLocaleString()}</p>
-                              {diff > 0 && (
-                                <p className="text-[10px] font-bold text-amber-600 mt-0.5">Due {currency}{Math.round(diff).toLocaleString()}</p>
-                              )}
+                            <div className="text-right shrink-0">
+                              <p className="font-black text-[16px] text-slate-900 font-mono leading-none">{currency}{Math.round(pc.totalAmount).toLocaleString()}</p>
+                              {diff > 0
+                                ? <p className="text-[10px] font-bold text-amber-500 mt-0.5">Due {currency}{Math.round(diff).toLocaleString()}</p>
+                                : <p className="text-[10px] font-bold text-emerald-500 mt-0.5">✓ Paid</p>
+                              }
                             </div>
                           </div>
 
-                          {/* Row 2: date + status badges */}
-                          <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-slate-50">
-                            <p className="text-[10px] text-slate-400 font-mono">
-                              {new Date(pc.timestamp).toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'})}
-                            </p>
+                          {/* Item pills */}
+                          {pc.items.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-3">
+                              {pc.items.slice(0, 3).map((item, i) => (
+                                <span key={i} className="text-[9px] font-semibold bg-slate-50 border border-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
+                                  {item.productName} ×{item.qty}
+                                </span>
+                              ))}
+                              {pc.items.length > 3 && <span className="text-[9px] text-slate-400 px-1 py-0.5">+{pc.items.length-3} more</span>}
+                            </div>
+                          )}
+
+                          {/* Status row */}
+                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
                             <div className="flex items-center gap-1.5">
-                              {/* Delivery status */}
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1"
-                                style={{
-                                  background: isDelivered ? '#f0fdf4' : isPartial ? '#fffbeb' : '#f8fafc',
-                                  color: isDelivered ? '#059669' : isPartial ? '#d97706' : '#64748b',
-                                }}>
-                                {isDelivered ? '✓ Delivered' : isPartial ? '⚡ Partial' : '⏳ Pending'}
+                              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{background:isPaid?'#f0fdf4':'#fffbeb',color:isPaid?'#059669':'#d97706'}}>
+                                {isPaid ? '✓ Paid' : 'Credit Due'}
                               </span>
-                              {/* Payment status */}
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
-                                style={{
-                                  background: isPaid ? '#f0fdf4' : '#fffbeb',
-                                  color: isPaid ? '#059669' : '#d97706',
-                                }}>
-                                {isPaid ? 'Paid' : 'Due'}
+                              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{background:isDelivered?'#f0fdf4':isPartial?'#fffbeb':'#f8fafc',color:isDelivered?'#059669':isPartial?'#d97706':'#64748b'}}>
+                                {isDelivered ? '📦 Delivered' : isPartial ? '⚡ Partial' : '⏳ Pending'}
                               </span>
                             </div>
+                            <span className="text-[9px] text-slate-300 font-medium">Tap ›</span>
                           </div>
                         </div>
                       </div>

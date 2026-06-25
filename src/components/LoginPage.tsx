@@ -1468,7 +1468,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 disabled:opacity-55 text-white font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 rounded-xl"
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-55 text-white font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 rounded-xl"
               >
                 {isLoading ? (
                   <>
@@ -1667,7 +1667,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                       <button
                         type="button"
                         onClick={handleStartRecovery}
-                        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
+                        className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
                       >
                         <Shield className="w-4 h-4" />
                         Continue
@@ -1689,7 +1689,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                       <button
                         type="button"
                         onClick={handleVerifyRecoverySecurity}
-                        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
+                        className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
                       >
                         <MessageCircle className="w-4 h-4" />
                         Verify & Send OTP
@@ -1741,7 +1741,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 id="login-submit-btn"
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 disabled:opacity-55 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 shadow-md shadow-emerald-500/10 active:scale-98"
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-55 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 shadow-md shadow-emerald-500/10 active:scale-98"
               >
                 {isLoading ? (
                   <>
@@ -2049,7 +2049,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                             const capitalizedNice = nicePart.charAt(0).toUpperCase() + nicePart.slice(1);
                             handleSelectGoogleAccount(customGoogleEmailInput.trim().toLowerCase(), capitalizedNice);
                           }}
-                          className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-bold rounded-xl hover:from-emerald-500 hover:to-teal-500 cursor-pointer"
+                          className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-500 cursor-pointer"
                         >
                           Select Account
                         </button>
@@ -2229,7 +2229,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
       {/* Personalized Welcome Splash Screen Overlay */}
       {splashInfo && (
-        <div className="fixed inset-0 z-[99999] bg-gradient-to-br from-emerald-900/98 via-teal-900/98 to-emerald-950/98 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 animate-fade-in text-white select-none pointer-events-auto">
+        <div className="fixed inset-0 z-[99999] bg-slate-900/98 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 animate-fade-in text-white select-none pointer-events-auto">
           <div className="space-y-6 max-w-sm animate-scale-in flex flex-col items-center">
             {/* User's business logo or app logo */}
             <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden bg-white/10 flex items-center justify-center shadow-2xl p-2 border border-white/20">

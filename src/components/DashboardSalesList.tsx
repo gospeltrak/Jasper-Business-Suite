@@ -33,6 +33,7 @@ import {
   WifiOff,
   Receipt,
   MoreVertical,
+  AlertCircle,
   ChevronRight,
   PlusCircle,
   Pencil,

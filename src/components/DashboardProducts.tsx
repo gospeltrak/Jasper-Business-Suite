@@ -1404,7 +1404,7 @@ export default function DashboardProducts({
               onClick={() => handleTabSwitch(tab.id as any)}
               className="relative flex flex-col items-center justify-center py-4 px-3 rounded-2xl text-center transition-all active:scale-95"
               style={{
-                background: active ? 'linear-gradient(135deg,#34D399,#10B981)' : '#ffffff',
+                background: active ? '#059669' : '#ffffff',
                 border: active ? '2px solid #059669' : '2px solid #f1f5f9',
                 boxShadow: active ? '0 4px 16px rgba(15,23,42,0.18)' : '0 1px 4px rgba(0,0,0,0.06)',
               }}
@@ -1439,7 +1439,7 @@ export default function DashboardProducts({
               onClick={() => handleTabSwitch(tab.id as any)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all"
               style={{
-                background: active ? 'linear-gradient(135deg,#34D399,#10B981)' : 'transparent',
+                background: active ? '#059669' : 'transparent',
                 color: active ? '#ffffff' : '#64748b',
               }}
             >
@@ -1897,7 +1897,7 @@ export default function DashboardProducts({
                       key={method}
                       type="button"
                       onClick={() => setCostingMethod(method as typeof costingMethod)}
-                      className={`p-3 rounded-xl border text-left transition-all ${costingMethod === method ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                      className={`p-3 rounded-xl border text-left transition-all ${costingMethod === method ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
                     >
                       <span className="block text-xs font-black">{label}</span>
                       <span className={`block text-[9px] mt-1 ${costingMethod === method ? 'text-slate-300' : 'text-slate-400'}`}>{helper}</span>
@@ -2466,7 +2466,7 @@ export default function DashboardProducts({
         <div className="space-y-6 animate-fade-in text-xs font-sans">
           
           {/* Section 1: Connection Drivers setup box for Thermal and hardware models */}
-          <div className="bg-gradient-to-br from-emerald-700 to-teal-700 text-white rounded-3xl p-6 border border-emerald-600/30 shadow-xl space-y-5 relative overflow-hidden">
+          <div className="bg-slate-800 text-white rounded-3xl p-6 border border-slate-700 shadow-xl space-y-5 relative overflow-hidden">
             <div className="absolute right-0 top-0 translate-y-1/3 translate-x-1/3 bg-emerald-500/10 w-96 h-96 rounded-full blur-3xl pointer-events-none" />
             
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10 border-b border-slate-800 pb-4">
@@ -2481,7 +2481,7 @@ export default function DashboardProducts({
               </div>
 
               {/* Status lights */}
-              <div className="flex items-center space-x-3 bg-emerald-900/40 p-3 rounded-2xl border border-emerald-700/50">
+              <div className="flex items-center space-x-3 bg-slate-900/60 p-3 rounded-2xl border border-slate-700">
                 <div className="flex items-center space-x-2">
                   <span className={`w-2.5 h-2.5 rounded-full ${isPrinterConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
                   <span className="font-mono text-[10px] font-bold text-slate-350">
@@ -2491,7 +2491,7 @@ export default function DashboardProducts({
                 <span>|</span>
                 <button
                   onClick={() => setShowTestPrintModal(true)}
-                  className="px-3 py-1 bg-emerald-800 hover:bg-emerald-700 border border-emerald-600 text-[10px] uppercase font-bold tracking-wider rounded-lg text-emerald-100 transition-colors cursor-pointer"
+                  className="px-3 py-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-[10px] uppercase font-bold tracking-wider rounded-lg text-white transition-colors cursor-pointer"
                 >
                   Trigger Test Page
                 </button>
@@ -2503,11 +2503,11 @@ export default function DashboardProducts({
               <div className="space-y-2 bg-slate-950/40 p-4 rounded-2xl border border-slate-850">
                 <span className="text-[10px] font-mono tracking-wider font-extrabold text-slate-400 uppercase block">Link & print diagnostics</span>
                 <div className="grid grid-cols-2 gap-2 pt-1">
-                  <div className="p-3 bg-emerald-900/50 border border-emerald-700/40 rounded-xl">
+                  <div className="p-3 bg-slate-900/50 border border-slate-700/50 rounded-xl">
                     <span className="block text-[8px] uppercase text-slate-500 font-bold tracking-widest leading-none">Status Link</span>
                     <span className="text-[10px] font-bold text-emerald-400 mt-1.5 block">ACTIVE LINK</span>
                   </div>
-                  <div className="p-3 bg-emerald-900/50 border border-emerald-700/40 rounded-xl">
+                  <div className="p-3 bg-slate-900/50 border border-slate-700/50 rounded-xl">
                     <span className="block text-[8px] uppercase text-slate-500 font-bold tracking-widest leading-none">Paper Size</span>
                     <span className="text-[10px] font-bold text-slate-300 mt-1.5 block">50MM ROLL</span>
                   </div>
@@ -2776,7 +2776,7 @@ export default function DashboardProducts({
                   <button
                     onClick={handleTriggerPrintLabels}
                     disabled={isPrintingJob || Object.keys(selectedLabels).filter(k => selectedLabels[k]).length === 0}
-                    className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white font-mono text-[11px] uppercase tracking-wider font-extrabold rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                    className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-mono text-[11px] uppercase tracking-wider font-extrabold rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
                   >
                     <Printer className="w-4 h-4 text-emerald-400 animate-pulse" />
                     <span>Print via Jasper Thermal Printer</span>
@@ -3088,7 +3088,7 @@ export default function DashboardProducts({
             <div className="bg-slate-50 p-3 text-center">
               <button 
                 onClick={() => setShowTestPrintModal(false)}
-                className="w-full py-1.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-lg text-[10px] uppercase cursor-pointer"
+                className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-[10px] uppercase cursor-pointer"
               >
                 Close Diagnostic View
               </button>
@@ -3816,7 +3816,7 @@ export default function DashboardProducts({
               <button 
                 type="button"
                 onClick={() => setViewingProduct(null)} 
-                className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
               >
                 Close
               </button>
@@ -4467,7 +4467,7 @@ export default function DashboardProducts({
                                  key={method}
                                  type="button"
                                  onClick={() => setReplenishCostingMethod(method as typeof replenishCostingMethod)}
-                                 className={`px-2 py-2 rounded-xl border text-left transition-all ${replenishCostingMethod === method ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                                 className={`px-2 py-2 rounded-xl border text-left transition-all ${replenishCostingMethod === method ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
                                >
                                  <span className="block text-[10px] font-black uppercase">{label}</span>
                                  <span className={`block text-[8px] mt-1 leading-tight ${replenishCostingMethod === method ? 'text-slate-300' : 'text-slate-400'}`}>{helper}</span>

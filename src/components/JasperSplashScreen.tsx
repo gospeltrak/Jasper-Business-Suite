@@ -50,7 +50,7 @@ export default function JasperSplashScreen({
         paddingBottom: 'env(safe-area-inset-bottom)',
         paddingLeft: 'env(safe-area-inset-left)',
         paddingRight: 'env(safe-area-inset-right)',
-        background: 'linear-gradient(135deg, #059669 0%, #34D399 50%, #10B981 100%)',
+        background: 'linear-gradient(135deg, #0a0a0a 0%, #0f172a 100%)',
       }}
     >
       <img
