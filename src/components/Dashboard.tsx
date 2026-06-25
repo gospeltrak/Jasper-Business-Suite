@@ -2441,10 +2441,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   >
                     {tab.isPOS ? (
                       <>
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-400/30" style={{marginTop:'-18px'}}>
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30" style={{marginTop:'-18px'}}>
                           <Icon className="w-6 h-6 text-white" strokeWidth={2.5} />
                         </div>
-                        <span className="text-[9px] font-bold text-emerald-400 mt-0.5 leading-none">{t('Sell')}</span>
+                        <span className="text-[9px] font-bold text-emerald-500 mt-0.5 leading-none">{t('Sell')}</span>
                       </>
                     ) : (
                       <>

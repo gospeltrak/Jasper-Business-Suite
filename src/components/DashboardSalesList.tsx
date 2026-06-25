@@ -671,7 +671,7 @@ export default function DashboardSalesList({
               <div>
                 <p className="text-white/60 text-[11px] font-semibold uppercase tracking-widest mb-1">Sales Overview</p>
                 <p className="text-white font-black text-2xl leading-none">{currency}{Math.round(totalVolume).toLocaleString()}</p>
-                <p className="text-white/60 text-[11px] mt-1">{filteredSales.length} transaction{filteredSales.length !== 1 ? 's' : ''}</p>
+                <p className="text-white/60 text-[11px] mt-1">{filteredSales.length} sale{filteredSales.length !== 1 ? 's' : ''}</p>
               </div>
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{background: 'rgba(255,255,255,0.15)'}}>
                 <TrendingUp className="w-6 h-6 text-white" />
@@ -697,99 +697,105 @@ export default function DashboardSalesList({
         </div>
       </div>
 
-      {/* ── DESKTOP HEADER — beautiful command centre ── */}
-      <div className="hidden md:block space-y-5">
+      {/* ── DESKTOP HEADER — title + date filter + KPI cards + tabs ── */}
+      <div className="hidden md:block space-y-4">
 
-        {/* Top bar: title + total */}
+        {/* 1. Title bar */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Sales</h1>
             <p className="text-sm text-slate-400 mt-0.5">
-              {filteredSales.length} transaction{filteredSales.length !== 1 ? 's' : ''} · {activeTenant.businessType === 'pharmacy' ? 'Pharmacy Receipts' : 'All Channels'}
+              {filteredSales.length} sale{filteredSales.length !== 1 ? 's' : ''} · {activeTenant.businessType === 'pharmacy' ? 'Pharmacy Receipts' : 'All Channels'}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Revenue</p>
-              <p className="text-2xl font-black text-slate-900 font-mono">{currency}{Math.round(totalVolume).toLocaleString()}</p>
+          <div className="text-right">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Revenue</p>
+            <p className="text-2xl font-black text-slate-900 font-mono">{currency}{Math.round(totalVolume).toLocaleString()}</p>
+          </div>
+        </div>
+
+        {/* 2. Date range filter bar */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-bold text-slate-700">Date Range</span>
+          </div>
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3 w-full lg:w-auto">
+            <div className="flex flex-row gap-2 w-full lg:w-auto">
+              <div className="flex flex-col gap-0.5 flex-1 lg:flex-none">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">From</label>
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl text-xs px-3 py-2 text-slate-700 font-semibold focus:outline-none focus:border-indigo-400 cursor-pointer" />
+              </div>
+              <div className="flex flex-col gap-0.5 flex-1 lg:flex-none">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">To</label>
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl text-xs px-3 py-2 text-slate-700 font-semibold focus:outline-none focus:border-indigo-400 cursor-pointer" />
+              </div>
+            </div>
+            <div className="flex gap-1.5 flex-wrap">
+              {[
+                { label: 'Today', action: () => { const s = getTodayLocalDateStr(); setStartDate(s); setEndDate(s); } },
+                { label: 'Yesterday', action: () => { const y = new Date(); y.setDate(y.getDate()-1); const s=`${y.getFullYear()}-${String(y.getMonth()+1).padStart(2,'0')}-${String(y.getDate()).padStart(2,'0')}`; setStartDate(s); setEndDate(s); } },
+                { label: '7 Days', action: () => { const p=new Date(); p.setDate(p.getDate()-6); const s=`${p.getFullYear()}-${String(p.getMonth()+1).padStart(2,'0')}-${String(p.getDate()).padStart(2,'0')}`; setStartDate(s); setEndDate(getTodayLocalDateStr()); } },
+                { label: '30 Days', action: () => { const p=new Date(); p.setDate(p.getDate()-29); const s=`${p.getFullYear()}-${String(p.getMonth()+1).padStart(2,'0')}-${String(p.getDate()).padStart(2,'0')}`; setStartDate(s); setEndDate(getTodayLocalDateStr()); } },
+                { label: 'All', action: () => { setStartDate(''); setEndDate(''); } },
+              ].map(b => (
+                <button key={b.label} type="button" onClick={b.action}
+                  className="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors">
+                  {b.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* KPI cards row */}
+        {/* 3. KPI cards */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            {
-              label: 'Total Sales',
-              value: `${currency}${Math.round(totalVolume).toLocaleString()}`,
-              sub: `${filteredSales.length} transactions`,
-              icon: <TrendingUp className="w-5 h-5" />,
-              color: '#059669', bg: '#f0fdf4', iconBg: '#dcfce7',
-            },
-            {
-              label: 'Credit Outstanding',
-              value: `${currency}${Math.round(creditsVolume).toLocaleString()}`,
-              sub: `${sales.filter(s => s.paymentMethod === 'Credit').length} credit sales`,
-              icon: <CreditCard className="w-5 h-5" />,
-              color: '#d97706', bg: '#fffbeb', iconBg: '#fef3c7',
-            },
-            {
-              label: 'Pending Sync',
-              value: `${pendingSyncCount}`,
-              sub: 'offline bills',
-              icon: <Clock className="w-5 h-5" />,
-              color: '#7c3aed', bg: '#f5f3ff', iconBg: '#ede9fe',
-            },
-            {
-              label: 'Amount Due',
-              value: `${pendingCount}`,
-              sub: 'outstanding bills',
-              icon: <AlertCircle className="w-5 h-5" />,
-              color: '#dc2626', bg: '#fff5f5', iconBg: '#fee2e2',
-            },
+            { label: 'Total Sales', value: `${currency}${Math.round(totalVolume).toLocaleString()}`, sub: `${filteredSales.length} sales`, icon: <TrendingUp className="w-5 h-5" />, color: '#059669', iconBg: '#dcfce7' },
+            { label: 'Credit Outstanding', value: `${currency}${Math.round(creditsVolume).toLocaleString()}`, sub: `${sales.filter(s=>s.paymentMethod==='Credit').length} credit sales`, icon: <CreditCard className="w-5 h-5" />, color: '#d97706', iconBg: '#fef3c7' },
+            { label: 'Pending Sync', value: `${pendingSyncCount}`, sub: 'offline bills', icon: <Clock className="w-5 h-5" />, color: '#7c3aed', iconBg: '#ede9fe' },
+            { label: 'Amount Due', value: `${pendingCount}`, sub: 'outstanding bills', icon: <AlertCircle className="w-5 h-5" />, color: '#dc2626', iconBg: '#fee2e2' },
           ].map((kpi, i) => (
             <div key={i} className="rounded-2xl p-4 flex items-center gap-4"
-              style={{background: '#ffffff', border: '1px solid #f1f5f9', boxShadow: '0 1px 8px rgba(0,0,0,0.05)'}}>
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{background: kpi.iconBg, color: kpi.color}}>
-                {kpi.icon}
-              </div>
+              style={{background:'#ffffff',border:'1px solid #f1f5f9',boxShadow:'0 1px 8px rgba(0,0,0,0.05)'}}>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{background:kpi.iconBg,color:kpi.color}}>{kpi.icon}</div>
               <div className="min-w-0">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{kpi.label}</p>
-                <p className="text-[18px] font-black leading-tight truncate" style={{color: '#0f172a'}}>{kpi.value}</p>
+                <p className="text-[18px] font-black leading-tight truncate text-slate-900">{kpi.value}</p>
                 <p className="text-[10px] text-slate-400 truncate">{kpi.sub}</p>
               </div>
             </div>
           ))}
         </div>
-      </div>
 
-      {/* DESKTOP TAB NAVIGATION */}
-      <div className="hidden md:flex items-center justify-between gap-4">
-        <div className="flex bg-white border border-slate-200 p-1 rounded-2xl gap-1 shadow-xs">
-          {[
-            { id: 'sales',      icon: <Receipt className="w-4 h-4" />,    label: 'Receipts',        color: '#4f46e5' },
-            { id: 'debts',      icon: <Coins className="w-4 h-4" />,      label: 'Credit & Debts',  color: '#d97706', badge: sales.filter(s => s.paymentMethod === 'Credit' && (s.total - (s.amountPaid !== undefined ? s.amountPaid : 0)) > 0).length },
-            { id: 'settlement', icon: <Building className="w-4 h-4" />,   label: 'Till Settlement', color: '#7c3aed' },
-            { id: 'documents',  icon: <FileText className="w-4 h-4" />,   label: 'Quotes & Invoices', color: '#0d9488' },
-          ].map(tab => {
-            const active = activeSubTab === tab.id;
-            return (
-              <button key={tab.id} type="button" onClick={() => setActiveSubTab(tab.id as any)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold relative"
-                style={{
-                  background: active ? tab.color : 'transparent',
-                  color: active ? '#ffffff' : '#64748b',
-                  boxShadow: active ? `0 2px 8px ${tab.color}30` : 'none',
-                }}>
-                {tab.icon}
-                <span>{tab.label}</span>
-                {tab.badge && tab.badge > 0 && (
-                  <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">{tab.badge > 9 ? '9+' : tab.badge}</span>
-                )}
-              </button>
-            );
-          })}
+        {/* 4. Tab navigation */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex bg-white border border-slate-200 p-1 rounded-2xl gap-1 shadow-xs">
+            {[
+              { id: 'sales', icon: <Receipt className="w-4 h-4" />, label: 'Receipts', color: '#4f46e5' },
+              { id: 'debts', icon: <Coins className="w-4 h-4" />, label: 'Credit & Debts', color: '#d97706', badge: sales.filter(s=>s.paymentMethod==='Credit'&&(s.total-(s.amountPaid!==undefined?s.amountPaid:0))>0).length },
+              { id: 'settlement', icon: <Building className="w-4 h-4" />, label: 'Till Settlement', color: '#7c3aed' },
+              { id: 'documents', icon: <FileText className="w-4 h-4" />, label: 'Quotes & Invoices', color: '#0d9488' },
+            ].map(tab => {
+              const active = activeSubTab === tab.id;
+              return (
+                <button key={tab.id} type="button" onClick={() => setActiveSubTab(tab.id as any)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold relative"
+                  style={{background:active?tab.color:'transparent',color:active?'#ffffff':'#64748b',boxShadow:active?`0 2px 8px ${tab.color}30`:'none'}}>
+                  {tab.icon}<span>{tab.label}</span>
+                  {tab.badge && tab.badge > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">{tab.badge > 9 ? '9+' : tab.badge}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
+
       </div>
       {/* MOBILE ONLY TAB NAVIGATION — visible pill tabs */}
       <div className="md:hidden pb-3 select-none">
@@ -825,223 +831,7 @@ export default function DashboardSalesList({
 
       {activeSubTab === 'sales' && (
         <>
-          {/* DATE RANGE SELECTOR BAR — desktop only, mobile uses quick buttons below */}
-          <div className="hidden md:flex bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
-            <div className="flex items-center space-x-2.5">
-              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div className="text-left">
-                <h3 className="text-xs font-bold text-slate-800">Date Range Filter</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">Filter by date</p>
-              </div>
-            </div>
-
-            <div className="flex flex-col lg:flex-row lg:items-center gap-3 w-full lg:w-auto">
-              <div className="flex flex-row gap-2 w-full lg:w-auto">
-                <div className="flex flex-col flex-1 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl w-full sm:w-auto relative">
-                  <span className="text-xs uppercase font-mono font-medium text-slate-400 mb-0.5">From</span>
-                  <input 
-                    type="date" 
-                    value={startDate} 
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="bg-transparent border-none outline-none font-medium text-slate-700 focus:ring-0 text-sm cursor-pointer w-full p-0 h-5"
-                  />
-                </div>
-
-                <div className="flex flex-col flex-1 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl w-full sm:w-auto relative">
-                  <span className="text-xs uppercase font-mono font-medium text-slate-400 mb-0.5">To</span>
-                  <input 
-                    type="date" 
-                    value={endDate} 
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="bg-transparent border-none outline-none font-medium text-slate-700 focus:ring-0 text-sm cursor-pointer w-full p-0 h-5"
-                  />
-                </div>
-              </div>
-
-              {/* Quick presets */}
-              <div className="flex flex-row items-center gap-2 overflow-x-auto pb-1 lg:pb-0 scrollbar-none w-full lg:w-auto flex-nowrap">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const str = getTodayLocalDateStr();
-                    setStartDate(str);
-                    setEndDate(str);
-                  }}
-                  className={`flex-1 lg:flex-none whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all duration-150 ${
-                    startDate === getTodayLocalDateStr() && endDate === getTodayLocalDateStr()
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                  }`}
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const yesterday = new Date();
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    const yYear = yesterday.getFullYear();
-                    const yMonth = String(yesterday.getMonth() + 1).padStart(2, '0');
-                    const yDay = String(yesterday.getDate()).padStart(2, '0');
-                    const yStr = `${yYear}-${yMonth}-${yDay}`;
-                    setStartDate(yStr);
-                    setEndDate(yStr);
-                  }}
-                  className={`flex-1 lg:flex-none whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all duration-150 ${
-                    startDate && startDate === endDate && startDate !== getTodayLocalDateStr()
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                  }`}
-                >
-                  Yesterday
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const past7 = new Date();
-                    past7.setDate(past7.getDate() - 6);
-                    const pastYear = past7.getFullYear();
-                    const pastMonth = String(past7.getMonth() + 1).padStart(2, '0');
-                    const pastDay = String(past7.getDate()).padStart(2, '0');
-                    const p7Str = `${pastYear}-${pastMonth}-${pastDay}`;
-                    setStartDate(p7Str);
-                    setEndDate(getTodayLocalDateStr());
-                  }}
-                  className={`flex-1 lg:flex-none whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all duration-150 ${
-                    startDate && startDate !== getTodayLocalDateStr() && endDate === getTodayLocalDateStr()
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                  }`}
-                >
-                  Last 7 Days
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStartDate('');
-                    setEndDate('');
-                  }}
-                  className={`flex-1 lg:flex-none whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all duration-150 ${
-                    !startDate && !endDate
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                  }`}
-                >
-                  All Time
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* KPI METADATA CARDS */}
-      <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {/* Total Sales Ticket count */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-3">
-          <div className="p-2.5 bg-slate-100 text-slate-650 rounded-xl border border-slate-205 shrink-0">
-            <TrendingUp className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Number of Sales</p>
-            <h4 className="text-lg font-black text-slate-800 mt-1">{filteredSales.length} Transactions</h4>
-          </div>
-        </div>
-
-        {/* Total Sales revenue */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-3">
-          <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 shrink-0">
-            <DollarSign className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Total Sales</p>
-            <h4 className="text-lg font-black text-emerald-700 mt-1">{currency}{Math.round(totalVolume).toLocaleString()}</h4>
-          </div>
-        </div>
-
-        {/* Pending Offline sales queue count */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-3">
-          <div className={`p-2.5 rounded-xl shrink-0 border ${pendingSyncCount > 0 ? 'bg-amber-50 text-amber-600 border-amber-100 animate-pulse' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
-            <Clock className="w-5 h-5 animate-pulse" />
-          </div>
-          <div>
-            <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Offline Queue Logs</p>
-            <h4 className="text-lg font-black text-slate-800 mt-1">
-              {pendingSyncCount} {pendingSyncCount === 1 ? 'Docket' : 'Dockets'} Pending
-            </h4>
-          </div>
-        </div>
-
-        {/* Issued Credit Saless */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-3">
-          <div className="p-2.5 bg-amber-500/5 text-amber-700 rounded-xl border border-amber-100 shrink-0">
-            <CreditCard className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[10px] font-mono font-bold text-amber-600 uppercase tracking-widest leading-none">Credit Saless</p>
-            <h4 className="text-lg font-black text-slate-800 mt-1">{currency}{Math.round(creditsVolume).toLocaleString()} ({creditsCount} files)</h4>
-          </div>
-        </div>
-
-      </div>
-
-      {/* KPI METADATA CARDS (MOBILE) — hidden, replaced by hero banner above */}
-      <div className="hidden">
-        <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100/50 shadow-sm flex items-center space-x-2">
-          <div className="p-2 bg-blue-100 text-blue-600 rounded-lg shrink-0">
-            <Receipt className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <h4 className="text-sm font-black text-slate-800 truncate">{filteredSales.length}</h4>
-            <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Number of Sales</p>
-          </div>
-        </div>
-
-        <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100/50 shadow-sm flex items-center space-x-2">
-          <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg shrink-0">
-            <TrendingUp className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <h4 className="text-sm font-black text-slate-800 truncate">{currency}{Math.round(totalVolume).toLocaleString()}</h4>
-            <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Total Sales</p>
-          </div>
-        </div>
-
-        <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-100/50 shadow-sm flex items-center space-x-2">
-          <div className="p-2 bg-amber-100 text-amber-600 rounded-lg shrink-0">
-            <WifiOff className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <h4 className="text-sm font-black text-slate-800 truncate">{pendingSyncCount}</h4>
-            <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Offline Bills</p>
-          </div>
-        </div>
-
-        <div className="bg-orange-50/50 p-3 rounded-xl border border-orange-100/50 shadow-sm flex items-center space-x-2">
-          <div className="p-2 bg-orange-100 text-orange-600 rounded-lg shrink-0">
-            <Clock className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <h4 className="text-sm font-black text-slate-800 truncate">{pendingCount}</h4>
-            <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Pending</p>
-          </div>
-        </div>
-
-        <div className="bg-purple-50/50 p-3 rounded-xl border border-purple-100/50 shadow-sm flex items-center space-x-3 col-span-2">
-          <div className="p-2 bg-purple-100 text-purple-600 rounded-lg shrink-0">
-            <CreditCard className="w-4 h-4" />
-          </div>
-          <div className="min-w-0 flex-1 flex justify-between items-center">
-            <div>
-              <h4 className="text-sm font-black text-slate-800 truncate">{currency}{Math.round(creditsVolume).toLocaleString()}</h4>
-              <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider truncate mt-0.5">Credit Sales</p>
-            </div>
-            <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-1 rounded-md">{creditsCount} docs</span>
-          </div>
-        </div>
-      </div>
-
+          {/* DATE RANGE SELECTOR — desktop only, now shown above in header */}
       {/* FILTER & CONTROL PANEL BAR (DESKTOP) */}
       <div className="hidden md:flex bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex-col md:flex-row md:items-center justify-between gap-4">
         
@@ -1257,7 +1047,7 @@ export default function DashboardSalesList({
           <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden" style={{boxShadow: '0 1px 8px rgba(0,0,0,0.06)'}}>
             {/* Table toolbar */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{filteredSales.length} Records</p>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{filteredSales.length} Sales</p>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-1.5">
                   <Search className="w-3.5 h-3.5 text-slate-400" />
@@ -2805,15 +2595,23 @@ export default function DashboardSalesList({
                 </div>
               </div>
 
-              {/* Mobile zoom + switch bar */}
-              <div className="sm:hidden shrink-0 bg-[#363636] border-b border-[#1a1a1a] px-3 py-2 flex items-center gap-2 print:hidden">
-                <div className="flex items-center gap-1 bg-white/10 rounded-xl px-2 py-1">
-                  <button type="button" onClick={() => setDocZoom(z => Math.max(0.5, +(z - 0.1).toFixed(1)))} className="w-7 h-7 flex items-center justify-center rounded-lg text-white cursor-pointer"><ZoomOut className="w-3.5 h-3.5" /></button>
-                  <span className="text-white/70 text-xs font-mono font-bold w-10 text-center">{Math.round(docZoom * 100)}%</span>
-                  <button type="button" onClick={() => setDocZoom(z => Math.min(2.0, +(z + 0.1).toFixed(1)))} className="w-7 h-7 flex items-center justify-center rounded-lg text-white cursor-pointer"><ZoomIn className="w-3.5 h-3.5" /></button>
-                </div>
-                <button onClick={() => setViewA4InvoiceOpen(false)} className="flex-1 h-8 px-3 bg-white/10 text-white text-[11px] font-bold rounded-lg cursor-pointer flex items-center justify-center gap-1.5">
-                  <Receipt className="w-3.5 h-3.5" /> Thermal Receipt
+              {/* ── BOTTOM ACTION BAR — minimal, mobile-friendly ── */}
+              <div className="shrink-0 bg-[#1e1e1e] border-t border-[#2a2a2a] px-4 py-3 flex items-center justify-center gap-2 print:hidden">
+                <button onClick={() => { setViewA4InvoiceOpen(false); }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
+                  <Receipt className="w-3.5 h-3.5" /><span>Thermal</span>
+                </button>
+                <button onClick={() => shareSalePdf(selectedSale, selectedSale.customerPhone, 'a4')}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors">
+                  <MessageSquare className="w-3.5 h-3.5" /><span>Send PDF</span>
+                </button>
+                <button onClick={() => window.print()}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
+                  <Printer className="w-3.5 h-3.5" /><span>Print</span>
+                </button>
+                <button onClick={() => { setSelectedSale(null); setViewA4InvoiceOpen(false); setDocZoom(1.0); }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-red-500/60 text-white text-[11px] font-bold transition-colors">
+                  <X className="w-3.5 h-3.5" /><span>Close</span>
                 </button>
               </div>
 
@@ -4940,6 +4738,28 @@ export default function DashboardSalesList({
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* ── BOTTOM ACTION BAR — minimal ── */}
+            <div className="shrink-0 bg-[#1e1e1e] border-t border-[#2a2a2a] px-4 py-3 flex items-center justify-center gap-2 print:hidden">
+              {viewingDocument.status === 'pending' && (
+                <button type="button" onClick={() => { sendDocumentToSales(viewingDocument); setViewingDocument(null); }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors">
+                  <ArrowRight className="w-3.5 h-3.5" /><span>Record as Sale</span>
+                </button>
+              )}
+              <button type="button" onClick={() => { viewingDocument.customerPhone?.trim() ? sharePdfDocument(viewingDocument, viewingDocument.customerPhone) : setDocumentSendOpen(prev => !prev); }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
+                <MessageSquare className="w-3.5 h-3.5" /><span>Send PDF</span>
+              </button>
+              <button type="button" onClick={() => window.print()}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
+                <Printer className="w-3.5 h-3.5" /><span>Print</span>
+              </button>
+              <button type="button" onClick={() => { setViewingDocument(null); setDocZoom(1.0); }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-red-500/60 text-white text-[11px] font-bold transition-colors">
+                <X className="w-3.5 h-3.5" /><span>Close</span>
+              </button>
             </div>
           </div>
         );

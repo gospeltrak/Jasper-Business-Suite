@@ -194,6 +194,26 @@ export default function App() {
     }
   };
 
+  // Allow landing page to scroll — unlock body when not in dashboard/login
+  useEffect(() => {
+    const isDashboard = isDashboardRoute(currentPath) || currentPath === '/login' || currentPath.startsWith('/affiliate') || currentPath.startsWith('/partner');
+    if (isDashboard) {
+      document.body.style.position = 'fixed';
+      document.body.style.overflow = 'hidden';
+      document.body.style.width = '100%';
+    } else {
+      // Landing page — allow normal scroll
+      document.body.style.position = '';
+      document.body.style.overflow = '';
+      document.body.style.width = '';
+    }
+    return () => {
+      document.body.style.position = '';
+      document.body.style.overflow = '';
+      document.body.style.width = '';
+    };
+  }, [currentPath]);
+
   // Resolve logo: tenant custom logo → system default
   const splashLogo = logoUrl || '/jasper_logo_transparent.png';
 
