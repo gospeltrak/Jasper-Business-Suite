@@ -1136,232 +1136,139 @@ export default function DashboardReports({
       {/* ------------------------------------------------------------- */}
       {/* DESKTOP-ONLY HEADER CONTROLS SECTION */}
       {/* ------------------------------------------------------------- */}
-      <div className="hidden md:flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="space-y-1">
-          <div className="flex items-center space-x-2">
-            <BarChart3 className="w-5 h-5 text-emerald-600" />
-            <h2 className="text-xl font-bold tracking-tight text-slate-800">Unified Branch Accounts & Reports</h2>
-          </div>
-          <p className="text-xs text-slate-450 leading-relaxed font-sans">
-            Reports, stock value, staff, and P&L.
-          </p>
+      {/* ── DESKTOP HEADER — redesigned ── */}
+      <div className="hidden md:flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Reports</h1>
+          <p className="text-sm text-slate-400 mt-0.5">Analytics & Accounts</p>
         </div>
-
-        {/* Unified Date Filter Rails */}
-        <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-slate-700">
-          <div className="flex items-center bg-slate-100 rounded-xl px-3 py-2 border border-slate-200">
-            <Calendar className="w-4.5 h-4.5 text-slate-400 mr-2 shrink-0" />
-            <span className="text-[10px] text-slate-400 uppercase font-black mr-2">From:</span>
-            <input
-              type="date"
-              value={startDateStr}
-              onChange={(e) => setStartDateStr(e.target.value)}
-              className="bg-transparent border-none text-slate-800 font-bold outline-none focus:ring-0 text-[11px] cursor-pointer"
-            />
+        <div className="flex items-center gap-2 shrink-0">
+          {[
+            {l:'Today', f:()=>{const t=getTodayRange();setStartDateStr(t);setEndDateStr(t);}},
+            {l:'7 days', f:()=>{setStartDateStr(getLast7DaysRange());setEndDateStr(getTodayRange());}},
+            {l:'30 days', f:()=>{const d=new Date();d.setDate(d.getDate()-29);setStartDateStr(d.toISOString().split('T')[0]);setEndDateStr(getTodayRange());}},
+            {l:'All', f:()=>{setStartDateStr('2020-01-01');setEndDateStr(getTodayRange());}},
+          ].map(p=>(
+            <button key={p.l} type="button" onClick={p.f}
+              className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors">{p.l}</button>
+          ))}
+          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-3 py-2">
+            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <input type="date" value={startDateStr} onChange={e=>setStartDateStr(e.target.value)}
+              className="bg-transparent border-none text-slate-700 font-semibold outline-none text-[11px] cursor-pointer w-24" />
+            <span className="text-slate-300 text-xs">→</span>
+            <input type="date" value={endDateStr} onChange={e=>setEndDateStr(e.target.value)}
+              className="bg-transparent border-none text-slate-700 font-semibold outline-none text-[11px] cursor-pointer w-24" />
           </div>
-          <div className="flex items-center bg-slate-100 rounded-xl px-3 py-2 border border-slate-200">
-            <Calendar className="w-4.5 h-4.5 text-slate-400 mr-2 shrink-0" />
-            <span className="text-[10px] text-slate-400 uppercase font-black mr-2">To:</span>
-            <input
-              type="date"
-              value={endDateStr}
-              onChange={(e) => setEndDateStr(e.target.value)}
-              className="bg-transparent border-none text-slate-800 font-bold outline-none focus:ring-0 text-[11px] cursor-pointer"
-            />
-          </div>
-
-          {/* Unified A4 Report Export Station */}
-          <div className="flex items-center gap-1.5 ml-2">
-            <button
-              onClick={handleDownloadActiveTabCSV}
-              type="button"
-              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs uppercase font-mono transition-all flex items-center space-x-1.5 shadow-sm shadow-emerald-700/10 cursor-pointer"
-              title="Download CSV"
-            >
-              <Download className="w-4 h-4" />
-              <span>Export CSV</span>
-            </button>
-
-            <button
-              onClick={() => window.print()}
-              type="button"
-              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-bold rounded-xl text-xs uppercase font-mono transition-all flex items-center space-x-1.5 shadow-sm shadow-slate-950/10 cursor-pointer"
-              title="Export PDF"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Export PDF</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ============================================================= */}
-      {/* MOBILE HEADER & DATE ROW (FIX 1) (375px - 430px) */}
-      {/* ============================================================= */}
-      <div className="block md:hidden bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 rounded-3xl shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <BarChart3 className="w-5 h-5 text-emerald-600 shrink-0" />
-            <h2 className="text-base font-black tracking-tight text-slate-800 dark:text-slate-100">Branch Reports</h2>
-          </div>
-          
-          {/* Quick Exports */}
-          <div className="flex items-center gap-1">
-            <button
-              onClick={handleDownloadActiveTabCSV}
-              className="w-10 h-10 flex items-center justify-center bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 rounded-xl hover:bg-emerald-100 cursor-pointer transition-colors"
-              title="Export CSV"
-            >
-              <Download className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => window.print()}
-              className="w-10 h-10 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-100 cursor-pointer transition-colors"
-              title="Print PDF"
-            >
-              <Printer className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Date Row (FIX 1) */}
-        <div className="flex flex-row gap-2 items-center w-full">
-          {/* Start date */}
-          <div className="flex-1 flex items-center bg-slate-50 dark:bg-slate-950 rounded-xl px-2.5 py-2 border border-slate-205 dark:border-slate-800 min-h-[44px]">
-            <Calendar className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-            <input
-              type="date"
-              value={startDateStr}
-              onChange={(e) => setStartDateStr(e.target.value)}
-              className="bg-transparent border-none text-slate-800 dark:text-slate-200 font-bold outline-none font-sans focus:ring-0 text-xs w-full cursor-pointer p-0"
-              style={{ colorScheme: 'dark' }}
-            />
-          </div>
-
-          <span className="text-[10px] text-slate-400 font-black font-mono">TO</span>
-
-          {/* End date */}
-          <div className="flex-1 flex items-center bg-slate-50 dark:bg-slate-950 rounded-xl px-2.5 py-2 border border-slate-205 dark:border-slate-800 min-h-[44px]">
-            <Calendar className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-            <input
-              type="date"
-              value={endDateStr}
-              onChange={(e) => setEndDateStr(e.target.value)}
-              className="bg-transparent border-none text-slate-800 dark:text-slate-200 font-bold outline-none font-sans focus:ring-0 text-xs w-full cursor-pointer p-0"
-              style={{ colorScheme: 'dark' }}
-            />
-          </div>
-
-          {/* Search/Apply button */}
-          <button
-            type="button"
-            onClick={() => {}}
-            className="w-11 h-11 shrink-0 bg-emerald-600 hover:bg-emerald-700 active:scale-95 flex items-center justify-center rounded-xl cursor-pointer text-white shadow-xs transition-all font-bold"
-          >
-            <CheckCircle className="w-5 h-5" />
+          <button onClick={handleDownloadActiveTabCSV} type="button"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-colors">
+            <Download className="w-3.5 h-3.5" /><span>CSV</span>
+          </button>
+          <button onClick={()=>window.print()} type="button"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs transition-colors">
+            <Printer className="w-3.5 h-3.5" /><span>PDF</span>
           </button>
         </div>
+      </div>
 
-        {/* Quick Filter Pills (FIX 1) */}
-        <div className="flex flex-row items-center gap-1.5 overflow-x-auto scrollbar-none py-1 flex-nowrap whitespace-nowrap">
+      {/* ============================================================= */}
+      {/* ── MOBILE HEADER — premium native hero ── */}
+      <div className="md:hidden space-y-3">
+        {/* Dark hero banner */}
+        <div className="rounded-2xl overflow-hidden relative" style={{background:'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)',boxShadow:'0 4px 20px rgba(15,23,42,0.2)'}}>
+          <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full opacity-5" style={{background:'white'}}/>
+          <div className="px-4 pt-4 pb-4 relative">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Reports & Analytics</p>
+                {(()=>{ const m=getTabMeta(reportTab); const Icon=m.icon; return(
+                  <h1 className="text-white font-black text-[20px] leading-tight mt-0.5">{m.label}</h1>
+                );})()}
+              </div>
+              <div className="flex gap-1.5">
+                <button onClick={handleDownloadActiveTabCSV} type="button"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:'rgba(255,255,255,0.1)'}}>
+                  <Download className="w-4 h-4 text-white"/>
+                </button>
+                <button onClick={()=>window.print()} type="button"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:'rgba(255,255,255,0.1)'}}>
+                  <Printer className="w-4 h-4 text-white"/>
+                </button>
+              </div>
+            </div>
+            {/* Date quick chips */}
+            <div className="flex gap-1.5">
+              {[
+                {l:'Today',   f:()=>{const t=getTodayRange();setStartDateStr(t);setEndDateStr(t);}},
+                {l:'7 Days',  f:()=>{setStartDateStr(getLast7DaysRange());setEndDateStr(getTodayRange());}},
+                {l:'30 Days', f:()=>{const d=new Date();d.setDate(d.getDate()-29);setStartDateStr(d.toISOString().split('T')[0]);setEndDateStr(getTodayRange());}},
+                {l:'All',     f:()=>{setStartDateStr('2020-01-01');setEndDateStr(getTodayRange());}},
+              ].map(p=>(
+                <button key={p.l} type="button" onClick={p.f}
+                  className="px-3 py-1.5 rounded-xl text-[10px] font-bold" style={{background:'rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.75)'}}>{p.l}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* KPI mini cards 2×2 */}
+        <div className="grid grid-cols-2 gap-2.5">
           {[
-            { id: 'today', label: 'Today', range: () => { setStartDateStr(getTodayRange()); setEndDateStr(getTodayRange()); } },
-            { id: 'yesterday', label: 'Yesterday', range: () => { setStartDateStr(getYesterdayRange()); setEndDateStr(getYesterdayRange()); } },
-            { id: 'last7', label: 'Last 7 Days', range: () => { setStartDateStr(getLast7DaysRange()); setEndDateStr(getTodayRange()); } },
-            { id: 'all', label: 'All Time', range: () => { setStartDateStr('2020-01-01'); setEndDateStr(getTodayRange()); } }
-          ].map(p => {
-            const isActive = checkActivePreset() === p.id;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={p.range}
-                className={`min-h-[44px] px-3.5 rounded-full text-xs font-semibold tracking-tight transition-all cursor-pointer border flex items-center justify-center ${
-                  isActive
-                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs font-bold'
-                    : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800/80 text-slate-600 dark:text-slate-400'
-                }`}
-              >
-                {p.label}
-              </button>
-            );
-          })}
+            {label:'Total Sales', value:`${currency}${Math.round(totalGrossSales).toLocaleString()}`, sub:`${filteredSales.length} receipts`, color:'#059669', bg:'#dcfce7', icon:<TrendingUp className="w-4 h-4"/>},
+            {label:'Revenue',     value:`${currency}${Math.round(totalSalesRevenue).toLocaleString()}`, sub:'Net revenue', color:'#2563eb', bg:'#dbeafe', icon:<DollarSign className="w-4 h-4"/>},
+            {label:'COGS',        value:`${currency}${Math.round(totalCOGS).toLocaleString()}`, sub:`Margin ${totalSalesRevenue>0?Math.round(((totalSalesRevenue-totalCOGS)/totalSalesRevenue)*100):0}%`, color:'#d97706', bg:'#fef3c7', icon:<Package className="w-4 h-4"/>},
+            {label:'Expenses',    value:`${currency}${Math.round(totalExpensesCharged).toLocaleString()}`, sub:'Operating', color:'#dc2626', bg:'#fee2e2', icon:<Receipt className="w-4 h-4"/>},
+          ].map((kpi,i)=>(
+            <div key={i} className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #f1f5f9',boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
+              <div className="h-[3px]" style={{background:kpi.color}}/>
+              <div className="p-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</p>
+                  <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:kpi.bg,color:kpi.color}}>{kpi.icon}</div>
+                </div>
+                <p className="text-[17px] font-black text-slate-900 leading-none">{kpi.value}</p>
+                <p className="text-[9px] text-slate-400 mt-1">{kpi.sub}</p>
+              </div>
+            </div>
+          ))}
+          {/* Net profit full-width */}
+          <div className="col-span-2 rounded-2xl overflow-hidden"
+            style={{background:netProfit>=0?'linear-gradient(135deg,#059669,#047857)':'linear-gradient(135deg,#dc2626,#b91c1c)',boxShadow:`0 4px 16px ${netProfit>=0?'rgba(5,150,105,0.2)':'rgba(220,38,38,0.2)'}`}}>
+            <div className="flex items-center justify-between px-4 py-3">
+              <div>
+                <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-0.5">Net Profit</p>
+                <p className="text-white font-black text-[22px] leading-none">{netProfit<0?'-':''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}</p>
+                <p className="text-white/50 text-[10px] mt-1">{netProfit>=0?'↑ Surplus':'↓ Deficit'}</p>
+              </div>
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{background:'rgba(255,255,255,0.15)'}}>
+                <BarChart3 className="w-6 h-6 text-white"/>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* DESKTOP-ONLY FINANCIAL STATEMENT CARDS */}
-      {/* ------------------------------------------------------------- */}
-      <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        
-        {/* Total Sales */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center space-x-4">
-          <div className="p-3 bg-emerald-100 text-emerald-700 rounded-2xl border border-emerald-200/50 shrink-0">
-            <TrendingUp className="w-6 h-6" />
+      {/* ── DESKTOP KPI CARDS — compact with accent bar ── */}
+      <div className="hidden md:grid grid-cols-4 gap-3">
+        {[
+          {label:'Total Sales', value:`${currency}${Math.round(totalSalesRevenue).toLocaleString()}`, sub:`${filteredSales.length} sales`, icon:<TrendingUp className="w-4 h-4"/>, color:'#059669', iconBg:'#dcfce7', accent:'#059669'},
+          {label:'Cost of Goods', value:`${currency}${Math.round(totalCOGS).toLocaleString()}`, sub:`Margin ${totalSalesRevenue>0?Math.round(((totalSalesRevenue-totalCOGS)/totalSalesRevenue)*100):0}%`, icon:<Package className="w-4 h-4"/>, color:'#0891b2', iconBg:'#cffafe', accent:'#0891b2'},
+          {label:'Expenses', value:`${currency}${Math.round(totalExpensesCharged).toLocaleString()}`, sub:<button onClick={()=>setIsExpenseModalOpen(true)} className="text-rose-500 hover:underline cursor-pointer">+ Book Expense</button>, icon:<Receipt className="w-4 h-4"/>, color:'#dc2626', iconBg:'#fee2e2', accent:'#dc2626'},
+          {label:'Net Profit', value:`${netProfit<0?'-':''}${currency}${Math.abs(Math.round(netProfit)).toLocaleString()}`, sub:netProfit>=0?'↑ Surplus':'↓ Deficit', icon:<DollarSign className="w-4 h-4"/>, color:netProfit>=0?'#059669':'#dc2626', iconBg:netProfit>=0?'#dcfce7':'#fee2e2', accent:netProfit>=0?'#059669':'#dc2626'},
+        ].map((kpi,i)=>(
+          <div key={i} className="bg-white rounded-xl overflow-hidden flex items-stretch" style={{border:'1px solid #f1f5f9',boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+            <div className="w-1 shrink-0" style={{background:kpi.accent}}/>
+            <div className="flex items-center gap-3 px-3.5 py-3 flex-1 min-w-0">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{background:kpi.iconBg,color:kpi.color}}>{kpi.icon}</div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">{kpi.label}</p>
+                <p className="text-[15px] font-black leading-tight truncate" style={{color:kpi.color}}>{kpi.value}</p>
+                <p className="text-[9px] text-slate-400 mt-0.5 truncate">{kpi.sub}</p>
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Total Sales Revenue</p>
-            <h4 className="text-xl font-black text-slate-905 mt-1">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</h4>
-            <p className="text-[9.5px] font-mono text-slate-400 mt-0.5 leading-none">{filteredSales.length} approved sales receipts</p>
-          </div>
-        </div>
-
-        {/* COGS (Cost of goods sold) */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center space-x-4">
-          <div className="p-3 bg-slate-100 text-slate-650 rounded-2xl border border-slate-200 shrink-0">
-            <Package className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Cost of Goods (COGS)</p>
-            <h4 className="text-xl font-black text-slate-905 mt-1">{currency}{Math.round(totalCOGS).toLocaleString()}</h4>
-            <p className="text-[9.5px] font-mono text-slate-400 mt-0.5 leading-none">Gross Margin: {totalSalesRevenue > 0 ? Math.round(((totalSalesRevenue - totalCOGS)/totalSalesRevenue) * 100) : 0}%</p>
-          </div>
-        </div>
-
-        {/* Expenses */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center space-x-4">
-          <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl border border-rose-100 shrink-0">
-            <Receipt className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Operating Expenses</p>
-            <h4 className="text-xl font-black text-rose-600 mt-1">{currency}{Math.round(totalExpensesCharged).toLocaleString()}</h4>
-            <p className="text-[9.5px] font-mono text-slate-400 mt-0.5 leading-none">
-              <button 
-                onClick={() => setIsExpenseModalOpen(true)}
-                className="text-rose-600 font-bold hover:underline cursor-pointer inline-flex items-center"
-              >
-                <Plus className="w-3 h-3 mr-0.5" /> Book Expense
-              </button>
-            </p>
-          </div>
-        </div>
-
-        {/* Net Profit */}
-        <div className={`p-5 rounded-3xl border shadow-sm flex items-center space-x-4 ${netProfit >= 0 ? 'bg-emerald-500/5 border-emerald-200 text-emerald-950' : 'bg-rose-500/5 border-rose-200 text-rose-950'}`}>
-          <div className={`p-3 rounded-2xl shrink-0 border ${netProfit >= 0 ? 'bg-emerald-100 text-emerald-700 border-emerald-200/50' : 'bg-rose-100 text-rose-700 border-rose-200/50'}`}>
-            <DollarSign className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Net Accounting Profit</p>
-            <h4 className="text-xl font-black mt-1">
-              {netProfit < 0 ? '-' : ''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}
-            </h4>
-            <span className="text-[9.5px] font-mono mt-0.5 uppercase tracking-wide leading-none flex items-center">
-              {netProfit >= 0 ? (
-                <>
-                  <ArrowUpRight className="w-3 h-3 text-emerald-600 mr-0.5" />
-                  <span className="text-emerald-700 font-bold">Surplus Contribution</span>
-                </>
-              ) : (
-                <>
-                  <ArrowDownRight className="w-3 h-3 text-rose-600 mr-0.5" />
-                  <span className="text-rose-700 font-bold">Deficit Margin</span>
-                </>
-              )}
-            </span>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* ============================================================= */}
@@ -1460,37 +1367,30 @@ export default function DashboardReports({
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* DESKTOP-ONLY TAB SYSTEM NAVIGATIONS */}
-      {/* ------------------------------------------------------------- */}
+      {/* ── DESKTOP TAB NAV — pill style ── */}
       {(!defaultTab || defaultTab !== 'expenses') && (
-        <div className="hidden md:flex border-b border-slate-200 flex-wrap gap-2 pt-2">
+        <div className="hidden md:flex bg-white border border-slate-200 p-1 rounded-2xl gap-1 flex-wrap shadow-xs">
           {[
-            { id: 'p&l', label: 'Profit & Loss Report', icon: FileText, reqPerm: 'reportsProfitCogs' },
-            { id: 'sales-report', label: 'Sales Report', icon: TrendingUp, reqPerm: 'reportsSalesExpenses' },
-            { id: 'dual-channel', label: 'Dual Channel Report', icon: ShieldAlert, reqPerm: 'reportsSalesExpenses' },
-            { id: 'inventory', label: 'Stock Valuation (Store vs Shop)', icon: Package, reqPerm: 'reportsSalesExpenses' },
-            { id: 'payments', label: 'Payments Mode Report', icon: DollarSign, reqPerm: 'reportsSalesExpenses' },
-            { id: 'product-monitoring', label: 'Product Profitability Report', icon: BarChart3, reqPerm: 'reportsSalesExpenses' },
-            { id: 'bulk-products', label: 'Bulk Products Report', icon: Scale, reqPerm: 'reportsSalesExpenses' },
-            { id: 'users', label: 'Suppliers, Customers & Staffs', icon: Users, reqPerm: 'reportsSalesExpenses' }
-          ].filter(tab => {
-            if (!rolePermissions) return true;
-            const permGroup = (rolePermissions as any)[tab.reqPerm];
-            return permGroup === undefined || permGroup.read;
-          }).map(tab => {
-            const IconComp = tab.icon;
-            const isActive = reportTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setReportTab(tab.id as any)}
-                className={`pb-3 px-3.5 text-xs font-bold leading-none cursor-pointer transition-all border-b-2 flex items-center space-x-2 ${
-                  isActive 
-                    ? 'border-emerald-500 text-emerald-600 font-extrabold' 
-                    : 'border-transparent text-slate-450 hover:text-slate-800'
-                }`}
-              >
-                <IconComp className="w-4 h-4 shrink-0" />
+            {id:'p&l',              label:'Profit & Loss',  icon:FileText,    color:'#059669', reqPerm:'reportsProfitCogs'},
+            {id:'sales-report',     label:'Sales',          icon:TrendingUp,  color:'#2563eb', reqPerm:'reportsSalesExpenses'},
+            {id:'payments',         label:'Payments',       icon:DollarSign,  color:'#d97706', reqPerm:'reportsSalesExpenses'},
+            {id:'inventory',        label:'Inventory',      icon:Package,     color:'#0891b2', reqPerm:'reportsSalesExpenses'},
+            {id:'product-monitoring',label:'Products',      icon:BarChart3,   color:'#7c3aed', reqPerm:'reportsSalesExpenses'},
+            {id:'dual-channel',     label:'Dual Channel',   icon:ShieldAlert, color:'#4f46e5', reqPerm:'reportsSalesExpenses'},
+            {id:'bulk-products',    label:'Bulk',           icon:Scale,       color:'#0369a1', reqPerm:'reportsSalesExpenses'},
+            {id:'users',            label:'Customers',      icon:Users,       color:'#dc2626', reqPerm:'reportsSalesExpenses'},
+          ].filter(tab=>{
+            if(!rolePermissions)return true;
+            const p=(rolePermissions as any)[tab.reqPerm];
+            return p===undefined||p.read;
+          }).map(tab=>{
+            const active=reportTab===tab.id;
+            const Icon=tab.icon;
+            return(
+              <button key={tab.id} type="button" onClick={()=>setReportTab(tab.id as any)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer"
+                style={{background:active?tab.color:'transparent',color:active?'#fff':'#64748b',boxShadow:active?`0 2px 8px ${tab.color}30`:'none'}}>
+                <Icon className="w-3.5 h-3.5 shrink-0"/>
                 <span>{tab.label}</span>
               </button>
             );
@@ -1499,10 +1399,39 @@ export default function DashboardReports({
       )}
 
       {/* ============================================================= */}
-      {/* MOBILE TAB TYPE SELECTOR - DROPDOWN WITH ICONS (FIX 3) */}
-      {/* ============================================================= */}
+      {/* ── MOBILE REPORT TILES — 4-col icon grid ── */}
       {(!defaultTab || defaultTab !== 'expenses') && (
-        <div className="block md:hidden">
+        <div className="md:hidden grid grid-cols-4 gap-2 pb-1">
+          {[
+            {id:'p&l',               label:'P&L',       icon:FileText,    color:'#059669', bg:'#f0fdf4'},
+            {id:'sales-report',      label:'Sales',     icon:TrendingUp,  color:'#2563eb', bg:'#eff6ff'},
+            {id:'payments',          label:'Payments',  icon:DollarSign,  color:'#d97706', bg:'#fffbeb'},
+            {id:'inventory',         label:'Inventory', icon:Package,     color:'#0891b2', bg:'#ecfeff'},
+            {id:'product-monitoring',label:'Products',  icon:BarChart3,   color:'#7c3aed', bg:'#f5f3ff'},
+            {id:'dual-channel',      label:'Channels',  icon:ShieldAlert, color:'#4f46e5', bg:'#eef2ff'},
+            {id:'velocity',          label:'Velocity',  icon:ShoppingBag, color:'#0891b2', bg:'#ecfeff'},
+            {id:'users',             label:'Customers', icon:Users,       color:'#dc2626', bg:'#fff5f5'},
+          ].filter(tab=>{
+            if(!rolePermissions)return true;
+            const p=(rolePermissions as any)[tab.id==='p&l'?'reportsProfitCogs':'reportsSalesExpenses'];
+            return p===undefined||p.read;
+          }).map(tab=>{
+            const active=reportTab===tab.id;
+            const Icon=tab.icon;
+            return(
+              <button key={tab.id} type="button" onClick={()=>setReportTab(tab.id as any)}
+                className="flex flex-col items-center justify-center py-3 rounded-2xl gap-1.5 relative active:scale-95"
+                style={{background:active?tab.color:tab.bg,boxShadow:active?`0 3px 12px ${tab.color}35`:'none'}}>
+                {active&&<div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-white/70"/>}
+                <Icon className="w-5 h-5" style={{color:active?'#fff':tab.color}}/>
+                <span className="text-[9px] font-bold leading-tight text-center" style={{color:active?'rgba(255,255,255,0.9)':'#475569'}}>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {/* OLD MOBILE DROPDOWN — hidden */}
+      {false && <>
           <button
             type="button"
             onClick={() => setMobileSelectorOpen(true)}
@@ -1605,9 +1534,8 @@ export default function DashboardReports({
                 })}
               </div>
             </div>
-          </div>
         </div>
-      )}
+      </>}{/* end hidden old mobile dropdown */}
 
       {/* ------------------------------------------------------------- */}
       {/* MAIN DATA VIEW AREA */}
