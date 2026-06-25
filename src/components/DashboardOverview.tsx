@@ -719,7 +719,30 @@ export default function DashboardOverview({
         </div>
       </div>
 
-
+      {/* ── QUICK ACTION — DESKTOP: same card as mobile, adapted for pc/tablet ── */}
+      <div
+        className="hidden md:flex items-center justify-between rounded-2xl px-6 py-4 cursor-pointer select-none group"
+        style={{background: 'linear-gradient(135deg, #00C853 0%, #00953D 100%)', boxShadow: '0 4px 20px rgba(0,200,83,0.25)'}}
+        onClick={() => {
+          const el = document.querySelector('[data-tab="pos"]') as HTMLElement;
+          if (el) el.click();
+        }}
+      >
+        <div className="flex items-center gap-5">
+          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+            <ShoppingCart className="w-6 h-6 text-white" strokeWidth={2.5} />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mb-0.5">Quick Action</p>
+            <p className="text-lg font-black text-white leading-tight">Open Sell Screen</p>
+            <p className="text-[11px] text-white/75 font-medium mt-0.5">Click to start selling now</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-5 py-2.5 rounded-xl transition-colors">
+          <span className="text-white font-bold text-sm">Start Selling</span>
+          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+        </div>
+      </div>
 
       {/* 3. KPI CARDS ROW - desktop only, mobile uses hero above */}
       <div className="hidden md:grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 select-none animate-fade-in">
