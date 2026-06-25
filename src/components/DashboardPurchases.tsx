@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Product, Supplier, Purchase, PurchaseItem, Tenant } from '../types';
 import { addBatchToProduct, createInventoryBatch } from '../utils/inventoryCosting';
 import { formatProductQuantity } from '../utils/unitFormatter';
@@ -87,6 +88,7 @@ export default function DashboardPurchases({
   const [viewPurchase, setViewPurchase] = useState<Purchase | null>(null);
   const [editPurchase, setEditPurchase] = useState<Purchase | null>(null);
   const [deletePurchaseId, setDeletePurchaseId] = useState<string | null>(null);
+  const [mobilePurchaseMenu, setMobilePurchaseMenu] = useState<Purchase | null>(null);
 
   const resetFilters = () => {
     setHistorySearch('');
@@ -450,47 +452,89 @@ export default function DashboardPurchases({
 
       <div id="purchases-view-container" className="space-y-6 pb-8">
         
-        {/* Tab Navigation header card */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white border border-slate-200/80 p-5 sm:p-6 rounded-3xl shadow-xs">
-          <div className="space-y-1">
-            <h4 className="text-base font-bold text-slate-800 flex items-center space-x-2">
-              <Truck className="w-5 h-5 text-emerald-600" />
-              <span>{activeTenant.businessType === 'pharmacy' ? 'Pharmaceutical & Drug Stock Buying' : 'Wholesale Resource Purchases (Buying)'}</span>
-            </h4>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest font-mono">
-              Supply Chain Registry & Storage Restocking
-            </p>
-          </div>
-
-          {/* Modern pill tab switcher */}
-          <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shrink-0 self-start sm:self-auto gap-1">
-            <button
-              onClick={() => setActiveSubTab('history')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeSubTab === 'history'
-                  ? 'bg-white text-slate-800 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <ClipboardList className="w-3.5 h-3.5" />
-              <span>Purchase History</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveSubTab('till')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeSubTab === 'till'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Purchase</span>
-            </button>
+      {/* ── MOBILE HERO + TABS ── md:hidden */}
+      <div className="md:hidden space-y-3">
+        {/* Hero banner */}
+        <div className="rounded-3xl overflow-hidden relative"
+          style={{background: 'linear-gradient(135deg, #059669 0%, #047857 60%, #065f46 100%)'}}>
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10 -translate-y-6 translate-x-6" style={{background: 'white'}} />
+          <div className="relative px-5 pt-5 pb-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-emerald-200 text-[11px] font-semibold uppercase tracking-widest mb-1">Purchase Orders</p>
+                <p className="text-white font-black text-2xl leading-none">{purchases.length}</p>
+                <p className="text-emerald-300 text-[11px] mt-1">total records</p>
+              </div>
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{background: 'rgba(255,255,255,0.15)'}}>
+                <Truck className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
+                <p className="text-emerald-300 text-[9px] font-bold uppercase tracking-wider">Delivered</p>
+                <p className="text-white font-black text-[13px] mt-0.5">{purchases.filter(p => p.deliveryStatus === 'Full order delivered').length}</p>
+              </div>
+              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
+                <p className="text-emerald-300 text-[9px] font-bold uppercase tracking-wider">Pending</p>
+                <p className="text-white font-black text-[13px] mt-0.5">{purchases.filter(p => p.deliveryStatus === 'Pending').length}</p>
+              </div>
+              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
+                <p className="text-emerald-300 text-[9px] font-bold uppercase tracking-wider">Unpaid</p>
+                <p className="text-white font-black text-[13px] mt-0.5">{purchases.filter(p => p.totalAmount - p.amountPaid > 0).length}</p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* ── HISTORY TAB ─────────────────────────────────────────────────── */}
+        {/* Native tab switcher */}
+        <div className="flex bg-slate-100 p-1 rounded-2xl gap-1">
+          <button
+            onClick={() => setActiveSubTab('history')}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12px] font-bold"
+            style={{
+              background: activeSubTab === 'history' ? '#059669' : 'transparent',
+              color: activeSubTab === 'history' ? '#ffffff' : '#64748b',
+              boxShadow: activeSubTab === 'history' ? '0 2px 8px rgba(5,150,105,0.3)' : 'none',
+            }}
+          >
+            <ClipboardList className="w-4 h-4" />
+            <span>History</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab('till')}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12px] font-bold"
+            style={{
+              background: activeSubTab === 'till' ? '#059669' : 'transparent',
+              color: activeSubTab === 'till' ? '#ffffff' : '#64748b',
+              boxShadow: activeSubTab === 'till' ? '0 2px 8px rgba(5,150,105,0.3)' : 'none',
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Purchase</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── DESKTOP HEADER — hidden on mobile ── */}
+      <div className="hidden md:flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white border border-slate-200/80 p-5 sm:p-6 rounded-3xl shadow-xs">
+        <div className="space-y-1">
+          <h4 className="text-base font-bold text-slate-800 flex items-center space-x-2">
+            <Truck className="w-5 h-5 text-emerald-600" />
+            <span>{activeTenant.businessType === 'pharmacy' ? 'Pharmaceutical Stock Buying' : 'Supplier Purchases'}</span>
+          </h4>
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest font-mono">Supply Chain · Stock Restocking</p>
+        </div>
+        <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shrink-0 gap-1">
+          <button onClick={() => setActiveSubTab('history')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer flex items-center gap-1.5 ${activeSubTab === 'history' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+            <ClipboardList className="w-3.5 h-3.5" /><span>Purchase History</span>
+          </button>
+          <button onClick={() => setActiveSubTab('till')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer flex items-center gap-1.5 ${activeSubTab === 'till' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+            <Plus className="w-3.5 h-3.5" /><span>Add Purchase</span>
+          </button>
+        </div>
+      </div>
         {activeSubTab === 'history' ? (
           <div className="bg-white border border-slate-200 rounded-3xl shadow-xs">
             
@@ -747,52 +791,164 @@ export default function DashboardPurchases({
                   </table>
                 </div>
 
-                {/* ── MOBILE CARDS ── */}
-                <div className="md:hidden divide-y divide-slate-100">
+                {/* ── MOBILE CARDS — native app redesign ── */}
+                <div className="md:hidden space-y-3 p-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
                   {filteredAndSortedPurchases.map(pc => {
                     const diff = pc.totalAmount - pc.amountPaid;
+                    const isPaid = diff <= 0;
+                    const isDelivered = pc.deliveryStatus === 'Full order delivered';
+                    const isPartial = pc.deliveryStatus === 'Partial';
+                    const accentColor = isPaid ? '#059669' : diff > 0 ? '#d97706' : '#059669';
                     return (
-                      <div key={pc.id} className="p-4 flex items-center justify-between gap-3">
-                        {/* Left info */}
-                        <div className="flex-1 min-w-0 space-y-1.5">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-black text-slate-800 text-xs font-mono">{pc.id}</span>
-                            {pc.deliveryStatus === 'Full order delivered' ? (
-                              <span className="inline-flex items-center gap-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9.5px] font-extrabold py-0.5 px-2 rounded-md">
-                                <CheckCircle className="w-2.5 h-2.5" /> Delivered
-                              </span>
-                            ) : pc.deliveryStatus === 'Partial' ? (
-                              <span className="inline-flex items-center gap-0.5 bg-amber-50 text-amber-700 border border-amber-100 text-[9.5px] font-extrabold py-0.5 px-2 rounded-md">
-                                <AlertCircle className="w-2.5 h-2.5" /> Partial
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-0.5 bg-slate-100 text-slate-600 text-[9.5px] font-extrabold py-0.5 px-2 rounded-md">
-                                <AlertCircle className="w-2.5 h-2.5" /> Pending
-                              </span>
-                            )}
+                      <div
+                        key={pc.id}
+                        className="bg-white rounded-2xl overflow-hidden active:scale-[0.985]"
+                        style={{border: '1px solid #f0fdf4', boxShadow: '0 2px 12px rgba(5,150,105,0.08)'}}
+                        onClick={() => setMobilePurchaseMenu(pc)}
+                      >
+                        {/* Top accent bar */}
+                        <div className="h-0.5 w-full" style={{background: `linear-gradient(90deg, ${accentColor}, ${accentColor}40)`}} />
+
+                        <div className="px-4 pt-3.5 pb-3">
+                          {/* Row 1: supplier + amount */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-extrabold text-slate-900 text-[14px] leading-tight truncate">{pc.supplierName}</p>
+                              <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                {pc.id} · {pc.items.length} item{pc.items.length !== 1 ? 's' : ''} · {pc.destination === 'shop' ? '🏪 Shop' : '📦 Store'}
+                              </p>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <p className="font-black text-[15px] text-slate-900 font-mono">{currency}{Math.round(pc.totalAmount).toLocaleString()}</p>
+                              {diff > 0 && (
+                                <p className="text-[10px] font-bold text-amber-600 mt-0.5">Due {currency}{Math.round(diff).toLocaleString()}</p>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-[11px] font-semibold text-slate-600 truncate">{pc.supplierName}</p>
-                          <p className="text-[10px] text-slate-400 font-mono">{new Date(pc.timestamp).toLocaleDateString()}</p>
-                          <div className="flex items-center gap-3">
-                            <span className="font-black text-slate-800 text-xs font-mono">{currency}{Math.round(pc.totalAmount).toLocaleString()}</span>
-                            {diff > 0 ? (
-                              <span className="text-[10px] text-amber-600 font-bold">Due: {currency}{Math.round(diff).toLocaleString()}</span>
-                            ) : (
-                              <span className="text-[10px] text-emerald-600 font-bold">✓ Paid</span>
-                            )}
+
+                          {/* Row 2: date + status badges */}
+                          <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-slate-50">
+                            <p className="text-[10px] text-slate-400 font-mono">
+                              {new Date(pc.timestamp).toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'})}
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                              {/* Delivery status */}
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1"
+                                style={{
+                                  background: isDelivered ? '#f0fdf4' : isPartial ? '#fffbeb' : '#f8fafc',
+                                  color: isDelivered ? '#059669' : isPartial ? '#d97706' : '#64748b',
+                                }}>
+                                {isDelivered ? '✓ Delivered' : isPartial ? '⚡ Partial' : '⏳ Pending'}
+                              </span>
+                              {/* Payment status */}
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                                style={{
+                                  background: isPaid ? '#f0fdf4' : '#fffbeb',
+                                  color: isPaid ? '#059669' : '#d97706',
+                                }}>
+                                {isPaid ? 'Paid' : 'Due'}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                        {/* Menu button */}
-                        <button
-                          onClick={() => setViewPurchase(pc)}
-                          className="shrink-0 flex items-center gap-1.5 bg-slate-900 text-white text-[11px] font-bold px-3 py-2 rounded-xl"
-                        >
-                          <Eye className="w-3.5 h-3.5" /> View
-                        </button>
                       </div>
                     );
                   })}
                 </div>
+
+                {/* ── MOBILE PURCHASE ACTION SHEET ── */}
+                <AnimatePresence>
+                  {mobilePurchaseMenu && (
+                    <>
+                      <motion.div
+                        initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}}
+                        className="md:hidden fixed inset-0 z-[200] bg-slate-900/40"
+                        onClick={() => setMobilePurchaseMenu(null)}
+                      />
+                      <motion.div
+                        initial={{y: '100%'}} animate={{y: 0}} exit={{y: '100%'}}
+                        transition={{type: 'tween', duration: 0.22, ease: [0.32, 0.72, 0, 1]}}
+                        className="md:hidden fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-[28px] z-[210] overflow-hidden"
+                        style={{bottom: 'calc(56px + env(safe-area-inset-bottom))', maxHeight: '75dvh', boxShadow: 'none'}}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        {/* Handle */}
+                        <div className="flex justify-center pt-3 pb-1">
+                          <div className="w-10 h-1 bg-slate-200 rounded-full" />
+                        </div>
+
+                        {/* Header */}
+                        <div className="px-5 pt-2 pb-4 border-b border-slate-100">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-extrabold text-slate-900 text-[15px]">{mobilePurchaseMenu.supplierName}</p>
+                              <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                                {mobilePurchaseMenu.id} · {new Date(mobilePurchaseMenu.timestamp).toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'})}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-black text-[16px] font-mono" style={{color: '#059669'}}>{currency}{Math.round(mobilePurchaseMenu.totalAmount).toLocaleString()}</p>
+                              {mobilePurchaseMenu.totalAmount - mobilePurchaseMenu.amountPaid > 0 && (
+                                <p className="text-[10px] font-bold text-amber-600">Due {currency}{Math.round(mobilePurchaseMenu.totalAmount - mobilePurchaseMenu.amountPaid).toLocaleString()}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="p-4 space-y-2.5">
+                          {/* View */}
+                          <button type="button"
+                            onClick={() => { setViewPurchase(mobilePurchaseMenu); setMobilePurchaseMenu(null); }}
+                            className="w-full h-14 flex items-center gap-4 px-4 rounded-2xl text-left active:bg-slate-50"
+                            style={{border: '1px solid #f1f5f9', background: '#fff'}}
+                          >
+                            <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{background: '#f0fdf4'}}>
+                              <Eye className="w-5 h-5" style={{color: '#059669'}} />
+                            </div>
+                            <div>
+                              <p className="text-[14px] font-bold text-slate-800">View Details</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">See full purchase information</p>
+                            </div>
+                          </button>
+
+                          {/* Edit */}
+                          <button type="button"
+                            onClick={() => { setEditPurchase(mobilePurchaseMenu); setMobilePurchaseMenu(null); }}
+                            className="w-full h-14 flex items-center gap-4 px-4 rounded-2xl text-left active:bg-slate-50"
+                            style={{border: '1px solid #f1f5f9', background: '#fff'}}
+                          >
+                            <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{background: '#eff6ff'}}>
+                              <Pencil className="w-5 h-5" style={{color: '#2563eb'}} />
+                            </div>
+                            <div>
+                              <p className="text-[14px] font-bold text-slate-800">Edit Purchase</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Update payment or delivery status</p>
+                            </div>
+                          </button>
+
+                          {/* Divider */}
+                          <div className="h-px bg-slate-100 mx-1" />
+
+                          {/* Delete */}
+                          <button type="button"
+                            onClick={() => { setDeletePurchaseId(mobilePurchaseMenu.id); setMobilePurchaseMenu(null); }}
+                            className="w-full h-14 flex items-center gap-4 px-4 rounded-2xl text-left active:bg-red-50"
+                            style={{border: '1px solid #fff1f2', background: '#fff'}}
+                          >
+                            <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-red-50">
+                              <Trash2 className="w-5 h-5 text-red-500" />
+                            </div>
+                            <div>
+                              <p className="text-[14px] font-bold text-red-600">Delete Purchase</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Remove this record permanently</p>
+                            </div>
+                          </button>
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </>
             )}
           </div>
