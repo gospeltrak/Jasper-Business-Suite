@@ -1076,56 +1076,40 @@ export default function DashboardSalesList({
 
       {/* FILTER & CONTROL PANEL BAR (MOBILE) */}
       <div className="md:hidden space-y-2">
-        {/* Compact date filter row */}
+        {/* Quick date chips */}
         <div className="flex items-center gap-2">
-          {/* Quick date chips */}
-          <div className="flex gap-1.5 flex-1 overflow-x-auto scrollbar-none">
+          <div className="flex gap-1.5 flex-1">
             {[
-              { label: 'Today',     value: 'today' },
-              { label: 'Week',      value: 'week' },
-              { label: 'Month',     value: 'month' },
-              { label: 'All',       value: 'all' },
-            ].map(opt => {
-              const active = selectedDateFilter === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setSelectedDateFilter(opt.value as any)}
-                  className="shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-colors"
-                  style={{
-                    background: active ? '#0f172a' : '#f1f5f9',
-                    color: active ? '#ffffff' : '#64748b',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
+              { label: 'Today', action: () => { const s = getTodayLocalDateStr(); setStartDate(s); setEndDate(s); }, active: startDate === getTodayLocalDateStr() && endDate === getTodayLocalDateStr() },
+              { label: 'Week',  action: () => { const p = new Date(); p.setDate(p.getDate()-6); const s = `${p.getFullYear()}-${String(p.getMonth()+1).padStart(2,'0')}-${String(p.getDate()).padStart(2,'0')}`; setStartDate(s); setEndDate(getTodayLocalDateStr()); }, active: startDate !== getTodayLocalDateStr() && endDate === getTodayLocalDateStr() && startDate !== endDate },
+              { label: 'Month', action: () => { const p = new Date(); p.setDate(p.getDate()-29); const s = `${p.getFullYear()}-${String(p.getMonth()+1).padStart(2,'0')}-${String(p.getDate()).padStart(2,'0')}`; setStartDate(s); setEndDate(getTodayLocalDateStr()); }, active: false },
+              { label: 'All',   action: () => { setStartDate(''); setEndDate(''); }, active: !startDate && !endDate },
+            ].map(opt => (
+              <button key={opt.label} type="button" onClick={opt.action}
+                className="flex-1 py-1.5 rounded-xl text-[11px] font-bold"
+                style={{ background: opt.active ? '#0f172a' : '#f1f5f9', color: opt.active ? '#ffffff' : '#64748b' }}>
+                {opt.label}
+              </button>
+            ))}
           </div>
-          {/* Custom date — calendar icon opens inline pickers */}
-          <button
-            type="button"
-            onClick={() => setShowMobileDatePicker(prev => !prev)}
+          <button type="button" onClick={() => setShowMobileDatePicker(v => !v)}
             className="w-9 h-9 flex items-center justify-center rounded-xl shrink-0"
-            style={{ background: (startDate || endDate) ? '#0f172a' : '#f1f5f9' }}
-          >
-            <Calendar className="w-4 h-4" style={{ color: (startDate || endDate) ? '#ffffff' : '#64748b' }} />
+            style={{ background: showMobileDatePicker ? '#0f172a' : '#f1f5f9' }}>
+            <Calendar className="w-4 h-4" style={{ color: showMobileDatePicker ? '#ffffff' : '#64748b' }} />
           </button>
         </div>
 
-        {/* Inline date pickers — only shown when calendar tapped */}
+        {/* Inline date pickers — shown when calendar tapped */}
         {showMobileDatePicker && (
           <div className="flex gap-2 items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
             <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-              className="flex-1 bg-transparent text-xs font-semibold text-slate-700 outline-none" />
-            <span className="text-slate-300 text-xs">→</span>
+              className="flex-1 bg-transparent text-xs font-semibold text-slate-700 outline-none min-w-0" />
+            <span className="text-slate-300 text-xs shrink-0">→</span>
             <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-              className="flex-1 bg-transparent text-xs font-semibold text-slate-700 outline-none" />
+              className="flex-1 bg-transparent text-xs font-semibold text-slate-700 outline-none min-w-0" />
             {(startDate || endDate) && (
-              <button type="button" onClick={() => { setStartDate(''); setEndDate(''); }}
-                className="text-slate-400 ml-1">
+              <button type="button" onClick={() => { setStartDate(''); setEndDate(''); }} className="text-slate-400 ml-1 shrink-0">
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
@@ -1136,19 +1120,12 @@ export default function DashboardSalesList({
         <div className="flex gap-2 items-center">
           <div className="flex-1 flex items-center bg-white border border-slate-200 px-3 py-2.5 rounded-xl shadow-xs">
             <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-            <input
-              type="text"
-              placeholder="Search sales..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-transparent border-none focus:outline-none w-full text-xs text-slate-800 placeholder-slate-400 font-sans"
-            />
+            <input type="text" placeholder="Search sales..."
+              value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+              className="bg-transparent border-none focus:outline-none w-full text-xs text-slate-800 placeholder-slate-400" />
           </div>
-          <select
-            value={selectedPaymentMethod}
-            onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-            className="bg-slate-900 border border-slate-800 text-white px-3 py-2.5 rounded-xl font-bold cursor-pointer outline-none text-xs shadow-xs shrink-0"
-          >
+          <select value={selectedPaymentMethod} onChange={e => setSelectedPaymentMethod(e.target.value)}
+            className="bg-slate-900 border border-slate-800 text-white px-3 py-2.5 rounded-xl font-bold cursor-pointer outline-none text-xs shadow-xs shrink-0">
             <option value="All">All</option>
             <option value="Cash">Cash</option>
             <option value="Card">Card</option>
