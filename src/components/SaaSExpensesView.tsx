@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Receipt, Trash } from 'lucide-react';
+import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 
 interface ExpenseRecord {
   id: string;
@@ -19,23 +20,14 @@ export default function SaaSExpensesView() {
   const [formSuccess, setFormSuccess] = useState(false);
 
   useEffect(() => {
-    const rawExpenses = localStorage.getItem('saas_expenses_catalog');
-    if (rawExpenses) {
-      try {
-        setExpenses(JSON.parse(rawExpenses));
-      } catch (err) {}
-    } else {
-      const defaultExpenses: ExpenseRecord[] = [
-        { id: 'EXP-901', title: 'Server Hosting (AWS Cloud Run)', category: 'Operational', amount: 350000, date: '2026-05-01', recipient: 'Amazon Web Services' },
-        { id: 'EXP-902', title: 'TRA Attorney Consulting Fees', category: 'Legal', amount: 800000, date: '2026-05-12', recipient: 'Karia & Advocates' },
-        { id: 'EXP-903', title: 'Flyer Creatives Design Kit printing', category: 'Marketing', amount: 150000, date: '2026-05-20', recipient: 'Arusha Press Ltd' },
-      ];
-      localStorage.setItem('saas_expenses_catalog', JSON.stringify(defaultExpenses));
-      setExpenses(defaultExpenses);
-    }
+    let alive = true;
+    loadPlatformRecord<ExpenseRecord[]>('platform_expenses', 'global', [])
+      .then((items) => { if (alive) setExpenses(Array.isArray(items) ? items : []); })
+      .catch(() => setExpenses([]));
+    return () => { alive = false; };
   }, []);
 
-  const handleAddExpense = (e: React.FormEvent) => {
+  const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!expTitle || !expAmount) return;
 
@@ -55,7 +47,7 @@ export default function SaaSExpensesView() {
     };
 
     const updated = [...expenses, newExp];
-    localStorage.setItem('saas_expenses_catalog', JSON.stringify(updated));
+    await savePlatformRecord('platform_expenses', 'global', updated);
     setExpenses(updated);
     setExpTitle('');
     setExpAmount('');
@@ -64,10 +56,10 @@ export default function SaaSExpensesView() {
     setTimeout(() => setFormSuccess(false), 2500);
   };
 
-  const handleDeleteExpense = (id: string) => {
+  const handleDeleteExpense = async (id: string) => {
     if (!window.confirm('Delete this expense record?')) return;
     const filtered = expenses.filter(e => e.id !== id);
-    localStorage.setItem('saas_expenses_catalog', JSON.stringify(filtered));
+    await savePlatformRecord('platform_expenses', 'global', filtered);
     setExpenses(filtered);
   };
 

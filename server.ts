@@ -731,6 +731,77 @@ async function startServer() {
     }
   });
 
+  app.get('/api/super-admin/platform-records', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const recordType = String(req.query.type || '').trim();
+      const scopeId = String(req.query.scope || '').trim();
+      let query = adminTable('super_admin_platform_records')
+        .select('*')
+        .order('updated_at', { ascending: false });
+      if (recordType) query = query.eq('record_type', recordType);
+      if (scopeId) query = query.eq('scope_id', scopeId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return res.json({ records: data || [] });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.put('/api/super-admin/platform-records/:type/:scope', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const recordType = String(req.params.type || '').trim();
+      const scopeId = String(req.params.scope || '').trim() || 'global';
+      if (!recordType) return res.status(400).json({ error: 'Record type is required.' });
+
+      const payload = req.body?.payload ?? {};
+      const { data, error } = await adminTable('super_admin_platform_records')
+        .upsert({
+          record_type: recordType,
+          scope_id: scopeId,
+          payload,
+          updated_by: adminUser.id,
+          created_by: adminUser.id,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'record_type,scope_id' })
+        .select('*')
+        .single();
+      if (error) throw error;
+
+      await adminTable('super_admin_audit_logs').insert({
+        actor_user_id: adminUser.id,
+        action: 'platform_record_saved',
+        metadata: { record_type: recordType, scope_id: scopeId }
+      });
+      return res.json({ record: data });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.delete('/api/super-admin/platform-records/:type/:scope', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const recordType = String(req.params.type || '').trim();
+      const scopeId = String(req.params.scope || '').trim() || 'global';
+      const { error } = await adminTable('super_admin_platform_records')
+        .delete()
+        .eq('record_type', recordType)
+        .eq('scope_id', scopeId);
+      if (error) throw error;
+      await adminTable('super_admin_audit_logs').insert({
+        actor_user_id: adminUser.id,
+        action: 'platform_record_deleted',
+        metadata: { record_type: recordType, scope_id: scopeId }
+      });
+      return res.json({ success: true });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
   // Affiliate registration is deliberately server-side: browser clients never
   // receive the service role and cannot create a profile for another account.
   app.post('/api/affiliate/register', async (req, res) => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Plus, Edit2, Trash } from 'lucide-react';
+import { defaultHardwareInventory, loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 
 export default function SaaSHardwareInventory({ affiliateId }: { affiliateId?: string }) {
   const [inventory, setInventory] = useState<any[]>([]);
@@ -9,30 +10,21 @@ export default function SaaSHardwareInventory({ affiliateId }: { affiliateId?: s
   // Form states for Add/Edit
   const [formData, setFormData] = useState({ name: '', category: '', price: 0, stock: 0 });
 
-  const storageKey = affiliateId ? `saas_affiliate_hw_inventory_${affiliateId}` : 'saas_hw_inventory';
+  const recordType = affiliateId ? 'affiliate_hardware_inventory' : 'hardware_inventory';
+  const scopeId = affiliateId || 'global';
 
   useEffect(() => {
-    const raw = localStorage.getItem(storageKey);
-    if (raw) {
-      setInventory(JSON.parse(raw));
-    } else if (!affiliateId) {
-      const defaultInv = [
-        { id: 'item-1', name: 'Jasper POS Thermal Printer', category: 'Printer', stock: 45, price: 150000 },
-        { id: 'item-2', name: 'Barcode Scanner', category: 'Scanner', stock: 30, price: 80000 },
-        { id: 'item-3', name: 'Tablet + Standing Set', category: 'Tablet', stock: 20, price: 250000 },
-        { id: 'item-4', name: 'Complete System Set', category: 'Bundle', stock: 15, price: 450000 },
-      ];
-      setInventory(defaultInv);
-      localStorage.setItem(storageKey, JSON.stringify(defaultInv));
-    } else {
-      setInventory([]);
-    }
-  }, [storageKey, affiliateId]);
+    let alive = true;
+    loadPlatformRecord<any[]>(recordType, scopeId, affiliateId ? [] : defaultHardwareInventory)
+      .then((items) => { if (alive) setInventory(Array.isArray(items) ? items : []); })
+      .catch(() => setInventory(affiliateId ? [] : defaultHardwareInventory));
+    return () => { alive = false; };
+  }, [recordType, scopeId, affiliateId]);
 
   const handleUpdateStock = (id: string, qty: number) => {
     const updated = inventory.map(item => item.id === id ? { ...item, stock: Math.max(0, item.stock + qty) } : item);
     setInventory(updated);
-    localStorage.setItem(storageKey, JSON.stringify(updated));
+    savePlatformRecord(recordType, scopeId, updated).catch(() => {});
   };
 
   const handleSaveItem = () => {
@@ -43,7 +35,7 @@ export default function SaaSHardwareInventory({ affiliateId }: { affiliateId?: s
       updated = [...inventory, { id: 'item-' + Date.now(), ...formData }];
     }
     setInventory(updated);
-    localStorage.setItem(storageKey, JSON.stringify(updated));
+    savePlatformRecord(recordType, scopeId, updated).catch(() => {});
     setShowAddModal(false);
     setSelectedEdit(null);
   };
@@ -52,7 +44,7 @@ export default function SaaSHardwareInventory({ affiliateId }: { affiliateId?: s
     if (!confirm('Are you sure you want to delete this hardware item?')) return;
     const updated = inventory.filter(i => i.id !== id);
     setInventory(updated);
-    localStorage.setItem(storageKey, JSON.stringify(updated));
+    savePlatformRecord(recordType, scopeId, updated).catch(() => {});
   };
 
   const openAdd = () => {

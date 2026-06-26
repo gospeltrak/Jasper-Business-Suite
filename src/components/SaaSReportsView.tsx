@@ -27,6 +27,8 @@ import {
   Legend,
 } from "recharts";
 import { Tenant } from "../types";
+import { loadPlatformRecord } from "../utils/superAdminPlatformRecords";
+import { loadSuperAdminOverview, mapSuperAdminUsers } from "../utils/superAdminData";
 
 interface ExpenseRecord {
   id: string;
@@ -55,103 +57,38 @@ export default function SaaSReportsView() {
   const [timeframeMode, setTimeframeMode] = useState<"monthly" | "weekly">("monthly");
 
   useEffect(() => {
-    // 1. Load active tenants to calculate subscription volume
-    const rawTen = localStorage.getItem("jasper_tenants");
-    if (rawTen) {
-      try {
-        setTenants(JSON.parse(rawTen));
-      } catch (err) {}
-    } else {
-      // Fallback standard tenants count fallback
-      setTenants([
-        {
-          id: "1",
-          name: "Langa Store Kariakoo",
-          businessType: "retail",
-          planType: "Premium",
-          status: "active",
-          paymentTerm: "monthly",
-        } as any,
-        {
-          id: "2",
-          name: "Zanzibar Spice Boutique",
-          businessType: "retail",
-          planType: "Standard Business",
-          status: "active",
-          paymentTerm: "monthly",
-        } as any,
-        {
-          id: "3",
-          name: "Mwanza Fish Ledger",
-          businessType: "retail",
-          planType: "Essential Ledger",
-          status: "trial",
-          paymentTerm: "trial",
-        } as any,
-      ]);
-    }
-
-    // 2. Load recorded expenses
-    const rawExpenses = localStorage.getItem("saas_expenses_catalog");
-    if (rawExpenses) {
-      try {
-        setExpenses(JSON.parse(rawExpenses));
-      } catch (err) {}
-    }
-
-    // 3. Load affiliates to read generated sales
-    const rawAffs = localStorage.getItem("saas_immersive_affiliates");
-    if (rawAffs) {
-      try {
-        setAffiliates(JSON.parse(rawAffs));
-      } catch (err) {}
-    }
-
-    // 4. Load HW Sales & Inventory
-    const rawHWSales = localStorage.getItem("saas_hw_sales");
-    if (rawHWSales) {
-      try {
-        setHardwareSales(JSON.parse(rawHWSales));
-      } catch (err) {}
-    }
-    const rawHWInv = localStorage.getItem("saas_hw_inventory");
-    if (rawHWInv) {
-      try {
-        setHardwareInventory(JSON.parse(rawHWInv));
-      } catch (err) {}
-    } else {
-      const defaultInv = [
-        {
-          id: "item-1",
-          name: "Jasper POS Thermal Printer",
-          category: "Printer",
-          stock: 45,
-          price: 150000,
-        },
-        {
-          id: "item-2",
-          name: "Barcode Scanner",
-          category: "Scanner",
-          stock: 30,
-          price: 80000,
-        },
-        {
-          id: "item-3",
-          name: "Tablet + Standing Set",
-          category: "Tablet",
-          stock: 20,
-          price: 250000,
-        },
-        {
-          id: "item-4",
-          name: "Complete System Set",
-          category: "Bundle",
-          stock: 15,
-          price: 450000,
-        },
-      ];
-      setHardwareInventory(defaultInv);
-    }
+    let alive = true;
+    Promise.all([
+      loadSuperAdminOverview(),
+      loadPlatformRecord<ExpenseRecord[]>("platform_expenses", "global", []),
+      loadPlatformRecord<any[]>("hardware_sales", "global", []),
+      loadPlatformRecord<any[]>("hardware_inventory", "global", []),
+    ]).then(([overview, platformExpenses, hwSales, hwInventory]) => {
+      if (!alive) return;
+      setTenants((overview.tenants || []) as Tenant[]);
+      setExpenses(Array.isArray(platformExpenses) ? platformExpenses : []);
+      setHardwareSales(Array.isArray(hwSales) ? hwSales : []);
+      setHardwareInventory(Array.isArray(hwInventory) ? hwInventory : []);
+      setAffiliates((overview.affiliates || []).map((affiliate: any) => {
+        const commissions = (overview.commissions || []).filter((row: any) => row.affiliate_id === affiliate.id);
+        return {
+          id: affiliate.id,
+          name: affiliate.display_name,
+          revenueDate: commissions.reduce((sum: number, row: any) => sum + Number(row.gross_revenue || 0), 0),
+          revenueGenerated: commissions.reduce((sum: number, row: any) => sum + Number(row.gross_revenue || 0), 0),
+          totalEarnings: commissions.reduce((sum: number, row: any) => sum + Number(row.net_payout || row.amount || 0), 0),
+          isSuper: false
+        };
+      }));
+    }).catch(() => {
+      if (!alive) return;
+      setTenants([]);
+      setExpenses([]);
+      setAffiliates([]);
+      setHardwareSales([]);
+      setHardwareInventory([]);
+    });
+    return () => { alive = false; };
   }, []);
 
   // -- FINANCE INTEGRATION LOGIC --
@@ -160,7 +97,7 @@ export default function SaaSReportsView() {
     return tenants.reduce((total, t) => {
       // Map plans to monetary amounts
       let planCharge = 0;
-      if (t.status === "active" || t.status === "Paid") {
+      if ((t as any).status === "active" || (t as any).status === "Paid" || !(t as any).status) {
         if (t.planType === "Premium") planCharge = 45000;
         else if (t.planType === "Standard Business") planCharge = 30000;
         else if (t.planType === "Essential Ledger") planCharge = 15000;

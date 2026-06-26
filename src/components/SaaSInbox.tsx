@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Inbox, CheckCircle, Clock, Trash, AlertTriangle, Reply } from 'lucide-react';
+import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 
 interface InboxMessage {
   id: string;
@@ -12,56 +13,52 @@ interface InboxMessage {
 }
 
 export default function SaaSInbox() {
-  const [messages, setMessages] = useState<InboxMessage[]>([
-    {
-      id: 'msg-1',
-      sender: 'sarah_jasper',
-      subject: 'Issue with Dashboard Settings',
-      body: 'Hi Admin, I cannot seem to update my profile picture. It keeps throwing a 500 error.',
-      receivedAt: '10 mins ago',
-      isRead: false,
-      priority: 'high'
-    },
-    {
-      id: 'msg-2',
-      sender: 'john_doe',
-      subject: 'Hardware Inquiry',
-      body: 'Can I purchase the thermal printer standalone without the tablet?',
-      receivedAt: '2 hours ago',
-      isRead: true,
-      priority: 'normal'
-    },
-    {
-      id: 'msg-3',
-      sender: 'mikumi_resort',
-      subject: 'Feature Request: POS Split Bills',
-      body: 'It would be great if the POS system could allow splitting bills among customers directly from the cart.',
-      receivedAt: '1 day ago',
-      isRead: true,
-      priority: 'normal'
-    }
-  ]);
+  const [messages, setMessages] = useState<InboxMessage[]>([]);
   
   const [selectedMessage, setSelectedMessage] = useState<InboxMessage | null>(null);
   const [replyText, setReplyText] = useState('');
 
   const unreadCount = messages.filter(m => !m.isRead).length;
 
+  useEffect(() => {
+    let alive = true;
+    loadPlatformRecord<InboxMessage[]>('platform_inbox', 'global', [])
+      .then((items) => { if (alive) setMessages(Array.isArray(items) ? items : []); })
+      .catch(() => setMessages([]));
+    return () => { alive = false; };
+  }, []);
+
   const handleMarkAsRead = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setMessages(messages.map(m => m.id === id ? { ...m, isRead: true } : m));
+    const updated = messages.map(m => m.id === id ? { ...m, isRead: true } : m);
+    setMessages(updated);
+    savePlatformRecord('platform_inbox', 'global', updated).catch(() => {});
   };
 
   const handleDelete = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setMessages(messages.filter(m => m.id !== id));
+    const updated = messages.filter(m => m.id !== id);
+    setMessages(updated);
+    savePlatformRecord('platform_inbox', 'global', updated).catch(() => {});
     if (selectedMessage?.id === id) setSelectedMessage(null);
   };
 
   const handleReply = (e: React.FormEvent) => {
     e.preventDefault();
     if (!replyText.trim()) return;
-    alert('Reply sent to user.');
+    const replyRecord: InboxMessage = {
+      id: 'reply-' + Date.now(),
+      sender: 'super_admin',
+      subject: `Reply: ${selectedMessage?.subject || 'Message'}`,
+      body: replyText.trim(),
+      receivedAt: new Date().toISOString(),
+      isRead: true,
+      priority: 'normal'
+    };
+    const updated = [replyRecord, ...messages];
+    setMessages(updated);
+    savePlatformRecord('platform_inbox', 'global', updated).catch(() => {});
+    alert('Reply saved to platform inbox ledger.');
     setReplyText('');
     setSelectedMessage(null);
   };

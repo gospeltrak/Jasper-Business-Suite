@@ -1778,16 +1778,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                     }`}
                   >
                     <span>{t(item.label)}</span>
-                    {item.tabId === 'admin-status' && !sidebarCollapsed && (
-                      <span className="bg-rose-500 text-white px-1.5 py-0.5 rounded-full text-[9px] font-bold shadow-md shadow-rose-500/20 animate-pulse">
-                        2
-                      </span>
-                    )}
-                    {item.tabId === 'admin-inbox' && !sidebarCollapsed && (
-                      <span className="bg-indigo-500 text-white px-1.5 py-0.5 rounded-full text-[9px] font-bold shadow-md shadow-indigo-500/20">
-                        1
-                      </span>
-                    )}
                   </span>
 
                   {item.hasSubmenu && !sidebarCollapsed && (
@@ -1800,13 +1790,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 bg-[#11131e] border border-[#2d354d] text-white font-sans text-xs px-2.5 py-1.5 rounded-lg shadow-xl opacity-0 translate-x-[-10px] group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 ease-out pointer-events-none whitespace-nowrap z-50">
                     <span className="font-semibold block">{t(item.label)}</span>
                   </div>
-                )}
-                {/* Collapsed Badge indicator */}
-                {sidebarCollapsed && item.tabId === 'admin-status' && (
-                  <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full animate-pulse border border-[#1a1f2e]"></span>
-                )}
-                {sidebarCollapsed && item.tabId === 'admin-inbox' && (
-                  <span className="absolute top-2 right-2.5 w-2 h-2 bg-indigo-500 rounded-full border border-[#1a1f2e]"></span>
                 )}
               </div>
             );

@@ -48,6 +48,7 @@ import SaaSHardwareInventory from './SaaSHardwareInventory';
 import SaaSHardwareSales from './SaaSHardwareSales';
 import SaaSStaffManager from './SaaSStaffManager';
 import SaaSWebEditor from './SaaSWebEditor';
+import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 
 export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'status' | 'reports' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'web-editor' | 'settings';
 
@@ -166,56 +167,33 @@ export default function SuperSaaSAdminView({
     localStorage.setItem('saas_ops_admin_logs', JSON.stringify(updated));
   };
 
-  const initializeSaaSData = () => {
-    const cachedPlacements = localStorage.getItem('saas_ops_placements');
-    const cachedBanners = localStorage.getItem('saas_ops_banners') || localStorage.getItem('saas_promotional_banners');
-    const cachedMessages = localStorage.getItem('saas_ops_messages');
-    const cachedTutorials = localStorage.getItem('saas_training_tutorials');
+  const initializeSaaSData = async () => {
+    const [placements, activeBanners, currentMessages, currentTutorials] = await Promise.all([
+      loadPlatformRecord<any[]>('ad_placements', 'global', [
+        { id: 'place-1', size: '728x90', label: 'Leaderboard Header (Website)', activeBannersCount: 0, usedBy: 'Public landing pages' },
+        { id: 'place-2', size: '300x250', label: 'Medium Rectangle Sidebar', activeBannersCount: 0, usedBy: 'Dashboard placements' },
+        { id: 'place-3', size: '320x50', label: 'Mobile Ledger footer ad', activeBannersCount: 0, usedBy: 'Mobile screens' }
+      ]),
+      loadPlatformRecord<any[]>('promotional_banners', 'global', []),
+      loadPlatformRecord<any[]>('platform_messages', 'global', []),
+      loadPlatformRecord<any[]>('training_tutorials', 'global', [])
+    ]);
 
-    if (cachedPlacements && cachedBanners && cachedMessages) {
-      setAdPlacements(JSON.parse(cachedPlacements));
-      setBanners(JSON.parse(cachedBanners));
-      setMessages(JSON.parse(cachedMessages));
-      setTutorials(cachedTutorials ? JSON.parse(cachedTutorials) : []);
-      return;
-    }
-
-    const initialPlacements = [
-      { id: 'place-1', size: '728x90', label: 'Leaderboard Header (Website)', activeBannersCount: 2, usedBy: 'All hotel platforms' },
-      { id: 'place-2', size: '300x250', label: 'Medium Rectangle Sidebar', activeBannersCount: 1, usedBy: 'All retail POS terminals' },
-      { id: 'place-3', size: '320x50', label: 'Mobile Ledger footer ad', activeBannersCount: 1, usedBy: 'Direct mobile checkouts' }
-    ];
-
-    const initialBanners = [
-      { id: 'ban-1', title: 'Ramadhan 15% Subscription Discount Campaign', size: '728x90', url: 'https://dukaplus.co.tz/promo/ramadhan', clicks: 1840, status: 'Active', category: 'Banner' },
-      { id: 'ban-2', title: 'Offline-first ledger rollout info flyer', size: '300x250', url: 'https://dukaplus.co.tz/features/offline', clicks: 924, status: 'Active', category: 'Flyer' }
-    ];
-
-    const initialMessages = [
-      { id: 'msg-1', sender: 'Operations Command', target: 'Subscribers', type: 'broadcast', message: 'M Mombasa fiber node maintenance completed. Sync queues restored.', date: '2026-05-24 08:30' },
-      { id: 'msg-2', sender: 'SuperAdmin Support', target: '@sarah_jasper', type: 'dm', message: 'M-Pesa business API credentials updated in your instance configuration panel.', date: '2026-05-24 11:20' }
-    ];
-
-    setAdPlacements(initialPlacements);
-    setBanners(initialBanners);
-    setMessages(initialMessages);
-    setTutorials(cachedTutorials ? JSON.parse(cachedTutorials) : []);
-
-    localStorage.setItem('saas_ops_placements', JSON.stringify(initialPlacements));
-    localStorage.setItem('saas_ops_banners', JSON.stringify(initialBanners));
-    localStorage.setItem('saas_ops_messages', JSON.stringify(initialMessages));
+    setAdPlacements(placements);
+    setBanners(activeBanners);
+    setMessages(currentMessages);
+    setTutorials(currentTutorials);
   };
 
   const saveData = (placements: any[], activeBanners: any[], currentMessages: any[]) => {
-    localStorage.setItem('saas_ops_placements', JSON.stringify(placements));
-    localStorage.setItem('saas_ops_banners', JSON.stringify(activeBanners));
-    localStorage.setItem('saas_promotional_banners', JSON.stringify(activeBanners));
-    localStorage.setItem('saas_ops_messages', JSON.stringify(currentMessages));
+    savePlatformRecord('ad_placements', 'global', placements).catch(() => {});
+    savePlatformRecord('promotional_banners', 'global', activeBanners).catch(() => {});
+    savePlatformRecord('platform_messages', 'global', currentMessages).catch(() => {});
   };
 
   const saveTutorials = (nextTutorials: any[]) => {
     setTutorials(nextTutorials);
-    localStorage.setItem('saas_training_tutorials', JSON.stringify(nextTutorials));
+    savePlatformRecord('training_tutorials', 'global', nextTutorials).catch(() => {});
   };
 
   const handleCreateTutorial = (e: React.FormEvent) => {

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Search, Plus, Trash, CheckCircle, User } from 'lucide-react';
+import { defaultHardwareInventory, loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
+import { loadSuperAdminOverview, mapSuperAdminUsers } from '../utils/superAdminData';
 
 export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string }) {
   const [inventory, setInventory] = useState<any[]>([]);
@@ -17,55 +19,27 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
   const [discountType, setDiscountType] = useState<'amount'|'percent'>('amount');
   const [deliveryFee, setDeliveryFee] = useState(0);
 
-  const storageKey = affiliateId ? `saas_affiliate_hw_inventory_${affiliateId}` : 'saas_hw_inventory';
+  const recordType = affiliateId ? 'affiliate_hardware_inventory' : 'hardware_inventory';
+  const scopeId = affiliateId || 'global';
 
   useEffect(() => {
-    // Load inventory
-    const rawInv = localStorage.getItem(storageKey);
-    if (rawInv) {
-      setInventory(JSON.parse(rawInv));
-    } else if (!affiliateId) {
-      const defaultInv = [
-        { id: 'item-1', name: 'Jasper POS Thermal Printer', category: 'Printer', stock: 45, price: 150000 },
-        { id: 'item-2', name: 'Barcode Scanner', category: 'Scanner', stock: 30, price: 80000 },
-        { id: 'item-3', name: 'Tablet + Standing Set', category: 'Tablet', stock: 20, price: 250000 },
-        { id: 'item-4', name: 'Complete System Set', category: 'Bundle', stock: 15, price: 450000 },
-      ];
-      setInventory(defaultInv);
-      localStorage.setItem(storageKey, JSON.stringify(defaultInv));
-    } else {
-      setInventory([]);
-    }
-
-    // Load subscribers
-    const rawSub = localStorage.getItem('jasper_system_roles');
-    if (rawSub) {
-      const roles = JSON.parse(rawSub);
-      const list = [
-        { id: 'sub-1', name: 'Dr. John Okoth', business: 'Uzima Pharmacy' },
-        { id: 'sub-2', name: 'Mikumi Resort', business: 'Mikumi Hotels Ltd' },
-        { id: 'sub-3', name: 'Sarah Jasper', business: 'Jasper HQ Core' }
-      ];
-      setSubscribers(list);
-    } else {
-      setSubscribers([
-        { id: 'sub-1', name: 'Dr. John Okoth', business: 'Uzima Pharmacy' },
-        { id: 'sub-2', name: 'Mikumi Resort', business: 'Mikumi Hotels Ltd' },
-        { id: 'sub-3', name: 'Sarah Jasper', business: 'Jasper HQ Core' }
-      ]);
-    }
-
-    // Load affiliates
-    const rawAff = localStorage.getItem('saas_immersive_affiliates');
-    if (rawAff && !affiliateId) {
-      const all = JSON.parse(rawAff);
-      setAffiliates(all.filter((a: any) => a.isSuper));
-    } else {
-      setAffiliates([
-        { id: 'langa-super', name: 'Deogratius Langa', isSuper: true }
-      ]);
-    }
-  }, [storageKey, affiliateId]);
+    let alive = true;
+    Promise.all([
+      loadPlatformRecord<any[]>(recordType, scopeId, affiliateId ? [] : defaultHardwareInventory),
+      loadSuperAdminOverview()
+    ]).then(([items, overview]) => {
+      if (!alive) return;
+      setInventory(Array.isArray(items) ? items : []);
+      setSubscribers(mapSuperAdminUsers(overview).map((user) => ({ id: user.id, name: user.name, business: user.tenantName })));
+      setAffiliates((overview.affiliates || []).map((aff: any) => ({ id: aff.id, name: aff.display_name || aff.referral_code, isSuper: true })));
+    }).catch(() => {
+      if (!alive) return;
+      setInventory(affiliateId ? [] : defaultHardwareInventory);
+      setSubscribers([]);
+      setAffiliates([]);
+    });
+    return () => { alive = false; };
+  }, [recordType, scopeId, affiliateId]);
 
   const addToCart = (item: any) => {
     if (item.stock <= 0) {
@@ -105,7 +79,7 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
   const discountAmount = discountType === 'amount' ? discountVal : (subTotal * discountVal / 100);
   const cartTotal = Math.max(0, subTotal - discountAmount) + deliveryFee;
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (cart.length === 0) return;
     
     let custName = '';
@@ -152,13 +126,6 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
       affiliateSeller: affiliateId || null
     };
 
-    // save sale
-    const salesKey = affiliateId ? `saas_affiliate_hw_sales_${affiliateId}` : 'saas_hw_sales';
-    const rawSales = localStorage.getItem(salesKey);
-    const sales = rawSales ? JSON.parse(rawSales) : [];
-    sales.unshift(saleRecord);
-    localStorage.setItem(salesKey, JSON.stringify(sales));
-
     // update general HW inventory
     const newInv = inventory.map(invItem => {
       const cartItem = cart.find(c => c.id === invItem.id);
@@ -168,22 +135,23 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
       return invItem;
     });
     setInventory(newInv);
-    localStorage.setItem(storageKey, JSON.stringify(newInv));
+    await savePlatformRecord(recordType, scopeId, newInv);
+
+    const salesRecordType = affiliateId ? 'affiliate_hardware_sales' : 'hardware_sales';
+    const priorSales = await loadPlatformRecord<any[]>(salesRecordType, scopeId, []);
+    await savePlatformRecord(salesRecordType, scopeId, [saleRecord, ...(Array.isArray(priorSales) ? priorSales : [])]);
 
     // Also update subscriber profile directly if isSub is true
     if (isSub && !affiliateId) {
-      const rawPurchases = localStorage.getItem('saas_hw_purchases_by_sub') || '{}';
-      const purchases = JSON.parse(rawPurchases);
+      const purchases = await loadPlatformRecord<Record<string, any[]>>('hardware_purchases_by_subscriber', 'global', {});
       if (!purchases[custName]) purchases[custName] = [];
       purchases[custName].push(saleRecord);
-      localStorage.setItem('saas_hw_purchases_by_sub', JSON.stringify(purchases));
+      await savePlatformRecord('hardware_purchases_by_subscriber', 'global', purchases);
     }
 
     // If super admin selling to affiliate, assign to their own hardware inventory stock
     if (isAff && !affiliateId) {
-      const affInventoryKey = `saas_affiliate_hw_inventory_${selectedAffiliate}`;
-      const rawAffInv = localStorage.getItem(affInventoryKey) || '[]';
-      const affInv = JSON.parse(rawAffInv);
+      const affInv = await loadPlatformRecord<any[]>('affiliate_hardware_inventory', selectedAffiliate, []);
 
       // Distribute cart items into affiliate's inventory
       cart.forEach(cartItem => {
@@ -197,7 +165,7 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
           });
         }
       });
-      localStorage.setItem(affInventoryKey, JSON.stringify(affInv));
+      await savePlatformRecord('affiliate_hardware_inventory', selectedAffiliate, affInv);
     }
 
     alert(`Checkout successful! Hardware sale recorded as ${paymentMethod}.`);

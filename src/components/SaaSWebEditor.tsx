@@ -22,6 +22,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { DEFAULT_TENANTS } from '../data';
+import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 
 const DEFAULT_SECTIONS = [
   { id: 'landing-hero', label: 'Hero Section', desc: 'Main title, subtitle, registration call-to-action, and animated illustrations.' },
@@ -171,6 +172,22 @@ export default function SaaSWebEditor() {
     };
   }, []);
 
+  useEffect(() => {
+    let alive = true;
+    loadPlatformRecord<any>('web_editor_settings', 'global', null)
+      .then((settings) => {
+        if (!alive || !settings) return;
+        setSectionsOrder(Array.isArray(settings.sectionsOrder) ? settings.sectionsOrder : DEFAULT_SECTIONS.map(s => s.id));
+        setHiddenSections(settings.hiddenSections || {});
+        setCustomValues(settings.customValues || DEFAULT_TRANSLATIONS);
+        setFeaturedLogos(normalizeFeaturedLogos(settings.featuredLogos || []));
+        setPartnerCapacity(Number(settings.partnerCapacity || 5));
+        setPartnerWaitlist(Array.isArray(settings.partnerWaitlist) ? settings.partnerWaitlist : []);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
   // Helper for shifting order
   const moveSection = (index: number, direction: 'up' | 'down') => {
     const newOrder = [...sectionsOrder];
@@ -202,17 +219,20 @@ export default function SaaSWebEditor() {
   };
 
   // Reset to default settings
-  const handleReset = () => {
+  const handleReset = async () => {
     if (window.confirm("Are you sure you want to revert home page website layout and texts to system default? This cannot be undone.")) {
-      localStorage.removeItem('jasper_landing_sections_order');
-      localStorage.removeItem('jasper_landing_hidden_sections');
-      localStorage.removeItem('jasper_landing_custom_values');
-      localStorage.removeItem('jasper_featured_logos');
-      
       setSectionsOrder(DEFAULT_SECTIONS.map(s => s.id));
       setHiddenSections({});
       setCustomValues(DEFAULT_TRANSLATIONS);
       setFeaturedLogos([]);
+      await savePlatformRecord('web_editor_settings', 'global', {
+        sectionsOrder: DEFAULT_SECTIONS.map(s => s.id),
+        hiddenSections: {},
+        customValues: DEFAULT_TRANSLATIONS,
+        featuredLogos: [],
+        partnerCapacity,
+        partnerWaitlist
+      });
 
       // Broadcast update event
       window.dispatchEvent(new Event('saas_landing_page_updated'));
@@ -222,13 +242,16 @@ export default function SaaSWebEditor() {
   };
 
   // Save changes
-  const handleSave = () => {
+  const handleSave = async () => {
     try {
-      localStorage.setItem('jasper_landing_sections_order', JSON.stringify(sectionsOrder));
-      localStorage.setItem('jasper_landing_hidden_sections', JSON.stringify(hiddenSections));
-      localStorage.setItem('jasper_landing_custom_values', JSON.stringify(customValues));
-      localStorage.setItem('jasper_featured_logos', JSON.stringify(featuredLogos));
-      localStorage.setItem('jasper_partner_capacity', partnerCapacity.toString());
+      await savePlatformRecord('web_editor_settings', 'global', {
+        sectionsOrder,
+        hiddenSections,
+        customValues,
+        featuredLogos,
+        partnerCapacity,
+        partnerWaitlist
+      });
 
       // Dispatch custom document broadcast event to reload parent/iFrame Landing Page immediately!
       window.dispatchEvent(new Event('saas_landing_page_updated'));
@@ -236,7 +259,7 @@ export default function SaaSWebEditor() {
 
       showToast("Changes applied and published live successfully!");
     } catch (e) {
-      alert("Error saving settings to browser localstorage database");
+      alert("Error saving settings to Supabase platform database");
     }
   };
 
@@ -981,7 +1004,14 @@ export default function SaaSWebEditor() {
                       onChange={(e) => {
                         const val = parseInt(e.target.value, 10) || 5;
                         setPartnerCapacity(val);
-                        localStorage.setItem('jasper_partner_capacity', val.toString());
+                        savePlatformRecord('web_editor_settings', 'global', {
+                          sectionsOrder,
+                          hiddenSections,
+                          customValues,
+                          featuredLogos,
+                          partnerCapacity: val,
+                          partnerWaitlist
+                        }).catch(() => {});
                       }}
                       className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-500 font-mono"
                     />
@@ -1055,7 +1085,14 @@ export default function SaaSWebEditor() {
                                   if (window.confirm(`Are you sure you want to delete ${lead.fullName} from the waitlist?`)) {
                                     const updated = partnerWaitlist.filter((_, i) => i !== idx);
                                     setPartnerWaitlist(updated);
-                                    localStorage.setItem('jasper_partner_waitlist', JSON.stringify(updated));
+                                    savePlatformRecord('web_editor_settings', 'global', {
+                                      sectionsOrder,
+                                      hiddenSections,
+                                      customValues,
+                                      featuredLogos,
+                                      partnerCapacity,
+                                      partnerWaitlist: updated
+                                    }).catch(() => {});
                                   }
                                 }}
                                 className="p-1 px-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/35 rounded-lg transition-colors cursor-pointer"

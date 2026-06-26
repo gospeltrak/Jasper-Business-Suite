@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, FileText, Search, AlertCircle, BarChart3, Package, Globe, CreditCard } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { loadPlatformRecord } from '../utils/superAdminPlatformRecords';
+import { loadSuperAdminOverview, mapSuperAdminUsers } from '../utils/superAdminData';
 
 export default function SaaSHardwareSales() {
   const [sales, setSales] = useState<any[]>([]);
@@ -9,20 +11,24 @@ export default function SaaSHardwareSales() {
   const [activeTab, setActiveTab] = useState<'overview' | 'payment' | 'affiliates' | 'distribution'>('overview');
 
   useEffect(() => {
-    const rawSales = localStorage.getItem('saas_hw_sales');
-    if (rawSales) {
-      setSales(JSON.parse(rawSales));
-    }
-    const rawSubs = localStorage.getItem('jasper_system_roles');
-    if (rawSubs) {
-      setSubscribers(JSON.parse(rawSubs));
-    } else {
-      setSubscribers([
-        { name: 'Dr. John Okoth', licenseLevel: 'Premium', region: 'Dar es Salaam' },
-        { name: 'Mikumi Resort', licenseLevel: 'Enterprise', region: 'Morogoro' },
-        { name: 'Sarah Jasper', licenseLevel: 'Pro', region: 'Arusha' }
-      ]);
-    }
+    let alive = true;
+    Promise.all([
+      loadPlatformRecord<any[]>('hardware_sales', 'global', []),
+      loadSuperAdminOverview()
+    ]).then(([hardwareSales, overview]) => {
+      if (!alive) return;
+      setSales(Array.isArray(hardwareSales) ? hardwareSales : []);
+      setSubscribers(mapSuperAdminUsers(overview).map((user) => ({
+        name: user.name,
+        licenseLevel: user.subscriptionPlan,
+        region: user.tenantName
+      })));
+    }).catch(() => {
+      if (!alive) return;
+      setSales([]);
+      setSubscribers([]);
+    });
+    return () => { alive = false; };
   }, []);
 
   const filteredSales = sales.filter(s => 
