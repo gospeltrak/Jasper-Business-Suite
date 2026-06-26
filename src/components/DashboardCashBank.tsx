@@ -5,7 +5,9 @@ import {
   Wallet, 
   Coins, 
   Calendar, 
-  ArrowRight, 
+  ArrowRight,
+  ArrowUpRight,
+  ArrowDownRight,
   Plus, 
   CheckCircle, 
   Search, 
@@ -15,11 +17,18 @@ import {
   Download, 
   AlertCircle, 
   ChevronDown, 
+  ChevronRight,
   FileText,
   Building,
   RefreshCw,
   PlusCircle,
-  HelpCircle
+  HelpCircle,
+  TrendingUp,
+  TrendingDown,
+  Send,
+  BarChart3,
+  Eye,
+  X
 } from 'lucide-react';
 
 interface DashboardCashBankProps {
@@ -39,6 +48,8 @@ export default function DashboardCashBank({
 }: DashboardCashBankProps) {
   // Date interval settings state with user-friendly names
   const [datePreset, setDatePreset] = useState<'today' | '1week' | '1month' | 'custom'>('1month');
+  // Mobile-only section tabs
+  const [mobileSectionTab, setMobileSectionTab] = useState<'overview' | 'accounts' | 'transfer' | 'audit'>('overview');
   
   // Helpers to get dates
   const getTodayRange = () => {
@@ -622,9 +633,449 @@ export default function DashboardCashBank({
   }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   return (
-    <div className="w-full space-y-5 pb-24 md:pb-8 select-text">
-      
-      {/* SIMPLE HEADER AREA */}
+    <div className="w-full pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-8 select-text">
+
+      {/* ══════════════════════════════════════════════════════════════
+          MOBILE REDESIGN — native premium app experience (md:hidden)
+      ══════════════════════════════════════════════════════════════ */}
+      <div className="md:hidden space-y-3">
+
+        {/* HERO HEADER */}
+        <div className="rounded-3xl overflow-hidden relative"
+          style={{background:'linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#0f2027 100%)'}}>
+          <div className="absolute top-0 right-0 w-36 h-36 rounded-full opacity-5" style={{background:'white'}}/>
+          <div className="px-5 pt-5 pb-4 relative">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Treasury</p>
+                <h1 className="text-white font-black text-[22px] leading-tight mt-0.5">Money & Bank</h1>
+                <p className="text-white/50 text-[10px] mt-0.5">
+                  {datePreset === 'today' ? 'Today' : datePreset === '1week' ? 'Last 7 days' : datePreset === '1month' ? 'Last 30 days' : `${startDateStr} → ${endDateStr}`}
+                </p>
+              </div>
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{background:'rgba(255,255,255,0.08)'}}>
+                <Landmark className="w-6 h-6 text-emerald-400"/>
+              </div>
+            </div>
+
+            {/* Big net figure */}
+            <div className="mb-4">
+              <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-0.5">Net Movement</p>
+              <p className={`font-black text-[28px] leading-none ${combinedStats.netChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {combinedStats.netChange >= 0 ? '+' : ''}{formatCurrency(combinedStats.netChange)}
+              </p>
+            </div>
+
+            {/* 3 KPI pills */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-2xl px-3 py-2.5" style={{background:'rgba(255,255,255,0.07)'}}>
+                <p className="text-emerald-400 text-[9px] font-bold uppercase tracking-wider">Money In</p>
+                <p className="text-white font-black text-[13px] mt-0.5">+{formatCurrency(combinedStats.totalMoneyIn)}</p>
+              </div>
+              <div className="rounded-2xl px-3 py-2.5" style={{background:'rgba(255,255,255,0.07)'}}>
+                <p className="text-rose-400 text-[9px] font-bold uppercase tracking-wider">Money Out</p>
+                <p className="text-white font-black text-[13px] mt-0.5">-{formatCurrency(combinedStats.totalMoneyOut)}</p>
+              </div>
+              <div className="rounded-2xl px-3 py-2.5" style={{background:'rgba(255,255,255,0.07)'}}>
+                <p className="text-blue-400 text-[9px] font-bold uppercase tracking-wider">Transactions</p>
+                <p className="text-white font-black text-[13px] mt-0.5">{combinedStats.countMoneyIn + combinedStats.countMoneyOut}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Date preset chips */}
+          <div className="flex gap-1.5 px-5 pb-4">
+            {(['today','1week','1month'] as const).map(p => (
+              <button key={p} type="button" onClick={() => setDatePreset(p)}
+                className="flex-1 py-1.5 rounded-xl text-[10px] font-bold"
+                style={{background:datePreset===p?'rgba(255,255,255,0.18)':'rgba(255,255,255,0.07)',color:datePreset===p?'#fff':'rgba(255,255,255,0.5)'}}>
+                {p==='today'?'Today':p==='1week'?'7 Days':'30 Days'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* SECTION TAB NAV */}
+        <div className="flex bg-slate-100 p-1 rounded-2xl gap-1">
+          {([
+            {id:'overview', label:'Overview', icon:<BarChart3 className="w-4 h-4"/>},
+            {id:'accounts', label:'Accounts', icon:<Landmark className="w-4 h-4"/>},
+            {id:'transfer', label:'Transfer', icon:<Send className="w-4 h-4"/>},
+            {id:'audit',    label:'History',  icon:<Clock className="w-4 h-4"/>},
+          ] as const).map(tab => {
+            const active = mobileSectionTab === tab.id;
+            return (
+              <button key={tab.id} type="button" onClick={() => setMobileSectionTab(tab.id)}
+                className="flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl gap-0.5"
+                style={{background:active?'#0f172a':'transparent'}}>
+                <span style={{color:active?'#34d399':'#94a3b8'}}>{tab.icon}</span>
+                <span className="text-[9px] font-bold" style={{color:active?'#fff':'#94a3b8'}}>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── OVERVIEW SECTION ── */}
+        {mobileSectionTab === 'overview' && (
+          <div className="space-y-3">
+            {/* Treasury summary cards */}
+            <div className="grid grid-cols-2 gap-2.5">
+              {treasurySummaryCards.map(card => (
+                <div key={card.label} className={`rounded-2xl p-4 ${card.tone}`} style={{border:'1px solid rgba(0,0,0,0.06)'}}>
+                  <p className="text-[9px] font-black uppercase tracking-widest opacity-70 font-mono">{card.label}</p>
+                  <p className="text-[17px] font-black leading-tight mt-1.5">{card.value}</p>
+                  <p className="text-[9px] font-bold opacity-60 mt-1">{card.helper}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Account balances */}
+            <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                <p className="text-[11px] font-black text-slate-700 uppercase tracking-wider">Accounts & Wallets</p>
+                <button type="button" onClick={() => setMobileSectionTab('accounts')}
+                  className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
+                  See all <ChevronRight className="w-3 h-3"/>
+                </button>
+              </div>
+              <div className="divide-y divide-slate-50">
+                {channels.filter(c => c.category !== 'person').slice(0, 5).map(chan => {
+                  const bal = channelBalances[chan.id]?.current || 0;
+                  const icon = chan.category === 'bank' ? <Landmark className="w-4 h-4"/> : chan.category === 'telco' ? <Wallet className="w-4 h-4"/> : <Coins className="w-4 h-4"/>;
+                  const iconColor = chan.category === 'bank' ? '#2563eb' : chan.category === 'telco' ? '#7c3aed' : '#059669';
+                  const iconBg = chan.category === 'bank' ? '#eff6ff' : chan.category === 'telco' ? '#f5f3ff' : '#f0fdf4';
+                  return (
+                    <div key={chan.id} className="flex items-center gap-3 px-4 py-3 active:bg-slate-50 cursor-pointer"
+                      onClick={() => { setSelectedChannelId(chan.id); setMobileSectionTab('accounts'); }}>
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{background:iconBg,color:iconColor}}>{icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-bold text-slate-900 truncate">{chan.name}</p>
+                        <p className="text-[9px] text-slate-400 font-mono mt-0.5 capitalize">{chan.category}</p>
+                      </div>
+                      <p className={`text-[13px] font-black font-mono shrink-0 ${bal >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>{formatCurrency(bal)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── ACCOUNTS SECTION ── */}
+        {mobileSectionTab === 'accounts' && (
+          <div className="space-y-3">
+            {/* Account type filter pills */}
+            <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
+              {(['all', ...channels.map(c => c.id)] as string[]).slice(0, 6).map(id => {
+                const chan = id === 'all' ? null : channels.find(c => c.id === id);
+                if (chan?.category === 'person') return null;
+                const isSelected = selectedChannelId === id;
+                return (
+                  <button key={id} type="button" onClick={() => setSelectedChannelId(id)}
+                    className="shrink-0 px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all"
+                    style={{background:isSelected?'#0f172a':'#f1f5f9',color:isSelected?'#fff':'#475569'}}>
+                    {id === 'all' ? 'All' : chan?.name || id}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Account cards */}
+            <div className="space-y-3">
+              {channels.filter(c => c.category !== 'person' && (selectedChannelId === 'all' || selectedChannelId === c.id)).map(chan => {
+                const bal = channelBalances[chan.id]?.current || 0;
+                let periodIn = 0, periodOut = 0;
+                activeTenantFilterLedger.forEach(e => {
+                  if (e.channelId === chan.id) { if (e.amount >= 0) periodIn += e.amount; else periodOut += Math.abs(e.amount); }
+                });
+                const icon = chan.category === 'bank' ? <Landmark className="w-5 h-5"/> : chan.category === 'telco' ? <Wallet className="w-5 h-5"/> : <Coins className="w-5 h-5"/>;
+                const grad = chan.category === 'bank' ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : chan.category === 'telco' ? 'linear-gradient(135deg,#7c3aed,#6d28d9)' : 'linear-gradient(135deg,#059669,#047857)';
+                return (
+                  <div key={chan.id} className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 2px 10px rgba(0,0,0,0.06)'}}>
+                    {/* Card header */}
+                    <div className="px-4 pt-4 pb-3 flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white shrink-0" style={{background:grad}}>{icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-extrabold text-slate-900 truncate">{chan.name}</p>
+                        <p className="text-[10px] text-slate-400 capitalize">{chan.category} · {chan.provider || 'Account'}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className={`text-[16px] font-black font-mono ${bal >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>{formatCurrency(bal)}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">Balance</p>
+                      </div>
+                    </div>
+                    {/* Flow row */}
+                    <div className="grid grid-cols-2 gap-0 border-t border-slate-50">
+                      <div className="px-4 py-3 border-r border-slate-50">
+                        <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider">IN</p>
+                        <p className="text-[13px] font-black text-emerald-700 font-mono mt-0.5">+{formatCurrency(periodIn)}</p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[9px] text-rose-500 font-bold uppercase tracking-wider">OUT</p>
+                        <p className="text-[13px] font-black text-rose-600 font-mono mt-0.5">-{formatCurrency(periodOut)}</p>
+                      </div>
+                    </div>
+                    {/* Actions */}
+                    <div className="border-t border-slate-50 flex">
+                      <button type="button" onClick={() => { setSettleSource(chan.id); setMobileSectionTab('transfer'); }}
+                        className="flex-1 py-3 flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-600 active:bg-slate-50 border-r border-slate-50">
+                        <Send className="w-3.5 h-3.5"/> Transfer
+                      </button>
+                      <button type="button" onClick={() => { setSelectedChannelId(chan.id); setMobileSectionTab('audit'); }}
+                        className="flex-1 py-3 flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-600 active:bg-slate-50">
+                        <Eye className="w-3.5 h-3.5"/> History
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Add account button */}
+            <button type="button" onClick={() => setExpandedBank(true)}
+              className="w-full py-4 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 text-slate-500 text-sm font-bold active:bg-slate-50">
+              <Plus className="w-4 h-4"/> Add New Account
+            </button>
+
+            {/* Add account form (collapsible) */}
+            {(expandedBank || expandedTelco || expandedPhysical) && (
+              <div className="bg-white rounded-2xl p-4 space-y-3" style={{border:'1px solid #e2e8f0'}}>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-bold text-slate-800">Add New Account</p>
+                  <button type="button" onClick={() => { setExpandedBank(false); setExpandedTelco(false); setExpandedPhysical(false); }}
+                    className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center">
+                    <X className="w-4 h-4 text-slate-500"/>
+                  </button>
+                </div>
+                {addAccountSuccess && <p className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">{addAccountSuccess}</p>}
+                <div className="grid grid-cols-3 gap-2">
+                  {(['bank','telco','person'] as const).map(t => (
+                    <button key={t} type="button" onClick={() => setNewAccType(t)}
+                      className="py-2.5 rounded-xl text-[11px] font-bold capitalize transition-all"
+                      style={{background:newAccType===t?'#0f172a':'#f1f5f9',color:newAccType===t?'#fff':'#475569'}}>
+                      {t === 'telco' ? 'Mobile' : t === 'person' ? 'Person' : 'Bank'}
+                    </button>
+                  ))}
+                </div>
+                <input type="text" placeholder="Account name" value={newAccName} onChange={e => setNewAccName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-500"/>
+                <input type="text" placeholder="Provider (e.g. M-Pesa, KCB)" value={newAccProvider} onChange={e => setNewAccProvider(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-500"/>
+                <input type="text" placeholder="Account / Till number" value={newAccNumber} onChange={e => setNewAccNumber(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono font-bold text-slate-800 outline-none focus:border-emerald-500"/>
+                <button type="button" onClick={handleCreateAccount}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-colors">
+                  Add Account
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TRANSFER SECTION ── */}
+        {mobileSectionTab === 'transfer' && (
+          <div className="space-y-3">
+            <div className="bg-white rounded-2xl p-4 space-y-4" style={{border:'1px solid #e2e8f0',boxShadow:'0 2px 8px rgba(0,0,0,0.05)'}}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                  <Send className="w-5 h-5 text-emerald-600"/>
+                </div>
+                <div>
+                  <p className="text-sm font-black text-slate-900">Transfer / Settle Till</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Move money between accounts</p>
+                </div>
+              </div>
+
+              {settleSuccessMsg && (
+                <div className="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                  <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5"/>
+                  <p className="text-[11px] text-emerald-800 font-medium">{settleSuccessMsg}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleExecuteSettleTill} className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">From</label>
+                  <select value={settleSource} onChange={e => setSettleSource(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-xs text-slate-800 font-semibold outline-none focus:border-emerald-500 cursor-pointer">
+                    {channels.filter(c => c.category !== 'person').map(c => (
+                      <option key={c.id} value={c.id}>{c.name} ({formatCurrency(channelBalances[c.id]?.current)})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                    <ArrowRight className="w-4 h-4 text-slate-400 rotate-90"/>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">To</label>
+                  <select value={settleTarget} onChange={e => setSettleTarget(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-xs text-slate-800 font-semibold outline-none focus:border-emerald-500 cursor-pointer">
+                    <optgroup label="Mobile Wallets">
+                      {channels.filter(c => c.category === 'telco').map(c => <option key={c.id} value={c.id}>{c.name} ({formatCurrency(channelBalances[c.id]?.current)})</option>)}
+                    </optgroup>
+                    <optgroup label="Bank Accounts">
+                      {channels.filter(c => c.category === 'bank').map(c => <option key={c.id} value={c.id}>{c.name} ({formatCurrency(channelBalances[c.id]?.current)})</option>)}
+                    </optgroup>
+                    <optgroup label="Cash / Physical">
+                      {channels.filter(c => c.category === 'physical').map(c => <option key={c.id} value={c.id}>{c.name} ({formatCurrency(channelBalances[c.id]?.current)})</option>)}
+                    </optgroup>
+                    <optgroup label="Send to Person">
+                      {channels.filter(c => c.category === 'person').map(c => <option key={c.id} value={c.id}>{c.name} – {c.accountNumber}</option>)}
+                    </optgroup>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Amount</label>
+                  <input type="number" placeholder="Enter amount" value={settleAmount} onChange={e => setSettleAmount(e.target.value)} required
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-base font-black font-mono text-slate-900 outline-none focus:border-emerald-500"/>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Memo (optional)</label>
+                  <input type="text" placeholder="Note or reason" value={settleMemo} onChange={e => setSettleMemo(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-700 outline-none focus:border-emerald-500"/>
+                </div>
+
+                {showRuleWarning && (
+                  <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-[11px] text-rose-800 font-semibold">
+                    ⚠️ Large transfer — attach a receipt or proof of payment for audit trail.
+                  </div>
+                )}
+
+                <button type="submit"
+                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black rounded-2xl transition-colors flex items-center justify-center gap-2">
+                  <Send className="w-4 h-4"/> Execute Transfer
+                </button>
+              </form>
+            </div>
+
+            {/* Add account quick shortcut */}
+            <div className="bg-white rounded-2xl p-4 space-y-3" style={{border:'1px solid #e2e8f0'}}>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Add Recipient / New Account</p>
+              <div className="grid grid-cols-3 gap-2">
+                {(['bank','telco','person'] as const).map(t => (
+                  <button key={t} type="button" onClick={() => { setNewAccType(t); setMobileSectionTab('accounts'); setExpandedBank(true); }}
+                    className="py-3 rounded-xl flex flex-col items-center gap-1.5 bg-slate-50 border border-slate-100 active:bg-slate-100">
+                    {t === 'bank' ? <Landmark className="w-4 h-4 text-blue-500"/> : t === 'telco' ? <Wallet className="w-4 h-4 text-purple-500"/> : <User className="w-4 h-4 text-emerald-500"/>}
+                    <span className="text-[9px] font-bold text-slate-500">{t === 'telco' ? 'Mobile' : t === 'person' ? 'Person' : 'Bank'}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── AUDIT / HISTORY SECTION ── */}
+        {mobileSectionTab === 'audit' && (
+          <div className="space-y-3">
+            {/* Search + filter bar */}
+            <div className="flex gap-2">
+              <div className="flex-1 flex items-center bg-white border border-slate-200 px-3 py-2.5 rounded-xl gap-2" style={{boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+                <Search className="w-4 h-4 text-slate-400 shrink-0"/>
+                <input type="text" placeholder="Search transactions..." value={auditSearch} onChange={e => setAuditSearch(e.target.value)}
+                  className="bg-transparent border-none outline-none text-xs text-slate-800 placeholder-slate-400 flex-1"/>
+              </div>
+              <select value={auditTypeFilter} onChange={e => setAuditTypeFilter(e.target.value as any)}
+                className="bg-white border border-slate-200 rounded-xl px-2 py-2.5 text-[10px] font-bold text-slate-700 outline-none cursor-pointer"
+                style={{boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+                <option value="ALL">All</option>
+                <option value="POS_CHECKOUT">Sales</option>
+                <option value="SETTLE_TILL_DEPOSIT">Transfers</option>
+                <option value="EXPENSE_WITHDRAWAL">Expenses</option>
+              </select>
+            </div>
+
+            {/* Account filter pills */}
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
+              <button type="button" onClick={() => setSelectedChannelId('all')}
+                className="shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold"
+                style={{background:selectedChannelId==='all'?'#0f172a':'#f1f5f9',color:selectedChannelId==='all'?'#fff':'#475569'}}>
+                All Accounts
+              </button>
+              {channels.filter(c => c.category !== 'person').map(c => (
+                <button key={c.id} type="button" onClick={() => setSelectedChannelId(c.id)}
+                  className="shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold"
+                  style={{background:selectedChannelId===c.id?'#0f172a':'#f1f5f9',color:selectedChannelId===c.id?'#fff':'#475569'}}>
+                  {c.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Transaction cards — premium style */}
+            <div className="space-y-2.5">
+              {searchedAuditTrail.length > 0 ? searchedAuditTrail.map(entry => {
+                const chan = channels.find(c => c.id === entry.channelId);
+                const counterParty = entry.counterPartyChannelId ? channels.find(c => c.id === entry.counterPartyChannelId) : undefined;
+                const isPositive = entry.amount >= 0;
+                const isPersonPayout = entry.sourceType === 'SETTLE_TILL_DEPOSIT' && counterParty?.category === 'person';
+                const displayType = entry.sourceType === 'POS_CHECKOUT' ? 'Payment In' : isPersonPayout ? 'Sent to Person' : entry.channelId === 'counter-01' ? 'Cash Counter' : entry.sourceType === 'SETTLE_TILL_DEPOSIT' ? 'Transfer' : entry.sourceType === 'EXPENSE_WITHDRAWAL' ? 'Expense' : 'Balance';
+                const typeColor = entry.sourceType === 'POS_CHECKOUT' ? {bg:'#eff6ff',text:'#1d4ed8'} : isPersonPayout ? {bg:'#fff5f5',text:'#dc2626'} : entry.sourceType === 'SETTLE_TILL_DEPOSIT' ? {bg:'#f0fdf4',text:'#059669'} : entry.sourceType === 'EXPENSE_WITHDRAWAL' ? {bg:'#fff5f5',text:'#dc2626'} : {bg:'#f8fafc',text:'#475569'};
+
+                return (
+                  <div key={entry.id} className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+                    <div className="px-4 py-3.5">
+                      <div className="flex items-start gap-3">
+                        {/* Icon */}
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{background:typeColor.bg,color:typeColor.text}}>
+                          {isPositive ? <ArrowDownRight className="w-4 h-4"/> : <ArrowUpRight className="w-4 h-4"/>}
+                        </div>
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-lg" style={{background:typeColor.bg,color:typeColor.text}}>{displayType}</span>
+                            <span className={`text-[15px] font-black font-mono shrink-0 ${isPositive ? 'text-emerald-600' : 'text-rose-500'}`}>
+                              {isPositive ? '+' : ''}{formatCurrency(entry.amount)}
+                            </span>
+                          </div>
+                          <p className="text-[12px] font-semibold text-slate-800 mt-1.5 truncate">{chan?.name || 'Account'}</p>
+                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            {new Date(entry.timestamp).toLocaleString([], {dateStyle:'short',timeStyle:'short'})}
+                          </p>
+                          {entry.description && (
+                            <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">{entry.description}</p>
+                          )}
+                          {entry.counterPartyChannelId && (
+                            <p className="text-[9px] text-slate-400 italic mt-1">→ {counterParty?.name || 'Account'}{counterParty?.accountNumber ? ` (${counterParty.accountNumber})` : ''}</p>
+                          )}
+                          {(entry.receiptFile || entry.muamalaFile) && (
+                            <div className="flex gap-1.5 mt-2 flex-wrap">
+                              {entry.receiptFile && <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[9px] font-bold rounded-md flex items-center gap-1"><FileText className="w-2.5 h-2.5"/>Receipt</span>}
+                              {entry.muamalaFile && <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[9px] font-bold rounded-md flex items-center gap-1"><Wallet className="w-2.5 h-2.5"/>Slip</span>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }) : (
+                <div className="py-16 flex flex-col items-center justify-center text-center">
+                  <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mb-3">
+                    <Clock className="w-6 h-6 text-slate-300"/>
+                  </div>
+                  <p className="font-bold text-slate-600 text-sm">No transactions found</p>
+                  <p className="text-xs text-slate-400 mt-1">Adjust your filters or date range</p>
+                </div>
+              )}
+            </div>
+
+            {searchedAuditTrail.length > 0 && (
+              <p className="text-[10px] text-slate-400 text-center py-1">{searchedAuditTrail.length} transactions · {startDateStr} to {endDateStr}</p>
+            )}
+          </div>
+        )}
+
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════
+          DESKTOP LAYOUT — unchanged (hidden on mobile)
+      ══════════════════════════════════════════════════════════════ */}
+      <div className="hidden md:block space-y-5">
       <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 sm:p-5 lg:p-6 flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5">
           <div className="min-w-0">
@@ -1616,6 +2067,8 @@ export default function DashboardCashBank({
         )}
 
       </div>
+
+    </div>
 
     </div>
   );
