@@ -59,7 +59,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     emailLabel: "Account Identifier",
     passLabel: "Owner Pin Password",
     ownerName: "Owner Full Name",
-    companyName: "Company / Hotel Name",
+    companyName: "Company Name",
     region: "Region of operations",
     city: "City Name Office",
     phone: "Phone Number",
@@ -1748,7 +1748,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Company / Hotel Name</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Company Name</label>
                   <input
                     type="text"
                     required
@@ -2076,7 +2076,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block">Company / Hotel Name</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block">Company Name</label>
                     <input
                       type="text"
                       required
