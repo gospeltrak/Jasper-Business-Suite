@@ -38,6 +38,7 @@ import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
 import { savePendingSaleOffline, clearPendingSales } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
+import { flushPendingTenantWorkspace, loadTenantWorkspace, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace } from '../utils/tenantWorkspace';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
 import { 
   getSubscriptionState, 
@@ -547,6 +548,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     customerPhone?: string;
     hasVat?: boolean;
   } | null>(null);
+  const [workspaceReady, setWorkspaceReady] = useState(false);
 
   // Automatically refresh settings when pivot branch (activeTenant) updates
   useEffect(() => {
@@ -569,6 +571,59 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       document.documentElement.classList.remove('dark');
     }
   }, [activeTenant]);
+
+  // Supabase is the tenant source of truth. Local storage is used only as a cache
+  // and offline queue until the same workspace can be written to the database.
+  useEffect(() => {
+    let active = true;
+    let unsubscribe = () => undefined;
+    setWorkspaceReady(false);
+
+    const applyWorkspace = (workspace: TenantWorkspace) => {
+      if (!active) return;
+      setProductsMap(previous => ({ ...previous, [activeTenant.id]: workspace.products || [] }));
+      setSalesMap(previous => ({ ...previous, [activeTenant.id]: workspace.sales || [] }));
+      setExpensesMap(previous => ({ ...previous, [activeTenant.id]: workspace.expenses || [] }));
+      setDeliveriesMap(previous => ({ ...previous, [activeTenant.id]: workspace.deliveries || [] }));
+      setPendingDeliveryNotesMap(previous => ({ ...previous, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
+      if (workspace.settings) setSystemSettings(workspace.settings);
+    };
+
+    loadTenantWorkspace(activeTenant.id).then((workspace) => {
+      if (!active) return;
+      if (workspace) applyWorkspace(workspace);
+      setWorkspaceReady(true);
+    });
+
+    subscribeToTenantWorkspace(activeTenant.id, applyWorkspace).then((cleanup) => {
+      unsubscribe = cleanup;
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [activeTenant.id]);
+
+  useEffect(() => {
+    if (!workspaceReady) return;
+    const workspace: TenantWorkspace = {
+      products: productsMap[activeTenant.id] || [],
+      sales: salesMap[activeTenant.id] || [],
+      expenses: expensesMap[activeTenant.id] || [],
+      settings: systemSettings,
+      deliveries: deliveriesMap[activeTenant.id] || [],
+      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || []
+    };
+    const timer = window.setTimeout(() => saveTenantWorkspace(activeTenant.id, workspace), 450);
+    return () => window.clearTimeout(timer);
+  }, [workspaceReady, activeTenant.id, productsMap, salesMap, expensesMap, systemSettings, deliveriesMap, pendingDeliveryNotesMap]);
+
+  useEffect(() => {
+    const syncWorkspace = () => flushPendingTenantWorkspace(activeTenant.id);
+    window.addEventListener('online', syncWorkspace);
+    return () => window.removeEventListener('online', syncWorkspace);
+  }, [activeTenant.id]);
 
   // Service Worker and Offline background synchronizer listener
   useEffect(() => {

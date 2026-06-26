@@ -1017,6 +1017,17 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       const newTenant = registration.tenant as Tenant;
       const authUserId = registration.userId as string;
 
+      // Establish the browser auth session immediately. Dashboard persistence and
+      // realtime tenant updates use this authenticated Supabase session.
+      const client: any = await getDynamicSupabaseClient();
+      const { error: signInError } = await client.auth.signInWithPassword({
+        email: ownerAuthEmail,
+        password: regPassword
+      });
+      if (signInError) {
+        console.warn('Account was created but this browser could not establish its cloud session.', signInError);
+      }
+
       // Store response variables
       const registeredUser: User = {
         id: authUserId,
