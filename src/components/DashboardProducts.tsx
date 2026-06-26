@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, FormEvent, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Tenant, Product, ProductBatch } from '../types';
+import { Tenant, Product, ProductBatch, SystemSettings } from '../types';
 import { isDemoTenant } from '../utils/tenantIsolation';
 import { 
   Plus, 
@@ -46,7 +46,8 @@ import { formatProductQuantity } from '../utils/unitFormatter';
 interface DashboardProductsProps {
   activeTenant: Tenant;
   products: Product[];
-  systemSettings?: any; // Added systemSettings prop
+  systemSettings?: SystemSettings;
+  onUpdateSettings: (settings: SystemSettings) => void;
   onAddProduct: (prod: Product) => void;
   onDeleteProduct: (id: string) => void;
   onUpdateProducts: (updatedProducts: Product[]) => void;
@@ -63,6 +64,7 @@ export default function DashboardProducts({
   activeTenant, 
   products,
   systemSettings,
+  onUpdateSettings,
   onAddProduct,
   onDeleteProduct,
   onUpdateProducts,
@@ -123,8 +125,8 @@ export default function DashboardProducts({
 
   // Self-healing, reactive list of categories that merges pre-loaded products and custom ones, and user settings
   const categoriesList = useMemo(() => {
-    const defaultCats = systemSettings?.productForm?.categories && systemSettings.productForm.categories.length > 0
-      ? systemSettings.productForm.categories
+    const defaultCats = systemSettings?.productStore?.categories && systemSettings.productStore.categories.length > 0
+      ? systemSettings.productStore.categories
       : (isDemoTenant(activeTenant.id) ? ['Groceries', 'Beverages', 'Dairy', 'Cooking Oils', 'Household', 'Consumer Electronics', 'Apparel'] : []);
     const set = new Set(defaultCats);
     products.forEach(p => {
@@ -135,8 +137,8 @@ export default function DashboardProducts({
   }, [products, customCategories, systemSettings]);
 
   const unitsList = useMemo(() => {
-    return systemSettings?.productForm?.units && systemSettings.productForm.units.length > 0
-      ? systemSettings.productForm.units
+    return systemSettings?.productStore?.units && systemSettings.productStore.units.length > 0
+      ? systemSettings.productStore.units
       : (isDemoTenant(activeTenant.id) ? ['Pcs', 'Kgs', 'Ltrs', 'Boxes', 'Cartons'] : []);
   }, [systemSettings]);
 
@@ -417,7 +419,7 @@ export default function DashboardProducts({
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
   const [barcode, setBarcode] = useState('');
-  const [category, setCategory] = useState(categoriesList[0] || 'Groceries');
+  const [category, setCategory] = useState(categoriesList[0] || '');
   const [unit, setUnit] = useState(unitsList[0] || 'Pcs');
   const [costPrice, setCostPrice] = useState(0);
   const [sellingPrice, setSellingPrice] = useState(0);
@@ -837,7 +839,7 @@ export default function DashboardProducts({
       setName('');
       setBrand('');
       setBarcode('');
-      setCategory('Groceries');
+      setCategory(categoriesList[0] || '');
       setCostPrice(0);
       setSellingPrice(0);
       setShopStockQty(5);
@@ -1613,6 +1615,7 @@ export default function DashboardProducts({
                         onChange={(e) => setCategory(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-750 transition-all outline-none font-semibold truncate"
                       >
+                        <option value="">Select category</option>
                         {categoriesList.map(cat => (
                           <option key={cat} value={cat}>{cat}</option>
                         ))}
@@ -3257,7 +3260,15 @@ export default function DashboardProducts({
                       alert('This category is already registered!');
                       return;
                     }
+                    const updatedSettings: SystemSettings = {
+                      ...systemSettings,
+                      productStore: {
+                        ...systemSettings?.productStore,
+                        categories: [...(systemSettings?.productStore?.categories || []), trimmed]
+                      }
+                    } as SystemSettings;
                     setCustomCategories(prev => [...prev, trimmed]);
+                    onUpdateSettings(updatedSettings);
                     setNewCategoryName('');
                   }}
                   className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-505 text-white rounded-xl font-bold uppercase text-[10.5px] transition-all cursor-pointer"
@@ -3315,10 +3326,22 @@ export default function DashboardProducts({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (window.confirm(`Delete category "${cat}"? Products using it will be unlinked.`)) {
-                            setCustomCategories(prev => prev.filter(c => c !== cat));
-                            if (selectedCategoryFilter === cat) setSelectedCategoryFilter(null);
+                          const productCount = products.filter(product => product.category === cat).length;
+                          if (productCount > 0) {
+                            alert(`"${cat}" is used by ${productCount} product${productCount === 1 ? '' : 's'}. Reassign those products before deleting this category.`);
+                            return;
                           }
+                          if (!window.confirm(`Delete category "${cat}"? This cannot be undone.`)) return;
+
+                          setCustomCategories(prev => prev.filter(c => c !== cat));
+                          onUpdateSettings({
+                            ...systemSettings,
+                            productStore: {
+                              ...systemSettings?.productStore,
+                              categories: (systemSettings?.productStore?.categories || []).filter(existing => existing !== cat)
+                            }
+                          } as SystemSettings);
+                          if (selectedCategoryFilter === cat) setSelectedCategoryFilter(null);
                         }}
                         className="ml-2 p-2 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors flex-shrink-0 cursor-pointer bg-transparent border-none min-w-[36px] min-h-[36px] flex items-center justify-center"
                         title="Delete Category"

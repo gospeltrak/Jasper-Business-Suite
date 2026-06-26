@@ -2124,6 +2124,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               activeTenant={activeTenant}
               products={activeProducts}
               systemSettings={systemSettings}
+              onUpdateSettings={(updated) => {
+                setSystemSettings(updated);
+                localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
+              }}
               onAddProduct={handleCreateProduct}
               onDeleteProduct={handleDeleteProduct}
               onUpdateProducts={handleUpdateActiveStocks}
