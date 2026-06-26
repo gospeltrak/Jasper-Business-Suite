@@ -806,8 +806,33 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   const currentPermissions = getSimulatedPermissions();
 
+  const getSuperAdminPermissionKey = (tabId: string) => {
+    const mapping: Record<string, string> = {
+      'admin-dashboard': 'dashboard',
+      'admin-subscribers': 'subscribers',
+      'admin-hw-pos': 'hw-pos',
+      'admin-hw-inventory': 'hw-inventory',
+      'admin-hw-sales': 'hw-sales',
+      'admin-affiliates': 'affiliates',
+      'admin-status': 'status',
+      'admin-reports': 'reports',
+      'admin-expenses': 'expenses',
+      'admin-chats': 'chats',
+      'admin-inbox': 'inbox',
+      'admin-promotions': 'promotions',
+      'admin-tutorials': 'tutorials',
+      'admin-web-editor': 'web-editor',
+      'admin-settings': 'settings'
+    };
+    return mapping[tabId] || tabId.replace(/^admin-/, '');
+  };
+
   const isTabAllowed = (tabId: string) => {
     if (activeRoleName === 'SuperAdmin') {
+      if (user.isSaaSStaff) {
+        const permissions = user.saasPermissions || {};
+        return Boolean(permissions[getSuperAdminPermissionKey(tabId)]);
+      }
       return tabId === 'super-saas' || tabId.startsWith('admin-') || tabId === 'staff' || tabId === 'staff-members';
     }
     const perms = currentPermissions;
@@ -1587,6 +1612,12 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     { id: 'settings', label: 'Settings', icon: SettingsIcon, tabId: 'settings' },
     { id: 'subscription', label: 'Subscription', icon: CardIcon, tabId: 'subscription-modal' }
   ];
+
+  useEffect(() => {
+    if (activeRoleName !== 'SuperAdmin' || !user.isSaaSStaff || isTabAllowed(activeTab)) return;
+    const firstAllowed = customSidebarItems.find((item) => isTabAllowed(item.tabId || item.id));
+    if (firstAllowed?.tabId) setActiveTab(firstAllowed.tabId);
+  }, [activeRoleName, activeTab, customSidebarItems, user.isSaaSStaff]);
 
   if (user.isDuress) {
     return <DuressDashboard onLogout={onLogout} onNavigate={onNavigate} />;

@@ -1,51 +1,61 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Users, DollarSign, Activity, Receipt, PieChart as PieChartIcon, BarChart2, TrendingUp, TrendingDown, Share2, Wallet, Banknote, Landmark } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { buildSuperAdminMetrics, loadSuperAdminOverview, SuperAdminMetrics } from '../utils/superAdminData';
 
 export default function SaaSDashboardMetrics() {
-  const [metrics] = useState({
-    subscribersCount: 145,
-    totalIncome: 15400000,
-    affiliatePayoutPercent: 21.5,
-    expenses: 3200000,
-    balance: 12200000
-  });
+  const [metrics, setMetrics] = useState<SuperAdminMetrics | null>(null);
+  const [loadError, setLoadError] = useState('');
 
-  const generateMockGraphData = () => {
-    // 1. Bar graph: monthly users by package
-    const monthlyUsersByPackage = [
-      { name: 'Jan', 'Starter Plan': 20, 'Premium Plan': 10, 'Enterprise Plan': 2 },
-      { name: 'Feb', 'Starter Plan': 25, 'Premium Plan': 12, 'Enterprise Plan': 3 },
-      { name: 'Mar', 'Starter Plan': 35, 'Premium Plan': 20, 'Enterprise Plan': 5 },
-      { name: 'Apr', 'Starter Plan': 40, 'Premium Plan': 28, 'Enterprise Plan': 7 },
-      { name: 'May', 'Starter Plan': 55, 'Premium Plan': 35, 'Enterprise Plan': 10 },
-      { name: 'Jun', 'Starter Plan': 60, 'Premium Plan': 40, 'Enterprise Plan': 12 },
-    ];
+  useEffect(() => {
+    let alive = true;
+    loadSuperAdminOverview()
+      .then((overview) => {
+        if (!alive) return;
+        setMetrics(buildSuperAdminMetrics(overview));
+        setLoadError('');
+      })
+      .catch((error: any) => {
+        if (!alive) return;
+        setLoadError(error?.message || 'Unable to load Super Admin metrics.');
+        setMetrics(buildSuperAdminMetrics({
+          tenants: [],
+          users: [],
+          workspaces: [],
+          sessions: [],
+          affiliates: [],
+          referrals: [],
+          commissions: [],
+          payouts: [],
+          auditLogs: []
+        }));
+      });
+    return () => { alive = false; };
+  }, []);
 
-    // 2. Cycle graph (Pie Chart): most subscribed packages
-    const packageDistribution = [
-      { name: 'Starter Plan', value: 85, color: '#34d399' },
-      { name: 'Premium Plan', value: 45, color: '#60a5fa' },
-      { name: 'Enterprise Plan', value: 15, color: '#f87171' },
-    ];
+  const chartKeys = useMemo(() => {
+    const keys = new Set<string>();
+    (metrics?.monthlyUsersByPackage || []).forEach((row) => {
+      Object.keys(row).forEach((key) => {
+        if (key !== 'name') keys.add(key);
+      });
+    });
+    return Array.from(keys);
+  }, [metrics]);
 
-    // 3. Line graph: organic subscribers vs affiliate subscribers
-    const organicVsAffiliate = [
-      { name: 'Jan', 'Organic': 15, 'Affiliate': 5 },
-      { name: 'Feb', 'Organic': 20, 'Affiliate': 10 },
-      { name: 'Mar', 'Organic': 25, 'Affiliate': 18 },
-      { name: 'Apr', 'Organic': 28, 'Affiliate': 30 },
-      { name: 'May', 'Organic': 35, 'Affiliate': 45 },
-      { name: 'Jun', 'Organic': 40, 'Affiliate': 55 },
-    ];
-
-    return { monthlyUsersByPackage, packageDistribution, organicVsAffiliate };
-  };
-
-  const { monthlyUsersByPackage, packageDistribution, organicVsAffiliate } = generateMockGraphData();
+  const monthlyUsersByPackage = metrics?.monthlyUsersByPackage || [];
+  const packageDistribution = metrics?.packageDistribution || [];
+  const organicVsAffiliate = metrics?.organicVsAffiliate || [];
+  const colors = ['#34d399', '#60a5fa', '#f87171', '#f59e0b', '#a78bfa', '#22d3ee'];
 
   return (
     <div className="space-y-6">
+      {loadError && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 text-xs text-amber-200">
+          {loadError}
+        </div>
+      )}
+
       {/* Top Value Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {/* Subscribers Count */}
@@ -55,7 +65,7 @@ export default function SaaSDashboardMetrics() {
           </div>
           <div>
             <span className="text-[10px] text-slate-500 uppercase font-mono tracking-wider font-bold">Subscribers</span>
-            <div className="text-lg font-bold text-white leading-tight">{metrics.subscribersCount} Users</div>
+            <div className="text-lg font-bold text-white leading-tight">{metrics?.subscribersCount || 0} Users</div>
           </div>
         </div>
 
@@ -66,7 +76,7 @@ export default function SaaSDashboardMetrics() {
           </div>
           <div>
             <span className="text-[10px] text-slate-500 uppercase font-mono tracking-wider font-bold">Total Revenue</span>
-            <div className="text-lg font-bold text-white leading-tight">TZS {metrics.totalIncome.toLocaleString()}</div>
+            <div className="text-lg font-bold text-white leading-tight">TZS {(metrics?.totalIncome || 0).toLocaleString()}</div>
           </div>
         </div>
 
@@ -77,7 +87,7 @@ export default function SaaSDashboardMetrics() {
           </div>
           <div>
             <span className="text-[10px] text-slate-500 uppercase font-mono tracking-wider font-bold">Total Affiliates Shares</span>
-            <div className="text-lg font-bold text-white leading-tight">TZS {(metrics.totalIncome * (metrics.affiliatePayoutPercent / 100)).toLocaleString()}</div>
+            <div className="text-lg font-bold text-white leading-tight">TZS {(metrics?.affiliatePayouts || 0).toLocaleString()}</div>
           </div>
         </div>
 
@@ -88,7 +98,7 @@ export default function SaaSDashboardMetrics() {
           </div>
           <div>
             <span className="text-[10px] text-slate-500 uppercase font-mono tracking-wider font-bold">Total Expenses</span>
-            <div className="text-lg font-bold text-white leading-tight">TZS {metrics.expenses.toLocaleString()}</div>
+            <div className="text-lg font-bold text-white leading-tight">TZS {(metrics?.expenses || 0).toLocaleString()}</div>
           </div>
         </div>
 
@@ -99,7 +109,7 @@ export default function SaaSDashboardMetrics() {
           </div>
           <div>
             <span className="text-[10px] text-slate-500 uppercase font-mono tracking-wider font-bold">Net Balance</span>
-            <div className="text-lg font-bold text-white leading-tight">TZS {(metrics.totalIncome - (metrics.totalIncome * 0.20) - metrics.expenses).toLocaleString()}</div>
+            <div className="text-lg font-bold text-white leading-tight">TZS {(metrics?.balance || 0).toLocaleString()}</div>
           </div>
         </div>
       </div>
@@ -124,9 +134,9 @@ export default function SaaSDashboardMetrics() {
                   itemStyle={{ fontSize: '11px', fontWeight: 'bold' }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
-                <Bar dataKey="Starter Plan" fill="#34d399" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Premium Plan" fill="#60a5fa" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Enterprise Plan" fill="#f87171" radius={[4, 4, 0, 0]} />
+                {chartKeys.map((key, index) => (
+                  <Bar key={key} dataKey={key} fill={colors[index % colors.length]} radius={[4, 4, 0, 0]} />
+                ))}
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -151,7 +161,7 @@ export default function SaaSDashboardMetrics() {
                   dataKey="value"
                 >
                   {packageDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} stroke="transparent" />
+                    <Cell key={`cell-${index}`} fill={entry.color || colors[index % colors.length]} stroke="transparent" />
                   ))}
                 </Pie>
                 <Tooltip contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', borderRadius: '8px', fontSize: '11px' }} />

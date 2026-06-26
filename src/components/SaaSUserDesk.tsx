@@ -19,6 +19,14 @@ import {
   AppWindow,
   Key
 } from 'lucide-react';
+import {
+  deleteSuperAdminUser,
+  loadSuperAdminOverview,
+  mapSuperAdminUsers,
+  resetSuperAdminUserPassword,
+  SuperAdminUserRow,
+  updateSuperAdminUser
+} from '../utils/superAdminData';
 
 // Encrypted persistence simulation
 const encryptValue = (val: string) => {
@@ -42,8 +50,10 @@ interface SessionLog {
   location: string;
 }
 
-interface UserAccount {
+interface UserAccount extends SuperAdminUserRow {
   id: string;
+  tenantId: string | null;
+  tenantName: string;
   name: string;
   username: string;
   email: string;
@@ -70,6 +80,8 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'organic_subscribers' | 'organic_affiliate' | 'sub_affiliate'>('all');
   const [affiliates, setAffiliates] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
   // Mirror view authentication states
   const [showMirrorModal, setShowMirrorModal] = useState(false);
@@ -78,15 +90,6 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   const [mirrorPass2, setMirrorPass2] = useState('');
   const [mirrorError, setMirrorError] = useState('');
 
-  useEffect(() => {
-    const cachedAffiliates = localStorage.getItem('saas_immersive_affiliates');
-    if (cachedAffiliates) {
-      try {
-        setAffiliates(JSON.parse(cachedAffiliates));
-      } catch (e) {}
-    }
-  }, []);
-  
   // Immersive Mode (Seeing everything exactly as the user sees it)
   const [immersiveTab] = useState<'business'>('business');
   const [bizSubTab, setBizSubTab] = useState<'messages' | 'billing' | 'hardware'>('messages');
@@ -141,12 +144,23 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
     }
   }, [lockoutTimeLeft]);
 
-  const loadUsersData = () => {
-    const cached = localStorage.getItem('saas_immersive_users');
-    if (cached) {
-      setUsers(JSON.parse(cached));
-    } else {
-      // High fidelity detailed starting data
+  const loadUsersData = async () => {
+    setIsLoading(true);
+    try {
+      const overview = await loadSuperAdminOverview();
+      const liveUsers = mapSuperAdminUsers(overview);
+      setUsers(liveUsers);
+      setAffiliates(overview.affiliates || []);
+      setSelectedUser((current) => current ? liveUsers.find((user) => user.id === current.id) || null : null);
+      setLoadError('');
+    } catch (error: any) {
+      setLoadError(error?.message || 'Unable to load live subscriber database.');
+      setUsers([]);
+    } finally {
+      setIsLoading(false);
+    }
+    return;
+      /* Legacy demo users intentionally disabled for the real Super Admin dashboard.
       const initialUsers: UserAccount[] = [
         {
           id: 'u-1',
@@ -306,8 +320,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
         }
       ];
       setUsers(initialUsers);
-      localStorage.setItem('saas_immersive_users', JSON.stringify(initialUsers));
-    }
+      */
   };
 
   const handleAuditLog = (actionTaken: string, targetName: string) => {
@@ -356,7 +369,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
     }
   };
 
-  const handleEditFieldSubmit = (e: React.FormEvent) => {
+  const handleEditFieldSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
 
@@ -373,16 +386,24 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       status: editStatus
     };
 
-    const updatedUsersList = users.map(u => u.id === selectedUser.id ? updatedUser : u);
-    setUsers(updatedUsersList);
-    setSelectedUser(updatedUser);
-    localStorage.setItem('saas_immersive_users', JSON.stringify(updatedUsersList));
-    
-    handleAuditLog(`Updated profile fields: name, email, plan to ${editPlan}`, selectedUser.name);
-    alert('✅ Tenant subscription profile overwritten in the live master nodes!');
+    try {
+      await updateSuperAdminUser(selectedUser.id, {
+        name: editName,
+        email: editEmail,
+        phone: editPhone,
+        isActive: editStatus === 'Active'
+      });
+      const updatedUsersList = users.map(u => u.id === selectedUser.id ? updatedUser : u);
+      setUsers(updatedUsersList);
+      setSelectedUser(updatedUser);
+      handleAuditLog(`Updated profile fields: name, email, plan to ${editPlan}`, selectedUser.name);
+      alert('Tenant profile updated in Supabase.');
+    } catch (error: any) {
+      alert(error?.message || 'Unable to update tenant user.');
+    }
   };
 
-  const handleSuspendReactivate = (targetStatus: 'Active' | 'Suspended') => {
+  const handleSuspendReactivate = async (targetStatus: 'Active' | 'Suspended') => {
     if (!selectedUser) return;
     if (!verifySecureKey()) return;
 
@@ -391,32 +412,38 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       status: targetStatus
     };
 
-    const updatedUsersList = users.map(u => u.id === selectedUser.id ? updatedUser : u);
-    setUsers(updatedUsersList);
-    setSelectedUser(updatedUser);
-    setEditStatus(targetStatus);
-    localStorage.setItem('saas_immersive_users', JSON.stringify(updatedUsersList));
-
-    handleAuditLog(`Changed status code level to ${targetStatus}`, selectedUser.name);
-    alert(`✅ User status has been programmatically restricted to ${targetStatus}.`);
+    try {
+      await updateSuperAdminUser(selectedUser.id, { isActive: targetStatus === 'Active' });
+      const updatedUsersList = users.map(u => u.id === selectedUser.id ? updatedUser : u);
+      setUsers(updatedUsersList);
+      setSelectedUser(updatedUser);
+      setEditStatus(targetStatus);
+      handleAuditLog(`Changed status code level to ${targetStatus}`, selectedUser.name);
+      alert(`User status changed to ${targetStatus}.`);
+    } catch (error: any) {
+      alert(error?.message || 'Unable to change user status.');
+    }
   };
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (!selectedUser) return;
     if (!confirm(`Are you absolutely sure you want to permanently erase ${selectedUser.name} enterprise nodes from our system?`)) return;
     
     if (!verifySecureKey()) return;
 
-    const truncatedUsersList = users.filter(u => u.id !== selectedUser.id);
-    setUsers(truncatedUsersList);
-    localStorage.setItem('saas_immersive_users', JSON.stringify(truncatedUsersList));
-
-    handleAuditLog(`ERASED tenant account from nodes`, selectedUser.name);
-    alert(`💥 Permanent database node erasure executed for ${selectedUser.name}. All cloud micro-sync ledgers wiped successfully.`);
-    setSelectedUser(null);
+    try {
+      await deleteSuperAdminUser(selectedUser.id);
+      const truncatedUsersList = users.filter(u => u.id !== selectedUser.id);
+      setUsers(truncatedUsersList);
+      handleAuditLog(`Deleted tenant account from nodes`, selectedUser.name);
+      alert(`Tenant/user deleted from Supabase.`);
+      setSelectedUser(null);
+    } catch (error: any) {
+      alert(error?.message || 'Unable to delete this tenant/user.');
+    }
   };
 
-  const handleResetPassword = () => {
+  const handleResetPassword = async () => {
     if (!selectedUser) return;
     if (!newPasswordValue.trim()) {
       alert('Please write a new generic password to bind.');
@@ -425,10 +452,14 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
     
     if (!verifySecureKey()) return;
 
-    // Simulate resetting user password and logging securely
-    handleAuditLog(`Force reset user auth password`, selectedUser.name);
-    alert(`🔑 Password reset packet pushed! Customer ${selectedUser.name} must log in next using temporary credential: ${newPasswordValue}`);
-    setNewPasswordValue('');
+    try {
+      await resetSuperAdminUserPassword(selectedUser.id, newPasswordValue);
+      handleAuditLog(`Force reset user auth password`, selectedUser.name);
+      alert(`Password reset completed for ${selectedUser.name}.`);
+      setNewPasswordValue('');
+    } catch (error: any) {
+      alert(error?.message || 'Unable to reset password.');
+    }
   };
 
   // Totals calculations
@@ -473,6 +504,17 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
 
   return (
     <div className="space-y-6">
+      {loadError && (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
+          {loadError}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-xs text-slate-400">
+          Loading live tenants, users, sessions, and workspace data...
+        </div>
+      )}
       
       {/* Earnings Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

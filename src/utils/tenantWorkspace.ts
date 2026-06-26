@@ -30,7 +30,7 @@ const cacheWorkspace = (tenantId: string, workspace: TenantWorkspace) => {
 export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorkspace | null> {
   const fallback = readCachedWorkspace(tenantId);
   try {
-    const client = await getDynamicSupabaseClient();
+    const client: any = await getDynamicSupabaseClient();
     const { data, error } = await client
       .from('tenant_workspaces')
       .select('payload')
@@ -49,7 +49,7 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 export async function saveTenantWorkspace(tenantId: string, workspace: TenantWorkspace) {
   cacheWorkspace(tenantId, workspace);
   try {
-    const client = await getDynamicSupabaseClient();
+    const client: any = await getDynamicSupabaseClient();
     const { error } = await client
       .from('tenant_workspaces')
       .upsert({ tenant_id: tenantId, payload: workspace, updated_at: new Date().toISOString() }, { onConflict: 'tenant_id' });
@@ -71,7 +71,7 @@ export async function subscribeToTenantWorkspace(
   onWorkspace: (workspace: TenantWorkspace) => void
 ): Promise<() => void> {
   try {
-    const client = await getDynamicSupabaseClient();
+    const client: any = await getDynamicSupabaseClient();
     const channel: RealtimeChannel = client
       .channel(`tenant-workspace:${tenantId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tenant_workspaces', filter: `tenant_id=eq.${tenantId}` }, (event: any) => {

@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Plus, Trash, Eye, EyeOff, Save, CheckCircle, Image as ImageIcon } from 'lucide-react';
 import { User } from '../types';
+import {
+  createSuperAdminStaff,
+  deleteSuperAdminStaff,
+  loadSuperAdminOverview,
+  mapSuperAdminStaff,
+  updateSuperAdminStaff
+} from '../utils/superAdminData';
 
 export default function SaaSStaffManager() {
   const [staffs, setStaffs] = useState<User[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Form states
   const [staffId, setStaffId] = useState('');
@@ -42,47 +51,76 @@ export default function SaaSStaffManager() {
     loadStaffs();
   }, []);
 
-  const loadStaffs = () => {
-    const cached = localStorage.getItem('jasper_saas_staffs');
-    if (cached) {
-      setStaffs(JSON.parse(cached));
+  const loadStaffs = async () => {
+    try {
+      const overview = await loadSuperAdminOverview();
+      setStaffs(mapSuperAdminStaff(overview));
+      setLoadError('');
+    } catch (error: any) {
+      setLoadError(error?.message || 'Unable to load SaaS staff accounts.');
+      setStaffs([]);
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     const newStaff: User = {
       id: staffId || `saas-staff-${Date.now()}`,
       name,
       email,
-      password, // Password is kept locally here just entirely for the mock demo
+      password: '',
       role: 'SuperAdmin',
-      tenantId: 't-lagos-01', // They log into the SAAS system
-      activeTenant: 't-lagos-01',
+      tenantId: 'platform-control',
+      activeTenant: 'platform-control',
       isSaaSStaff: true,
       profileImage,
       saasPermissions: permissions
     };
 
-    const existingIndex = staffs.findIndex(s => s.id === newStaff.id);
-    let updatedStaffs = [...staffs];
-    if (existingIndex >= 0) {
-      updatedStaffs[existingIndex] = newStaff;
-    } else {
-      updatedStaffs.push(newStaff);
+    try {
+      const payload = {
+        name,
+        email,
+        password,
+        profileImageUrl: profileImage,
+        permissions
+      };
+      const response = isEditing
+        ? await updateSuperAdminStaff(staffId, payload)
+        : await createSuperAdminStaff(payload);
+      const saved = response.staff;
+      const mappedStaff: User = {
+        ...newStaff,
+        id: saved.id,
+        profileImage: saved.profile_image_url || profileImage,
+        saasPermissions: saved.role_permissions || permissions
+      };
+      const existingIndex = staffs.findIndex(s => s.id === mappedStaff.id);
+      const updatedStaffs = existingIndex >= 0
+        ? staffs.map((staff) => staff.id === mappedStaff.id ? mappedStaff : staff)
+        : [mappedStaff, ...staffs];
+      setStaffs(updatedStaffs);
+      setShowAddForm(false);
+      resetForm();
+      setLoadError('');
+    } catch (error: any) {
+      setLoadError(error?.message || 'Unable to save SaaS staff account.');
+    } finally {
+      setIsSaving(false);
     }
-
-    setStaffs(updatedStaffs);
-    localStorage.setItem('jasper_saas_staffs', JSON.stringify(updatedStaffs));
-
-    setShowAddForm(false);
-    resetForm();
   };
 
-  const handleDelete = (id: string) => {
-    const filtered = staffs.filter(s => s.id !== id);
-    setStaffs(filtered);
-    localStorage.setItem('jasper_saas_staffs', JSON.stringify(filtered));
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this SaaS staff login?')) return;
+    try {
+      await deleteSuperAdminStaff(id);
+      const filtered = staffs.filter(s => s.id !== id);
+      setStaffs(filtered);
+      setLoadError('');
+    } catch (error: any) {
+      setLoadError(error?.message || 'Unable to delete SaaS staff account.');
+    }
   };
 
   const handleEdit = (staff: User) => {
@@ -146,6 +184,12 @@ export default function SaaSStaffManager() {
           </button>
         )}
       </div>
+
+      {loadError && (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
+          {loadError}
+        </div>
+      )}
 
       {!showAddForm ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
@@ -247,9 +291,10 @@ export default function SaaSStaffManager() {
                   <input 
                     type={showPassword ? "text" : "password"} 
                     value={password}
-                    required
+                    required={!isEditing}
                     onChange={e => setPassword(e.target.value)} 
                     className="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 text-xs px-3 py-2.5 rounded-xl text-white outline-none" 
+                    placeholder={isEditing ? 'Leave blank to keep existing password' : 'Minimum 8 characters'}
                   />
                   <button 
                     type="button" 
@@ -304,7 +349,7 @@ export default function SaaSStaffManager() {
               className="px-5 py-2 bg-amber-600/20 hover:bg-amber-600 text-amber-500 hover:text-white border border-amber-600/50 rounded-xl font-bold text-xs transition-all flex items-center space-x-2 cursor-pointer shadow-[0_0_15px_rgba(217,119,6,0.1)] hover:shadow-[0_0_20px_rgba(217,119,6,0.2)]"
             >
               <Save className="w-3.5 h-3.5" />
-              <span>{isEditing ? 'Commit Profile Overrides' : 'Deploy Central Credentials'}</span>
+              <span>{isSaving ? 'Saving...' : isEditing ? 'Commit Profile Overrides' : 'Deploy Central Credentials'}</span>
             </button>
           </div>
         </form>

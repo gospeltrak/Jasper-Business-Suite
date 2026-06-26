@@ -18,7 +18,7 @@ const getDeviceLabel = () => {
 };
 
 export async function startCloudSession(): Promise<{ allowed: boolean; reason?: string }> {
-  const client = await getDynamicSupabaseClient();
+  const client: any = await getDynamicSupabaseClient();
   const { data, error } = await client.rpc('start_user_session', {
     p_device_id: getDeviceId(),
     p_device_label: getDeviceLabel(),
@@ -34,7 +34,7 @@ export async function touchCloudSession() {
   const sessionId = sessionStorage.getItem(sessionStorageKey);
   if (!sessionId) return;
   try {
-    const client = await getDynamicSupabaseClient();
+    const client: any = await getDynamicSupabaseClient();
     await client.rpc('touch_user_session', { p_session_id: sessionId });
   } catch {
     // A later heartbeat or reconnect will retry without blocking the user.
@@ -45,7 +45,7 @@ export async function endCloudSession() {
   const sessionId = sessionStorage.getItem(sessionStorageKey);
   if (!sessionId) return;
   try {
-    const client = await getDynamicSupabaseClient();
+    const client: any = await getDynamicSupabaseClient();
     await client.rpc('end_user_session', { p_session_id: sessionId });
   } finally {
     sessionStorage.removeItem(sessionStorageKey);

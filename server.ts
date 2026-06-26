@@ -22,6 +22,59 @@ if (supabaseUrl && supabaseServiceRoleKey) {
   console.warn('[Server] Supabase service client unavailable. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
 }
 
+const getBearerToken = (req: express.Request) => {
+  const header = req.headers.authorization || '';
+  const [scheme, token] = header.split(' ');
+  return scheme?.toLowerCase() === 'bearer' && token ? token : null;
+};
+
+async function requirePlatformAdmin(req: express.Request) {
+  if (!supabaseAdmin) throw new Error('Supabase backend client is not configured');
+  const token = getBearerToken(req);
+  if (!token) {
+    const error: any = new Error('Authentication required');
+    error.status = 401;
+    throw error;
+  }
+
+  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !authData.user) {
+    const error: any = new Error('Invalid administrator session');
+    error.status = 401;
+    throw error;
+  }
+
+  const { data: adminProfile, error: profileError } = await supabaseAdmin
+    .from('users')
+    .select('id, account_type, role, role_key, is_active')
+    .eq('id', authData.user.id)
+    .maybeSingle();
+
+  const normalizedRole = String((adminProfile as any)?.role_key || (adminProfile as any)?.role || '').toLowerCase();
+  const isPlatformAdmin = Boolean(
+    (adminProfile as any)?.is_active &&
+    ((adminProfile as any)?.account_type === 'super_admin' || ['superadmin', 'super_admin', 'admin'].includes(normalizedRole))
+  );
+
+  if (profileError || !isPlatformAdmin) {
+    const error: any = new Error('Super SaaS administrator access required');
+    error.status = 403;
+    throw error;
+  }
+
+  return authData.user;
+}
+
+const platformAdminError = (res: express.Response, error: any) => {
+  const status = Number(error?.status || 500);
+  return res.status(status).json({ error: error?.message || 'Super Admin request failed' });
+};
+
+const adminTable = (tableName: string) => {
+  if (!supabaseAdmin) throw new Error('Supabase backend client is not configured');
+  return supabaseAdmin.from(tableName as any) as any;
+};
+
 // Helper for local inventory forecast fallback when API is busy or offline
 function generateLocalForecast(products: any[], salesHistory: any[], tenant: any) {
   const forecasts = products.map((p) => {
@@ -404,6 +457,280 @@ async function startServer() {
     });
   });
 
+  app.get('/api/super-admin/overview', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const [
+        tenantsResult,
+        usersResult,
+        workspacesResult,
+        sessionsResult,
+        affiliatesResult,
+        referralsResult,
+        commissionsResult,
+        payoutsResult,
+        auditResult
+      ] = await Promise.all([
+        adminTable('tenants').select('*').order('name', { ascending: true }),
+        adminTable('users').select('*').order('name', { ascending: true }),
+        adminTable('tenant_workspaces').select('*').order('updated_at', { ascending: false }),
+        adminTable('user_sessions').select('*').order('last_activity_at', { ascending: false }).limit(500),
+        adminTable('affiliates').select('*').order('created_at', { ascending: false }),
+        adminTable('affiliate_referrals').select('*').order('created_at', { ascending: false }).limit(1000),
+        adminTable('affiliate_commissions').select('*').order('created_at', { ascending: false }).limit(1000),
+        adminTable('affiliate_payouts').select('*').order('created_at', { ascending: false }).limit(1000),
+        adminTable('super_admin_audit_logs').select('*').order('created_at', { ascending: false }).limit(250)
+      ]);
+
+      const firstError = [
+        tenantsResult.error,
+        usersResult.error,
+        workspacesResult.error,
+        sessionsResult.error,
+        affiliatesResult.error,
+        referralsResult.error,
+        commissionsResult.error,
+        payoutsResult.error,
+        auditResult.error
+      ].find(Boolean);
+      if (firstError) throw firstError;
+
+      return res.json({
+        tenants: tenantsResult.data || [],
+        users: usersResult.data || [],
+        workspaces: workspacesResult.data || [],
+        sessions: sessionsResult.data || [],
+        affiliates: affiliatesResult.data || [],
+        referrals: referralsResult.data || [],
+        commissions: commissionsResult.data || [],
+        payouts: payoutsResult.data || [],
+        auditLogs: auditResult.data || []
+      });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.patch('/api/super-admin/users/:id', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const targetUserId = String(req.params.id || '');
+      const { name, email, phone, roleKey, rolePermissions, isActive } = req.body || {};
+      const updates: Record<string, any> = {};
+      if (typeof name === 'string') updates.name = name.trim();
+      if (typeof email === 'string') updates.email = email.trim();
+      if (typeof phone === 'string') {
+        updates.phone = phone.trim();
+        updates.username_phone = phone.replace(/\D/g, '') || phone.trim();
+      }
+      if (typeof roleKey === 'string') updates.role_key = roleKey.trim();
+      if (rolePermissions && typeof rolePermissions === 'object') updates.role_permissions = rolePermissions;
+      if (typeof isActive === 'boolean') updates.is_active = isActive;
+
+      if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No user fields supplied.' });
+
+      const { data, error } = await adminTable('users')
+        .update(updates)
+        .eq('id', targetUserId)
+        .select('*')
+        .single();
+      if (error) throw error;
+
+      if (typeof email === 'string' && email.trim()) {
+        await supabaseAdmin!.auth.admin.updateUserById(targetUserId, { email: email.trim(), email_confirm: true });
+      }
+
+      await adminTable('super_admin_audit_logs').insert({
+        actor_user_id: adminUser.id,
+        target_user_id: targetUserId,
+        target_tenant_id: (data as any)?.tenant_id || null,
+        action: 'user_updated',
+        metadata: updates
+      });
+
+      return res.json({ user: data });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.post('/api/super-admin/users/:id/reset-password', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const targetUserId = String(req.params.id || '');
+      const password = String(req.body?.password || '');
+      if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+
+      const { data: targetUser } = await adminTable('users')
+        .select('tenant_id')
+        .eq('id', targetUserId)
+        .maybeSingle();
+      const { error } = await supabaseAdmin!.auth.admin.updateUserById(targetUserId, { password });
+      if (error) throw error;
+
+      await adminTable('super_admin_audit_logs').insert({
+        actor_user_id: adminUser.id,
+        target_user_id: targetUserId,
+        target_tenant_id: (targetUser as any)?.tenant_id || null,
+        action: 'password_reset',
+        metadata: { source: 'super_admin_dashboard' }
+      });
+
+      return res.json({ success: true });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.delete('/api/super-admin/users/:id', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const targetUserId = String(req.params.id || '');
+      if (targetUserId === adminUser.id) return res.status(400).json({ error: 'You cannot delete your own Super Admin account.' });
+
+      const { data: targetUser, error: targetError } = await adminTable('users')
+        .select('id, tenant_id, account_type')
+        .eq('id', targetUserId)
+        .maybeSingle();
+      if (targetError) throw targetError;
+      if (!targetUser) return res.status(404).json({ error: 'User not found.' });
+
+      const tenantId = (targetUser as any).tenant_id || null;
+      const tenantOwnedUsers = tenantId
+        ? await adminTable('users').select('id').eq('tenant_id', tenantId)
+        : { data: [] as any[], error: null };
+      if (tenantOwnedUsers.error) throw tenantOwnedUsers.error;
+
+      for (const tenantUser of tenantOwnedUsers.data || [{ id: targetUserId }]) {
+        await supabaseAdmin!.auth.admin.deleteUser((tenantUser as any).id);
+      }
+      if (tenantId) {
+        await adminTable('tenants').delete().eq('id', tenantId);
+      } else {
+        await adminTable('users').delete().eq('id', targetUserId);
+      }
+
+      await adminTable('super_admin_audit_logs').insert({
+        actor_user_id: adminUser.id,
+        target_user_id: null,
+        target_tenant_id: tenantId,
+        action: 'tenant_or_user_deleted',
+        metadata: { deleted_user_id: targetUserId, deleted_tenant_id: tenantId }
+      });
+
+      return res.json({ success: true });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.post('/api/super-admin/staff', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const { name, email, password, profileImageUrl, permissions } = req.body || {};
+      if (!String(name || '').trim() || !String(email || '').trim()) {
+        return res.status(400).json({ error: 'Name and email are required.' });
+      }
+
+      const emailValue = String(email).trim();
+      const userPayload: Record<string, any> = {
+        email: emailValue,
+        email_confirm: true,
+        user_metadata: { full_name: String(name).trim(), account_type: 'super_admin_staff' }
+      };
+      if (String(password || '').length >= 8) userPayload.password = String(password);
+
+      const { data: authData, error: authError } = await supabaseAdmin!.auth.admin.createUser(userPayload as any);
+      if (authError || !authData.user) throw new Error(authError?.message || 'Unable to create SaaS staff account.');
+
+      const { data, error } = await adminTable('users').insert({
+        id: authData.user.id,
+        email: emailValue,
+        name: String(name).trim(),
+        role: 'Admin',
+        account_type: 'super_admin',
+        role_key: 'super_admin_staff',
+        role_permissions: permissions || {},
+        profile_image_url: profileImageUrl || null,
+        is_active: true,
+        is_saas_staff: true
+      }).select('*').single();
+      if (error) {
+        await supabaseAdmin!.auth.admin.deleteUser(authData.user.id);
+        throw error;
+      }
+
+      await adminTable('super_admin_audit_logs').insert({
+        actor_user_id: adminUser.id,
+        target_user_id: authData.user.id,
+        action: 'saas_staff_created',
+        metadata: { permissions: permissions || {} }
+      });
+      return res.status(201).json({ staff: data });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.patch('/api/super-admin/staff/:id', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const staffId = String(req.params.id || '');
+      const { name, email, password, profileImageUrl, permissions, isActive } = req.body || {};
+      const updates: Record<string, any> = {};
+      if (typeof name === 'string') updates.name = name.trim();
+      if (typeof email === 'string') updates.email = email.trim();
+      if (typeof profileImageUrl === 'string') updates.profile_image_url = profileImageUrl;
+      if (permissions && typeof permissions === 'object') updates.role_permissions = permissions;
+      if (typeof isActive === 'boolean') updates.is_active = isActive;
+
+      const { data, error } = await adminTable('users')
+        .update(updates)
+        .eq('id', staffId)
+        .eq('is_saas_staff', true)
+        .select('*')
+        .single();
+      if (error) throw error;
+
+      const authUpdates: Record<string, any> = {};
+      if (typeof email === 'string' && email.trim()) {
+        authUpdates.email = email.trim();
+        authUpdates.email_confirm = true;
+      }
+      if (String(password || '').length >= 8) authUpdates.password = String(password);
+      if (Object.keys(authUpdates).length) await supabaseAdmin!.auth.admin.updateUserById(staffId, authUpdates);
+
+      await adminTable('super_admin_audit_logs').insert({
+        actor_user_id: adminUser.id,
+        target_user_id: staffId,
+        action: 'saas_staff_updated',
+        metadata: updates
+      });
+      return res.json({ staff: data });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.delete('/api/super-admin/staff/:id', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const staffId = String(req.params.id || '');
+      if (staffId === adminUser.id) return res.status(400).json({ error: 'You cannot delete your own account.' });
+      const { error } = await supabaseAdmin!.auth.admin.deleteUser(staffId);
+      if (error) throw error;
+      await adminTable('users').delete().eq('id', staffId).eq('is_saas_staff', true);
+      await adminTable('super_admin_audit_logs').insert({
+        actor_user_id: adminUser.id,
+        action: 'saas_staff_deleted',
+        metadata: { staff_id: staffId }
+      });
+      return res.json({ success: true });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
   // Affiliate registration is deliberately server-side: browser clients never
   // receive the service role and cannot create a profile for another account.
   app.post('/api/affiliate/register', async (req, res) => {
@@ -418,8 +745,7 @@ async function startServer() {
 
     const authEmail = `affiliate-${normalizedPhone}@jasper.local`;
     try {
-      const { data: existingCode } = await supabaseAdmin
-        .from('affiliates')
+      const { data: existingCode } = await adminTable('affiliates')
         .select('id')
         .eq('referral_code', normalizedCode)
         .maybeSingle();
@@ -434,7 +760,7 @@ async function startServer() {
       if (authError || !authData.user) throw new Error(authError?.message || 'Unable to create affiliate account.');
 
       const userId = authData.user.id;
-      const { error: userError } = await supabaseAdmin.from('users').insert({
+      const { error: userError } = await adminTable('users').insert({
         id: userId,
         email: authEmail,
         name: String(name).trim(),
@@ -452,7 +778,7 @@ async function startServer() {
       }
 
       const referralSlug = normalizedCode.toLowerCase().replace(/_/g, '-');
-      const { data: affiliate, error: affiliateError } = await supabaseAdmin.from('affiliates').insert({
+      const { data: affiliate, error: affiliateError } = await adminTable('affiliates').insert({
         user_id: userId,
         display_name: String(name).trim(),
         referral_code: normalizedCode,
@@ -461,7 +787,7 @@ async function startServer() {
         payout_account: normalizedPhone,
       }).select('id, display_name, referral_code').single();
       if (affiliateError) {
-        await supabaseAdmin.from('users').delete().eq('id', userId);
+        await adminTable('users').delete().eq('id', userId);
         await supabaseAdmin.auth.admin.deleteUser(userId);
         throw affiliateError;
       }
@@ -549,13 +875,12 @@ async function startServer() {
       // referral code is present. Unknown codes never create a fake ledger row.
       const normalizedReferralCode = String(referralCode || '').trim().toUpperCase();
       if (normalizedReferralCode) {
-        const { data: affiliate } = await supabaseAdmin
-          .from('affiliates')
+        const { data: affiliate } = await adminTable('affiliates')
           .select('id')
           .eq('referral_code', normalizedReferralCode)
           .maybeSingle();
         if (affiliate?.id) {
-          await supabaseAdmin.from('affiliate_referrals').insert({
+          await adminTable('affiliate_referrals').insert({
             affiliate_id: affiliate.id,
             referral_code: normalizedReferralCode,
             registered_tenant_id: (tenantData as any).id,

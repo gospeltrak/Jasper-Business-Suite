@@ -1373,6 +1373,7 @@ export default function DashboardPOS({
             </div>
           ) : (
             cartDisplayData.map(({ item, dosageType, doseCfg, tabsSelected, basePrice, discountPrice, dosageLabel, projectedRemaining, isPharmacy }) => {
+              const tabsPerPack = doseCfg.tabsPerPacket;
 
               return (
                 <div key={item.product.id} className="p-2.5 bg-slate-50 border border-slate-200/60 rounded-xl space-y-1.5 relative group text-left">

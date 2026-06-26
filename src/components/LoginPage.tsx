@@ -869,7 +869,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           tenantId: userProfile.tenant_id || 'platform-control',
           activeTenant: userProfile.active_tenant || userProfile.tenant_id || 'platform-control',
           phone: userProfile.phone || null,
-          is_saas_staff: userProfile.is_saas_staff || false,
+          isSaaSStaff: userProfile.is_saas_staff || false,
+          saasPermissions: userProfile.role_permissions || undefined,
+          profileImage: userProfile.profile_image_url || undefined,
         });
         return;
       }

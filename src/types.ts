@@ -474,11 +474,14 @@ export interface CustomRole {
 export interface InvoiceSettings {
   invoiceColor?: string; // Hex color code
   tin?: string;
+  tinNumber?: string;
+  vatNumber?: string;
   bankName?: string;
   accountNumber?: string;
   accountName?: string;
   authorisedPerson?: string;
   termsAndConditions?: string[];
+  footerNote?: string;
   hasVatByDefault?: boolean;
 }
 
@@ -497,7 +500,7 @@ export interface SystemSettings {
 
 export interface SalesDocument {
   id: string;
-  type: 'quotation' | 'proforma invoice';
+  type: 'quotation' | 'proforma invoice' | 'price quote' | 'price quote invoice';
   documentNumber: string;
   items: SaleItem[];
   total: number;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 
 interface JasperSplashScreenProps {
   logoSrc?: string;
@@ -146,7 +146,7 @@ export default function JasperSplashScreen({
             animationDelay: p.delay,
             animationIterationCount: 'infinite',
             animationTimingFunction: 'ease-out',
-          } as React.CSSProperties} />
+          } as CSSProperties} />
         ))}
 
         {/* ── LOGO CONTAINER ── */}
