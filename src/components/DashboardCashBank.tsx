@@ -1077,28 +1077,16 @@ export default function DashboardCashBank({
       ══════════════════════════════════════════════════════════════ */}
       <div className="hidden md:block space-y-5">
       <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-4 sm:p-5 lg:p-6 flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5">
-          <div className="min-w-0">
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 bg-slate-950 rounded-2xl text-white flex items-center justify-center shrink-0">
-                <Landmark className="w-5 h-5 text-emerald-400" />
-              </div>
-              <div className="min-w-0">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">Treasury Command</span>
-                <h1 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight leading-tight">Money & Bank</h1>
-                <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
-                  Monitor cash drawers, mobile wallets, bank accounts, transfers, receipts, and audit history.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 xl:min-w-[620px]">
-            {treasurySummaryCards.map(card => (
-              <div key={card.label} className={`rounded-2xl border p-3.5 ${card.tone}`}>
+        <div className="p-4 sm:p-5 lg:p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.45fr_repeat(3,minmax(0,1fr))] gap-3">
+            {treasurySummaryCards.map((card, index) => (
+              <div
+                key={card.label}
+                className={`rounded-2xl border ${index === 0 ? 'sm:col-span-2 lg:col-span-1 p-5 lg:p-6' : 'p-4 lg:p-5'} ${card.tone}`}
+              >
                 <span className="block text-[9.5px] font-black uppercase tracking-widest opacity-70 font-mono">{card.label}</span>
-                <span className="block mt-2 text-base sm:text-lg font-black leading-tight">{card.value}</span>
-                <span className="block mt-1 text-[10px] font-bold opacity-60">{card.helper}</span>
+                <span className={`block font-black leading-tight ${index === 0 ? 'mt-3 text-2xl lg:text-[28px]' : 'mt-2 text-lg lg:text-xl'}`}>{card.value}</span>
+                <span className={`block font-bold opacity-60 ${index === 0 ? 'mt-2 text-xs' : 'mt-1.5 text-[10px]'}`}>{card.helper}</span>
               </div>
             ))}
           </div>
