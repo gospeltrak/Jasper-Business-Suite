@@ -336,10 +336,10 @@ export default function DashboardCashBank({
       }
     ];
 
-    const finalInitial = [...generated, ...defaultSettleDrops];
+    const finalInitial = [...generated, ...(hasDemoSeedData ? defaultSettleDrops : [])];
     setLedgerEntries(finalInitial);
     localStorage.setItem(storageKey, JSON.stringify(finalInitial));
-  }, [activeTenant.id, sales, expenses, deliveries]);
+  }, [activeTenant.id, sales, expenses, deliveries, hasDemoSeedData]);
 
   // Update cached file local records
   const saveLedgerState = (entriesList: LedgerEntry[]) => {
