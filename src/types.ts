@@ -200,6 +200,11 @@ export interface SaleItem {
   
   // For Bulk-to-unit selling
   isBulkProduct?: boolean;
+  // Immutable unit snapshot from the completed sale. Reports must prefer this
+  // over the current product unit, which may change later.
+  unit?: string;
+  baseUnit?: string;
+  conversionToBaseUnit?: number;
   sellUnit?: string;
   sellMode?: 'scale' | 'pcs';
   

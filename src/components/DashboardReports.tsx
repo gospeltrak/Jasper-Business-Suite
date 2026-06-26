@@ -53,7 +53,7 @@ import {
   ArrowRight,
   Scale
 } from 'lucide-react';
-import { formatProductQuantity, getProductUnitName } from '../utils/unitFormatter';
+import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } from '../utils/unitFormatter';
 
 interface DashboardReportsProps {
   activeTenant: Tenant;
@@ -2858,7 +2858,7 @@ export default function DashboardReports({
                       <div className="space-y-2.5 text-xs">
                         <div className="flex justify-between items-center py-1 border-b border-slate-200">
                           <span className="text-slate-500 font-medium">Total Quantity Sold:</span>
-                          <span className="font-mono font-bold text-slate-800">{totalQtySold.toLocaleString()} units</span>
+                          <span className="font-mono font-bold text-slate-800">{isAll ? `${totalQtySold.toLocaleString()} mixed units` : formatProductQuantity(totalQtySold, monitoredProduct)}</span>
                         </div>
                         <div className="flex justify-between items-center py-1 border-b border-slate-200">
                           <span className="text-slate-500 font-medium">Active Receipts Involved:</span>
@@ -2868,7 +2868,7 @@ export default function DashboardReports({
                           <span className="text-slate-500 font-medium">{isAll ? 'Avg Items per Invoice:' : 'Weighted Sales Price:'}</span>
                           <span className="font-mono font-bold text-indigo-700">
                             {isAll 
-                              ? (salesForMonitoredProduct.length > 0 ? (totalQtySold / salesForMonitoredProduct.length).toFixed(1) : '0') + ' units'
+                              ? (salesForMonitoredProduct.length > 0 ? (totalQtySold / salesForMonitoredProduct.length).toFixed(1) : '0') + ' items'
                               : currency + (monitoredProduct?.sellingPrice ?? 0).toLocaleString() + ` / ${getProductUnitName(monitoredProduct)}`
                             }
                           </span>
@@ -3054,17 +3054,17 @@ export default function DashboardReports({
                                     <div className="text-[10px] font-mono text-slate-400">Code: {p.barcode || p.sku}</div>
                                   </td>
                                   <td className="p-3 text-right font-mono font-bold text-emerald-700 bg-emerald-50/20 font-sans">
-                                    {(p.shopStockQty ?? 0).toLocaleString()}
+                                    {formatProductQuantity(p.shopStockQty ?? 0, p)}
                                   </td>
                                   <td className="p-3 text-right font-mono font-bold text-blue-700 bg-blue-50/20 font-sans">
-                                    {(p.storeStockQty ?? 0).toLocaleString()}
+                                    {formatProductQuantity(p.storeStockQty ?? 0, p)}
                                   </td>
                                   <td className="p-3 text-right font-mono font-black text-slate-800 bg-slate-100/30 font-sans">
-                                    {totOnHand.toLocaleString()}
+                                    {formatProductQuantity(totOnHand, p)}
                                   </td>
                                   <td className="p-3 text-right font-mono font-bold bg-indigo-50/10">
                                     {p.qtySold > 0 ? (
-                                      <span className="text-indigo-700 font-black font-sans">{p.qtySold.toLocaleString()}</span>
+                                      <span className="text-indigo-700 font-black font-sans">{formatProductQuantity(p.qtySold, p)}</span>
                                     ) : (
                                       <span className="text-slate-400">0</span>
                                     )}
@@ -4285,7 +4285,9 @@ export default function DashboardReports({
                                     <ShoppingBag className="w-4 h-4" />
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Units Sold</span>
                                   </div>
-                                  <span className="text-sm font-black text-slate-800 font-sans mt-2">{formatProductQuantity(totalUnits, products.find(p => p.id === selectedMonitoredProductId))}</span>
+                                  <span className="text-sm font-black text-slate-800 font-sans mt-2">
+                                    {isAll ? `${totalUnits.toLocaleString()} mixed units` : formatProductQuantity(totalUnits, products.find(p => p.id === selectedMonitoredProductId))}
+                                  </span>
                                 </div>
 
                                 <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
@@ -4901,7 +4903,7 @@ export default function DashboardReports({
                             <span className="block text-[9px] text-rose-500 font-bold">-{discountRate}% promo discount</span>
                           )}
                         </span>
-                        <span className="col-span-2 text-center font-bold text-slate-600">x{item.qty}</span>
+                        <span className="col-span-2 text-center font-bold text-slate-600">{formatSaleItemQuantity(item, products.find(product => product.id === item.productId))}</span>
                         <span className="col-span-3 text-right font-mono font-semibold">
                           {currency}{Math.round(netUnit * item.qty).toLocaleString()}
                         </span>

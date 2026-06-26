@@ -27,6 +27,7 @@ import {
   Eye
 } from 'lucide-react';
 import { shareElementPdfToWhatsApp } from '../utils/pdfShare';
+import { formatSaleItemQuantity } from '../utils/unitFormatter';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
 function DeliveryMotorcycleIcon({ className, size = 18 }: { className?: string; size?: number }) {
@@ -308,7 +309,7 @@ export default function DashboardDeliveries({
     const mapped = del.items.map((item, idx) => ({
       id: (idx + 1).toString(),
       description: item.productName,
-      unit: 'PC',
+      unit: item.unit || item.baseUnit || item.sellUnit || 'PC',
       qty: item.qty
     }));
     setNoteItems(mapped);
@@ -519,7 +520,7 @@ export default function DashboardDeliveries({
   const generateWhatsAppMessage = (del: Delivery): string => {
     if (!del.riderDetails) return '';
     const itemsString = del.items
-      .map(item => `${item.productName} — ${item.qty} Pcs`)
+      .map(item => `${item.productName} — ${formatSaleItemQuantity(item)}`)
       .join('\n\n');
 
     const customerName = del.customerName || 'Customer';
@@ -803,7 +804,7 @@ Vehicle Plate Number: ${plateNumber}
                         {del.items.map((item, idx) => (
                           <div key={idx} className="flex justify-between text-xs text-slate-650">
                             <span className="font-medium truncate max-w-[70%]">{item.productName}</span>
-                            <span className="font-bold font-mono text-slate-800 shrink-0 select-none">x{item.qty}</span>
+                            <span className="font-bold font-mono text-slate-800 shrink-0 select-none">{formatSaleItemQuantity(item)}</span>
                           </div>
                         ))}
                       </div>

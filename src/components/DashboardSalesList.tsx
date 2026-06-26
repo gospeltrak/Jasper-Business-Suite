@@ -985,7 +985,7 @@ export default function DashboardSalesList({
                         {sale.customerName || 'Walk-in Customer'}
                       </p>
                       <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                        #{sale.reference || sale.id.substring(0,6)} · {sale.items.reduce((s,i) => s+i.qty, 0)} items
+                        #{sale.reference || sale.id.substring(0,6)} · {sale.items.length} line item{sale.items.length === 1 ? '' : 's'}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -1119,7 +1119,7 @@ export default function DashboardSalesList({
 
                       {/* Items */}
                       <td className="py-3.5 px-4 max-w-[160px]">
-                        <p className="font-bold text-slate-700 text-[12px]">{sale.items.reduce((t,i) => t+i.qty, 0)} units</p>
+                        <p className="font-bold text-slate-700 text-[12px]">{sale.items.length} line item{sale.items.length === 1 ? '' : 's'}</p>
                         <p className="text-[10px] text-slate-400 truncate">{sale.items.slice(0,2).map(i => i.productName).join(', ')}{sale.items.length > 2 ? ` +${sale.items.length-2}` : ''}</p>
                       </td>
 
@@ -1363,7 +1363,7 @@ export default function DashboardSalesList({
                         <div className="max-h-[70px] overflow-y-auto divide-y divide-slate-100">
                           {s.items.map((item, idx) => (
                             <div key={idx} className="flex justify-between py-1 font-sans text-slate-650 text-[11px]">
-                              <span>{item.qty} × {item.productName}</span>
+                              <span>{formatSaleItemQuantity(item, products.find(product => product.id === item.productId))} × {item.productName}</span>
                               <span className="font-mono">{currency}{item.price.toLocaleString()}</span>
                             </div>
                           ))}
@@ -1859,7 +1859,7 @@ export default function DashboardSalesList({
 
                           <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
                             {todayCashSales.map(s => {
-                              const itemsSummary = s.items.map(i => `${i.productName} (x${i.qty})`).join(', ');
+                              const itemsSummary = s.items.map(i => `${i.productName} (${formatSaleItemQuantity(i, products.find(product => product.id === i.productId))})`).join(', ');
                               return (
                                 <div key={s.id} className="bg-white border border-slate-150 p-2 rounded-xl flex items-center justify-between text-[11px] hover:border-indigo-300 transition-all">
                                   <div>
@@ -2765,7 +2765,7 @@ export default function DashboardSalesList({
                                   {currency}{item.price.toLocaleString()}
                                 </td>
                                 <td className="p-3 text-center font-bold">
-                                  {item.qty}
+                                  {formatSaleItemQuantity(item, products.find(product => product.id === item.productId))}
                                 </td>
                                 <td className="p-3 text-right font-mono font-bold text-slate-900">
                                   {currency}{Math.round(item.price * item.qty).toLocaleString()}
@@ -3547,7 +3547,7 @@ export default function DashboardSalesList({
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-slate-800 text-[12px] truncate">{item.productName}</p>
                           <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                            {item.qty} × {currency}{item.price.toLocaleString()}
+                            {formatSaleItemQuantity(item, matchingProduct)} × {currency}{item.price.toLocaleString()}
                           </p>
                         </div>
 

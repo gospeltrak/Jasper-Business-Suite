@@ -182,7 +182,11 @@ export default function DashboardProducts({
         const editFullDosePrice = Number(editForm.fullDosePrice || (editDosesPerPacket > 0 ? sellPrice / editDosesPerPacket : sellPrice));
         const editHalfDosePrice = Number(editForm.halfDosePrice || editFullDosePrice / 2);
         const editTabPrice = Number(editForm.tabPrice || (editTabsPerPacket > 0 ? sellPrice / editTabsPerPacket : sellPrice));
-        const editBaseUnit = editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || editForm.unit || 'Unit';
+        const editUsesMeasuredUnit = !!editForm.isBulkProduct || !!editForm.allowScaleSelling ||
+          !!editForm.inventorySettings?.allowScaleSelling || editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid';
+        const editBaseUnit = editUsesMeasuredUnit
+          ? editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || editForm.unit || 'Unit'
+          : editForm.unit || editForm.baseUnit || editForm.inventorySettings?.baseUnit || 'Unit';
         const editPurchaseUnit = editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package';
         const editConversionToBase = Math.max(0.001, Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || editForm.bulkPurchaseQty || 1));
         const editPricePerBase = Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0);
@@ -731,7 +735,9 @@ export default function DashboardProducts({
     const pharmacyFullDosePrice = Number(fullDosePrice) || (pharmacyPacketPrice / pharmacyDosesPerPacket);
     const pharmacyHalfDosePrice = Number(halfDosePrice) || (pharmacyFullDosePrice / 2);
     const pharmacyTabPrice = Number(tabPrice) || (pharmacyPacketPrice / pharmacyTabsPerPacket);
-    const retailBaseUnit = baseUnit || unit || 'Unit';
+    // A simple product's selected unit is its stock and sales unit. Packaging and
+    // scale products may explicitly use a different base unit for conversion.
+    const retailBaseUnit = (isBulkProduct || allowScaleSelling) ? (baseUnit || unit || 'Unit') : (unit || 'Unit');
     const retailPurchaseUnit = purchaseUnit || bulkUnit || 'Package';
     const retailConversionToBaseUnit = Math.max(0.001, Number(conversionToBaseUnit) || Number(bulkPurchaseQty) || 1);
     const retailPricePerBaseUnit = Number(sellUnitPrice) || finalSellingPrice;
@@ -1626,7 +1632,10 @@ export default function DashboardProducts({
                       <label className="text-[10px] font-bold text-slate-500 uppercase block">Units</label>
                       <select
                         value={unit}
-                        onChange={(e) => setUnit(e.target.value)}
+                        onChange={(e) => {
+                          setUnit(e.target.value);
+                          if (!isBulkProduct) setBaseUnit(e.target.value);
+                        }}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-750 transition-all outline-none font-semibold"
                       >
                         {unitsList.map(u => (
@@ -1727,7 +1736,7 @@ export default function DashboardProducts({
 
                   <div className="grid grid-cols-2 gap-3.5 border-b border-dashed border-slate-100 pb-3">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Shop Stock ({isBulkProduct && activeTenant.businessType !== 'pharmacy' ? baseUnit : 'Units'})</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Shop Stock ({activeTenant.businessType !== 'pharmacy' ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : 'Units'})</label>
                       <input 
                         type="number" 
                         min="0"
@@ -1738,7 +1747,7 @@ export default function DashboardProducts({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Store Stock ({isBulkProduct && activeTenant.businessType !== 'pharmacy' ? baseUnit : 'Units'})</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Store Stock ({activeTenant.businessType !== 'pharmacy' ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : 'Units'})</label>
                       <input 
                         type="number" 
                         min="0"
@@ -3906,7 +3915,11 @@ export default function DashboardProducts({
                       <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Units</label>
                       <select
                         value={editForm.unit || ''}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, unit: e.target.value }))}
+                        onChange={(e) => setEditForm(prev => ({
+                          ...prev,
+                          unit: e.target.value,
+                          ...(prev.isBulkProduct || prev.allowScaleSelling ? {} : { baseUnit: e.target.value }),
+                        }))}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-750 font-bold outline-none"
                       >
                         <option value="">-- No Unit --</option>
@@ -3990,7 +4003,7 @@ export default function DashboardProducts({
 
                   <div className="grid grid-cols-2 gap-3 pb-1 font-mono">
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Shop shelf ({editForm.isBulkProduct && activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || 'units') : 'Units'})</label>
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Shop shelf ({activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'units') : 'Units'})</label>
                       <input 
                         type="number" 
                         min="0"
@@ -4004,7 +4017,7 @@ export default function DashboardProducts({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">store rooms ({editForm.isBulkProduct && activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || 'units') : 'Units'})</label>
+                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">store rooms ({activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'units') : 'Units'})</label>
                       <input 
                         type="number" 
                         min="0"

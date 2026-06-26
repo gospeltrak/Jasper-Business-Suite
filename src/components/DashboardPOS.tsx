@@ -6,7 +6,7 @@ import {
   getPosSellingPriceForCostingMethod,
   getProductCostingMethod,
 } from '../utils/inventoryCosting';
-import { formatProductQuantity } from '../utils/unitFormatter';
+import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitFormatter';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -442,7 +442,11 @@ export default function DashboardPOS({
   };
 
   const getRetailPackageConfig = (product: Product) => {
-    const baseUnit = product.inventorySettings?.baseUnit || product.baseUnit || product.sellUnit || product.unit || 'unit';
+    const isMeasuredProduct = !!product.isBulkProduct || !!product.allowScaleSelling ||
+      !!product.inventorySettings?.allowScaleSelling || product.sellingMode === 'scale' || product.sellingMode === 'hybrid';
+    const baseUnit = isMeasuredProduct
+      ? product.inventorySettings?.baseUnit || product.baseUnit || product.sellUnit || product.unit || 'unit'
+      : product.unit || product.inventorySettings?.baseUnit || product.baseUnit || product.sellUnit || 'unit';
     const purchaseUnit = product.inventorySettings?.purchaseUnit || product.purchaseUnit || product.bulkUnit || 'package';
     const conversionToBaseUnit = Math.max(0.001, Number(product.inventorySettings?.conversionToBaseUnit || product.conversionToBaseUnit || product.bulkPurchaseQty || 1));
     const pricePerBaseUnit = Number(product.inventorySettings?.defaultPricePerBaseUnit || product.defaultPricePerBaseUnit || product.packageUnitPrice || product.sellUnitPrice || product.sellingPrice || 0);
@@ -455,6 +459,14 @@ export default function DashboardPOS({
       halfPrice: pricePerBaseUnit * (conversionToBaseUnit / 2),
     };
   };
+
+  const supportsMeasuredRetail = (product: Product) => (
+    !!product.isBulkProduct ||
+    !!product.allowScaleSelling ||
+    !!product.inventorySettings?.allowScaleSelling ||
+    product.sellingMode === 'scale' ||
+    product.sellingMode === 'hybrid'
+  );
 
   const formatRetailPackageRemaining = (baseQty: number, product: Product) => {
     const cfg = getRetailPackageConfig(product);
@@ -511,7 +523,7 @@ export default function DashboardPOS({
       }
       return [...prev, { 
         product: prod, 
-        qty: prod.isBulkProduct && (prod.sellingMode === 'scale' || prod.sellingMode === 'hybrid') ? (prod.sellUnitQty || 1) : 1, 
+        qty: supportsMeasuredRetail(prod) ? (prod.sellUnitQty || 1) : 1,
         discount: 0, 
         discountType: 'percent',
         dosageType: initialDosage,
@@ -740,7 +752,7 @@ export default function DashboardPOS({
       }
       const projectedRemaining = isPharmacy
         ? formatPharmacyRemaining((item.product.shopStockQty || 0) - (item.qty * getPharmacyDoseWeight(item.product, dosageType, item.tabsSelected)), item.product)
-        : item.product.isBulkProduct
+        : supportsMeasuredRetail(item.product)
           ? formatRetailPackageRemaining((item.product.shopStockQty || 0) - item.qty, item.product)
           : '';
       return { item, dosageType, doseCfg, tabsSelected, basePrice, discountPrice, dosageLabel, projectedRemaining, isPharmacy };
@@ -884,7 +896,10 @@ export default function DashboardPOS({
         tabsPerPack: i.product.tabsPerPack,
         channel: sellingChannel,
         isBulkProduct: isBulk,
-        sellUnit: i.product.sellUnit,
+        unit: getRetailPackageConfig(i.product).baseUnit,
+        baseUnit: getRetailPackageConfig(i.product).baseUnit,
+        conversionToBaseUnit: getRetailPackageConfig(i.product).conversionToBaseUnit,
+        sellUnit: getRetailPackageConfig(i.product).baseUnit,
         sellMode: bMode as 'scale' | 'pcs',
         batchesUsed: batchesUsed.length > 0 ? batchesUsed : undefined,
         baseQuantityDeducted: Number(deductQtyReal.toFixed(3)),
@@ -1386,15 +1401,15 @@ export default function DashboardPOS({
 
                     {/* Right: Quantity increment/decrement box + delete button */}
                     <div className="flex items-center space-x-2 shrink-0">
-                      {item.product.isBulkProduct ? (
+                      {supportsMeasuredRetail(item.product) ? (
                         <div className="flex flex-col items-end space-y-1">
-                          {(item.product.sellingMode === 'hybrid') && (
+                          {item.product.isBulkProduct && item.product.sellingMode === 'hybrid' && (
                             <div className="flex bg-slate-100 rounded p-0.5 border border-slate-200 text-[9px] font-bold">
                               <button type="button" onClick={() => updateCartBulkMode(item.product.id, 'scale')} className={`px-1.5 py-0.5 rounded ${item.bulkSellMode !== 'pcs' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'}`}>Scale</button>
                               <button type="button" onClick={() => updateCartBulkMode(item.product.id, 'pcs')} className={`px-1.5 py-0.5 rounded ${item.bulkSellMode === 'pcs' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'}`}>Pcs</button>
                             </div>
                           )}
-                          {((item.bulkSellMode || (item.product.sellingMode === 'hybrid' ? 'scale' : item.product.sellingMode)) === 'scale') ? (
+                          {(!item.product.isBulkProduct || (item.bulkSellMode || (item.product.sellingMode === 'hybrid' ? 'scale' : item.product.sellingMode)) === 'scale') ? (
                             <div className="flex flex-wrap justify-end gap-1 max-w-[190px]">
                               {(() => {
                                 const baseUnit = getRetailPackageConfig(item.product).baseUnit;
@@ -1430,7 +1445,7 @@ export default function DashboardPOS({
                             min="1"
                             value={item.qty}
                             onChange={(e) => {
-                              const val = parseInt(e.target.value) || 1;
+                              const val = parseInt(e.target.value, 10) || 1;
                               updateCartQtyDirect(item.product.id, val);
                             }}
                             className="w-8 text-center font-black font-mono text-slate-800 bg-transparent py-0 text-[10.5px] focus:outline-none border-none"
@@ -1497,10 +1512,10 @@ export default function DashboardPOS({
                       </div>
                     </div>
                   )}
-                  {!isPharmacy && item.product.isBulkProduct && (
+                  {!isPharmacy && supportsMeasuredRetail(item.product) && (
                     <div className="pt-1.5 border-t border-dashed border-slate-200/50 flex flex-wrap gap-1.5 justify-start items-center text-[9px] font-mono text-slate-400">
                       <span>
-                        {item.qty} {getRetailPackageConfig(item.product).baseUnit} x {currency}{Math.round(getRetailPackageConfig(item.product).pricePerBaseUnit).toLocaleString()}
+                        {formatProductQuantity(item.qty, { ...item.product, unit: getRetailPackageConfig(item.product).baseUnit } as Product)} x {currency}{Math.round(getRetailPackageConfig(item.product).pricePerBaseUnit).toLocaleString()}
                       </span>
                       <span>Remain: {projectedRemaining}</span>
                     </div>
@@ -1982,7 +1997,7 @@ export default function DashboardPOS({
                       return (
                         <div key={i} className="grid grid-cols-12 text-[10.5px] gap-y-0.5">
                           <span className="col-span-6 line-clamp-1">{item.productName}</span>
-                          <span className="col-span-2 text-center">{item.qty}</span>
+                          <span className="col-span-2 text-center">{formatSaleItemQuantity(item)}</span>
                           <span className="col-span-4 text-right">
                             {currency}{Math.round(finalItemPrice).toLocaleString()}
                           </span>
@@ -2135,4 +2150,3 @@ export default function DashboardPOS({
     </div>
   );
 }
-
