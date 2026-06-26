@@ -3454,120 +3454,103 @@ export default function DashboardSalesList({
       {/* DIALOG: VIEW SELL RECORD (READ-ONLY DETAILED ARCHIVE SUMMARY) */}
       {/* ------------------------------------------------------------- */}
       {viewingSaleDetail && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm text-slate-800"
-          style={{paddingTop:'calc(env(safe-area-inset-top) + 16px)', paddingBottom:'calc(env(safe-area-inset-bottom) + 16px)'}}>
-          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col font-sans" style={{maxHeight:'calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom))'}}>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm text-slate-800"
+          style={{padding:'calc(env(safe-area-inset-top) + 12px) 12px calc(env(safe-area-inset-bottom) + 12px) 12px'}}>
+          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col font-sans" style={{maxHeight:'calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom))'}}>
             
             {/* Header */}
-            <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0 select-none">
-              <div className="flex items-center space-x-2.5">
-                <div className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded-xl">
+            <div className="bg-slate-900 text-white px-4 sm:px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0 select-none">
+              <div className="flex items-center space-x-2.5 min-w-0">
+                <div className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded-xl shrink-0">
                   <Eye className="w-5 h-5" />
                 </div>
-                <div>
-                  <h4 className="text-sm font-black uppercase tracking-wider">View Sell Details</h4>
-                  <p className="text-[10.5px] font-mono text-emerald-400 uppercase tracking-widest leading-none mt-0.5">
-                    Reference: {getSaleReference(viewingSaleDetail)}
+                <div className="min-w-0">
+                  <h4 className="text-sm font-black uppercase tracking-wider">View Sale Details</h4>
+                  <p className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest leading-none mt-0.5 truncate">
+                    Ref: {getSaleReference(viewingSaleDetail)}
                   </p>
                 </div>
               </div>
               <button 
                 onClick={() => setViewingSaleDetail(null)}
-                className="text-slate-400 hover:text-white transition-colors p-1 hover:bg-slate-800 rounded-lg cursor-pointer bg-transparent border-none"
-                title="Close dialog"
+                className="text-slate-400 hover:text-white transition-colors p-1.5 hover:bg-slate-800 rounded-lg cursor-pointer bg-transparent border-none shrink-0 ml-2"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Read-only status indicator ribbon */}
-            <div className="bg-slate-100 border-b border-slate-200 px-6 py-2.5 flex items-center justify-between text-[11px] font-sans font-bold text-slate-600 select-none">
-              <div className="flex items-center space-x-1.5">
-                <Lock className="w-3.5 h-3.5 text-slate-400" />
-                <span>Read-Only Archive Tally</span>
+            {/* Read-only ribbon */}
+            <div className="bg-slate-100 border-b border-slate-200 px-4 sm:px-6 py-2 flex items-center justify-between text-[11px] font-bold text-slate-600 select-none shrink-0">
+              <div className="flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>Read-Only Sale Record</span>
               </div>
-              <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[9px] uppercase font-mono tracking-wider font-extrabold">
-                Uneditable Ledger File
-              </span>
+              <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[9px] uppercase font-mono tracking-wider font-extrabold shrink-0 ml-2">Archived</span>
             </div>
 
-            {/* Body */}
-            <div className="p-6 overflow-y-auto space-y-6">
+            {/* Body — overflow-x-hidden prevents horizontal bleed */}
+            <div className="px-4 sm:px-6 py-4 overflow-y-auto overflow-x-hidden space-y-4 flex-1">
               
               {/* Metadata key values */}
-              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
-                <div className="space-y-1 text-left">
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs">
+                <div className="space-y-1 min-w-0">
                   <span className="block text-[8px] uppercase font-mono font-bold text-slate-400 tracking-wider">Date & Time</span>
-                  <span className="font-semibold text-slate-800 text-[11px]">
+                  <span className="font-semibold text-slate-800 text-[11px] break-words">
                     {formatShortDateTime(viewingSaleDetail.timestamp)}
                   </span>
                 </div>
-                <div className="space-y-1 text-left">
+                <div className="space-y-1 min-w-0">
                   <span className="block text-[8px] uppercase font-mono font-bold text-slate-400 tracking-wider">Payment Method</span>
                   <span className="inline-block px-2 py-0.5 bg-indigo-50 text-indigo-800 rounded-full font-bold text-[10px] mt-0.5">
                     {viewingSaleDetail.paymentMethod}
                   </span>
                 </div>
-                <div className="space-y-1 text-left">
-                  <span className="block text-[8px] uppercase font-mono font-bold text-slate-400 tracking-wider">Logged Cashier</span>
-                  <span className="font-bold text-slate-700">
+                <div className="space-y-1 min-w-0">
+                  <span className="block text-[8px] uppercase font-mono font-bold text-slate-400 tracking-wider">Cashier</span>
+                  <span className="font-bold text-slate-700 text-[11px] break-words">
                     {viewingSaleDetail.cashierName || viewingSaleDetail.staffName || 'System Cashier'}
                   </span>
                 </div>
-                <div className="space-y-1 text-left">
-                  <span className="block text-[8px] uppercase font-mono font-bold text-slate-400 tracking-wider">Customer Client</span>
-                  <span className="font-extrabold text-indigo-950">
+                <div className="space-y-1 min-w-0">
+                  <span className="block text-[8px] uppercase font-mono font-bold text-slate-400 tracking-wider">Customer</span>
+                  <span className="font-extrabold text-indigo-950 text-[11px] break-words">
                     {viewingSaleDetail.customerName || 'Walk-In Customer'}
                   </span>
                 </div>
               </div>
 
-              {/* Product items list with images */}
-              <div className="space-y-3 text-left">
-                <h5 className="text-[10px] uppercase font-mono font-bold text-slate-45 tracking-wider">Items Purchased Checklist</h5>
+              {/* Product items list */}
+              <div className="space-y-2 text-left">
+                <h5 className="text-[10px] uppercase font-mono font-bold text-slate-400 tracking-wider">Items Purchased</h5>
                 
                 <div className="divide-y divide-slate-100 border border-slate-150 rounded-2xl overflow-hidden bg-white">
                   {viewingSaleDetail.items.map((item, index) => {
-                    // Look up product to find image
                     const matchingProduct = products?.find(
                       p => p.id === item.productId || p.barcode === item.productId
                     );
 
                     return (
-                      <div key={index} className="flex items-center justify-between p-3 hover:bg-slate-50/50 transition-all">
-                        <div className="flex items-center space-x-3 min-w-0 flex-1">
-                          {/* Image rendering with robust fallback */}
-                          <div className="w-11 h-11 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shrink-0 flex items-center justify-center relative">
-                            {matchingProduct?.image ? (
-                              <CachedImage 
-                                src={matchingProduct.image} 
-                                alt={item.productName} 
-                                className="w-full h-full object-contain" 
-                                referrerPolicy="no-referrer" 
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-slate-100 flex flex-col items-center justify-center text-[9px] font-mono font-bold text-slate-400 uppercase select-none">
-                                <span className="text-slate-300 pointer-events-none mb-0.5 font-bold">PKG</span>
-                                <span className="text-[7px] text-slate-350 tracking-tighter leading-none">
-                                  {item.productName.slice(0, 3).toUpperCase()}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="font-bold text-slate-800 text-xs truncate" title={item.productName}>
-                              {item.productName}
-                            </p>
-                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                              QTY: <span className="font-extrabold text-slate-650">{item.qty}</span> × {currency}{item.price.toLocaleString()}
-                            </p>
-                          </div>
+                      <div key={index} className="flex items-center gap-3 p-3">
+                        {/* Thumbnail */}
+                        <div className="w-10 h-10 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shrink-0 flex items-center justify-center">
+                          {matchingProduct?.image ? (
+                            <CachedImage src={matchingProduct.image} alt={item.productName} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="w-full h-full bg-slate-100 flex items-center justify-center text-[8px] font-mono font-bold text-slate-400">
+                              {item.productName.slice(0, 3).toUpperCase()}
+                            </div>
+                          )}
                         </div>
 
-                        <div className="text-right ml-4 shrink-0 font-sans">
-                          <span className="text-[10px] text-slate-400 font-mono block">Line Total</span>
-                          <span className="font-mono font-black text-xs text-slate-900">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-slate-800 text-[12px] truncate">{item.productName}</p>
+                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            {item.qty} × {currency}{item.price.toLocaleString()}
+                          </p>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="font-mono font-black text-[12px] text-slate-900">
                             {currency}{(item.price * item.qty).toLocaleString()}
                           </span>
                         </div>
@@ -3577,23 +3560,16 @@ export default function DashboardSalesList({
                 </div>
               </div>
 
-              {/* Dynamic Bottom Balance Tally Sheet */}
-              <div className="border-t border-slate-100 pt-5 space-y-2 text-slate-600 text-xs">
-                
-                {/* Math variables */}
+              {/* Balance tally */}
+              <div className="border-t border-slate-100 pt-4 space-y-2 text-xs">
                 {(() => {
                   const itemsSubtotal = viewingSaleDetail.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
                   const discountVal = viewingSaleDetail.discount !== undefined ? viewingSaleDetail.discount : 0;
                   const discountType = viewingSaleDetail.discountType || 'percent';
-                  
-                  const computedDiscountAmount = discountType === 'percent' 
-                    ? itemsSubtotal * (discountVal / 100)
-                    : discountVal;
-                  
+                  const computedDiscountAmount = discountType === 'percent' ? itemsSubtotal * (discountVal / 100) : discountVal;
                   const taxVal = viewingSaleDetail.tax || 0;
                   const deliveryVal = viewingSaleDetail.deliveryCost || 0;
                   const grandTotalVal = viewingSaleDetail.total;
-
                   const isCredit = viewingSaleDetail.paymentMethod === 'Credit';
                   const initialPaid = viewingSaleDetail.amountPaid !== undefined ? viewingSaleDetail.amountPaid : (isCredit ? 0 : grandTotalVal);
                   const installments = installmentRecords[viewingSaleDetail.id] || [];
@@ -3602,69 +3578,57 @@ export default function DashboardSalesList({
                   const remainingDue = Math.max(0, grandTotalVal - totalPaid);
 
                   return (
-                    <div className="space-y-2.5">
+                    <div className="space-y-2">
                       <div className="flex justify-between items-center text-slate-600 font-medium">
-                        <span>Items Sub-Total:</span>
+                        <span>Sub-Total</span>
                         <span className="font-mono font-semibold">{currency}{itemsSubtotal.toLocaleString()}</span>
                       </div>
-
                       {computedDiscountAmount > 0 && (
-                        <div className="flex justify-between items-center text-red-650 font-bold">
-                          <span>Total Discount Saved:</span>
+                        <div className="flex justify-between items-center text-rose-600 font-bold">
+                          <span>Discount</span>
                           <span className="font-mono">-{currency}{computedDiscountAmount.toLocaleString()}</span>
                         </div>
                       )}
-
                       {taxVal > 0 && (
                         <div className="flex justify-between items-center text-slate-500 font-medium">
-                          <span>Sales Tax / VAT:</span>
+                          <span>Tax / VAT</span>
                           <span className="font-mono">+{currency}{taxVal.toLocaleString()}</span>
                         </div>
                       )}
-
                       {deliveryVal > 0 && (
                         <div className="flex justify-between items-center text-slate-500 font-medium">
-                          <span>Delivery Surcharge:</span>
+                          <span>Delivery</span>
                           <span className="font-mono">+{currency}{deliveryVal.toLocaleString()}</span>
                         </div>
                       )}
-
-                      <div className="flex justify-between items-center text-sm font-black text-slate-900 border-t border-slate-100 pt-2.5">
-                        <span>Grand Invoice Total:</span>
-                        <span className="font-mono font-black text-emerald-800 text-sm">
-                          {currency}{grandTotalVal.toLocaleString()}
-                        </span>
+                      <div className="flex justify-between items-center text-sm font-black text-slate-900 border-t border-slate-200 pt-2">
+                        <span>Grand Total</span>
+                        <span className="font-mono text-emerald-700">{currency}{grandTotalVal.toLocaleString()}</span>
                       </div>
-
-                      <div className="grid grid-cols-2 gap-2 text-[11px] pt-3 bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-200">
-                        <div className="text-left font-bold text-slate-600">
-                          <span>Total Paid:</span>
-                          <span className="block font-mono font-black text-emerald-700 text-xs mt-0.5">
-                            {currency}{totalPaid.toLocaleString()}
-                          </span>
+                      <div className="grid grid-cols-2 gap-2 pt-2 bg-slate-50 px-3.5 py-3 rounded-xl border border-slate-200">
+                        <div>
+                          <span className="text-[9px] uppercase font-mono font-bold text-slate-400 block">Paid</span>
+                          <span className="font-mono font-black text-emerald-700 text-xs">{currency}{totalPaid.toLocaleString()}</span>
                         </div>
-                        <div className="text-right font-bold text-slate-600">
-                          <span className="text-rose-750">Remainder Balance Due:</span>
-                          <span className="block font-mono font-black text-rose-750 text-xs mt-0.5">
-                            {currency}{remainingDue.toLocaleString()}
-                          </span>
+                        <div className="text-right">
+                          <span className="text-[9px] uppercase font-mono font-bold text-slate-400 block">Balance Due</span>
+                          <span className="font-mono font-black text-rose-600 text-xs">{currency}{remainingDue.toLocaleString()}</span>
                         </div>
                       </div>
                     </div>
                   );
                 })()}
-
               </div>
 
             </div>
 
-            {/* Bottom button footer panel */}
-            <div className="bg-slate-50 border-t border-slate-200 px-5 py-4 shrink-0 flex justify-end">
+            {/* Footer */}
+            <div className="bg-slate-50 border-t border-slate-200 px-4 sm:px-6 py-3.5 shrink-0 flex justify-end">
               <button
                 onClick={() => setViewingSaleDetail(null)}
-                className="px-6 py-2.5 bg-slate-900 text-white text-[10px] tracking-wider uppercase font-extrabold rounded-xl hover:bg-slate-800 transition-colors cursor-pointer select-none border-none shadow-xs"
+                className="px-6 py-2.5 bg-slate-900 text-white text-[11px] tracking-wider uppercase font-extrabold rounded-xl hover:bg-slate-800 transition-colors cursor-pointer select-none border-none"
               >
-                Done Viewing
+                Close
               </button>
             </div>
 
@@ -3676,31 +3640,29 @@ export default function DashboardSalesList({
       {/* DIALOG: EDIT TRANSACTION TRANSACTION (CASHIER ADMIN EDITS) */}
       {/* ------------------------------------------------------------- */}
       {editingSale && editFormFields && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
-          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col font-sans max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))]">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm text-slate-800"
+          style={{padding:'calc(env(safe-area-inset-top) + 12px) 12px calc(env(safe-area-inset-bottom) + 12px) 12px'}}>
+          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col font-sans" style={{maxHeight:'calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom))'}}>
             
             {/* Header */}
-            <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0 select-none">
-              <div className="flex items-center space-x-2">
-                <Edit className="w-5 h-5 text-amber-500" />
-                <div>
-                  <h4 className="text-sm font-black tracking-tight">Modify Transaction Form</h4>
-                  <p className="text-[10.5px] font-mono text-amber-500 uppercase tracking-widest leading-none">ID: {editingSale.reference || editingSale.id.toUpperCase()}</p>
+            <div className="bg-slate-900 text-white px-4 sm:px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0 select-none">
+              <div className="flex items-center space-x-2 min-w-0">
+                <Edit className="w-5 h-5 text-amber-400 shrink-0" />
+                <div className="min-w-0">
+                  <h4 className="text-sm font-black tracking-tight">Edit Sale Record</h4>
+                  <p className="text-[10px] font-mono text-amber-400 uppercase tracking-widest leading-none truncate">ID: {editingSale.reference || editingSale.id.toUpperCase()}</p>
                 </div>
               </div>
               <button 
-                onClick={() => {
-                  setEditingSale(null);
-                  setEditFormFields(null);
-                }}
-                className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                onClick={() => { setEditingSale(null); setEditFormFields(null); }}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer bg-transparent border-none shrink-0 ml-2"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Edit Body panel */}
-            <div className="p-6 overflow-y-auto max-h-[calc(70dvh-56px-env(safe-area-inset-bottom))] space-y-5">
+            {/* Edit Body */}
+            <div className="px-4 sm:px-6 py-4 overflow-y-auto overflow-x-hidden flex-1 space-y-5">
               
               {/* Client meta details information */}
               <div className="grid grid-cols-2 gap-3 text-xs">
@@ -3901,7 +3863,7 @@ export default function DashboardSalesList({
                   setEditingSale(null);
                   setEditFormFields(null);
                 }}
-                className="px-5 py-2.5 bg-yellow-650 hover:bg-amber-600 text-white font-black rounded-xl border-none transition-all text-xs uppercase flex items-center space-x-1.5 cursor-pointer shadow-md select-none"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl border-none transition-colors text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow-sm select-none"
               >
                 <Check className="w-4 h-4 text-white" />
                 <span>Save Changes</span>

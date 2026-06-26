@@ -1160,13 +1160,9 @@ export default function DashboardReports({
             <input type="date" value={endDateStr} onChange={e=>setEndDateStr(e.target.value)}
               className="bg-transparent border-none text-slate-700 font-semibold outline-none text-[11px] cursor-pointer w-24" />
           </div>
-          <button onClick={handleDownloadActiveTabCSV} type="button"
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-colors">
-            <Download className="w-3.5 h-3.5" /><span>CSV</span>
-          </button>
           <button onClick={()=>window.print()} type="button"
             className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs transition-colors">
-            <Printer className="w-3.5 h-3.5" /><span>PDF</span>
+            <Printer className="w-3.5 h-3.5" /><span>Export PDF</span>
           </button>
         </div>
       </div>
@@ -1186,10 +1182,6 @@ export default function DashboardReports({
                 );})()}
               </div>
               <div className="flex gap-1.5">
-                <button onClick={handleDownloadActiveTabCSV} type="button"
-                  className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:'rgba(255,255,255,0.1)'}}>
-                  <Download className="w-4 h-4 text-white"/>
-                </button>
                 <button onClick={()=>window.print()} type="button"
                   className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:'rgba(255,255,255,0.1)'}}>
                   <Printer className="w-4 h-4 text-white"/>
@@ -1211,30 +1203,27 @@ export default function DashboardReports({
           </div>
         </div>
 
-        {/* KPI mini cards 2×2 */}
+        {/* KPI mini cards 2×2 — clean elegant cards */}
         <div className="grid grid-cols-2 gap-2.5">
           {[
-            {label:'Total Sales', value:`${currency}${Math.round(totalGrossSales).toLocaleString()}`, sub:`${filteredSales.length} receipts`, color:'#059669', bg:'#dcfce7', icon:<TrendingUp className="w-4 h-4"/>},
-            {label:'Revenue',     value:`${currency}${Math.round(totalSalesRevenue).toLocaleString()}`, sub:'Net revenue', color:'#2563eb', bg:'#dbeafe', icon:<DollarSign className="w-4 h-4"/>},
-            {label:'COGS',        value:`${currency}${Math.round(totalCOGS).toLocaleString()}`, sub:`Margin ${totalSalesRevenue>0?Math.round(((totalSalesRevenue-totalCOGS)/totalSalesRevenue)*100):0}%`, color:'#d97706', bg:'#fef3c7', icon:<Package className="w-4 h-4"/>},
-            {label:'Expenses',    value:`${currency}${Math.round(totalExpensesCharged).toLocaleString()}`, sub:'Operating', color:'#dc2626', bg:'#fee2e2', icon:<Receipt className="w-4 h-4"/>},
+            {label:'Total Sales', value:`${currency}${Math.round(totalGrossSales).toLocaleString()}`, sub:`${filteredSales.length} receipts`, color:'#059669', bg:'#f0fdf4', icon:<TrendingUp className="w-4 h-4"/>},
+            {label:'Revenue',     value:`${currency}${Math.round(totalSalesRevenue).toLocaleString()}`, sub:'Net revenue', color:'#2563eb', bg:'#eff6ff', icon:<DollarSign className="w-4 h-4"/>},
+            {label:'COGS',        value:`${currency}${Math.round(totalCOGS).toLocaleString()}`, sub:`Margin ${totalSalesRevenue>0?Math.round(((totalSalesRevenue-totalCOGS)/totalSalesRevenue)*100):0}%`, color:'#d97706', bg:'#fffbeb', icon:<Package className="w-4 h-4"/>},
+            {label:'Expenses',    value:`${currency}${Math.round(totalExpensesCharged).toLocaleString()}`, sub:'Operating', color:'#dc2626', bg:'#fff5f5', icon:<Receipt className="w-4 h-4"/>},
           ].map((kpi,i)=>(
-            <div key={i} className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #f1f5f9',boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
-              <div className="h-[3px]" style={{background:kpi.color}}/>
-              <div className="p-3">
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</p>
-                  <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:kpi.bg,color:kpi.color}}>{kpi.icon}</div>
-                </div>
-                <p className="text-[17px] font-black text-slate-900 leading-none">{kpi.value}</p>
-                <p className="text-[9px] text-slate-400 mt-1">{kpi.sub}</p>
+            <div key={i} className="bg-white rounded-2xl p-3.5" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:kpi.bg,color:kpi.color}}>{kpi.icon}</div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider text-right">{kpi.label}</p>
               </div>
+              <p className="text-[18px] font-black text-slate-900 leading-none">{kpi.value}</p>
+              <p className="text-[9px] text-slate-400 mt-1.5">{kpi.sub}</p>
             </div>
           ))}
-          {/* Net profit full-width */}
+          {/* Net profit full-width — gradient banner */}
           <div className="col-span-2 rounded-2xl overflow-hidden"
             style={{background:netProfit>=0?'linear-gradient(135deg,#059669,#047857)':'linear-gradient(135deg,#dc2626,#b91c1c)',boxShadow:`0 4px 16px ${netProfit>=0?'rgba(5,150,105,0.2)':'rgba(220,38,38,0.2)'}`}}>
-            <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center justify-between px-4 py-3.5">
               <div>
                 <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-0.5">Net Profit</p>
                 <p className="text-white font-black text-[22px] leading-none">{netProfit<0?'-':''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}</p>
@@ -1249,23 +1238,22 @@ export default function DashboardReports({
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* ── DESKTOP KPI CARDS — compact with accent bar ── */}
+      {/* ── DESKTOP KPI CARDS — clean premium without accent bar ── */}
       <div className="hidden md:grid grid-cols-4 gap-3">
         {[
-          {label:'Total Sales', value:`${currency}${Math.round(totalSalesRevenue).toLocaleString()}`, sub:`${filteredSales.length} sales`, icon:<TrendingUp className="w-4 h-4"/>, color:'#059669', iconBg:'#dcfce7', accent:'#059669'},
-          {label:'Cost of Goods', value:`${currency}${Math.round(totalCOGS).toLocaleString()}`, sub:`Margin ${totalSalesRevenue>0?Math.round(((totalSalesRevenue-totalCOGS)/totalSalesRevenue)*100):0}%`, icon:<Package className="w-4 h-4"/>, color:'#0891b2', iconBg:'#cffafe', accent:'#0891b2'},
-          {label:'Expenses', value:`${currency}${Math.round(totalExpensesCharged).toLocaleString()}`, sub:<button onClick={()=>setIsExpenseModalOpen(true)} className="text-rose-500 hover:underline cursor-pointer">+ Book Expense</button>, icon:<Receipt className="w-4 h-4"/>, color:'#dc2626', iconBg:'#fee2e2', accent:'#dc2626'},
-          {label:'Net Profit', value:`${netProfit<0?'-':''}${currency}${Math.abs(Math.round(netProfit)).toLocaleString()}`, sub:netProfit>=0?'↑ Surplus':'↓ Deficit', icon:<DollarSign className="w-4 h-4"/>, color:netProfit>=0?'#059669':'#dc2626', iconBg:netProfit>=0?'#dcfce7':'#fee2e2', accent:netProfit>=0?'#059669':'#dc2626'},
+          {label:'Total Sales', value:`${currency}${Math.round(totalSalesRevenue).toLocaleString()}`, sub:`${filteredSales.length} sales`, icon:<TrendingUp className="w-4 h-4"/>, color:'#059669', iconBg:'#f0fdf4'},
+          {label:'Cost of Goods', value:`${currency}${Math.round(totalCOGS).toLocaleString()}`, sub:`Margin ${totalSalesRevenue>0?Math.round(((totalSalesRevenue-totalCOGS)/totalSalesRevenue)*100):0}%`, icon:<Package className="w-4 h-4"/>, color:'#0891b2', iconBg:'#f0f9ff'},
+          {label:'Expenses', value:`${currency}${Math.round(totalExpensesCharged).toLocaleString()}`, sub:<button onClick={()=>setIsExpenseModalOpen(true)} className="text-rose-500 hover:underline cursor-pointer">+ Book Expense</button>, icon:<Receipt className="w-4 h-4"/>, color:'#dc2626', iconBg:'#fff5f5'},
+          {label:'Net Profit', value:`${netProfit<0?'-':''}${currency}${Math.abs(Math.round(netProfit)).toLocaleString()}`, sub:netProfit>=0?'↑ Surplus':'↓ Deficit', icon:<DollarSign className="w-4 h-4"/>, color:netProfit>=0?'#059669':'#dc2626', iconBg:netProfit>=0?'#f0fdf4':'#fff5f5'},
         ].map((kpi,i)=>(
-          <div key={i} className="bg-white rounded-xl overflow-hidden flex items-stretch" style={{border:'1px solid #f1f5f9',boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
-            <div className="w-1 shrink-0" style={{background:kpi.accent}}/>
-            <div className="flex items-center gap-3 px-3.5 py-3 flex-1 min-w-0">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{background:kpi.iconBg,color:kpi.color}}>{kpi.icon}</div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">{kpi.label}</p>
-                <p className="text-[15px] font-black leading-tight truncate" style={{color:kpi.color}}>{kpi.value}</p>
-                <p className="text-[9px] text-slate-400 mt-0.5 truncate">{kpi.sub}</p>
-              </div>
+          <div key={i} className="bg-white rounded-2xl p-4 flex items-center gap-3.5" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 6px rgba(0,0,0,0.04)'}}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{background:kpi.iconBg,color:kpi.color}}>
+              {kpi.icon}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{kpi.label}</p>
+              <p className="text-[16px] font-black leading-tight truncate mt-0.5" style={{color:kpi.color}}>{kpi.value}</p>
+              <p className="text-[9px] text-slate-400 mt-0.5 truncate">{kpi.sub}</p>
             </div>
           </div>
         ))}
@@ -3688,14 +3676,14 @@ export default function DashboardReports({
                 </span>
               </div>
               
-              {/* Call active tab export natively */}
+              {/* Print PDF */}
               <button
                 type="button"
-                onClick={handleDownloadActiveTabCSV}
-                className="w-11 h-11 flex items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100 transition-all cursor-pointer"
-                title="Export Spreadsheet"
+                onClick={() => window.print()}
+                className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer"
+                title="Export PDF"
               >
-                <Download className="w-4.5 h-4.5" />
+                <Printer className="w-4.5 h-4.5" />
               </button>
             </div>
 
