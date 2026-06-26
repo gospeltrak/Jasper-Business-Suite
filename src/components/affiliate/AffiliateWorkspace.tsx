@@ -74,8 +74,8 @@ export default function AffiliateWorkspace({ onLogout }: AffiliateWorkspaceProps
   const metrics = useMemo(() => {
     const referrals = workspace?.referrals || [];
     const commissions = workspace?.commissions || [];
-    const available = commissions.filter((commission) => commission.status === 'available').reduce((sum, commission) => sum + commission.amount, 0);
-    const earned = commissions.filter((commission) => commission.status !== 'void').reduce((sum, commission) => sum + commission.amount, 0);
+    const available = commissions.filter((commission) => commission.status === 'available').reduce((sum, commission) => sum + commission.net_payout, 0);
+    const earned = commissions.filter((commission) => commission.status !== 'void').reduce((sum, commission) => sum + commission.net_payout, 0);
     return {
       clicks: referrals.filter((referral) => referral.status === 'clicked').length,
       registrations: referrals.filter((referral) => ['registered', 'converted'].includes(referral.status)).length,

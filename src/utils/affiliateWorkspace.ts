@@ -70,6 +70,10 @@ export interface AffiliateReferral {
 export interface AffiliateCommission {
   id: string;
   amount: number;
+  gross_revenue: number;
+  gross_commission: number;
+  withholding_tax: number;
+  net_payout: number;
   currency: string;
   status: 'pending' | 'available' | 'paid' | 'void';
   created_at: string;
@@ -132,7 +136,7 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
     client.from('affiliate_meetings').select('*').order('starts_at', { ascending: true }).limit(50),
     client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(*)').order('created_at', { ascending: false }).limit(50),
     client.from('affiliate_referrals').select('id, status, created_at').order('created_at', { ascending: false }).limit(500),
-    client.from('affiliate_commissions').select('id, amount, currency, status, created_at, available_at, paid_at').order('created_at', { ascending: false }).limit(500),
+    client.from('affiliate_commissions').select('id, amount, gross_revenue, gross_commission, withholding_tax, net_payout, currency, status, created_at, available_at, paid_at').order('created_at', { ascending: false }).limit(500),
     client.from('affiliate_payouts').select('id, amount, currency, payout_method, payout_reference, status, requested_at, processed_at, notes').order('requested_at', { ascending: false }).limit(100),
   ]);
 
@@ -154,6 +158,10 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
     commissions: asArray<AffiliateCommission>(commissionsResult.data).map((commission) => ({
       ...commission,
       amount: Number(commission.amount),
+      gross_revenue: Number(commission.gross_revenue),
+      gross_commission: Number(commission.gross_commission),
+      withholding_tax: Number(commission.withholding_tax),
+      net_payout: Number(commission.net_payout),
     })),
     payouts: asArray<AffiliatePayout>(payoutsResult.data).map((payout) => ({
       ...payout,
