@@ -64,6 +64,7 @@ export default function DashboardExpenses({
   // State for submenu nav tabs: 'list' | 'categories' | 'add'
   const [subTab, setSubTab] = useState<'list' | 'categories' | 'add'>('list');
   const [expenseActionItem, setExpenseActionItem] = useState<Expense | null>(null);
+  const [isReceiptPreviewOpen, setIsReceiptPreviewOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editForm, setEditForm] = useState<{description: string; amount: string; category: string; note: string}>({description: '', amount: '', category: '', note: ''});
 
@@ -1124,6 +1125,39 @@ export default function DashboardExpenses({
 
               {/* Action rows */}
               <div className="overflow-y-auto p-4 space-y-2.5">
+                {expenseActionItem.receiptImage && (
+                  <section className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setIsReceiptPreviewOpen(true)}
+                      className="block w-full bg-transparent border-none cursor-pointer text-left"
+                      aria-label="Open attached receipt"
+                    >
+                      {expenseActionItem.receiptImage.startsWith('data:image/') ? (
+                        <img
+                          src={expenseActionItem.receiptImage}
+                          alt={`Receipt for ${expenseActionItem.description}`}
+                          className="w-full max-h-44 object-contain bg-white dark:bg-slate-950"
+                        />
+                      ) : (
+                        <div className="min-h-28 flex flex-col items-center justify-center gap-2 text-slate-500">
+                          <FileText className="w-8 h-8 text-rose-500" />
+                          <span className="text-xs font-bold">Open attached receipt</span>
+                        </div>
+                      )}
+                    </button>
+                    <div className="flex items-center justify-between gap-3 px-3 py-2.5 border-t border-slate-200 dark:border-slate-700">
+                      <span className="min-w-0 truncate text-[11px] font-bold text-slate-600 dark:text-slate-300">{expenseActionItem.receiptRef || 'Attached receipt'}</span>
+                      <a
+                        href={expenseActionItem.receiptImage}
+                        download={expenseActionItem.receiptRef || `expense-receipt-${expenseActionItem.id}`}
+                        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-1.5 text-[10px] font-bold text-white no-underline"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Download
+                      </a>
+                    </div>
+                  </section>
+                )}
                 <button
                   type="button"
                   onClick={() => { setEditingExpense(expenseActionItem); setEditForm({description: expenseActionItem.description, amount: String(expenseActionItem.amount), category: expenseActionItem.category, note: expenseActionItem.note || ''}); setExpenseActionItem(null); }}
@@ -1160,6 +1194,37 @@ export default function DashboardExpenses({
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isReceiptPreviewOpen && expenseActionItem?.receiptImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/80 p-4"
+            onClick={() => setIsReceiptPreviewOpen(false)}
+          >
+            <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <span className="min-w-0 truncate text-sm font-bold text-slate-800">{expenseActionItem.receiptRef || 'Expense receipt'}</span>
+                <div className="flex items-center gap-2">
+                  <a href={expenseActionItem.receiptImage} download={expenseActionItem.receiptRef || `expense-receipt-${expenseActionItem.id}`} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white no-underline">
+                    <Download className="w-3.5 h-3.5" /> Download
+                  </a>
+                  <button type="button" onClick={() => setIsReceiptPreviewOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-lg border-none bg-slate-100 text-slate-600 cursor-pointer" aria-label="Close receipt preview">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              {expenseActionItem.receiptImage.startsWith('data:image/') ? (
+                <img src={expenseActionItem.receiptImage} alt={`Receipt for ${expenseActionItem.description}`} className="max-h-[75dvh] w-full object-contain bg-slate-100" />
+              ) : (
+                <iframe title="Expense receipt" src={expenseActionItem.receiptImage} className="h-[75dvh] w-full border-0" />
+              )}
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
