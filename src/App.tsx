@@ -194,23 +194,50 @@ export default function App() {
     }
   };
 
-  // Allow landing page to scroll — unlock body when not in dashboard/login
+  // Allow landing page to scroll — unlock body/html/root when not in dashboard/login
   useEffect(() => {
     const isDashboard = isDashboardRoute(currentPath) || currentPath === '/login' || currentPath.startsWith('/affiliate') || currentPath.startsWith('/partner');
+    const root = document.getElementById('root');
     if (isDashboard) {
+      // Dashboard / app — fully locked (native app behaviour)
+      document.documentElement.style.overflow = 'hidden';
+      document.documentElement.style.height = '100%';
       document.body.style.position = 'fixed';
       document.body.style.overflow = 'hidden';
       document.body.style.width = '100%';
+      document.body.style.height = '100%';
+      if (root) {
+        root.style.overflow = 'hidden';
+        root.style.height = '100dvh';
+        root.removeAttribute('data-page');
+      }
     } else {
-      // Landing page — allow normal scroll
+      // Landing page — fully unlocked, normal web scroll
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.height = '';
       document.body.style.position = '';
       document.body.style.overflow = '';
       document.body.style.width = '';
+      document.body.style.height = '';
+      if (root) {
+        root.style.overflow = 'auto';
+        root.style.height = 'auto';
+        root.style.position = 'relative';
+        root.setAttribute('data-page', 'landing');
+      }
     }
     return () => {
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.height = '';
       document.body.style.position = '';
       document.body.style.overflow = '';
       document.body.style.width = '';
+      document.body.style.height = '';
+      if (root) {
+        root.style.overflow = '';
+        root.style.height = '';
+        root.removeAttribute('data-page');
+      }
     };
   }, [currentPath]);
 

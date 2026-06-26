@@ -9,6 +9,27 @@
     overflow: hidden;
   }
 }
+
+/* ── LANDING PAGE SCROLL UNLOCK ────────────────────────────────────────────
+   The global rules below lock html/body/root for the dashboard (native app).
+   When the landing page is active, App.tsx adds data-page="landing" to root,
+   and these overrides restore normal scroll on ALL elements.
+──────────────────────────────────────────────────────────────────────────── */
+#root[data-page="landing"],
+#root[data-page="landing"] ~ *,
+html:has(#root[data-page="landing"]),
+body:has(#root[data-page="landing"]) {
+  overflow: visible !important;
+  overflow-y: auto !important;
+  position: static !important;
+  height: auto !important;
+  min-height: 100% !important;
+}
+#root[data-page="landing"] {
+  height: auto !important;
+  min-height: 100svh !important;
+  overflow-y: auto !important;
+}
 @media screen and (orientation: landscape) and (max-height: 500px) {
   /* Phone landscape — show a rotate prompt instead of broken layout */
   #jasper-app-root > * {
