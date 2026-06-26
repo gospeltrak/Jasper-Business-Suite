@@ -789,16 +789,18 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     const preset = DEFAULT_CUSTOM_ROLES.find(r => r.name.toLowerCase() === queryPreset);
     if (preset) return preset.permissions;
 
+    // Never turn an unrecognised staff role into an administrator. Access is
+    // denied until the owner assigns a known preset or custom role.
     return {
-      pos: { read: true, write: true, edit: true },
-      products: { read: true, write: true, edit: true },
-      purchases: { read: true, write: true, edit: true },
-      suppliers: { read: true, write: true, edit: true },
-      expenses: { read: true, write: true, edit: true },
-      reportsSalesExpenses: { read: true, write: true, edit: true },
-      reportsProfitCogs: { read: true, write: true, edit: true },
-      sync: { read: true, write: true, edit: true },
-      settings: { read: true, write: true, edit: true }
+      pos: { read: false, write: false, edit: false },
+      products: { read: false, write: false, edit: false },
+      purchases: { read: false, write: false, edit: false },
+      suppliers: { read: false, write: false, edit: false },
+      expenses: { read: false, write: false, edit: false },
+      reportsSalesExpenses: { read: false, write: false, edit: false },
+      reportsProfitCogs: { read: false, write: false, edit: false },
+      sync: { read: false, write: false, edit: false },
+      settings: { read: false, write: false, edit: false }
     };
   };
 
