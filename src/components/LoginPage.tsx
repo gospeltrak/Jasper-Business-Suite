@@ -27,6 +27,7 @@ import { DEMO_USERS, DEFAULT_TENANTS } from '../data';
 import { User, Tenant } from '../types';
 import { getDynamicSupabaseClient } from '../supabaseClient';
 import { initializeCleanTenantWorkspace } from '../utils/tenantIsolation';
+import { startCloudSession } from '../utils/sessionControl';
 
 declare global {
   interface Window {
@@ -858,6 +859,14 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             activeTenant: null,
             phone: authData.user.phone || targetIdentifier || null,
           });
+          return;
+        }
+
+        const sessionStart = await startCloudSession();
+        if (!sessionStart.allowed) {
+          await client.auth.signOut();
+          setError(sessionStart.reason || 'This account cannot start another session right now.');
+          setIsLoading(false);
           return;
         }
 

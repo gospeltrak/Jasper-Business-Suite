@@ -8,6 +8,7 @@ import JasperSplashScreen from './components/JasperSplashScreen';
 import { User } from './types';
 import { useTheme } from './ThemeContext';
 import { useTenantLogo } from './TenantLogoContext';
+import { endCloudSession, touchCloudSession } from './utils/sessionControl';
 
 export default function App() {
   const normalizePath = (path: string) => {
@@ -211,8 +212,16 @@ export default function App() {
     navigateTo('/dashboard');
   };
 
-  const handleLogoutSuccess = () => {
+  useEffect(() => {
+    if (!user) return;
+    touchCloudSession();
+    const heartbeat = window.setInterval(() => { touchCloudSession(); }, 5 * 60 * 1000);
+    return () => window.clearInterval(heartbeat);
+  }, [user?.id]);
+
+  const handleLogoutSuccess = async () => {
     recordStaffLogout(user);
+    await endCloudSession();
     setUser(null);
     localStorage.removeItem('jasper_cashier_user');
     navigateTo('/');
