@@ -24,27 +24,31 @@ CREATE INDEX IF NOT EXISTS tenant_data_tenant_idx
 -- Enable Row Level Security
 ALTER TABLE public.tenant_data ENABLE ROW LEVEL SECURITY;
 
--- Policies: authenticated users can read/write their own tenant's data
--- (using the tenant_id from the users table)
-CREATE POLICY "Allow read own tenant data"
-  ON public.tenant_data
-  FOR SELECT
-  USING (true);
+-- Policies: authenticated users can read/write only their own tenant's data.
+-- `tenant_id` stays text here for backwards compatibility with offline/demo IDs;
+-- real Supabase tenants are compared against the authenticated UUID as text.
+ALTER TABLE public.tenant_data FORCE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow insert own tenant data"
+CREATE POLICY "tenant_data_read_own"
   ON public.tenant_data
-  FOR INSERT
-  WITH CHECK (true);
+  FOR SELECT TO authenticated
+  USING (tenant_id = private.current_tenant_id()::text);
 
-CREATE POLICY "Allow update own tenant data"
+CREATE POLICY "tenant_data_insert_own"
   ON public.tenant_data
-  FOR UPDATE
-  USING (true);
+  FOR INSERT TO authenticated
+  WITH CHECK (tenant_id = private.current_tenant_id()::text);
 
-CREATE POLICY "Allow delete own tenant data"
+CREATE POLICY "tenant_data_update_own"
   ON public.tenant_data
-  FOR DELETE
-  USING (true);
+  FOR UPDATE TO authenticated
+  USING (tenant_id = private.current_tenant_id()::text)
+  WITH CHECK (tenant_id = private.current_tenant_id()::text);
+
+CREATE POLICY "tenant_data_delete_own"
+  ON public.tenant_data
+  FOR DELETE TO authenticated
+  USING (tenant_id = private.current_tenant_id()::text);
 
 -- ============================================================
 -- After running this SQL, your system will automatically:
