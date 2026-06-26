@@ -374,6 +374,17 @@ export interface StaffSettings {
   password?: string;
   role: string; // Dynamic role string supporting both custom created roles and built-in presets
   salary: number;
+  salaryType?: 'monthly' | 'weekly' | 'daily' | 'commission' | 'custom';
+  salaryStartDate?: string;
+  salaryNotes?: string;
+  staffType?: 'permanent' | 'temporary' | 'driver' | 'rider' | 'temporary-driver' | 'temporary-rider' | 'other';
+  department?: string;
+  status?: 'active' | 'inactive';
+  dateJoined?: string;
+  notes?: string;
+  passwordUpdatedAt?: string;
+  temporaryPasswordIssuedAt?: string;
+  allowances?: StaffAllowance[];
   profileImage?: string; // profile photo recommended 500x500 pixels
   signatureImage?: string; // signature PNG recommended 500x500 pixels
   // Delivery rider specific fields attached to staff profile
@@ -381,6 +392,16 @@ export interface StaffSettings {
   vehicleType?: 'motorcycle' | 'tuktuk' | 'car';
   vehicleColor?: string;
   licensePlate?: string;
+}
+
+export interface StaffAllowance {
+  id: string;
+  name: string;
+  amount: number;
+  frequency: 'daily' | 'weekly' | 'monthly' | 'one-time' | 'custom';
+  startDate: string;
+  endDate?: string;
+  notes?: string;
 }
 
 export interface RolePermission {

@@ -23,8 +23,6 @@ import {
   Sun, 
   Moon, 
   Bell,
-  Eye, 
-  EyeOff, 
   Percent, 
   PercentSquare, 
   User, 
@@ -932,7 +930,6 @@ export default function DashboardSettings({
   };
 
   // HRM states for registering staffs
-  const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
   const [credentialEditStaffId, setCredentialEditStaffId] = useState('');
   const [credentialEditPhone, setCredentialEditPhone] = useState('');
   const [credentialEditPassword, setCredentialEditPassword] = useState('');
@@ -946,22 +943,24 @@ export default function DashboardSettings({
     signatureImage: ''
   });
 
-  const togglePasswordVisibility = (staffId: string) => {
-    setShowPasswordMap(prev => ({ ...prev, [staffId]: !prev[staffId] }));
-  };
-
   const openStaffCredentialEditor = (staff: StaffSettings) => {
     const isOpen = credentialEditStaffId === staff.id;
     setCredentialEditStaffId(isOpen ? '' : staff.id);
     setCredentialEditPhone(isOpen ? '' : staff.phone);
-    setCredentialEditPassword(isOpen ? '' : staff.password || '');
+    setCredentialEditPassword('');
   };
 
   const handleSaveStaffCredentials = (staffId: string) => {
     if (!credentialEditPhone.trim() || !credentialEditPassword.trim()) return;
     setStaffsList(prev => prev.map(staff =>
       staff.id === staffId
-        ? { ...staff, phone: credentialEditPhone.trim(), password: credentialEditPassword.trim() }
+        ? {
+            ...staff,
+            phone: credentialEditPhone.trim(),
+            password: credentialEditPassword.trim(),
+            passwordUpdatedAt: new Date().toISOString(),
+            temporaryPasswordIssuedAt: new Date().toISOString()
+          }
         : staff
     ));
     setCredentialEditStaffId('');
@@ -2282,7 +2281,6 @@ export default function DashboardSettings({
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-sans font-medium text-slate-700">
                       {staffsList.map(staff => {
-                        const showPass = showPasswordMap[staff.id] || false;
                         return (
                           <tr key={staff.id} className="hover:bg-slate-50/50 transition-colors">
                             <td className="p-3">
@@ -2317,18 +2315,13 @@ export default function DashboardSettings({
                               </span>
                             </td>
                             <td className="p-3 font-mono">
-                              <div className="flex items-center space-x-1.5">
-                                <span className="bg-slate-100 px-2 py-0.5 rounded-md border text-slate-650 tracking-wide text-[11px]">
-                                  {showPass ? staff.password : '••••••••'}
+                              <div className="flex flex-col gap-1">
+                                <span className="bg-slate-100 px-2 py-0.5 rounded-md border text-slate-650 tracking-wide text-[11px] w-max">
+                                  Username: {staff.phone}
                                 </span>
-                                <button
-                                  type="button"
-                                  onClick={() => togglePasswordVisibility(staff.id)}
-                                  className="text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
-                                  title={showPass ? 'Hide password' : 'View password'}
-                                >
-                                  {showPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                </button>
+                                <span className="text-[10px] font-black uppercase text-emerald-700">
+                                  {staff.password ? 'Password set' : 'No password set'}
+                                </span>
                               </div>
                             </td>
                             <td className="p-3 text-right font-mono font-black text-slate-800">
@@ -2419,7 +2412,6 @@ export default function DashboardSettings({
                     </div>
                   ) : (
                     staffsList.map(staff => {
-                      const showPass = showPasswordMap[staff.id] || false;
                       return (
                         <div key={staff.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                           <div className="flex items-start gap-3">
@@ -2457,18 +2449,10 @@ export default function DashboardSettings({
                             </div>
                           </div>
 
-                          <div className="mt-4 rounded-xl bg-white border border-slate-200 p-3 flex items-center justify-between gap-3">
-                            <span className="text-[11px] font-mono text-slate-700 tracking-wide">
-                              {showPass ? staff.password : '••••••••'}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => togglePasswordVisibility(staff.id)}
-                              className="h-9 w-9 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 flex items-center justify-center"
-                              title={showPass ? 'Hide password' : 'View password'}
-                            >
-                              {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
+                          <div className="mt-4 rounded-xl bg-white border border-slate-200 p-3">
+                            <span className="block text-[10px] font-black uppercase text-slate-400">Login Details</span>
+                            <span className="mt-1 block text-[11px] font-mono text-slate-700 tracking-wide">Username: {staff.phone}</span>
+                            <span className="mt-1 block text-[10px] font-black uppercase text-emerald-700">{staff.password ? 'Password set' : 'No password set'}</span>
                           </div>
 
                           <div className="grid grid-cols-3 gap-2 mt-3">
