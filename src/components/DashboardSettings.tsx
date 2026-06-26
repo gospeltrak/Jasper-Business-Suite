@@ -1023,29 +1023,92 @@ export default function DashboardSettings({
     }, 4000);
   };
 
+  const settingsTabs: Array<{
+    id: typeof activeSubTab;
+    label: string;
+    shortLabel: string;
+    description: string;
+    icon: React.ElementType;
+  }> = [
+    { id: 'company', label: 'Company Account', shortLabel: 'Company', description: 'Legal profile, tax, currency, theme', icon: Building },
+    { id: 'business', label: 'Business Setup', shortLabel: 'Business', description: 'Brand, payment modes, stores', icon: Briefcase },
+    { id: 'product-store', label: 'Product & Store Units', shortLabel: 'Stores', description: 'Units, product behavior, inventory bins', icon: Package },
+    { id: 'invoice-settings', label: 'Invoice & Logo', shortLabel: 'Invoice', description: 'Receipt branding and invoice fields', icon: FileText },
+    { id: 'hrm', label: 'HRM Permanent Staffs', shortLabel: 'Staff', description: 'Workers, roles, salaries, signatures', icon: Users },
+    { id: 'roles', label: 'Staff Roles & Access', shortLabel: 'Access', description: 'Permissions and private role presets', icon: ShieldCheck },
+    { id: 'notifications', label: 'Alerts & Reports', shortLabel: 'Alerts', description: 'Notification channels and reports', icon: Bell }
+  ];
+
+  const activeSettingsTab = settingsTabs.find(tab => tab.id === activeSubTab) || settingsTabs[0];
+  const completedProfileCount = [
+    companyForm.companyName,
+    companyForm.email,
+    companyForm.phone,
+    companyForm.tin,
+    businessForm.businessName,
+    businessForm.paymentModes?.length ? 'payments' : '',
+    staffsList.length ? 'staff' : ''
+  ].filter(Boolean).length;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-24 md:pb-8">
       
       {/* Title Header with descriptive details */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-        <div className="space-y-1">
-          <div className="flex items-center space-x-2">
-            <Sliders className="w-5 h-5 text-emerald-500" />
-            <h2 className="text-lg font-bold text-slate-800 uppercase tracking-tight">Settings & Branches</h2>
+      <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-4 sm:p-5 lg:p-6 flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-2xl bg-slate-950 text-white flex items-center justify-center shrink-0">
+                <SettingsIcon className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">System control center</span>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight leading-tight">Settings</h2>
+                <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
+                  Configure company identity, business rules, invoices, staff, access controls, stores, alerts, and reports.
+                </p>
+              </div>
+            </div>
           </div>
-          <p className="text-xs text-slate-450 font-sans">
-            Customize corporate identities, receipts layout, active POS payment channels, store physical stock bins, and permanent HRM human resources.
-          </p>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 xl:min-w-[560px]">
+            <div className="rounded-2xl border border-slate-900 bg-slate-950 text-white p-3.5">
+              <span className="block text-[9.5px] font-black uppercase tracking-widest text-white/60 font-mono">Active module</span>
+              <span className="block mt-2 text-sm font-black leading-tight">{activeSettingsTab.shortLabel}</span>
+              <span className="block mt-1 text-[10px] text-white/50">{activeSettingsTab.description}</span>
+            </div>
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-900 p-3.5">
+              <span className="block text-[9.5px] font-black uppercase tracking-widest text-emerald-700/70 font-mono">Profile ready</span>
+              <span className="block mt-2 text-lg font-black leading-tight">{completedProfileCount}/7</span>
+              <span className="block mt-1 text-[10px] text-emerald-700/70">Core fields filled</span>
+            </div>
+            <div className="rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-900 p-3.5">
+              <span className="block text-[9.5px] font-black uppercase tracking-widest text-indigo-700/70 font-mono">Staff</span>
+              <span className="block mt-2 text-lg font-black leading-tight">{staffsList.length}</span>
+              <span className="block mt-1 text-[10px] text-indigo-700/70">Registered workers</span>
+            </div>
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 text-blue-900 p-3.5">
+              <span className="block text-[9.5px] font-black uppercase tracking-widest text-blue-700/70 font-mono">Roles</span>
+              <span className="block mt-2 text-lg font-black leading-tight">{customRolesList.length}</span>
+              <span className="block mt-1 text-[10px] text-blue-700/70">Access presets</span>
+            </div>
+          </div>
         </div>
-        
-        <button
-          type="button"
-          onClick={triggerSaveAll}
-          className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-md shadow-emerald-600/10 cursor-pointer transition-all flex items-center space-x-2 shrink-0 self-start md:self-center"
-        >
-          <Check className="w-3.5 h-3.5" />
-          <span>Save Changes System-Wide</span>
-        </button>
+
+        <div className="border-t border-slate-200 bg-slate-50 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="text-xs text-slate-500">
+            <span className="font-black text-slate-700">{activeSettingsTab.label}</span>
+            <span className="hidden sm:inline"> · {activeSettingsTab.description}</span>
+          </div>
+          <button
+            type="button"
+            onClick={triggerSaveAll}
+            className="w-full sm:w-auto min-h-[48px] px-6 py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black uppercase tracking-wider rounded-2xl shadow-md shadow-emerald-600/10 cursor-pointer transition-all flex items-center justify-center space-x-2 shrink-0"
+          >
+            <Check className="w-3.5 h-3.5" />
+            <span>Save Settings</span>
+          </button>
+        </div>
       </div>
 
       {saveSuccess && (
@@ -1056,105 +1119,63 @@ export default function DashboardSettings({
       )}
 
       {/* Primary configuration drawer bento structure */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 lg:gap-6 items-start">
         
         {/* Navigation Sidebar Drawer */}
-        <div className="bg-white rounded-3xl border border-slate-200 p-4 space-y-2 lg:col-span-1 shadow-sm sticky top-[4.5rem] z-10">
+        <div className="hidden lg:block bg-white rounded-3xl border border-slate-200 p-4 space-y-2 lg:col-span-1 shadow-sm sticky top-[4.5rem] z-10">
           <div className="px-3 py-2 text-[10px] font-mono font-black uppercase tracking-wider text-slate-400">
             Configuration Modules
           </div>
 
-          <button
-            onClick={() => setActiveSubTab('company')}
-            className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-              activeSubTab === 'company'
-                ? 'bg-slate-100 text-slate-800 font-bold border-l-2 border-emerald-500'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-            }`}
-          >
-            <Building className="w-4 h-4 text-slate-500" />
-            <span>Company Account</span>
-          </button>
+          {settingsTabs.map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeSubTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveSubTab(tab.id)}
+                className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all text-left ${
+                  isActive
+                    ? 'bg-slate-100 text-slate-900 font-black border-l-2 border-emerald-500'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                }`}
+              >
+                <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-600' : 'text-slate-500'}`} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
 
-          <button
-            onClick={() => setActiveSubTab('business')}
-            className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-              activeSubTab === 'business'
-                ? 'bg-slate-100 text-slate-800 font-bold border-l-2 border-emerald-500'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-            }`}
-          >
-            <Briefcase className="w-4 h-4 text-slate-500" />
-            <span>Business Setup</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('product-store')}
-            className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-              activeSubTab === 'product-store'
-                ? 'bg-slate-100 text-slate-800 font-bold border-l-2 border-emerald-500'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-            }`}
-          >
-            <Package className="w-4 h-4 text-slate-500" />
-            <span>Product & Store Units</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('invoice-settings')}
-            className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-              activeSubTab === 'invoice-settings'
-                ? 'bg-slate-100 text-slate-800 font-bold border-l-2 border-emerald-500'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-            }`}
-          >
-            <FileText className="w-4 h-4 text-slate-500" />
-            <span>Invoice & Logo</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('hrm')}
-            className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-              activeSubTab === 'hrm'
-                ? 'bg-slate-100 text-slate-800 font-bold border-l-2 border-emerald-500'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-            }`}
-          >
-            <Users className="w-4 h-4 text-slate-500" />
-            <span>HRM Permanent Staffs</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('roles')}
-            className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-              activeSubTab === 'roles'
-                ? 'bg-slate-100 text-slate-800 font-bold border-l-2 border-emerald-500'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4 text-slate-500" />
-            <span>Staff Roles & Access</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('notifications')}
-            className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-              activeSubTab === 'notifications'
-                ? 'bg-slate-100 text-slate-800 font-bold border-l-2 border-emerald-500'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-            }`}
-          >
-            <Bell className="w-4 h-4 text-slate-500" />
-            <span>Alerts & Reports</span>
-          </button>
+        <div className="lg:hidden bg-white border border-slate-200 rounded-2xl shadow-sm p-3 overflow-hidden">
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            {settingsTabs.map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeSubTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveSubTab(tab.id)}
+                  className={`min-w-[92px] min-h-[58px] rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-black transition-all shrink-0 ${
+                    isActive
+                      ? 'bg-slate-950 text-white border-slate-950 shadow-sm'
+                      : 'bg-white text-slate-600 border-slate-200 active:bg-slate-100'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-300' : 'text-slate-400'}`} />
+                  <span>{tab.shortLabel}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Content Panel Frame */}
-        <div className="lg:col-span-3 space-y-6">
+        <div className="lg:col-span-3 space-y-5 lg:space-y-6 min-w-0">
           
           {/* TAB 1: COMPANY SETTINGS */}
           {activeSubTab === 'company' && (
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-sm">
+            <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🏢 Company Level Settings</h3>
                 <p className="text-xs text-slate-450 mt-1 font-sans">
@@ -1361,7 +1382,7 @@ export default function DashboardSettings({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <button
                     type="button"
                     onClick={() => {
@@ -1400,7 +1421,7 @@ export default function DashboardSettings({
 
           {/* TAB 2: CORPORATE BUSINESS SETUP */}
           {activeSubTab === 'business' && (
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-sm">
+            <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">💼 Corporate Business Setup</h3>
                 <p className="text-xs text-slate-450 mt-1 font-sans">
@@ -1749,7 +1770,7 @@ export default function DashboardSettings({
 
           {/* TAB 3: PRODUCT & STORE SETTINGS */}
           {activeSubTab === 'product-store' && (
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-sm">
+            <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">📦 Product Catalog & Measurements</h3>
                 <p className="text-xs text-slate-450 mt-1 font-sans">
@@ -1866,7 +1887,7 @@ export default function DashboardSettings({
 
           {/* TAB: INVOICE & BRANDING CUSTOMIZATION */}
           {activeSubTab === 'invoice-settings' && (
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-sm font-sans text-slate-800">
+            <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm font-sans text-slate-800">
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🎨 Invoice Template & Brand Customization</h3>
                 <p className="text-xs text-slate-450 mt-1 font-sans">
@@ -1997,7 +2018,7 @@ export default function DashboardSettings({
               {/* VAT Default Setting */}
               <div className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-3">
                 <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">3. VAT Configuration Options</h4>
-                <div className="flex items-center space-x-3 text-xs">
+                <div className="flex items-start sm:items-center space-x-3 text-xs">
                   <input
                     type="checkbox"
                     id="hasVatByDefaultCheck"
@@ -2022,8 +2043,8 @@ export default function DashboardSettings({
 
                 <div className="space-y-2">
                   {(invoiceSettingsForm.termsAndConditions || []).map((term, index) => (
-                    <div key={index} className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 text-xs">
-                      <span className="font-sans font-medium">{term}</span>
+                    <div key={index} className="flex items-start sm:items-center justify-between gap-3 p-3 bg-white rounded-xl border border-slate-200 text-xs">
+                      <span className="font-sans font-medium leading-relaxed">{term}</span>
                       <button
                         type="button"
                         onClick={() => {
@@ -2038,7 +2059,7 @@ export default function DashboardSettings({
                     </div>
                   ))}
 
-                  <div className="flex space-x-2 max-w-xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 max-w-xl">
                     <input
                       type="text"
                       placeholder="Add a new term..."
@@ -2084,7 +2105,7 @@ export default function DashboardSettings({
 
           {/* TAB 4: HRM SETTINGS */}
           {activeSubTab === 'hrm' && (
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-sm">
+            <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">👥 HRM Permanent Staff Registry</h3>
                 <p className="text-xs text-slate-450 mt-1 font-sans">
@@ -2093,7 +2114,7 @@ export default function DashboardSettings({
               </div>
 
               {/* Staff Registry Form */}
-              <form onSubmit={handleRegisterStaff} className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-4">
+              <form onSubmit={handleRegisterStaff} className="bg-slate-50 border border-slate-205 rounded-2xl p-4 sm:p-5 space-y-4">
                 <h4 className="text-xs font-extrabold uppercase text-slate-700 font-mono">Add New Staff</h4>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs font-sans">
@@ -2105,7 +2126,7 @@ export default function DashboardSettings({
                       value={staffForm.name}
                       onChange={(e) => setStaffForm(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="e.g. Jane Doe"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-semibold outline-none focus:ring-1 focus:ring-emerald-500"
+                      className="w-full px-3 py-3 sm:py-2 bg-white border border-slate-200 rounded-xl font-semibold outline-none focus:ring-1 focus:ring-emerald-500 min-h-[46px] sm:min-h-0"
                       required
                     />
                   </div>
@@ -2117,7 +2138,7 @@ export default function DashboardSettings({
                       value={staffForm.phone}
                       onChange={(e) => setStaffForm(prev => ({ ...prev, phone: e.target.value }))}
                       placeholder="e.g. +254 700 000000"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-semibold outline-none focus:ring-1 focus:ring-emerald-500"
+                      className="w-full px-3 py-3 sm:py-2 bg-white border border-slate-200 rounded-xl font-semibold outline-none focus:ring-1 focus:ring-emerald-500 min-h-[46px] sm:min-h-0"
                       required
                     />
                   </div>
@@ -2129,7 +2150,7 @@ export default function DashboardSettings({
                       value={staffForm.password}
                       onChange={(e) => setStaffForm(prev => ({ ...prev, password: e.target.value }))}
                       placeholder="••••••••"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-semibold outline-none focus:ring-1 focus:ring-emerald-500"
+                      className="w-full px-3 py-3 sm:py-2 bg-white border border-slate-200 rounded-xl font-semibold outline-none focus:ring-1 focus:ring-emerald-500 min-h-[46px] sm:min-h-0"
                       required
                     />
                   </div>
@@ -2139,7 +2160,7 @@ export default function DashboardSettings({
                     <select
                       value={staffForm.role}
                       onChange={(e) => setStaffForm(prev => ({ ...prev, role: e.target.value }))}
-                      className="w-full px-3 py-2 bg-white border border-slate-220 rounded-xl font-extrabold outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer text-xs text-slate-705"
+                      className="w-full px-3 py-3 sm:py-2 bg-white border border-slate-220 rounded-xl font-extrabold outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer text-xs text-slate-705 min-h-[46px] sm:min-h-0"
                     >
                       {customRolesList.map(role => (
                         <option key={role.id} value={role.name}>
@@ -2208,7 +2229,7 @@ export default function DashboardSettings({
                   <div className="flex items-end">
                     <button
                       type="submit"
-                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs uppercase rounded-xl shadow-xs cursor-pointer transition-all flex items-center justify-center space-x-1.5"
+                    className="w-full min-h-[48px] py-3 sm:py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs uppercase rounded-2xl sm:rounded-xl shadow-xs cursor-pointer transition-all flex items-center justify-center space-x-1.5"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Register Staff</span>
@@ -2222,7 +2243,7 @@ export default function DashboardSettings({
               <div className="space-y-3.5">
                 <span className="block text-[10px] uppercase font-black text-slate-400 font-mono tracking-wider">Registered Staff Accounts ({staffsList.length})</span>
                 
-                <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-mono font-black text-slate-500 uppercase tracking-widest">
@@ -2320,6 +2341,88 @@ export default function DashboardSettings({
                     </tbody>
                   </table>
                 </div>
+                <div className="md:hidden space-y-3">
+                  {staffsList.length === 0 ? (
+                    <div className="p-8 text-center text-slate-400 text-xs font-sans rounded-2xl border border-slate-200 bg-slate-50">
+                      No staffs registered under this branch's core hrm configurations yet.
+                    </div>
+                  ) : (
+                    staffsList.map(staff => {
+                      const showPass = showPasswordMap[staff.id] || false;
+                      return (
+                        <div key={staff.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-12 h-12 rounded-2xl border border-slate-200 overflow-hidden bg-white shrink-0 flex items-center justify-center">
+                              {staff.profileImage ? (
+                                <img src={staff.profileImage} className="w-full h-full object-cover" alt="Avatar" />
+                              ) : (
+                                <User className="w-5 h-5 text-slate-400" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="font-black text-slate-900 truncate">{staff.name}</p>
+                                  <p className="text-[11px] font-mono text-slate-500 mt-0.5">Ph: {staff.phone}</p>
+                                </div>
+                                {staff.signatureImage && (
+                                  <span className="shrink-0 text-[8px] bg-emerald-50 text-emerald-700 px-1.5 py-1 rounded border border-emerald-200 font-mono font-black">SIGNED</span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-2 mt-3">
+                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-black ${
+                                  staff.role === 'Admin' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
+                                  staff.role === 'Manager' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
+                                  staff.role === 'Cashier' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                                  staff.role === 'Delivery Rider / Permanent Driver' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                                  'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                }`}>
+                                  {staff.role}
+                                </span>
+                                <span className="px-2.5 py-1 rounded-full text-[10px] bg-white border border-slate-200 text-slate-700 font-mono font-black">
+                                  {companyForm.currency}{staff.salary.toLocaleString()} / mo
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 rounded-xl bg-white border border-slate-200 p-3 flex items-center justify-between gap-3">
+                            <span className="text-[11px] font-mono text-slate-700 tracking-wide">
+                              {showPass ? staff.password : '••••••••'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisibility(staff.id)}
+                              className="h-9 w-9 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 flex items-center justify-center"
+                              title={showPass ? 'Hide password' : 'View password'}
+                            >
+                              {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 mt-3">
+                            <button
+                              type="button"
+                              onClick={() => setViewingStaffReport(staff)}
+                              className="min-h-[44px] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-2xl text-blue-700 font-mono text-[10.5px] font-black tracking-tight cursor-pointer transition-colors active:scale-95 flex items-center justify-center space-x-1"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>Report</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveStaff(staff.id)}
+                              className="min-h-[44px] bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-2xl text-rose-700 font-mono text-[10.5px] font-black tracking-tight cursor-pointer transition-colors active:scale-95 flex items-center justify-center space-x-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>De-register</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
 
             </div>
@@ -2370,7 +2473,7 @@ export default function DashboardSettings({
             ];
 
             return (
-              <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-sm">
+              <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
                 
                 <div className="border-b border-slate-100 pb-4">
                   <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🛡️ System Security Roles & Permissions</h3>
@@ -2379,14 +2482,14 @@ export default function DashboardSettings({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 font-sans">
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 xl:gap-6 font-sans">
                   
                   {/* Left Column: Roles list and Addition box */}
                   <div className="xl:col-span-1 space-y-4">
                     <div className="space-y-2 border border-slate-150 rounded-2xl p-4 bg-slate-50/50">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Created Staff Roles</span>
                       
-                      <div className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1">
+                      <div className="flex xl:block gap-2 overflow-x-auto xl:overflow-y-auto xl:max-h-[320px] xl:space-y-1.5 xl:pr-1 pb-1">
                         {customRolesList.map(r => {
                           const isSel = r.id === selectedRoleId;
                           const isStatic = ['role-admin', 'role-manager', 'role-cashier', 'role-seller'].includes(r.id);
@@ -2395,7 +2498,7 @@ export default function DashboardSettings({
                               key={r.id}
                               type="button"
                               onClick={() => setSelectedRoleId(r.id)}
-                              className={`w-full p-3 rounded-xl flex items-center justify-between text-left transition-all text-xs cursor-pointer ${
+                              className={`min-w-[190px] xl:min-w-0 xl:w-full p-3 rounded-xl flex items-center justify-between text-left transition-all text-xs cursor-pointer ${
                                 isSel
                                   ? 'bg-emerald-600 text-white font-extrabold shadow-sm border border-transparent'
                                   : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'
@@ -2489,7 +2592,7 @@ export default function DashboardSettings({
                         )}
                       </div>
 
-                      <div className="overflow-x-auto rounded-xl border border-slate-150">
+                      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-150">
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-mono font-black text-slate-500 uppercase tracking-widest">
@@ -2558,6 +2661,53 @@ export default function DashboardSettings({
                           </tbody>
                         </table>
                       </div>
+                      <div className="md:hidden space-y-3">
+                        {(() => {
+                          let lastCategory = '';
+                          return modulesList.map(mod => {
+                            const showCategoryHeader = mod.category !== lastCategory;
+                            lastCategory = mod.category || '';
+                            const permissions = (activeRole.permissions as any)[mod.key] || { read: false, write: false, edit: false };
+                            return (
+                              <React.Fragment key={mod.key}>
+                                {showCategoryHeader && (
+                                  <div className="pt-2 first:pt-0">
+                                    <div className="px-3 py-2 bg-slate-100 rounded-xl uppercase font-mono text-[10px] font-black text-slate-500 tracking-wider">
+                                      {mod.category || 'Core Permissions'}
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                  <div>
+                                    <p className="font-black text-slate-900 text-sm leading-snug">{mod.name}</p>
+                                    <p className="text-[11px] text-slate-500 leading-relaxed mt-1">{mod.desc}</p>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-2 mt-4">
+                                    {(['read', 'write', 'edit'] as const).map(permissionType => (
+                                      <label
+                                        key={permissionType}
+                                        className={`min-h-[52px] rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wide ${
+                                          permissions[permissionType]
+                                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                            : 'bg-white border-slate-200 text-slate-500'
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={permissions[permissionType]}
+                                          onChange={() => handleTogglePermission(activeRole.id, mod.key, permissionType)}
+                                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-slate-300"
+                                        />
+                                        <span>{permissionType}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              </React.Fragment>
+                            );
+                          });
+                        })()}
+                      </div>
 
                     </div>
                   </div>
@@ -2591,7 +2741,7 @@ export default function DashboardSettings({
       {/* MODAL: STAFF PERFORMANCE REPORT */}
       {viewingStaffReport && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in text-slate-800">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col font-sans animate-scale-in">
+          <div className="bg-white rounded-2xl md:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col font-sans animate-scale-in max-h-[92vh]">
             {/* Header */}
             <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -2701,4 +2851,3 @@ export default function DashboardSettings({
     </div>
   );
 }
-
