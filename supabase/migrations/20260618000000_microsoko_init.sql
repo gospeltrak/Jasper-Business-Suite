@@ -11,9 +11,8 @@ ALTER TABLE tenants
 ADD COLUMN IF NOT EXISTS primary_niche jasper_module_category DEFAULT 'wholesale_retail',
 ADD COLUMN IF NOT EXISTS registered_via_affiliate_id UUID;
 
--- Alter the existing 'items' table (Assuming the base table name is 'items' or 'products' based on context)
--- Based on typical POS setup, it's usually 'products' or 'items'. We'll use 'items' as per instruction.
-ALTER TABLE items 
+-- The application inventory table is public.products.
+ALTER TABLE products
 ADD COLUMN IF NOT EXISTS module_owner jasper_module_category DEFAULT 'wholesale_retail',
 ADD COLUMN IF NOT EXISTS microsoko_type microsoko_item_type,
 ADD COLUMN IF NOT EXISTS tracking_mode tracking_measurement_mode DEFAULT 'metric_standard',
@@ -25,7 +24,7 @@ ADD COLUMN IF NOT EXISTS standard_metric_unit VARCHAR(50);
 CREATE TABLE IF NOT EXISTS container_calibrations (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    bulk_item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    bulk_item_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     container_name VARCHAR(100) NOT NULL, -- e.g. 'Ndoo', 'Kibaba'
     units_per_bulk_parent DECIMAL(12, 4) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -54,7 +53,7 @@ CREATE TABLE IF NOT EXISTS microsoko_batches (
     by_product_recovered_revenue DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     
     -- Yield Attributes
-    primary_output_item_id UUID NOT NULL REFERENCES items(id) ON DELETE RESTRICT,
+    primary_output_item_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
     total_yield_quantity_produced DECIMAL(15, 4) NOT NULL DEFAULT 0.0000,
     calculated_true_market_unit_cost DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     
@@ -83,7 +82,7 @@ CREATE TABLE IF NOT EXISTS microsoko_subscriptions (
 -- STEP 4: PERFORMANCE OPTIMIZATIONS & SECURITY POLICIES
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_items_module_type ON items (tenant_id, module_owner, microsoko_type);
+CREATE INDEX IF NOT EXISTS idx_products_module_type ON products (tenant_id, module_owner, microsoko_type);
 CREATE INDEX IF NOT EXISTS idx_microsoko_batches_tenant ON microsoko_batches (tenant_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_container_calibrations_tenant ON container_calibrations (tenant_id, bulk_item_id);
 
