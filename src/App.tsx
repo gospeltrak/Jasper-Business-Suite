@@ -297,14 +297,21 @@ export default function App() {
     }
   };
 
-  // Allow landing page to scroll — unlock body/html/root when not in dashboard/login
+  // Allow landing page to scroll — toggle class on <html> element per route
   useEffect(() => {
-    const isDashboard = isDashboardRoute(currentPath) || currentPath === '/login' || currentPath.startsWith('/affiliate') || currentPath.startsWith('/partner');
+    const isDashboard = isDashboardRoute(currentPath)
+      || currentPath === '/login'
+      || currentPath.startsWith('/affiliate')
+      || currentPath.startsWith('/partner');
+
+    const html = document.documentElement;
     const root = document.getElementById('root');
+
     if (isDashboard) {
-      // Dashboard / app — fully locked (native app behaviour)
-      document.documentElement.style.overflow = 'hidden';
-      document.documentElement.style.height = '100%';
+      // Dashboard — remove landing class, enforce native-app lock
+      html.classList.remove('landing-page');
+      html.style.overflow = 'hidden';
+      html.style.height = '100%';
       document.body.style.position = 'fixed';
       document.body.style.overflow = 'hidden';
       document.body.style.width = '100%';
@@ -315,32 +322,31 @@ export default function App() {
         root.removeAttribute('data-page');
       }
     } else {
-      // Landing page — fully unlocked, normal web scroll
-      document.documentElement.style.overflow = '';
-      document.documentElement.style.height = '';
+      // Landing page — add class to <html>, clear all inline locks
+      html.classList.add('landing-page');
+      html.style.overflow = '';
+      html.style.height = '';
       document.body.style.position = '';
       document.body.style.overflow = '';
       document.body.style.width = '';
       document.body.style.height = '';
-      if (root) {
-        root.style.overflow = 'auto';
-        root.style.height = 'auto';
-        root.style.position = 'relative';
-        root.setAttribute('data-page', 'landing');
-      }
-    }
-    return () => {
-      document.documentElement.style.overflow = '';
-      document.documentElement.style.height = '';
-      document.body.style.position = '';
-      document.body.style.overflow = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.bottom = '';
       if (root) {
         root.style.overflow = '';
         root.style.height = '';
-        root.removeAttribute('data-page');
+        root.style.position = '';
+        root.setAttribute('data-page', 'landing');
       }
+      // Force scroll to top when arriving on landing page
+      window.scrollTo(0, 0);
+    }
+
+    return () => {
+      // Cleanup: always remove the landing class on unmount
+      html.classList.remove('landing-page');
     };
   }, [currentPath]);
 

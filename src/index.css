@@ -11,22 +11,30 @@
 }
 
 /* ── LANDING PAGE SCROLL UNLOCK ────────────────────────────────────────────
-   The global rules below lock html/body/root for the dashboard (native app).
-   When the landing page is active, App.tsx adds data-page="landing" to root,
-   and these overrides restore normal scroll on ALL elements.
+   When on the landing page, App.tsx adds class "landing-page" to <html>.
+   These rules override the global lock rules below for the landing page only.
+   Using a class on <html> is the most reliable way — higher specificity than
+   the global rules, works on all browsers including Safari/iOS.
 ──────────────────────────────────────────────────────────────────────────── */
-#root[data-page="landing"],
-#root[data-page="landing"] ~ *,
-html:has(#root[data-page="landing"]),
-body:has(#root[data-page="landing"]) {
+html.landing-page,
+html.landing-page body,
+html.landing-page #root {
   overflow: visible !important;
   overflow-y: auto !important;
   position: static !important;
   height: auto !important;
   min-height: 100% !important;
+  width: 100% !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
 }
-#root[data-page="landing"] {
-  height: auto !important;
+html.landing-page body {
+  overscroll-behavior: auto !important;
+  -webkit-overflow-scrolling: auto !important;
+}
+html.landing-page #root {
   min-height: 100svh !important;
   overflow-y: auto !important;
 }
