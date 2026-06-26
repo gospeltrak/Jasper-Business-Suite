@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo, FormEvent, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Tenant, Product, ProductBatch } from '../types';
+import { isDemoTenant } from '../utils/tenantIsolation';
 import { 
   Plus, 
   Package, 
@@ -106,12 +107,16 @@ export default function DashboardProducts({
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
 
-  const [customBrands, setCustomBrands] = useState<ProductBrand[]>([
-    { name: 'Coca Cola', logo: '' },
-    { name: 'Nestle', logo: '' },
-    { name: 'Unilever', logo: '' },
-    { name: 'Jasper Foods', logo: '' },
-  ]);
+  const [customBrands, setCustomBrands] = useState<ProductBrand[]>(() => (
+    isDemoTenant(activeTenant.id)
+      ? [
+          { name: 'Coca Cola', logo: '' },
+          { name: 'Nestle', logo: '' },
+          { name: 'Unilever', logo: '' },
+          { name: 'Jasper Foods', logo: '' }
+        ]
+      : []
+  ));
   const [selectedBrandFilter, setSelectedBrandFilter] = useState<string | null>(null);
   const [newBrandName, setNewBrandName] = useState('');
   const [newBrandLogo, setNewBrandLogo] = useState('');
@@ -120,7 +125,7 @@ export default function DashboardProducts({
   const categoriesList = useMemo(() => {
     const defaultCats = systemSettings?.productForm?.categories && systemSettings.productForm.categories.length > 0
       ? systemSettings.productForm.categories
-      : ['Groceries', 'Beverages', 'Dairy', 'Cooking Oils', 'Household', 'Consumer Electronics', 'Apparel'];
+      : (isDemoTenant(activeTenant.id) ? ['Groceries', 'Beverages', 'Dairy', 'Cooking Oils', 'Household', 'Consumer Electronics', 'Apparel'] : []);
     const set = new Set(defaultCats);
     products.forEach(p => {
       if (p.category) set.add(p.category);
@@ -132,7 +137,7 @@ export default function DashboardProducts({
   const unitsList = useMemo(() => {
     return systemSettings?.productForm?.units && systemSettings.productForm.units.length > 0
       ? systemSettings.productForm.units
-      : ['Pcs', 'Kgs', 'Ltrs', 'Boxes', 'Cartons'];
+      : (isDemoTenant(activeTenant.id) ? ['Pcs', 'Kgs', 'Ltrs', 'Boxes', 'Cartons'] : []);
   }, [systemSettings]);
 
   // Self-healing, reactive list of brands that merges pre-loaded product brands and custom registered brands

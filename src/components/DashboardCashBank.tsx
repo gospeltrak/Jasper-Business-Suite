@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Tenant, Sale, Expense, PaymentChannel, LedgerEntry, User as AppUser } from '../types';
+import { isDemoTenant } from '../utils/tenantIsolation';
 import { 
   Landmark, 
   Wallet, 
@@ -46,6 +47,7 @@ export default function DashboardCashBank({
   deliveries = [],
   user
 }: DashboardCashBankProps) {
+  const hasDemoSeedData = isDemoTenant(activeTenant.id);
   // Date interval settings state with user-friendly names
   const [datePreset, setDatePreset] = useState<'today' | '1week' | '1month' | 'custom'>('1month');
   // Mobile-only section tabs
@@ -133,7 +135,7 @@ export default function DashboardCashBank({
         console.error("Failed to parse cached channels", e);
       }
     }
-    return defaultBaseChannels;
+    return hasDemoSeedData ? defaultBaseChannels : [];
   });
 
   // Custom accounts form states
@@ -153,8 +155,8 @@ export default function DashboardCashBank({
 
   // Funds transfer form states
   const [settleAmount, setSettleAmount] = useState<string>('');
-  const [settleSource, setSettleSource] = useState<string>('counter-01');
-  const [settleTarget, setSettleTarget] = useState<string>('crdb-corporate');
+  const [settleSource, setSettleSource] = useState<string>(() => hasDemoSeedData ? 'counter-01' : '');
+  const [settleTarget, setSettleTarget] = useState<string>(() => hasDemoSeedData ? 'crdb-corporate' : '');
   const [settleMemo, setSettleMemo] = useState<string>('');
   const [attachedReceiptName, setAttachedReceiptName] = useState<string>('');
   const [attachedMuamalaName, setAttachedMuamalaName] = useState<string>('');
@@ -194,7 +196,7 @@ export default function DashboardCashBank({
       { id: 'initial-safe', channelId: 'office-safe', amount: 2500000, desc: 'Starting reserve cash inside lock safe' }
     ];
 
-    seedBalances.forEach(seed => {
+    (hasDemoSeedData ? seedBalances : []).forEach(seed => {
       generated.push({
         id: seed.id,
         tenantId: activeTenant.id,

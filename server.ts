@@ -12,12 +12,14 @@ dotenv.config();
 // This ensures that the Suppabase keys are strictly kept on the server.
 let supabaseAdmin: ReturnType<typeof createClient> | null = null;
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
-if (supabaseUrl && supabaseKey) {
-  supabaseAdmin = createClient(supabaseUrl, supabaseKey);
-  console.log('[Server] Supabase connected successfully on backend.');
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (supabaseUrl && supabaseServiceRoleKey) {
+  supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+  console.log('[Server] Supabase service client connected successfully on backend.');
 } else {
-  console.warn('[Server] Supabase credentials missing. Ensure SUPABASE_URL and SUPABASE_ANON_KEY are set.');
+  console.warn('[Server] Supabase service client unavailable. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
 }
 
 // Helper for local inventory forecast fallback when API is busy or offline
@@ -408,7 +410,7 @@ async function startServer() {
       return res.status(503).json({ error: 'Supabase backend client is not configured' });
     }
     
-    const { email, password, name, businessName } = req.body;
+    const { email, password, name, businessName, phone, country, city, currency, currencyCode, taxRate, businessType } = req.body;
     
     if (!email || !password || !name || !businessName) {
       return res.status(400).json({ error: 'Missing required registration fields' });
@@ -421,6 +423,7 @@ async function startServer() {
         email,
         password,
         email_confirm: true,
+        user_metadata: { full_name: name, phone: phone || '' }
       });
 
       if (authError || !authData.user) {
@@ -434,12 +437,18 @@ async function startServer() {
         .from('tenants')
         .insert({
           name: businessName,
-          country: 'TZ', // Default example
-          currency: 'TZS',
-          currency_code: 'TSh',
-          tax_rate: 0.18, 
+          country: country || 'Tanzania',
+          city: city || '',
+          currency: currency || 'TSh',
+          currency_code: currencyCode || 'TZS',
+          tax_rate: Number.isFinite(taxRate) ? taxRate : 0,
+          business_type: businessType || 'retail',
+          mobile_money_providers: [],
+          company_settings: {},
+          business_settings: {},
+          invoice_settings: {}
         } as any)
-        .select('id')
+        .select('id, name, country, city, currency, currency_code, tax_rate, business_type')
         .single();
 
       if (tenantError || !tenantData) {
@@ -457,12 +466,13 @@ async function startServer() {
           active_tenant: (tenantData as any).id,
           email,
           name,
+          phone: phone || '',
           role: 'Admin', // The creator of the business is the Admin
           is_saas_staff: false
         } as any);
 
       if (userError) {
-        // Rollback
+        await supabaseAdmin.from('tenants').delete().eq('id', (tenantData as any).id);
         await supabaseAdmin.auth.admin.deleteUser(authUserId);
         throw new Error(userError.message || 'Failed to link user profile');
       }
@@ -472,7 +482,18 @@ async function startServer() {
         success: true, 
         message: 'Account provisioned successfully',
         userId: authUserId,
-        tenantId: (tenantData as any).id
+        tenantId: (tenantData as any).id,
+        tenant: {
+          id: (tenantData as any).id,
+          name: (tenantData as any).name,
+          country: (tenantData as any).country,
+          city: (tenantData as any).city || '',
+          currency: (tenantData as any).currency,
+          currencyCode: (tenantData as any).currency_code,
+          taxRate: Number((tenantData as any).tax_rate || 0),
+          mobileMoneyProviders: [],
+          businessType: (tenantData as any).business_type || 'retail'
+        }
       });
       
     } catch (err: any) {

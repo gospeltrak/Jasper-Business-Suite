@@ -26,6 +26,7 @@ import {
 import { DEMO_USERS, DEFAULT_TENANTS } from '../data';
 import { User, Tenant } from '../types';
 import { getDynamicSupabaseClient } from '../supabaseClient';
+import { initializeCleanTenantWorkspace } from '../utils/tenantIsolation';
 
 declare global {
   interface Window {
@@ -981,78 +982,40 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     const ownerAuthEmail = regEmail.includes('@')
       ? regEmail.trim()
       : makeInternalEmailFromPhone(regEmail) || makeInternalEmailFromBusiness(orgName, ownerName);
+    const currencyMapping = {
+      'Nigeria': { symbol: '₦', code: 'NGN', tax: 0.075 },
+      'Kenya': { symbol: 'KSh', code: 'KES', tax: 0.16 },
+      'Ghana': { symbol: 'GH₵', code: 'GHS', tax: 0.15 },
+      'South Africa': { symbol: 'R', code: 'ZAR', tax: 0.15 },
+      'Tanzania': { symbol: 'TSh', code: 'TZS', tax: 0.18 }
+    } as const;
+    const mappedCurrency = currencyMapping[country] || currencyMapping.Tanzania;
 
     try {
-      const client: any = await getDynamicSupabaseClient();
-      
-      // Step 1: Fix the signup function:
-      // supabase.auth.signUp({ email, password })
-      const { data: authData, error: authError } = await client.auth.signUp({
-        email: ownerAuthEmail,
-        password: regPassword,
-        options: {
-          data: {
-            full_name: ownerName,
-            phone: cleanOwnerPhone || regEmail.trim()
-          }
-        }
-      });
-
-      if (authError) {
-        throw authError;
-      }
-
-      if (!authData?.user) {
-        throw new Error('Registration failed: no user object returned from Supabase Auth');
-      }
-
-      const authUserId = authData.user.id;
-
-      // Step A: Create a new tenant for this business
-      const { data: newTenant, error: tenantError } = await client
-        .from('tenants')
-        .insert({
-          name: orgName, // from signup form
-          country: country || 'Tanzania',
-          city: city || 'Dar es Salaam',
-          currency: 'Tanzanian Shilling',
-          currency_code: 'TZS',
-          tax_rate: 0.18,
-          mobile_money_providers: [],
-          business_type: businessType || 'Retail',
-          company_settings: { logo_url: null, theme: 'default' },
-          business_settings: { allow_negative_stock: false, default_unit: 'pcs' },
-          invoice_settings: { show_tax: true, footer_note: 'Thank you for your business' }
-        })
-        .select()
-        .single();
-
-      if (tenantError) {
-        throw tenantError;
-      }
-
-      if (!newTenant) {
-        throw new Error('Tenant registration failed: no tenant row was returned.');
-      }
-
-      // Step B: Create user row in public users table
-      const { error: userError } = await client
-        .from('users')
-        .insert({
-          id: authUserId, // SAME UUID as auth.users
+      const registrationResponse = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           email: ownerAuthEmail,
-          name: ownerName, // from signup form
-          role: 'Admin', // first user of a new tenant is always Admin
-          tenant_id: newTenant.id,
-          active_tenant: newTenant.id,
+          password: regPassword,
+          name: ownerName,
+          businessName: orgName,
           phone: cleanOwnerPhone || regEmail.trim(),
-          is_duress: false,
-          is_saas_staff: false
-        });
-
-      if (userError) {
-        throw userError;
+          country,
+          city,
+          currency: mappedCurrency.symbol,
+          currencyCode: mappedCurrency.code,
+          taxRate: mappedCurrency.tax,
+          businessType
+        })
+      });
+      const registration = await registrationResponse.json();
+      if (!registrationResponse.ok || !registration?.tenant || !registration?.userId) {
+        throw new Error(registration?.error || 'Secure account provisioning is unavailable.');
       }
+
+      const newTenant = registration.tenant as Tenant;
+      const authUserId = registration.userId as string;
 
       // Store response variables
       const registeredUser: User = {
@@ -1073,6 +1036,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       // Store custom tenants dynamically in localStorage
       const savedCustomTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
       localStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, newTenant]));
+      initializeCleanTenantWorkspace(newTenant);
 
       // Store custom users dynamically in localStorage
       const savedCustomUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
@@ -1092,16 +1056,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     } catch (err: any) {
       console.warn('[Supabase Registration Flow Error, falling back gracefully]:', err);
       try {
-        const currencyMapping = {
-          'Nigeria': { symbol: '₦', code: 'NGN', tax: 0.075 },
-          'Kenya': { symbol: 'KSh', code: 'KES', tax: 0.16 },
-          'Ghana': { symbol: 'GH₵', code: 'GHS', tax: 0.15 },
-          'South Africa': { symbol: 'R', code: 'ZAR', tax: 0.15 },
-          'Tanzania': { symbol: 'TSh', code: 'TZS', tax: 0.18 }
-        } as const;
-
-        const mappedCurrency = currencyMapping[country] || currencyMapping['Tanzania'];
-        const newTenantId = 't-dyn-' + Math.floor(100 + Math.random() * 900);
+        const newTenantId = `t-dyn-${crypto.randomUUID()}`;
 
         const newTenant: Tenant = {
           id: newTenantId,
@@ -1111,7 +1066,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           currency: mappedCurrency.symbol,
           currencyCode: mappedCurrency.code,
           taxRate: mappedCurrency.tax,
-          mobileMoneyProviders: country === 'Kenya' ? ['M-Pesa', 'Airtel Money'] : ['MTN MoMo'],
+          mobileMoneyProviders: [],
           businessType: businessType
         };
 
@@ -1141,6 +1096,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         // Store custom tenants dynamically in localStorage
         const savedCustomTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
         localStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, newTenant]));
+        initializeCleanTenantWorkspace(newTenant);
 
         // Store custom users dynamically in localStorage
         const savedCustomUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');

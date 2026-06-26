@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, FormEvent } from 'react';
 import { Sale, Tenant, SaleItem, Product, SystemSettings, SalesDocument, User as AppUser } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatSaleItemQuantity } from '../utils/unitFormatter';
+import { isDemoTenant } from '../utils/tenantIsolation';
 import { 
   Search, 
   Calendar, 
@@ -254,7 +255,8 @@ export default function DashboardSalesList({
         return [];
       }
     }
-    // Default initial mock documents
+    if (!isDemoTenant(activeTenant.id)) return [];
+    // Demo tenants retain their example documents; provisioned tenants never receive them.
     const defaultDocs: SalesDocument[] = [
       {
         id: 'doc-qt-001',
@@ -315,7 +317,7 @@ export default function DashboardSalesList({
         // ignore
       }
     }
-    return DEFAULT_SETTLEMENTS;
+    return isDemoTenant(activeTenant.id) ? DEFAULT_SETTLEMENTS : [];
   });
 
   useEffect(() => {

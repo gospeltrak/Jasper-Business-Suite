@@ -36,6 +36,7 @@ import SuperSaaSAdminView from './SuperSaaSAdminView';
 import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
 import { savePendingSaleOffline, clearPendingSales } from '../utils/offlineDb';
+import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
 import { 
   getSubscriptionState, 
@@ -176,6 +177,43 @@ const loadStoredRecord = <T,>(key: string, fallback: Record<string, T[]>): Recor
     console.warn(`Failed to load ${key} from local storage`, error);
     return fallback;
   }
+};
+
+const getInitialSystemSettings = (tenant: Tenant): SystemSettings => {
+  if (!isDemoTenant(tenant.id)) return createCleanTenantSettings(tenant);
+
+  return {
+    company: {
+      companyName: tenant.name,
+      usernameKey: tenant.id,
+      phone: tenant.id === 't-lagos-01' ? '+234 803 444 5555' : '+254 722 000 111',
+      email: 'info@jasper-wholesale.com',
+      address: `${tenant.city}, ${tenant.country}`,
+      tin: 'TIN-492942-A',
+      vat: 'VAT-492040-B',
+      currency: tenant.currency,
+      timezone: tenant.currencyCode === 'KES' ? 'EAT' : 'WAT',
+      logo: '',
+      themeMode: 'light'
+    },
+    business: {
+      businessName: tenant.name,
+      businessPhone: tenant.id === 't-lagos-01' ? '+234 803 444 5555' : '+254 722 000 111',
+      businessAddress: `${tenant.city}, ${tenant.country}`,
+      businessLogo: '',
+      paymentModes: ['Cash', 'Card', 'M-Pesa', 'MTN MoMo', 'Paystack', 'Bank Transfer'],
+      registeredStores: ['Main Store', 'In-Shelf Store', 'Backroom Storage']
+    },
+    productStore: {
+      categories: ['Groceries', 'Beverages', 'Electronics', 'Pharmaceuticals', 'Personal Care', 'Homeware'],
+      units: ['pcs', 'kg', 'litres', 'box', 'bottle', 'dozen', 'meters']
+    },
+    staffs: [
+      { id: 'st-01', name: 'John Mwangi', phone: '+254 722 123 456', role: 'Seller', salary: 35000, password: 'password123' },
+      { id: 'st-02', name: 'Babajide Cole', phone: '+234 802 111 2222', role: 'Delivery Rider / Permanent Driver', salary: 45000, password: 'password123' },
+      { id: 'st-03', name: 'Kofi Mensah', phone: '+233 244 888 999', role: 'Cashier', salary: 50000, password: 'password123' }
+    ]
+  };
 };
 
 export default function Dashboard({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab }: DashboardProps) {
@@ -471,38 +509,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         // Fallback below
       }
     }
-    return {
-      company: {
-        companyName: activeTenant.name,
-        usernameKey: activeTenant.id,
-        phone: activeTenant.id === 't-lagos-01' ? '+234 803 444 5555' : '+254 722 000 111',
-        email: 'info@jasper-wholesale.com',
-        address: `${activeTenant.city}, ${activeTenant.country}`,
-        tin: 'TIN-492942-A',
-        vat: 'VAT-492040-B',
-        currency: activeTenant.currency,
-        timezone: activeTenant.currencyCode === 'KES' ? 'EAT' : 'WAT',
-        logo: '',
-        themeMode: 'light'
-      },
-      business: {
-        businessName: activeTenant.name,
-        businessPhone: activeTenant.id === 't-lagos-01' ? '+234 803 444 5555' : '+254 722 000 111',
-        businessAddress: `${activeTenant.city}, ${activeTenant.country}`,
-        businessLogo: '',
-        paymentModes: ['Cash', 'Card', 'M-Pesa', 'MTN MoMo', 'Paystack', 'Bank Transfer'],
-        registeredStores: ['Main Store', 'In-Shelf Store', 'Backroom Storage']
-      },
-      productStore: {
-        categories: ['Groceries', 'Beverages', 'Electronics', 'Pharmaceuticals', 'Personal Care', 'Homeware'],
-        units: ['pcs', 'kg', 'litres', 'box', 'bottle', 'dozen', 'meters']
-      },
-      staffs: [
-        { id: 'st-01', name: 'John Mwangi', phone: '+254 722 123 456', role: 'Seller', salary: 35000, password: 'password123' },
-        { id: 'st-02', name: 'Babajide Cole', phone: '+234 802 111 2222', role: 'Delivery Rider / Permanent Driver', salary: 45000, password: 'password123' },
-        { id: 'st-03', name: 'Kofi Mensah', phone: '+233 244 888 999', role: 'Cashier', salary: 50000, password: 'password123' }
-      ]
-    };
+    return getInitialSystemSettings(activeTenant);
   });
 
   const [preloadedCart, setPreloadedCart] = useState<{
@@ -531,38 +538,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         // Fallback
       }
     } else {
-      const freshDefaults: SystemSettings = {
-        company: {
-          companyName: activeTenant.name,
-          usernameKey: activeTenant.id,
-          phone: activeTenant.id === 't-lagos-01' ? '+234 803 444 5555' : '+254 722 000 111',
-          email: 'info@jasper-wholesale.com',
-          address: `${activeTenant.city}, ${activeTenant.country}`,
-          tin: 'TIN-492942-A',
-          vat: 'VAT-492040-B',
-          currency: activeTenant.currency,
-          timezone: activeTenant.currencyCode === 'KES' ? 'EAT' : 'WAT',
-          logo: '',
-          themeMode: 'light'
-        },
-        business: {
-          businessName: activeTenant.name,
-          businessPhone: activeTenant.id === 't-lagos-01' ? '+234 803 444 5555' : '+254 722 000 111',
-          businessAddress: `${activeTenant.city}, ${activeTenant.country}`,
-          businessLogo: '',
-          paymentModes: ['Cash', 'Card', 'M-Pesa', 'MTN MoMo', 'Paystack', 'Bank Transfer'],
-          registeredStores: ['Main Store', 'In-Shelf Store', 'Backroom Storage']
-        },
-        productStore: {
-          categories: ['Groceries', 'Beverages', 'Electronics', 'Pharmaceuticals', 'Personal Care', 'Homeware'],
-          units: ['pcs', 'kg', 'litres', 'box', 'bottle', 'dozen', 'meters']
-        },
-        staffs: [
-          { id: 'st-01', name: 'John Mwangi', phone: '+254 722 123 456', role: 'Seller', salary: 35000, password: 'password123' },
-          { id: 'st-02', name: 'Babajide Cole', phone: '+234 802 111 2222', role: 'Delivery Rider / Permanent Driver', salary: 45000, password: 'password123' },
-          { id: 'st-03', name: 'Kofi Mensah', phone: '+233 244 888 999', role: 'Cashier', salary: 50000, password: 'password123' }
-        ]
-      };
+      const freshDefaults = getInitialSystemSettings(activeTenant);
       setSystemSettings(freshDefaults);
       document.documentElement.classList.remove('dark');
     }
@@ -2785,4 +2761,3 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     </div>
   );
 }
-

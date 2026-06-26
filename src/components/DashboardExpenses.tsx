@@ -38,6 +38,7 @@ import {
   CartesianGrid 
 } from 'recharts';
 import { Tenant, Expense, Product, Sale } from '../types';
+import { isDemoTenant } from '../utils/tenantIsolation';
 
 interface DashboardExpensesProps {
   activeTenant: Tenant;
@@ -83,15 +84,9 @@ export default function DashboardExpenses({
         console.warn("Failed loading custom expense categories:", err);
       }
     }
-    return [
-      'Utilities & Power',
-      'Wages & Salary',
-      'Logistics & Transport',
-      'Packaging Materials',
-      'Rent & Logistics',
-      'Marketing & Ads',
-      'Miscellaneous'
-    ];
+    return isDemoTenant(activeTenant.id)
+      ? ['Utilities & Power', 'Wages & Salary', 'Logistics & Transport', 'Packaging Materials', 'Rent & Logistics', 'Marketing & Ads', 'Miscellaneous']
+      : [];
   });
 
   // State for adding a new category
