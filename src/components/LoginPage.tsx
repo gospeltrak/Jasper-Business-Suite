@@ -583,21 +583,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       return;
     }
 
-    setIsLoading(true);
-    setTimeout(() => {
-      const combinedUsers = getAllSystemUsers();
-      const match = combinedUsers.find(
-        (u: any) => sameLoginIdentifier(u.phone, email) || sameLoginIdentifier(u.email, email)
-      );
-
-      setIsLoading(false);
-      if (match) {
-        setEmailChecked(true);
-        setError(null);
-      } else {
-        setError('No account found with this credential. Please Register to start your free trial.');
-      }
-    }, 450);
+    // Do not query a public account directory before authentication. It leaks
+    // account existence and blocks real Supabase-only users such as Super Admin.
+    setEmailChecked(true);
   };
 
   const handleOnboardingSubmit = async (e: FormEvent) => {
@@ -848,7 +836,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           .eq('id', authData.user.id)
           .single();
 
-        if (profileError || !userProfile || !userProfile.tenant_id) {
+        const isPlatformAdmin = userProfile?.account_type === 'super_admin' ||
+          ['superadmin', 'super_admin'].includes(String(userProfile?.role_key || userProfile?.role || '').toLowerCase());
+        if (profileError || !userProfile || (!userProfile.tenant_id && !isPlatformAdmin)) {
           // No user profile profile/tenant exists yet. Redirect to onboarding form
           triggerOnLoginWithSplash({
             id: authData.user.id,
@@ -875,9 +865,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           id: userProfile.id,
           email: userProfile.email,
           name: userProfile.name,
-          role: userProfile.role || 'Admin',
-          tenantId: userProfile.tenant_id,
-          activeTenant: userProfile.active_tenant || userProfile.tenant_id,
+          role: isPlatformAdmin ? 'SuperAdmin' : (userProfile.role || 'Admin'),
+          tenantId: userProfile.tenant_id || 'platform-control',
+          activeTenant: userProfile.active_tenant || userProfile.tenant_id || 'platform-control',
           phone: userProfile.phone || null,
           is_saas_staff: userProfile.is_saas_staff || false,
         });

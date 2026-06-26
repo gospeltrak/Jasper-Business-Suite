@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 
 import SaaSUserDesk from './SaaSUserDesk';
-import SaaSAffiliateDesk from './SaaSAffiliateDesk';
+import SuperAffiliateControlCenter from './SuperAffiliateControlCenter';
 import Dashboard from './Dashboard';
 import { User } from '../types';
 import SaaSStatusAndRequests from './SaaSStatusAndRequests';
@@ -627,7 +627,7 @@ export default function SuperSaaSAdminView({
         {/* ======================= TAB 2: AFFILIATE DESK ======================= */}
         {activeTab === 'affiliates' && (
           <div className="space-y-6 animate-fade-in text-left">
-            <SaaSAffiliateDesk isUnlocked={isUnlocked} onLock={() => setIsUnlocked(false)} />
+            <SuperAffiliateControlCenter />
           </div>
         )}
 
