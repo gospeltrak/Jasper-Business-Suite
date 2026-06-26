@@ -300,7 +300,10 @@ export default function App() {
   // Allow landing page to scroll — toggle class on <html> element per route
   useEffect(() => {
     const isDashboard = isDashboardRoute(currentPath)
-      || currentPath === '/login'
+      || currentPath === '/login';
+
+    // Affiliate and partner portals are full web pages — they need to scroll
+    const isScrollablePage = currentPath === '/'
       || currentPath.startsWith('/affiliate')
       || currentPath.startsWith('/partner');
 
@@ -321,8 +324,8 @@ export default function App() {
         root.style.height = '100dvh';
         root.removeAttribute('data-page');
       }
-    } else {
-      // Landing page — add class to <html>, clear all inline locks
+    } else if (isScrollablePage) {
+      // Landing / Affiliate / Partner — fully scrollable web pages
       html.classList.add('landing-page');
       html.style.overflow = '';
       html.style.height = '';
@@ -340,12 +343,10 @@ export default function App() {
         root.style.position = '';
         root.setAttribute('data-page', 'landing');
       }
-      // Force scroll to top when arriving on landing page
       window.scrollTo(0, 0);
     }
 
     return () => {
-      // Cleanup: always remove the landing class on unmount
       html.classList.remove('landing-page');
     };
   }, [currentPath]);
