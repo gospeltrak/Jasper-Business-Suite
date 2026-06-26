@@ -2272,6 +2272,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               expenses={activeExpenses}
               deliveries={deliveriesMap[activeTenant.id] || []}
               user={user}
+              systemSettings={systemSettings}
+              onUpdateSystemSettings={(updated) => {
+                setSystemSettings(updated);
+                localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
+              }}
             />
           )}
 

@@ -487,6 +487,7 @@ export interface SystemSettings {
   posSettings?: {
     showProductImages: boolean;
   };
+  paymentChannels?: PaymentChannel[]; // persisted bank/mobile/cash accounts
 }
 
 export interface SalesDocument {

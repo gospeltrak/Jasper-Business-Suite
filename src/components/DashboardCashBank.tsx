@@ -38,6 +38,8 @@ interface DashboardCashBankProps {
   expenses: Expense[];
   deliveries?: any[];
   user?: AppUser;
+  systemSettings?: any;
+  onUpdateSystemSettings?: (updated: any) => void;
 }
 
 export default function DashboardCashBank({ 
@@ -45,13 +47,35 @@ export default function DashboardCashBank({
   sales, 
   expenses,
   deliveries = [],
-  user
+  user,
+  systemSettings,
+  onUpdateSystemSettings
 }: DashboardCashBankProps) {
   const hasDemoSeedData = isDemoTenant(activeTenant.id);
   // Date interval settings state with user-friendly names
   const [datePreset, setDatePreset] = useState<'today' | '1week' | '1month' | 'custom'>('1month');
   // Mobile-only section tabs
   const [mobileSectionTab, setMobileSectionTab] = useState<'overview' | 'accounts' | 'transfer' | 'audit'>('overview');
+
+  // On mount: migrate any existing channels from dedicated localStorage key into systemSettings
+  // This ensures existing user data is not lost when moving to new persistence model
+  useEffect(() => {
+    if (!onUpdateSystemSettings || !systemSettings) return;
+    // Only migrate if systemSettings doesn't already have channels saved
+    if (systemSettings.paymentChannels && systemSettings.paymentChannels.length > 0) return;
+    const cached = localStorage.getItem(`jasper_channels_${activeTenant.id}`);
+    if (!cached) return;
+    try {
+      const parsed = JSON.parse(cached);
+      if (parsed && parsed.length > 0) {
+        // Migrate: save channels into systemSettings
+        const updatedSettings = { ...systemSettings, paymentChannels: parsed };
+        onUpdateSystemSettings(updatedSettings);
+        localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updatedSettings));
+      }
+    } catch (e) { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   // Helpers to get dates
   const getTodayRange = () => {
@@ -127,10 +151,16 @@ export default function DashboardCashBank({
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
   
   const [channels, setChannels] = useState<PaymentChannel[]>(() => {
+    // Priority 1: systemSettings.paymentChannels (most reliable — synced with all other settings)
+    if (systemSettings?.paymentChannels && systemSettings.paymentChannels.length > 0) {
+      return systemSettings.paymentChannels;
+    }
+    // Priority 2: dedicated localStorage key (backward compat)
     const cached = localStorage.getItem(`jasper_channels_${activeTenant.id}`);
     if (cached) {
       try {
-        return JSON.parse(cached);
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.length > 0) return parsed;
       } catch (e) {
         console.error("Failed to parse cached channels", e);
       }
@@ -451,7 +481,14 @@ export default function DashboardCashBank({
 
     const updated = [...channels, newChan];
     setChannels(updated);
+    // Save to dedicated localStorage key (for fast init)
     localStorage.setItem(`jasper_channels_${activeTenant.id}`, JSON.stringify(updated));
+    // ALSO save to systemSettings so channels persist reliably across sessions
+    if (onUpdateSystemSettings && systemSettings) {
+      const updatedSettings = { ...systemSettings, paymentChannels: updated };
+      onUpdateSystemSettings(updatedSettings);
+      localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updatedSettings));
+    }
 
     // Autofill transfer fields with this brand new target account
     setSettleTarget(newChanId);
