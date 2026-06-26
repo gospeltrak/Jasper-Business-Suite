@@ -404,13 +404,81 @@ async function startServer() {
     });
   });
 
+  // Affiliate registration is deliberately server-side: browser clients never
+  // receive the service role and cannot create a profile for another account.
+  app.post('/api/affiliate/register', async (req, res) => {
+    if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase backend client is not configured' });
+
+    const { name, phone, password, payoutMethod, referralCode } = req.body || {};
+    const normalizedPhone = String(phone || '').replace(/\D/g, '');
+    const normalizedCode = String(referralCode || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+    if (!name?.trim() || normalizedPhone.length < 8 || String(password || '').length < 8 || !normalizedCode) {
+      return res.status(400).json({ error: 'Name, phone, password (8+ characters), and referral code are required.' });
+    }
+
+    const authEmail = `affiliate-${normalizedPhone}@jasper.local`;
+    try {
+      const { data: existingCode } = await supabaseAdmin
+        .from('affiliates')
+        .select('id')
+        .eq('referral_code', normalizedCode)
+        .maybeSingle();
+      if (existingCode) return res.status(409).json({ error: 'This referral code is already in use.' });
+
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: authEmail,
+        password: String(password),
+        email_confirm: true,
+        user_metadata: { full_name: String(name).trim(), phone: normalizedPhone, account_type: 'affiliate' },
+      });
+      if (authError || !authData.user) throw new Error(authError?.message || 'Unable to create affiliate account.');
+
+      const userId = authData.user.id;
+      const { error: userError } = await supabaseAdmin.from('users').insert({
+        id: userId,
+        email: authEmail,
+        name: String(name).trim(),
+        phone: normalizedPhone,
+        role: 'Affiliate',
+        account_type: 'affiliate',
+        username_phone: normalizedPhone,
+        role_key: 'affiliate',
+        role_permissions: {},
+        is_active: true,
+      });
+      if (userError) {
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+        throw userError;
+      }
+
+      const referralSlug = normalizedCode.toLowerCase().replace(/_/g, '-');
+      const { data: affiliate, error: affiliateError } = await supabaseAdmin.from('affiliates').insert({
+        user_id: userId,
+        display_name: String(name).trim(),
+        referral_code: normalizedCode,
+        referral_slug: referralSlug,
+        payout_method: payoutMethod || null,
+        payout_account: normalizedPhone,
+      }).select('id, display_name, referral_code').single();
+      if (affiliateError) {
+        await supabaseAdmin.from('users').delete().eq('id', userId);
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+        throw affiliateError;
+      }
+
+      return res.status(201).json({ affiliate, authEmail });
+    } catch (error: any) {
+      return res.status(400).json({ error: error?.message || 'Affiliate registration failed.' });
+    }
+  });
+
   // SaaS Tenant & User Registration Setup Endpoint
   app.post('/api/auth/register', async (req, res) => {
     if (!supabaseAdmin) {
       return res.status(503).json({ error: 'Supabase backend client is not configured' });
     }
     
-    const { email, password, name, businessName, phone, country, city, currency, currencyCode, taxRate, businessType } = req.body;
+    const { email, password, name, businessName, phone, country, city, currency, currencyCode, taxRate, businessType, referralCode } = req.body;
     
     if (!email || !password || !name || !businessName) {
       return res.status(400).json({ error: 'Missing required registration fields' });
@@ -475,6 +543,28 @@ async function startServer() {
         await supabaseAdmin.from('tenants').delete().eq('id', (tenantData as any).id);
         await supabaseAdmin.auth.admin.deleteUser(authUserId);
         throw new Error(userError.message || 'Failed to link user profile');
+      }
+
+      // Attribute a business registration to a real affiliate when a valid
+      // referral code is present. Unknown codes never create a fake ledger row.
+      const normalizedReferralCode = String(referralCode || '').trim().toUpperCase();
+      if (normalizedReferralCode) {
+        const { data: affiliate } = await supabaseAdmin
+          .from('affiliates')
+          .select('id')
+          .eq('referral_code', normalizedReferralCode)
+          .maybeSingle();
+        if (affiliate?.id) {
+          await supabaseAdmin.from('affiliate_referrals').insert({
+            affiliate_id: affiliate.id,
+            referral_code: normalizedReferralCode,
+            registered_tenant_id: (tenantData as any).id,
+            registered_user_id: authUserId,
+            status: 'registered',
+            source: 'business_registration',
+            registered_at: new Date().toISOString(),
+          });
+        }
       }
 
       // Done.

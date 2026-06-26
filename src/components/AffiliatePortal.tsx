@@ -44,6 +44,10 @@ import {
 } from "lucide-react";
 import SaaSHardwarePOS from "./SaaSHardwarePOS";
 import SaaSHardwareInventory from "./SaaSHardwareInventory";
+import AffiliateWorkspace from "./affiliate/AffiliateWorkspace";
+import AffiliateAgentDesk from "./affiliate/AffiliateAgentDesk";
+import { loadAffiliateAgentWorkspace, loadAffiliateWorkspace } from "../utils/affiliateWorkspace";
+import { getDynamicSupabaseClient } from "../supabaseClient";
 import { useTranslation } from "../LanguageContext";
 import {
   getTermsTitle,
@@ -110,6 +114,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [activeAffiliate, setActiveAffiliate] = useState<Affiliate | null>(
     null,
   );
+  const [databaseWorkspaceEnabled, setDatabaseWorkspaceEnabled] = useState(false);
+  const [databaseAgentWorkspaceEnabled, setDatabaseAgentWorkspaceEnabled] = useState(false);
   const [isEditingPromo, setIsEditingPromo] = useState(false);
   const [newPromoInput, setNewPromoInput] = useState("");
   const [activeCreativeTab, setActiveCreativeTab] = useState<string>("flyer");
@@ -157,6 +163,43 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     } catch (e) {
       console.error("Failed to parse URL query arguments", e);
     }
+  }, []);
+
+  useEffect(() => {
+    if (forcedRole !== 'partner') return;
+    let cancelled = false;
+    loadAffiliateAgentWorkspace()
+      .then((workspace) => {
+        if (cancelled || !workspace?.affiliates.length) return;
+        setDatabaseAgentWorkspaceEnabled(true);
+        setAuthMode('dashboard');
+      })
+      .catch(() => {
+        if (!cancelled) setDatabaseAgentWorkspaceEnabled(false);
+      });
+    return () => { cancelled = true; };
+  }, [forcedRole]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadAffiliateWorkspace()
+      .then((workspace) => {
+        if (cancelled || !workspace) return;
+        setActiveAffiliate({
+          id: workspace.profile.id,
+          name: workspace.profile.display_name,
+          email: '',
+          phone: workspace.profile.payout_account || '',
+          paymentMethod: workspace.profile.payout_method || 'm-pesa',
+          promoCode: workspace.profile.referral_code,
+        });
+        setDatabaseWorkspaceEnabled(true);
+        setAuthMode('dashboard');
+      })
+      .catch(() => {
+        if (!cancelled) setDatabaseWorkspaceEnabled(false);
+      });
+    return () => { cancelled = true; };
   }, []);
 
   // Clipboards feedback tracking
@@ -774,6 +817,33 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       return;
     }
 
+    const registeredName = `${firstName.trim()} ${secondName.trim()}`;
+    const generatedReferralCode = `${firstName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_${secondName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_JAR_${Math.floor(100 + Math.random() * 900)}`;
+    void (async () => {
+      try {
+        const response = await fetch('/api/affiliate/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: registeredName,
+            phone,
+            password,
+            payoutMethod: paymentMethod,
+            referralCode: generatedReferralCode,
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Affiliate registration failed.');
+        setLoginEmail(phone);
+        setLoginPassword('');
+        setAuthMode('login');
+        alert('Your affiliate account is ready. Sign in with your payout phone number and password.');
+      } catch (registrationError: any) {
+        alert(registrationError?.message || 'Affiliate registration failed.');
+      }
+    })();
+    return;
+
     const name = `${firstName.trim()} ${secondName.trim()}`;
     const email = `${firstName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}.${secondName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}${Math.floor(100 + Math.random() * 900)}@jasper-affiliate.com`;
     const cleanCode = `${firstName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_${secondName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_JAR_${Math.floor(100 + Math.random() * 900)}`;
@@ -919,10 +989,55 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     setAuthMode("dashboard");
   };
 
-  const handleLoginAffiliate = (e: any) => {
+  const handleLoginAffiliate = async (e: any) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) {
       alert("Please enter your email and password");
+      return;
+    }
+
+    try {
+      const client: any = await getDynamicSupabaseClient();
+      const normalizedLogin = loginEmail.trim();
+      const authEmail = normalizedLogin.includes('@')
+        ? normalizedLogin
+        : `affiliate-${normalizedLogin.replace(/\D/g, '')}@jasper.local`;
+      const { data: authData, error: authError } = await client.auth.signInWithPassword({
+        email: authEmail,
+        password: loginPassword,
+      });
+      if (authError || !authData?.user) {
+        throw new Error(authError?.message || 'Sign in failed.');
+      }
+
+      if (portalRole === 'partner') {
+        const agentWorkspace = await loadAffiliateAgentWorkspace();
+        if (agentWorkspace?.affiliates.length) {
+          setDatabaseAgentWorkspaceEnabled(true);
+          setAuthMode('dashboard');
+          return;
+        }
+      }
+
+      const workspace = await loadAffiliateWorkspace();
+      if (!workspace) {
+        await client.auth.signOut();
+        throw new Error('This account is not registered as an active affiliate.');
+      }
+
+      setActiveAffiliate({
+        id: workspace.profile.id,
+        name: workspace.profile.display_name,
+        email: authData.user.email || '',
+        phone: workspace.profile.payout_account || '',
+        paymentMethod: workspace.profile.payout_method || 'm-pesa',
+        promoCode: workspace.profile.referral_code,
+      });
+      setDatabaseWorkspaceEnabled(true);
+      setAuthMode('dashboard');
+      return;
+    } catch (authFailure: any) {
+      alert(authFailure?.message || 'Unable to sign in to the affiliate workspace.');
       return;
     }
 
@@ -1001,9 +1116,15 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     }
   };
 
-  const handleLogoutAffiliate = () => {
+  const handleLogoutAffiliate = async () => {
+    try {
+      const client: any = await getDynamicSupabaseClient();
+      await client.auth.signOut();
+    } catch { /* Local cleanup still runs if the network is unavailable. */ }
     localStorage.removeItem("jasper_logged_affiliate");
     setActiveAffiliate(null);
+    setDatabaseWorkspaceEnabled(false);
+    setDatabaseAgentWorkspaceEnabled(false);
     setAuthMode("login");
   };
 
@@ -1304,7 +1425,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           </button>
         </header>
 
-        {authMode !== "dashboard" ? (
+        {authMode === "dashboard" && databaseAgentWorkspaceEnabled ? (
+          <AffiliateAgentDesk onLogout={handleLogoutAffiliate} />
+        ) : authMode === "dashboard" && databaseWorkspaceEnabled ? (
+          <AffiliateWorkspace onLogout={handleLogoutAffiliate} />
+        ) : authMode !== "dashboard" ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center py-6">
             {/* Left side: Pitch text */}
             <div className="lg:col-span-6 space-y-8">
@@ -5063,4 +5188,3 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     </div>
   );
 }
-

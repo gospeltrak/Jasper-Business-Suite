@@ -1015,7 +1015,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           currency: mappedCurrency.symbol,
           currencyCode: mappedCurrency.code,
           taxRate: mappedCurrency.tax,
-          businessType
+          businessType,
+          referralCode: affiliateCode.trim() || undefined,
         })
       });
       const registration = await registrationResponse.json();
