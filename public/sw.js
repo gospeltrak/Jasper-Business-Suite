@@ -1,12 +1,12 @@
 // Jasper Business Suite Service Worker (Premium POS/ERP Offline-First Support)
-const CACHE_NAME = 'jasper-pos-cache-v2';
+const CACHE_NAME = 'jasper-pos-cache-v3';
 
 // Assets to cache immediately on SW install
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/icon.svg',
+  '/jb-logo.png',
   '/src/main.tsx',
   '/src/App.tsx',
   '/src/index.css'
