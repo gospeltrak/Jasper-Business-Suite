@@ -603,29 +603,55 @@ Vehicle Plate Number: ${plateNumber}
     return matchesSearch;
   });
 
+  const pendingDeliveries = deliveries.filter(del => del.status === 'Pending Dispatch').length;
+  const dispatchedDeliveries = deliveries.filter(del => del.status === 'Dispatched').length;
+  const deliveredDeliveries = deliveries.filter(del => del.status === 'Delivered').length;
+  const deliveryIncomeTotal = deliveries.reduce((sum, del) => sum + (del.deliveryCost || 0), 0);
+  const deliveryStats = [
+    { label: 'Pending', value: pendingDeliveries, tone: 'text-amber-700 bg-amber-50 border-amber-100' },
+    { label: 'On route', value: dispatchedDeliveries, tone: 'text-sky-700 bg-sky-50 border-sky-100' },
+    { label: 'Delivered', value: deliveredDeliveries, tone: 'text-emerald-700 bg-emerald-50 border-emerald-100' },
+    { label: 'Revenue', value: `${currency}${Math.round(deliveryIncomeTotal).toLocaleString()}`, tone: 'text-slate-800 bg-white border-slate-200' }
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-24 md:pb-8">
       {/* Tab Header Section */}
-      <div className="bg-white border border-slate-205 p-6 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-        <div className="space-y-1">
-          <div className="flex items-center space-x-2.5">
-            <DeliveryMotorcycleIcon className="w-6 h-6 text-emerald-600" />
-            <h3 className="text-lg font-black text-slate-900 tracking-tight font-sans">
-              Order Delivery & Logistics Dispatch
-            </h3>
+      <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl shadow-sm overflow-hidden">
+        <div className="p-4 sm:p-5 lg:p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-5">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+                <DeliveryMotorcycleIcon className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-lg sm:text-xl font-black text-slate-950 tracking-tight font-sans leading-tight">
+                  Delivery Operations
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-500 font-sans max-w-2xl mt-1 leading-relaxed">
+                  Dispatch orders, manage delivery notes, track riders, and reconcile logistics payments.
+                </p>
+              </div>
+            </div>
           </div>
-          <p className="text-xs text-slate-500 font-sans max-w-xl">
-            Manage deliveries, dispatch drivers, and notify customers.
-          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 xl:min-w-[520px]">
+            {deliveryStats.map((stat) => (
+              <div key={stat.label} className={`rounded-2xl border px-3 py-3 ${stat.tone}`}>
+                <span className="block text-[10px] font-black uppercase tracking-widest text-current/70 font-mono">{stat.label}</span>
+                <span className="block mt-1 text-lg font-black font-mono leading-none">{stat.value}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Sub-tab Pill navigation toggle */}
-        <div className="flex bg-slate-100 border border-slate-200 rounded-xl p-1 shrink-0">
+        {/* Desktop sub-tab navigation */}
+        <div className="hidden md:flex bg-slate-50 border-t border-slate-200 p-2 gap-2 overflow-x-auto">
           <button
             onClick={() => handleSubTabChange('queue')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all select-none cursor-pointer flex items-center space-x-1.5 ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all select-none cursor-pointer flex items-center space-x-1.5 whitespace-nowrap ${
               activeSubTab === 'queue'
-                ? 'bg-white text-emerald-700 font-black shadow-sm'
+                ? 'bg-white text-emerald-700 font-black shadow-sm border border-slate-200'
                 : 'text-slate-655 hover:text-slate-900 hover:bg-slate-200/50'
             }`}
           >
@@ -634,9 +660,9 @@ Vehicle Plate Number: ${plateNumber}
           </button>
           <button
             onClick={() => handleSubTabChange('riders')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all select-none cursor-pointer flex items-center space-x-1.5 ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all select-none cursor-pointer flex items-center space-x-1.5 whitespace-nowrap ${
               activeSubTab === 'riders'
-                ? 'bg-white text-emerald-700 font-black shadow-sm'
+                ? 'bg-white text-emerald-700 font-black shadow-sm border border-slate-200'
                 : 'text-slate-655 hover:text-slate-900 hover:bg-slate-200/50'
             }`}
           >
@@ -645,9 +671,9 @@ Vehicle Plate Number: ${plateNumber}
           </button>
           <button
             onClick={() => handleSubTabChange('notes')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all select-none cursor-pointer flex items-center space-x-1.5 ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all select-none cursor-pointer flex items-center space-x-1.5 whitespace-nowrap ${
               activeSubTab === 'notes'
-                ? 'bg-white text-emerald-700 font-black shadow-sm'
+                ? 'bg-white text-emerald-700 font-black shadow-sm border border-slate-200'
                 : 'text-slate-655 hover:text-slate-900 hover:bg-slate-200/50'
             }`}
           >
@@ -656,9 +682,9 @@ Vehicle Plate Number: ${plateNumber}
           </button>
           <button
             onClick={() => handleSubTabChange('accounting')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all select-none cursor-pointer flex items-center space-x-1.5 ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all select-none cursor-pointer flex items-center space-x-1.5 whitespace-nowrap ${
               activeSubTab === 'accounting'
-                ? 'bg-white text-emerald-700 font-black shadow-sm'
+                ? 'bg-white text-emerald-700 font-black shadow-sm border border-slate-200'
                 : 'text-slate-655 hover:text-slate-900 hover:bg-slate-200/50'
             }`}
           >
@@ -666,25 +692,54 @@ Vehicle Plate Number: ${plateNumber}
             <span>Delivery Accounting</span>
           </button>
         </div>
+
+        {/* Mobile native-style section switcher */}
+        <div className="md:hidden border-t border-slate-200 bg-slate-50 px-3 py-3">
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { id: 'queue' as const, label: 'Jobs', icon: Clipboard },
+              { id: 'riders' as const, label: 'Crew', icon: UserCheck },
+              { id: 'notes' as const, label: 'Notes', icon: FileText },
+              { id: 'accounting' as const, label: 'Money', icon: Printer }
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeSubTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleSubTabChange(tab.id)}
+                  className={`min-h-[58px] rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-black transition-all ${
+                    isActive
+                      ? 'bg-slate-950 text-white border-slate-950 shadow-sm'
+                      : 'bg-white text-slate-600 border-slate-200 active:bg-slate-100'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-300' : 'text-slate-400'}`} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {activeSubTab === 'queue' && (
         <div className="space-y-5">
           {/* Quick Filters */}
-          <div className="bg-white border border-slate-200 p-5 rounded-3xl flex flex-col sm:flex-row gap-3 shadow-xs">
+          <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-2xl md:rounded-3xl flex flex-col sm:flex-row gap-3 shadow-xs md:sticky md:top-0 md:z-10">
             <div className="relative flex-grow">
               <input
                 type="text"
                 placeholder="Search deliveries..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs pl-10 pr-4 py-2.5 text-slate-800 placeholder-slate-400 font-sans focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl sm:rounded-xl text-sm sm:text-xs pl-11 pr-4 py-3 sm:py-2.5 text-slate-800 placeholder-slate-400 font-sans focus:outline-none focus:border-emerald-500"
               />
-              <Search className="absolute left-3.5 top-3 w-4.5 h-4.5 text-slate-400 pointer-events-none" />
+              <Search className="absolute left-4 top-3.5 sm:top-3 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
             <button 
               onClick={() => setIsAddDeliveryModalOpen(true)}
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 flex flex-row items-center justify-center shrink-0 cursor-pointer"
+              className="px-5 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm sm:text-xs rounded-2xl sm:rounded-xl shadow-sm transition-all focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 flex flex-row items-center justify-center shrink-0 cursor-pointer min-h-[48px] sm:min-h-0"
             >
               <Plus className="w-4 h-4 mr-1.5" />
               New Delivery
@@ -692,10 +747,11 @@ Vehicle Plate Number: ${plateNumber}
           </div>
 
           {/* Delivery Jobs List Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-5">
             {filteredDeliveries.length === 0 ? (
-              <div className="md:col-span-2 lg:col-span-3 text-center py-16 bg-white border border-slate-200 rounded-3xl text-sm font-mono text-slate-500 shadow-sm">
-                No custom delivery dispatch queues recorded for this branch yet.
+              <div className="lg:col-span-2 2xl:col-span-3 text-center py-16 bg-white border border-slate-200 rounded-3xl text-sm font-mono text-slate-500 shadow-sm">
+                <Truck className="w-8 h-8 mx-auto mb-3 text-slate-300" />
+                <p>No custom delivery dispatch queues recorded for this branch yet.</p>
               </div>
             ) : (
               filteredDeliveries.map(del => {
@@ -707,7 +763,7 @@ Vehicle Plate Number: ${plateNumber}
                 return (
                   <div 
                     key={del.id}
-                    className={`bg-white border rounded-3xl p-5 flex flex-col justify-between transition-all relative shadow-sm ${
+                    className={`bg-white border rounded-2xl md:rounded-3xl p-4 sm:p-5 flex flex-col justify-between transition-all relative shadow-sm min-w-0 ${
                       isDelivered 
                         ? 'border-slate-200 bg-slate-50/50 opacity-90' 
                         : isCancelled 
@@ -716,10 +772,10 @@ Vehicle Plate Number: ${plateNumber}
                     }`}
                   >
                     {/* Header badge status */}
-                    <div className="flex justify-between items-start pb-3 border-b border-slate-100">
-                      <div>
+                    <div className="flex justify-between items-start gap-3 pb-3 border-b border-slate-100">
+                      <div className="min-w-0">
                         <span className="text-[10px] font-bold text-slate-400 block font-mono">ORDER REF: {del.saleId}</span>
-                        <h4 className="font-extrabold text-sm text-slate-800 tracking-tight mt-0.5">{del.customerName}</h4>
+                        <h4 className="font-extrabold text-base sm:text-sm text-slate-900 tracking-tight mt-0.5 truncate">{del.customerName}</h4>
                         {del.customerPhone && (
                           <span className="text-[11px] font-mono text-slate-500 flex items-center mt-0.5">
                             <Smartphone className="w-3 h-3 text-slate-400 mr-1 shrink-0" />
@@ -743,10 +799,10 @@ Vehicle Plate Number: ${plateNumber}
                     {/* Basket items list */}
                     <div className="py-3.5 space-y-1.5 flex-grow">
                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono block">Delivery Cargo</span>
-                      <div className="max-h-[85px] overflow-y-auto space-y-1.1 scrollbar-thin">
+                      <div className="max-h-[108px] sm:max-h-[85px] overflow-y-auto space-y-1.1 scrollbar-thin">
                         {del.items.map((item, idx) => (
                           <div key={idx} className="flex justify-between text-xs text-slate-650">
-                            <span className="font-medium truncate max-w-[200px]">{item.productName}</span>
+                            <span className="font-medium truncate max-w-[70%]">{item.productName}</span>
                             <span className="font-bold font-mono text-slate-800 shrink-0 select-none">x{item.qty}</span>
                           </div>
                         ))}
@@ -778,7 +834,7 @@ Vehicle Plate Number: ${plateNumber}
                         <div className="pt-2 border-t border-slate-200 flex space-x-2">
                           <button
                             onClick={() => setWhatsAppTarget(del)}
-                            className="flex-grow bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 px-2 rounded-lg text-[10.5px] transition-all cursor-pointer flex items-center justify-center space-x-1"
+                            className="flex-grow bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 sm:py-1.5 px-2 rounded-xl sm:rounded-lg text-[11px] sm:text-[10.5px] transition-all cursor-pointer flex items-center justify-center space-x-1 min-h-[42px] sm:min-h-0"
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                             <span>WhatsApp Note</span>
@@ -797,7 +853,7 @@ Vehicle Plate Number: ${plateNumber}
                       {isPending && (
                         <button
                           onClick={() => handleOpenDispatch(del)}
-                          className="w-full bg-slate-900 hover:bg-slate-850 text-white font-bold py-2 px-3 rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer flex items-center justify-center space-x-1"
+                          className="w-full bg-slate-900 hover:bg-slate-850 text-white font-bold py-3 sm:py-2 px-3 rounded-2xl sm:rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer flex items-center justify-center space-x-1 min-h-[48px] sm:min-h-0"
                         >
                           <Navigation className="w-3.5 h-3.5 text-sky-400" />
                           <span>Dispatch Order</span>
@@ -808,14 +864,14 @@ Vehicle Plate Number: ${plateNumber}
                         <>
                           <button
                             onClick={() => onUpdateDeliveryStatus(del.id, 'Delivered')}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3 rounded-xl text-xs flex-grow uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-1"
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 sm:py-2 px-3 rounded-2xl sm:rounded-xl text-xs flex-grow uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-1 min-h-[48px] sm:min-h-0"
                           >
                             <CheckCircle className="w-3.5 h-3.5" />
                             <span>Mark Delivered</span>
                           </button>
                           <button
                             onClick={() => onUpdateDeliveryStatus(del.id, 'Cancelled')}
-                            className="bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 hover:text-red-600 font-bold py-2 px-2.5 rounded-xl text-xs transition-all cursor-pointer flex items-center justify-center"
+                            className="bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 hover:text-red-600 font-bold py-3 sm:py-2 px-3 rounded-2xl sm:rounded-xl text-xs transition-all cursor-pointer flex items-center justify-center min-h-[48px] sm:min-h-0"
                             title="Cancel Delivery Order"
                           >
                             <X className="w-4 h-4" />
@@ -838,9 +894,9 @@ Vehicle Plate Number: ${plateNumber}
       )}
 
       {activeSubTab === 'riders' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8">
           {/* New Rider Registration Panel */}
-          <div className="bg-white border border-slate-200 p-6 rounded-3xl space-y-5 shadow-sm height-fit self-start">
+          <div className="bg-white border border-slate-200 p-4 sm:p-6 rounded-2xl md:rounded-3xl space-y-5 shadow-sm height-fit self-start">
             <div className="space-y-1">
               <h4 className="font-extrabold text-slate-900 tracking-tight text-sm flex items-center space-x-2">
                 <UserPlus className="w-4.5 h-4.5 text-emerald-600" />
@@ -882,7 +938,7 @@ Vehicle Plate Number: ${plateNumber}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono">Classification</label>
                   <select
@@ -909,7 +965,7 @@ Vehicle Plate Number: ${plateNumber}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono">Vehicle Color</label>
                   <input
@@ -975,7 +1031,7 @@ Vehicle Plate Number: ${plateNumber}
 
               <button
                 type="submit"
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer flex items-center justify-center space-x-1.5 pt-3 select-none shadow-sm"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-2xl sm:rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer flex items-center justify-center space-x-1.5 select-none shadow-sm min-h-[48px]"
               >
                 <Plus className="w-4.5 h-4.5" />
                 <span>Save In-house Rider</span>
@@ -984,7 +1040,7 @@ Vehicle Plate Number: ${plateNumber}
           </div>
 
           {/* Registered Crew List */}
-          <div className="lg:col-span-2 bg-white border border-slate-200 rounded-3xl shadow-sm p-6 overflow-hidden">
+          <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl md:rounded-3xl shadow-sm p-4 sm:p-6 overflow-hidden">
             <h4 className="font-extrabold text-slate-900 tracking-tight text-sm pb-4 border-b border-slate-100 flex items-center space-x-2">
               <UserCheck className="w-4.5 h-4.5 text-emerald-600" />
               <span>Registered Branch Logistics Crew</span>
@@ -995,8 +1051,9 @@ Vehicle Plate Number: ${plateNumber}
                 No permanent riders registered. Fill out the helper registry form on the left.
               </div>
             ) : (
-              <div className="overflow-x-auto mt-4">
-                <table className="w-full text-left text-xs text-slate-750">
+              <>
+                <div className="hidden md:block overflow-x-auto mt-4">
+                  <table className="w-full text-left text-xs text-slate-750">
                   <thead>
                     <tr className="bg-slate-50 text-[10px] font-black text-slate-400 tracking-widest font-mono border-b border-slate-200">
                       <th className="py-3 px-4">CREW MEMBER</th>
@@ -1030,8 +1087,38 @@ Vehicle Plate Number: ${plateNumber}
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                  </table>
+                </div>
+                <div className="md:hidden mt-4 space-y-3">
+                {activeRiders.map((crew) => (
+                  <div key={crew.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-black text-slate-900 truncate">{crew.name}</p>
+                        <p className="text-[11px] text-slate-500 font-mono mt-1">{crew.phone}</p>
+                      </div>
+                      <span className={`shrink-0 px-2.5 py-1 text-[10px] rounded-full font-black uppercase tracking-wider ${
+                        crew.classification === 'driver'
+                          ? 'bg-blue-50 text-blue-750 border border-blue-200'
+                          : 'bg-indigo-50 text-indigo-750 border border-indigo-200'
+                      }`}>
+                        {crew.classification}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-4">
+                      <div className="rounded-xl bg-white border border-slate-200 p-3">
+                        <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">Vehicle</span>
+                        <span className="block mt-1 text-xs font-bold text-slate-800 capitalize">{crew.vehicleColor} {crew.vehicleType}</span>
+                      </div>
+                      <div className="rounded-xl bg-white border border-slate-200 p-3">
+                        <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">Plate</span>
+                        <span className="block mt-1 text-xs font-black text-slate-900 font-mono">{crew.licensePlate}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -1090,7 +1177,7 @@ Vehicle Plate Number: ${plateNumber}
                 </span>
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border border-amber-200/60 bg-white">
+              <div className="hidden md:block overflow-x-auto rounded-2xl border border-amber-200/60 bg-white">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-55 text-slate-500 border-b border-amber-150 text-[10px] tracking-wider uppercase font-extrabold font-mono">
@@ -1170,11 +1257,77 @@ Vehicle Plate Number: ${plateNumber}
                   </tbody>
                 </table>
               </div>
+              <div className="md:hidden space-y-3">
+                {pendingNotes.map((note) => (
+                  <div
+                    key={note.id}
+                    className={`rounded-2xl border bg-white p-4 shadow-sm ${
+                      activeEditingPendingNoteId === note.id ? 'border-indigo-200 bg-indigo-50/40' : 'border-amber-200/70'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest font-mono">
+                          {note.saleId || 'No Info'}
+                        </span>
+                        <p className="mt-1 font-black text-slate-900 truncate">{note.customerName}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{note.customerPhone || 'No Phone'}</p>
+                      </div>
+                      <span className="shrink-0 text-[10px] font-black text-slate-500 bg-slate-100 rounded-full px-2.5 py-1">
+                        {note.items.length} lines
+                      </span>
+                    </div>
+                    <div className="mt-3 text-[11px] font-mono text-slate-500">
+                      Sent {note.date}
+                    </div>
+                    <div className="grid grid-cols-[1fr_auto] gap-2 mt-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveEditingPendingNoteId(note.id);
+                          setNotePINo(note.piNo || `PI-${Math.floor(10000 + Math.random() * 90000)}`);
+                          setNoteLPO(note.lpoNo || `LP-${Math.floor(100 + Math.random() * 900)}`);
+                          setNoteDate(note.date || getTodayFormatted());
+                          setNoteDeliveryToTitle(note.customerName);
+                          setNoteDeliveryToAddress(note.deliveryLocation || note.customerAddress || 'Enter direction location');
+                          setNoteItems(note.items);
+                          setNoteTransportType(note.transportType || '');
+                          setNoteVehiclePlate(note.registrationPlate || '');
+                          setNoteDeliveredByName(note.deliveredByName || '');
+                          if (note.deliveredByName) {
+                            setNoteDeliveredBySignature(note.deliveredByName.split(' ')[0] + '.');
+                          } else {
+                            setNoteDeliveredBySignature('');
+                          }
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-550 text-white font-extrabold px-3 py-3 rounded-2xl text-[11px] transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm border-none min-h-[46px]"
+                      >
+                        Resolve / Edit Draft
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onUpdatePendingNotes) {
+                            onUpdatePendingNotes(pendingNotes.filter(n => n.id !== note.id));
+                          }
+                          if (activeEditingPendingNoteId === note.id) {
+                            setActiveEditingPendingNoteId(null);
+                          }
+                        }}
+                        className="text-rose-600 hover:bg-rose-55 hover:text-rose-700 h-[46px] w-[46px] rounded-2xl transition-all cursor-pointer bg-rose-50 border border-rose-100 flex items-center justify-center"
+                        title="Delete Draft"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {/* Quick Order Loader bar */}
-          <div className="bg-white border border-slate-205 p-5 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+          <div className="bg-white border border-slate-205 p-4 sm:p-5 rounded-2xl md:rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
             <div className="space-y-0.5">
               <span className="text-[10px] bg-slate-100 text-slate-500 uppercase px-2 py-0.5 rounded font-bold font-mono">INTEGRATION WIDGET</span>
               <h4 className="font-extrabold text-slate-800 text-sm tracking-tight flex items-center space-x-1.5">
@@ -1208,7 +1361,7 @@ Vehicle Plate Number: ${plateNumber}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Form Fields Side panel (Left - 5 columns) */}
-            <div className="lg:col-span-12 xl:col-span-5 bg-white border border-slate-200 p-6 rounded-3xl space-y-6 shadow-sm max-h-[85vh] overflow-y-auto scrollbar-thin">
+            <div className="lg:col-span-12 xl:col-span-5 bg-white border border-slate-200 p-4 sm:p-6 rounded-2xl md:rounded-3xl space-y-6 shadow-sm xl:max-h-[85vh] overflow-y-auto scrollbar-thin">
               <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
                 <h4 className="font-black text-slate-900 tracking-tight text-sm">Delivery Note Custom Fields</h4>
                 <button 
@@ -1249,8 +1402,8 @@ Vehicle Plate Number: ${plateNumber}
               <div className="space-y-3">
                 <span className="text-[10px] font-black text-slate-400 block tracking-wider uppercase font-mono border-b pb-1">1. Note Reference Metadata</span>
                 
-                <div className="grid grid-cols-3 gap-2.5">
-                  <div className="col-span-1 space-y-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className="space-y-1">
                     <label className="text-[9.5px] font-bold text-slate-500 font-sans">Proforma Invoice No</label>
                     <input 
                       type="text" 
@@ -1259,7 +1412,7 @@ Vehicle Plate Number: ${plateNumber}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none text-xs font-mono text-slate-800 focus:border-emerald-500"
                     />
                   </div>
-                  <div className="col-span-1 space-y-1">
+                  <div className="space-y-1">
                     <label className="text-[9.5px] font-bold text-slate-500 font-sans">Document Date</label>
                     <input 
                       type="text" 
@@ -1268,7 +1421,7 @@ Vehicle Plate Number: ${plateNumber}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none text-xs font-sans text-slate-800 focus:border-emerald-500"
                     />
                   </div>
-                  <div className="col-span-1 space-y-1">
+                  <div className="space-y-1">
                     <label className="text-[9.5px] font-bold text-slate-500 font-sans">LPO No. Ref</label>
                     <input 
                       type="text" 
@@ -1286,7 +1439,7 @@ Vehicle Plate Number: ${plateNumber}
                   2. Logistics & Fleet details (Mandatory)
                 </span>
                 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 font-sans block">Type of Transport</label>
                     <select
@@ -1413,8 +1566,8 @@ Vehicle Plate Number: ${plateNumber}
                       onChange={(e) => setNewItemDesc(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 outline-none text-xs font-bold text-slate-800 focus:border-emerald-500"
                     />
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="col-span-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div className="sm:col-span-2">
                         <input 
                           type="text"
                           placeholder="Unit (e.g. PC, Boxes, Set)"
@@ -1423,7 +1576,7 @@ Vehicle Plate Number: ${plateNumber}
                           className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 outline-none text-xs font-sans text-slate-805"
                         />
                       </div>
-                      <div className="col-span-1">
+                      <div>
                         <input 
                           type="number"
                           placeholder="Qty"
@@ -1508,7 +1661,7 @@ Vehicle Plate Number: ${plateNumber}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none text-xs text-slate-800"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500">Delivered By: Name</label>
                     <input 
@@ -1548,11 +1701,11 @@ Vehicle Plate Number: ${plateNumber}
                   <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-ping"></span>
                   LIVE A4 DOCUMENT PREVIEW
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="grid grid-cols-1 sm:flex sm:items-center gap-2">
                   <button
                     type="button"
                     onClick={handleFinishDeliveryNote}
-                    className="bg-emerald-600 hover:bg-emerald-550 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center space-x-1 cursor-pointer shadow-sm transition-all border-none"
+                    className="bg-emerald-600 hover:bg-emerald-550 text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
                     title="Validate and print"
                   >
                     <span>✅ Complete & Print Note</span>
@@ -1560,7 +1713,7 @@ Vehicle Plate Number: ${plateNumber}
                   <button
                     type="button"
                     onClick={handlePrintNote}
-                    className="bg-[#102d68] hover:bg-[#1b438c] text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none"
+                    className="bg-[#102d68] hover:bg-[#1b438c] text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
                     title="Print the current document without saving"
                   >
                     <Printer className="w-4 h-4" />
@@ -1573,7 +1726,7 @@ Vehicle Plate Number: ${plateNumber}
               <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
                 <div className="flex items-center space-x-2">
                   <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide font-mono">🔎 Zoom Preview:</span>
-                  <div className="flex space-x-1 bg-slate-100 rounded-xl p-1 border border-slate-200">
+                  <div className="flex space-x-1 bg-slate-100 rounded-xl p-1 border border-slate-200 overflow-x-auto">
                     {[50, 65, 80, 100].map((level) => (
                       <button
                         key={level}
@@ -1596,7 +1749,7 @@ Vehicle Plate Number: ${plateNumber}
               </div>
 
               {/* Exact Replicated Standard Delivery Note Container with printing element selector */}
-              <div className="w-full overflow-hidden rounded-3xl bg-slate-100 p-2 sm:p-5 border border-slate-220 flex justify-center items-start min-h-[400px]">
+              <div className="w-full overflow-x-auto overflow-y-hidden rounded-2xl md:rounded-3xl bg-slate-100 p-2 sm:p-5 border border-slate-220 flex justify-start md:justify-center items-start min-h-[400px]">
                 <div 
                   className="origin-top transition-all duration-200 ease-out shrink-0" 
                   style={{ 
@@ -1824,23 +1977,23 @@ Vehicle Plate Number: ${plateNumber}
 
             return (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-3xl p-6 relative overflow-hidden shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl md:rounded-3xl p-5 md:p-6 relative overflow-hidden shadow-sm">
                     <div className="relative z-10">
                       <span className="block text-xs font-mono uppercase font-black text-emerald-600 tracking-wider mb-2">Total Delivery Income</span>
-                      <span className="text-3xl font-black font-mono text-emerald-900">{activeTenant.currency}{deliveryIncome.toLocaleString()}</span>
+                      <span className="text-2xl md:text-3xl font-black font-mono text-emerald-900">{activeTenant.currency}{deliveryIncome.toLocaleString()}</span>
                     </div>
                   </div>
-                  <div className="bg-rose-50 border border-rose-100 rounded-3xl p-6 relative overflow-hidden shadow-sm">
+                  <div className="bg-rose-50 border border-rose-100 rounded-2xl md:rounded-3xl p-5 md:p-6 relative overflow-hidden shadow-sm">
                     <div className="relative z-10">
                       <span className="block text-xs font-mono uppercase font-black text-rose-600 tracking-wider mb-2">Delivery Expenses</span>
-                      <span className="text-3xl font-black font-mono text-rose-900">{activeTenant.currency}{totalDeliveryExpenses.toLocaleString()}</span>
+                      <span className="text-2xl md:text-3xl font-black font-mono text-rose-900">{activeTenant.currency}{totalDeliveryExpenses.toLocaleString()}</span>
                     </div>
                   </div>
-                  <div className={`border rounded-3xl p-6 relative overflow-hidden shadow-sm ${deliveryProfit >= 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-red-50 border-red-100'}`}>
+                  <div className={`border rounded-2xl md:rounded-3xl p-5 md:p-6 relative overflow-hidden shadow-sm ${deliveryProfit >= 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-red-50 border-red-100'}`}>
                     <div className="relative z-10">
                       <span className={`block text-xs font-mono uppercase font-black tracking-wider mb-2 ${deliveryProfit >= 0 ? 'text-indigo-600' : 'text-red-600'}`}>Net Delivery Profit</span>
-                      <span className={`text-3xl font-black font-mono ${deliveryProfit >= 0 ? 'text-indigo-900' : 'text-red-900'}`}>
+                      <span className={`text-2xl md:text-3xl font-black font-mono ${deliveryProfit >= 0 ? 'text-indigo-900' : 'text-red-900'}`}>
                         {activeTenant.currency}{deliveryProfit.toLocaleString()}
                       </span>
                     </div>
@@ -1848,11 +2001,11 @@ Vehicle Plate Number: ${plateNumber}
                 </div>
 
                 {/* Delivery Payment Methods Accounting */}
-                <div className="bg-slate-50/50 border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <div className="bg-slate-50/50 border border-slate-200 rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm">
                   <h3 className="font-bold text-slate-700 tracking-tight mb-4 text-xs uppercase tracking-wider font-mono">
                     Payments Accounting
                   </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                     {(() => {
                       const modeTotals = deliveries.reduce((acc, d) => {
                         const m = d.deliveryPaymentMethod || 'Cash';
@@ -1877,7 +2030,7 @@ Vehicle Plate Number: ${plateNumber}
                 </div>
 
                 {/* Delivery Form for Expense */}
-                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm">
                   <h3 className="font-bold text-slate-800 tracking-tight mb-4 flex items-center space-x-2">
                     <Printer className="w-4 h-4 text-slate-400" />
                     <span>Log Delivery Expense (Oil, Maintenance, etc.)</span>
@@ -1903,9 +2056,9 @@ Vehicle Plate Number: ${plateNumber}
                       form.reset();
                       alert('Delivery Expense Logged Successfully!');
                     }}
-                    className="flex items-end gap-4 flex-wrap"
+                    className="grid grid-cols-1 md:grid-cols-[minmax(220px,1fr)_12rem_auto] md:items-end gap-4"
                   >
-                    <div className="flex-grow space-y-1 min-w-[200px]">
+                    <div className="space-y-1 min-w-0">
                       <label className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider font-mono block">Description</label>
                       <input 
                         type="text" 
@@ -1915,7 +2068,7 @@ Vehicle Plate Number: ${plateNumber}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 outline-none focus:border-indigo-500"
                       />
                     </div>
-                    <div className="w-48 space-y-1">
+                    <div className="space-y-1">
                       <label className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider font-mono block">Amount ({activeTenant.currency})</label>
                       <input 
                         type="number" 
@@ -1926,19 +2079,19 @@ Vehicle Plate Number: ${plateNumber}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-mono text-slate-800 outline-none focus:border-indigo-500"
                       />
                     </div>
-                    <button type="submit" className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold transition-all hover:bg-slate-800 shrink-0">
+                    <button type="submit" className="px-6 py-3 md:py-2.5 bg-slate-900 text-white rounded-2xl md:rounded-xl text-xs font-bold transition-all hover:bg-slate-800 shrink-0 min-h-[48px] md:min-h-0">
                       Add Expense
                     </button>
                   </form>
                 </div>
 
                 {/* Delivery List Details */}
-                <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm mt-6">
+                <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl overflow-hidden shadow-sm mt-6">
                   <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 font-bold text-sm text-slate-800 flex items-center justify-between">
                     <span>Detailed Deliveries Record</span>
                     <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-mono">{deliveries.length} Records</span>
                   </div>
-                  <div className="overflow-x-auto">
+                  <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left text-xs whitespace-nowrap">
                       <thead>
                         <tr className="bg-slate-100/50 text-slate-500 font-mono text-[10px] uppercase tracking-wider">
@@ -2051,6 +2204,73 @@ Vehicle Plate Number: ${plateNumber}
                       </tbody>
                     </table>
                   </div>
+                  <div className="md:hidden p-3 space-y-3">
+                    {deliveries.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-slate-400 text-sm">No deliveries recorded yet.</div>
+                    ) : (
+                      deliveries.map(d => {
+                        const isDropdownOpen = openDropdownRow === d.id;
+                        const shortCode = d.id.startsWith('del-') ? d.id.substring(4, 9).toUpperCase() : d.id.substring(0, 5).toUpperCase();
+                        return (
+                          <div key={d.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 relative">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Order {shortCode}</span>
+                                <p className="mt-1 font-black text-slate-900 truncate">{d.customerName || 'Walk-in'}</p>
+                                <p className="text-[11px] text-slate-500 font-mono mt-0.5">{d.customerPhone || 'No Phone'}</p>
+                              </div>
+                              <button
+                                onClick={() => setOpenDropdownRow(isDropdownOpen ? null : d.id)}
+                                className="h-10 w-10 rounded-full bg-white border border-slate-200 text-slate-500 flex items-center justify-center shrink-0"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mt-4">
+                              <div className="rounded-xl bg-white border border-slate-200 p-3">
+                                <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">Status</span>
+                                <span className="block mt-1 text-xs font-bold text-slate-800">{d.status}</span>
+                              </div>
+                              <div className="rounded-xl bg-white border border-slate-200 p-3">
+                                <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">Amount</span>
+                                <span className="block mt-1 text-xs font-black text-emerald-700 font-mono">{activeTenant.currency}{(d.deliveryCost || 0).toLocaleString()}</span>
+                              </div>
+                              <div className="rounded-xl bg-white border border-slate-200 p-3">
+                                <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">Payment</span>
+                                <span className="block mt-1 text-xs font-bold text-slate-800 uppercase">{d.deliveryPaymentMethod || 'N/A'}</span>
+                              </div>
+                              <div className="rounded-xl bg-white border border-slate-200 p-3">
+                                <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">Rider</span>
+                                <span className="block mt-1 text-xs font-bold text-slate-800 truncate">{d.riderDetails?.name || 'Unassigned'}</span>
+                              </div>
+                            </div>
+                            {d.notes && (
+                              <p className="mt-3 text-xs text-slate-600 leading-relaxed bg-white border border-slate-200 rounded-xl p-3">{d.notes}</p>
+                            )}
+                            {isDropdownOpen && (
+                              <>
+                                <div className="fixed inset-0 z-40" onClick={() => setOpenDropdownRow(null)} />
+                                <div className="absolute right-4 top-14 w-44 bg-white shadow-xl rounded-2xl border border-slate-200 py-2 z-50 animate-fade-in origin-top-right text-left text-xs font-bold text-slate-700 flex flex-col">
+                                  <button className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-2" onClick={() => { setOpenDropdownRow(null); alert('View Delivery: ' + shortCode); }}>
+                                    <Eye className="w-3.5 h-3.5 text-slate-400" />
+                                    View Delivery
+                                  </button>
+                                  <button className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-2" onClick={() => { setOpenDropdownRow(null); alert('Edit Delivery: ' + shortCode); }}>
+                                    <Edit className="w-3.5 h-3.5 text-blue-400" />
+                                    Edit Delivery
+                                  </button>
+                                  <button className="w-full text-left px-4 py-3 hover:bg-red-50 text-red-600 flex items-center gap-2" onClick={() => { setOpenDropdownRow(null); alert('Delete Delivery: ' + shortCode); }}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Delete Delivery
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               </>
             );
@@ -2061,7 +2281,7 @@ Vehicle Plate Number: ${plateNumber}
       {/* DISPATCH TARGET ASSIGNMENT MODAL */}
       {dispatchTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col relative animate-scale-up">
+          <div className="bg-white border rounded-2xl md:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col relative animate-scale-up max-h-[92vh]">
             
             {/* Modal Close Button */}
             <button 
@@ -2080,13 +2300,13 @@ Vehicle Plate Number: ${plateNumber}
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 space-y-5 text-slate-700 max-h-[70vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 space-y-5 text-slate-700 overflow-y-auto">
               
               {/* Customer Target Details */}
               <div className="space-y-1.5 p-4 rounded-2xl border border-slate-200 bg-slate-50">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono mb-2">Customer & Location Verification</label>
                 <div className="space-y-3 pt-1 text-xs text-slate-700">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase font-sans">Customer Name</label>
                       <input
@@ -2145,7 +2365,7 @@ Vehicle Plate Number: ${plateNumber}
               {/* Type Router toggle */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono">Logistics Driver Selection</label>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
                   <button
                     type="button"
                     onClick={() => setUseShopRider(true)}
@@ -2210,7 +2430,7 @@ Vehicle Plate Number: ${plateNumber}
                 </div>
               ) : (
                 <div className="space-y-3.5 pt-1 text-xs text-slate-700">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono">Temporary Courier Name</label>
                       <input
@@ -2233,7 +2453,7 @@ Vehicle Plate Number: ${plateNumber}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono">Class Classification</label>
                       <select
@@ -2259,7 +2479,7 @@ Vehicle Plate Number: ${plateNumber}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono">Vehicle Color</label>
                       <input
@@ -2286,18 +2506,18 @@ Vehicle Plate Number: ${plateNumber}
             </div>
 
             {/* Modal Footer actions */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end space-x-2">
+            <div className="px-4 sm:px-6 py-4 bg-slate-50 border-t border-slate-200 grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setDispatchTarget(null)}
-                className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 px-4 py-3 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[46px] sm:min-h-0"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleExecuteDispatch}
-                className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-3 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[46px] sm:min-h-0"
               >
                 Confirm Dispatch
               </button>
@@ -2309,7 +2529,7 @@ Vehicle Plate Number: ${plateNumber}
       {/* WHATSAPP VISUAL PREVIEW AND SIMULATION MODAL */}
       {whatsAppTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col relative animate-scale-up">
+          <div className="bg-white border rounded-2xl md:rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col relative animate-scale-up max-h-[92vh]">
             
             {/* Close */}
             <button 
@@ -2349,11 +2569,11 @@ Vehicle Plate Number: ${plateNumber}
             </div>
 
             {/* Footer with actions */}
-            <div className="px-6 py-4.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-4.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <span className="text-[10px] bg-slate-200 text-slate-650 px-2.5 py-1 rounded-lg font-bold font-mono">
                 {whatsAppTarget.customerPhone ? 'Direct WA.me Ready' : 'Incomplete Phone'}
               </span>
-              <div className="flex space-x-2.5">
+              <div className="grid grid-cols-2 gap-2.5 w-full sm:w-auto">
                 <button
                   onClick={() => copyToClipboard(generateWhatsAppMessage(whatsAppTarget))}
                   className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold py-2 px-3.5 rounded-xl text-xs transition-all cursor-pointer flex items-center space-x-1"
@@ -2379,7 +2599,7 @@ Vehicle Plate Number: ${plateNumber}
       {/* NEW DELIVERY VIA SALE REF MODAL */}
       {isAddDeliveryModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-2xl md:rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
             <div className="flex justify-between items-center p-6 border-b border-slate-100 pb-5">
               <h3 className="text-lg font-black text-slate-800 tracking-tight flex items-center">
                 <Truck className="w-5 h-5 mr-2 text-emerald-600" />
@@ -2400,7 +2620,7 @@ Vehicle Plate Number: ${plateNumber}
                 <>
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
                     <label className="block text-[11px] font-mono text-slate-500 uppercase tracking-wider font-bold mb-2">Search Sale Reference</label>
-                    <div className="flex space-x-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
                       <input 
                         type="text"
                         placeholder="e.g. SL-2ABC1234 or reference"
@@ -2471,7 +2691,7 @@ Vehicle Plate Number: ${plateNumber}
                   </div>
 
                   {/* Confirm Action */}
-                  <div className="bg-slate-50 p-4 -mx-6 -mb-6 border-t border-slate-100 flex justify-end space-x-3">
+                  <div className="bg-slate-50 p-4 -mx-6 -mb-6 border-t border-slate-100 grid grid-cols-2 gap-3">
                     <button 
                       type="button" 
                       onClick={() => {
@@ -2479,13 +2699,13 @@ Vehicle Plate Number: ${plateNumber}
                         setMatchedSale(null);
                         setNewDeliveryCost('');
                       }}
-                      className="px-4 py-2 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                      className="px-4 py-3 sm:py-2 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer min-h-[46px] sm:min-h-0"
                     >
                       Search Another
                     </button>
                     <button 
                       type="submit" 
-                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 flex items-center cursor-pointer"
+                      className="px-5 py-3 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 flex items-center justify-center cursor-pointer min-h-[46px] sm:min-h-0"
                     >
                       <Truck className="w-4 h-4 mr-1.5" />
                       Send to Dispatch
