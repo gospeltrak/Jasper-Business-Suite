@@ -520,6 +520,36 @@ export default function DashboardCashBank({
   };
 
   const categoryTotals = getCategoryTotals();
+  const treasurySummaryCards = [
+    {
+      label: 'Available balance',
+      value: formatCurrency(
+        channels
+          .filter(chan => chan.category !== 'person')
+          .reduce((sum, chan) => sum + (channelBalances[chan.id]?.current || 0), 0)
+      ),
+      tone: 'bg-slate-950 text-white border-slate-900',
+      helper: `${channels.filter(chan => chan.category !== 'person').length} active accounts`
+    },
+    {
+      label: 'Cash drawers',
+      value: formatCurrency(categoryTotals.physicalTotal),
+      tone: 'bg-amber-50 text-amber-900 border-amber-100',
+      helper: 'Physical cash points'
+    },
+    {
+      label: 'Mobile wallets',
+      value: formatCurrency(categoryTotals.telcoTotal),
+      tone: 'bg-indigo-50 text-indigo-900 border-indigo-100',
+      helper: 'M-Pesa, Airtel, Yas'
+    },
+    {
+      label: 'Bank accounts',
+      value: formatCurrency(categoryTotals.bankTotal),
+      tone: 'bg-blue-50 text-blue-900 border-blue-100',
+      helper: 'Formal bank channels'
+    }
+  ];
 
   // Consolidated System Statistics (Responds to date range and links all payment modes)
   const getCombinedPerformanceStats = () => {
@@ -592,85 +622,113 @@ export default function DashboardCashBank({
   }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   return (
-    <div className="w-full space-y-6 select-text">
+    <div className="w-full space-y-5 pb-24 md:pb-8 select-text">
       
       {/* SIMPLE HEADER AREA */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-150 shadow-xs">
-        <div>
-          <div className="flex items-center space-x-2.5">
-            <div className="p-2.5 bg-slate-900 rounded-xl text-white">
-              <Landmark className="w-5 h-5 text-emerald-400" />
-            </div>
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">MONEY OVERVIEW</span>
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">My Money & Bank Accounts</h1>
+      <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-4 sm:p-5 lg:p-6 flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 bg-slate-950 rounded-2xl text-white flex items-center justify-center shrink-0">
+                <Landmark className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">Treasury Command</span>
+                <h1 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight leading-tight">Money & Bank</h1>
+                <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
+                  Monitor cash drawers, mobile wallets, bank accounts, transfers, receipts, and audit history.
+                </p>
+              </div>
             </div>
           </div>
-          <p className="text-xs text-slate-500 mt-1 sm:max-w-xl">
-            See all your cash drawer drawers, mobile money, and bank savings in one simple dashboard. You can also transfer money between accounts.
-          </p>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 xl:min-w-[620px]">
+            {treasurySummaryCards.map(card => (
+              <div key={card.label} className={`rounded-2xl border p-3.5 ${card.tone}`}>
+                <span className="block text-[9.5px] font-black uppercase tracking-widest opacity-70 font-mono">{card.label}</span>
+                <span className="block mt-2 text-base sm:text-lg font-black leading-tight">{card.value}</span>
+                <span className="block mt-1 text-[10px] font-bold opacity-60">{card.helper}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Date presets with direct always-visible calendar ranges */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center bg-slate-50 border border-slate-200 rounded-3xl p-1.5 gap-3 self-start lg:self-auto">
-          <div className="flex flex-wrap gap-1 bg-slate-200/50 p-0.5 rounded-xl">
-            {(['today', '1week', '1month'] as const).map((preset) => (
-              <button
-                key={preset}
-                id={`preset-${preset}`}
-                type="button"
-                onClick={() => setDatePreset(preset)}
-                className={`px-3 py-1 text-xs font-bold capitalize rounded-lg transition-all cursor-pointer border-none outline-none ${
-                  datePreset === preset
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:bg-slate-200/80 bg-transparent'
-                }`}
-              >
-                {preset === 'today' ? 'Today' : 
-                 preset === '1week' ? 'Past 7 Days' : 
-                 preset === '1month' ? 'Past 30 Days' : ''}
-              </button>
-            ))}
-          </div>
+        <div className="border-t border-slate-200 bg-slate-50 p-3 sm:p-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="grid grid-cols-3 gap-2 bg-white border border-slate-200 rounded-2xl p-1">
+              {(['today', '1week', '1month'] as const).map((preset) => (
+                <button
+                  key={preset}
+                  id={`preset-${preset}`}
+                  type="button"
+                  onClick={() => setDatePreset(preset)}
+                  className={`min-h-[44px] px-3 py-2 text-xs font-black rounded-xl transition-all cursor-pointer border-none outline-none ${
+                    datePreset === preset
+                      ? 'bg-slate-950 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100 bg-transparent'
+                  }`}
+                >
+                  {preset === 'today' ? 'Today' :
+                   preset === '1week' ? '7 Days' :
+                   preset === '1month' ? '30 Days' : ''}
+                </button>
+              ))}
+            </div>
 
-          <div className="flex items-center space-x-2 animate-fadeIn bg-white border border-slate-200 px-3 py-1 rounded-xl">
-            <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-            <input
-              type="date"
-              value={startDateStr}
-              onChange={(e) => {
-                setStartDateStr(e.target.value);
-                setDatePreset('custom');
-              }}
-              className="bg-transparent border-none text-slate-800 text-xs font-bold outline-none cursor-pointer p-0 font-mono"
-            />
-            <span className="text-slate-400 text-xs font-bold font-mono">to</span>
-            <input
-              type="date"
-              value={endDateStr}
-              onChange={(e) => {
-                setEndDateStr(e.target.value);
-                setDatePreset('custom');
-              }}
-              className="bg-transparent border-none text-slate-800 text-xs font-bold outline-none cursor-pointer p-0 font-mono"
-            />
+            <div className="grid grid-cols-[auto_1fr_auto_1fr] items-center gap-2 animate-fadeIn bg-white border border-slate-200 px-3 py-2 rounded-2xl overflow-hidden">
+              <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <input
+                type="date"
+                value={startDateStr}
+                onChange={(e) => {
+                  setStartDateStr(e.target.value);
+                  setDatePreset('custom');
+                }}
+                className="min-w-0 bg-transparent border-none text-slate-800 text-xs font-bold outline-none cursor-pointer p-0 font-mono"
+              />
+              <span className="text-slate-400 text-xs font-bold font-mono">to</span>
+              <input
+                type="date"
+                value={endDateStr}
+                onChange={(e) => {
+                  setEndDateStr(e.target.value);
+                  setDatePreset('custom');
+                }}
+                className="min-w-0 bg-transparent border-none text-slate-800 text-xs font-bold outline-none cursor-pointer p-0 font-mono"
+              />
+            </div>
           </div>
         </div>
       </div>
 
       {/* SEAMLESS PAYMENT MODE CHOOSERS */}
-      <div className="p-5 bg-white border border-slate-150 rounded-3xl shadow-xs space-y-3 animate-fadeIn">
+      <div className="p-4 sm:p-5 bg-white border border-slate-200 rounded-2xl md:rounded-3xl shadow-xs space-y-3 animate-fadeIn">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
           <div className="flex items-center space-x-2">
             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest font-mono">CHOOSE PAYMENT MODE FOR DETAILED DATE-BASED METRICS</span>
+            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest font-mono">Payment mode filters</span>
           </div>
-          <span className="text-[10px] bg-slate-900 text-white font-extrabold px-2.5 py-0.5 rounded-md uppercase font-mono tracking-widest scale-95">
+          <span className="text-[10px] bg-slate-900 text-white font-extrabold px-2.5 py-1 rounded-lg uppercase font-mono tracking-widest w-max">
             {selectedChannelId === 'all' ? 'All Combined Active' : `${channels.find(c => c.id === selectedChannelId)?.name} Filtered`}
           </span>
         </div>
 
-        <div className="flex flex-wrap gap-2.5">
+        <div className="flex gap-2.5 overflow-x-auto md:flex-wrap pb-1 -mx-1 px-1">
+          <button
+            type="button"
+            onClick={() => setSelectedChannelId('all')}
+            className={`px-3.5 py-3 rounded-2xl text-xs font-black transition-all cursor-pointer border flex items-center space-x-2 shrink-0 min-w-[150px] ${
+              selectedChannelId === 'all'
+                ? 'bg-slate-950 border-slate-950 text-white shadow-xs'
+                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100/80'
+            }`}
+          >
+            <div className={`p-1 rounded-lg shrink-0 ${selectedChannelId === 'all' ? 'bg-white/15' : 'bg-slate-200/50'}`}>
+              <Wallet className="w-4 h-4 shrink-0" />
+            </div>
+            <span>All Accounts</span>
+          </button>
 
           {/* CHANNELS */}
           {channels.filter(chan => chan.category !== 'person').map((chan) => {
@@ -708,7 +766,7 @@ export default function DashboardCashBank({
                 key={chan.id}
                 type="button"
                 onClick={() => setSelectedChannelId(chan.id)}
-                className={`px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer border flex items-center space-x-2 ${
+                className={`px-3.5 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer border flex items-center space-x-2 shrink-0 min-w-[190px] md:min-w-0 ${
                   isSelected ? activePillStyle : basePillStyle
                 }`}
               >
@@ -716,7 +774,7 @@ export default function DashboardCashBank({
                   {iconOfChan}
                 </div>
                 <div className="text-left">
-                  <span className="block font-black tracking-tight leading-none text-slate-800">{chan.name}</span>
+                  <span className={`block font-black tracking-tight leading-tight truncate max-w-[140px] ${isSelected ? '' : 'text-slate-800'}`}>{chan.name}</span>
                 </div>
               </button>
             );
@@ -727,7 +785,7 @@ export default function DashboardCashBank({
       {selectedChannelId === 'all' ? (
         <>
           {/* CONSOLIDATED LIQUIDITY & PERFORMANCE DASHBOARD */}
-          <div className="bg-slate-900 text-white rounded-3xl p-6 border border-slate-800 shadow-sm space-y-4 animate-fadeIn">
+          <div className="bg-slate-900 text-white rounded-2xl md:rounded-3xl p-4 sm:p-6 border border-slate-800 shadow-sm space-y-4 animate-fadeIn">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
               <div>
                 <span className="text-[10px] font-bold text-emerald-400 font-mono uppercase tracking-widest block">Combined System Dashboard</span>
@@ -736,7 +794,7 @@ export default function DashboardCashBank({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 pt-2">
               <div className="bg-slate-800/40 p-4 rounded-2xl border border-slate-800">
                 <span className="text-[10px] font-bold text-slate-400 block uppercase font-mono tracking-wide">Selected Date Preset</span>
                 <span className="text-xs font-bold text-white block mt-1">
@@ -774,7 +832,7 @@ export default function DashboardCashBank({
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">Accounts & Wallets</span>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               {(() => {
                 return channels.filter(chan => chan.category !== 'person').map(chan => {
                   const currentBalance = channelBalances[chan.id]?.current || 0;
@@ -793,7 +851,12 @@ export default function DashboardCashBank({
                   });
 
                   return (
-                    <div key={chan.id} className="bg-white border border-slate-200 hover:border-slate-300 rounded-2xl p-5 space-y-4 shadow-xs transition-all hover:bg-slate-50/10">
+                    <button
+                      key={chan.id}
+                      type="button"
+                      onClick={() => setSelectedChannelId(chan.id)}
+                      className="text-left bg-white border border-slate-200 hover:border-slate-300 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xs transition-all hover:bg-slate-50/10 cursor-pointer"
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center space-x-2.5 w-full min-w-0">
                           <div className={`p-2 rounded-xl shrink-0 ${
@@ -835,17 +898,17 @@ export default function DashboardCashBank({
                           <span className="text-slate-600 font-medium font-sans">-{formatCurrency(periodMoneyOut)}</span>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   );
                 });
               })()}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="instant-settlements-box">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6" id="instant-settlements-box">
             
             {/* SIMPLE TRANSFER / DEPOSIT PANEL */}
-            <div className="lg:col-span-5 bg-white border border-slate-150 rounded-3xl p-6 self-start space-y-4">
+            <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-4 sm:p-6 self-start space-y-4">
               <div className="flex items-center space-x-2">
                 <RefreshCw className="w-4 h-4 text-emerald-500" />
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 font-mono">Move Money / Settle Cash</h2>
@@ -872,7 +935,7 @@ export default function DashboardCashBank({
                   <select
                     value={newAccType}
                     onChange={(e) => setNewAccType(e.target.value as 'bank' | 'telco' | 'person')}
-                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-slate-800"
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-3 sm:py-2 text-xs font-bold text-slate-800 outline-none focus:border-slate-800 min-h-[46px] sm:min-h-0"
                   >
                     <option value="bank">Bank</option>
                     <option value="telco">Mobile Money</option>
@@ -883,14 +946,14 @@ export default function DashboardCashBank({
                     value={newAccProvider}
                     onChange={(e) => setNewAccProvider(e.target.value)}
                     placeholder={newAccType === 'bank' ? 'Bank name' : newAccType === 'person' ? 'Bank/Mobile name' : 'Mobile money name'}
-                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-slate-800"
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-3 sm:py-2 text-xs font-semibold text-slate-800 outline-none focus:border-slate-800 min-h-[46px] sm:min-h-0"
                   />
                   <input
                     type="text"
                     value={newAccName}
                     onChange={(e) => setNewAccName(e.target.value)}
                     placeholder={newAccType === 'person' ? 'Person name' : 'Account name'}
-                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-slate-800"
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-3 sm:py-2 text-xs font-semibold text-slate-800 outline-none focus:border-slate-800 min-h-[46px] sm:min-h-0"
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
@@ -899,12 +962,12 @@ export default function DashboardCashBank({
                     value={newAccNumber}
                     onChange={(e) => setNewAccNumber(e.target.value)}
                     placeholder={newAccType === 'person' ? 'Account number or mobile number' : newAccType === 'bank' ? 'Account number' : 'Till/paybill/mobile number'}
-                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 outline-none focus:border-slate-800"
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-3 sm:py-2 text-xs font-mono font-bold text-slate-800 outline-none focus:border-slate-800 min-h-[46px] sm:min-h-0"
                   />
                   <button
                     type="button"
                     onClick={handleCreateAccount}
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase border-none cursor-pointer"
+                    className="px-4 py-3 sm:py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase border-none cursor-pointer min-h-[46px] sm:min-h-0"
                   >
                     Add
                   </button>
@@ -924,7 +987,7 @@ export default function DashboardCashBank({
                   <select
                     value={settleSource}
                     onChange={(e) => setSettleSource(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold focus:border-slate-800 outline-none cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 sm:py-2 text-xs text-slate-800 font-semibold focus:border-slate-800 outline-none cursor-pointer min-h-[46px] sm:min-h-0"
                   >
                     {channels.filter(chan => chan.category !== 'person').map(chan => (
                       <option key={chan.id} value={chan.id}>
@@ -945,7 +1008,7 @@ export default function DashboardCashBank({
                   <select
                     value={settleTarget}
                     onChange={(e) => setSettleTarget(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold focus:border-slate-800 outline-none cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 sm:py-2 text-xs text-slate-800 font-semibold focus:border-slate-800 outline-none cursor-pointer min-h-[46px] sm:min-h-0"
                   >
                     <optgroup label="Mobile Wallets">
                       {channels.filter(c => c.category === 'telco').map(chan => (
@@ -985,7 +1048,7 @@ export default function DashboardCashBank({
                     placeholder="e.g. 100000"
                     value={settleAmount}
                     onChange={(e) => setSettleAmount(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:border-slate-800 outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 sm:py-2 text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:border-slate-800 outline-none min-h-[46px] sm:min-h-0"
                     required
                   />
                 </div>
@@ -1017,7 +1080,7 @@ export default function DashboardCashBank({
                         </button>
                       )}
                     </div>
-                    <div className="relative flex items-center justify-center border border-dashed border-slate-200 hover:border-slate-300 rounded-xl p-2.5 bg-slate-50 focus-within:ring-1 focus-within:ring-indigo-505 transition-all cursor-pointer">
+                    <div className="relative flex items-center justify-center border border-dashed border-slate-200 hover:border-slate-300 rounded-xl p-3 bg-slate-50 focus-within:ring-1 focus-within:ring-indigo-505 transition-all cursor-pointer min-h-[52px]">
                       <input
                         type="file"
                         accept=".pdf,image/*"
@@ -1054,7 +1117,7 @@ export default function DashboardCashBank({
                         </button>
                       )}
                     </div>
-                    <div className="relative flex items-center justify-center border border-dashed border-slate-200 hover:border-slate-300 rounded-xl p-2.5 bg-slate-50 focus-within:ring-1 focus-within:ring-emerald-505 transition-all cursor-pointer">
+                    <div className="relative flex items-center justify-center border border-dashed border-slate-200 hover:border-slate-300 rounded-xl p-3 bg-slate-50 focus-within:ring-1 focus-within:ring-emerald-505 transition-all cursor-pointer min-h-[52px]">
                       <input
                         type="file"
                         accept=".pdf,image/*"
@@ -1083,13 +1146,13 @@ export default function DashboardCashBank({
                     placeholder="Reason for transfer?"
                     value={settleMemo}
                     onChange={(e) => setSettleMemo(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-slate-800 outline-none placeholder-slate-400 text-slate-800"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 sm:py-2 text-xs focus:border-slate-800 outline-none placeholder-slate-400 text-slate-800 min-h-[46px] sm:min-h-0"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-2 px-3 rounded-xl text-xs transition-all cursor-pointer shadow-sm flex items-center justify-center space-x-1 border-none"
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-3 px-3 rounded-2xl sm:rounded-xl text-xs transition-all cursor-pointer shadow-sm flex items-center justify-center space-x-1 border-none min-h-[50px] sm:min-h-0"
                 >
                   <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Perform Money Transfer</span>
@@ -1100,7 +1163,7 @@ export default function DashboardCashBank({
 
 
             {/* QUICK AUDIT TRACKER INFOGRAPHIC */}
-            <div className="lg:col-span-7 bg-white border border-slate-150 rounded-3xl p-6 flex flex-col justify-between space-y-5 shadow-xs animate-fadeIn">
+            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-4 sm:p-6 flex flex-col justify-between space-y-5 shadow-xs animate-fadeIn">
               <div>
                 <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                   <div>
@@ -1181,7 +1244,7 @@ export default function DashboardCashBank({
           return (
             <div className="space-y-6 animate-fadeIn">
               {/* Spotlight Banner Card */}
-              <div className={`border p-6 rounded-3xl relative overflow-hidden shadow-xs ${
+              <div className={`border p-4 sm:p-6 rounded-2xl md:rounded-3xl relative overflow-hidden shadow-xs ${
                 chan.category === 'telco' ? 'bg-gradient-to-br from-indigo-50/40 via-white to-white border-indigo-150' :
                 chan.category === 'bank' ? 'bg-gradient-to-br from-blue-50/40 via-white to-white border-blue-150' :
                 'bg-gradient-to-br from-amber-50/40 via-white to-white border-amber-150'
@@ -1189,12 +1252,12 @@ export default function DashboardCashBank({
                 {/* Back button */}
                 <button
                   onClick={() => setSelectedChannelId('all')}
-                  className="absolute top-4 right-4 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold font-sans transition-all border-none cursor-pointer flex items-center space-x-1"
+                  className="static sm:absolute sm:top-4 sm:right-4 mb-4 sm:mb-0 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold font-sans transition-all border-none cursor-pointer flex items-center justify-center space-x-1 min-h-[42px]"
                 >
                   <span>← Back to Combined View</span>
                 </button>
 
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-2">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 sm:pt-2">
                   <div className="flex items-start space-x-4">
                     <div className={`p-4 rounded-2xl shrink-0 ${
                       chan.category === 'telco' ? 'bg-indigo-50 text-indigo-600' :
@@ -1207,7 +1270,7 @@ export default function DashboardCashBank({
                     </div>
                     <div>
                       <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 block font-mono pb-0.5">SELECTED PAYMENT MODE DETAILS</span>
-                      <h2 className="text-2xl font-black text-slate-900 tracking-tight">{chan.name}</h2>
+                      <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{chan.name}</h2>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 mt-1 font-medium">
                         <span>Provider: <strong className="text-slate-700">{chan.provider}</strong></span>
                         <span>Category: <strong className="text-slate-705 capitalize">{chan.category} Operational</strong></span>
@@ -1228,7 +1291,7 @@ export default function DashboardCashBank({
                 </div>
 
                 {/* Date Filters statistics grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-150">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mt-6 sm:mt-8 pt-6 border-t border-slate-150">
                   <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-200/60">
                     <span className="text-[10px] font-bold text-slate-400 block uppercase font-mono tracking-wide">Selected Date preset</span>
                     <span className="text-xs font-bold text-slate-750 block mt-1 select-none">
@@ -1261,7 +1324,7 @@ export default function DashboardCashBank({
               </div>
 
               {/* Quick Money Transfers */}
-              <div className="bg-white border border-slate-150 rounded-3xl p-6">
+              <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-4 sm:p-6">
                 <div className="flex items-center space-x-2 border-b border-slate-100 pb-3 mb-4">
                   <RefreshCw className="w-4 h-4 text-emerald-500" />
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 font-mono">Quick Settlements / Transfers for {chan.name}</h3>
@@ -1282,7 +1345,7 @@ export default function DashboardCashBank({
                           document.getElementById('instant-settlements-box')?.scrollIntoView({ behavior: 'smooth' });
                         }, 100);
                       }}
-                      className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-2.5 px-5 rounded-2xl text-xs transition-style cursor-pointer flex items-center space-x-2 max-w-full"
+                      className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-3 sm:py-2.5 px-5 rounded-2xl text-xs transition-style cursor-pointer flex items-center justify-center space-x-2 max-w-full min-h-[48px] sm:min-h-0"
                     >
                       <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
                       <span>Transfer from this account</span>
@@ -1296,7 +1359,7 @@ export default function DashboardCashBank({
       )}
 
       {/* TRANSACTION LIST IN VERY SEAMLESS CLEAR ENGLISH */}
-      <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-xs space-y-4">
+      <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-4 sm:p-6 shadow-xs space-y-4">
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div>
@@ -1314,7 +1377,7 @@ export default function DashboardCashBank({
                 placeholder="Search transactions..."
                 value={auditSearch}
                 onChange={(e) => setAuditSearch(e.target.value)}
-                className="pl-8.5 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-slate-800 w-full sm:w-52"
+                className="pl-8.5 pr-3 py-3 sm:py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-slate-800 w-full sm:w-52 min-h-[46px] sm:min-h-0"
               />
             </div>
 
@@ -1322,7 +1385,7 @@ export default function DashboardCashBank({
             <select
               value={auditTypeFilter}
               onChange={(e) => setAuditTypeFilter(e.target.value as any)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 font-bold outline-none focus:border-slate-800 cursor-pointer"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-3 sm:py-1.5 text-xs text-slate-700 font-bold outline-none focus:border-slate-800 cursor-pointer min-h-[46px] sm:min-h-0"
             >
               <option value="ALL">All Payments</option>
               <option value="INITIAL_BALANCE">Opening Reserves</option>
@@ -1335,7 +1398,7 @@ export default function DashboardCashBank({
             <button
               id="btn-download-csv-report"
               onClick={downloadAuditReportCSV}
-              className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs py-1.5 px-3.5 rounded-xl cursor-pointer transition-all flex items-center justify-center space-x-1 shadow-sm shrink-0"
+              className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs py-3 sm:py-1.5 px-3.5 rounded-xl cursor-pointer transition-all flex items-center justify-center space-x-1 shadow-sm shrink-0 min-h-[46px] sm:min-h-0"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Download Report</span>
@@ -1345,7 +1408,7 @@ export default function DashboardCashBank({
         </div>
 
         {/* Audit Table List rendering */}
-        <div className="overflow-x-auto rounded-2xl border border-slate-150">
+        <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-150">
           <table className="w-full text-left border-collapse text-xs font-sans">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-150 font-bold font-mono text-slate-500 text-[10px] uppercase select-none">
@@ -1450,6 +1513,99 @@ export default function DashboardCashBank({
               )}
             </tbody>
           </table>
+        </div>
+        <div className="md:hidden space-y-3">
+          {searchedAuditTrail.length > 0 ? (
+            searchedAuditTrail.map((entry) => {
+              const chan = channels.find(c => c.id === entry.channelId);
+              const counterParty = entry.counterPartyChannelId ? channels.find(c => c.id === entry.counterPartyChannelId) : undefined;
+              const isPositive = entry.amount >= 0;
+              const isPersonPayout = entry.sourceType === 'SETTLE_TILL_DEPOSIT' && counterParty?.category === 'person';
+              const displayType = entry.sourceType === 'POS_CHECKOUT' ? 'Payment In' :
+                isPersonPayout ? 'Sent to Person' :
+                entry.channelId === 'counter-01' ? 'Cash Counter' :
+                entry.sourceType === 'SETTLE_TILL_DEPOSIT' ? 'Transfer' :
+                entry.sourceType === 'EXPENSE_WITHDRAWAL' ? 'Cash Expense' : 'Starting Balance';
+              const shortRef = (() => {
+                let display = entry.id;
+                if (display.startsWith('POS-RECON-')) display = display.replace('POS-RECON-', 'PR-');
+                else if (display.startsWith('EXP-WITHDR-')) display = display.replace('EXP-WITHDR-', 'EW-');
+                else if (display.startsWith('SETTLE-TX-')) display = display.replace('SETTLE-TX-', 'TX-');
+                else if (display.startsWith('initial-')) display = display.replace('initial-', 'INI-');
+                return display.length > 14 ? `${display.slice(0, 12)}...` : display;
+              })();
+
+              return (
+                <div key={entry.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">{shortRef}</span>
+                      <p className="mt-1 text-sm font-black text-slate-900 truncate">{chan?.name || 'N/A'}</p>
+                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                        {new Date(entry.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 text-sm font-black ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {isPositive ? '+' : ''}{formatCurrency(entry.amount)}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black font-mono tracking-wide ${
+                      entry.sourceType === 'POS_CHECKOUT' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
+                      isPersonPayout ? 'bg-rose-50 text-rose-700 border border-rose-100' :
+                      entry.channelId === 'counter-01' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                      entry.sourceType === 'SETTLE_TILL_DEPOSIT' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                      entry.sourceType === 'EXPENSE_WITHDRAWAL' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
+                      'bg-slate-100 text-slate-600 border border-slate-200'
+                    }`}>
+                      {displayType}
+                    </span>
+                    {chan?.provider && (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-white border border-slate-200 text-slate-500">
+                        {chan.provider}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mt-3 text-xs text-slate-600 leading-relaxed bg-white border border-slate-200 rounded-xl p-3">
+                    {entry.description}
+                    {entry.counterPartyChannelId && (
+                      <span className="text-[10px] block text-slate-400 italic mt-1">
+                        {isPersonPayout ? 'Sent to' : 'Other account'}: {counterParty?.name || 'N/A'}
+                        {counterParty?.accountNumber ? ` (${counterParty.accountNumber})` : ''}
+                      </span>
+                    )}
+                  </p>
+
+                  {(entry.receiptFile || entry.muamalaFile) && (
+                    <div className="mt-2 text-[10px] gap-1.5 flex flex-wrap">
+                      {entry.receiptFile && (
+                        <span className="inline-flex items-center space-x-1 px-2 py-1 bg-indigo-50 text-indigo-700 font-extrabold font-mono rounded-md border border-indigo-100" title={entry.receiptFile}>
+                          <FileText className="w-3 h-3 text-indigo-500 shrink-0" />
+                          <span className="max-w-[180px] truncate">Standard Receipt: {entry.receiptFile}</span>
+                        </span>
+                      )}
+                      {entry.muamalaFile && (
+                        <span className="inline-flex items-center space-x-1 px-2 py-1 bg-emerald-50 text-emerald-800 font-extrabold font-mono rounded-md border border-emerald-100" title={entry.muamalaFile}>
+                          <Wallet className="w-3 h-3 text-emerald-500 shrink-0" />
+                          <span className="max-w-[180px] truncate">Mobile Slip: {entry.muamalaFile}</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center py-10 font-sans text-slate-400 rounded-2xl border border-slate-200 bg-slate-50">
+              <div className="flex flex-col items-center space-y-2">
+                <AlertCircle className="w-8 h-8 text-slate-300" />
+                <p className="font-bold text-slate-500">No Transactions Found</p>
+                <p className="text-[11px] text-slate-400 max-w-xs">No matching transactions.</p>
+              </div>
+            </div>
+          )}
         </div>
         
         {searchedAuditTrail.length > 0 && (
