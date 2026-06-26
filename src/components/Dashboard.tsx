@@ -23,6 +23,7 @@ import DashboardExpenses from './DashboardExpenses';
 import DashboardSalesList from './DashboardSalesList';
 import DashboardForecasting from './DashboardForecasting';
 import DashboardCashBank from './DashboardCashBank';
+import { saveData, syncOnLogin } from '../utils/dbSync';
 import DashboardPurchases from './DashboardPurchases';
 import DashboardDeliveries from './DashboardDeliveries';
 import DashboardHotelPMS from './DashboardHotelPMS';
@@ -338,6 +339,31 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   useEffect(() => {
     localStorage.setItem(`jasper_active_dashboard_tab_${user.id}_${activeTenant.id}`, activeTab);
   }, [activeTab, activeTenant.id, user.id]);
+
+  // ── SYNC ON LOGIN ── Pull all data from cloud to localStorage on mount
+  useEffect(() => {
+    if (!activeTenant.id) return;
+    syncOnLogin(activeTenant.id).then(() => {
+      // After sync, reload data maps from localStorage (which now has cloud data)
+      const freshProducts = localStorage.getItem('jasper_products_map');
+      if (freshProducts) {
+        try { setProductsMap(prev => ({ ...prev, ...JSON.parse(freshProducts) })); } catch (e) {}
+      }
+      const freshSales = localStorage.getItem('jasper_sales_map');
+      if (freshSales) {
+        try { setSalesMap(prev => ({ ...prev, ...JSON.parse(freshSales) })); } catch (e) {}
+      }
+      const freshExpenses = localStorage.getItem('jasper_expenses_map');
+      if (freshExpenses) {
+        try { setExpensesMap(prev => ({ ...prev, ...JSON.parse(freshExpenses) })); } catch (e) {}
+      }
+      const freshSettings = localStorage.getItem(`jasper_settings_${activeTenant.id}`);
+      if (freshSettings) {
+        try { setSystemSettings(prev => ({ ...prev, ...JSON.parse(freshSettings) })); } catch (e) {}
+      }
+    }).catch(() => {}); // Always fails gracefully — localStorage still works
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTenant.id]);
   const [actingStaffId, setActingStaffId] = useState<string>('logged-in-user');
   const [productsMap, setProductsMap] = useState<Record<string, Product[]>>(() => loadStoredRecord<Product>('jasper_products_map', DEFAULT_PRODUCTS));
   const [salesMap, setSalesMap] = useState<Record<string, Sale[]>>(() => loadStoredRecord<Sale>('jasper_sales_map', MOCK_SALES_HISTORY));
@@ -850,14 +876,24 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   useEffect(() => {
     localStorage.setItem('jasper_products_map', JSON.stringify(productsMap));
+    // Sync each tenant's products to cloud
+    Object.entries(productsMap).forEach(([tid, data]) => {
+      saveData(tid, 'products_map', { [tid]: data });
+    });
   }, [productsMap]);
 
   useEffect(() => {
     localStorage.setItem('jasper_sales_map', JSON.stringify(salesMap));
+    Object.entries(salesMap).forEach(([tid, data]) => {
+      saveData(tid, 'sales_map', { [tid]: data });
+    });
   }, [salesMap]);
 
   useEffect(() => {
     localStorage.setItem('jasper_expenses_map', JSON.stringify(expensesMap));
+    Object.entries(expensesMap).forEach(([tid, data]) => {
+      saveData(tid, 'expenses_map', { [tid]: data });
+    });
   }, [expensesMap]);
 
   const subStatus = checkSubscriptionStatus(
@@ -972,6 +1008,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     };
     setPendingDeliveryNotesMap(updated);
     localStorage.setItem('jasper_pending_delivery_notes_map', JSON.stringify(updated));
+    saveData(activeTenant.id, 'pending_delivery_notes_map', updated);
   };
 
   const handleAddSale = (sale: Sale) => {
@@ -1190,10 +1227,13 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const handleAddPurchase = (purchase: Purchase) => {
     setPurchasesMap(prev => {
       const currentTenantPurchases = prev[activeTenant.id] || [];
-      return {
+      const updated = {
         ...prev,
         [activeTenant.id]: [purchase, ...currentTenantPurchases]
       };
+      // Sync purchases to cloud
+      saveData(activeTenant.id, 'purchases_map', updated);
+      return updated;
     });
 
     const newLog: SyncLog = {
@@ -2113,6 +2153,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onUpdateSettings={(updated) => {
                 setSystemSettings(updated);
                 localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
+                saveData(activeTenant.id, 'settings', updated);
               }}
               onAddProduct={handleCreateProduct}
               onDeleteProduct={handleDeleteProduct}
@@ -2276,6 +2317,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onUpdateSystemSettings={(updated) => {
                 setSystemSettings(updated);
                 localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
+                saveData(activeTenant.id, 'settings', updated);
               }}
             />
           )}
@@ -2294,6 +2336,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onUpdateSettings={(updated) => {
                 setSystemSettings(updated);
                 localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
+                saveData(activeTenant.id, 'settings', updated);
               }}
               sales={activeSales}
               expenses={activeExpenses}
@@ -2310,6 +2353,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onSaveSettings={(updated) => {
                 setSystemSettings(updated);
                 localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
+                saveData(activeTenant.id, 'settings', updated);
                 let logoToSave = '';
                 if (updated.company?.logo) {
                   logoToSave = updated.company.logo;
