@@ -32,6 +32,8 @@ import {
   FileText,
   ShieldCheck,
   Lock,
+  KeyRound,
+  Save,
   X,
   Activity,
   DollarSign,
@@ -931,6 +933,9 @@ export default function DashboardSettings({
 
   // HRM states for registering staffs
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
+  const [credentialEditStaffId, setCredentialEditStaffId] = useState('');
+  const [credentialEditPhone, setCredentialEditPhone] = useState('');
+  const [credentialEditPassword, setCredentialEditPassword] = useState('');
   const [staffForm, setStaffForm] = useState({
     name: '',
     phone: '',
@@ -943,6 +948,27 @@ export default function DashboardSettings({
 
   const togglePasswordVisibility = (staffId: string) => {
     setShowPasswordMap(prev => ({ ...prev, [staffId]: !prev[staffId] }));
+  };
+
+  const openStaffCredentialEditor = (staff: StaffSettings) => {
+    const isOpen = credentialEditStaffId === staff.id;
+    setCredentialEditStaffId(isOpen ? '' : staff.id);
+    setCredentialEditPhone(isOpen ? '' : staff.phone);
+    setCredentialEditPassword(isOpen ? '' : staff.password || '');
+  };
+
+  const handleSaveStaffCredentials = (staffId: string) => {
+    if (!credentialEditPhone.trim() || !credentialEditPassword.trim()) return;
+    setStaffsList(prev => prev.map(staff =>
+      staff.id === staffId
+        ? { ...staff, phone: credentialEditPhone.trim(), password: credentialEditPassword.trim() }
+        : staff
+    ));
+    setCredentialEditStaffId('');
+    setCredentialEditPhone('');
+    setCredentialEditPassword('');
+    setSaveSuccess('Staff login credentials updated. Remember to save settings to keep this change.');
+    setTimeout(() => setSaveSuccess(null), 3500);
   };
 
   const handleStaffImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'profileImage' | 'signatureImage') => {
@@ -2312,6 +2338,14 @@ export default function DashboardSettings({
                               <div className="flex items-center justify-center space-x-2">
                                 <button
                                   type="button"
+                                  onClick={() => openStaffCredentialEditor(staff)}
+                                  className="p-1 px-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-indigo-700 font-mono text-[10.5px] font-bold tracking-tight cursor-pointer transition-colors active:scale-95 flex items-center space-x-1"
+                                >
+                                  <KeyRound className="w-3 h-3" />
+                                  <span>Login</span>
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => setViewingStaffReport(staff)}
                                   className="p-1 px-2.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-blue-700 font-mono text-[10.5px] font-bold tracking-tight cursor-pointer transition-colors active:scale-95 flex items-center space-x-1"
                                 >
@@ -2327,6 +2361,43 @@ export default function DashboardSettings({
                                   <span>De-register</span>
                                 </button>
                               </div>
+                              {credentialEditStaffId === staff.id && (
+                                <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50 p-2">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <input
+                                      type="text"
+                                      value={credentialEditPhone}
+                                      onChange={(e) => setCredentialEditPhone(e.target.value)}
+                                      placeholder="Phone / Login ID"
+                                      className="min-w-0 rounded-lg border border-white bg-white px-2 py-2 text-[11px] font-bold outline-none focus:border-indigo-400"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={credentialEditPassword}
+                                      onChange={(e) => setCredentialEditPassword(e.target.value)}
+                                      placeholder="Password / PIN"
+                                      className="min-w-0 rounded-lg border border-white bg-white px-2 py-2 text-[11px] font-bold outline-none focus:border-indigo-400"
+                                    />
+                                  </div>
+                                  <div className="mt-2 flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setCredentialEditStaffId('')}
+                                      className="rounded-lg bg-white border border-slate-200 px-2.5 py-1.5 text-[10px] font-black text-slate-600"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveStaffCredentials(staff.id)}
+                                      className="rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-black text-white inline-flex items-center gap-1"
+                                    >
+                                      <Save className="w-3 h-3" />
+                                      Save
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         );
@@ -2400,7 +2471,15 @@ export default function DashboardSettings({
                             </button>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 mt-3">
+                          <div className="grid grid-cols-3 gap-2 mt-3">
+                            <button
+                              type="button"
+                              onClick={() => openStaffCredentialEditor(staff)}
+                              className="min-h-[44px] bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-2xl text-indigo-700 font-mono text-[10.5px] font-black tracking-tight cursor-pointer transition-colors active:scale-95 flex items-center justify-center space-x-1"
+                            >
+                              <KeyRound className="w-3.5 h-3.5" />
+                              <span>Login</span>
+                            </button>
                             <button
                               type="button"
                               onClick={() => setViewingStaffReport(staff)}
@@ -2418,6 +2497,43 @@ export default function DashboardSettings({
                               <span>De-register</span>
                             </button>
                           </div>
+                          {credentialEditStaffId === staff.id && (
+                            <div className="mt-3 rounded-2xl border border-indigo-100 bg-indigo-50 p-3">
+                              <div className="space-y-2">
+                                <input
+                                  type="text"
+                                  value={credentialEditPhone}
+                                  onChange={(e) => setCredentialEditPhone(e.target.value)}
+                                  placeholder="Phone / Login ID"
+                                  className="w-full min-h-[44px] rounded-xl border border-white bg-white px-3 text-xs font-bold outline-none focus:border-indigo-400"
+                                />
+                                <input
+                                  type="text"
+                                  value={credentialEditPassword}
+                                  onChange={(e) => setCredentialEditPassword(e.target.value)}
+                                  placeholder="Password / PIN"
+                                  className="w-full min-h-[44px] rounded-xl border border-white bg-white px-3 text-xs font-bold outline-none focus:border-indigo-400"
+                                />
+                              </div>
+                              <div className="mt-3 grid grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setCredentialEditStaffId('')}
+                                  className="min-h-[42px] rounded-xl bg-white border border-slate-200 text-xs font-black text-slate-600"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveStaffCredentials(staff.id)}
+                                  className="min-h-[42px] rounded-xl bg-slate-950 text-xs font-black text-white flex items-center justify-center gap-1"
+                                >
+                                  <Save className="w-3.5 h-3.5" />
+                                  Save
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })

@@ -98,6 +98,98 @@ export default function App() {
     setCurrentPath(normalizePath(path));
   };
 
+  const getSessionUserKey = (sessionUser: User) => sessionUser.id || sessionUser.phone || sessionUser.email || sessionUser.name;
+
+  const getSessionTenantId = (sessionUser: User) => sessionUser.tenantId || sessionUser.activeTenant || 'default';
+
+  const getDeviceLabel = () => {
+    const width = window.innerWidth;
+    if (width < 768) return 'Mobile';
+    if (width < 1024) return 'Tablet';
+    return 'Desktop';
+  };
+
+  const recordStaffLogin = (sessionUser: User) => {
+    const tenantId = getSessionTenantId(sessionUser);
+    const userKey = getSessionUserKey(sessionUser);
+    const sessionsKey = `jasper_staff_sessions_${tenantId}`;
+    const activeSessionKey = `jasper_active_staff_session_${tenantId}_${userKey}`;
+    const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    try {
+      const existingSessions = JSON.parse(localStorage.getItem(sessionsKey) || '[]');
+      const cleanedSessions = existingSessions.map((session: any) => {
+        const sameUser = session.staffId === sessionUser.id || session.userId === userKey;
+        if (!sameUser || session.logoutAt) return session;
+        const logoutAt = new Date().toISOString();
+        return {
+          ...session,
+          logoutAt,
+          durationMs: Math.max(0, new Date(logoutAt).getTime() - new Date(session.loginAt).getTime()),
+          status: 'offline'
+        };
+      });
+
+      const nextSession = {
+        id: sessionId,
+        userId: userKey,
+        staffId: sessionUser.id,
+        staffName: sessionUser.name,
+        phone: sessionUser.phone,
+        email: sessionUser.email,
+        role: sessionUser.role,
+        tenantId,
+        loginAt: new Date().toISOString(),
+        logoutAt: null,
+        durationMs: 0,
+        status: 'online',
+        device: getDeviceLabel()
+      };
+
+      localStorage.setItem(sessionsKey, JSON.stringify([nextSession, ...cleanedSessions].slice(0, 500)));
+      localStorage.setItem(activeSessionKey, sessionId);
+      const statusKey = `jasper_staff_statuses_${tenantId}`;
+      const statusMap = JSON.parse(localStorage.getItem(statusKey) || '{}');
+      statusMap[sessionUser.id] = true;
+      localStorage.setItem(statusKey, JSON.stringify(statusMap));
+    } catch (error) {
+      console.warn('Failed to record staff login session', error);
+    }
+  };
+
+  const recordStaffLogout = (sessionUser: User | null) => {
+    if (!sessionUser) return;
+    const tenantId = getSessionTenantId(sessionUser);
+    const userKey = getSessionUserKey(sessionUser);
+    const sessionsKey = `jasper_staff_sessions_${tenantId}`;
+    const activeSessionKey = `jasper_active_staff_session_${tenantId}_${userKey}`;
+
+    try {
+      const activeSessionId = localStorage.getItem(activeSessionKey);
+      const logoutAt = new Date().toISOString();
+      const sessions = JSON.parse(localStorage.getItem(sessionsKey) || '[]');
+      const updatedSessions = sessions.map((session: any) => {
+        const sameSession = activeSessionId ? session.id === activeSessionId : session.userId === userKey && !session.logoutAt;
+        if (!sameSession) return session;
+        return {
+          ...session,
+          logoutAt,
+          durationMs: Math.max(0, new Date(logoutAt).getTime() - new Date(session.loginAt).getTime()),
+          status: 'offline'
+        };
+      });
+      localStorage.setItem(sessionsKey, JSON.stringify(updatedSessions));
+      localStorage.removeItem(activeSessionKey);
+
+      const statusKey = `jasper_staff_statuses_${tenantId}`;
+      const statusMap = JSON.parse(localStorage.getItem(statusKey) || '{}');
+      statusMap[sessionUser.id] = false;
+      localStorage.setItem(statusKey, JSON.stringify(statusMap));
+    } catch (error) {
+      console.warn('Failed to record staff logout session', error);
+    }
+  };
+
   // Perform route protection redirects check
   useEffect(() => {
     if (isDashboardRoute(currentPath) && !user) {
@@ -108,6 +200,7 @@ export default function App() {
   }, [currentPath, user]);
 
   const handleLoginSuccess = (authenticatedUser: User) => {
+    recordStaffLogin(authenticatedUser);
     setUser(authenticatedUser);
     localStorage.setItem('jasper_cashier_user', JSON.stringify(authenticatedUser));
     // Show splash on fresh login — only once per session
@@ -119,6 +212,7 @@ export default function App() {
   };
 
   const handleLogoutSuccess = () => {
+    recordStaffLogout(user);
     setUser(null);
     localStorage.removeItem('jasper_cashier_user');
     navigateTo('/');
