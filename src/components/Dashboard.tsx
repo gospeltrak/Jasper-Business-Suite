@@ -940,42 +940,28 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleSendToDeliveryNote = (sale: Sale) => {
-    const newPendingNote = {
-      id: `DN-PEND-${Math.floor(10000 + Math.random() * 90000)}`,
+    const newDelivery: Delivery = {
+      id: `DL-${sale.id.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}`,
       saleId: sale.id,
       customerName: sale.customerName || 'Walk-In Customer',
       customerPhone: sale.customerPhone || '',
-      customerAddress: '', // user will fill this
-      items: sale.items.map((item, idx) => ({
-        id: (idx + 1).toString(),
-        description: item.productName,
-        unit: 'PC',
-        qty: item.qty
-      })),
-      piNo: `PI-${sale.id.replace(/[^0-9]/g, '').slice(0, 6) || Math.floor(100000 + Math.random() * 899999)}`,
-      lpoNo: `LP-${Math.floor(100 + Math.random() * 900)}`,
-      date: new Date().toLocaleDateString('en-GB'), // dd/mm/yyyy
-      status: 'Pending',
-      deliveryLocation: '', // user will fill this
-      registrationPlate: '', // user will fill this
-      transportType: '', // user will fill this
-      deliveredByName: '', // user will fill this
+      items: sale.items,
+      totalAmount: sale.total,
+      deliveryPaymentMethod: sale.deliveryPaymentMethod || '',
+      deliveryCost: sale.deliveryCost || 0,
+      status: 'Pending Dispatch',
+      timestamp: sale.timestamp,
+      tenantId: activeTenant.id
     };
 
-    const currentNotes = pendingDeliveryNotesMap[activeTenant.id] || [];
-    const updated = {
-      ...pendingDeliveryNotesMap,
-      [activeTenant.id]: [
-        newPendingNote,
-        ...currentNotes
-      ]
-    };
+    setDeliveriesMap(prev => {
+      const currentDeliveries = prev[activeTenant.id] || [];
+      if (currentDeliveries.some(delivery => delivery.saleId === sale.id)) return prev;
+      return { ...prev, [activeTenant.id]: [newDelivery, ...currentDeliveries] };
+    });
 
-    setPendingDeliveryNotesMap(updated);
-    localStorage.setItem('jasper_pending_delivery_notes_map', JSON.stringify(updated));
-    
-    // Switch tab and subtab
-    setDeliveriesSubTab('notes');
+    // Go directly to the operational dispatch queue, not the document-notes workspace.
+    setDeliveriesSubTab('queue');
     setActiveTab('deliveries');
   };
 
