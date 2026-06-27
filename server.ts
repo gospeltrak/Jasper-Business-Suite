@@ -450,9 +450,9 @@ async function generateResilientContent(ai: GoogleGenAI, params: any) {
   }
 }
 
-async function startServer() {
+export async function createApp(options: { serveClient?: boolean } = {}) {
+  const { serveClient = true } = options;
   const app = express();
-  const PORT = 3000;
 
   // Body parser limit expanded for rich sales ledger payloads
   app.use(express.json({ limit: '10mb' }));
@@ -1947,13 +1947,13 @@ USER MESSAGE: "${message}"
   });
 
   // Vite Integration & Routing Handler
-  if (process.env.NODE_ENV !== 'production') {
+  if (serveClient && process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (serveClient) {
     const distPath = path.join(process.cwd(), 'dist');
     // Serves compiled production assets from dist
     app.use(express.static(distPath));
@@ -1962,9 +1962,18 @@ USER MESSAGE: "${message}"
     });
   }
 
+  return app;
+}
+
+async function startServer() {
+  const app = await createApp({ serveClient: true });
+  const PORT = 3000;
+
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Express custom server running on http://0.0.0.0:${PORT} in ${process.env.NODE_ENV || 'dev'} mode.`);
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}
