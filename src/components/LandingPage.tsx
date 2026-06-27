@@ -1128,7 +1128,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => onNavigate('/')}>
             <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm flex items-center justify-center">
-              <img src={t.systemLogo || "/icon.svg"} alt="Jasper Suite Logo" className="w-full h-full object-cover" />
+              <img src={t.systemLogo || "/jb-logo.png"} alt="Jasper Suite Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <span className={`text-xl font-bold tracking-tight focus:outline-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
@@ -1259,7 +1259,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           {/* Left: Logo and branding */}
           <div className="flex items-center space-x-2.5 cursor-pointer shrink-0" onClick={() => onNavigate('/')}>
             <div className="w-8 h-8 rounded-full overflow-hidden shadow-xs flex items-center justify-center shrink-0">
-              <img src={t.systemLogo || "/icon.svg"} alt="Jasper Suite Logo" className="w-full h-full object-cover" />
+              <img src={t.systemLogo || "/jb-logo.png"} alt="Jasper Suite Logo" className="w-full h-full object-cover" />
             </div>
             <div className="flex flex-col justify-center leading-tight">
               <span className={`text-[15px] font-bold tracking-tight leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
@@ -1925,7 +1925,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           {/* Address details first */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <img src={t.systemLogo || "/icon.svg"} alt="Jasper Suite Logo" className="w-6 h-6 rounded-full overflow-hidden object-cover" />
+              <img src={t.systemLogo || "/jb-logo.png"} alt="Jasper Suite Logo" className="w-6 h-6 rounded-full overflow-hidden object-cover" />
               <span className={`text-base font-bold ${isDark ? 'text-white' : 'text-[#111827]'}`}>Jasper <span className="text-emerald-450 text-emerald-505 text-emerald-500 font-normal">Suite</span></span>
             </div>
             

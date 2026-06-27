@@ -7,7 +7,7 @@ interface JasperSplashScreenProps {
 }
 
 export default function JasperSplashScreen({
-  logoSrc = '/jasper_logo_transparent.png',
+  logoSrc = '/jb-logo.png',
   duration = 2800,
   onFinish,
 }: JasperSplashScreenProps) {

@@ -1301,7 +1301,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             ) : loginScreenLogoUrl ? (
               <img src={loginScreenLogoUrl} alt="Jasper Suite Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
             ) : (
-              <img src="/icon.svg" alt="Jasper Suite Logo" className="w-10 h-10 object-contain animate-pulse" />
+              <img src="/jb-logo.png" alt="Jasper Suite Logo" className="w-10 h-10 object-contain animate-pulse" />
             )}
           </div>
           <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
@@ -2184,7 +2184,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 />
               ) : (
                 <img 
-                  src="/icon.svg" 
+                  src="/jb-logo.png" 
                   alt="Jasper App Logo" 
                   className="w-16 h-16 object-contain" 
                 />
