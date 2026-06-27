@@ -14,9 +14,11 @@ const money = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS
 const csvValue = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 const emptyData: AffiliateMonitoringData = { affiliates: [], organicSubscribers: [], agents: [], subAffiliates: [] };
 
-export default function SuperAffiliateControlCenter() {
+type AffiliateCenterTab = 'organic' | 'agents' | 'subAffiliates';
+
+export default function SuperAffiliateControlCenter({ initialTab = 'organic' }: { initialTab?: AffiliateCenterTab }) {
   const [data, setData] = useState<AffiliateMonitoringData>(emptyData);
-  const [activeTab, setActiveTab] = useState<'organic' | 'agents' | 'subAffiliates'>('organic');
+  const [activeTab, setActiveTab] = useState<AffiliateCenterTab>(initialTab);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [agentFilter, setAgentFilter] = useState('all');
@@ -38,6 +40,7 @@ export default function SuperAffiliateControlCenter() {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
 
   const q = query.trim().toLowerCase();
   const organicRows = useMemo(() => data.organicSubscribers.filter((row) =>
@@ -115,16 +118,16 @@ export default function SuperAffiliateControlCenter() {
       <header className="flex flex-col gap-3 md:flex-row md:justify-between md:items-end">
         <div>
           <p className="text-xs text-emerald-400 font-semibold">Live Supabase source tracking</p>
-          <h1 className="mt-1 text-xl font-bold text-white">Affiliate Monitoring Center</h1>
-          <p className="mt-1 text-xs text-slate-400">Organic traffic, agent networks, and sub-affiliates are separated by stored database source records.</p>
+          <h1 className="mt-1 text-xl font-bold text-white">Super Admin Affiliates Menu</h1>
+          <p className="mt-1 text-xs text-slate-400">Organic affiliates, agent networks, and sub-affiliates are separated by stored database source records.</p>
         </div>
         <button onClick={refresh} className="px-3 py-2 rounded-md border border-slate-700 text-sm"><RefreshCw className="inline w-4 h-4 mr-2" />Refresh</button>
       </header>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
-        <TabButton active={activeTab === 'organic'} onClick={() => setActiveTab('organic')} label="Organic Traffic Monitoring" />
-        <TabButton active={activeTab === 'agents'} onClick={() => setActiveTab('agents')} label="Agent Monitoring" />
-        <TabButton active={activeTab === 'subAffiliates'} onClick={() => setActiveTab('subAffiliates')} label="Sub-affiliates Monitoring" />
+        <TabButton active={activeTab === 'organic'} onClick={() => setActiveTab('organic')} label="1. Organic Affiliates" />
+        <TabButton active={activeTab === 'agents'} onClick={() => setActiveTab('agents')} label="2. Affiliate Agents" />
+        <TabButton active={activeTab === 'subAffiliates'} onClick={() => setActiveTab('subAffiliates')} label="3. Sub-Affiliates" />
       </div>
 
       <div className="grid gap-3 md:grid-cols-[1fr_160px_180px]">
