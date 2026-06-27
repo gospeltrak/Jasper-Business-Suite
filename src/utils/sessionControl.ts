@@ -19,6 +19,12 @@ const getDeviceLabel = () => {
 
 export async function startCloudSession(): Promise<{ allowed: boolean; reason?: string }> {
   const client: any = await getDynamicSupabaseClient();
+  const previousSessionId = sessionStorage.getItem(sessionStorageKey);
+  if (previousSessionId) {
+    await client.rpc('end_user_session', { p_session_id: previousSessionId }).catch(() => null);
+    sessionStorage.removeItem(sessionStorageKey);
+  }
+
   const { data, error } = await client.rpc('start_user_session', {
     p_device_id: getDeviceId(),
     p_device_label: getDeviceLabel(),
