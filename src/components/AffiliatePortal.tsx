@@ -721,12 +721,9 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   }, []);
 
   useEffect(() => {
-    // If the active cashier user is already signed in, they can explore or log in
-    const cachedAffiliate = localStorage.getItem("jasper_logged_affiliate");
-    if (cachedAffiliate) {
-      setActiveAffiliate(JSON.parse(cachedAffiliate));
-      setAuthMode("dashboard");
-    }
+    // Affiliate dashboards are database-backed. Old browser-only demo sessions
+    // must not reopen the legacy dashboard or show disconnected affiliate data.
+    localStorage.removeItem("jasper_logged_affiliate");
   }, []);
 
   const handleUpdatePromoCode = (e: React.FormEvent) => {
@@ -1391,8 +1388,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     >
       {/* Background radial effects */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-10 left-1/3 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[100px]" />
-        <div className="absolute bottom-10 right-10 w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[120px]" />
+        <div className="absolute top-10 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-emerald-500/5 blur-[80px] sm:left-1/3 sm:h-[500px] sm:w-[500px] sm:translate-x-0 sm:blur-[100px]" />
+        <div className="absolute bottom-10 right-4 h-52 w-52 rounded-full bg-blue-500/5 blur-[80px] sm:right-10 sm:h-[400px] sm:w-[400px] sm:blur-[120px]" />
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">

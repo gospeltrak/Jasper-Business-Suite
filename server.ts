@@ -873,7 +873,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         email: authEmail,
         name: String(name).trim(),
         phone: normalizedPhone,
-        role: 'Affiliate',
+        role: 'Admin',
         account_type: 'affiliate',
         username_phone: normalizedPhone,
         role_key: 'affiliate',
