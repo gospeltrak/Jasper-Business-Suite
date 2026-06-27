@@ -1090,62 +1090,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       triggerOnLoginWithSplash(registeredUser);
 
     } catch (err: any) {
-      console.warn('[Supabase Registration Flow Error, falling back gracefully]:', err);
-      try {
-        const newTenantId = `t-dyn-${crypto.randomUUID()}`;
-
-        const newTenant: Tenant = {
-          id: newTenantId,
-          name: orgName,
-          country,
-          city,
-          currency: mappedCurrency.symbol,
-          currencyCode: mappedCurrency.code,
-          taxRate: mappedCurrency.tax,
-          mobileMoneyProviders: [],
-          businessType: businessType
-        };
-
-        const userStartDate = new Date();
-        const hasReferral = !!affiliateCode.trim();
-        const trialDays = hasReferral ? 20 : 10;
-        const userEndDate = new Date(userStartDate);
-        userEndDate.setDate(userEndDate.getDate() + trialDays);
-
-        const newDynamicUser = {
-          id: 'u-dyn-' + Math.floor(100 + Math.random() * 900),
-          email: ownerAuthEmail,
-          password: regPassword,
-          name: ownerName,
-          role: 'Admin' as const,
-          tenantId: newTenantId,
-          activeTenant: newTenantId,
-          phone: cleanOwnerPhone || regEmail.trim(),
-          securityQuestion: regSecurityQuestion.trim(),
-          securityAnswer: normalizeSecurityAnswer(regSecurityAnswer),
-          trial_start_date: userStartDate.toISOString(),
-          trial_end_date: userEndDate.toISOString(),
-          is_affiliate_lead: hasReferral,
-          referral_code_used: hasReferral ? affiliateCode.trim() : ''
-        };
-
-        // Store custom tenants dynamically in localStorage
-        const savedCustomTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
-        localStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, newTenant]));
-        initializeCleanTenantWorkspace(newTenant);
-
-        // Store custom users dynamically in localStorage
-        const savedCustomUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
-        localStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, newDynamicUser]));
-
-        setIsLoading(false);
-        setSuccessMessage(`Success (Local Mode)! Registered "${orgName}" offline.`);
-        
-        triggerOnLoginWithSplash(newDynamicUser);
-      } catch (innerErr: any) {
-        setError(innerErr?.message || 'Failed to complete registration.');
-        setIsLoading(false);
-      }
+      console.warn('[Supabase Registration Flow Error]:', err);
+      setError(err?.message || 'Cloud registration failed. Please reconnect internet and try again so this account is saved to the database.');
+      setIsLoading(false);
     }
   };
 
@@ -1220,6 +1167,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   const handleGoogleRegisterSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setError('Google cloud account registration is not enabled yet. Please use WhatsApp/password registration so the account is saved to Supabase and works on every device.');
+    setIsLoading(false);
+    return;
     if (!selectedGoogleEmail || !selectedGoogleName || !googleOrgName || !googlePhone) {
       setError('Please complete all profile details before continuing.');
       return;

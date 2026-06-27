@@ -75,6 +75,34 @@ const adminTable = (tableName: string) => {
   return supabaseAdmin.from(tableName as any) as any;
 };
 
+const createInitialTenantSettings = (tenant: any) => ({
+  business: {
+    name: tenant.name || '',
+    type: tenant.business_type || 'retail',
+    country: tenant.country || 'Tanzania',
+    city: tenant.city || '',
+    currency: tenant.currency || 'TSh',
+    currencyCode: tenant.currency_code || 'TZS',
+    taxRate: Number(tenant.tax_rate || 0),
+    mobileMoneyProviders: []
+  },
+  company: {},
+  invoice: {},
+  paymentMethods: [],
+  units: [],
+  categories: [],
+  brands: []
+});
+
+const createInitialTenantWorkspace = (tenant: any) => ({
+  products: [],
+  sales: [],
+  expenses: [],
+  settings: createInitialTenantSettings(tenant),
+  deliveries: [],
+  pendingDeliveryNotes: []
+});
+
 // Helper for local inventory forecast fallback when API is busy or offline
 function generateLocalForecast(products: any[], salesHistory: any[], tenant: any) {
   const forecasts = products.map((p) => {
@@ -1014,6 +1042,37 @@ async function startServer() {
         status: 'registered',
         registration_source: 'business_registration',
       });
+
+      const initialWorkspace = createInitialTenantWorkspace(tenantData);
+      const { error: workspaceError } = await adminTable('tenant_workspaces').upsert({
+        tenant_id: (tenantData as any).id,
+        payload: initialWorkspace,
+        updated_at: new Date().toISOString(),
+        updated_by: authUserId
+      }, { onConflict: 'tenant_id' });
+      if (workspaceError) {
+        await supabaseAdmin.from('users').delete().eq('id', authUserId);
+        await supabaseAdmin.from('tenants').delete().eq('id', (tenantData as any).id);
+        await supabaseAdmin.auth.admin.deleteUser(authUserId);
+        throw new Error(workspaceError.message || 'Failed to create cloud tenant workspace');
+      }
+
+      const tenantDataRows = [
+        { tenant_id: String((tenantData as any).id), data_key: 'products', payload: [] },
+        { tenant_id: String((tenantData as any).id), data_key: 'sales', payload: [] },
+        { tenant_id: String((tenantData as any).id), data_key: 'expenses', payload: [] },
+        { tenant_id: String((tenantData as any).id), data_key: 'deliveries', payload: [] },
+        { tenant_id: String((tenantData as any).id), data_key: 'pendingDeliveryNotes', payload: [] },
+        { tenant_id: String((tenantData as any).id), data_key: 'settings', payload: initialWorkspace.settings },
+      ];
+      const { error: tenantDataError } = await adminTable('tenant_data').upsert(tenantDataRows, { onConflict: 'tenant_id,data_key' });
+      if (tenantDataError) {
+        await supabaseAdmin.from('tenant_workspaces').delete().eq('tenant_id', (tenantData as any).id);
+        await supabaseAdmin.from('users').delete().eq('id', authUserId);
+        await supabaseAdmin.from('tenants').delete().eq('id', (tenantData as any).id);
+        await supabaseAdmin.auth.admin.deleteUser(authUserId);
+        throw new Error(tenantDataError.message || 'Failed to create cloud tenant data records');
+      }
 
       // Done.
       return res.json({ 
