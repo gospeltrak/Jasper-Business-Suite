@@ -1,10 +1,13 @@
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { Delivery, Expense, Product, Purchase, SystemSettings } from '../types';
+import { Branch, BranchStaffAssignment, BranchStock, Delivery, Expense, Product, Purchase, SystemSettings } from '../types';
 import { getDynamicSupabaseClient } from '../supabaseClient';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export interface TenantWorkspace {
+  branches?: Branch[];
+  branchStocks?: BranchStock[];
+  branchStaffAssignments?: BranchStaffAssignment[];
   products: Product[];
   sales: any[];
   expenses: Expense[];
@@ -74,6 +77,9 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
     const workspace = data.payload as TenantWorkspace;
     // Ensure all keys exist (backward compat)
     const safe: TenantWorkspace = {
+      branches:            workspace.branches            || [],
+      branchStocks:        workspace.branchStocks        || [],
+      branchStaffAssignments: workspace.branchStaffAssignments || [],
       products:            workspace.products            || [],
       sales:               workspace.sales               || [],
       expenses:            workspace.expenses            || [],
@@ -156,6 +162,9 @@ export async function subscribeToTenantWorkspace(
           const workspace = event.new?.payload as TenantWorkspace | undefined;
           if (workspace) {
             const safe: TenantWorkspace = {
+              branches:            workspace.branches            || [],
+              branchStocks:        workspace.branchStocks        || [],
+              branchStaffAssignments: workspace.branchStaffAssignments || [],
               products:            workspace.products            || [],
               sales:               workspace.sales               || [],
               expenses:            workspace.expenses            || [],
@@ -184,6 +193,9 @@ export async function subscribeToTenantWorkspace(
 
 export function emptyWorkspace(settings?: Partial<SystemSettings>): TenantWorkspace {
   return {
+    branches: [],
+    branchStocks: [],
+    branchStaffAssignments: [],
     products: [],
     sales: [],
     expenses: [],

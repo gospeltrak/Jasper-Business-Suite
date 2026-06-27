@@ -35,6 +35,50 @@ export interface Tenant {
   };
 }
 
+export interface Branch {
+  id: string;
+  tenantId: string;
+  branchName: string;
+  branchCode: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  managerId?: string;
+  status: 'active' | 'inactive';
+  isDefault: boolean;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BranchStock {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  productId: string;
+  quantity: number;
+  shopStockQty: number;
+  storeStockQty: number;
+  buyingPrice?: number;
+  sellingPrice?: number;
+  lowStockAlert?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BranchStaffAssignment {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  staffId: string;
+  role?: string;
+  permissions?: Record<string, unknown>;
+  status: 'active' | 'inactive';
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type InventoryCostingMethod = 'fifo' | 'average_price' | 'batch_price';
 export type LegacySellingMethod = 'fifo' | 'average_cost' | 'manual_batch';
 

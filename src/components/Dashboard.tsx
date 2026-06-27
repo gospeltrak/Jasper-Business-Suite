@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../LanguageContext';
 import { useTenantLogo } from '../TenantLogoContext';
 import { useJasperNotifications } from '../JasperNotificationContext';
-import { User, Tenant, Product, Sale, SyncLog, Supplier, Expense, Purchase, Delivery, DeliveryRider, SystemSettings, CustomRole, SaleItem } from '../types';
+import { Branch, BranchStaffAssignment, BranchStock, User, Tenant, Product, Sale, SyncLog, Supplier, Expense, Purchase, Delivery, DeliveryRider, SystemSettings, CustomRole, SaleItem } from '../types';
 import { 
   DEFAULT_TENANTS, 
   DEFAULT_PRODUCTS, 
@@ -372,6 +372,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const [productsMap, setProductsMap] = useState<Record<string, Product[]>>(() => loadStoredRecord<Product>('jasper_products_map', DEFAULT_PRODUCTS));
   const [salesMap, setSalesMap] = useState<Record<string, Sale[]>>(() => loadStoredRecord<Sale>('jasper_sales_map', MOCK_SALES_HISTORY));
   const [expensesMap, setExpensesMap] = useState<Record<string, Expense[]>>(() => loadStoredRecord<Expense>('jasper_expenses_map', MOCK_EXPENSES_HISTORY));
+  const [branchesMap, setBranchesMap] = useState<Record<string, Branch[]>>(() => loadStoredRecord<Branch>('jasper_branches_map', {}));
+  const [branchStocksMap, setBranchStocksMap] = useState<Record<string, BranchStock[]>>(() => loadStoredRecord<BranchStock>('jasper_branch_stocks_map', {}));
+  const [branchStaffAssignmentsMap, setBranchStaffAssignmentsMap] = useState<Record<string, BranchStaffAssignment[]>>(() => loadStoredRecord<BranchStaffAssignment>('jasper_branch_staff_assignments_map', {}));
   
   const [pendingDeliveryNotesMap, setPendingDeliveryNotesMap] = useState<Record<string, any[]>>(() => {
     const cached = localStorage.getItem('jasper_pending_delivery_notes_map');
@@ -585,6 +588,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     const applyWorkspace = (workspace: TenantWorkspace) => {
       if (!active) return;
       setProductsMap(prev => ({ ...prev, [activeTenant.id]: workspace.products || [] }));
+      setBranchesMap(prev => ({ ...prev, [activeTenant.id]: workspace.branches || [] }));
+      setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStocks || [] }));
+      setBranchStaffAssignmentsMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStaffAssignments || [] }));
       setSalesMap(prev => ({ ...prev, [activeTenant.id]: workspace.sales || [] }));
       setExpensesMap(prev => ({ ...prev, [activeTenant.id]: workspace.expenses || [] }));
       setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: workspace.deliveries || [] }));
@@ -612,6 +618,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   useEffect(() => {
     if (!workspaceReady) return;
     const workspace: TenantWorkspace = {
+      branches:             branchesMap[activeTenant.id]             || [],
+      branchStocks:         branchStocksMap[activeTenant.id]         || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
       products:             productsMap[activeTenant.id]             || [],
       sales:                salesMap[activeTenant.id]                || [],
       expenses:             expensesMap[activeTenant.id]             || [],
@@ -622,7 +631,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     };
     const timer = window.setTimeout(() => saveTenantWorkspace(activeTenant.id, workspace), 450);
     return () => window.clearTimeout(timer);
-  }, [workspaceReady, activeTenant.id, productsMap, salesMap, expensesMap, systemSettings, deliveriesMap, pendingDeliveryNotesMap, purchasesMap]);
+  }, [workspaceReady, activeTenant.id, branchesMap, branchStocksMap, branchStaffAssignmentsMap, productsMap, salesMap, expensesMap, systemSettings, deliveriesMap, pendingDeliveryNotesMap, purchasesMap]);
 
   useEffect(() => {
     const syncWorkspace = () => flushPendingTenantWorkspace(activeTenant.id);
@@ -971,6 +980,18 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       saveData(tid, 'products_map', { [tid]: data });
     });
   }, [productsMap]);
+
+  useEffect(() => {
+    localStorage.setItem('jasper_branches_map', JSON.stringify(branchesMap));
+  }, [branchesMap]);
+
+  useEffect(() => {
+    localStorage.setItem('jasper_branch_stocks_map', JSON.stringify(branchStocksMap));
+  }, [branchStocksMap]);
+
+  useEffect(() => {
+    localStorage.setItem('jasper_branch_staff_assignments_map', JSON.stringify(branchStaffAssignmentsMap));
+  }, [branchStaffAssignmentsMap]);
 
   useEffect(() => {
     localStorage.setItem('jasper_sales_map', JSON.stringify(salesMap));
