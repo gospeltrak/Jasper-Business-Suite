@@ -866,6 +866,24 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         }
 
         // Active profile matches perfect tenant! Log in
+        // Pre-warm local workspace cache so dashboard has data immediately
+        const tenantId = userProfile.tenant_id || userProfile.active_tenant;
+        if (tenantId) {
+          const cacheKey = `jasper_workspace_cache_${tenantId}`;
+          if (!localStorage.getItem(cacheKey)) {
+            try {
+              const { data: ws } = await client
+                .from('tenant_workspaces')
+                .select('payload')
+                .eq('tenant_id', tenantId)
+                .maybeSingle();
+              if (ws?.payload) {
+                localStorage.setItem(cacheKey, JSON.stringify(ws.payload));
+              }
+            } catch (_) { /* non-fatal — dashboard will load from DB directly */ }
+          }
+        }
+
         triggerOnLoginWithSplash({
           id: userProfile.id,
           email: userProfile.email,

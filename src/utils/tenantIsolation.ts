@@ -1,4 +1,5 @@
 import { SystemSettings, Tenant } from '../types';
+import { initializeNewTenantWorkspace } from './tenantWorkspace';
 
 // Demo records are deliberately opt-in. Every other tenant starts and remains empty until its users add data.
 const DEMO_TENANT_IDS = new Set([
@@ -65,7 +66,8 @@ export const initializeCleanTenantWorkspace = (tenant: Tenant) => {
   clearTenantEntry('jasper_expenses_map', tenantId);
   clearTenantEntry('jasper_pending_delivery_notes_map', tenantId);
 
-  localStorage.setItem(`jasper_settings_${tenantId}`, JSON.stringify(createCleanTenantSettings(tenant)));
+  const settings = createCleanTenantSettings(tenant);
+  localStorage.setItem(`jasper_settings_${tenantId}`, JSON.stringify(settings));
   localStorage.setItem(`jasper_expense_cats_${tenantId}`, JSON.stringify([]));
   localStorage.setItem(`jasper_docs_${tenantId}`, JSON.stringify([]));
   localStorage.setItem(`till_settlements_${tenantId}`, JSON.stringify([]));
@@ -73,4 +75,9 @@ export const initializeCleanTenantWorkspace = (tenant: Tenant) => {
   localStorage.setItem(`jasper_cash_bank_matrix_${tenantId}`, JSON.stringify([]));
   localStorage.setItem(`jasper_deliveries_${tenantId}`, JSON.stringify([]));
   localStorage.removeItem(`jasper_tenant_logo_${tenantId}`);
+
+  // Save empty workspace to Supabase DB so data persists across devices
+  initializeNewTenantWorkspace(tenantId, settings as any).catch(() => {
+    // Non-fatal — workspace will be saved when dashboard first loads
+  });
 };

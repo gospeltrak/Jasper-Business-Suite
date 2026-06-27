@@ -581,11 +581,12 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
     const applyWorkspace = (workspace: TenantWorkspace) => {
       if (!active) return;
-      setProductsMap(previous => ({ ...previous, [activeTenant.id]: workspace.products || [] }));
-      setSalesMap(previous => ({ ...previous, [activeTenant.id]: workspace.sales || [] }));
-      setExpensesMap(previous => ({ ...previous, [activeTenant.id]: workspace.expenses || [] }));
-      setDeliveriesMap(previous => ({ ...previous, [activeTenant.id]: workspace.deliveries || [] }));
-      setPendingDeliveryNotesMap(previous => ({ ...previous, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
+      setProductsMap(prev => ({ ...prev, [activeTenant.id]: workspace.products || [] }));
+      setSalesMap(prev => ({ ...prev, [activeTenant.id]: workspace.sales || [] }));
+      setExpensesMap(prev => ({ ...prev, [activeTenant.id]: workspace.expenses || [] }));
+      setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: workspace.deliveries || [] }));
+      setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
+      setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
       if (workspace.settings) setSystemSettings(workspace.settings);
     };
 
@@ -608,16 +609,17 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   useEffect(() => {
     if (!workspaceReady) return;
     const workspace: TenantWorkspace = {
-      products: productsMap[activeTenant.id] || [],
-      sales: salesMap[activeTenant.id] || [],
-      expenses: expensesMap[activeTenant.id] || [],
-      settings: systemSettings,
-      deliveries: deliveriesMap[activeTenant.id] || [],
-      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || []
+      products:             productsMap[activeTenant.id]             || [],
+      sales:                salesMap[activeTenant.id]                || [],
+      expenses:             expensesMap[activeTenant.id]             || [],
+      settings:             systemSettings,
+      deliveries:           deliveriesMap[activeTenant.id]           || [],
+      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+      purchases:            purchasesMap[activeTenant.id]            || [],
     };
     const timer = window.setTimeout(() => saveTenantWorkspace(activeTenant.id, workspace), 450);
     return () => window.clearTimeout(timer);
-  }, [workspaceReady, activeTenant.id, productsMap, salesMap, expensesMap, systemSettings, deliveriesMap, pendingDeliveryNotesMap]);
+  }, [workspaceReady, activeTenant.id, productsMap, salesMap, expensesMap, systemSettings, deliveriesMap, pendingDeliveryNotesMap, purchasesMap]);
 
   useEffect(() => {
     const syncWorkspace = () => flushPendingTenantWorkspace(activeTenant.id);
