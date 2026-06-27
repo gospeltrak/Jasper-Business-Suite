@@ -299,11 +299,11 @@ export default function App() {
 
   // Allow landing page to scroll — toggle class on <html> element per route
   useEffect(() => {
-    const isDashboard = isDashboardRoute(currentPath)
-      || currentPath === '/login';
+    const isDashboard = isDashboardRoute(currentPath);
 
-    // Affiliate and partner portals are full web pages — they need to scroll
+    // These are full web pages that must scroll freely (not native-app locked)
     const isScrollablePage = currentPath === '/'
+      || currentPath === '/login'
       || currentPath.startsWith('/affiliate')
       || currentPath.startsWith('/partner');
 
