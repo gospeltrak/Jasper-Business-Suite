@@ -1641,18 +1641,22 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
 
             {/* ── RUBY ── */}
-            <div className={`flex flex-col rounded-2xl border p-7 transition-all hover:shadow-lg ${isDark ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-slate-50 border-slate-200 hover:border-slate-300 shadow-sm'}`}>
-              {/* Icon + Badge row */}
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{background:'linear-gradient(135deg,#ffeef0,#ffd6db)',boxShadow:'0 2px 8px rgba(220,38,38,0.15)'}}>
-                  💎
-                </div>
-                <span className="text-[9px] font-black font-mono uppercase tracking-widest px-2.5 py-1 rounded-full" style={{background:'#ffeef0',color:'#c41e3a'}}>
-                  Ruby
-                </span>
+            <div className={`flex flex-col rounded-2xl border p-7 transition-all hover:shadow-lg ${isDark ? 'bg-slate-900 border-slate-800 hover:border-red-800/50' : 'bg-slate-50 border-slate-200 hover:border-red-200 shadow-sm'}`}>
+              {/* Crystal icon — no container */}
+              <div className="mb-5">
+                <svg width="64" height="72" viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <polygon points="32,72 8,42 56,42" fill="#8b0015"/>
+                  <polygon points="32,72 32,42 56,42" fill="#c41e3a"/>
+                  <polygon points="8,42 16,18 48,18 56,42" fill="#e8183a"/>
+                  <polygon points="16,18 32,4 48,18" fill="#ff6b8a"/>
+                  <polygon points="8,42 16,18 32,4" fill="#c41e3a" opacity="0.7"/>
+                  <polygon points="48,18 32,4 56,42" fill="#ff8fa3" opacity="0.6"/>
+                  <polygon points="20,22 32,10 38,22" fill="white" opacity="0.3"/>
+                  <circle cx="22" cy="20" r="2" fill="white" opacity="0.5"/>
+                </svg>
               </div>
               {/* Name + desc */}
-              <h3 className={`text-xl font-black tracking-tight mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>Jasper Ruby</h3>
+              <h3 className={`text-xl font-black tracking-tight mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>Ruby</h3>
               <p className={`text-xs leading-relaxed mb-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                 For small shops that need simple POS, stock control, and sales records.
               </p>
@@ -1662,7 +1666,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
                 <span className={`text-4xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>20,000</span>
                 <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>/month</span>
               </div>
-              {/* Features */}
+              {/* Features — no tick container */}
               <ul className="space-y-2.5 flex-1 mb-8">
                 {[
                   'POS and sales management',
@@ -1679,50 +1683,45 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
                   'Basic support',
                 ].map(f => (
                   <li key={f} className="flex items-start gap-2.5">
-                    <span className="mt-0.5 p-0.5 rounded shrink-0" style={{background:'#ffeef0',color:'#c41e3a'}}>
-                      <Check className="w-3 h-3" />
-                    </span>
+                    <Check className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{color:'#c41e3a'}}/>
                     <span className={`text-xs leading-snug ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{f}</span>
                   </li>
                 ))}
               </ul>
-              {/* CTA */}
-              <button
-                onClick={() => onNavigate('/login?register=true')}
+              <button onClick={() => onNavigate('/login?register=true')}
                 className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer text-white"
-                style={{background:'linear-gradient(135deg,#c41e3a,#e0294a)'}}
-              >
+                style={{background:'linear-gradient(135deg,#c41e3a,#e0294a)'}}>
                 Start Ruby
               </button>
             </div>
 
             {/* ── DIAMOND — MOST POPULAR ── */}
             <div className={`flex flex-col rounded-2xl border-2 p-7 relative transition-all hover:shadow-xl ${isDark ? 'bg-slate-900 border-emerald-500 shadow-lg shadow-emerald-500/5' : 'bg-white border-emerald-500 shadow-[0_8px_32px_rgba(16,185,129,0.12)]'}`}>
-              {/* Most Popular badge */}
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap bg-emerald-500 text-white">
                 ⭐ Most Popular
               </div>
-              {/* Icon + Badge row */}
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{background:'linear-gradient(135deg,#e8f4ff,#cce8ff)',boxShadow:'0 2px 8px rgba(37,99,235,0.15)'}}>
-                  🔷
-                </div>
-                <span className="text-[9px] font-black font-mono uppercase tracking-widest px-2.5 py-1 rounded-full" style={{background:'#e8f4ff',color:'#1d4ed8'}}>
-                  Diamond
-                </span>
+              {/* Crystal icon — no container */}
+              <div className="mb-5">
+                <svg width="64" height="72" viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <polygon points="32,72 8,42 56,42" fill="#0d47a1"/>
+                  <polygon points="32,72 32,42 56,42" fill="#1976d2"/>
+                  <polygon points="8,42 16,18 48,18 56,42" fill="#2196f3"/>
+                  <polygon points="16,18 32,4 48,18" fill="#90caf9"/>
+                  <polygon points="8,42 16,18 32,4" fill="#1565c0" opacity="0.75"/>
+                  <polygon points="48,18 32,4 56,42" fill="#bbdefb" opacity="0.6"/>
+                  <polygon points="20,22 32,10 38,22" fill="white" opacity="0.35"/>
+                  <circle cx="22" cy="20" r="2.5" fill="white" opacity="0.65"/>
+                </svg>
               </div>
-              {/* Name + desc */}
-              <h3 className={`text-xl font-black tracking-tight mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>Jasper Diamond</h3>
+              <h3 className={`text-xl font-black tracking-tight mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>Diamond</h3>
               <p className={`text-xs leading-relaxed mb-6 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>
                 For growing businesses that need branch management, staff control, and stronger reports.
               </p>
-              {/* Price */}
               <div className="flex items-baseline gap-1 mb-7">
                 <span className={`text-sm font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>TZS</span>
                 <span className={`text-4xl font-black tracking-tight ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>35,000</span>
                 <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>/month</span>
               </div>
-              {/* Features */}
               <ul className="space-y-2.5 flex-1 mb-8">
                 {[
                   'Everything in Ruby',
@@ -1744,50 +1743,46 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
                   '24/7 support',
                 ].map(f => (
                   <li key={f} className="flex items-start gap-2.5">
-                    <span className="mt-0.5 p-0.5 rounded shrink-0" style={{background:'#e8f4ff',color:'#1d4ed8'}}>
-                      <Check className="w-3 h-3" />
-                    </span>
+                    <Check className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{color:'#1976d2'}}/>
                     <span className={`text-xs leading-snug ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{f}</span>
                   </li>
                 ))}
               </ul>
-              {/* CTA */}
-              <button
-                onClick={() => onNavigate('/login?register=true')}
-                className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/25"
-              >
+              <button onClick={() => onNavigate('/login?register=true')}
+                className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/25">
                 Start Diamond
               </button>
             </div>
 
             {/* ── JASPER ── */}
             <div className={`flex flex-col rounded-2xl border p-7 transition-all hover:shadow-lg ${isDark ? 'bg-slate-900 border-slate-800 hover:border-amber-700/40' : 'bg-slate-50 border-slate-200 hover:border-amber-300 shadow-sm'}`}>
-              {/* Icon + Badge row */}
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{background:'linear-gradient(135deg,#fffbeb,#fef3c7)',boxShadow:'0 2px 8px rgba(217,119,6,0.15)'}}>
-                  🟡
-                </div>
-                <span className="text-[9px] font-black font-mono uppercase tracking-widest px-2.5 py-1 rounded-full" style={{background:'#fffbeb',color:'#b45309'}}>
-                  Jasper
-                </span>
+              {/* Crystal icon — no container */}
+              <div className="mb-5">
+                <svg width="64" height="72" viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <polygon points="32,72 8,42 56,42" fill="#78350f"/>
+                  <polygon points="32,72 32,42 56,42" fill="#b45309"/>
+                  <polygon points="8,42 16,18 48,18 56,42" fill="#f59e0b"/>
+                  <polygon points="16,18 32,4 48,18" fill="#fde68a"/>
+                  <polygon points="8,42 16,18 32,4" fill="#b45309" opacity="0.7"/>
+                  <polygon points="48,18 32,4 56,42" fill="#fef3c7" opacity="0.6"/>
+                  <polygon points="20,22 32,10 38,22" fill="white" opacity="0.3"/>
+                  <circle cx="22" cy="20" r="2" fill="white" opacity="0.55"/>
+                </svg>
               </div>
-              {/* Name + desc */}
               <h3 className={`text-xl font-black tracking-tight mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>Jasper</h3>
               <p className={`text-xs leading-relaxed mb-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                 For serious businesses, wholesalers, and companies that need stronger control, more branches, and branding.
               </p>
-              {/* Price */}
               <div className="flex items-baseline gap-1 mb-7">
                 <span className={`text-sm font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>TZS</span>
                 <span className={`text-4xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>50,000</span>
                 <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>/month</span>
               </div>
-              {/* Features */}
               <ul className="space-y-2.5 flex-1 mb-8">
                 {[
                   'Everything in Diamond',
                   'Up to 5 branches / stores',
-                  'Unlimited users (up to 15)',
+                  'Up to 15 users',
                   'Unlimited products',
                   'Full multi-branch control',
                   'Full accounting',
@@ -1804,19 +1799,14 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
                   'Priority support',
                 ].map(f => (
                   <li key={f} className="flex items-start gap-2.5">
-                    <span className="mt-0.5 p-0.5 rounded shrink-0" style={{background:'#fffbeb',color:'#b45309'}}>
-                      <Check className="w-3 h-3" />
-                    </span>
+                    <Check className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{color:'#b45309'}}/>
                     <span className={`text-xs leading-snug ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{f}</span>
                   </li>
                 ))}
               </ul>
-              {/* CTA */}
-              <button
-                onClick={() => onNavigate('/login?register=true')}
+              <button onClick={() => onNavigate('/login?register=true')}
                 className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer text-white"
-                style={{background:'linear-gradient(135deg,#b45309,#d97706)'}}
-              >
+                style={{background:'linear-gradient(135deg,#b45309,#d97706)'}}>
                 Start Jasper
               </button>
             </div>
@@ -1830,6 +1820,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
 
         </div>
       </section>
+
 
 
       {/* Contact Section (Requested) – Form and Headquarters labels completely removed */}
