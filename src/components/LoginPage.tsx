@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { DEMO_USERS, DEFAULT_TENANTS } from '../data';
 import { User, Tenant } from '../types';
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getDynamicSupabaseClient, isPlaceholderSupabaseClient } from '../supabaseClient';
 import { initializeCleanTenantWorkspace } from '../utils/tenantIsolation';
 import { startCloudSession } from '../utils/sessionControl';
 
@@ -820,6 +820,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
     try {
       const client: any = await getDynamicSupabaseClient();
+      if (isPlaceholderSupabaseClient(client)) {
+        setError('Supabase is not configured for this app build. Add SUPABASE_URL and SUPABASE_ANON_KEY in the deployed environment, then redeploy.');
+        setIsLoading(false);
+        return;
+      }
       const authEmail = targetIdentifier.includes('@') ? targetIdentifier.trim() : makeInternalEmailFromPhone(targetIdentifier);
       
       // Perform authentic authentication via Supabase Auth securely
