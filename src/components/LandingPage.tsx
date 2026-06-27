@@ -1132,7 +1132,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             </div>
             <div>
               <span className={`text-xl font-bold tracking-tight focus:outline-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Jasper<span className="text-emerald-500 font-normal"> Business</span>
+                Jasper<span className="text-emerald-500 font-normal"> Suite</span>
               </span>
               <span className={`block text-[8px] tracking-widest uppercase font-mono mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>AFRICAN BUSINESS OS</span>
             </div>
@@ -1263,7 +1263,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             </div>
             <div className="flex flex-col justify-center leading-tight">
               <span className={`text-[15px] font-bold tracking-tight leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Jasper<span className="text-emerald-500 font-normal"> Business</span>
+                Jasper<span className="text-emerald-500 font-normal"> Suite</span>
               </span>
               <span className={`text-[7px] tracking-widest uppercase font-mono mt-0.5 leading-none ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>AFRICAN BUSINESS OS</span>
             </div>
@@ -1926,7 +1926,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
               <img src={t.systemLogo || "/jb-logo.png"} alt="Jasper Suite Logo" className="w-6 h-6 rounded-lg object-contain bg-white" />
-              <span className={`text-base font-bold ${isDark ? 'text-white' : 'text-[#111827]'}`}>Jasper <span className="text-emerald-450 text-emerald-505 text-emerald-500 font-normal">Business</span></span>
+              <span className={`text-base font-bold ${isDark ? 'text-white' : 'text-[#111827]'}`}>Jasper <span className="text-emerald-450 text-emerald-505 text-emerald-500 font-normal">Suite</span></span>
             </div>
             
             <p className={`text-xs font-light leading-relaxed ${isDark ? 'text-slate-400' : 'text-[#374151]'}`}>
