@@ -1212,7 +1212,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       status: sale.syncStatus === 'pending' ? 'warning' : 'success',
       message: sale.syncStatus === 'pending'
         ? `Offline Sale (Ref: ${sale.id}) saved to IndexedDB & Service Worker queue registry.`
-        : `Approved transaction (Ref: ${sale.id}) synced directly with Paystack / Mobile money clearing cores.`,
+        : `Sale (Ref: ${sale.id}) saved as a manual ${sale.paymentMethod || 'payment'} record.`,
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [newLog, ...prev]);

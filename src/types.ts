@@ -279,6 +279,12 @@ export interface Sale {
   cashierName: string;
   amountPaid?: number;
   amountDue?: number;
+  paymentStatus?: 'paid' | 'partial' | 'unpaid';
+  transactionReference?: string;
+  paymentNote?: string;
+  isManualPayment?: boolean;
+  gatewayProvider?: string | null;
+  gatewayTransactionId?: string | null;
   vatStatus?: 'vat' | 'non-vat';
   vfdControlNo?: string;
   vfdSignature?: string;

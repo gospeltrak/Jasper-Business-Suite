@@ -19,7 +19,6 @@ import {
   CreditCard, 
   CheckCircle, 
   Smartphone,
-  RefreshCw,
   X,
   Scan,
   Sparkles,
@@ -351,9 +350,10 @@ export default function DashboardPOS({
   const [vatStatus, setVatStatus] = useState<'vat' | 'non-vat'>('non-vat');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'verify' | 'completed'>('idle');
+  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'completed'>('idle');
+  const [amountPaid, setAmountPaid] = useState<number>(0);
   const [referenceCode, setReferenceCode] = useState('');
-  const [pinCode, setPinCode] = useState('');
+  const [paymentNote, setPaymentNote] = useState('');
   const [receiptResult, setReceiptResult] = useState<Sale | null>(null);
   const [recipientWhatsApp, setRecipientWhatsApp] = useState('');
   const [receiptPdfStatus, setReceiptPdfStatus] = useState<string | null>(null);
@@ -789,28 +789,13 @@ export default function DashboardPOS({
     setDeliveryPaymentMethod(availableDeliveryModes[0]);
     setMultiCashAmount(Math.round(grandTotal / 2));
     setMultiBankAmount(grandTotal - Math.round(grandTotal / 2));
+    setAmountPaid(Number(grandTotal.toFixed(2)));
     setReferenceCode('');
-    setPinCode('');
+    setPaymentNote('');
     setIsCheckoutOpen(true);
   };
 
   const submitPayment = () => {
-    const isCash = paymentMethod.toLowerCase().includes('cash');
-    const isBank = paymentMethod.toLowerCase().includes('bank') || paymentMethod.toLowerCase().includes('card') || paymentMethod === 'Multi-Channel';
-    if (isCash || isBank) {
-      // Skip processing state entirely — instant checkout
-      finalizeSale();
-    } else {
-      // Mobile Money — show verify PIN step
-      setPaymentStatus('verify');
-      const dict = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ2';
-      let code = 'MPESA-';
-      for (let i = 0; i < 8; i++) code += dict.charAt(Math.floor(Math.random() * dict.length));
-      setReferenceCode(code);
-    }
-  };
-
-  const verifyMoMoPIN = () => {
     finalizeSale();
   };
 
@@ -911,6 +896,17 @@ export default function DashboardPOS({
     const isVat = vatStatus === 'vat';
     const vfdControlNo = isVat ? 'TZ-VFD-TRA-' + Math.floor(Math.random() * 9000000000 + 1000000000) : undefined;
     const vfdSignature = isVat ? 'TRA-VERIFY-' + Math.random().toString(36).substr(2, 6).toUpperCase() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase() : undefined;
+    const normalizedAmountPaid = paymentMethod === 'Multi-Channel'
+      ? Number((multiCashAmount + multiBankAmount).toFixed(2))
+      : Math.max(0, Number(amountPaid || 0));
+    const amountDue = Math.max(0, Number((grandTotal - normalizedAmountPaid).toFixed(2)));
+    const manualPaymentStatus: Sale['paymentStatus'] = amountDue <= 0
+      ? 'paid'
+      : normalizedAmountPaid > 0
+        ? 'partial'
+        : 'unpaid';
+    const cleanTransactionReference = referenceCode.trim();
+    const cleanPaymentNote = paymentNote.trim();
 
     const newSale: Sale = {
       id: 'sl-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
@@ -922,7 +918,7 @@ export default function DashboardPOS({
       discount: orderDiscount,
       discountType: orderDiscountType,
       paymentMethod: paymentMethod as any,
-      reference: referenceCode || Math.random().toString(36).substring(2, 8).toUpperCase(),
+      reference: cleanTransactionReference || Math.random().toString(36).substring(2, 8).toUpperCase(),
       tenantId: activeTenant.id,
       timestamp: (() => {
         if (saleDate) {
@@ -939,6 +935,14 @@ export default function DashboardPOS({
       actualTimestamp: new Date().toISOString(),
       syncStatus: isOfflineMode ? 'pending' : 'synced',
       cashierName: userName,
+      amountPaid: normalizedAmountPaid,
+      amountDue,
+      paymentStatus: manualPaymentStatus,
+      transactionReference: cleanTransactionReference || undefined,
+      paymentNote: cleanPaymentNote || undefined,
+      isManualPayment: true,
+      gatewayProvider: null,
+      gatewayTransactionId: null,
       customerName: customerName ? customerName : 'Walk-In Customer',
       customerPhone: customerPhone ? customerPhone : undefined,
       staffName: userName,
@@ -996,6 +1000,9 @@ export default function DashboardPOS({
     setOrderDiscountType('percent');
     setCustomerName('');
     setCustomerPhone('');
+    setAmountPaid(0);
+    setReferenceCode('');
+    setPaymentNote('');
   };
 
   const handleRequestVoid = () => {
@@ -1699,7 +1706,7 @@ export default function DashboardPOS({
               <div className="p-6 space-y-5 overflow-y-auto flex-1" style={{paddingBottom: '1.5rem'}}>
                 <div className="text-center py-2 space-y-1">
                   <p className="text-3xl font-black text-slate-950">{currency}{Math.round(grandTotal).toLocaleString()}</p>
-                  <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest font-black">Awaiting layout selection and customer assignment</p>
+                  <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest font-black">Manual payment record for this till sale</p>
                 </div>
 
                 {/* Customer Assignment (New feature) */}
@@ -1746,7 +1753,7 @@ export default function DashboardPOS({
                   </div>
                 </div>
 
-                {/* Gateway channels selectors */}
+                {/* Manual payment recording selectors */}
                 <div className="space-y-3">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Choose Payment Method</label>
                   <div className="grid grid-cols-1 gap-2">
@@ -1768,6 +1775,10 @@ export default function DashboardPOS({
                               type="button"
                               onClick={() => {
                                 setPaymentMethod(mode);
+                                const isCreditMode = mode.toLowerCase().includes('credit');
+                                setAmountPaid(isCreditMode ? 0 : Number(grandTotal.toFixed(2)));
+                                setReferenceCode('');
+                                setPaymentNote('');
                                 if (mode === 'Multi-Channel') {
                                   setMultiCashAmount(Math.round(grandTotal / 2));
                                   setMultiBankAmount(grandTotal - Math.round(grandTotal / 2));
@@ -1793,9 +1804,9 @@ export default function DashboardPOS({
                                   <p className="font-bold text-slate-800">{mode}</p>
                                   <p className="text-[10px] text-slate-450 font-light mt-0.5">
                                     {isCash ? 'Collect paper currency, log to system till vault' : 
-                                     isMomo ? 'Initiate push payment request or validation token' :
-                                     isMulti ? 'Split invoice cost between Cash and Bank/Card channels' :
-                                     'Initialize checkout terminal or log transfer confirmation'}
+                                     isMomo ? 'Record manual wallet payment received outside the system' :
+                                     isMulti ? 'Split manually received cash and bank/card amounts' :
+                                     'Record manual bank/card transfer for reports'}
                                   </p>
                                 </div>
                               </div>
@@ -1844,6 +1855,28 @@ export default function DashboardPOS({
                                 <div className="text-[10px] uppercase font-black text-emerald-800 text-center bg-emerald-50 py-1.5 rounded-xl border border-emerald-100 font-sans">
                                   Combined: {currency}{multiCashAmount.toLocaleString()} Cash + {currency}{multiBankAmount.toLocaleString()} Bank = {currency}{(multiCashAmount + multiBankAmount).toLocaleString()}
                                 </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <label className="block">
+                                    <span className="text-[9.5px] uppercase font-bold text-slate-450 mb-1 block">Transaction Ref (optional)</span>
+                                    <input
+                                      type="text"
+                                      value={referenceCode}
+                                      onChange={(e) => setReferenceCode(e.target.value)}
+                                      placeholder="Bank/card/mobile ref"
+                                      className="w-full bg-slate-50 border border-slate-205 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 font-mono text-xs text-slate-800"
+                                    />
+                                  </label>
+                                  <label className="block">
+                                    <span className="text-[9.5px] uppercase font-bold text-slate-450 mb-1 block">Payment Note (optional)</span>
+                                    <input
+                                      type="text"
+                                      value={paymentNote}
+                                      onChange={(e) => setPaymentNote(e.target.value)}
+                                      placeholder="Manual split confirmation"
+                                      className="w-full bg-slate-50 border border-slate-205 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 text-xs text-slate-800"
+                                    />
+                                  </label>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -1852,6 +1885,56 @@ export default function DashboardPOS({
                     })()}
                   </div>
                 </div>
+
+                {paymentMethod !== 'Multi-Channel' && (
+                  <div className="space-y-3 bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <label className="block">
+                        <span className="text-[9.5px] uppercase font-bold text-slate-450 mb-1 block">Amount Paid ({currency})</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={amountPaid}
+                          onChange={(e) => setAmountPaid(Math.max(0, parseFloat(e.target.value) || 0))}
+                          className="w-full bg-slate-50 border border-slate-205 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono font-bold text-xs text-slate-800"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[9.5px] uppercase font-bold text-slate-450 mb-1 block">Transaction Ref (optional)</span>
+                        <input
+                          type="text"
+                          value={referenceCode}
+                          onChange={(e) => setReferenceCode(e.target.value)}
+                          placeholder="M-Pesa SMS, bank slip, card ref"
+                          className="w-full bg-slate-50 border border-slate-205 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono text-xs text-slate-800"
+                        />
+                      </label>
+                    </div>
+                    <label className="block">
+                      <span className="text-[9.5px] uppercase font-bold text-slate-450 mb-1 block">Payment Note (optional)</span>
+                      <input
+                        type="text"
+                        value={paymentNote}
+                        onChange={(e) => setPaymentNote(e.target.value)}
+                        placeholder="Manual confirmation note"
+                        className="w-full bg-slate-50 border border-slate-205 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 text-xs text-slate-800"
+                      />
+                    </label>
+                    <div className={`text-[10px] uppercase font-black text-center py-1.5 rounded-xl border font-sans ${
+                      amountPaid >= grandTotal
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                        : amountPaid > 0
+                          ? 'bg-amber-50 text-amber-800 border-amber-100'
+                          : 'bg-rose-50 text-rose-700 border-rose-100'
+                    }`}>
+                      {amountPaid >= grandTotal
+                        ? `Paid in full. Change: ${currency}${Math.max(0, amountPaid - grandTotal).toLocaleString()}`
+                        : amountPaid > 0
+                          ? `Partial payment. Due: ${currency}${Math.max(0, grandTotal - amountPaid).toLocaleString()}`
+                          : `Unpaid / credit. Due: ${currency}${grandTotal.toLocaleString()}`}
+                    </div>
+                  </div>
+                )}
 
                 {/* Delivery Payment Mode removed (moved to basket) */}
 
@@ -1865,70 +1948,6 @@ export default function DashboardPOS({
               </div>
             )}
 
-            {/* Spinner processing state */}
-            {paymentStatus === 'processing' && (
-              <div className="p-8 text-center flex flex-col items-center justify-center space-y-4">
-                <RefreshCw className="w-10 h-10 text-emerald-600 animate-spin" />
-                <div className="space-y-1">
-                  <h5 className="font-bold text-sm uppercase tracking-wider text-slate-800">Processing Payment...</h5>
-                  <p className="text-xs text-slate-450">Checking customer...</p>
-                </div>
-              </div>
-            )}
-
-            {/* Verification code MoMo */}
-            {paymentStatus === 'verify' && (
-              <div className="p-6 space-y-5">
-                <div className="p-4 bg-emerald-50 rounded-2xl text-xs text-emerald-800 border border-emerald-100 text-center leading-relaxed font-sans">
-                  <p className="font-bold uppercase tracking-wider mb-1">Simulated push dispatched!</p>
-                  <p className="font-medium text-[11px] text-slate-605">
-                    A secure authentication popup has been sent. To mimic client USSD responses, check details or input cash pin.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Simulated USSD PIN Code</label>
-                    <input
-                      type="password"
-                      placeholder="••••"
-                      maxLength={4}
-                      value={pinCode}
-                      onChange={(e) => setPinCode(e.target.value.replace(/[^0-9]/g, ''))}
-                      className="w-full text-center bg-slate-50 border border-slate-200 focus:border-emerald-500 mt-1 px-4 py-3 rounded-2xl font-mono text-xl text-emerald-600 font-black tracking-widest outline-none"
-                    />
-                  </div>
-
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-1 text-xs font-mono">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Transaction ID:</span>
-                      <span className="text-slate-800 font-bold">{referenceCode}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-505">Target Value:</span>
-                      <span className="text-slate-800 font-bold">{currency}{Math.round(grandTotal).toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <button
-                    onClick={() => setPaymentStatus('idle')}
-                    className="py-3 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer text-slate-600 font-bold font-sans"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    disabled={pinCode.length < 4}
-                    onClick={verifyMoMoPIN}
-                    className="py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-45 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer font-sans"
-                  >
-                    Confirm PIN
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Completed state / Receipt print */}
             {paymentStatus === 'completed' && receiptResult && (
               <div className="p-6 space-y-5 max-h-[calc(100dvh-56px-env(safe-area-inset-bottom))] overflow-y-auto bg-slate-50">
@@ -1938,7 +1957,7 @@ export default function DashboardPOS({
                   </div>
                   <h4 className="text-sm font-bold text-slate-850 uppercase tracking-widest">TRANSACTION APPROVED</h4>
                   <p className="text-[10px] font-mono text-slate-400 font-bold uppercase">
-                    {isOfflineMode ? 'SAFE QUEUED TO LOCAL CACHE (OFFLINE)' : 'ONLINE STREAM SYNCED SUCCESSFULLY'}
+                    {isOfflineMode ? 'MANUAL PAYMENT QUEUED OFFLINE' : 'MANUAL PAYMENT RECORDED SUCCESSFULLY'}
                   </p>
                 </div>
 
