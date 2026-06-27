@@ -1127,14 +1127,14 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
         <div className="hidden lg:flex max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 items-center justify-between">
           
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => onNavigate('/')}>
-            <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm flex items-center justify-center">
-              <img src={t.systemLogo || "/jb-logo.png"} alt="Jasper Suite Logo" className="w-full h-full object-cover" />
+            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm flex items-center justify-center bg-white">
+              <img src={t.systemLogo || "/jb-logo.png"} alt="Jasper Suite Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <span className={`text-xl font-bold tracking-tight focus:outline-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 Jasper<span className="text-emerald-500 font-normal"> Suite</span>
               </span>
-              <span className={`block text-[8px] tracking-widest uppercase font-mono mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>AFRICAN COMMERCE OS</span>
+              <span className={`block text-[8px] tracking-widest uppercase font-mono mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>AFRICAN BUSINESS OS</span>
             </div>
           </div>
           
@@ -1258,14 +1258,14 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
         <div className="flex lg:hidden max-w-7xl mx-auto px-3 h-14 items-center justify-between relative">
           {/* Left: Logo and branding */}
           <div className="flex items-center space-x-2.5 cursor-pointer shrink-0" onClick={() => onNavigate('/')}>
-            <div className="w-8 h-8 rounded-full overflow-hidden shadow-xs flex items-center justify-center shrink-0">
-              <img src={t.systemLogo || "/jb-logo.png"} alt="Jasper Suite Logo" className="w-full h-full object-cover" />
+            <div className="w-8 h-8 rounded-lg overflow-hidden shadow-xs flex items-center justify-center shrink-0 bg-white">
+              <img src={t.systemLogo || "/jb-logo.png"} alt="Jasper Suite Logo" className="w-full h-full object-contain" />
             </div>
             <div className="flex flex-col justify-center leading-tight">
               <span className={`text-[15px] font-bold tracking-tight leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 Jasper<span className="text-emerald-500 font-normal"> Suite</span>
               </span>
-              <span className={`text-[7px] tracking-widest uppercase font-mono mt-0.5 leading-none ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>AFRICAN COMMERCE OS</span>
+              <span className={`text-[7px] tracking-widest uppercase font-mono mt-0.5 leading-none ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>AFRICAN BUSINESS OS</span>
             </div>
           </div>
 
