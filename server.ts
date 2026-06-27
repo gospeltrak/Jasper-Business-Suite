@@ -807,7 +807,17 @@ async function startServer() {
   app.post('/api/affiliate/register', async (req, res) => {
     if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase backend client is not configured' });
 
-    const { name, phone, password, payoutMethod, referralCode } = req.body || {};
+    const {
+      name,
+      phone,
+      password,
+      payoutMethod,
+      payoutProvider,
+      mobileMoneyNumber,
+      referralCode,
+      nidaNumber,
+      tinNumber,
+    } = req.body || {};
     const normalizedPhone = String(phone || '').replace(/\D/g, '');
     const normalizedCode = String(referralCode || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     if (!name?.trim() || normalizedPhone.length < 8 || String(password || '').length < 8 || !normalizedCode) {
@@ -852,10 +862,18 @@ async function startServer() {
       const { data: affiliate, error: affiliateError } = await adminTable('affiliates').insert({
         user_id: userId,
         display_name: String(name).trim(),
+        phone_whatsapp: normalizedPhone,
         referral_code: normalizedCode,
         referral_slug: referralSlug,
+        promo_code: normalizedCode,
+        referral_link: `/signup?ref=${referralSlug}`,
+        affiliate_type: 'organic',
+        nida_number: String(nidaNumber || '').trim() || null,
+        tin_number: String(tinNumber || '').trim() || null,
         payout_method: payoutMethod || null,
         payout_account: normalizedPhone,
+        mobile_money_number: String(mobileMoneyNumber || '').replace(/\D/g, '') || normalizedPhone,
+        mobile_money_provider: payoutProvider || payoutMethod || null,
       }).select('id, display_name, referral_code').single();
       if (affiliateError) {
         await adminTable('users').delete().eq('id', userId);
@@ -950,14 +968,23 @@ async function startServer() {
           .select('id')
           .eq('referral_code', normalizedReferralCode)
           .maybeSingle();
-        if (affiliate?.id) {
+      if (affiliate?.id) {
+          const { data: affiliateProfile } = await adminTable('affiliates')
+            .select('id, affiliate_type, parent_agent_id, promo_code')
+            .eq('id', affiliate.id)
+            .maybeSingle();
           await adminTable('affiliate_referrals').insert({
             affiliate_id: affiliate.id,
+            sub_affiliate_id: affiliateProfile?.affiliate_type === 'sub_affiliate' ? affiliate.id : null,
+            agent_id: affiliateProfile?.parent_agent_id || null,
             referral_code: normalizedReferralCode,
+            promo_code_used: affiliateProfile?.promo_code || normalizedReferralCode,
             registered_tenant_id: (tenantData as any).id,
             registered_user_id: authUserId,
             status: 'registered',
             source: 'business_registration',
+            registration_source: 'business_registration',
+            revenue_generated: 0,
             registered_at: new Date().toISOString(),
           });
         }
