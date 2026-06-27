@@ -4,9 +4,15 @@
   "description": "Premium African retail POS, dine-in, pharmacy, and hotel ERP workspace.",
   "icons": [
     {
-      "src": "/jb-logo.png",
+      "src": "/icon-192.png",
       "type": "image/png",
-      "sizes": "250x250",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
       "purpose": "any maskable"
     }
   ],
