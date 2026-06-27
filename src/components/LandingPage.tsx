@@ -1622,164 +1622,189 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
 
       {/* SaaS Pricing Matrices Block */}
       <section id="pricing" className={`py-20 border-t transition-colors duration-300 px-4 sm:px-6 lg:px-8 order-${sectionsOrder.indexOf('pricing') + 1} ${hiddenSections['pricing'] ? 'hidden' : 'block'} ${isDark ? 'bg-slate-950 border-slate-900' : 'bg-white border-slate-200'}`}>
-        <div className="max-w-7xl mx-auto space-y-12">
-          
-          <div className="text-center max-w-3xl mx-auto space-y-4">
-            <h2 className={`text-xs font-mono uppercase tracking-widest font-bold ${isDark ? 'text-emerald-400' : 'text-[#007a52]'}`}>
-              {t.pricingHeader || "Flexible SaaS Subscriptions"}
+        <div className="max-w-6xl mx-auto space-y-14">
+
+          {/* Section header */}
+          <div className="text-center max-w-2xl mx-auto space-y-4">
+            <span className={`inline-block text-[10px] font-black font-mono uppercase tracking-[0.2em] px-3 py-1 rounded-full ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-700'}`}>
+              Subscription Packages
+            </span>
+            <h2 className={`text-3xl sm:text-4xl font-extrabold leading-tight tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              Simple, transparent pricing
             </h2>
-            <p className={`text-3xl sm:text-4xl font-extrabold leading-tight ${isDark ? 'text-white' : 'text-[#111827]'}`}>
-              {t.pricingSub || "No hidden overheads, cancel anytime"}
+            <p className={`text-sm leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              Start with a 14-day free trial. No credit card required. Upgrade or cancel anytime.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            
-            {/* Tier 2: essential (15,000 TSh) */}
-            <div className={`p-6 rounded-2xl flex flex-col justify-between space-y-6 transition-all border ${isDark ? 'bg-slate-900/60 border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-slate-300 shadow-[0_2px_12px_rgba(0,0,0,0.06)]'}`}>
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <span className={`text-[8px] font-mono uppercase border px-1.5 py-0.2 rounded font-bold ${isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-[#e6faf4] text-[#007a52] border-emerald-250'}`}>Standard</span>
-                  <h4 className={`text-base font-bold lowercase ${isDark ? 'text-white' : 'text-[#111827]'}`}>{t.essentialName || "essential"}</h4>
-                  <p className={`text-[11px] leading-relaxed font-light ${isDark ? 'text-slate-400' : 'text-[#374151]'}`}>{t.essentialDesc || "Ideal for single-tills shops ready to log catalog lists and track expiries."}</p>
-                </div>
-                <div className="flex items-baseline space-x-1">
-                  <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-[#111827]'}`}>{currencySymbol}</span>
-                  <span className={`text-3xl font-extrabold ${isDark ? 'text-white' : 'text-[#111827]'}`}>{formatPrice(Number(t.priceEssential || 15000))}</span>
-                  <span className="text-[10px] text-slate-500">/month</span>
-                </div>
-                <ul className={`space-y-2 text-xs border-t pt-3 ${isDark ? 'text-slate-300 border-slate-850/60' : 'text-[#374151] border-slate-100'}`}>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>Max {t.limitEssential_Products ? <strong>{t.limitEssential_Products}</strong> : <><strong>200 Products</strong></>}</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>Max {t.limitEssential_Stores ? <strong>{t.limitEssential_Stores}</strong> : <><strong>1 Active Store</strong></>}</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>Max {t.limitEssential_Users ? <strong>{t.limitEssential_Users}</strong> : <><strong>2 Users/Staff</strong></>}</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>{t.featureEssential_ledger || "Supplies journal ledger"}</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>{t.featureEssential_sync || "Mobile Money synchronizer"}</span>
-                  </li>
-                </ul>
+          {/* 3 pricing cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+
+            {/* ── BASIC ── */}
+            <div className={`flex flex-col rounded-2xl border p-7 transition-all hover:shadow-lg ${isDark ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-slate-50 border-slate-200 hover:border-slate-300 shadow-sm'}`}>
+              {/* Badge */}
+              <span className={`self-start text-[9px] font-black font-mono uppercase tracking-widest px-2.5 py-1 rounded-full mb-5 ${isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600'}`}>
+                Basic
+              </span>
+              {/* Name + desc */}
+              <h3 className={`text-xl font-black tracking-tight mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>Jasper Basic</h3>
+              <p className={`text-xs leading-relaxed mb-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                For small shops that need simple POS, stock control, and sales records.
+              </p>
+              {/* Price */}
+              <div className="flex items-baseline gap-1 mb-7">
+                <span className={`text-sm font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>TZS</span>
+                <span className={`text-4xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>20,000</span>
+                <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>/month</span>
               </div>
-              <button 
+              {/* Features */}
+              <ul className="space-y-2.5 flex-1 mb-8">
+                {[
+                  'POS and sales management',
+                  '1 branch / store',
+                  'Up to 2 users',
+                  'Up to 1,000 products',
+                  'Inventory & stock adjustment',
+                  'Customer management',
+                  'Expenses tracking',
+                  'Basic reports',
+                  'Unlimited invoices',
+                  'Scale selling (kg, grams, litres, ml)',
+                  'Basic support',
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-2.5">
+                    <span className={`mt-0.5 p-0.5 rounded shrink-0 ${isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
+                      <Check className="w-3 h-3" />
+                    </span>
+                    <span className={`text-xs leading-snug ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              {/* CTA */}
+              <button
                 onClick={() => onNavigate('/login?register=true')}
-                className={`w-full py-2.5 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer ${isDark ? 'bg-emerald-600/25 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30' : 'bg-[#e6faf4] hover:bg-emerald-100/50 text-[#007a52] border border-emerald-200'}`}
+                className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}
               >
-                Choose {t.essentialName || "essential"}
+                Start Basic
               </button>
             </div>
 
-            {/* Tier 3: Standard Business (30,000 TSh) - Featured */}
-            <div className={`rounded-2xl flex flex-col justify-between space-y-6 relative hover:border-emerald-400 transition-all border-2 ${isDark ? 'bg-slate-900 border-emerald-500 shadow-lg shadow-emerald-500/5' : 'bg-[#eef0f3] border-[#00b87a] shadow-[0_4px_20px_rgba(0,184,122,0.08)]'}`}>
-              <div className={`absolute top-0 right-6 -translate-y-1/2 px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider ${isDark ? 'bg-emerald-500 text-slate-950' : 'bg-[#00b87a] text-white'}`}>
-                Recommended
+            {/* ── STANDARD — MOST POPULAR ── */}
+            <div className={`flex flex-col rounded-2xl border-2 p-7 relative transition-all hover:shadow-xl ${isDark ? 'bg-slate-900 border-emerald-500 shadow-lg shadow-emerald-500/5' : 'bg-white border-emerald-500 shadow-[0_8px_32px_rgba(16,185,129,0.12)]'}`}>
+              {/* Most Popular badge */}
+              <div className={`absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${isDark ? 'bg-emerald-500 text-slate-950' : 'bg-emerald-500 text-white'}`}>
+                ⭐ Most Popular
               </div>
-              
-              <div className="p-6 space-y-4">
-                <div className="space-y-1">
-                  <span className={`text-[8px] font-mono uppercase border px-1.5 py-0.2 rounded font-bold ${isDark ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-[#e6faf4] text-[#007a52] border-emerald-250'}`}>Multi Tenant</span>
-                  <h4 className={`text-base font-bold flex items-center space-x-1.5 lowercase ${isDark ? 'text-white' : 'text-[#111827]'}`}>
-                    <span>{t.standardName || "standard"}</span>
-                    <Sparkles className={`w-3.5 h-3.5 ${isDark ? 'text-emerald-400' : 'text-[#00b87a]'}`} />
-                  </h4>
-                  <p className={`text-[11px] leading-relaxed font-light ${isDark ? 'text-slate-355 text-slate-300' : 'text-[#374151]'}`}>{t.standardDesc || "Comprehensive setup designed for multi-branch hotels, food courts or pharmacies."}</p>
-                </div>
-                
-                <div className="flex items-baseline space-x-1">
-                  <span className={`text-xl font-bold ${isDark ? 'text-emerald-400' : 'text-[#007a52]'}`}>{currencySymbol}</span>
-                  <span className={`text-3xl font-extrabold ${isDark ? 'text-emerald-400' : 'text-[#007a52]'}`}>{formatPrice(Number(t.priceStandard || 30000))}</span>
-                  <span className="text-[10px] text-slate-500">/month</span>
-                </div>
-                
-                <ul className={`space-y-2 text-xs border-t pt-3 ${isDark ? 'text-slate-300 border-slate-850' : 'text-[#374151] border-slate-200'}`}>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>Max {t.limitStandard_Products ? <strong>{t.limitStandard_Products}</strong> : <><strong>1,000 Products</strong></>}</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>Max {t.limitStandard_Stores ? <strong>{t.limitStandard_Stores}</strong> : <><strong>5 Active Stores</strong></>}</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>Max {t.limitStandard_Users ? <strong>{t.limitStandard_Users}</strong> : <><strong>5 Users/Staff</strong></>}</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>{t.featureStandard_rooms || "Suite Niche Custom PMS Rooms"}</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>{t.featureStandard_lucy || "Lucy Self-learning assistance"}</span>
-                  </li>
-                </ul>
+              {/* Badge */}
+              <span className={`self-start text-[9px] font-black font-mono uppercase tracking-widest px-2.5 py-1 rounded-full mb-5 ${isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-700'}`}>
+                Standard
+              </span>
+              {/* Name + desc */}
+              <h3 className={`text-xl font-black tracking-tight mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>Jasper Standard</h3>
+              <p className={`text-xs leading-relaxed mb-6 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>
+                For growing businesses that need branch management, staff control, and stronger reports.
+              </p>
+              {/* Price */}
+              <div className="flex items-baseline gap-1 mb-7">
+                <span className={`text-sm font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>TZS</span>
+                <span className={`text-4xl font-black tracking-tight ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>35,000</span>
+                <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>/month</span>
               </div>
-
-              <div className="px-6 pb-6">
-                <button 
-                  onClick={() => onNavigate('/login?register=true')}
-                  className={`w-full py-2.5 font-black text-xs uppercase tracking-widest rounded-xl transition-all cursor-pointer shadow-md ${isDark ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/10' : 'bg-[#00b87a] hover:bg-[#009966] text-white shadow-[#00b87a]/15'}`}
-                >
-                  Choose {t.standardName || "standard"}
-                </button>
-              </div>
+              {/* Features */}
+              <ul className="space-y-2.5 flex-1 mb-8">
+                {[
+                  'Everything in Basic',
+                  'Up to 3 branches / stores',
+                  'Branch management',
+                  'Branch stock transfer',
+                  'Up to 10 users',
+                  'Up to 5,000 products',
+                  'Supplier management',
+                  'Accounting',
+                  'Quotations / estimates',
+                  'PDF receipts & invoices',
+                  'Staff management',
+                  'Delivery notes',
+                  'Payment tracking',
+                  'Retail packaging sales',
+                  'Advanced reports',
+                  '24/7 support',
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-2.5">
+                    <span className={`mt-0.5 p-0.5 rounded shrink-0 ${isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}>
+                      <Check className="w-3 h-3" />
+                    </span>
+                    <span className={`text-xs leading-snug ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              {/* CTA */}
+              <button
+                onClick={() => onNavigate('/login?register=true')}
+                className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/25"
+              >
+                Start Standard
+              </button>
             </div>
 
-            {/* Tier 4: premium (45,000 TSh) */}
-            <div className={`p-6 rounded-2xl flex flex-col justify-between space-y-6 transition-all border ${isDark ? 'bg-slate-900/60 border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-slate-300 shadow-[0_2px_12px_rgba(0,0,0,0.06)]'}`}>
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <span className={`text-[8px] font-mono uppercase bg-emerald-500/10 border px-1.5 py-0.2 rounded font-bold ${isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-[#e6faf4] text-[#007a52] border-emerald-250'}`}>Uncapped</span>
-                  <h4 className={`text-base font-bold lowercase ${isDark ? 'text-white' : 'text-[#111827]'}`}>{t.premiumName || "premium"}</h4>
-                  <p className={`text-[11px] leading-relaxed font-light ${isDark ? 'text-slate-400' : 'text-[#374151]'}`}>{t.premiumDesc || "Full-scale accounting ledger for warehouses distribution networks."}</p>
-                </div>
-                <div className="flex items-baseline space-x-1">
-                  <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-[#111827]'}`}>{currencySymbol}</span>
-                  <span className={`text-3xl font-extrabold ${isDark ? 'text-white' : 'text-[#111827]'}`}>{formatPrice(Number(t.pricePremium || 45000))}</span>
-                  <span className="text-[10px] text-slate-500">/month</span>
-                </div>
-                <ul className={`space-y-2 text-xs border-t pt-3 ${isDark ? 'text-slate-350 border-slate-850/60' : 'text-[#374151] border-slate-100'}`}>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>{t.limitPremium_Products ? <strong>{t.limitPremium_Products}</strong> : <><strong>Volume Unlimited Products</strong></>}</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>Max {t.limitPremium_Stores ? <strong>{t.limitPremium_Stores}</strong> : <><strong>10 Active Stores</strong></>}</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>{t.limitPremium_Users ? <strong>{t.limitPremium_Users}</strong> : <><strong>Volume Unlimited Staff</strong></>}</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>{t.featurePremium_whiteLabel || "VIP White-label custom domains"}</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className={`p-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#e6faf4] text-[#007a52]'}`}><Check className="w-3 h-3" /></span>
-                    <span>{t.featurePremium_dedicated || "Dedicated priority servers nodes"}</span>
-                  </li>
-                </ul>
+            {/* ── PREMIUM ── */}
+            <div className={`flex flex-col rounded-2xl border p-7 transition-all hover:shadow-lg ${isDark ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-slate-50 border-slate-200 hover:border-slate-300 shadow-sm'}`}>
+              {/* Badge */}
+              <span className={`self-start text-[9px] font-black font-mono uppercase tracking-widest px-2.5 py-1 rounded-full mb-5 ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-700'}`}>
+                Premium
+              </span>
+              {/* Name + desc */}
+              <h3 className={`text-xl font-black tracking-tight mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>Jasper Premium</h3>
+              <p className={`text-xs leading-relaxed mb-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                For serious businesses, wholesalers, and companies that need stronger control, more branches, and branding.
+              </p>
+              {/* Price */}
+              <div className="flex items-baseline gap-1 mb-7">
+                <span className={`text-sm font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>TZS</span>
+                <span className={`text-4xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>50,000</span>
+                <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>/month</span>
               </div>
-              <button 
+              {/* Features */}
+              <ul className="space-y-2.5 flex-1 mb-8">
+                {[
+                  'Everything in Standard',
+                  'Up to 10 branches / stores',
+                  'Unlimited users',
+                  'Unlimited products',
+                  'Full multi-branch control',
+                  'Full accounting',
+                  'Staff payroll, salary & allowance tracking',
+                  'Advanced permissions',
+                  'WhatsApp report notifications',
+                  'Product bulk upload',
+                  'Advanced stock costing',
+                  'Custom branding — logo, colors & profile identity',
+                  'Priority support',
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-2.5">
+                    <span className={`mt-0.5 p-0.5 rounded shrink-0 ${isDark ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>
+                      <Check className="w-3 h-3" />
+                    </span>
+                    <span className={`text-xs leading-snug ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              {/* CTA */}
+              <button
                 onClick={() => onNavigate('/login?register=true')}
-                className={`w-full py-2.5 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer ${isDark ? 'bg-slate-800 hover:bg-slate-755 text-white' : 'bg-[#eef0f3] hover:bg-slate-200 text-[#111827]'}`}
+                className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer ${isDark ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}
               >
-                Choose {t.premiumName || "premium"}
+                Start Premium
               </button>
             </div>
 
           </div>
+
+          {/* Footer note */}
+          <p className={`text-center text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+            All packages include a <strong>14-day free trial</strong>. Cancel anytime. Prices in Tanzanian Shillings (TZS).
+          </p>
+
         </div>
       </section>
 
