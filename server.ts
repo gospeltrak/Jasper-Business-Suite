@@ -960,25 +960,33 @@ async function startServer() {
         throw new Error(userError.message || 'Failed to link user profile');
       }
 
-      // Attribute a business registration to a real affiliate when a valid
-      // referral code is present. Unknown codes never create a fake ledger row.
-      const normalizedReferralCode = String(referralCode || '').trim().toUpperCase();
+      // Record the subscriber source in the database. Unknown codes do not
+      // create fake commissions; no-code registrations are marked organic.
+      const normalizedReferralCode = String(referralCode || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+      let sourceType = 'organic';
+      let sourceAffiliateId: string | null = null;
+      let sourceAgentId: string | null = null;
+      let sourceSubAffiliateId: string | null = null;
+      let sourcePromoCode: string | null = null;
       if (normalizedReferralCode) {
-        const { data: affiliate } = await adminTable('affiliates')
-          .select('id')
-          .eq('referral_code', normalizedReferralCode)
+        const { data: affiliateProfile } = await adminTable('affiliates')
+          .select('id, affiliate_type, parent_agent_id, promo_code')
+          .or(`referral_code.eq.${normalizedReferralCode},promo_code.eq.${normalizedReferralCode}`)
           .maybeSingle();
-      if (affiliate?.id) {
-          const { data: affiliateProfile } = await adminTable('affiliates')
-            .select('id, affiliate_type, parent_agent_id, promo_code')
-            .eq('id', affiliate.id)
-            .maybeSingle();
+
+        if (affiliateProfile?.id) {
+          sourceType = affiliateProfile.affiliate_type === 'sub_affiliate' ? 'sub_affiliate' : 'organic_affiliate';
+          sourceAffiliateId = affiliateProfile.id;
+          sourceSubAffiliateId = affiliateProfile.affiliate_type === 'sub_affiliate' ? affiliateProfile.id : null;
+          sourceAgentId = affiliateProfile.parent_agent_id || null;
+          sourcePromoCode = affiliateProfile.promo_code || normalizedReferralCode;
+
           await adminTable('affiliate_referrals').insert({
-            affiliate_id: affiliate.id,
-            sub_affiliate_id: affiliateProfile?.affiliate_type === 'sub_affiliate' ? affiliate.id : null,
-            agent_id: affiliateProfile?.parent_agent_id || null,
+            affiliate_id: affiliateProfile.id,
+            sub_affiliate_id: sourceSubAffiliateId,
+            agent_id: sourceAgentId,
             referral_code: normalizedReferralCode,
-            promo_code_used: affiliateProfile?.promo_code || normalizedReferralCode,
+            promo_code_used: sourcePromoCode,
             registered_tenant_id: (tenantData as any).id,
             registered_user_id: authUserId,
             status: 'registered',
@@ -987,8 +995,25 @@ async function startServer() {
             revenue_generated: 0,
             registered_at: new Date().toISOString(),
           });
+        } else {
+          sourceType = 'unknown';
         }
       }
+
+      await adminTable('subscriber_source_tracking').insert({
+        subscriber_user_id: authUserId,
+        tenant_id: (tenantData as any).id,
+        source_type: sourceType,
+        referral_code_used: normalizedReferralCode || null,
+        promo_code_used: sourcePromoCode || normalizedReferralCode || null,
+        affiliate_id: sourceAffiliateId,
+        agent_id: sourceAgentId,
+        sub_affiliate_id: sourceSubAffiliateId,
+        parent_agent_id: sourceAgentId,
+        revenue_generated: 0,
+        status: 'registered',
+        registration_source: 'business_registration',
+      });
 
       // Done.
       return res.json({ 
