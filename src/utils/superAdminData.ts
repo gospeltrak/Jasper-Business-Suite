@@ -49,6 +49,30 @@ export interface SuperAdminMetrics {
   organicVsAffiliate: Array<{ name: string; Organic: number; Affiliate: number }>;
 }
 
+const EMPTY_SUPER_ADMIN_OVERVIEW: SuperAdminOverview = {
+  tenants: [],
+  users: [],
+  workspaces: [],
+  sessions: [],
+  affiliates: [],
+  referrals: [],
+  commissions: [],
+  payouts: [],
+  auditLogs: []
+};
+
+const normalizeOverview = (overview?: Partial<SuperAdminOverview> | null): SuperAdminOverview => ({
+  tenants: Array.isArray(overview?.tenants) ? overview.tenants : [],
+  users: Array.isArray(overview?.users) ? overview.users : [],
+  workspaces: Array.isArray(overview?.workspaces) ? overview.workspaces : [],
+  sessions: Array.isArray(overview?.sessions) ? overview.sessions : [],
+  affiliates: Array.isArray(overview?.affiliates) ? overview.affiliates : [],
+  referrals: Array.isArray(overview?.referrals) ? overview.referrals : [],
+  commissions: Array.isArray(overview?.commissions) ? overview.commissions : [],
+  payouts: Array.isArray(overview?.payouts) ? overview.payouts : [],
+  auditLogs: Array.isArray(overview?.auditLogs) ? overview.auditLogs : []
+});
+
 const apiRequest = async (path: string, init: RequestInit = {}) => {
   const client = await getDynamicSupabaseClient();
   const { data: { session } } = await client.auth.getSession();
@@ -68,7 +92,7 @@ const apiRequest = async (path: string, init: RequestInit = {}) => {
 };
 
 export async function loadSuperAdminOverview(): Promise<SuperAdminOverview> {
-  return apiRequest('/api/super-admin/overview');
+  return normalizeOverview(await apiRequest('/api/super-admin/overview'));
 }
 
 export async function updateSuperAdminUser(userId: string, payload: Record<string, unknown>) {
@@ -149,22 +173,23 @@ const monthLabel = (value: unknown) => {
 };
 
 export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUserRow[] {
-  const tenantById = new Map(overview.tenants.map((tenant) => [String(tenant.id), tenant]));
-  const workspaceByTenant = new Map(overview.workspaces.map((workspace) => [String(workspace.tenant_id), getWorkspacePayload(workspace)]));
+  const safeOverview = normalizeOverview(overview);
+  const tenantById = new Map(safeOverview.tenants.map((tenant) => [String(tenant.id), tenant]));
+  const workspaceByTenant = new Map(safeOverview.workspaces.map((workspace) => [String(workspace.tenant_id), getWorkspacePayload(workspace)]));
   const sessionsByUser = new Map<string, any[]>();
-  overview.sessions.forEach((session) => {
+  safeOverview.sessions.forEach((session) => {
     const key = String(session.user_id);
     sessionsByUser.set(key, [...(sessionsByUser.get(key) || []), session]);
   });
-  const referralsByUser = new Map(overview.referrals.map((referral) => [String(referral.registered_user_id), referral]));
+  const referralsByUser = new Map(safeOverview.referrals.map((referral) => [String(referral.registered_user_id), referral]));
   const usersByTenant = new Map<string, any[]>();
-  overview.users.forEach((user) => {
+  safeOverview.users.forEach((user) => {
     if (!user.tenant_id) return;
     const key = String(user.tenant_id);
     usersByTenant.set(key, [...(usersByTenant.get(key) || []), user]);
   });
 
-  return overview.users
+  return safeOverview.users
     .filter((user) => user.account_type !== 'super_admin' && user.account_type !== 'affiliate' && user.account_type !== 'partner')
     .map((user) => {
       const tenantId = user.tenant_id ? String(user.tenant_id) : null;
@@ -253,10 +278,11 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
 }
 
 export function buildSuperAdminMetrics(overview: SuperAdminOverview): SuperAdminMetrics {
-  const users = mapSuperAdminUsers(overview);
+  const safeOverview = normalizeOverview(overview || EMPTY_SUPER_ADMIN_OVERVIEW);
+  const users = mapSuperAdminUsers(safeOverview);
   const totalWorkspaceRevenue = users.reduce((sum, user) => sum + user.transactions.reduce((sub, tx) => sub + tx.amount, 0), 0);
-  const affiliateRevenue = overview.commissions.reduce((sum, row) => sum + money(row.gross_revenue), 0);
-  const affiliatePayouts = overview.commissions.reduce((sum, row) => sum + money(row.net_payout || row.amount), 0);
+  const affiliateRevenue = safeOverview.commissions.reduce((sum, row) => sum + money(row.gross_revenue), 0);
+  const affiliatePayouts = safeOverview.commissions.reduce((sum, row) => sum + money(row.net_payout || row.amount), 0);
   const expenses = users.reduce((sum, user) => sum + user.reports.reduce((sub, report) => sub + report.expenseTotal, 0), 0);
   const planCounts = new Map<string, number>();
   users.forEach((user) => planCounts.set(user.subscriptionPlan, (planCounts.get(user.subscriptionPlan) || 0) + 1));
@@ -282,8 +308,8 @@ export function buildSuperAdminMetrics(overview: SuperAdminOverview): SuperAdmin
 
   return {
     subscribersCount: users.length,
-    activeTenants: overview.tenants.length,
-    activeSessions: overview.sessions.filter((session) => session.is_active).length,
+    activeTenants: safeOverview.tenants.length,
+    activeSessions: safeOverview.sessions.filter((session) => session.is_active).length,
     totalIncome: totalWorkspaceRevenue + affiliateRevenue,
     affiliatePayouts,
     expenses,
@@ -295,7 +321,8 @@ export function buildSuperAdminMetrics(overview: SuperAdminOverview): SuperAdmin
 }
 
 export function mapSuperAdminStaff(overview: SuperAdminOverview) {
-  return overview.users
+  const safeOverview = normalizeOverview(overview);
+  return safeOverview.users
     .filter((user) => user.role_key === 'super_admin_staff' || (user.is_saas_staff && user.role_key !== 'super_admin'))
     .map((user) => ({
       id: String(user.id),
