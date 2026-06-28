@@ -76,10 +76,10 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
   tanzanite: {
     id: 'tanzanite',
     packageId: 'tanzanite',
-    name: 'Tanzanite',
+    name: 'Jasper',
     price: 50000,
     durationDays: 30,
-    maxProducts: 999999, // Unlimited
+    maxProducts: 999999,
     maxStores: 5,
     maxStaff: 15,
     features: [
@@ -90,8 +90,8 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
       'Cashier Till (POS Simulator)',
       'Full suite Business Reports',
       'Customer management engine',
-      'Full white-label custom domain portals',
-      'Affiliate progression tracker integration'
+      'Custom branding — logo, colors & profile identity',
+      'Staff payroll, salary & allowance tracking'
     ]
   },
   essential: {
@@ -137,7 +137,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
   wholesale: {
     id: 'wholesale',
     packageId: 'tanzanite',
-    name: 'Tanzanite',
+    name: 'Jasper',
     price: 50000,
     durationDays: 30,
     maxProducts: 999999,
