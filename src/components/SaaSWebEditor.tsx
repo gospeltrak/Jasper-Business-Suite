@@ -30,7 +30,7 @@ const DEFAULT_SECTIONS = [
   { id: 'features', label: 'Advanced Features Grid', desc: 'Working offline state, multi-currency ledger, and mobile money check validation.' },
   { id: 'marquee-partners', label: 'Partner Logos Marquee', desc: 'Infinite scrolling layout showcasing trusted business partners and logos.' },
   { id: 'testimonials', label: 'Success Stories', desc: 'What shop owners say (testimonials from Mustafa, Kwame, Fatuma).' },
-  { id: 'pricing', label: 'Subscription Pricing Plans', desc: 'Price card matrix displaying Essential, Standard, and Premium packages.' },
+  { id: 'pricing', label: 'Subscription Pricing Plans', desc: 'Price card matrix displaying Ruby, Diamond, and Tanzanite packages.' },
   { id: 'faqs', label: 'FAQ Accordion Matrix', desc: 'Collapsible frequently asked questions for client objections self-service.' },
   { id: 'contact', label: 'Assistance CTA Panel', desc: 'Direct phone & email links to dispatch localized service installer agents.' }
 ];

@@ -98,10 +98,10 @@ export default function SaaSReportsView() {
       // Map plans to monetary amounts
       let planCharge = 0;
       if ((t as any).status === "active" || (t as any).status === "Paid" || !(t as any).status) {
-        if (t.planType === "Premium") planCharge = 45000;
-        else if (t.planType === "Standard Business") planCharge = 30000;
-        else if (t.planType === "Essential Ledger") planCharge = 15000;
-        else planCharge = 25000; // default standard
+        if (t.planType === "Tanzanite") planCharge = 50000;
+        else if (t.planType === "Diamond") planCharge = 35000;
+        else if (t.planType === "Ruby") planCharge = 20000;
+        else planCharge = 35000;
       }
       return total + planCharge;
     }, 0);

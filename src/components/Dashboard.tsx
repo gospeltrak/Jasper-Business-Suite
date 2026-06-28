@@ -39,12 +39,15 @@ import CachedImage from './CachedImage';
 import { savePendingSaleOffline, clearPendingSales } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
 import { flushPendingTenantWorkspace, loadTenantWorkspace, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace } from '../utils/tenantWorkspace';
+import { getDynamicSupabaseClient } from '../supabaseClient';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
 import { 
   getSubscriptionState, 
   saveSubscriptionState, 
   checkSubscriptionStatus, 
   SUBSCRIPTION_PLANS, 
+  PAID_PACKAGE_IDS,
+  normalizeSubscriptionPlanId,
   SubscriptionPlanId,
   SubscriptionState
 } from '../utils/subscription';
@@ -935,6 +938,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   // Premium subscription state setup 
   const [subState, setSubState] = useState<SubscriptionState>(() => getSubscriptionState());
   const [isBillingBannerDismissed, setIsBillingBannerDismissed] = useState(false);
+  const [manualActivationPackage, setManualActivationPackage] = useState<SubscriptionPlanId>('diamond');
+  const [manualActivationReceipt, setManualActivationReceipt] = useState<File | null>(null);
+  const [manualActivationNote, setManualActivationNote] = useState('');
+  const [manualActivationSubmitting, setManualActivationSubmitting] = useState(false);
+  const [manualActivationMessage, setManualActivationMessage] = useState<string | null>(null);
   
   // Custom interactive limit modal state
   const [subModal, setSubModal] = useState<{
@@ -950,14 +958,73 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   }, [activeTenant.id]);
 
   const updateSubscriptionPlan = (newPlanId: SubscriptionPlanId) => {
+    const normalizedPlanId = normalizeSubscriptionPlanId(newPlanId);
     const updated: SubscriptionState = {
       ...subState,
-      planId: newPlanId,
-      isSubscribedPaid: newPlanId !== 'trial',
-      paidAt: newPlanId !== 'trial' ? new Date().toISOString() : undefined
+      planId: normalizedPlanId,
+      isSubscribedPaid: normalizedPlanId !== 'trial',
+      paidAt: normalizedPlanId !== 'trial' ? new Date().toISOString() : undefined
     };
     saveSubscriptionState(updated);
     setSubState(updated);
+  };
+
+  const submitManualActivationRequest = async () => {
+    const selectedPlanId = normalizeSubscriptionPlanId(manualActivationPackage);
+    if (selectedPlanId === 'trial') {
+      setManualActivationMessage('Please choose Ruby, Diamond, or Tanzanite before submitting.');
+      return;
+    }
+    if (!manualActivationReceipt) {
+      setManualActivationMessage('Please attach the payment receipt before submitting.');
+      return;
+    }
+
+    setManualActivationSubmitting(true);
+    setManualActivationMessage(null);
+    const selectedPlan = SUBSCRIPTION_PLANS[selectedPlanId];
+    const submittedAt = new Date().toISOString();
+    const requestRecord = {
+      id: `manual-sub-${Date.now()}`,
+      tenant_id: activeTenant.id,
+      tenant_name: activeTenant.name,
+      requested_package_id: selectedPlanId,
+      requested_package_name: selectedPlan.name,
+      amount: selectedPlan.price,
+      currency: activeTenant.currency || 'TSh',
+      status: 'pending',
+      receipt_file_name: manualActivationReceipt.name,
+      receipt_file_type: manualActivationReceipt.type || 'unknown',
+      receipt_file_size: manualActivationReceipt.size,
+      note: manualActivationNote.trim() || null,
+      submitted_by: user.id,
+      submitted_at: submittedAt,
+      created_at: submittedAt,
+      updated_at: submittedAt
+    };
+
+    try {
+      const client: any = await getDynamicSupabaseClient();
+      const { error } = await client
+        .from('tenant_payment_proofs')
+        .insert(requestRecord);
+
+      if (error) throw error;
+      setManualActivationMessage(`Activation request sent for ${selectedPlan.name}. Admin will verify the receipt.`);
+      setManualActivationReceipt(null);
+      setManualActivationNote('');
+    } catch (err: any) {
+      const fallbackKey = `jasper_manual_subscription_requests_${activeTenant.id}`;
+      const cached = JSON.parse(localStorage.getItem(fallbackKey) || '[]');
+      localStorage.setItem(fallbackKey, JSON.stringify([...cached, requestRecord]));
+      setManualActivationMessage(
+        err?.message
+          ? `Saved offline. It will need sync when database access is available: ${err.message}`
+          : 'Saved offline. It will need sync when database access is available.'
+      );
+    } finally {
+      setManualActivationSubmitting(false);
+    }
   };
 
   const setSimulatedDays = (days: number) => {
@@ -2741,7 +2808,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 {subModal.title}
               </h3>
               <p className="text-xs text-slate-450 max-w-md mx-auto">
-                You have reached your subscription tier limits! To sustain your business operations, please choose one of our three premium subscription packages to pay and unlock capacity instantly.
+                You have reached your subscription package limits. Choose Ruby, Diamond, or Tanzanite, then pay and submit the receipt for manual activation.
               </p>
             </div>
 
@@ -2768,52 +2835,49 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               {/* Plan 1 */}
               <button
                 onClick={() => {
-                  updateSubscriptionPlan('essential');
-                  setSubModal(null);
+                  setManualActivationPackage('ruby');
                 }}
                 className="bg-slate-950/50 hover:bg-slate-950 border border-slate-800 hover:border-emerald-500/40 p-4 rounded-xl text-left transition-all space-y-2 cursor-pointer outline-none focus:border-emerald-500"
               >
-                <h5 className="text-[11px] uppercase font-bold text-emerald-400 tracking-wider">Essential Ledger</h5>
-                <div className="text-lg font-black text-white font-mono">{activeTenant.currency}15,000</div>
+                <h5 className="text-[11px] uppercase font-bold text-emerald-400 tracking-wider">Ruby</h5>
+                <div className="text-lg font-black text-white font-mono">{activeTenant.currency}20,000</div>
                 <ul className="text-[9.5px] text-slate-400 space-y-0.5 list-disc list-inside">
                   <li>1,000 Products max</li>
-                  <li>5 Branch Stores max</li>
-                  <li>5 Cashier/Staff max</li>
+                  <li>1 Branch Store max</li>
+                  <li>2 Cashier/Staff max</li>
                 </ul>
               </button>
 
               {/* Plan 2 */}
               <button
                 onClick={() => {
-                  updateSubscriptionPlan('business');
-                  setSubModal(null);
+                  setManualActivationPackage('diamond');
                 }}
                 className="bg-slate-950 hover:bg-slate-950 border-2 border-emerald-500/30 hover:border-emerald-500/60 p-4 rounded-xl text-left transition-all space-y-2 cursor-pointer outline-none focus:border-emerald-500"
               >
                 <span className="bg-emerald-500 text-slate-950 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase block w-max mb-1">Best Choice</span>
-                <h5 className="text-[11px] uppercase font-bold text-emerald-400 tracking-wider">Standard Business</h5>
-                <div className="text-lg font-black text-white font-mono">{activeTenant.currency}30,000</div>
+                <h5 className="text-[11px] uppercase font-bold text-emerald-400 tracking-wider">Diamond</h5>
+                <div className="text-lg font-black text-white font-mono">{activeTenant.currency}35,000</div>
                 <ul className="text-[9.5px] text-slate-400 space-y-0.5 list-disc list-inside">
                   <li>5,000 Products max</li>
-                  <li>8 Branch Stores max</li>
-                  <li>8 Cashier/Staff max</li>
+                  <li>2 Branch Stores max</li>
+                  <li>6 Cashier/Staff max</li>
                 </ul>
               </button>
 
               {/* Plan 3 */}
               <button
                 onClick={() => {
-                  updateSubscriptionPlan('wholesale');
-                  setSubModal(null);
+                  setManualActivationPackage('tanzanite');
                 }}
                 className="bg-slate-950/50 hover:bg-slate-950 border border-slate-800 hover:border-emerald-500/40 p-4 rounded-xl text-left transition-all space-y-2 cursor-pointer outline-none focus:border-emerald-500"
               >
-                <h5 className="text-[11px] uppercase font-bold text-emerald-400 tracking-wider">Premium</h5>
-                <div className="text-lg font-black text-white font-mono">{activeTenant.currency}45,000</div>
+                <h5 className="text-[11px] uppercase font-bold text-emerald-400 tracking-wider">Tanzanite</h5>
+                <div className="text-lg font-black text-white font-mono">{activeTenant.currency}50,000</div>
                 <ul className="text-[9.5px] text-slate-400 space-y-0.5 list-disc list-inside">
                   <li>Unlimited Products</li>
-                  <li>10 Active branches</li>
-                  <li>10 Cashier/Staff max</li>
+                  <li>5 Active branches</li>
+                  <li>15 Cashier/Staff max</li>
                 </ul>
               </button>
             </div>
@@ -2825,26 +2889,64 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 <span>Payment Gateway Failed?</span>
               </h5>
               <p className="text-[10px] text-slate-400 mt-1 mb-3">
-                If the automated payment gateway fails, pay directly via local bank/mobile transfer and upload the receipt here. Our support team will verify and activate your subscription manually.
+                Pay directly via local bank/mobile transfer, choose the package paid for, and upload the receipt here. Our support team will verify and activate your subscription manually.
               </p>
+              <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-3 mb-3">
+                <label className="space-y-1">
+                  <span className="block text-[9px] uppercase tracking-widest text-slate-500 font-bold">Paid Package</span>
+                  <select
+                    value={manualActivationPackage}
+                    onChange={(e) => setManualActivationPackage(e.target.value as SubscriptionPlanId)}
+                    className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-emerald-500"
+                  >
+                    {PAID_PACKAGE_IDS.map((planId) => {
+                      const plan = SUBSCRIPTION_PLANS[planId];
+                      return (
+                        <option key={planId} value={planId}>
+                          {plan.name} - {activeTenant.currency}{plan.price.toLocaleString()}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="block text-[9px] uppercase tracking-widest text-slate-500 font-bold">Payment Note</span>
+                  <input
+                    type="text"
+                    value={manualActivationNote}
+                    onChange={(e) => setManualActivationNote(e.target.value)}
+                    placeholder="Optional transaction note or reference"
+                    className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-emerald-500"
+                  />
+                </label>
+              </div>
               <div className="flex flex-col md:flex-row items-center space-y-3 md:space-y-0 md:space-x-3">
                 <div className="flex-1 w-full relative">
-                  <input type="file" id="receipt-upload" className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" accept="image/*,.pdf" />
+                  <input
+                    type="file"
+                    id="receipt-upload"
+                    className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                    accept="image/*,.pdf"
+                    onChange={(e) => setManualActivationReceipt(e.target.files?.[0] || null)}
+                  />
                   <div className="bg-slate-950 border border-slate-800 border-dashed hover:border-emerald-500/50 rounded-xl px-3 py-2 flex items-center justify-center space-x-2 text-slate-400 group transition-colors">
                     <CloudLightning className="w-4 h-4 group-hover:text-emerald-400" />
-                    <span className="text-[10px] font-bold">Attach Receipt Document</span>
+                    <span className="text-[10px] font-bold">
+                      {manualActivationReceipt ? manualActivationReceipt.name : 'Attach Receipt Document'}
+                    </span>
                   </div>
                 </div>
                 <button 
-                  onClick={() => {
-                    alert("Manual activation request submitted with attached receipt. Please wait for admin approval.");
-                    setSubModal(null);
-                  }}
-                  className="w-full md:w-auto px-5 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 font-bold uppercase border border-indigo-500/20 text-[10px] rounded-xl transition-all tracking-wider shrink-0"
+                  onClick={submitManualActivationRequest}
+                  disabled={manualActivationSubmitting}
+                  className="w-full md:w-auto px-5 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 disabled:opacity-60 disabled:cursor-not-allowed text-indigo-400 font-bold uppercase border border-indigo-500/20 text-[10px] rounded-xl transition-all tracking-wider shrink-0"
                 >
-                  Send Activation Request
+                  {manualActivationSubmitting ? 'Sending...' : 'Send Activation Request'}
                 </button>
               </div>
+              {manualActivationMessage && (
+                <p className="text-[10px] text-emerald-300 mt-3 font-semibold">{manualActivationMessage}</p>
+              )}
             </div>
 
             <div className="flex justify-end pt-2">

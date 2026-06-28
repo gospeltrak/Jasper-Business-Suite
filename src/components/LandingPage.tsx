@@ -1755,22 +1755,22 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               </button>
             </div>
 
-            {/* ── JASPER ── */}
-            <div className={`flex flex-col rounded-2xl border p-7 transition-all hover:shadow-lg ${isDark ? 'bg-slate-900 border-slate-800 hover:border-amber-700/40' : 'bg-slate-50 border-slate-200 hover:border-amber-300 shadow-sm'}`}>
+            {/* ── TANZANITE ── */}
+            <div className={`flex flex-col rounded-2xl border p-7 transition-all hover:shadow-lg ${isDark ? 'bg-slate-900 border-slate-800 hover:border-cyan-700/40' : 'bg-slate-50 border-slate-200 hover:border-cyan-300 shadow-sm'}`}>
               {/* Crystal icon — no container */}
               <div className="mb-5">
                 <svg width="64" height="72" viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <polygon points="32,72 8,42 56,42" fill="#78350f"/>
-                  <polygon points="32,72 32,42 56,42" fill="#b45309"/>
-                  <polygon points="8,42 16,18 48,18 56,42" fill="#f59e0b"/>
-                  <polygon points="16,18 32,4 48,18" fill="#fde68a"/>
-                  <polygon points="8,42 16,18 32,4" fill="#b45309" opacity="0.7"/>
-                  <polygon points="48,18 32,4 56,42" fill="#fef3c7" opacity="0.6"/>
-                  <polygon points="20,22 32,10 38,22" fill="white" opacity="0.3"/>
-                  <circle cx="22" cy="20" r="2" fill="white" opacity="0.55"/>
+                  <polygon points="32,72 8,42 56,42" fill="#0f766e"/>
+                  <polygon points="32,72 32,42 56,42" fill="#0891b2"/>
+                  <polygon points="8,42 16,18 48,18 56,42" fill="#22d3ee"/>
+                  <polygon points="16,18 32,4 48,18" fill="#a5f3fc"/>
+                  <polygon points="8,42 16,18 32,4" fill="#0e7490" opacity="0.72"/>
+                  <polygon points="48,18 32,4 56,42" fill="#cffafe" opacity="0.62"/>
+                  <polygon points="20,22 32,10 38,22" fill="white" opacity="0.34"/>
+                  <circle cx="22" cy="20" r="2" fill="white" opacity="0.58"/>
                 </svg>
               </div>
-              <h3 className={`text-xl font-black tracking-tight mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>Jasper</h3>
+              <h3 className={`text-xl font-black tracking-tight mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>Tanzanite</h3>
               <p className={`text-xs leading-relaxed mb-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                 For serious businesses, wholesalers, and companies that need stronger control, more branches, and branding.
               </p>
@@ -1800,15 +1800,15 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
                   'Priority support',
                 ].map(f => (
                   <li key={f} className="flex items-start gap-2.5">
-                    <Check className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{color:'#b45309'}}/>
+                    <Check className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{color:'#0891b2'}}/>
                     <span className={`text-xs leading-snug ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{f}</span>
                   </li>
                 ))}
               </ul>
               <button onClick={() => onNavigate('/login?register=true')}
                 className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer text-white"
-                style={{background:'linear-gradient(135deg,#b45309,#d97706)'}}>
-                Start Jasper
+                style={{background:'linear-gradient(135deg,#0f766e,#0891b2)'}}>
+                Start Tanzanite
               </button>
             </div>
 
@@ -2056,4 +2056,3 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
     </div>
   );
 }
-

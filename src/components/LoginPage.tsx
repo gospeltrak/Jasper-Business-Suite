@@ -1083,6 +1083,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         securityAnswer: normalizeSecurityAnswer(regSecurityAnswer)
       }]));
 
+      localStorage.setItem('jasper_subscription_state', JSON.stringify({
+        planId: 'trial',
+        trialStartedAt: new Date().toISOString(),
+        isSubscribedPaid: false,
+        simulatedDaysPassed: 0,
+        autoRenewEnabled: true,
+        paymentStatus: 'active'
+      }));
+
       setIsLoading(false);
       setSuccessMessage(`Success! Registered "${orgName}" as an isolated business tenant.`);
       

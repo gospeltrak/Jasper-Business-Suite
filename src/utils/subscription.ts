@@ -1,13 +1,16 @@
-export type SubscriptionPlanId = 'trial' | 'essential' | 'business' | 'wholesale';
+export type SubscriptionPackageId = 'ruby' | 'diamond' | 'tanzanite';
+export type LegacySubscriptionPlanId = 'essential' | 'business' | 'wholesale';
+export type SubscriptionPlanId = 'trial' | SubscriptionPackageId | LegacySubscriptionPlanId;
 
 export interface SubscriptionPlan {
   id: SubscriptionPlanId;
   name: string;
-  price: number; // 0, 30000, 40000, 50000
+  packageId?: SubscriptionPackageId;
+  price: number;
   durationDays: number;
-  maxProducts: number; // e.g. 20, 100, 500, Unlimited
-  maxStores: number;   // e.g. 1, 1, 3, 10
-  maxStaff: number;    // e.g. 1, 2, 5, Unlimited
+  maxProducts: number;
+  maxStores: number;
+  maxStaff: number;
   features: string[];
 }
 
@@ -30,56 +33,120 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
       'Customer management system'
     ]
   },
-  essential: {
-    id: 'essential',
-    name: 'Essential Ledger',
-    price: 15000,
+  ruby: {
+    id: 'ruby',
+    packageId: 'ruby',
+    name: 'Ruby',
+    price: 20000,
     durationDays: 30,
     maxProducts: 1000,
-    maxStores: 5,
-    maxStaff: 5,
+    maxStores: 1,
+    maxStaff: 2,
     features: [
       'Max 1000 Products catalogued',
-      'Max 5 Active Store branches',
-      'Max 5 Users / staff accounts',
+      'Max 1 Active Store branch',
+      'Max 2 Users / staff accounts',
       'Supplies management & alerts',
       'Cashier Till (POS Simulator)',
-      'Advanced Business Reports',
-      'Customer & Loyalty tracker',
-      'Multistore spreadsheet exports'
+      'Profit & Loss summary reports',
+      'Customer management system',
+      'Scale selling for kg, grams, litres, and ml'
     ]
   },
-  business: {
-    id: 'business',
-    name: 'Standard Business',
-    price: 30000,
+  diamond: {
+    id: 'diamond',
+    packageId: 'diamond',
+    name: 'Diamond',
+    price: 35000,
     durationDays: 30,
     maxProducts: 5000,
-    maxStores: 8,
-    maxStaff: 8,
+    maxStores: 2,
+    maxStaff: 6,
     features: [
       'Max 5000 Products catalogued',
-      'Max 8 Active Store branches',
-      'Max 8 Users / staff accounts',
+      'Max 2 Active Store branches',
+      'Max 6 Users / staff accounts',
       'Custom Role Security permissions',
       'Supplies & supplier log ledger',
       'Cashier POS Till checkout',
       'Consolidated P&L index generators',
-      'Lucy self-learning integration'
+      'Branch management and stock transfer'
+    ]
+  },
+  tanzanite: {
+    id: 'tanzanite',
+    packageId: 'tanzanite',
+    name: 'Tanzanite',
+    price: 50000,
+    durationDays: 30,
+    maxProducts: 999999, // Unlimited
+    maxStores: 5,
+    maxStaff: 15,
+    features: [
+      'Unlimited Products catalogued',
+      'Max 5 Active Store branches',
+      'Max 15 Users / staff accounts',
+      'Supplies management tracking',
+      'Cashier Till (POS Simulator)',
+      'Full suite Business Reports',
+      'Customer management engine',
+      'Full white-label custom domain portals',
+      'Affiliate progression tracker integration'
+    ]
+  },
+  essential: {
+    id: 'essential',
+    packageId: 'ruby',
+    name: 'Ruby',
+    price: 20000,
+    durationDays: 30,
+    maxProducts: 1000,
+    maxStores: 1,
+    maxStaff: 2,
+    features: [
+      'Max 1000 Products catalogued',
+      'Max 1 Active Store branch',
+      'Max 2 Users / staff accounts',
+      'Supplies management & alerts',
+      'Cashier Till (POS Simulator)',
+      'Profit & Loss summary reports',
+      'Customer management system',
+      'Scale selling for kg, grams, litres, and ml'
+    ]
+  },
+  business: {
+    id: 'business',
+    packageId: 'diamond',
+    name: 'Diamond',
+    price: 35000,
+    durationDays: 30,
+    maxProducts: 5000,
+    maxStores: 2,
+    maxStaff: 6,
+    features: [
+      'Max 5000 Products catalogued',
+      'Max 2 Active Store branches',
+      'Max 6 Users / staff accounts',
+      'Custom Role Security permissions',
+      'Supplies & supplier log ledger',
+      'Cashier POS Till checkout',
+      'Consolidated P&L index generators',
+      'Branch management and stock transfer'
     ]
   },
   wholesale: {
     id: 'wholesale',
-    name: 'Premium',
-    price: 45000,
+    packageId: 'tanzanite',
+    name: 'Tanzanite',
+    price: 50000,
     durationDays: 30,
-    maxProducts: 999999, // Unlimited
-    maxStores: 10,
-    maxStaff: 10,
+    maxProducts: 999999,
+    maxStores: 5,
+    maxStaff: 15,
     features: [
       'Unlimited Products catalogued',
-      'Max 10 Active Store branches',
-      'Max 10 Users / staff accounts',
+      'Max 5 Active Store branches',
+      'Max 15 Users / staff accounts',
       'Supplies management tracking',
       'Cashier Till (POS Simulator)',
       'Full suite Business Reports',
@@ -89,6 +156,21 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     ]
   }
 };
+
+export const PAID_PACKAGE_IDS: SubscriptionPackageId[] = ['ruby', 'diamond', 'tanzanite'];
+
+export function normalizeSubscriptionPlanId(planId?: string | null): SubscriptionPlanId {
+  const normalized = String(planId || '').trim().toLowerCase();
+  if (normalized === 'ruby' || normalized === 'essential' || normalized === 'basic') return 'ruby';
+  if (normalized === 'diamond' || normalized === 'business' || normalized === 'standard business' || normalized === 'standard') return 'diamond';
+  if (normalized === 'tanzanite' || normalized === 'jasper' || normalized === 'premium' || normalized === 'wholesale') return 'tanzanite';
+  if (normalized === 'trial' || normalized === 'sandbox') return 'trial';
+  return 'diamond';
+}
+
+export function getSubscriptionPlan(planId?: string | null): SubscriptionPlan {
+  return SUBSCRIPTION_PLANS[normalizeSubscriptionPlanId(planId)];
+}
 
 export interface SubscriptionState {
   planId: SubscriptionPlanId;
@@ -109,7 +191,10 @@ export function getSubscriptionState(): SubscriptionState {
       const parsed = JSON.parse(cached);
       // Ensure essential fields exist
       if (parsed && parsed.planId && parsed.trialStartedAt) {
-        return parsed;
+        return {
+          ...parsed,
+          planId: normalizeSubscriptionPlanId(parsed.planId)
+        };
       }
     } catch (e) {
       // fallback
@@ -118,9 +203,9 @@ export function getSubscriptionState(): SubscriptionState {
 
   // Create default trial state starting today
   const defaultState: SubscriptionState = {
-    planId: 'business',
+    planId: 'trial',
     trialStartedAt: new Date().toISOString(),
-    isSubscribedPaid: true,
+    isSubscribedPaid: false,
     simulatedDaysPassed: 0,
     autoRenewEnabled: true,
     paymentStatus: 'active'
@@ -130,7 +215,10 @@ export function getSubscriptionState(): SubscriptionState {
 }
 
 export function saveSubscriptionState(state: SubscriptionState) {
-  localStorage.setItem('jasper_subscription_state', JSON.stringify(state));
+  localStorage.setItem('jasper_subscription_state', JSON.stringify({
+    ...state,
+    planId: normalizeSubscriptionPlanId(state.planId)
+  }));
 }
 
 export interface SubscriptionStatusInfo {
@@ -151,7 +239,8 @@ export function checkSubscriptionStatus(
   currentStoreCount: number,
   currentStaffCount: number
 ): SubscriptionStatusInfo {
-  const plan = SUBSCRIPTION_PLANS[state.planId];
+  const normalizedPlanId = normalizeSubscriptionPlanId(state.planId);
+  const plan = SUBSCRIPTION_PLANS[normalizedPlanId];
   
   // Calculate elapsed time
   let daysPassed = 0;
@@ -165,7 +254,7 @@ export function checkSubscriptionStatus(
   }
 
   // If promo code was registered: 1 month (30 days) free. Else 14 days free.
-  const durationAllowed = state.planId === 'trial' 
+  const durationAllowed = normalizedPlanId === 'trial' 
     ? (state.promoCodeUsed ? 30 : 14) 
     : 30;
   
@@ -182,7 +271,7 @@ export function checkSubscriptionStatus(
   const staffLimitExceeded = currentStaffCount >= plan.maxStaff;
 
   return {
-    state,
+    state: { ...state, planId: normalizedPlanId },
     plan,
     daysPassed,
     daysRemaining,

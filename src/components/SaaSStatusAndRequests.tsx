@@ -9,8 +9,8 @@ export default function SaaSStatusAndRequests() {
   ]);
 
   const [requests, setRequests] = useState([
-    { id: 'req-1', user: 'Dr. John Okoth', type: 'Manual Activation', detail: 'Paid via bank transfer. Please check attached receipt.', status: 'Pending', receiptUrl: 'receipt-2049.pdf' },
-    { id: 'req-2', user: 'Mikumi Resort', type: 'Manual Activation', detail: 'Cash payment processed. Awaiting system activation.', status: 'Pending', receiptUrl: 'img-receipt.jpg' }
+    { id: 'req-1', user: 'Dr. John Okoth', type: 'Manual Activation', package: 'Diamond', detail: 'Paid via bank transfer. Please check attached receipt.', status: 'Pending', receiptUrl: 'receipt-2049.pdf' },
+    { id: 'req-2', user: 'Mikumi Resort', type: 'Manual Activation', package: 'Tanzanite', detail: 'Cash payment processed. Awaiting system activation.', status: 'Pending', receiptUrl: 'img-receipt.jpg' }
   ]);
 
   const [emergencyUser, setEmergencyUser] = useState('');
@@ -160,6 +160,11 @@ export default function SaaSStatusAndRequests() {
                     <div>
                       <h4 className="text-white font-bold text-xs">{req.user}</h4>
                       <span className="text-[10px] font-mono uppercase bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded mt-1 inline-block">{req.type}</span>
+                      {'package' in req && (
+                        <span className="text-[10px] font-mono uppercase bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded mt-1 ml-2 inline-block">
+                          {(req as any).package}
+                        </span>
+                      )}
                       <p className="text-[10px] text-slate-400 mt-2">{req.detail}</p>
                       {req.receiptUrl && (
                         <div className="mt-3 p-2 bg-slate-900 rounded border border-slate-800 flex items-center justify-between">
@@ -231,8 +236,9 @@ export default function SaaSStatusAndRequests() {
                 onChange={(e) => setOfferPackage(e.target.value)}
               >
                 <option value="">Do not upgrade (keep current)</option>
-                <option value="Premium Plan">Premium Plan</option>
-                <option value="Enterprise Plan">Enterprise Plan</option>
+                <option value="Ruby">Ruby</option>
+                <option value="Diamond">Diamond</option>
+                <option value="Tanzanite">Tanzanite</option>
               </select>
             </div>
 

@@ -321,7 +321,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">7. Billing Subscription Plans, Cancellations & Upgrades</h4>
                   <p className="text-xs font-light">
                     Jasper Suite provides an active 14-day free trial on selected tiers. After trial expiration, 
-                    the selected subscription plan (Essential, Standard, or Premium) will require timely payments to avoid automated cashier write-access lockouts. 
+                    the selected subscription plan (Ruby, Diamond, or Tanzanite) will require timely payments to avoid automated cashier write-access lockouts. 
                     All subscription payments are non-refundable. You may cancel or upgrade your store registers directly through the account billing gateway.
                   </p>
                 </div>

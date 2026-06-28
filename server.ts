@@ -956,9 +956,17 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
           mobile_money_providers: [],
           company_settings: {},
           business_settings: {},
-          invoice_settings: {}
+          invoice_settings: {},
+          selected_package_id: null,
+          active_package_id: null,
+          subscription_status: 'trial',
+          subscription_start_date: new Date().toISOString(),
+          subscription_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          package_updated_at: new Date().toISOString(),
+          package_change_type: 'registration',
+          package_change_note: 'New clean tenant account created on trial status'
         } as any)
-        .select('id, name, country, city, currency, currency_code, tax_rate, business_type')
+        .select('id, name, country, city, currency, currency_code, tax_rate, business_type, selected_package_id, active_package_id, subscription_status, subscription_start_date, subscription_end_date')
         .single();
 
       if (tenantError || !tenantData) {
@@ -1088,7 +1096,12 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
           currencyCode: (tenantData as any).currency_code,
           taxRate: Number((tenantData as any).tax_rate || 0),
           mobileMoneyProviders: [],
-          businessType: (tenantData as any).business_type || 'retail'
+          businessType: (tenantData as any).business_type || 'retail',
+          selectedPackageId: (tenantData as any).selected_package_id || undefined,
+          activePackageId: (tenantData as any).active_package_id || undefined,
+          subscriptionStatus: (tenantData as any).subscription_status || 'trial',
+          subscriptionStartDate: (tenantData as any).subscription_start_date || undefined,
+          subscriptionEndDate: (tenantData as any).subscription_end_date || undefined
         }
       });
       

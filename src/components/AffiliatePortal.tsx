@@ -419,9 +419,9 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   // Form input fields for mirrored subscriber stores
   const [mirroredStoreName, setMirroredStoreName] = useState("");
   const [mirroredStoreTier, setMirroredStoreTier] =
-    useState("Standard Business");
+    useState("Diamond");
   const [mirroredStoreStatus, setMirroredStoreStatus] = useState("Paid");
-  const [mirroredStoreCharge, setMirroredStoreCharge] = useState(30000);
+  const [mirroredStoreCharge, setMirroredStoreCharge] = useState(35000);
 
   // Generate beautiful pre-populated simulation stats for demo portfolios
   const [clicksCount, setClicksCount] = useState<number>(() => {
@@ -451,30 +451,30 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         id: "1",
         storeName: "Kariakoo Glassware Ltd",
         registeredAt: "2026-05-10",
-        tier: "Standard Business",
+        tier: "Diamond",
         status: "Paid",
-        charge: 30000,
-        commission: 4500,
+        charge: 35000,
+        commission: 5250,
         affiliateCode: "SARAH_JASPER",
       },
       {
         id: "2",
         storeName: "Kisumu Chemists Shop",
         registeredAt: "2026-05-18",
-        tier: "Essential Ledger",
+        tier: "Ruby",
         status: "Paid",
-        charge: 15000,
-        commission: 2250,
+        charge: 20000,
+        commission: 3000,
         affiliateCode: "SARAH_JASPER",
       },
       {
         id: "3",
         storeName: "Mwenge Food Court",
         registeredAt: "2026-05-22",
-        tier: "Premium",
+        tier: "Tanzanite",
         status: "Paid",
-        charge: 45000,
-        commission: 6750,
+        charge: 50000,
+        commission: 7500,
         affiliateCode: "SARAH_JASPER",
       },
       {
@@ -495,9 +495,9 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         id: r.id,
         storeName: r.subscriberName,
         registeredAt: r.registeredAt,
-        tier: r.package || "Essential Ledger",
+        tier: r.package || "Ruby",
         status: r.payoutStatus === "Paid" || r.package !== "trial" ? "Paid" : "Active Trial",
-        charge: r.package === "Premium" ? 45000 : r.package === "Standard Business" ? 30000 : 15000,
+        charge: r.package === "Tanzanite" ? 50000 : r.package === "Diamond" ? 35000 : 20000,
         commission: r.commission || 0,
         affiliateCode: r.affiliateCode,
       }));
@@ -4623,19 +4623,19 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         );
                         if (!newName) return;
                         const packageChoice = prompt(
-                          "Enter Tier: 1: Essential (15k), 2: Business (30k), 3: Premium (45k)",
+                          "Enter Tier: 1: Ruby (20k), 2: Diamond (35k), 3: Tanzanite (50k)",
                         );
-                        let tier = "Essential Ledger";
-                        let charge = 15000;
-                        let commission = 2250;
+                        let tier = "Ruby";
+                        let charge = 20000;
+                        let commission = 3000;
                         if (packageChoice === "2") {
-                          tier = "Standard Business";
-                          charge = 30000;
-                          commission = 4500;
+                          tier = "Diamond";
+                          charge = 35000;
+                          commission = 5250;
                         } else if (packageChoice === "3") {
-                          tier = "Premium";
-                          charge = 45000;
-                          commission = 6750;
+                          tier = "Tanzanite";
+                          charge = 50000;
+                          commission = 7500;
                         }
 
                         const newReg = {
