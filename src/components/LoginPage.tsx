@@ -1326,25 +1326,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         </div>
 
         {/* Warning or Success outputs */}
-        {/* Affiliate / Partner portal links — only shown on business login page */}
-        {!isSaasAdminPortal && (
-          <div className="flex items-center justify-center gap-3 text-[10px]">
-            <span className="text-slate-400">Are you an</span>
-            <button
-              type="button"
-              onClick={() => onNavigate('/affiliate')}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-100 transition-colors cursor-pointer">
-              Affiliate? Login here →
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavigate('/partner')}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold border border-emerald-100 transition-colors cursor-pointer">
-              Partner? Login here →
-            </button>
-          </div>
-        )}
-
         {(successMessage || redirectMessage || error) && (
           <div className={`p-4 rounded-2xl border flex items-start space-x-3 text-xs font-mono animate-fade-in ${
             successMessage 
