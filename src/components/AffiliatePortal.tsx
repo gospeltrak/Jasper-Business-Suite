@@ -5084,7 +5084,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 }}
                 className="p-6 overflow-y-auto space-y-4 text-xs text-slate-300 leading-relaxed max-h-[50vh] bg-slate-950/20 text-left selection:bg-amber-500/10 select-none font-sans"
               >
-                {renderTermsContent(lang)}
+                {renderTermsContent(lang, portalRole)}
 
                 <div className="pt-4 border-t border-slate-800 text-[10px] text-slate-500 italic text-center">
                   {getTermsScrollMsg(lang)}

@@ -1,66 +1,47 @@
 import React from "react";
 
-export function getTermsTitle(lang: string): string {
+export function getTermsTitle(lang: string, portalRole?: string): string {
+  if (portalRole === 'partner') return "Partner Program Agreement & Terms";
   switch (lang) {
-    case "sw":
-      return "Masharti & Vigezo vya Mpango wa Washirika";
-    case "fr":
-      return "Conditions Générales du Programme d'Affiliation";
-    case "ar":
-      return "الشروط والأحكام لبرنامج التسويق بالعمولة";
-    default:
-      return "Affiliate Program Terms & Conditions";
+    case "sw": return "Masharti & Vigezo vya Mpango wa Washirika";
+    case "fr": return "Conditions Générales du Programme d'Affiliation";
+    case "ar": return "الشروط والأحكام لبرنامج التسويق بالعمولة";
+    default:   return "Affiliate Program Terms & Conditions";
   }
 }
 
 export function getTermsSubtitle(lang: string): string {
   switch (lang) {
-    case "sw":
-      return "Tafadhali soma kwa makini na ushuke chini kabisa ili kukubali masharti";
-    case "fr":
-      return "Veuillez lire attentivement et faire défiler vers le bas pour accepter";
-    case "ar":
-      return "يرجى القراءة بعناية والتمرير إلى الأسفل لفتح زر الموافقة";
-    default:
-      return "Please read carefully and scroll to the bottom to unlock acceptance";
+    case "sw": return "Tafadhali soma kwa makini na ushuke chini kabisa ili kukubali masharti";
+    case "fr": return "Veuillez lire attentivement et faire défiler vers le bas pour accepter";
+    case "ar": return "يرجى القراءة بعناية والتمرير إلى الأسفل لفتح زر الموافقة";
+    default:   return "Please read carefully and scroll to the bottom to unlock acceptance";
   }
 }
 
 export function getTermsScrollMsg(lang: string): string {
   switch (lang) {
-    case "sw":
-      return "Tafadhali shuka chini kabisa ili kufungua kitufe cha kukubali.";
-    case "fr":
-      return "Veuillez faire défiler entièrement vers le bas pour déverrouiller l'accord.";
-    case "ar":
-      return "يرجى التمرير لأسفل بالكامل لإلغاء قفل الموافقة.";
-    default:
-      return "Please scroll entirely down to unlock the agreement accept lock.";
+    case "sw": return "Tafadhali shuka chini kabisa ili kufungua kitufe cha kukubali.";
+    case "fr": return "Veuillez faire défiler entièrement vers le bas pour déverrouiller l'accord.";
+    case "ar": return "يرجى التمرير لأسفل بالكامل لإلغاء قفل الموافقة.";
+    default:   return "Please scroll entirely down to unlock the agreement accept lock.";
   }
 }
 
 export function getTermsStatusMsg(lang: string, hasScrolled: boolean): string {
   if (hasScrolled) {
     switch (lang) {
-      case "sw":
-        return "Tayari: Orodha ya kusoma imekamilika";
-      case "fr":
-        return "Prêt : Lecture complète confirmée";
-      case "ar":
-        return "جاهز: تم قراءة الشروط بالكامل";
-      default:
-        return "Ready: Scroll checklist cleared";
+      case "sw": return "Tayari: Orodha ya kusoma imekamilika";
+      case "fr": return "Prêt : Lecture complète confirmée";
+      case "ar": return "جاهز: تم قراءة الشروط بالكامل";
+      default:   return "Ready: Scroll checklist cleared";
     }
   } else {
     switch (lang) {
-      case "sw":
-        return "Imefungwa: Shuka chini kusoma masharti yote";
-      case "fr":
-        return "Verrouillé : Faites défiler pour tout lire";
-      case "ar":
-        return "مغلق: قم بالتمرير لأسفل لقراءة الشروط";
-      default:
-        return "Locked: Scroll down to read full terms";
+      case "sw": return "Imefungwa: Shuka chini kusoma masharti yote";
+      case "fr": return "Verrouillé : Faites défiler pour tout lire";
+      case "ar": return "مغلق: قم بالتمرير لأسفل لقراءة الشروط";
+      default:   return "Locked: Scroll down to read full terms";
     }
   }
 }
@@ -68,30 +49,234 @@ export function getTermsStatusMsg(lang: string, hasScrolled: boolean): string {
 export function getTermsAcceptBtnText(lang: string, hasScrolled: boolean): string {
   if (hasScrolled) {
     switch (lang) {
-      case "sw":
-        return "Ninakubali Masharti & Kukamilisha ✓";
-      case "fr":
-        return "J'accepte les conditions & Terminer ✓";
-      case "ar":
-        return "أوافق على الشروط وأكمل التسجيل ✓";
-      default:
-        return "I Accept Terms & Complete ✓";
+      case "sw": return "Ninakubali Masharti & Kukamilisha ✓";
+      case "fr": return "J'accepte les conditions & Terminer ✓";
+      case "ar": return "أوافق على الشروط وأكمل التسجيل ✓";
+      default:   return "I Accept Terms & Complete ✓";
     }
   } else {
     switch (lang) {
-      case "sw":
-        return "⬇️ Shuka Chini Kufungua Kitufe";
-      case "fr":
-        return "⬇️ Défilez vers le bas pour déverrouiller";
-      case "ar":
-        return "⬇️ قم بالتمرير لأسفل لفتح الزر";
-      default:
-        return "⬇️ Scroll Down to Unlock Accept Button";
+      case "sw": return "⬇️ Shuka Chini Kufungua Kitufe";
+      case "fr": return "⬇️ Défilez vers le bas pour déverrouiller";
+      case "ar": return "⬇️ قم بالتمرير لأسفل لفتح الزر";
+      default:   return "⬇️ Scroll Down to Unlock Accept Button";
     }
   }
 }
 
-export function renderTermsContent(lang: string) {
+// ─── PARTNER TERMS (English — favours Jasper/owner) ───────────────────────
+
+function renderPartnerTerms() {
+  return (
+    <div className="space-y-5 text-[11px] text-slate-300 leading-relaxed">
+      <p className="font-black text-amber-400 text-sm border-b border-slate-700 pb-2 uppercase tracking-wider">
+        Jasper Business Suite — Partner (Super Affiliate Agent) Agreement
+      </p>
+      <p className="text-[10px] font-mono text-slate-500 italic">
+        Effective Date: June 28, 2026 · Governing Law: United Republic of Tanzania
+      </p>
+
+      <p className="text-[11px] text-slate-400 leading-relaxed">
+        This Agreement is entered into between <strong className="text-white">Jasper Business Suite</strong> ("the Company", "we", "us", "our") and the individual registering as a Partner ("Partner", "you"). By clicking "I Accept", you agree to be legally bound by all terms below. The Company's rights are protected in full under the laws of the United Republic of Tanzania.
+      </p>
+
+      {/* Section 1 */}
+      <div className="space-y-2">
+        <p className="font-black text-white text-[12px] uppercase tracking-wider">
+          1. Partner Status — Independent Contractor
+        </p>
+        <p>
+          You are engaged by the Company as an <strong className="text-amber-400">independent contractor only</strong>. Nothing in this Agreement shall create an employment, partnership, agency, joint venture, or any other legal relationship between you and Jasper Business Suite. You are NOT an employee of the Company. You are not entitled to any employment benefits, salary, pension, social security, paid leave, sick pay, or any other employment rights under the <em>Employment and Labour Relations Act, Cap. 366 (Tanzania)</em>.
+        </p>
+        <p>
+          The Company may engage multiple Partners simultaneously in the same territory. You have no exclusivity rights over any region, sector, or customer base.
+        </p>
+      </div>
+
+      {/* Section 2 */}
+      <div className="space-y-2">
+        <p className="font-black text-white text-[12px] uppercase tracking-wider">
+          2. Partner Eligibility & Identity Verification
+        </p>
+        <p>
+          You must be at least <strong className="text-amber-400">18 years of age</strong> and possess a valid Tanzania National ID (NIDA). You must provide your full legal name exactly as it appears on your NIDA, your active WhatsApp/mobile number, and your mobile money payout number. Submission of false, forged, or borrowed identity documents is a criminal offence under the <em>Electronic and Postal Communications Act (EPOCA)</em> and the <em>Cybercrime Act, 2015 (Tanzania)</em>. The Company reserves the right to terminate your account, forfeit all pending earnings, and report you to law enforcement authorities.
+        </p>
+      </div>
+
+      {/* Section 3 */}
+      <div className="space-y-2">
+        <p className="font-black text-white text-[12px] uppercase tracking-wider">
+          3. Commission Structure & Payment Terms
+        </p>
+        <p>
+          As a Partner, you earn:
+        </p>
+        <ul className="list-disc list-inside space-y-1 pl-2">
+          <li><strong className="text-amber-400">15% recurring commission</strong> on each monthly subscription payment made by businesses you directly referred to Jasper, as long as that business remains an active paying subscriber.</li>
+          <li><strong className="text-amber-400">5% override commission</strong> on every commission earned by affiliates operating under your partner network (your downlines).</li>
+        </ul>
+        <p>
+          Commissions are calculated on <strong className="text-white">actual settled revenue only</strong> — not on trial periods, chargebacks, refunded payments, disputed transactions, or payments made by accounts you registered yourself. The Company's calculation of commissions is <strong className="text-white">final and binding</strong>.
+        </p>
+        <p>
+          Payments are made <strong className="text-amber-400">once per calendar month</strong>, on the last Friday of each month, via mobile money (M-Pesa, Mixx by Yas, Airtel Money, Halopesa) to the payout number you provided at registration. The Company reserves the right to delay any payment if it has reasonable grounds to suspect fraudulent activity, pending investigations, or system errors.
+        </p>
+        <p className="text-slate-400">
+          Minimum payout threshold: <strong className="text-white">TZS 5,000</strong>. Amounts below this threshold will roll over to the next payment cycle.
+        </p>
+      </div>
+
+      {/* Section 4 */}
+      <div className="space-y-2">
+        <p className="font-black text-white text-[12px] uppercase tracking-wider">
+          4. Tax Compliance (Tanzania Revenue Authority)
+        </p>
+        <p>
+          All commission payments are subject to applicable withholding tax under the <em>Income Tax Act, Cap. 332 (Tanzania)</em>. The Company will deduct and remit withholding tax at the applicable rate on your behalf:
+        </p>
+        <ul className="list-disc list-inside space-y-1 pl-2">
+          <li><strong className="text-amber-400">5% withholding tax</strong> if you have a valid TIN Number registered in your name.</li>
+          <li><strong className="text-amber-400">15% withholding tax</strong> if you do not have a TIN Number.</li>
+        </ul>
+        <p>
+          You are solely responsible for filing any additional personal income tax returns required by TRA. The Company bears no liability for your personal tax obligations beyond the withholding deduction made at source.
+        </p>
+      </div>
+
+      {/* Section 5 */}
+      <div className="space-y-2">
+        <p className="font-black text-white text-[12px] uppercase tracking-wider">
+          5. Partner Network Management
+        </p>
+        <p>
+          As a Partner, you are authorised to recruit, onboard, and manage affiliates under your network. However:
+        </p>
+        <ul className="list-disc list-inside space-y-1 pl-2">
+          <li>You may <strong className="text-white">not</strong> make promises or representations about Jasper's products, pricing, or commissions that differ from the official terms published by the Company.</li>
+          <li>You may <strong className="text-white">not</strong> charge affiliates any fee for joining or operating under your network.</li>
+          <li>You are responsible for ensuring affiliates you recruit comply with this Agreement and the Affiliate Program Terms.</li>
+          <li>The Company may remove any affiliate from your network at any time without notice or liability.</li>
+        </ul>
+      </div>
+
+      {/* Section 6 */}
+      <div className="space-y-2">
+        <p className="font-black text-white text-[12px] uppercase tracking-wider">
+          6. Prohibited Conduct
+        </p>
+        <p>
+          The following are strictly prohibited and will result in immediate termination, forfeiture of all earnings, and potential legal action:
+        </p>
+        <ul className="list-disc list-inside space-y-1 pl-2">
+          <li>Self-referrals — registering your own business under your own partner/affiliate code.</li>
+          <li>Creating fake, duplicate, or borrowed accounts to generate fraudulent commissions.</li>
+          <li>Making false, misleading, or defamatory statements about Jasper or its competitors.</li>
+          <li>Sharing, selling, or transferring your partner account credentials to any third party.</li>
+          <li>Using spam, unsolicited messages, or deceptive marketing practices.</li>
+          <li>Impersonating Jasper staff or claiming to be an official representative of the Company without written authorisation.</li>
+        </ul>
+      </div>
+
+      {/* Section 7 */}
+      <div className="space-y-2">
+        <p className="font-black text-white text-[12px] uppercase tracking-wider">
+          7. Company Rights & Termination
+        </p>
+        <p>
+          The Company reserves the right, at its sole discretion, to:
+        </p>
+        <ul className="list-disc list-inside space-y-1 pl-2">
+          <li>Modify, suspend, or terminate the Partner Program at any time with <strong className="text-white">30 days' written notice</strong> to active Partners.</li>
+          <li>Amend commission rates, thresholds, and payment terms with <strong className="text-white">14 days' notice</strong> posted on the platform.</li>
+          <li>Terminate your Partner account immediately and without notice if you breach any term of this Agreement, engage in fraud, or cause reputational harm to Jasper.</li>
+          <li>Withhold and permanently forfeit any unpaid commissions upon termination for breach.</li>
+          <li>Audit your referral activity and reverse any commissions found to be fraudulent or in breach of this Agreement.</li>
+        </ul>
+        <p>
+          Upon termination for any reason, you must immediately cease using Jasper branding, promotional materials, and any content provided by the Company.
+        </p>
+      </div>
+
+      {/* Section 8 */}
+      <div className="space-y-2">
+        <p className="font-black text-white text-[12px] uppercase tracking-wider">
+          8. Intellectual Property
+        </p>
+        <p>
+          All Jasper Business Suite branding, logos, marketing materials, software, and content remain the exclusive intellectual property of the Company. You are granted a limited, non-exclusive, revocable licence to use Jasper's promotional materials solely for the purpose of referring customers to Jasper. You may not modify, reproduce, or commercialise any Company materials without prior written consent.
+        </p>
+      </div>
+
+      {/* Section 9 */}
+      <div className="space-y-2">
+        <p className="font-black text-white text-[12px] uppercase tracking-wider">
+          9. Limitation of Liability
+        </p>
+        <p>
+          The Company's total liability to you under this Agreement shall not exceed the total commissions paid to you in the <strong className="text-white">3 months preceding the claim</strong>. The Company is not liable for any indirect, consequential, incidental, or special damages including loss of profits or business opportunities. The Company makes no guarantee of earnings or minimum income from the Partner Program.
+        </p>
+      </div>
+
+      {/* Section 10 */}
+      <div className="space-y-2">
+        <p className="font-black text-white text-[12px] uppercase tracking-wider">
+          10. Confidentiality
+        </p>
+        <p>
+          You agree to keep confidential all non-public information about Jasper's business, technology, customer data, pricing, and internal operations that you become aware of through your participation in the Partner Program. This obligation survives termination of this Agreement for a period of <strong className="text-white">3 years</strong>.
+        </p>
+      </div>
+
+      {/* Section 11 */}
+      <div className="space-y-2">
+        <p className="font-black text-white text-[12px] uppercase tracking-wider">
+          11. Data Protection
+        </p>
+        <p>
+          By registering, you consent to the Company collecting, storing, and processing your personal data (name, phone, NIDA, TIN) for the purpose of operating the Partner Program, making payments, and complying with TRA tax requirements. Your data will not be sold to third parties. The Company complies with the <em>Personal Data Protection Act, 2022 (Tanzania)</em>.
+        </p>
+      </div>
+
+      {/* Section 12 */}
+      <div className="space-y-2">
+        <p className="font-black text-white text-[12px] uppercase tracking-wider">
+          12. Governing Law & Dispute Resolution
+        </p>
+        <p>
+          This Agreement is governed by and construed in accordance with the laws of the <strong className="text-white">United Republic of Tanzania</strong>. Any dispute arising out of or in connection with this Agreement shall first be attempted to be resolved through good-faith negotiation. If unresolved within 30 days, disputes shall be submitted to arbitration under the <em>Arbitration Act, Cap. 15 (Tanzania)</em>. The seat of arbitration shall be Dar es Salaam, Tanzania.
+        </p>
+      </div>
+
+      {/* Section 13 */}
+      <div className="space-y-2 border-t border-slate-700 pt-4">
+        <p className="font-black text-amber-400 text-[12px] uppercase tracking-wider">
+          13. Acceptance
+        </p>
+        <p>
+          By clicking "I Accept Terms & Complete", you confirm that:
+        </p>
+        <ul className="list-disc list-inside space-y-1 pl-2 text-slate-300">
+          <li>You have read, understood, and agree to be legally bound by this entire Agreement.</li>
+          <li>You are at least 18 years old and legally capable of entering into a binding contract.</li>
+          <li>The identity information you have provided is accurate and complete.</li>
+          <li>You understand your tax obligations under Tanzanian law.</li>
+        </ul>
+        <p className="text-slate-500 text-[10px] mt-2">
+          Jasper Business Suite · Dar es Salaam, Tanzania · support@jasper.africa
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── AFFILIATE TERMS (existing) ────────────────────────────────────────────
+
+export function renderTermsContent(lang: string, portalRole?: string) {
+  // Partner gets their own dedicated legal agreement
+  if (portalRole === 'partner') {
+    return renderPartnerTerms();
+  }
+
   if (lang === "sw") {
     return (
       <div className="space-y-4">
@@ -101,40 +286,14 @@ export function renderTermsContent(lang: string) {
         <p className="text-[11px] font-mono text-slate-400 italic mb-4">
           Tarehe ya Kuanza: Juni 17, 2026
         </p>
-
-        <p className="font-bold text-slate-100 text-[13px] pt-2">
-          1. USHIRIKI NA VIGEZO VYA AFYA YA AKAUNTI
-        </p>
-        <p>
-          Kwa kujiunga na mtandao wa washirika wa Jasper Business Suite, unathibitisha una umri kuanzia miaka 18 na unaishi au una uwepo kisheria wa kifedha nchini Tanzania au Afrika Mashariki. Ili kuzuia ulaghai, wanachama wote lazima watoe Jina la Kwanza na Jina la Pili kama ilivyoandikwa kwenye Kitambulisho chao cha Taifa (NIDA) pamoja na Nambari halali ya Kitambulisho cha NIDA, namba ya simu ya kupokelea malipo na namba ya TIN ya mlipakodi (TIN Number).
-        </p>
-        <p>
-          Majaribio yoyote ya kutoa vitambulisho vya kughushi au kutoa taarifa zisizo sahihi ili kukwepa kodi au sheria za kifedha zitasababisha akaunti yako kufungwa mara moja, kufutiwa mapato yote na kuzuiliwa kabisa kutumia huduma zetu.
-        </p>
-
-        <p className="font-bold text-slate-100 text-[13px] pt-2">
-          2. MTINDO WA KOMECHELI NA MAPATO
-        </p>
-        <p>
-          Utapokea kamisheni ya asilimia 15 (15% recurring commission) ya malipo ya kila mwezi ya usajili wa maduka, maduka ya dawa (pharmacy) au migahawa uliyowaunganisha kwenye Jasper Business Suite. Hakuna kamisheni itakayolipwa kwa wanachama waliofuta akaunti au akaunti za majaribio (free trial).
-        </p>
-        <p>
-          Utoaji wa hesabu hufanyika katika Shilingi za Kitanzania (TSh) na malipo hutumwa moja kwa moja kwenye akaunti ya pochi yako ya kielektroniki ya simu (Vodacom M-Pesa, Mixx by Yas, Airtel Money, Halopesa) kila Ijumaa ya mwisho wa mwezi.
-        </p>
-
-        <p className="font-bold text-slate-100 text-[13px] pt-2">
-          3. SHEREHE ZA UTII WA KODI (TRA COMPLIANCE)
-        </p>
-        <p>
-          Malipo yote yanafanyika kulingana na miongozo na sheria za kodi za Mamlaka ya Mapato Tanzania (TRA). Kama mshirika, unathibitisha kuwa kodi ya zuio ya asilimia 10 (withholding tax) au kiasi kingine chochote kisheria kitashughulikiwa na kulipwa kwa niaba yako kwa kutumia Nambari yako ya TIN uliyowasilisha.
-        </p>
-
-        <p className="font-bold text-slate-100 text-[13px] pt-2">
-          4. UTARATIBU WA WASHIRIKA NA MAMBO YALIYOKATAZWA
-        </p>
-        <p>
-          Ni marufuku kujisajili mwenyewe kwa kutumia kodi yako mwenyewe ya washirika au kutumia mbinu za kitapeli kama matangazo ya uwongo au kujinasibisha na chapa ya Jasper kinyume cha sheria. Ukigundulika kufanya hivyo, akaunti na mapato yako yatafutwa mara moja.
-        </p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">1. USHIRIKI NA VIGEZO VYA AFYA YA AKAUNTI</p>
+        <p>Kwa kujiunga na mtandao wa washirika wa Jasper Business Suite, unathibitisha una umri kuanzia miaka 18 na unaishi au una uwepo kisheria wa kifedha nchini Tanzania au Afrika Mashariki. Ili kuzuia ulaghai, wanachama wote lazima watoe Jina la Kwanza na Jina la Pili kama ilivyoandikwa kwenye Kitambulisho chao cha Taifa (NIDA) pamoja na Nambari halali ya Kitambulisho cha NIDA, namba ya simu ya kupokelea malipo na namba ya TIN ya mlipakodi.</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">2. MTINDO WA KOMECHELI NA MAPATO</p>
+        <p>Utapokea kamisheni ya asilimia 15 (15% recurring commission) ya malipo ya kila mwezi ya usajili wa maduka, maduka ya dawa au migahawa uliyowaunganisha kwenye Jasper Business Suite.</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">3. SHEREHE ZA UTII WA KODI (TRA)</p>
+        <p>Malipo yote yanafanyika kulingana na miongozo na sheria za kodi za Mamlaka ya Mapato Tanzania (TRA).</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">4. UTARATIBU WA WASHIRIKA NA MAMBO YALIYOKATAZWA</p>
+        <p>Ni marufuku kujisajili mwenyewe kwa kutumia kodi yako mwenyewe ya washirika au kutumia mbinu za kitapeli.</p>
       </div>
     );
   }
@@ -142,33 +301,14 @@ export function renderTermsContent(lang: string) {
   if (lang === "fr") {
     return (
       <div className="space-y-4">
-        <p className="font-bold text-amber-400 text-sm border-b border-slate-800 pb-2">
-          CONDITIONS GÉNÉRALES DU PROGRAMME D'AFFILIATION JASPER
-        </p>
-        <p className="text-[11px] font-mono text-slate-400 italic mb-4">
-          Date d'effet : 17 Juin 2026
-        </p>
-
-        <p className="font-bold text-slate-100 text-[13px] pt-2">
-          1. ÉLIGIBILITÉ À L'INSCRIPTION
-        </p>
-        <p>
-          En vous inscrivant au réseau de partenaires affiliés de Jasper, vous déclarez que vous êtes âgé d'au moins 18 ans et que vous résidez légalement ou possédez une présence financière légale en Tanzanie ou en Afrique de l'Est. Pour éviter la fraude d'identité et financière, tous les membres doivent fournir leur premier et second nom tels qu'indiqués sur leur pièce d'identité nationale (NIDA) ainsi que leur numéro de carte d'identité nationale (NIDA) et leur numéro d'identification fiscale (TIN) lors de l'enregistrement.
-        </p>
-
-        <p className="font-bold text-slate-100 text-[13px] pt-2">
-          2. RÈGLEMENTS DES COMMISSIONS
-        </p>
-        <p>
-          Vous recevrez une commission récurrente de 15% sur toutes les factures d'abonnement mensuelles payées en totalité par les commerces, hôtels, pharmacies ou restaurants que vous parrainez sur Jasper. Les commissions sont payées en Shillings tanzaniens (TSh) sur votre portefeuille mobile (M-Pesa, Mixx by Yas, Airtel Money, Halopesa) le dernier vendredi du mois.
-        </p>
-
-        <p className="font-bold text-slate-100 text-[13px] pt-2">
-          3. DISPOSITIONS FISCALES ET CONFORMITÉ (TRA)
-        </p>
-        <p>
-          Tous les paiements effectués dans le cadre du programme d'affiliation Jasper sont soumis aux lois fiscales locales de la Tanzania Revenue Authority (TRA).
-        </p>
+        <p className="font-bold text-amber-400 text-sm border-b border-slate-800 pb-2">CONDITIONS GÉNÉRALES DU PROGRAMME D'AFFILIATION JASPER</p>
+        <p className="text-[11px] font-mono text-slate-400 italic mb-4">Date d'effet : 17 Juin 2026</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">1. ÉLIGIBILITÉ À L'INSCRIPTION</p>
+        <p>En vous inscrivant au réseau de partenaires affiliés de Jasper, vous déclarez que vous êtes âgé d'au moins 18 ans et que vous résidez légalement ou possédez une présence financière légale en Tanzanie ou en Afrique de l'Est.</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">2. RÈGLEMENTS DES COMMISSIONS</p>
+        <p>Vous recevrez une commission récurrente de 15% sur toutes les factures d'abonnement mensuelles payées en totalité par les commerces que vous parrainez sur Jasper.</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">3. DISPOSITIONS FISCALES ET CONFORMITÉ (TRA)</p>
+        <p>Tous les paiements effectués dans le cadre du programme d'affiliation Jasper sont soumis aux lois fiscales locales de la Tanzania Revenue Authority (TRA).</p>
       </div>
     );
   }
@@ -176,80 +316,33 @@ export function renderTermsContent(lang: string) {
   if (lang === "ar") {
     return (
       <div className="space-y-4 text-right" dir="rtl">
-        <p className="font-bold text-amber-400 text-sm border-b border-slate-800 pb-2 text-right">
-          الشروط والأحكام لبرنامج التسويق بالعمولة جاشبر
-        </p>
-        <p className="text-[11px] font-mono text-slate-400 italic mb-4 text-right">
-          تاريخ البدء: 17 يونيو 2026
-        </p>
-
-        <p className="font-bold text-slate-100 text-[13px] pt-2 text-right">
-          1. أهلية التسجيل والتحقق من الهوية
-        </p>
-        <p className="text-right">
-          بالتسجيل في شبكة شركاء Jaspers، فإنك تقر بأن عمرك لا يقل عن 18 عامًا وتتمتع بإقامة قانونية في تنزانيا أو شرق إفريقيا. لمنع الاحتيال المالي، يجب على جميع الأعضاء تقديم الاسم الأول والاسم الثاني المطابقين تمامًا لبطاقة الهوية الوطنية (NIDA) ورقم الهوية الوطنية ورقم التعريف الضريبي (TIN) عند التسجيل.
-        </p>
-
-        <p className="font-bold text-slate-100 text-[13px] pt-2 text-right">
-          2. هيكل الأرباح والعمولات
-        </p>
-        <p className="text-right">
-          ستتلقى عمولة متكررة بنسبة 15٪ على جميع فواتير الاشتراك الشهري المدفوعة بالكامل من التجار والمرافق التي تمت إحالتها إلى Jasper. يتم دفع العمولات بالشلن التنزاني (TSh) إلى محفظتك الإلكترونية في الجمعة الأخيرة من كل شهر ميلادي.
-        </p>
-
-        <p className="font-bold text-slate-100 text-[13px] pt-2 text-right">
-          3. الامتثال الضريبي والجمركي (TRA)
-        </p>
-        <p className="text-right">
-          تخضع جميع الالتزامات المالية والمدفوعات لقوانين الضرائب المحلية المحددة من قبل مصلحة الضرائب التنزانية (TRA).
-        </p>
+        <p className="font-bold text-amber-400 text-sm border-b border-slate-800 pb-2 text-right">الشروط والأحكام لبرنامج التسويق بالعمولة جاشبر</p>
+        <p className="text-[11px] font-mono text-slate-400 italic mb-4 text-right">تاريخ البدء: 17 يونيو 2026</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2 text-right">1. أهلية التسجيل والتحقق من الهوية</p>
+        <p className="text-right">بالتسجيل في شبكة شركاء Jasper، فإنك تقر بأن عمرك لا يقل عن 18 عامًا وتتمتع بإقامة قانونية في تنزانيا أو شرق إفريقيا.</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2 text-right">2. هيكل الأرباح والعمولات</p>
+        <p className="text-right">ستتلقى عمولة متكررة بنسبة 15٪ على جميع فواتير الاشتراك الشهري المدفوعة بالكامل من التجار الذين تمت إحالتهم إلى Jasper.</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2 text-right">3. الامتثال الضريبي (TRA)</p>
+        <p className="text-right">تخضع جميع الالتزامات المالية لقوانين الضرائب المحلية المحددة من قبل مصلحة الضرائب التنزانية (TRA).</p>
       </div>
     );
   }
 
-  // DEFAULT ENGLISH
+  // DEFAULT ENGLISH AFFILIATE TERMS
   return (
     <div className="space-y-4">
-      <p className="font-bold text-amber-400 text-sm border-b border-slate-800 pb-2">
-        AFFILIATE PROGRAM TERMS & CONDITIONS
-      </p>
-      <p className="text-[11px] font-mono text-slate-450 italic mb-4">
-        Effective Date: June 17, 2026
-      </p>
-
-      <p className="font-bold text-slate-100 text-[13px] pt-2">
-        1. ENROLLMENT ELIGIBILITY & FRAUD PROTECTION
-      </p>
-      <p>
-        By enrolling in the Jasper suite affiliate partner network, you declare that you are at least 18 years of age and currently reside or possess a legal financial presence in Tanzania or East Africa. To prevent identity and financial fraud, all members must supply their first name and second name exactly as they appear on their National ID card, their active mobile number registered under their respective identity, Tanzania National ID Number (NIDA Number), and Taxpayer Identification Number (TIN Number) upon registration.
-      </p>
-      <p>
-        Any attempt to submit false NIDA IDs or non-matching taxpayer certificates to circumvent local revenue withholding mandates will result in registration rejection, account forfeiture, and permanent blacklisting from our retail suite.
-      </p>
-
-      <p className="font-bold text-slate-100 text-[13px] pt-2">
-        2. REVENUE COMMISSION SCHEDULE
-      </p>
-      <p>
-        You shall receive a 15% recurring commission on all monthly subscription invoices paid in full by shop, hotel, pharmacy, or restaurant operators whom you refer to Jasper. No commissions shall accrue on cancelled accounts, test accounts, credit balances, or transactions disputed for suspicious charge activity.
-      </p>
-      <p>
-        Commissions are calculated in East African Shillings (TSh) based on actual settled subscription revenue and paid straight to your designated mobile money wallet (Vodacom M-Pesa, Mixx by Yas, Airtel Money, Halopesa) on the last Friday of every calendar month.
-      </p>
-
-      <p className="font-bold text-slate-100 text-[13px] pt-2">
-        3. TAXATION & WITHHOLDING COMPLIANCE (TRA)
-      </p>
-      <p>
-        All payments made through the Jasper Suite Affiliate Program are subject to local tax laws specified by the Tanzania Revenue Authority (TRA). As a registered partner, you agree that withholding tax of up to 10% or the mandatory regulatory withholding rate shall be automatically filed and paid on your behalf under your supplied Taxpayer Identification Number (TIN).
-      </p>
-
-      <p className="font-bold text-slate-100 text-[13px] pt-2">
-        4. COMPLIANCE & PROHIBITED PRACTICES
-      </p>
-      <p>
-        Affiliates are strictly forbidden from executing "self-referrals" – i.e., registering their own retail outlets using their own personal affiliate coupon codes to secure discounts. Direct spamming, misleading advertisements, or cyber squatting on matching domains is completely prohibited. In any such instance, your user accounts will be locked and all accrued balances forfeited.
-      </p>
+      <p className="font-bold text-amber-400 text-sm border-b border-slate-800 pb-2">AFFILIATE PROGRAM TERMS & CONDITIONS</p>
+      <p className="text-[11px] font-mono text-slate-400 italic mb-4">Effective Date: June 17, 2026</p>
+      <p className="font-bold text-slate-100 text-[13px] pt-2">1. ENROLLMENT ELIGIBILITY & FRAUD PROTECTION</p>
+      <p>By enrolling in the Jasper suite affiliate partner network, you declare that you are at least 18 years of age and currently reside or possess a legal financial presence in Tanzania or East Africa. To prevent identity and financial fraud, all members must supply their first name and second name exactly as they appear on their National ID card, Tanzania National ID Number (NIDA Number), and Taxpayer Identification Number (TIN Number) upon registration.</p>
+      <p>Any attempt to submit false NIDA IDs or non-matching taxpayer certificates to circumvent local revenue withholding mandates will result in registration rejection, account forfeiture, and permanent blacklisting from our retail suite.</p>
+      <p className="font-bold text-slate-100 text-[13px] pt-2">2. REVENUE COMMISSION SCHEDULE</p>
+      <p>You shall receive a 15% recurring commission on all monthly subscription invoices paid in full by shop, hotel, pharmacy, or restaurant operators whom you refer to Jasper. No commissions shall accrue on cancelled accounts, test accounts, credit balances, or transactions disputed for suspicious charge activity.</p>
+      <p>Commissions are calculated in Tanzanian Shillings (TSh) and paid to your designated mobile money wallet (Vodacom M-Pesa, Mixx by Yas, Airtel Money, Halopesa) on the last Friday of every calendar month.</p>
+      <p className="font-bold text-slate-100 text-[13px] pt-2">3. TAXATION & WITHHOLDING COMPLIANCE (TRA)</p>
+      <p>All payments are subject to local tax laws specified by the Tanzania Revenue Authority (TRA). Withholding tax of 5% (with TIN) or 15% (without TIN) shall be automatically filed and paid on your behalf under your supplied Taxpayer Identification Number.</p>
+      <p className="font-bold text-slate-100 text-[13px] pt-2">4. COMPLIANCE & PROHIBITED PRACTICES</p>
+      <p>Affiliates are strictly forbidden from executing self-referrals, creating fake accounts, making misleading advertisements, or impersonating Jasper staff. In any such instance, your user account will be locked and all accrued balances forfeited with no appeal.</p>
     </div>
   );
 }
