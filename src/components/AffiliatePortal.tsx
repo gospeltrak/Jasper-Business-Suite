@@ -1578,50 +1578,31 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
               </div>
             </div>
 
-            {/* Right side: Login & Sign up Forms */}
-            <div className="lg:col-span-6 bg-slate-900/80 border border-slate-850 p-8 rounded-3xl shadow-xl relative backdrop-blur-md">
+            {/* Right side: Clean Login Form */}
+            <div className="lg:col-span-6 flex items-center justify-center">
+              <div className="w-full max-w-md bg-slate-900/80 border border-slate-800 p-8 rounded-3xl shadow-2xl backdrop-blur-md space-y-7">
 
+                {/* Header */}
+                <div className="text-center space-y-2">
+                  <div className={`inline-flex p-3 rounded-2xl border items-center justify-center mb-1 ${portalRole === 'partner' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
+                    <img src="/jb-logo.png" alt="Jasper" className="w-10 h-10 object-contain" />
+                  </div>
+                  <h2 className="text-2xl font-black text-white tracking-tight">
+                    {portalRole === 'partner' ? 'Partner Portal' : 'Affiliate Portal'}
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    {portalRole === 'partner'
+                      ? 'Sign in to your Super Affiliate Agent account'
+                      : 'Sign in to your Affiliate account'}
+                  </p>
+                </div>
 
-              {/* Tabs Switcher */}
-              <div className="flex bg-slate-950 p-1 rounded-2xl border border-slate-850/80 mb-6">
-                <button
-                  type="button"
-                  onClick={() => setAuthMode("login")}
-                  className={`w-1/2 py-2.5 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer ${
-                    authMode === "login"
-                      ? portalRole === "partner"
-                        ? "bg-amber-500 text-slate-950 font-black"
-                        : "bg-emerald-500 text-slate-950 font-black"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {portalRole === "partner"
-                    ? "Log In Partner"
-                    : "Log In Affiliate"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAuthMode("register")}
-                  className={`w-1/2 py-2.5 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer ${
-                    authMode === "register"
-                      ? portalRole === "partner"
-                        ? "bg-amber-500 text-slate-950 font-black"
-                        : "bg-emerald-500 text-slate-950 font-black"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {portalRole === "partner"
-                    ? "Become a Partner"
-                    : "Become an Affiliate"}
-                </button>
-              </div>
-
-              {authMode === "login" ? (
-                <>
+                {/* Login form */}
+                {authMode === 'login' ? (
                   <form onSubmit={handleLoginAffiliate} className="space-y-4">
-                    <div className="space-y-1.5 text-left">
-                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
-                        WhatsApp / Phone Number
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Phone Number
                       </label>
                       <input
                         type="tel"
@@ -1629,303 +1610,159 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         placeholder="e.g. +255 712 345 678"
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 text-xs focus:border-emerald-500 font-mono"
+                        className={`w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3.5 text-sm font-mono focus:ring-0 ${portalRole === 'partner' ? 'border-slate-700 focus:border-amber-500' : 'border-slate-700 focus:border-emerald-500'}`}
                       />
                     </div>
 
-                    <div className="space-y-1.5 text-left">
-                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
-                        Account Password
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Password
                       </label>
                       <div className="relative">
                         <input
-                          type={showLoginPassword ? "text" : "password"}
+                          type={showLoginPassword ? 'text' : 'password'}
                           required
                           placeholder="••••••••"
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 pr-11 text-xs focus:border-emerald-500"
+                          className={`w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3.5 pr-11 text-sm focus:ring-0 ${portalRole === 'partner' ? 'border-slate-700 focus:border-amber-500' : 'border-slate-700 focus:border-emerald-500'}`}
                         />
-                        <button
-                          type="button"
-                          onClick={() => setShowLoginPassword((prev) => !prev)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
-                          aria-label={showLoginPassword ? "Hide password" : "Show password"}
-                        >
-                          {showLoginPassword ? (
-                            <EyeOff className="w-4 h-4" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
+                        <button type="button" onClick={() => setShowLoginPassword(p => !p)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer">
+                          {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>
 
-                    <button
-                      type="submit"
-                      className={`w-full py-3.5 text-slate-950 font-bold uppercase tracking-widest text-xs font-sans rounded-2xl transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center space-x-1 ${
-                        portalRole === "partner"
-                          ? "bg-amber-500 hover:bg-amber-400 shadow-amber-500/10"
-                          : "bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/10"
-                      }`}
-                    >
-                      <span>Authenticate Console</span>
-                      <ArrowRight className="w-4 h-4" />
+                    <button type="submit"
+                      className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-2 ${portalRole === 'partner' ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'}`}>
+                      Sign In <ArrowRight className="w-4 h-4" />
                     </button>
 
-
+                    {/* Become a partner / affiliate link */}
+                    <div className="text-center pt-2 border-t border-slate-800">
+                      <p className="text-xs text-slate-500">
+                        {portalRole === 'partner' ? "Don't have a partner account?" : "Don't have an affiliate account?"}
+                      </p>
+                      <button type="button" onClick={() => setAuthMode('register')}
+                        className={`text-xs font-bold mt-1 cursor-pointer bg-transparent border-none ${portalRole === 'partner' ? 'text-amber-400 hover:text-amber-300' : 'text-emerald-400 hover:text-emerald-300'}`}>
+                        {portalRole === 'partner' ? 'Become a Partner →' : 'Become an Affiliate →'}
+                      </button>
+                    </div>
                   </form>
-                </>
-              ) : portalRole === "partner" && getPartnersCount() >= getPartnerCapacity() ? (
-                /* PARTNER PROGRAM CAPACITY REACHED - RENDER WAITLIST FORM */
-                <form onSubmit={handleWaitlistSubmit} className="space-y-6 text-left animate-fade-in">
-                  <div className="space-y-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5 font-sans">
-                    <span className="text-[10px] font-mono font-bold text-amber-500 uppercase tracking-widest block">
-                      ⚠️ CAPACITY LIMIT MET
-                    </span>
-                    <h3 className="text-sm font-bold text-white leading-snug">
-                      Thank You for Your Interest
-                    </h3>
-                    <p className="text-xs text-slate-300 leading-relaxed font-light">
-                      We deeply appreciate your desire to collaborate with us. At the moment, We dont have partner program.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5 font-sans">
-                    <p className="text-xs font-semibold text-slate-205 text-slate-200">
-                      Want to be the first to know when we reopen?
-                    </p>
-                    <p className="text-[11px] text-slate-400 leading-relaxed font-light">
-                      Please leave your details below, and as soon as the program is back, you will be the absolute first to be notified.
-                    </p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
-                        Full Name
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Sarah Mwakasege"
-                        value={waitlistName}
-                        onChange={(e) => setWaitlistName(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-600 outline-none rounded-2xl p-3 text-xs focus:border-amber-500 font-sans"
-                      />
+                ) : portalRole === 'partner' && getPartnersCount() >= getPartnerCapacity() ? (
+                  /* PARTNER CAPACITY REACHED */
+                  <form onSubmit={handleWaitlistSubmit} className="space-y-5">
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-center">
+                      <p className="text-xs text-amber-400 font-bold uppercase tracking-wider mb-1">Partner Program Full</p>
+                      <p className="text-xs text-slate-400">Leave your details and we'll notify you when spots open.</p>
+                    </div>
+                    <input type="text" required placeholder="Your Full Name" value={waitlistName} onChange={e => setWaitlistName(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm focus:border-amber-500" />
+                    <input type="tel" required placeholder="Phone Number" value={waitlistPhone} onChange={e => setWaitlistPhone(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm focus:border-amber-500 font-mono" />
+                    <button type="submit" className="w-full py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm cursor-pointer border-none">
+                      Join Waitlist
+                    </button>
+                    <button type="button" onClick={() => setAuthMode('login')}
+                      className="w-full text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">
+                      ← Back to Login
+                    </button>
+                  </form>
+                ) : (
+                  /* REGISTER FORM */
+                  <form onSubmit={handleRegisterAffiliate} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">First Name</label>
+                        <input type="text" required placeholder="e.g. Sarah" value={firstName} onChange={e => setFirstName(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-3 py-3 text-sm focus:border-emerald-500" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Second Name</label>
+                        <input type="text" required placeholder="e.g. Mwakasege" value={secondName} onChange={e => setSecondName(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-3 py-3 text-sm focus:border-emerald-500" />
+                      </div>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
-                        Phone Number
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. 0754002991"
-                        value={waitlistPhone}
-                        onChange={(e) => setWaitlistPhone(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-600 outline-none rounded-2xl p-3 text-xs focus:border-amber-500 font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold uppercase tracking-widest text-xs font-sans rounded-2xl transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center space-x-1.5 shadow-amber-500/10"
-                  >
-                    <span>Notify Me When Reopened</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleRegisterAffiliate} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
-                        First Name (as in National ID)
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Sarah"
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 text-xs focus:border-emerald-500"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
-                        Second Name (as in National ID)
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Mwakasege"
-                        value={secondName}
-                        onChange={(e) => setSecondName(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 text-xs focus:border-emerald-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
-                        Payout Wallet Phone
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. 0754 002 991"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 text-xs focus:border-emerald-500 font-mono"
-                      />
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Phone Number (Payout Wallet)</label>
+                      <input type="tel" required placeholder="e.g. 0754 002 991" value={phone} onChange={e => setPhone(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm font-mono focus:border-emerald-500" />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
-                        Payout Provider Network
-                      </label>
-                      <select
-                        value={paymentMethod}
-                        onChange={(e) => setPaymentMethod(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-slate-300 outline-none rounded-2xl p-3 text-xs focus:border-emerald-500 cursor-pointer font-bold"
-                      >
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Payout Provider</label>
+                      <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-700 text-slate-300 outline-none rounded-2xl px-4 py-3 text-sm focus:border-emerald-500 cursor-pointer">
                         <option value="m-pesa">Vodacom M-Pesa</option>
                         <option value="tigo_yas">Mixx by Yas</option>
                         <option value="airtel_money">Airtel Money</option>
                         <option value="halopesa">Halopesa</option>
                       </select>
                     </div>
-                  </div>
 
-                  {/* NIDA AND TIN NUMBERS FOR IDENTITY/TRA TAX RECONCILIATION */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5 text-left">
-                      <label className="text-[10px] font-mono uppercase text-amber-500 tracking-wider font-bold">
-                        NIDA National ID Number (Mandatory)
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. 19951204-45129-00001-44"
-                        value={nidaNumber}
-                        onChange={(e) => setNidaNumber(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 text-xs focus:border-emerald-500 font-mono text-left"
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">NIDA ID <span className="text-rose-400">*</span></label>
+                        <input type="text" required placeholder="19951204-45129-00001-44" value={nidaNumber} onChange={e => setNidaNumber(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-3 py-3 text-xs font-mono focus:border-amber-500" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TIN (Optional)</label>
+                        <input type="text" placeholder="124-954-122" value={tinNumber} onChange={e => setTinNumber(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-3 py-3 text-xs font-mono focus:border-emerald-500" />
+                      </div>
                     </div>
 
-                    <div className="space-y-1.5 text-left">
-                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
-                        TIN Number (Taxpayer ID)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 124-954-122 (optional)"
-                        value={tinNumber}
-                        onChange={(e) => setTinNumber(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 text-xs focus:border-emerald-500 font-mono text-left"
-                      />
+                    {/* Partner code — only shown for affiliates, NOT for partners */}
+                    {portalRole !== 'partner' && (
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-teal-400 uppercase tracking-wider block">
+                          Partner Code <span className="text-rose-400">*</span>
+                        </label>
+                        <input type="text" placeholder="e.g. LANGA" value={parentSuperCode} onChange={e => setParentSuperCode(e.target.value)}
+                          className={`w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm font-mono text-center tracking-widest uppercase focus:border-teal-500 ${parentSuperCode.trim() ? 'border-teal-500' : 'border-rose-500/50'}`} />
+                        <p className="text-[9px] text-slate-500">Enter the promo code of the Partner who recruited you. Required.</p>
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password</label>
+                      <div className="relative">
+                        <input type={showPassword ? 'text' : 'password'} required placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 pr-10 text-sm focus:border-emerald-500" />
+                        <button type="button" onClick={() => setShowPassword(p => !p)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer">
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-1.5 text-left">
-                    <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider font-extrabold text-teal-400">
-                      {t['agent code'] || "Agent / Partner Code"} <span className="text-rose-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Required — e.g. LANGA"
-                      required
-                      value={parentSuperCode}
-                      onChange={(e) => setParentSuperCode(e.target.value)}
-                      className={`w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl p-3 text-xs focus:border-teal-500 font-mono text-center tracking-widest uppercase ${parentSuperCode.trim() ? 'border-teal-500' : 'border-rose-500/50'}`}
-                    />
-                    <p className="text-[9px] text-slate-500 font-mono">Enter the promo code of the Partner who recruited you. Required to register.</p>
-                  </div>
+                    <div className="flex items-start gap-2.5 p-3 bg-slate-950 border border-slate-800 rounded-xl">
+                      <input type="checkbox" id="terms-check" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} className="mt-0.5 cursor-pointer" />
+                      <label htmlFor="terms-check" className="text-[10px] text-slate-400 leading-relaxed cursor-pointer">
+                        I agree to the{' '}
+                        <button type="button" onClick={() => setShowTermsModal(true)} className="text-emerald-400 hover:text-emerald-300 cursor-pointer bg-transparent border-none font-bold">
+                          Terms & Conditions
+                        </button>
+                      </label>
+                    </div>
 
-                  <div className="space-y-1.5 relative text-left">
-                    <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
-                      Secure Password
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        required
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-650 outline-none rounded-2xl p-3 pr-10 text-xs focus:border-emerald-500 font-sans"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors focus:outline-none cursor-pointer p-1"
-                      >
-                        {showPassword ? (
-                          <EyeOff className="w-5 h-5" />
-                        ) : (
-                          <Eye className="w-5 h-5" />
-                        )}
+                    <button type="submit" disabled={!acceptedTerms}
+                      className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none ${acceptedTerms ? portalRole === 'partner' ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
+                      {portalRole === 'partner' ? 'Create Partner Account' : 'Create Affiliate Account'}
+                    </button>
+
+                    <div className="text-center">
+                      <button type="button" onClick={() => setAuthMode('login')}
+                        className="text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">
+                        ← Already have an account? Sign In
                       </button>
                     </div>
-                  </div>
-
-                  <div className="space-y-2 text-left">
-                    <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider text-amber-500">
-                      Jasper Partnership Terms & Conditions
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHasScrolledToBottom(false);
-                        setShowTermsModal(true);
-                      }}
-                      className="w-full p-4 bg-slate-950 border border-slate-800 hover:border-amber-500 rounded-2xl text-slate-300 text-left cursor-pointer transition-all flex items-center justify-between"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <span className="text-lg">📜</span>
-                        <div>
-                          <span className="text-xs font-bold block text-white">
-                            Scroll-to-Accept Agreement Form
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-light block">
-                            You must read and scroll to the bottom of terms to
-                            accept
-                          </span>
-                        </div>
-                      </div>
-                      <span
-                        className={`px-2.5 py-0.5 rounded text-[9px] font-mono uppercase transition-all ${acceptedTerms ? "bg-emerald-500/10 text-emerald-400 font-bold" : "bg-rose-500/15 text-rose-400 animate-pulse font-bold"}`}
-                      >
-                        {acceptedTerms ? "accepted ✓" : "action required"}
-                      </span>
-                    </button>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={!acceptedTerms}
-                    className={`w-full py-3.5 text-slate-950 font-bold uppercase tracking-widest text-xs font-sans rounded-2xl transition-all shadow-md active:scale-95 flex items-center justify-center space-x-1.5 ${
-                      acceptedTerms
-                        ? "bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/10 cursor-pointer"
-                        : "bg-slate-800 text-slate-500 opacity-60 cursor-not-allowed"
-                    }`}
-                  >
-                    <span>Agree & Register Console</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-
-                  <p className="text-[9.5px] text-slate-500 leading-normal text-center">
-                    By enrolling, you certify that payout credentials specified
-                    are in compliance with local mobile wallets registry and
-                    standard financial provisions of Tra tax laws of the
-                    republic of Tanzania.
-                  </p>
-                </form>
-              )}
+                  </form>
+                )}
+              </div>
             </div>
           </div>
         ) : activeAffiliate?.isSuper ? (
