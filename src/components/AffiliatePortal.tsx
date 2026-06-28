@@ -121,6 +121,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [databaseAgentWorkspaceEnabled, setDatabaseAgentWorkspaceEnabled] = useState(false);
   const [isEditingPromo, setIsEditingPromo] = useState(false);
   const [newPromoInput, setNewPromoInput] = useState("");
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoSuggestions, setPromoSuggestions] = useState<string[]>([]);
   const [activeCreativeTab, setActiveCreativeTab] = useState<string>("flyer");
   const [sspInventory, setSspInventory] = useState<any[]>([]);
   const [tutorialLibrary, setTutorialLibrary] = useState<any[]>([]);
@@ -189,21 +191,26 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   }, []);
 
   useEffect(() => {
+    // Partner workspace loader — only runs at /partner
     if (forcedRole !== 'partner') return;
     let cancelled = false;
     loadAffiliateAgentWorkspace()
       .then((workspace) => {
-        if (cancelled || !workspace?.affiliates.length) return;
+        if (cancelled) return;
+        // Even if no affiliates yet (new partner), still show Partner Dashboard
         setDatabaseAgentWorkspaceEnabled(true);
         setAuthMode('dashboard');
       })
       .catch(() => {
+        // Supabase failed — fall back to localStorage session restore
         if (!cancelled) setDatabaseAgentWorkspaceEnabled(false);
       });
     return () => { cancelled = true; };
   }, [forcedRole]);
 
   useEffect(() => {
+    // Affiliate workspace loader — ONLY runs at /affiliate, never at /partner
+    if (forcedRole === 'partner') return;
     let cancelled = false;
     loadAffiliateWorkspace()
       .then((workspace) => {
@@ -223,7 +230,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         if (!cancelled) setDatabaseWorkspaceEnabled(false);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [forcedRole]);
 
   // Clipboards feedback tracking
   const [copiedCode, setCopiedCode] = useState(false);
@@ -768,17 +775,42 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     e.preventDefault();
     const cleaned = newPromoInput.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
     if (!cleaned) {
-      alert("Kodi ya ofa inapaswa kuwa na herufi na namba tu! / Promo code must contain alphanumeric characters only!");
+      setPromoError("Promo code must contain letters and numbers only.");
       return;
     }
 
-    // Verify it doesn't already exist in other affiliates
+    // Check all existing promo codes across both stores
     const existingAffs = JSON.parse(localStorage.getItem("jasper_affiliates") || "[]");
-    const duplicate = existingAffs.find((a: any) => a.id !== activeAffiliate?.id && a.promoCode?.toUpperCase() === cleaned);
-    if (duplicate) {
-      alert("Kodi hii ya ofa imeshatumika na mtu mwingine! / This promo code is already taken by another affiliate!");
+    const immersiveList = JSON.parse(localStorage.getItem("saas_immersive_affiliates") || "[]");
+    const allCodes = new Set([
+      ...existingAffs.map((a: any) => a.promoCode?.toUpperCase()),
+      ...immersiveList.map((a: any) => a.promoCode?.toUpperCase()),
+    ]);
+    // Remove own current code from check
+    allCodes.delete(activeAffiliate?.promoCode?.toUpperCase());
+
+    if (allCodes.has(cleaned)) {
+      // Generate smart suggestions based on the chosen code
+      const suggestions: string[] = [];
+      const digits = ["1","2","3","4","5","7","8","9"];
+      const suffixes = ["_PRO","_TZ","_EA","X","_VIP","_PLUS"];
+      for (const d of digits) {
+        const s = `${cleaned}${d}`;
+        if (!allCodes.has(s)) { suggestions.push(s); if (suggestions.length >= 3) break; }
+      }
+      if (suggestions.length < 3) {
+        for (const sfx of suffixes) {
+          const s = `${cleaned}${sfx}`;
+          if (!allCodes.has(s)) { suggestions.push(s); if (suggestions.length >= 3) break; }
+        }
+      }
+      setPromoError(`"${cleaned}" is already taken.`);
+      setPromoSuggestions(suggestions);
       return;
     }
+
+    setPromoError(null);
+    setPromoSuggestions([]);
 
     // Update activeAffiliate state
     const updatedAffiliate = {
@@ -837,7 +869,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     } catch (err) {}
 
     setIsEditingPromo(false);
-    alert("🎉 Imefanikiwa! Kodi yako mpya ya ofa ni / Successfully updated! Your new promo code is: " + cleaned);
+    setPromoError(null);
+    setPromoSuggestions([]);
   };
 
   const handleRegisterAffiliate = (e: any) => {
@@ -1498,10 +1531,9 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         ) : authMode === "dashboard" && databaseWorkspaceEnabled ? (
           <AffiliateWorkspace onLogout={handleLogoutAffiliate} />
         ) : authMode === "dashboard" && activeAffiliate ? (
-          // Fallback: logged in via localStorage but workspace flags not set
-          // Redirect to correct dashboard based on portalRole
+          // Fallback — workspace flags not set yet, use forcedRole/isSuper to decide
           (() => {
-            if (portalRole === 'partner') {
+            if (forcedRole === 'partner' || activeAffiliate.isSuper === true) {
               setDatabaseAgentWorkspaceEnabled(true);
             } else {
               setDatabaseWorkspaceEnabled(true);
@@ -1805,18 +1837,36 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     Master Code:
                   </span>
                   {isEditingPromo ? (
-                    <form onSubmit={handleUpdatePromoCode} className="flex items-center space-x-1">
-                      <input
-                        type="text"
-                        className="bg-slate-900 border border-teal-500 text-teal-400 uppercase text-xs font-bold px-1 rounded focus:outline-none w-24"
-                        value={newPromoInput}
-                        onChange={(e) => setNewPromoInput(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))}
-                        maxLength={20}
-                        autoFocus
-                      />
-                      <button type="submit" className="text-emerald-400 hover:text-emerald-300 font-bold text-[10px]">Save</button>
-                      <button type="button" onClick={() => setIsEditingPromo(false)} className="text-slate-400 hover:text-white text-[10px]">X</button>
-                    </form>
+                    <div className="space-y-1.5">
+                      <form onSubmit={handleUpdatePromoCode} className="flex items-center space-x-1">
+                        <input
+                          type="text"
+                          className={`bg-slate-900 border text-teal-400 uppercase text-xs font-bold px-1 rounded focus:outline-none w-28 ${promoError ? 'border-rose-500' : 'border-teal-500'}`}
+                          value={newPromoInput}
+                          onChange={(e) => { setNewPromoInput(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, "")); setPromoError(null); setPromoSuggestions([]); }}
+                          maxLength={20}
+                          autoFocus
+                        />
+                        <button type="submit" className="text-emerald-400 hover:text-emerald-300 font-bold text-[10px]">Save</button>
+                        <button type="button" onClick={() => { setIsEditingPromo(false); setPromoError(null); setPromoSuggestions([]); }} className="text-slate-400 hover:text-white text-[10px]">✕</button>
+                      </form>
+                      {promoError && (
+                        <div className="space-y-1">
+                          <p className="text-[9px] text-rose-400 font-bold">{promoError}</p>
+                          {promoSuggestions.length > 0 && (
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <span className="text-[8px] text-slate-500">Try:</span>
+                              {promoSuggestions.map(s => (
+                                <button key={s} type="button" onClick={() => { setNewPromoInput(s); setPromoError(null); setPromoSuggestions([]); }}
+                                  className="text-[9px] text-teal-400 bg-teal-500/10 border border-teal-500/20 px-1.5 py-0.5 rounded font-bold cursor-pointer hover:bg-teal-500/20">
+                                  {s}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="flex items-center space-x-1.5">
                       <span className="text-white font-bold">
@@ -4065,26 +4115,39 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         <div className="relative">
                           <input
                             type="text"
-                            className="w-full bg-slate-950 p-2.5 rounded-lg border border-teal-500 font-mono text-center text-teal-300 uppercase text-xs tracking-widest font-extrabold focus:outline-none focus:ring-1 focus:ring-teal-400"
+                            className={`w-full bg-slate-950 p-2.5 rounded-lg border font-mono text-center text-teal-300 uppercase text-xs tracking-widest font-extrabold focus:outline-none focus:ring-1 focus:ring-teal-400 ${promoError ? 'border-rose-500' : 'border-teal-500'}`}
                             value={newPromoInput}
-                            onChange={(e) => setNewPromoInput(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))}
-                            placeholder="KODI MPYA YA OFA / NEW PROMO CODE"
+                            onChange={(e) => { setNewPromoInput(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, "")); setPromoError(null); setPromoSuggestions([]); }}
+                            placeholder="YOUR NEW PROMO CODE"
                             maxLength={30}
                             required
                           />
                         </div>
+                        {promoError && (
+                          <div className="space-y-1.5">
+                            <p className="text-[10px] text-rose-400 font-bold">⚠️ {promoError} Choose a different one.</p>
+                            {promoSuggestions.length > 0 && (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[9px] text-slate-500 font-mono">Available suggestions:</span>
+                                {promoSuggestions.map(s => (
+                                  <button key={s} type="button"
+                                    onClick={() => { setNewPromoInput(s); setPromoError(null); setPromoSuggestions([]); }}
+                                    className="text-[10px] text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded font-black font-mono cursor-pointer hover:bg-teal-500/20 tracking-wider">
+                                    {s}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         <div className="flex justify-end space-x-2 text-[9px] font-mono">
-                          <button
-                            type="button"
-                            onClick={() => setIsEditingPromo(false)}
-                            className="px-2.5 py-1 text-slate-400 bg-slate-900 border border-slate-800 rounded-md hover:text-white"
-                          >
+                          <button type="button"
+                            onClick={() => { setIsEditingPromo(false); setPromoError(null); setPromoSuggestions([]); }}
+                            className="px-2.5 py-1 text-slate-400 bg-slate-900 border border-slate-800 rounded-md hover:text-white">
                             CANCEL
                           </button>
-                          <button
-                            type="submit"
-                            className="px-3 py-1 text-slate-950 bg-teal-400 hover:bg-teal-300 rounded-md font-extrabold uppercase transition-colors"
-                          >
+                          <button type="submit"
+                            className="px-3 py-1 text-slate-950 bg-teal-400 hover:bg-teal-300 rounded-md font-extrabold uppercase transition-colors">
                             SAVE CHANGES
                           </button>
                         </div>
