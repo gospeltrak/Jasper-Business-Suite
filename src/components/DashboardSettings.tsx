@@ -555,16 +555,24 @@ export default function DashboardSettings({
   const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'hrm' | 'roles' | 'notifications'>('company');
   
   // Temporary states for local forms to avoid writing directly to parent state until saved
-  const [companyForm, setCompanyForm] = useState<CompanySettings>(systemSettings.company);
-  const [businessForm, setBusinessForm] = useState<BusinessSettings>(systemSettings.business);
-  const [productForm, setProductForm] = useState<ProductStoreSettings>(systemSettings.productStore);
+  const [companyForm, setCompanyForm] = useState<CompanySettings>(systemSettings?.company || {
+    companyName: '', businessType: '', currency: 'TZS', currencySymbol: 'TSh',
+    country: 'Tanzania', city: '', taxRate: 18, logoUrl: ''
+  } as CompanySettings);
+  const [businessForm, setBusinessForm] = useState<BusinessSettings>(systemSettings?.business || {
+    allowNegativeStock: false, defaultUnit: 'pcs', requireStockCheck: true,
+    autoGenerateBarcode: false, paymentModes: [], registeredStores: []
+  } as BusinessSettings);
+  const [productForm, setProductForm] = useState<ProductStoreSettings>(systemSettings?.productStore || {
+    showImages: true, compactView: false
+  } as ProductStoreSettings);
   const [invoiceSettingsForm, setInvoiceSettingsForm] = useState<InvoiceSettings>(() => {
-    return systemSettings.invoiceSettings || {
+    return systemSettings?.invoiceSettings || {
       invoiceColor: '#0284c7', // Sky Blue fallback matching PDF
-      tin: systemSettings.company?.tin || '',
+      tin: systemSettings?.company?.tin || '',
       bankName: 'NMB Bank',
       accountNumber: '23710039969',
-      accountName: systemSettings.company?.companyName || 'Lim Company Ltd',
+      accountName: systemSettings?.company?.companyName || 'Lim Company Ltd',
       authorisedPerson: 'Lilian Mbawala',
       termsAndConditions: [
         'Goods once sold will not be taken back or exchanged.',
@@ -574,10 +582,10 @@ export default function DashboardSettings({
     };
   });
   const [posSettingsForm, setPosSettingsForm] = useState(() => ({
-    showProductImages: systemSettings.posSettings?.showProductImages !== false
+    showProductImages: systemSettings?.posSettings?.showProductImages !== false
   }));
   const [staffsList, setStaffsList] = useState<StaffSettings[]>(() => {
-    const original = systemSettings.staffs || [];
+    const original = systemSettings?.staffs || [];
     if (activeTenant.businessType === 'restaurant') {
       return original.map(s => s.role === 'Seller' ? { ...s, role: 'Waiter' as any } : s);
     }
@@ -586,8 +594,8 @@ export default function DashboardSettings({
 
   const [viewingStaffReport, setViewingStaffReport] = useState<StaffSettings | null>(null);
   const [customRolesList, setCustomRolesList] = useState<CustomRole[]>(() => {
-    const roles = systemSettings.customRoles && systemSettings.customRoles.length > 0
-      ? systemSettings.customRoles
+    const roles = systemSettings?.customRoles && systemSettings?.customRoles.length > 0
+      ? systemSettings?.customRoles
       : DEFAULT_CUSTOM_ROLES;
     if (activeTenant.businessType === 'restaurant') {
       return roles.map(r => r.name === 'Seller' ? { ...r, name: 'Waiter' } : r);
@@ -762,12 +770,12 @@ export default function DashboardSettings({
 
   // Synchronize when the active props update
   useEffect(() => {
-    setCompanyForm(systemSettings.company);
-    setBusinessForm(systemSettings.business);
-    setProductForm(systemSettings.productStore);
-    setStaffsList(systemSettings.staffs);
-    setCustomRolesList(systemSettings.customRoles && systemSettings.customRoles.length > 0
-      ? systemSettings.customRoles
+    setCompanyForm(systemSettings?.company || companyForm);
+    setBusinessForm(systemSettings?.business || businessForm);
+    setProductForm(systemSettings?.productStore || productForm);
+    setStaffsList(systemSettings?.staffs || []);
+    setCustomRolesList(systemSettings?.customRoles && systemSettings.customRoles.length > 0
+      ? systemSettings?.customRoles
       : DEFAULT_CUSTOM_ROLES);
   }, [systemSettings]);
 
