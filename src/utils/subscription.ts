@@ -183,25 +183,52 @@ export interface SubscriptionState {
   paymentStatus?: 'pending' | 'active' | 'expired';
 }
 
-// Low level helpers
+// ─── Load plan from Supabase DB (called on login) ──────────────────────────
+
+export async function loadSubscriptionFromDB(tenantId: string): Promise<SubscriptionState | null> {
+  if (!tenantId) return null;
+  try {
+    const { getDynamicSupabaseClient } = await import('../supabaseClient');
+    const client: any = await getDynamicSupabaseClient();
+    const url: string = (client as any).supabaseUrl || '';
+    if (!url || url.includes('placeholder')) return null;
+
+    const { data, error } = await client
+      .from('tenants')
+      .select('subscription_plan, subscription_activated_at')
+      .eq('id', tenantId)
+      .maybeSingle();
+
+    if (error || !data || !data.subscription_plan) return null;
+
+    const normalizedPlanId = normalizeSubscriptionPlanId(data.subscription_plan);
+    const state: SubscriptionState = {
+      planId: normalizedPlanId,
+      trialStartedAt: data.subscription_activated_at || new Date().toISOString(),
+      isSubscribedPaid: normalizedPlanId !== 'trial',
+      paidAt: data.subscription_activated_at || undefined,
+      paymentStatus: 'active',
+      autoRenewEnabled: true,
+    };
+    saveSubscriptionState(state);
+    return state;
+  } catch (e) {
+    return null;
+  }
+}
+
+
+
 export function getSubscriptionState(): SubscriptionState {
   const cached = localStorage.getItem('jasper_subscription_state');
   if (cached) {
     try {
       const parsed = JSON.parse(cached);
-      // Ensure essential fields exist
       if (parsed && parsed.planId && parsed.trialStartedAt) {
-        return {
-          ...parsed,
-          planId: normalizeSubscriptionPlanId(parsed.planId)
-        };
+        return { ...parsed, planId: normalizeSubscriptionPlanId(parsed.planId) };
       }
-    } catch (e) {
-      // fallback
-    }
+    } catch (e) {}
   }
-
-  // Create default trial state starting today
   const defaultState: SubscriptionState = {
     planId: 'trial',
     trialStartedAt: new Date().toISOString(),
@@ -227,7 +254,7 @@ export interface SubscriptionStatusInfo {
   daysPassed: number;
   daysRemaining: number;
   isExpired: boolean;
-  isNearingExpiry: boolean; // 3 days or less remaining
+  isNearingExpiry: boolean;
   productsLimitExceeded: boolean;
   storesLimitExceeded: boolean;
   staffLimitExceeded: boolean;
@@ -241,35 +268,18 @@ export function checkSubscriptionStatus(
 ): SubscriptionStatusInfo {
   const normalizedPlanId = normalizeSubscriptionPlanId(state.planId);
   const plan = SUBSCRIPTION_PLANS[normalizedPlanId];
-  
-  // Calculate elapsed time
   let daysPassed = 0;
   if (state.simulatedDaysPassed !== undefined && state.simulatedDaysPassed > 0) {
     daysPassed = state.simulatedDaysPassed;
   } else {
     const started = new Date(state.trialStartedAt).getTime();
     const now = new Date().getTime();
-    const diffMs = Math.max(0, now - started);
-    daysPassed = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    daysPassed = Math.floor(Math.max(0, now - started) / (1000 * 60 * 60 * 24));
   }
-
-  // If promo code was registered: 1 month (30 days) free. Else 14 days free.
-  const durationAllowed = normalizedPlanId === 'trial' 
-    ? (state.promoCodeUsed ? 30 : 14) 
-    : 30;
-  
+  const durationAllowed = normalizedPlanId === 'trial' ? (state.promoCodeUsed ? 30 : 14) : 30;
   const daysRemaining = Math.max(0, durationAllowed - daysPassed);
-  
-  // Notification triggered 3 days before subscription ends
   const isNearingExpiry = !state.isSubscribedPaid && daysRemaining > 0 && daysRemaining <= 3;
-  
-  // Expired state triggers lockouts automatically
   const isExpired = !state.isSubscribedPaid && daysPassed >= durationAllowed;
-
-  const productsLimitExceeded = currentProductCount >= plan.maxProducts;
-  const storesLimitExceeded = currentStoreCount >= plan.maxStores;
-  const staffLimitExceeded = currentStaffCount >= plan.maxStaff;
-
   return {
     state: { ...state, planId: normalizedPlanId },
     plan,
@@ -277,8 +287,8 @@ export function checkSubscriptionStatus(
     daysRemaining,
     isExpired: isExpired || state.paymentStatus === 'expired',
     isNearingExpiry,
-    productsLimitExceeded,
-    storesLimitExceeded,
-    staffLimitExceeded
+    productsLimitExceeded: currentProductCount >= plan.maxProducts,
+    storesLimitExceeded: currentStoreCount >= plan.maxStores,
+    staffLimitExceeded: currentStaffCount >= plan.maxStaff
   };
 }

@@ -45,6 +45,7 @@ import {
   getSubscriptionState, 
   saveSubscriptionState, 
   checkSubscriptionStatus, 
+  loadSubscriptionFromDB,
   SUBSCRIPTION_PLANS, 
   PAID_PACKAGE_IDS,
   normalizeSubscriptionPlanId,
@@ -955,6 +956,19 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   // Sync state with localstorage on change of tenant
   useEffect(() => {
     setSubState(getSubscriptionState());
+  }, [activeTenant.id]);
+
+  // ── LOAD SUBSCRIPTION FROM DB ON LOGIN ──────────────────────────────────
+  // This is the source of truth — overrides localStorage with DB plan
+  useEffect(() => {
+    if (!activeTenant.id) return;
+    loadSubscriptionFromDB(activeTenant.id).then(dbState => {
+      if (dbState) {
+        setSubState(dbState);
+      }
+    }).catch(() => {
+      // Silently fall back to localStorage state — system still works offline
+    });
   }, [activeTenant.id]);
 
   const updateSubscriptionPlan = (newPlanId: SubscriptionPlanId) => {

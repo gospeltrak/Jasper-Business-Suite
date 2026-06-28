@@ -558,14 +558,14 @@ export default function DashboardSettings({
   const [companyForm, setCompanyForm] = useState<CompanySettings>(systemSettings?.company || {
     companyName: '', businessType: '', currency: 'TZS', currencySymbol: 'TSh',
     country: 'Tanzania', city: '', taxRate: 18, logoUrl: ''
-  } as CompanySettings);
+  } as unknown as CompanySettings);
   const [businessForm, setBusinessForm] = useState<BusinessSettings>(systemSettings?.business || {
     allowNegativeStock: false, defaultUnit: 'pcs', requireStockCheck: true,
     autoGenerateBarcode: false, paymentModes: [], registeredStores: []
-  } as BusinessSettings);
+  } as unknown as BusinessSettings);
   const [productForm, setProductForm] = useState<ProductStoreSettings>(systemSettings?.productStore || {
     showImages: true, compactView: false
-  } as ProductStoreSettings);
+  } as unknown as ProductStoreSettings);
   const [invoiceSettingsForm, setInvoiceSettingsForm] = useState<InvoiceSettings>(() => {
     return systemSettings?.invoiceSettings || {
       invoiceColor: '#0284c7', // Sky Blue fallback matching PDF
