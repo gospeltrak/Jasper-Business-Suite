@@ -1877,7 +1877,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               </div>
               <button 
                 onClick={() => setIsLucyOpen(false)}
-                className={`p-1 cursor-pointer transition-colors ${isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-805 hover:text-slate-900'}`}
+                className={`p-1 cursor-pointer transition-colors ${isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800 hover:text-slate-900'}`}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1909,7 +1909,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             </div>
 
             {/* Quick Suggestions buttons inside Lucy Floating widget */}
-            <div className={`p-2 border-t flex flex-wrap gap-1 ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-150'}`}>
+            <div className={`p-2 border-t flex flex-wrap gap-1 ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'}`}>
               <button 
                 onClick={() => { setLucyInput("Nahitaji kujua vifurushi na bei zao"); }}
                 className={`px-2 py-1 border text-[9px] rounded font-mono cursor-pointer transition-colors ${isDark ? 'bg-slate-900 hover:bg-slate-850 border-slate-800 text-slate-300' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
@@ -1937,7 +1937,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
                 placeholder="Uliza chochote kuhusu Jasper..."
                 value={lucyInput}
                 onChange={(e) => setLucyInput(e.target.value)}
-                className={`flex-1 border rounded-xl p-2.5 text-xs placeholder-slate-500 outline-none font-medium ${isDark ? 'bg-slate-900 border-slate-800 text-white focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-850 focus:border-[#00b87a]'}`}
+                className={`flex-1 border rounded-xl p-2.5 text-xs placeholder-slate-500 outline-none font-medium ${isDark ? 'bg-slate-900 border-slate-800 text-white focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 focus:border-[#00b87a]'}`}
               />
               <button 
                 type="submit"

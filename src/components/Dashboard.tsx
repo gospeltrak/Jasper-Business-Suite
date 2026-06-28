@@ -1910,7 +1910,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                       : 'bg-transparent border-l-4 border-transparent hover:bg-white/5 text-slate-400 hover:text-white'
                   }`}
                 >
-                  <IconComponent className={`w-5 h-5 shrink-0 transition-colors ${isActive ? 'text-emerald-400' : 'text-slate-450 group-hover:text-slate-200'}`} />
+                  <IconComponent className={`w-5 h-5 shrink-0 transition-colors ${isActive ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-200'}`} />
                   
                   {/* Label with clean fade transition */}
                   <span 
@@ -1955,7 +1955,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           
           <div
             title={isOfflineMode ? "Local Mode (Offline)" : "Cloud Network Connected"}
-            className={`p-1.5 rounded-lg text-slate-450 transition-all cursor-default ${sidebarCollapsed ? '' : 'hidden xl:flex'} items-center justify-center`}
+            className={`p-1.5 rounded-lg text-slate-500 transition-all cursor-default ${sidebarCollapsed ? '' : 'hidden xl:flex'} items-center justify-center`}
           >
             <Globe className={`w-4 h-4 ${isOfflineMode ? 'text-amber-500 animate-pulse' : 'text-emerald-400'}`} />
           </div>
@@ -2845,7 +2845,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               <h3 className="text-xl font-black text-white uppercase tracking-wider">
                 {subModal.title}
               </h3>
-              <p className="text-xs text-slate-450 max-w-md mx-auto">
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
                 You have reached your subscription package limits. Choose Ruby, Diamond, or Tanzanite, then pay and submit the receipt for manual activation.
               </p>
             </div>
@@ -2859,7 +2859,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                    subModal.limitType === 'staff' ? 'Staff Limit Reached' : 'Trial Concluded'}
                 </span>
               </div>
-              <div className="flex justify-between text-[11px] font-mono text-slate-350">
+              <div className="flex justify-between text-[11px] font-mono text-slate-400">
                 <span>Active Subscription Tier:</span>
                 <span className="text-white font-bold">{subStatus.plan.name}</span>
               </div>
@@ -3028,7 +3028,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   setShowLogoutConfirm(false);
                   setLogoutError(null);
                 }}
-                className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer"
+                className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-400 font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer"
               >
                 Cancel
               </button>

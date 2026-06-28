@@ -658,7 +658,7 @@ export default function SuperSaaSAdminView({
               </div>
 
               <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
-                <p className="text-xs text-slate-350 leading-relaxed">
+                <p className="text-xs text-slate-400 leading-relaxed">
                   <strong>💡 Rollout:</strong> Limit signups to active niches (<strong className="text-emerald-400">Retail/Wholesale</strong> &amp; <strong className="text-emerald-400">Pharmacy</strong>). Sandbox lines stay internal.
                 </p>
               </div>

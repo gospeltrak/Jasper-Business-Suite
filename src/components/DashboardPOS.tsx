@@ -1086,7 +1086,7 @@ export default function DashboardPOS({
                 className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
                   sellingChannel === 'retail'
                     ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-650 hover:text-slate-800'
+                    : 'text-slate-600 hover:text-slate-800'
                 }`}
               >
                 <span>🛒 Retail Channel</span>
@@ -1100,7 +1100,7 @@ export default function DashboardPOS({
                 className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
                   sellingChannel === 'wholesale'
                     ? 'bg-teal-650 text-white shadow-sm'
-                    : 'text-slate-650 hover:text-slate-800'
+                    : 'text-slate-600 hover:text-slate-800'
                 }`}
               >
                 <span>📦 Wholesale Channel</span>
@@ -1252,7 +1252,7 @@ export default function DashboardPOS({
                         <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded-xs leading-none">
                           {prod.category}
                         </span>
-                        <span className="text-[9px] font-mono text-slate-450 font-bold bg-slate-100 px-1.5 py-0.5 rounded-xs leading-none">
+                        <span className="text-[9px] font-mono text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded-xs leading-none">
                           {remainingLabel}
                         </span>
                       </div>
@@ -1298,7 +1298,7 @@ export default function DashboardPOS({
         {/* Cart Header */}
         <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <ShoppingCart className="w-4 h-4 text-emerald-650" />
+            <ShoppingCart className="w-4 h-4 text-emerald-600" />
             <span className="font-bold text-slate-800 text-sm">Shopping Cart</span>
           </div>
           <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
@@ -1470,7 +1470,7 @@ export default function DashboardPOS({
 
                       {/* Total price for this line item and trash icon */}
                       <div className="flex items-center space-x-1.5 text-right pl-1">
-                        <span className="font-mono font-black text-slate-800 text-[11px] bg-white px-1.5 py-0.5 rounded border border-slate-150">
+                        <span className="font-mono font-black text-slate-800 text-[11px] bg-white px-1.5 py-0.5 rounded border border-slate-200">
                           {currency}{(discountPrice * item.qty).toLocaleString()}
                         </span>
                         <button 
@@ -1509,7 +1509,7 @@ export default function DashboardPOS({
                                 const val = parseInt(e.target.value) || 1;
                                 updateCartTabsSelected(item.product.id, val);
                               }}
-                              className="w-6 text-center font-mono font-bold text-[9px] text-slate-805 bg-transparent outline-none focus:ring-0"
+                              className="w-6 text-center font-mono font-bold text-[9px] text-slate-800 bg-transparent outline-none focus:ring-0"
                             />
                             <span className="text-[8px] font-mono text-slate-400">/{tabsPerPack}</span>
                           </div>
@@ -1787,7 +1787,7 @@ export default function DashboardPOS({
                               className={`p-3 rounded-2xl border flex items-center justify-between transition-all cursor-pointer text-left w-full ${
                                 isSelected 
                                   ? 'bg-emerald-50 text-emerald-755 border-emerald-450' 
-                                  : 'bg-slate-50 text-slate-650 border-slate-250 hover:border-slate-350'
+                                  : 'bg-slate-50 text-slate-600 border-slate-250 hover:border-slate-350'
                               }`}
                             >
                               <div className="flex items-center space-x-3 text-xs">
@@ -1802,7 +1802,7 @@ export default function DashboardPOS({
                                 )}
                                 <div>
                                   <p className="font-bold text-slate-800">{mode}</p>
-                                  <p className="text-[10px] text-slate-450 font-light mt-0.5">
+                                  <p className="text-[10px] text-slate-500 font-light mt-0.5">
                                     {isCash ? 'Collect paper currency, log to system till vault' : 
                                      isMomo ? 'Record manual wallet payment received outside the system' :
                                      isMulti ? 'Split manually received cash and bank/card amounts' :
@@ -1820,7 +1820,7 @@ export default function DashboardPOS({
                                 <p className="text-[10px] font-mono font-black text-indigo-700 uppercase tracking-wider">Split Payment</p>
                                 <div className="grid grid-cols-2 gap-3.5">
                                   <div>
-                                    <label className="block text-[9.5px] uppercase font-bold text-slate-450 mb-1">Cash In ({currency})</label>
+                                    <label className="block text-[9.5px] uppercase font-bold text-slate-500 mb-1">Cash In ({currency})</label>
                                     <input
                                       type="number"
                                       min="0"
@@ -1832,11 +1832,11 @@ export default function DashboardPOS({
                                         setMultiCashAmount(boundedVal);
                                         setMultiBankAmount(grandTotal - boundedVal);
                                       }}
-                                      className="w-full bg-slate-50 border border-slate-205 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 font-mono font-bold text-xs"
+                                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 font-mono font-bold text-xs"
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-[9.5px] uppercase font-bold text-slate-450 mb-1">Bank / Card ({currency})</label>
+                                    <label className="block text-[9.5px] uppercase font-bold text-slate-500 mb-1">Bank / Card ({currency})</label>
                                     <input
                                       type="number"
                                       min="0"
@@ -1848,7 +1848,7 @@ export default function DashboardPOS({
                                         setMultiBankAmount(boundedVal);
                                         setMultiCashAmount(grandTotal - boundedVal);
                                       }}
-                                      className="w-full bg-slate-50 border border-slate-205 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 font-mono font-bold text-xs"
+                                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 font-mono font-bold text-xs"
                                     />
                                   </div>
                                 </div>
@@ -1857,23 +1857,23 @@ export default function DashboardPOS({
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   <label className="block">
-                                    <span className="text-[9.5px] uppercase font-bold text-slate-450 mb-1 block">Transaction Ref (optional)</span>
+                                    <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Transaction Ref (optional)</span>
                                     <input
                                       type="text"
                                       value={referenceCode}
                                       onChange={(e) => setReferenceCode(e.target.value)}
                                       placeholder="Bank/card/mobile ref"
-                                      className="w-full bg-slate-50 border border-slate-205 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 font-mono text-xs text-slate-800"
+                                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 font-mono text-xs text-slate-800"
                                     />
                                   </label>
                                   <label className="block">
-                                    <span className="text-[9.5px] uppercase font-bold text-slate-450 mb-1 block">Payment Note (optional)</span>
+                                    <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Payment Note (optional)</span>
                                     <input
                                       type="text"
                                       value={paymentNote}
                                       onChange={(e) => setPaymentNote(e.target.value)}
                                       placeholder="Manual split confirmation"
-                                      className="w-full bg-slate-50 border border-slate-205 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 text-xs text-slate-800"
+                                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 text-xs text-slate-800"
                                     />
                                   </label>
                                 </div>
@@ -1890,34 +1890,34 @@ export default function DashboardPOS({
                   <div className="space-y-3 bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <label className="block">
-                        <span className="text-[9.5px] uppercase font-bold text-slate-450 mb-1 block">Amount Paid ({currency})</span>
+                        <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Amount Paid ({currency})</span>
                         <input
                           type="number"
                           min="0"
                           value={amountPaid}
                           onChange={(e) => setAmountPaid(Math.max(0, parseFloat(e.target.value) || 0))}
-                          className="w-full bg-slate-50 border border-slate-205 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono font-bold text-xs text-slate-800"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono font-bold text-xs text-slate-800"
                         />
                       </label>
                       <label className="block">
-                        <span className="text-[9.5px] uppercase font-bold text-slate-450 mb-1 block">Transaction Ref (optional)</span>
+                        <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Transaction Ref (optional)</span>
                         <input
                           type="text"
                           value={referenceCode}
                           onChange={(e) => setReferenceCode(e.target.value)}
                           placeholder="M-Pesa SMS, bank slip, card ref"
-                          className="w-full bg-slate-50 border border-slate-205 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono text-xs text-slate-800"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono text-xs text-slate-800"
                         />
                       </label>
                     </div>
                     <label className="block">
-                      <span className="text-[9.5px] uppercase font-bold text-slate-450 mb-1 block">Payment Note (optional)</span>
+                      <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Payment Note (optional)</span>
                       <input
                         type="text"
                         value={paymentNote}
                         onChange={(e) => setPaymentNote(e.target.value)}
                         placeholder="Manual confirmation note"
-                        className="w-full bg-slate-50 border border-slate-205 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 text-xs text-slate-800"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 text-xs text-slate-800"
                       />
                     </label>
                     <div className={`text-[10px] uppercase font-black text-center py-1.5 rounded-xl border font-sans ${
@@ -1955,14 +1955,14 @@ export default function DashboardPOS({
                   <div className="p-2.5 bg-emerald-100 rounded-full border border-emerald-200 flex items-center justify-center">
                     <CheckCircle className="w-8 h-8 text-emerald-600" />
                   </div>
-                  <h4 className="text-sm font-bold text-slate-850 uppercase tracking-widest">TRANSACTION APPROVED</h4>
+                  <h4 className="text-sm font-bold text-slate-800 uppercase tracking-widest">TRANSACTION APPROVED</h4>
                   <p className="text-[10px] font-mono text-slate-400 font-bold uppercase">
                     {isOfflineMode ? 'MANUAL PAYMENT QUEUED OFFLINE' : 'MANUAL PAYMENT RECORDED SUCCESSFULLY'}
                   </p>
                 </div>
 
                 {/* PHYSICAL RECEIPT GRAPHIC CONTAINER */}
-                <div id="pos-receipt-pdf-template" className="bg-white text-slate-905 p-5 rounded-3xl font-mono text-xs space-y-4 shadow-xl border-dashed border-2 border-slate-250">
+                <div id="pos-receipt-pdf-template" className="bg-white text-slate-900 p-5 rounded-3xl font-mono text-xs space-y-4 shadow-xl border-dashed border-2 border-slate-250">
                   <div className="text-center space-y-2 border-b border-dashed border-slate-200 pb-3 flex flex-col items-center">
                     {(systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || systemSettings?.business?.businessLogoDark || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url) && (
                       <CachedImage 
@@ -2132,7 +2132,7 @@ export default function DashboardPOS({
                     {receiptPdfStatus && (
                       <p className="text-[10px] font-bold text-emerald-700">{receiptPdfStatus}</p>
                     )}
-                    <p className="text-[9.5px] text-slate-450 leading-relaxed">
+                    <p className="text-[9.5px] text-slate-500 leading-relaxed">
                       Creates receipt PDF first, then opens WhatsApp.
                     </p>
                   </div>

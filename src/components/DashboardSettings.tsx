@@ -1211,15 +1211,15 @@ export default function DashboardSettings({
             <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🏢 Company Level Settings</h3>
-                <p className="text-xs text-slate-450 mt-1 font-sans">
+                <p className="text-xs text-slate-500 mt-1 font-sans">
                   Configure core business metadata, localized compliance TIN/VAT numbers, legal currency markers, and system color mode preferences.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs font-sans">
                 
-                <div className="space-y-1.5Col">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Company Legal Name</label>
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Company Legal Name</label>
                   <input
                     type="text"
                     value={companyForm.companyName}
@@ -1230,8 +1230,8 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Company Code</label>
-                  <div className="flex bg-slate-100 border border-slate-210 rounded-xl overflow-hidden font-mono font-bold text-slate-600">
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Company Code</label>
+                  <div className="flex bg-slate-100 border border-slate-200 rounded-xl overflow-hidden font-mono font-bold text-slate-600">
                     <span className="px-3.5 py-2.5 bg-slate-200 text-slate-500 select-none text-[11px]">@</span>
                     <input
                       type="text"
@@ -1245,7 +1245,7 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Email Address</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Email Address</label>
                   <input
                     type="email"
                     value={companyForm.email}
@@ -1256,7 +1256,7 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Direct Phone Line</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Direct Phone Line</label>
                   <input
                     type="text"
                     value={companyForm.phone}
@@ -1267,7 +1267,7 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5 md:col-span-2">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Company Address</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Company Address</label>
                   <input
                     type="text"
                     value={companyForm.address}
@@ -1278,7 +1278,7 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Tax ID Number (TIN)</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Tax ID Number (TIN)</label>
                   <input
                     type="text"
                     value={companyForm.tin}
@@ -1289,7 +1289,7 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">VAT Number</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">VAT Number</label>
                   <input
                     type="text"
                     value={companyForm.vat}
@@ -1300,7 +1300,7 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Currency</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Currency</label>
                   <select
                     value={companyForm.currency}
                     onChange={(e) => setCompanyForm(prev => ({ ...prev, currency: e.target.value }))}
@@ -1317,7 +1317,7 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Operating Time Zone</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Operating Time Zone</label>
                   <select
                     value={companyForm.timezone}
                     onChange={(e) => setCompanyForm(prev => ({ ...prev, timezone: e.target.value }))}
@@ -1334,9 +1334,9 @@ export default function DashboardSettings({
 
               {/* Logo Drag/Upload Section */}
               <div className="space-y-3">
-                <span className="block text-[10px] uppercase font-bold text-slate-450 font-mono">Company Branding Logo</span>
+                <span className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Company Branding Logo</span>
                 
-                <div className="flex flex-col sm:flex-row sm:items-center gap-5 bg-slate-50 border border-dashed border-slate-205 rounded-2xl p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-5 bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-4">
                   {companyForm.logo ? (
                     <div className={`rounded-xl bg-white flex items-center justify-center p-1.5 overflow-hidden shadow-xs flex-shrink-0 ${
                       hasNewLogoToSave ? 'border-2 border-emerald-500 w-[120px] h-[120px]' : 'border border-slate-200 w-20 h-20'
@@ -1363,7 +1363,7 @@ export default function DashboardSettings({
                         onChange={(e) => handleLogoUpload(e, 'company')}
                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                       />
-                      <button type="button" className="px-3.5 py-2 bg-white hover:bg-slate-100 border border-slate-220 rounded-xl text-xs font-bold text-slate-750 flex items-center space-x-1.5 shadow-xs">
+                      <button type="button" className="px-3.5 py-2 bg-white hover:bg-slate-100 border border-slate-220 rounded-xl text-xs font-bold text-slate-700 flex items-center space-x-1.5 shadow-xs">
                         <Upload className="w-3.5 h-3.5" />
                         <span>Upload Custom Logo</span>
                       </button>
@@ -1407,10 +1407,10 @@ export default function DashboardSettings({
               </div>
 
               {/* Visual System Themes toggle slider */}
-              <div className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">System Visual Theme Mode</h4>
-                  <p className="text-[10.5px] text-slate-450 leading-relaxed font-sans mt-0.5">
+                  <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans mt-0.5">
                     Select the fallback visual representation of the admin framework, point-of-sale menus, and operating dashboards.
                   </p>
                 </div>
@@ -1457,7 +1457,7 @@ export default function DashboardSettings({
             <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">💼 Corporate Business Setup</h3>
-                <p className="text-xs text-slate-450 mt-1 font-sans">
+                <p className="text-xs text-slate-500 mt-1 font-sans">
                   Configure your business identity details, branding logos for light/daymode and darkmode, customized physical warehouses, and cashier till payment modes. This setup personalizes the entire Jasper suite, dashboard views, receipts, and invoices.
                 </p>
               </div>
@@ -1523,8 +1523,8 @@ export default function DashboardSettings({
               {/* Daymode & Darkmode Logo uploads split */}
               <div className="border-t border-slate-100 pt-5 space-y-4">
                 <div>
-                  <h4 className="text-xs font-bold uppercase text-slate-750 font-mono tracking-wider">🎨 Custom System Branding Logos</h4>
-                  <p className="text-[10.5px] text-slate-450 mt-0.5 font-sans leading-relaxed">
+                  <h4 className="text-xs font-bold uppercase text-slate-700 font-mono tracking-wider">🎨 Custom System Branding Logos</h4>
+                  <p className="text-[10.5px] text-slate-500 mt-0.5 font-sans leading-relaxed">
                     Upload light and dark logos.
                   </p>
                 </div>
@@ -1561,7 +1561,7 @@ export default function DashboardSettings({
                             onChange={(e) => handleLogoUpload(e, 'business_light')}
                             className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                           />
-                          <button type="button" className="px-3.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-220 rounded-xl text-xs font-bold text-slate-755 flex items-center space-x-1.5 shadow-xs cursor-pointer">
+                          <button type="button" className="px-3.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-220 rounded-xl text-xs font-bold text-slate-700 flex items-center space-x-1.5 shadow-xs cursor-pointer">
                             <Upload className="w-3.5 h-3.5 text-slate-500" />
                             <span>Upload Day Logo</span>
                           </button>
@@ -1611,13 +1611,13 @@ export default function DashboardSettings({
               </div>
 
               {/* POS Display Settings */}
-              <div className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
                     <Sliders className="w-4 h-4 text-slate-500" />
                     <span>POS Settings</span>
                   </h4>
-                  <p className="text-[10.5px] text-slate-450 leading-relaxed font-sans mt-0.5">
+                  <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans mt-0.5">
                     Choose how products appear on the sales screen.
                   </p>
                 </div>
@@ -1639,13 +1639,13 @@ export default function DashboardSettings({
               </div>
 
               {/* Payment modes register */}
-              <div className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
                     <CreditCard className="w-4 h-4 text-slate-500" />
                     <span>Payment Methods</span>
                   </h4>
-                  <p className="text-[10.5px] text-slate-450 leading-relaxed font-sans mt-0.5">
+                  <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans mt-0.5">
                     Add payment methods.
                   </p>
                 </div>
@@ -1661,7 +1661,7 @@ export default function DashboardSettings({
                         <button 
                           type="button" 
                           onClick={() => handleRemovePaymentMode(mode)}
-                          className="hover:text-rose-650 cursor-pointer p-0.5"
+                          className="hover:text-rose-600 cursor-pointer p-0.5"
                           title="Click to remove"
                         >
                           <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
@@ -1695,7 +1695,7 @@ export default function DashboardSettings({
                       <Truck className="w-4 h-4 text-slate-500" />
                       <span>Delivery Payment Methods</span>
                     </h4>
-                    <p className="text-[10.5px] text-slate-450 leading-relaxed font-sans mt-0.5">
+                    <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans mt-0.5">
                       Add delivery payment methods.
                     </p>
                   </div>
@@ -1711,7 +1711,7 @@ export default function DashboardSettings({
                           <button 
                             type="button" 
                             onClick={() => handleRemoveDeliveryPaymentMode(mode)}
-                            className="hover:text-rose-650 cursor-pointer p-0.5"
+                            className="hover:text-rose-600 cursor-pointer p-0.5"
                             title="Click to remove"
                           >
                             <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
@@ -1746,13 +1746,13 @@ export default function DashboardSettings({
               </div>
 
               {/* Stores Register */}
-              <div className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
                     <Store className="w-4 h-4 text-slate-500" />
                     <span>Store Locations</span>
                   </h4>
-                  <p className="text-[10.5px] text-slate-450 leading-relaxed font-sans mt-0.5">
+                  <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans mt-0.5">
                     Register distinct physical bins or storages where bulk cargo or in-shelf products can be allocated.
                   </p>
                 </div>
@@ -1769,7 +1769,7 @@ export default function DashboardSettings({
                         <button 
                           type="button" 
                           onClick={() => handleRemoveStore(store)}
-                          className="hover:text-rose-650 cursor-pointer p-0.5"
+                          className="hover:text-rose-600 cursor-pointer p-0.5"
                           title="De-register store storage bin"
                         >
                           <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
@@ -1806,19 +1806,19 @@ export default function DashboardSettings({
             <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">📦 Product Catalog & Measurements</h3>
-                <p className="text-xs text-slate-450 mt-1 font-sans">
+                <p className="text-xs text-slate-500 mt-1 font-sans">
                   Add categories and units.
                 </p>
               </div>
 
               {/* Product categories */}
-              <div className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
                     <Tag className="w-4 h-4 text-slate-500" />
                     <span>Active Product Categories</span>
                   </h4>
-                  <p className="text-[10.5px] text-slate-450 leading-relaxed font-sans mt-0.5">
+                  <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans mt-0.5">
                     Define tags to organize drugs, foodstuffs, or retail units inside catalog browsers.
                   </p>
                 </div>
@@ -1834,7 +1834,7 @@ export default function DashboardSettings({
                         <button 
                           type="button" 
                           onClick={() => handleRemoveCategory(cat)}
-                          className="hover:text-rose-650 cursor-pointer p-0.5"
+                          className="hover:text-rose-600 cursor-pointer p-0.5"
                           title="Delete category"
                         >
                           <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
@@ -1864,13 +1864,13 @@ export default function DashboardSettings({
               </div>
 
               {/* Product measurement units */}
-              <div className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
                     <Package className="w-4 h-4 text-slate-500" />
                     <span>Units of Measure</span>
                   </h4>
-                  <p className="text-[10.5px] text-slate-450 leading-relaxed font-sans mt-0.5">
+                  <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans mt-0.5">
                     Define authorized weighing or counting metrics by which checkout lines and stock takes operate.
                   </p>
                 </div>
@@ -1886,7 +1886,7 @@ export default function DashboardSettings({
                         <button 
                           type="button" 
                           onClick={() => handleRemoveUnit(unit)}
-                          className="hover:text-rose-650 cursor-pointer p-0.5 ml-1"
+                          className="hover:text-rose-600 cursor-pointer p-0.5 ml-1"
                           title="Delete unit measurement"
                         >
                           <Trash2 className="w-2.5 h-2.5 text-slate-400 hover:text-rose-600" />
@@ -1923,16 +1923,16 @@ export default function DashboardSettings({
             <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm font-sans text-slate-800">
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🎨 Invoice Template & Brand Customization</h3>
-                <p className="text-xs text-slate-450 mt-1 font-sans">
+                <p className="text-xs text-slate-500 mt-1 font-sans">
                   Customize colors, compliance credentials, bank details, and terms displayed on Quotes and Quotes to align with your brand guidelines.
                 </p>
               </div>
 
               {/* Brand color selector */}
-              <div className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">1. Brand Highlights Color</h4>
-                  <p className="text-[11px] text-slate-450 leading-relaxed font-sans mt-0.5">
+                  <p className="text-[11px] text-slate-500 leading-relaxed font-sans mt-0.5">
                     Select the dominant theme color that will styled the borders, table headers, and visual emphasis of your printed documents.
                   </p>
                 </div>
@@ -1987,7 +1987,7 @@ export default function DashboardSettings({
               </div>
 
               {/* Tax & Banking Compliance Credentials */}
-              <div className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                 <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">2. Bank Details & Compliance Credentials</h4>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
@@ -2049,7 +2049,7 @@ export default function DashboardSettings({
               </div>
 
               {/* VAT Default Setting */}
-              <div className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-3">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
                 <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">3. VAT Configuration Options</h4>
                 <div className="flex items-start sm:items-center space-x-3 text-xs">
                   <input
@@ -2066,10 +2066,10 @@ export default function DashboardSettings({
               </div>
 
               {/* Terms & Conditions List */}
-              <div className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">4. Default Legal Terms & Conditions</h4>
-                  <p className="text-[11px] text-slate-450 mt-0.5">
+                  <p className="text-[11px] text-slate-500 mt-0.5">
                     Define policies, warrant declarations or client legal rules printed on the bottom of price quotes & price quote invoices.
                   </p>
                 </div>
@@ -2141,13 +2141,13 @@ export default function DashboardSettings({
             <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">👥 HRM Permanent Staff Registry</h3>
-                <p className="text-xs text-slate-450 mt-1 font-sans">
+                <p className="text-xs text-slate-500 mt-1 font-sans">
                   Register {activeTenant.businessType === 'restaurant' ? 'waiters' : 'sellers'}, permanent shop drivers, cashiers, and managers. Set their name, contact phone, login credentials, and default salary tiers.
                 </p>
               </div>
 
               {/* Staff Registry Form */}
-              <form onSubmit={handleRegisterStaff} className="bg-slate-50 border border-slate-205 rounded-2xl p-4 sm:p-5 space-y-4">
+              <form onSubmit={handleRegisterStaff} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4">
                 <h4 className="text-xs font-extrabold uppercase text-slate-700 font-mono">Add New Staff</h4>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs font-sans">
@@ -2324,7 +2324,7 @@ export default function DashboardSettings({
                             </td>
                             <td className="p-3 font-mono">
                               <div className="flex flex-col gap-1">
-                                <span className="bg-slate-100 px-2 py-0.5 rounded-md border text-slate-650 tracking-wide text-[11px] w-max">
+                                <span className="bg-slate-100 px-2 py-0.5 rounded-md border text-slate-600 tracking-wide text-[11px] w-max">
                                   Username: {staff.phone}
                                 </span>
                                 <span className="text-[10px] font-black uppercase text-emerald-700">
@@ -2594,7 +2594,7 @@ export default function DashboardSettings({
                   
                   {/* Left Column: Roles list and Addition box */}
                   <div className="xl:col-span-1 space-y-4">
-                    <div className="space-y-2 border border-slate-150 rounded-2xl p-4 bg-slate-50/50">
+                    <div className="space-y-2 border border-slate-200 rounded-2xl p-4 bg-slate-50/50">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Created Staff Roles</span>
                       
                       <div className="flex xl:block gap-2 overflow-x-auto xl:overflow-y-auto xl:max-h-[320px] xl:space-y-1.5 xl:pr-1 pb-1">
@@ -2647,7 +2647,7 @@ export default function DashboardSettings({
 
                     {/* Create dynamic role input form */}
                     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-                      <span className="block text-[10px] font-mono font-bold uppercase tracking-widest text-slate-450">Create Private Role</span>
+                      <span className="block text-[10px] font-mono font-bold uppercase tracking-widest text-slate-500">Create Private Role</span>
                       <div className="space-y-2 text-xs">
                         <input
                           type="text"
@@ -2700,7 +2700,7 @@ export default function DashboardSettings({
                         )}
                       </div>
 
-                      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-150">
+                      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-200">
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-mono font-black text-slate-500 uppercase tracking-widest">

@@ -146,7 +146,7 @@ export default function DashboardSuppliers({
             }}
             className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center space-x-1.5 ${
               activePartnerTab === 'suppliers'
-                ? 'bg-white text-slate-805 shadow-xs'
+                ? 'bg-white text-slate-800 shadow-xs'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -339,7 +339,7 @@ export default function DashboardSuppliers({
                     </div>
 
                     {/* Financial volumes quick metrics */}
-                    <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-150 text-[10px] font-mono leading-tight">
+                    <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-[10px] font-mono leading-tight">
                       <div>
                         <span className="text-slate-400 block uppercase">Total Procured</span>
                         <span className="font-black text-slate-800 text-[11px]">{currency}{Math.round(totalProcuredSum).toLocaleString()}</span>
@@ -360,7 +360,7 @@ export default function DashboardSuppliers({
                       </div>
                       <div className="flex items-center space-x-2">
                         <Mail className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="text-[11px] text-slate-650 hover:underline cursor-pointer">{sup.email}</span>
+                        <span className="text-[11px] text-slate-600 hover:underline cursor-pointer">{sup.email}</span>
                       </div>
                     </div>
 
@@ -389,7 +389,7 @@ export default function DashboardSuppliers({
             })}
 
             {filteredSuppliers.length === 0 && (
-              <div className="col-span-full bg-white border border-slate-200 p-12 text-center rounded-3xl space-y-2 text-slate-450 text-xs">
+              <div className="col-span-full bg-white border border-slate-200 p-12 text-center rounded-3xl space-y-2 text-slate-500 text-xs">
                 <Truck className="w-8 h-8 mx-auto text-slate-300" />
                 <p className="font-bold">No suppliers registered in this category</p>
               </div>
@@ -410,7 +410,7 @@ export default function DashboardSuppliers({
               <div className="bg-white border-2 border-slate-200 rounded-3xl p-6 space-y-6 shadow-md animate-fade-in relative overflow-hidden" id="supplier-expanded-procurement-audit">
                 
                 {/* Header overview */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-150 pb-5">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5">
                   <div className="space-y-1">
                     <span className="text-[9.5px] font-black font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded uppercase">B2B INVOICE ACCOUNT AUDIT</span>
                     <h4 className="text-base font-black text-slate-800">{matchedSup.name}</h4>
@@ -420,7 +420,7 @@ export default function DashboardSuppliers({
                   {/* Financial stats */}
                   <div className="flex items-center gap-3">
                     <div className="bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-center min-w-[120px]">
-                      <span className="block text-[8.5px] font-bold text-slate-450 uppercase font-mono">Total Procured</span>
+                      <span className="block text-[8.5px] font-bold text-slate-500 uppercase font-mono">Total Procured</span>
                       <span className="text-xs font-black text-slate-800 font-mono">{currency}{Math.round(totalProc).toLocaleString()}</span>
                     </div>
                     <div className="bg-emerald-50/20 border border-emerald-100 px-4 py-2 rounded-xl text-center min-w-[120px]">
@@ -531,7 +531,7 @@ export default function DashboardSuppliers({
                                     <span>Partial delivered</span>
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center space-x-1 bg-slate-50 text-slate-600 border border-slate-150 text-[9.5px] py-0.5 px-2 rounded-md font-bold animate-pulse">
+                                  <span className="inline-flex items-center space-x-1 bg-slate-50 text-slate-600 border border-slate-200 text-[9.5px] py-0.5 px-2 rounded-md font-bold animate-pulse">
                                     <AlertCircle className="w-3.5 h-3.5 text-slate-400" />
                                     <span>Pending delivery</span>
                                   </span>
@@ -820,12 +820,12 @@ Corporate Performance Rating,${otdRate >= 93 ? 'Five Stars - Elite Category' : o
                       <h5 className="font-extrabold text-slate-800 font-sans text-base group-hover:text-emerald-700 transition-colors">
                         {cust.name}
                       </h5>
-                      <span className="text-slate-450 text-xs font-mono font-bold">{cust.phone}</span>
+                      <span className="text-slate-500 text-xs font-mono font-bold">{cust.phone}</span>
                     </div>
 
                     {/* Contribution ratio */}
-                    <div className="bg-slate-50 border border-slate-150 p-3 rounded-xl flex items-center justify-between text-xs font-mono">
-                      <span className="text-slate-450 uppercase text-[10px] font-bold block">Contribution sum</span>
+                    <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl flex items-center justify-between text-xs font-mono">
+                      <span className="text-slate-500 uppercase text-[10px] font-bold block">Contribution sum</span>
                       <span className="text-[13px] font-black text-slate-800">{currency}{Math.round(totalVal).toLocaleString()}</span>
                     </div>
 
@@ -835,7 +835,7 @@ Corporate Performance Rating,${otdRate >= 93 ? 'Five Stars - Elite Category' : o
                       <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
                         {cust.sales.map(s => {
                           return (
-                            <div key={s.id} className="p-2.5 bg-slate-50/50 hover:bg-slate-50 rounded-xl border border-slate-150 flex items-center justify-between text-[11px] font-mono gap-4">
+                            <div key={s.id} className="p-2.5 bg-slate-50/50 hover:bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-[11px] font-mono gap-4">
                               <div className="space-y-0.5">
                                 <span className="font-bold text-slate-800 hover:underline cursor-pointer block truncate max-w-[120px]">{s.id}</span>
                                 <span className="text-[9.5px] text-slate-400 block">{new Date(s.timestamp).toLocaleDateString()}</span>
@@ -859,7 +859,7 @@ Corporate Performance Rating,${otdRate >= 93 ? 'Five Stars - Elite Category' : o
             })}
 
             {customerList.length === 0 && (
-              <div className="col-span-full bg-white border border-slate-200 p-12 text-center rounded-3xl space-y-2 text-slate-450 text-xs">
+              <div className="col-span-full bg-white border border-slate-200 p-12 text-center rounded-3xl space-y-2 text-slate-500 text-xs">
                 <Users className="w-8 h-8 mx-auto text-slate-300" />
                 <p className="font-bold">No {activeTenant.businessType === 'pharmacy' ? 'patients' : 'retail customers'} registered or tracked in branch</p>
                 <p className="text-slate-400 text-[10.5.px] max-w-xs mx-auto">{activeTenant.businessType === 'pharmacy' ? 'Patients are automatically added dynamically when their Name or Phone Number is captured at the clinical Rx POS terminal.' : 'Customers are automatically added dynamically when their Name or Phone Number is captured at the Cashier POS registrar terminal.'}</p>

@@ -1541,7 +1541,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 <>
                   <form onSubmit={handleLoginAffiliate} className="space-y-4">
                     <div className="space-y-1.5 text-left">
-                      <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
+                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
                         WhatsApp / Phone Number
                       </label>
                       <input
@@ -1555,7 +1555,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     </div>
 
                     <div className="space-y-1.5 text-left">
-                      <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
+                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
                         Account Password
                       </label>
                       <div className="relative">
@@ -1623,7 +1623,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                   <div className="space-y-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
+                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
                         Full Name
                       </label>
                       <input
@@ -1637,7 +1637,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
+                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
                         Phone Number
                       </label>
                       <input
@@ -1663,7 +1663,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 <form onSubmit={handleRegisterAffiliate} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
+                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
                         First Name (as in National ID)
                       </label>
                       <input
@@ -1676,7 +1676,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
+                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
                         Second Name (as in National ID)
                       </label>
                       <input
@@ -1692,7 +1692,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
+                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
                         Payout Wallet Phone
                       </label>
                       <input
@@ -1706,7 +1706,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
+                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
                         Payout Provider Network
                       </label>
                       <select
@@ -1739,7 +1739,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     </div>
 
                     <div className="space-y-1.5 text-left">
-                      <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
+                      <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
                         TIN Number (Taxpayer ID)
                       </label>
                       <input
@@ -1753,7 +1753,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   </div>
 
                   <div className="space-y-1.5 text-left">
-                    <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider font-extrabold text-teal-400">
+                    <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider font-extrabold text-teal-400">
                       {t['agent code'] || "Agent Code"}
                     </label>
                     <input
@@ -1766,7 +1766,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   </div>
 
                   <div className="space-y-1.5 relative text-left">
-                    <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider">
+                    <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
                       Secure Password
                     </label>
                     <div className="relative">
@@ -1793,7 +1793,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   </div>
 
                   <div className="space-y-2 text-left">
-                    <label className="text-[10px] font-mono uppercase text-slate-450 tracking-wider text-amber-500">
+                    <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider text-amber-500">
                       Jasper Partnership Terms & Conditions
                     </label>
                     <button
@@ -2145,7 +2145,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                     <th className="p-3 text-center">Action</th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-905 text-[11px] font-sans text-slate-350">
+                                <tbody className="divide-y divide-slate-905 text-[11px] font-sans text-slate-400">
                                   {managedKids.map((kid: any) => {
                                     const kidOversightEarn = Math.round(
                                       (kid.revenueGenerated || 0) * 0.05,
@@ -2209,7 +2209,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           </h3>
                         </div>
 
-                        <div className="p-4 bg-slate-950 text-slate-350 text-[11px] rounded-xl border border-slate-850/60 leading-relaxed font-sans space-y-2">
+                        <div className="p-4 bg-slate-950 text-slate-400 text-[11px] rounded-xl border border-slate-850/60 leading-relaxed font-sans space-y-2">
                           <span className="font-bold text-teal-400 uppercase font-mono block text-[9px]">
                             Langa Recruiter Pitch:
                           </span>
@@ -2290,7 +2290,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                     </span>
                                   </div>
 
-                                  <div className="bg-slate-905 p-2.5 rounded border border-slate-850 text-xs italic text-slate-350 font-mono leading-relaxed bg-slate-900/60">
+                                  <div className="bg-slate-905 p-2.5 rounded border border-slate-850 text-xs italic text-slate-400 font-mono leading-relaxed bg-slate-900/60">
                                     "{claim.message}"
                                   </div>
 
@@ -2745,7 +2745,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           {sublineMessagesHistory.map((m) => (
                             <div
                               key={m.id}
-                              className="bg-slate-950 p-3 rounded-xl border border-slate-850 font-mono text-xs text-left text-slate-350 space-y-1"
+                              className="bg-slate-950 p-3 rounded-xl border border-slate-850 font-mono text-xs text-left text-slate-400 space-y-1"
                             >
                               <div className="flex justify-between text-[10px] text-slate-500">
                                 <span>
@@ -3200,7 +3200,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                               className={`px-3 py-1.5 rounded-lg text-[10.5px] font-mono font-bold uppercase cursor-pointer transition-all ${
                                 videoHostMutedAll
                                   ? "bg-amber-500/20 text-amber-400 border border-amber-550"
-                                  : "bg-slate-900 hover:bg-slate-850 text-slate-350 border border-slate-800"
+                                  : "bg-slate-900 hover:bg-slate-850 text-slate-400 border border-slate-800"
                               }`}
                             >
                               {videoHostMutedAll
@@ -3215,7 +3215,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                   "🖥️ Screen transfer triggered on signal channel... Ready to share presentation.",
                                 )
                               }
-                              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-slate-350 rounded-lg text-[10.5px] font-mono font-bold uppercase cursor-pointer border border-slate-800 flex items-center gap-1"
+                              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-slate-400 rounded-lg text-[10.5px] font-mono font-bold uppercase cursor-pointer border border-slate-800 flex items-center gap-1"
                             >
                               <Tv className="w-3 h-3 text-teal-400" />
                               <span>Present Screen</span>
@@ -3254,7 +3254,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                               {conferenceMembers.map((m) => (
                                 <div
                                   key={m.id}
-                                  className="bg-slate-950 p-2.5 rounded-lg border border-slate-850 flex items-center justify-between text-xs font-mono text-slate-350"
+                                  className="bg-slate-950 p-2.5 rounded-lg border border-slate-850 flex items-center justify-between text-xs font-mono text-slate-400"
                                 >
                                   <div className="flex items-center space-x-2">
                                     <span className="text-base">
@@ -3333,7 +3333,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                           );
                                         }
                                       }}
-                                      className="p-1 bg-slate-900 border border-slate-800 text-slate-450 hover:text-rose-400 hover:border-slate-700 rounded transition-colors cursor-pointer"
+                                      className="p-1 bg-slate-900 border border-slate-800 text-slate-500 hover:text-rose-400 hover:border-slate-700 rounded transition-colors cursor-pointer"
                                       title="Kick Participant"
                                     >
                                       ✕
@@ -3355,7 +3355,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </div>
                     ) : (
                       <div className="p-12 text-center text-xs text-slate-500 bg-slate-950 border border-slate-850 rounded-2xl italic flex flex-col items-center justify-center space-y-4">
-                        <Video className="w-12 h-12 text-slate-750 shrink-0" />
+                        <Video className="w-12 h-12 text-slate-700 shrink-0" />
                         <div>
                           <p className="font-extrabold text-white text-xs uppercase font-mono mb-1">
                             Affiliate Conference Room is Closed
@@ -3429,7 +3429,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   >
                     <div className="grid grid-cols-2 gap-3.5">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           Partner Full Name
                         </label>
                         <input
@@ -3442,7 +3442,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           Promo Code Coupon (For Days Trial)
                         </label>
                         <input
@@ -3458,7 +3458,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                     <div className="grid grid-cols-2 gap-3.5">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           Email address
                         </label>
                         <input
@@ -3471,7 +3471,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           Wallet Phone Number
                         </label>
                         <input
@@ -3487,7 +3487,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                     <div className="grid grid-cols-2 gap-3.5">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           Payout Wallet Method
                         </label>
                         <select
@@ -3507,7 +3507,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           Default User Password
                         </label>
                         <input
@@ -3523,7 +3523,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                     <div className="grid grid-cols-2 gap-3.5">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           NIDA ID Registration (TRA compliance)
                         </label>
                         <input
@@ -3536,7 +3536,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           TIN Certificate Serial (TRA compliance)
                         </label>
                         <input
@@ -3550,7 +3550,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                      <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                         Quota Progress Target referrals
                       </label>
                       <input
@@ -3567,7 +3567,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       <button
                         type="button"
                         onClick={() => setShowAddAffiliateModal(false)}
-                        className="px-4 py-2 bg-slate-950 hover:bg-slate-850 text-slate-450 rounded-xl font-bold uppercase transition-colors cursor-pointer border border-slate-800"
+                        className="px-4 py-2 bg-slate-950 hover:bg-slate-850 text-slate-500 rounded-xl font-bold uppercase transition-colors cursor-pointer border border-slate-800"
                       >
                         Cancel
                       </button>
@@ -3609,7 +3609,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   >
                     <div className="grid grid-cols-2 gap-3.5">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           Partner Name
                         </label>
                         <input
@@ -3621,7 +3621,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           Promo Coupon Code
                         </label>
                         <input
@@ -3636,7 +3636,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                     <div className="grid grid-cols-2 gap-3.5">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           Email address
                         </label>
                         <input
@@ -3648,7 +3648,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           Wallet Phone Number
                         </label>
                         <input
@@ -3663,7 +3663,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                     <div className="grid grid-cols-2 gap-3.5">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           Payout Wallet Method
                         </label>
                         <select
@@ -3681,7 +3681,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           Quota Progress Target referrals
                         </label>
                         <input
@@ -3697,7 +3697,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                     <div className="grid grid-cols-2 gap-3.5">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           NIDA Number
                         </label>
                         <input
@@ -3708,7 +3708,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                        <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                           TIN Number
                         </label>
                         <input
@@ -3758,7 +3758,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         setShowSendMessageModal(false);
                         setSelectedMessageAffiliate(null);
                       }}
-                      className="text-slate-450 hover:text-white text-lg font-bold border-none bg-transparent cursor-pointer"
+                      className="text-slate-500 hover:text-white text-lg font-bold border-none bg-transparent cursor-pointer"
                     >
                       ✕
                     </button>
@@ -3777,7 +3777,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     className="space-y-3.5 text-xs"
                   >
                     <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase font-mono text-slate-450 block font-bold">
+                      <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
                         Direct Message Text Comments
                       </label>
                       <textarea
@@ -4044,7 +4044,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   {/* Item 1: Custom referral URL */}
                   <div className="space-y-1">
                     <div className="flex justify-between items-center text-[10px] font-mono">
-                      <span className="text-slate-450 uppercase">
+                      <span className="text-slate-500 uppercase">
                         Your Custom Tracking Link:
                       </span>
                       <button
@@ -4072,7 +4072,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   {/* Item 2: Promo Code coupon copy */}
                   <div className="space-y-1">
                     <div className="flex justify-between items-center text-[10px] font-mono">
-                      <span className="text-slate-450 uppercase">
+                      <span className="text-slate-500 uppercase">
                         Your Signup Promo Code Coupon:
                       </span>
                       <div className="flex items-center space-x-3">
@@ -4273,7 +4273,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                               </p>
                             </div>
                             <div className="bg-emerald-500/5 p-1 rounded border border-emerald-500/25">
-                              <span className="text-[7px] text-slate-455 text-slate-450 block">
+                              <span className="text-[7px] text-slate-455 text-slate-500 block">
                                 CODE:
                               </span>
                               <span className="text-[9.5px] font-black text-emerald-300 font-mono tracking-tight uppercase truncate block">
@@ -4339,7 +4339,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             </div>
                             <div className="space-y-1">
                               <div className="bg-emerald-500/5 p-2 rounded border border-emerald-500/30 text-center">
-                                <span className="text-[7px] text-slate-450 block uppercase font-mono">
+                                <span className="text-[7px] text-slate-500 block uppercase font-mono">
                                   Use Promo Code Coupon:
                                 </span>
                                 <span className="text-xs font-black text-emerald-300 font-mono tracking-widest block uppercase">
@@ -4554,7 +4554,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   <h3 className="text-sm uppercase font-mono tracking-wider font-extrabold text-white">
                     Referred Subscriptions Ledgers
                   </h3>
-                  <span className="px-2 py-0.5 bg-slate-950 border border-slate-800 rounded text-[9px] font-mono font-bold uppercase text-slate-450">
+                  <span className="px-2 py-0.5 bg-slate-950 border border-slate-800 rounded text-[9px] font-mono font-bold uppercase text-slate-500">
                     Real-Time Data
                   </span>
                 </div>
@@ -5029,7 +5029,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 {/* Table list */}
                 <div className="border border-slate-850 rounded-2xl overflow-hidden bg-slate-950">
                   <table className="w-full text-left text-xs font-sans">
-                    <thead className="bg-slate-900 border-b border-slate-850 text-slate-450 text-[9.5px] font-mono uppercase tracking-wider">
+                    <thead className="bg-slate-900 border-b border-slate-850 text-slate-500 text-[9.5px] font-mono uppercase tracking-wider">
                       <tr>
                         <th className="p-4">Direct Marketer Name</th>
                         <th className="p-4">Payout Contact (Phone)</th>
@@ -5133,7 +5133,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
               >
                 {renderTermsContent(lang)}
 
-                <div className="pt-4 border-t border-slate-800 text-[10px] text-slate-450 italic text-center">
+                <div className="pt-4 border-t border-slate-800 text-[10px] text-slate-500 italic text-center">
                   {getTermsScrollMsg(lang)}
                 </div>
               </div>

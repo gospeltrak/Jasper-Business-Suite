@@ -197,6 +197,18 @@ export default function App() {
       setRedirectMessage('Please log in to continue.');
       window.history.replaceState({}, '', '/login');
       setCurrentPath('/login');
+      return;
+    }
+    // Redirect affiliate/partner away from dashboard to their own portal
+    if (isDashboardRoute(currentPath) && user) {
+      if (user.role === 'Partner' || user.portal_role === 'partner') {
+        setCurrentPath('/partner');
+        return;
+      }
+      if (user.role === 'Affiliate' || user.portal_role === 'affiliate') {
+        setCurrentPath('/affiliate');
+        return;
+      }
     }
   }, [currentPath, user]);
 
@@ -209,7 +221,16 @@ export default function App() {
       splashShownRef.current = true;
       setShowSplash(true);
     }
-    navigateTo('/dashboard');
+    // Route based on role — Partner and Affiliate get their own portals
+    const role = authenticatedUser.role;
+    const portalRole = authenticatedUser.portal_role;
+    if (role === 'Partner' || portalRole === 'partner') {
+      navigateTo('/partner');
+    } else if (role === 'Affiliate' || portalRole === 'affiliate') {
+      navigateTo('/affiliate');
+    } else {
+      navigateTo('/dashboard');
+    }
   };
 
   useEffect(() => {

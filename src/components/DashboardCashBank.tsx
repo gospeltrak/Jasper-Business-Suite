@@ -1532,7 +1532,7 @@ export default function DashboardCashBank({
                 </div>
 
                 {/* Secure Receipts & Proof Upload Panel */}
-                <div className="space-y-3 pt-2 pb-1 border-t border-b border-dashed border-slate-150">
+                <div className="space-y-3 pt-2 pb-1 border-t border-b border-dashed border-slate-200">
                   {showRuleWarning && (
                     <div className="bg-rose-50/70 border border-rose-150 rounded-2xl p-3 text-[11px] text-rose-800 font-semibold space-y-1 animate-fadeIn">
                       <span className="block font-extrabold text-rose-900 uppercase tracking-wider font-mono">⚠️ STRICT SECURITY RULE:</span>
@@ -1679,7 +1679,7 @@ export default function DashboardCashBank({
                       3
                     </div>
                     <div className="space-y-0.5 text-xs text-slate-600">
-                      <strong className="text-rose-750 font-bold block">Upload receipt or proof</strong>
+                      <strong className="text-rose-700 font-bold block">Upload receipt or proof</strong>
                       <p className="leading-relaxed text-rose-800 bg-rose-50/50 p-2.5 rounded-xl border border-rose-100">
                         Attach bank slip or mobile screenshot before transfer.
                       </p>
@@ -1769,10 +1769,10 @@ export default function DashboardCashBank({
                 </div>
 
                 {/* Date Filters statistics grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mt-6 sm:mt-8 pt-6 border-t border-slate-150">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mt-6 sm:mt-8 pt-6 border-t border-slate-200">
                   <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-200/60">
                     <span className="text-[10px] font-bold text-slate-400 block uppercase font-mono tracking-wide">Selected Date preset</span>
-                    <span className="text-xs font-bold text-slate-750 block mt-1 select-none">
+                    <span className="text-xs font-bold text-slate-700 block mt-1 select-none">
                       {datePreset === 'today' ? 'Today Only' : 
                        datePreset === '1week' ? 'Past 7 Days' : 
                        datePreset === '1month' ? 'Past 30 Days' : 
@@ -1796,7 +1796,7 @@ export default function DashboardCashBank({
                   <div className={`p-4 rounded-2xl border ${periodNet >= 0 ? 'bg-emerald-50/15 border-emerald-150 text-emerald-800' : 'bg-rose-50/15 border-rose-150 text-rose-800'}`}>
                     <span className="text-[10px] font-bold block uppercase font-mono tracking-wide">Net Income</span>
                     <span className="text-lg font-black block mt-0.5 font-sans">{periodNet >= 0 ? '+' : ''}{formatCurrency(periodNet)}</span>
-                    <span className="text-[9.5px] font-mono block mt-0.5 text-slate-450">Sum outcome inside date range</span>
+                    <span className="text-[9.5px] font-mono block mt-0.5 text-slate-500">Sum outcome inside date range</span>
                   </div>
                 </div>
               </div>
@@ -1886,10 +1886,10 @@ export default function DashboardCashBank({
         </div>
 
         {/* Audit Table List rendering */}
-        <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-150">
+        <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200">
           <table className="w-full text-left border-collapse text-xs font-sans">
             <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-150 font-bold font-mono text-slate-500 text-[10px] uppercase select-none">
+              <tr className="bg-slate-50/80 border-b border-slate-200 font-bold font-mono text-slate-500 text-[10px] uppercase select-none">
                 <th className="p-3 pl-4">Date</th>
                 <th className="p-3">Ref #</th>
                 <th className="p-3">Account</th>

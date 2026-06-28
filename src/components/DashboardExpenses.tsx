@@ -708,7 +708,7 @@ export default function DashboardExpenses({
                   <th className="p-3 text-center">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-105 dark:divide-slate-800 text-slate-650 dark:text-slate-400">
+              <tbody className="divide-y divide-slate-105 dark:divide-slate-800 text-slate-600 dark:text-slate-400">
                 {filteredExpenses.map(e => (
                   <tr key={e.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/10 transition-colors group">
                     <td className="p-3">
@@ -787,7 +787,7 @@ export default function DashboardExpenses({
                 <div key={cat.name} className="flex flex-col space-y-1.5 p-3.5 bg-slate-55/40 dark:bg-slate-950/40 rounded-2xl border border-slate-100 dark:border-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-810/30 transition-all">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <span className="text-xs font-mono font-bold text-slate-350">{String(i + 1).padStart(2, '0')}</span>
+                      <span className="text-xs font-mono font-bold text-slate-400">{String(i + 1).padStart(2, '0')}</span>
                       <h4 className="text-xs font-bold text-slate-900 dark:text-white">{cat.name}</h4>
                       <span className="text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded-sm font-mono">
                         {cat.count} files
@@ -801,7 +801,7 @@ export default function DashboardExpenses({
                       <button
                         type="button"
                         onClick={() => handleDeleteCategory(cat.name)}
-                        className="text-slate-350 hover:text-red-500 transition-colors p-1 rounded-md"
+                        className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-md"
                         title={`Delete classifying code ${cat.name}`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -829,7 +829,7 @@ export default function DashboardExpenses({
 
           {/* Form to Register Custom classification */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-xs shrink-0 self-start">
-            <h3 className="font-extrabold text-sm text-slate-900 dark:text-white pb-3 border-b border-slate-150 dark:border-slate-800 flex items-center gap-1.5">
+            <h3 className="font-extrabold text-sm text-slate-900 dark:text-white pb-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
               <FolderKanban className="w-4 h-4 text-emerald-500" />
               <span>Register New Category</span>
             </h3>
@@ -847,7 +847,7 @@ export default function DashboardExpenses({
                   }}
                   className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 dark:text-white"
                 />
-                <p className="text-[10px] text-slate-450 leading-relaxed">
+                <p className="text-[10px] text-slate-500 leading-relaxed">
                   Adding a custom classification class populates the categories selector immediately when booking expenses.
                 </p>
               </div>
@@ -884,7 +884,7 @@ export default function DashboardExpenses({
         <div className="max-w-2xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-md overflow-hidden relative">
           
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center space-x-2.5">
-            <div className="p-2.5 bg-emerald-50 text-emerald-650 rounded-xl">
+            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
               <Receipt className="w-5 h-5" />
             </div>
             <div className="text-left">
@@ -955,7 +955,7 @@ export default function DashboardExpenses({
                     placeholder="e.g. 15000"
                     value={formAmount}
                     onChange={(e) => setFormAmount(e.target.value !== '' ? Number(e.target.value) : '')}
-                    className="w-full pl-12 p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500  outline-none text-slate-905 dark:text-white font-black"
+                    className="w-full pl-12 p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500  outline-none text-slate-900 dark:text-white font-black"
                     required
                   />
                 </div>
@@ -1047,7 +1047,7 @@ export default function DashboardExpenses({
 
             {/* Success and Error Indicators */}
             {formError && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/25 text-red-650 dark:text-red-400 border border-red-200/50 rounded-xl flex items-center space-x-2">
+              <div className="p-3 bg-red-50 dark:bg-red-950/25 text-red-600 dark:text-red-400 border border-red-200/50 rounded-xl flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span className="font-semibold text-[11px] leading-tight">{formError}</span>
               </div>

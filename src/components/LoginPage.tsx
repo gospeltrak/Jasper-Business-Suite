@@ -1296,7 +1296,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   };
 
   return (
-    <div id="login-container" className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-850 dark:text-slate-100 font-sans flex flex-col justify-start py-12 px-4 sm:px-6 lg:px-8 relative selection:bg-emerald-100 selection:text-emerald-950 transition-colors duration-300">
+    <div id="login-container" className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col justify-start py-12 px-4 sm:px-6 lg:px-8 relative selection:bg-emerald-100 selection:text-emerald-950 transition-colors duration-300">
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden font-sans">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-gradient-to-br from-emerald-200/40 to-teal-200/30 rounded-full blur-[110px]" />
       </div>
@@ -1326,6 +1326,25 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         </div>
 
         {/* Warning or Success outputs */}
+        {/* Affiliate / Partner portal links — only shown on business login page */}
+        {!isSaasAdminPortal && (
+          <div className="flex items-center justify-center gap-3 text-[10px]">
+            <span className="text-slate-400">Are you an</span>
+            <button
+              type="button"
+              onClick={() => onNavigate('/affiliate')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-100 transition-colors cursor-pointer">
+              Affiliate? Login here →
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('/partner')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold border border-emerald-100 transition-colors cursor-pointer">
+              Partner? Login here →
+            </button>
+          </div>
+        )}
+
         {(successMessage || redirectMessage || error) && (
           <div className={`p-4 rounded-2xl border flex items-start space-x-3 text-xs font-mono animate-fade-in ${
             successMessage 
@@ -1744,7 +1763,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 	                    value={regEmail}
 	                    placeholder="e.g. +255 712 345 678"
 	                    onChange={(e) => setRegEmail(e.target.value)}
-	                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-sans"
+	                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none font-sans"
 	                  />
                 </div>
                 <div className="space-y-1.5">
@@ -1755,7 +1774,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     value={regPassword}
                     placeholder="••••••••"
                     onChange={(e) => setRegPassword(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-mono"
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none font-mono"
                   />
                 </div>
               </div>
@@ -1769,7 +1788,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     value={regSecurityQuestion}
                     placeholder="e.g. What is your first shop name?"
                     onChange={(e) => setRegSecurityQuestion(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-sans"
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none font-sans"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -1780,7 +1799,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     value={regSecurityAnswer}
                     placeholder="Answer you will remember"
                     onChange={(e) => setRegSecurityAnswer(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-805 outline-none font-sans"
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none font-sans"
                   />
                 </div>
               </div>
@@ -1888,7 +1907,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         <div className="text-center font-sans">
           <button
             onClick={() => onNavigate('/')}
-            className="text-xs text-slate-400 hover:text-emerald-650 font-bold transition-all bg-transparent border-none cursor-pointer"
+            className="text-xs text-slate-400 hover:text-emerald-600 font-bold transition-all bg-transparent border-none cursor-pointer"
           >
             ← Back to Jasper Landing Hub
           </button>
@@ -1902,7 +1921,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden relative">
             
             {/* Modal Header */}
-            <div className="px-6 py-5 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
+            <div className="px-6 py-5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
                 <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                   <path fill="#EA4335" d="M12.24 10.285V14.4h6.887c-.648 2.42-2.519 4.114-5.137 4.114-3.467 0-6.277-2.81-6.277-6.277s2.81-6.277 6.277-6.277c1.551 0 2.966.565 4.062 1.49l3.056-3.057C19.167 2.147 15.932 1 12.24 1 5.48 1 0 6.48 0 13.22c0 6.74 5.48 12.22 12.24 12.22 6.41 0 11.536-4.595 11.536-11.39 0-.693-.06-1.344-.173-1.956H12.24z"/>
@@ -1933,7 +1952,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   <button
                     type="button"
                     onClick={() => handleSelectGoogleAccount('gospeltrak@gmail.com', 'Tunde Alao')}
-                    className="w-full p-4 hover:bg-slate-50 border border-slate-150 hover:border-emerald-300 rounded-2xl text-left flex items-center justify-between transition-all cursor-pointer group"
+                    className="w-full p-4 hover:bg-slate-50 border border-slate-200 hover:border-emerald-300 rounded-2xl text-left flex items-center justify-between transition-all cursor-pointer group"
                   >
                     <div className="flex items-center space-x-3.5">
                       <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-sm tracking-wide shadow-inner">
@@ -1953,7 +1972,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   <button
                     type="button"
                     onClick={() => handleSelectGoogleAccount('saas.admin@jasper.com', 'Sarah Jasper')}
-                    className="w-full p-4 hover:bg-slate-50 border border-slate-150 hover:border-emerald-300 rounded-2xl text-left flex items-center justify-between transition-all cursor-pointer group"
+                    className="w-full p-4 hover:bg-slate-50 border border-slate-200 hover:border-emerald-300 rounded-2xl text-left flex items-center justify-between transition-all cursor-pointer group"
                   >
                     <div className="flex items-center space-x-3.5">
                       <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-sm tracking-wide shadow-inner">
@@ -1987,7 +2006,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                           placeholder="e.g. dynamic.merchant@gmail.com"
                           value={customGoogleEmailInput}
                           onChange={(e) => setCustomGoogleEmailInput(e.target.value)}
-                          className="flex-1 bg-white border border-slate-150 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none font-sans"
+                          className="flex-1 bg-white border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none font-sans"
                         />
                         <button
                           type="button"
@@ -2090,7 +2109,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                       required
                       value={googleCity}
                       onChange={(e) => setGoogleCity(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-2.5 py-2 text-xs text-slate-850 outline-none font-sans"
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-2.5 py-2 text-xs text-slate-800 outline-none font-sans"
                     />
                   </div>
                   <div className="space-y-1.5 md:col-span-1">
@@ -2101,7 +2120,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                       placeholder="e.g. +234 81 2345 6789"
                       value={googlePhone}
                       onChange={(e) => setGooglePhone(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-2.5 py-2 text-xs text-slate-850 outline-none font-sans"
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-2.5 py-2 text-xs text-slate-800 outline-none font-sans"
                     />
                   </div>
                 </div>

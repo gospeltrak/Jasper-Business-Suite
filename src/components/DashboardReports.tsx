@@ -1026,7 +1026,7 @@ export default function DashboardReports({
           label: 'Sales Report',
           desc: 'Historical transactional journals & checkout audits.',
           icon: TrendingUp,
-          colorClass: 'bg-emerald-100 text-emerald-650 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/50',
+          colorClass: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/50',
           color: 'emerald'
         };
       case 'dual-channel':
@@ -1066,7 +1066,7 @@ export default function DashboardReports({
           label: 'Partners & Customers',
           desc: 'Demographic spent ledgers & custom client rankings.',
           icon: Users,
-          colorClass: 'bg-rose-100 text-rose-650 dark:bg-rose-950/40 dark:text-rose-450 border border-rose-200/50',
+          colorClass: 'bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:text-rose-450 border border-rose-200/50',
           color: 'rose'
         };
       case 'expenses':
@@ -1074,7 +1074,7 @@ export default function DashboardReports({
           label: 'Expense Report',
           desc: 'Audited log of operating cash outflows & booked receipts.',
           icon: MinusCircle,
-          colorClass: 'bg-red-105 text-red-650 dark:bg-red-950/40 dark:text-red-400 border border-red-200/50',
+          colorClass: 'bg-red-105 text-red-600 dark:bg-red-950/40 dark:text-red-400 border border-red-200/50',
           color: 'red'
         };
       case 'velocity':
@@ -1098,7 +1098,7 @@ export default function DashboardReports({
           label: 'System Report',
           desc: 'General workspace analytical records and logs.',
           icon: FileText,
-          colorClass: 'bg-slate-100 text-slate-650 dark:bg-slate-900 dark:text-slate-400 border border-slate-205',
+          colorClass: 'bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-400 border border-slate-200',
           color: 'slate'
         };
     }
@@ -1266,13 +1266,13 @@ export default function DashboardReports({
         {/* Total Sales */}
         <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-emerald-500 flex flex-col justify-between min-h-[92px]">
           <div className="flex items-center space-x-2">
-            <div className="p-1.5 bg-emerald-50 dark:bg-emerald-955 text-emerald-600 rounded-lg shrink-0">
+            <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 rounded-lg shrink-0">
               <TrendingUp className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Total Sales</span>
           </div>
           <div className="mt-1">
-            <h4 className="text-sm font-black text-slate-850 dark:text-slate-100 font-sans">
+            <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 font-sans">
               {currency}{Math.round(totalGrossSales).toLocaleString()}
             </h4>
             <p className="text-[9px] text-slate-400 font-mono leading-none mt-0.5">{filteredSales.length} receipts</p>
@@ -1282,13 +1282,13 @@ export default function DashboardReports({
         {/* Revenue */}
         <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-blue-500 flex flex-col justify-between min-h-[92px]">
           <div className="flex items-center space-x-2">
-            <div className="p-1.5 bg-blue-50 dark:bg-blue-955 text-blue-600 rounded-lg shrink-0">
+            <div className="p-1.5 bg-blue-50 dark:bg-blue-950 text-blue-600 rounded-lg shrink-0">
               <DollarSign className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Revenue</span>
           </div>
           <div className="mt-1">
-            <h4 className="text-sm font-black text-slate-850 dark:text-slate-100 font-sans">
+            <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 font-sans">
               {currency}{Math.round(totalSalesRevenue).toLocaleString()}
             </h4>
             <p className="text-[9px] text-slate-400 font-mono leading-none mt-0.5">Net receipts</p>
@@ -1298,13 +1298,13 @@ export default function DashboardReports({
         {/* COGS */}
         <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-amber-500 flex flex-col justify-between min-h-[92px]">
           <div className="flex items-center space-x-2">
-            <div className="p-1.5 bg-amber-50 dark:bg-amber-955 text-amber-600 rounded-lg shrink-0">
+            <div className="p-1.5 bg-amber-50 dark:bg-amber-950 text-amber-600 rounded-lg shrink-0">
               <Package className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">COGS</span>
           </div>
           <div className="mt-1">
-            <h4 className="text-sm font-black text-slate-850 dark:text-slate-100 font-sans">
+            <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 font-sans">
               {currency}{Math.round(totalCOGS).toLocaleString()}
             </h4>
             <p className="text-[9px] text-slate-400 font-mono leading-none mt-0.5">
@@ -1316,13 +1316,13 @@ export default function DashboardReports({
         {/* Expenses */}
         <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-rose-500 flex flex-col justify-between min-h-[92px]">
           <div className="flex items-center space-x-2">
-            <div className="p-1.5 bg-rose-50 dark:bg-rose-955 text-rose-600 rounded-lg shrink-0">
+            <div className="p-1.5 bg-rose-50 dark:bg-rose-950 text-rose-600 rounded-lg shrink-0">
               <MinusCircle className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Expenses</span>
           </div>
           <div className="mt-1">
-            <h4 className="text-sm font-black text-rose-650 dark:text-rose-450 font-sans">
+            <h4 className="text-sm font-black text-rose-600 dark:text-rose-450 font-sans">
               {currency}{Math.round(totalExpensesCharged).toLocaleString()}
             </h4>
             <button 
@@ -1338,13 +1338,13 @@ export default function DashboardReports({
         {/* Net Profit (Centered as 5th item) */}
         <div className="col-span-2 bg-white dark:bg-slate-900 p-3.5 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-purple-500 flex flex-col items-center justify-center text-center space-y-2 min-h-[100px]">
           <div className="flex items-center space-x-2">
-            <div className="p-1.5 bg-purple-50 dark:bg-purple-955 text-purple-600 rounded-lg shrink-0">
+            <div className="p-1.5 bg-purple-50 dark:bg-purple-950 text-purple-600 rounded-lg shrink-0">
               <BarChart3 className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Net Profit</span>
           </div>
           <div className="mt-1">
-            <h4 className={`text-base font-black font-sans ${netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-450' : 'text-rose-650 dark:text-rose-450'}`}>
+            <h4 className={`text-base font-black font-sans ${netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-450' : 'text-rose-600 dark:text-rose-450'}`}>
               {netProfit < 0 ? '-' : ''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}
             </h4>
             <div className={`inline-flex items-center text-[9px] font-semibold uppercase mt-1 px-2.5 py-0.5 rounded-full ${netProfit >= 0 ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400'}`}>
@@ -1439,7 +1439,7 @@ export default function DashboardReports({
                 );
               })()}
             </div>
-            <ChevronDown className="w-4.5 h-4.5 text-slate-400" />
+            <ChevronDown className="w-[18px] h-[18px] text-slate-400" />
           </button>
 
           {/* DROP DOWN BOTTOM SHEET LIST (When Opened) */}
@@ -1460,7 +1460,7 @@ export default function DashboardReports({
                 <h3 className="text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">Select Report Type</h3>
                 <button 
                   onClick={() => setMobileSelectorOpen(false)}
-                  className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-650 dark:text-slate-300 font-bold hover:text-slate-850 cursor-pointer transition-colors"
+                  className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-600 dark:text-slate-300 font-bold hover:text-slate-800 cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
@@ -1535,7 +1535,7 @@ export default function DashboardReports({
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-6">
             <div className="border-b border-slate-100 pb-4">
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Commercial Profit & Loss Account</h3>
-              <p className="text-xs text-slate-450 mt-1">P&L for selected range.</p>
+              <p className="text-xs text-slate-500 mt-1">P&L for selected range.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1562,7 +1562,7 @@ export default function DashboardReports({
 
                   <div className="flex justify-between items-center text-xs p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                     <span className="text-slate-600 font-medium">total expenses</span>
-                    <span className="font-mono font-bold text-rose-650">({currency}{Math.round(totalExpensesCharged).toLocaleString()})</span>
+                    <span className="font-mono font-bold text-rose-600">({currency}{Math.round(totalExpensesCharged).toLocaleString()})</span>
                   </div>
 
                   <div className={`flex justify-between items-center text-sm p-4 rounded-xl border font-bold ${netProfit >= 0 ? 'bg-emerald-500/10 text-emerald-900 border-emerald-200' : 'bg-rose-500/10 text-rose-900 border-rose-200'}`}>
@@ -1596,7 +1596,7 @@ export default function DashboardReports({
                     );
                   })}
                   {totalExpensesCharged === 0 && (
-                    <div className="text-center py-10 border border-dashed border-slate-200 rounded-3xl text-xs text-slate-450">
+                    <div className="text-center py-10 border border-dashed border-slate-200 rounded-3xl text-xs text-slate-500">
                       No expense charges logged within this timescale query.
                     </div>
                   )}
@@ -1614,7 +1614,7 @@ export default function DashboardReports({
                 <h3 className="text-sm font-bold text-slate-800 mt-2 font-sans">
                   Chronological Financial Ledger Variance Graph
                 </h3>
-                <p className="text-xs text-slate-450 mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   Interactive real-time comparison of sales count volume (secondary axis), sales revenue, COGS, expenses, and net profit trends.
                 </p>
               </div>
@@ -1749,8 +1749,8 @@ export default function DashboardReports({
                   <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">
                     {activeTenant.businessType === 'pharmacy' ? 'Clinical Dispensing & Sales Journal' : 'General Ledger Sales Report'}
                   </h3>
-                  <p className="text-xs text-slate-450 mt-1">
-                    Audited list of transactions within selected date range: <span className="font-semibold text-slate-750 font-mono">{new Date(startDateStr).toLocaleDateString()} — {new Date(endDateStr).toLocaleDateString()}</span>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Audited list of transactions within selected date range: <span className="font-semibold text-slate-700 font-mono">{new Date(startDateStr).toLocaleDateString()} — {new Date(endDateStr).toLocaleDateString()}</span>
                   </p>
                 </div>
 
@@ -1777,7 +1777,7 @@ export default function DashboardReports({
                     placeholder="Search customer, staff code, item..."
                     value={salesSearch}
                     onChange={(e) => setSalesSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-805 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-sans"
+                    className="w-full pl-9 pr-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-sans"
                   />
                 </div>
 
@@ -1807,7 +1807,7 @@ export default function DashboardReports({
               {/* Filtering summary stats metrics grid */}
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
                 {/* Total Sales Orders */}
-                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
+                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
                   <div className="flex items-start space-x-2">
                     <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600 shrink-0">
                       <ShoppingBag className="w-4 h-4" />
@@ -1826,7 +1826,7 @@ export default function DashboardReports({
                 </div>
  
                 {/* Money Earned */}
-                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
+                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
                   <div className="flex items-start space-x-2">
                     <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
                       <TrendingUp className="w-4 h-4" />
@@ -1840,7 +1840,7 @@ export default function DashboardReports({
                 </div>
 
                 {/* Paid Transactions Info */}
-                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
+                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
                   <div className="flex items-start space-x-2">
                     <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
                       <CheckCircle className="w-4 h-4" />
@@ -1854,7 +1854,7 @@ export default function DashboardReports({
                 </div>
 
                 {/* Unpaid / Credit Info */}
-                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
+                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
                   <div className="flex items-start space-x-2">
                     <div className="p-1.5 rounded-lg bg-rose-50 text-rose-600 shrink-0">
                       <AlertCircle className="w-4 h-4" />
@@ -1868,7 +1868,7 @@ export default function DashboardReports({
                 </div>
 
                 {/* Profit Generated */}
-                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[108px] text-left col-span-2 lg:col-span-1">
+                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[108px] text-left col-span-2 lg:col-span-1">
                   <div className="flex items-start space-x-2">
                     <div className="p-1.5 rounded-lg bg-purple-50 text-purple-600 shrink-0">
                       <BarChart3 className="w-4 h-4" />
@@ -1928,7 +1928,7 @@ export default function DashboardReports({
                           <td className="p-4 whitespace-nowrap">
                             <div className="font-bold text-slate-800">{customerLabel}</div>
                             {sale.customerPhone && (
-                              <div className="text-[9.5px] font-mono text-slate-450 mt-0.5">{sale.customerPhone}</div>
+                              <div className="text-[9.5px] font-mono text-slate-500 mt-0.5">{sale.customerPhone}</div>
                             )}
                           </td>
                           <td className="p-4 max-w-[240px]">
@@ -1999,7 +1999,7 @@ export default function DashboardReports({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-4">
               <div>
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Received Payments & Channel Ledger</h3>
-                <p className="text-xs text-slate-450 mt-1">Payment summary.</p>
+                <p className="text-xs text-slate-500 mt-1">Payment summary.</p>
               </div>
 
               {/* Tab payment filter rails */}
@@ -2009,7 +2009,7 @@ export default function DashboardReports({
                     key={m}
                     onClick={() => setSelectedPaymentMode(m)}
                     className={`px-3 py-1.5 rounded-lg border-none cursor-pointer font-sans transition-colors ${
-                      selectedPaymentMode === m ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-650 hover:text-slate-800'
+                      selectedPaymentMode === m ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-600 hover:text-slate-800'
                     }`}
                   >
                     {m}
@@ -2069,7 +2069,7 @@ export default function DashboardReports({
                     ))}
                     {getGroupedPayments('day').length === 0 && (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-450">
+                        <td colSpan={7} className="p-8 text-center text-slate-500">
                           No transactions found for payment filter constraints inside date ranges.
                         </td>
                       </tr>
@@ -2185,20 +2185,20 @@ export default function DashboardReports({
                 <tbody className="divide-y divide-slate-100 font-sans">
                   {productValuationsFiltered.map(p => (
                     <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="p-4 font-mono text-slate-650 leading-none">{p.sku}</td>
+                      <td className="p-4 font-mono text-slate-600 leading-none">{p.sku}</td>
                       <td className="p-4 font-bold text-slate-800 leading-none">{p.name}</td>
                       <td className="p-4"><span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[9.5px] uppercase font-mono font-medium text-slate-600">{p.category}</span></td>
                       <td className="p-4 text-center font-bold text-emerald-700 bg-emerald-500/5">{formatProductQuantity(p.shopQty, p.product)}</td>
                       <td className="p-4 text-center font-bold text-blue-700 bg-blue-500/5">{formatProductQuantity(p.storeQty, p.product)}</td>
                       <td className="p-4 text-center font-bold text-amber-700 bg-amber-500/5">{formatProductQuantity(p.creditIssuedQty, p.product)}</td>
-                      {showProfitCogs && <td className="p-4 text-right font-mono text-slate-650">{currency}{p.cogsShop + p.cogsStore + p.cogsCredit > 0 ? p.totalCogs.toLocaleString() : '0'}</td>}
-                      <td className="p-4 text-right font-mono text-slate-650">{currency}{p.sellingPrice.toLocaleString()}</td>
+                      {showProfitCogs && <td className="p-4 text-right font-mono text-slate-600">{currency}{p.cogsShop + p.cogsStore + p.cogsCredit > 0 ? p.totalCogs.toLocaleString() : '0'}</td>}
+                      <td className="p-4 text-right font-mono text-slate-600">{currency}{p.sellingPrice.toLocaleString()}</td>
                       {showProfitCogs && <td className="p-4 text-right font-mono font-black text-slate-800">{currency}{p.unrealizedProfit.toLocaleString()}</td>}
                     </tr>
                   ))}
                   {productValuationsFiltered.length === 0 && (
                     <tr>
-                      <td colSpan={showProfitCogs ? 9 : 7} className="p-8 text-center text-slate-450">
+                      <td colSpan={showProfitCogs ? 9 : 7} className="p-8 text-center text-slate-500">
                         No product items match the catalog category search query.
                       </td>
                     </tr>
@@ -2220,7 +2220,7 @@ export default function DashboardReports({
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
               <div>
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Client Profiles & Spend Analysis</h3>
-                <p className="text-xs text-slate-450 mt-1">Customer totals and credit.</p>
+                <p className="text-xs text-slate-500 mt-1">Customer totals and credit.</p>
               </div>
 
               <div className="overflow-x-auto rounded-2xl border border-slate-200">
@@ -2240,7 +2240,7 @@ export default function DashboardReports({
                       <tr key={cl.name} className="hover:bg-slate-50/50 transition-colors">
                         <td className="p-4 font-bold text-slate-800">{cl.name}</td>
                         <td className="p-4 font-mono text-slate-550">{cl.phone}</td>
-                        <td className="p-4 text-center font-bold text-slate-650">{cl.salesCount} purchases</td>
+                        <td className="p-4 text-center font-bold text-slate-600">{cl.salesCount} purchases</td>
                         <td className="p-4 font-bold text-slate-600 truncate max-w-[190px]">{cl.preferredItem}</td>
                         <td className="p-4 text-right font-mono text-slate-800 font-black">{currency}{Math.round(cl.totalSpend).toLocaleString()}</td>
                         <td className="p-4 text-right font-mono text-emerald-700 bg-emerald-500/5 font-black">{currency}{Math.round(cl.profitGenerated).toLocaleString()}</td>
@@ -2248,7 +2248,7 @@ export default function DashboardReports({
                     ))}
                     {clientProfiles.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-slate-450">
+                        <td colSpan={6} className="p-8 text-center text-slate-500">
                           No client history indexed within this timeline.
                         </td>
                       </tr>
@@ -2262,7 +2262,7 @@ export default function DashboardReports({
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
               <div>
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Wholesale Suppliers & Procurements Trade Log</h3>
-                <p className="text-xs text-slate-450 mt-1">Supplier totals.</p>
+                <p className="text-xs text-slate-500 mt-1">Supplier totals.</p>
               </div>
 
               <div className="overflow-x-auto rounded-2xl border border-slate-200">
@@ -2282,16 +2282,16 @@ export default function DashboardReports({
                         <td className="p-4 font-bold text-slate-800">{s.name}</td>
                         <td className="p-4 space-y-0.5">
                           <p className="font-semibold text-slate-700">{s.contact}</p>
-                          <p className="text-[10px] text-slate-450 font-mono">{s.phone} | {s.email}</p>
+                          <p className="text-[10px] text-slate-500 font-mono">{s.phone} | {s.email}</p>
                         </td>
                         <td className="p-4 text-slate-600 font-semibold">{s.categoryCovered}</td>
-                        <td className="p-4 text-center text-slate-650 font-bold">{s.ordersCount} purchases</td>
+                        <td className="p-4 text-center text-slate-600 font-bold">{s.ordersCount} purchases</td>
                         <td className="p-4 text-right font-mono text-slate-800 font-black">{currency}{Math.round(s.totalProcured).toLocaleString()}</td>
                       </tr>
                     ))}
                     {supplierProfiles.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="p-8 text-center text-slate-450">
+                        <td colSpan={5} className="p-8 text-center text-slate-500">
                           No wholesale supplier records indexed on this branch ledger.
                         </td>
                       </tr>
@@ -2305,7 +2305,7 @@ export default function DashboardReports({
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
               <div>
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Staff Sales & Cost Accountability</h3>
-                <p className="text-xs text-slate-450 mt-1">Cashier totals.</p>
+                <p className="text-xs text-slate-500 mt-1">Cashier totals.</p>
               </div>
 
               <div className="overflow-x-auto rounded-2xl border border-slate-200">
@@ -2335,7 +2335,7 @@ export default function DashboardReports({
                     ))}
                     {staffAudits.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-slate-450">
+                        <td colSpan={6} className="p-8 text-center text-slate-500">
                           No personnel files indexed on this branch ledger.
                         </td>
                       </tr>
@@ -2354,7 +2354,7 @@ export default function DashboardReports({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-4">
               <div>
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Operating Expenses Logs Receipt</h3>
-                <p className="text-xs text-slate-450 mt-1">Expense totals.</p>
+                <p className="text-xs text-slate-500 mt-1">Expense totals.</p>
               </div>
 
               {/* Action triggers */}
@@ -2385,10 +2385,10 @@ export default function DashboardReports({
                   {filteredExpenses.map(exp => (
                     <tr key={exp.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="p-4 font-mono text-slate-505 leading-none">{exp.id}</td>
-                      <td className="p-4 whitespace-nowrap text-slate-650">{new Date(exp.timestamp).toLocaleString()}</td>
-                      <td className="p-4 whitespace-nowrap"><span className="px-2 py-1 bg-rose-50 text-rose-750 font-bold border border-rose-100 text-[9px] uppercase tracking-wide rounded-md font-sans">{exp.category}</span></td>
-                      <td className="p-4 font-medium text-slate-750 max-w-[280px] truncate" title={exp.description}>{exp.description}</td>
-                      <td className="p-4 font-semibold text-slate-850">{exp.staffName || 'Operator'}</td>
+                      <td className="p-4 whitespace-nowrap text-slate-600">{new Date(exp.timestamp).toLocaleString()}</td>
+                      <td className="p-4 whitespace-nowrap"><span className="px-2 py-1 bg-rose-50 text-rose-700 font-bold border border-rose-100 text-[9px] uppercase tracking-wide rounded-md font-sans">{exp.category}</span></td>
+                      <td className="p-4 font-medium text-slate-700 max-w-[280px] truncate" title={exp.description}>{exp.description}</td>
+                      <td className="p-4 font-semibold text-slate-800">{exp.staffName || 'Operator'}</td>
                       <td className="p-4 font-mono font-bold text-slate-500">
                         <div className="flex items-center space-x-2">
                           <span>{exp.receiptRef || 'UNSUPPORTED'}</span>
@@ -2410,7 +2410,7 @@ export default function DashboardReports({
                   ))}
                   {filteredExpenses.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-450">
+                      <td colSpan={7} className="p-8 text-center text-slate-500">
                         No expense logs exist within standard dates. Click 'Log New Expense' to test registering direct debits.
                       </td>
                     </tr>
@@ -2685,7 +2685,7 @@ export default function DashboardReports({
                 <div className="space-y-4 max-w-xl w-full">
                   <div className="space-y-1">
                     <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-mono">Product Performance & Margin Tracker</h3>
-                    <p className="text-xs text-slate-450 leading-relaxed font-sans">
+                    <p className="text-xs text-slate-500 leading-relaxed font-sans">
                       Select a product or view all stock.
                     </p>
                   </div>
@@ -2699,7 +2699,7 @@ export default function DashboardReports({
                         placeholder="Type name or code to filter dropdown..."
                         value={productSearchQuery}
                         onChange={(e) => setProductSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-4 py-1.5 rounded-xl bg-slate-50 border border-slate-205 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        className="w-full pl-9 pr-4 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       />
                     </div>
                     <select
@@ -2723,7 +2723,7 @@ export default function DashboardReports({
                 </div>
 
                 {/* Date Selection Box with Calendar Inputs & Quick Toggles */}
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-205 space-y-3 shrink-0 lg:max-w-md w-full">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 shrink-0 lg:max-w-md w-full">
                   <span className="text-[10px] uppercase font-bold text-slate-455 font-mono tracking-wider block font-black">Specify Target Date or Ranges</span>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -2738,7 +2738,7 @@ export default function DashboardReports({
                             setEndDateStr(e.target.value);
                           }
                         }}
-                        className="bg-transparent text-slate-805 font-bold outline-none focus:ring-0 text-xs cursor-pointer border-none p-0 mt-0.5"
+                        className="bg-transparent text-slate-800 font-bold outline-none focus:ring-0 text-xs cursor-pointer border-none p-0 mt-0.5"
                       />
                     </div>
 
@@ -2749,12 +2749,12 @@ export default function DashboardReports({
                         value={endDateStr}
                         disabled={isSingleDateMode}
                         onChange={(e) => setEndDateStr(e.target.value)}
-                        className="bg-transparent text-slate-805 font-bold outline-none focus:ring-0 text-xs cursor-pointer border-none p-0 mt-0.5 disabled:text-slate-400"
+                        className="bg-transparent text-slate-800 font-bold outline-none focus:ring-0 text-xs cursor-pointer border-none p-0 mt-0.5 disabled:text-slate-400"
                       />
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1.5 border-t border-slate-150">
+                  <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1.5 border-t border-slate-200">
                     {/* Toggle Single Date Mode */}
                     <label className="flex items-center space-x-1.5 cursor-pointer">
                       <input
@@ -2790,7 +2790,7 @@ export default function DashboardReports({
 
               {/* Error fallback when product not found */}
               {!isAll && !monitoredProduct ? (
-                <div className="text-center py-10 border border-dashed border-slate-200 rounded-3xl text-sm text-slate-450 font-sans">
+                <div className="text-center py-10 border border-dashed border-slate-200 rounded-3xl text-sm text-slate-500 font-sans">
                   Please select a product from the options menu above to view performance details.
                 </div>
               ) : (
@@ -2876,7 +2876,7 @@ export default function DashboardReports({
                       </div>
 
                       <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100 text-[10.5px] font-medium text-slate-655 leading-relaxed font-sans">
-                        These aggregate details represent customer orders filled between <span className="font-bold text-slate-805 font-mono">{new Date(startDateStr).toLocaleDateString()}</span> and <span className="font-bold text-slate-805 font-mono">{new Date(endDateStr).toLocaleDateString()}</span>.
+                        These aggregate details represent customer orders filled between <span className="font-bold text-slate-800 font-mono">{new Date(startDateStr).toLocaleDateString()}</span> and <span className="font-bold text-slate-800 font-mono">{new Date(endDateStr).toLocaleDateString()}</span>.
                       </div>
                     </div>
 
@@ -2890,7 +2890,7 @@ export default function DashboardReports({
                       <div className="space-y-2.5 text-xs">
                         <div className="flex justify-between items-center py-1 border-b border-slate-200">
                           <span className="text-slate-500 font-medium">COGS Worth (Cost):</span>
-                          <span className="font-mono font-bold text-rose-650">({currency}{Math.round(totalCogs).toLocaleString()})</span>
+                          <span className="font-mono font-bold text-rose-600">({currency}{Math.round(totalCogs).toLocaleString()})</span>
                         </div>
                         <div className="flex justify-between items-center py-1 border-b border-slate-200">
                           <span className="text-slate-500 font-medium">Sales Revenue:</span>
@@ -2913,7 +2913,7 @@ export default function DashboardReports({
                   {/* Conditional detailed views */}
                   {isAll ? (
                     // CHOSEN VIEW ALL: Render a gorgeous, detailed table of EACH product's stats side-by-side
-                    <div className="bg-slate-50 border border-slate-205 rounded-2xl p-6 space-y-4">
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4">
                       
                       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200">
                         <div className="space-y-1">
@@ -3072,10 +3072,10 @@ export default function DashboardReports({
                                   <td className="p-3 text-right font-mono font-black text-slate-800 font-sans">
                                     {currency}{Math.round(p.revenue).toLocaleString()}
                                   </td>
-                                  <td className="p-3 text-right font-mono text-rose-650 font-sans" title="Cost of Goods Sold">
+                                  <td className="p-3 text-right font-mono text-rose-600 font-sans" title="Cost of Goods Sold">
                                     {currency}{Math.round(p.cogs).toLocaleString()}
                                   </td>
-                                  <td className={`p-3 text-right font-mono font-black font-sans ${p.profit >= 0 ? 'text-emerald-700 bg-emerald-50/30' : 'text-rose-650'}`}>
+                                  <td className={`p-3 text-right font-mono font-black font-sans ${p.profit >= 0 ? 'text-emerald-700 bg-emerald-50/30' : 'text-rose-600'}`}>
                                     {p.profit >= 0 ? '+' : ''}{currency}{Math.round(p.profit).toLocaleString()}
                                   </td>
                                   <td className="p-3 text-right font-mono font-sans">
@@ -3099,7 +3099,7 @@ export default function DashboardReports({
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       
                       {/* 1. HTML visual chart timeline */}
-                      <div className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-4">
+                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
                             <p className="text-xs font-bold uppercase tracking-wider text-slate-700 font-mono">Daily Sales Volume Timeline</p>
@@ -3137,7 +3137,7 @@ export default function DashboardReports({
                       </div>
 
                       {/* 2. List of recent sale logs containing the product */}
-                      <div className="bg-slate-50 border border-slate-205 rounded-2xl p-5 space-y-4">
+                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 font-mono">Recent Transaction Receipts ({salesForMonitoredProduct.length})</h4>
                         
                         <div className="divide-y divide-slate-200 overflow-y-auto max-h-[320px] pr-1 space-y-2.5">
@@ -3167,12 +3167,12 @@ export default function DashboardReports({
                                     Guest/Client: <span className="font-bold text-slate-700">{sale.customerName || 'Walk-In Customer'}</span>
                                   </p>
                                   <p className="text-slate-500 leading-normal">
-                                    Quantity Ordered: <span className="font-black text-slate-800 font-mono font-sans">{formatProductQuantity(saleItem.qty, monitoredProduct)}</span> {disc > 0 && <span className="text-rose-650 font-black font-mono">({disc}% off)</span>}
+                                    Quantity Ordered: <span className="font-black text-slate-800 font-mono font-sans">{formatProductQuantity(saleItem.qty, monitoredProduct)}</span> {disc > 0 && <span className="text-rose-600 font-black font-mono">({disc}% off)</span>}
                                   </p>
                                 </div>
 
                                 <div className="text-right space-y-0.5">
-                                  <span className="font-mono font-extrabold text-slate-805 block">{currency}{Math.round(itemValue).toLocaleString()}</span>
+                                  <span className="font-mono font-extrabold text-slate-800 block">{currency}{Math.round(itemValue).toLocaleString()}</span>
                                   <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md block">Profit: +{currency}{Math.round(designProfit).toLocaleString()}</span>
                                 </div>
                               </div>
@@ -3344,7 +3344,7 @@ export default function DashboardReports({
 
           return (
             <div className="space-y-6 animate-fade-in text-slate-800">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 border border-slate-205 p-5 rounded-3xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 border border-slate-200 p-5 rounded-3xl">
                 <div className="text-left">
                   <h4 className="font-extrabold text-slate-800 text-sm tracking-tight uppercase">📦 Double Channel Retail-Wholesale Reconciliation</h4>
                   <p className="text-xs text-slate-500 font-medium leading-relaxed mt-0.5">Inventory profit summary.</p>
@@ -3382,7 +3382,7 @@ export default function DashboardReports({
                     </div>
                     <div className="flex justify-between items-baseline">
                       <span className="text-[10px] text-slate-400 font-bold">Estimated Margin:</span>
-                      <span className="text-xs font-black text-emerald-650 font-mono">{(retailMargin > 100 ? 100 : retailMargin).toFixed(1)}%</span>
+                      <span className="text-xs font-black text-emerald-600 font-mono">{(retailMargin > 100 ? 100 : retailMargin).toFixed(1)}%</span>
                     </div>
                   </div>
                 </div>
@@ -3424,7 +3424,7 @@ export default function DashboardReports({
                   <div className="py-4 space-y-1 text-left">
                     <span className="text-slate-400 font-medium text-[10.5px]">RECONCILED PROFIT POOL</span>
                     <h2 className="text-2xl font-black text-emerald-400 font-mono tracking-tight">{currency}{Math.round(grandChannelProfit).toLocaleString()}</h2>
-                    <p className="text-[9.5px] text-slate-450 leading-relaxed pt-1 font-sans">
+                    <p className="text-[9.5px] text-slate-500 leading-relaxed pt-1 font-sans">
                       Based on sales and purchase costs.
                     </p>
                   </div>
@@ -3435,7 +3435,7 @@ export default function DashboardReports({
               <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
                 <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-705 uppercase tracking-wider">Per-Product Channel Profit Audit Ledger</span>
-                  <span className="text-[10px] text-slate-450">Displaying products with active sales logs</span>
+                  <span className="text-[10px] text-slate-500">Displaying products with active sales logs</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
@@ -3450,7 +3450,7 @@ export default function DashboardReports({
                         <th className="py-3.5 px-4 text-right pr-5">Net Profits</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-[11.5px] font-medium text-slate-750">
+                    <tbody className="divide-y divide-slate-100 text-[11.5px] font-medium text-slate-700">
                       {productListStats.map(st => {
                         const totRev = st.retailRev + st.wholesaleRev;
                         const totCogs = st.retailCost + st.wholesaleCost;
@@ -3461,7 +3461,7 @@ export default function DashboardReports({
                           <tr key={st.product.id} className="hover:bg-slate-50/50 transition-colors">
                             <td className="py-3 px-5 text-left">
                               <p className="font-bold text-slate-800">{st.product.name}</p>
-                              <span className="text-[9.5px] font-mono text-slate-450 font-bold">{st.product.sku}</span>
+                              <span className="text-[9.5px] font-mono text-slate-500 font-bold">{st.product.sku}</span>
                             </td>
                             <td className="py-3 px-4 text-center font-mono">
                               {currency}{Number(st.product.costPrice).toLocaleString()}
@@ -3545,9 +3545,9 @@ export default function DashboardReports({
                                 <td className="py-3.5 px-4 text-right pr-5">
                                   <span className={`px-2 py-0.5 rounded font-black text-[9px] border inline-block ${
                                     exc.status === 'PENDING'
-                                      ? 'bg-amber-955/80 text-amber-400 border-amber-900 animate-pulse'
+                                      ? 'bg-amber-950/80 text-amber-400 border-amber-900 animate-pulse'
                                       : exc.status === 'BYPASSED'
-                                        ? 'bg-emerald-955/80 text-emerald-450 border-emerald-990'
+                                        ? 'bg-emerald-950/80 text-emerald-450 border-emerald-990'
                                         : 'bg-slate-800/80 text-slate-400 border-slate-700'
                                   }`}>
                                     {exc.status}
@@ -3584,7 +3584,7 @@ export default function DashboardReports({
         {mobileView === 'menu' ? (
           <div className="space-y-5">
             {/* Mobile Header for Selector */}
-            <div className="flex flex-col space-y-1 pb-3 border-b border-slate-150">
+            <div className="flex flex-col space-y-1 pb-3 border-b border-slate-200">
               <span className="text-[10px] font-black tracking-widest text-slate-400 font-mono uppercase">Reporting Terminal</span>
               <h2 className="text-xl font-black text-slate-800 tracking-tight text-left">Intelligence & Auditing</h2>
               <p className="text-xs text-slate-500 font-medium text-left">Select an audited branch segment to inspect.</p>
@@ -3628,7 +3628,7 @@ export default function DashboardReports({
                       setReportTab(tab.id as any);
                       setMobileView('report');
                     }}
-                    className="w-full flex items-center justify-between p-4 bg-white border border-slate-150 rounded-2xl shadow-xs text-left hover:bg-slate-50 transition-all cursor-pointer min-h-[72px]"
+                    className="w-full flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl shadow-xs text-left hover:bg-slate-50 transition-all cursor-pointer min-h-[72px]"
                   >
                     <div className="flex items-center space-x-3.5">
                       <div className={`p-2.5 rounded-xl shrink-0 ${tab.colorClass}`}>
@@ -3657,7 +3657,7 @@ export default function DashboardReports({
                 <button
                   type="button"
                   onClick={() => setMobileView('menu')}
-                  className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100 transition-all cursor-pointer border border-slate-150"
+                  className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100 transition-all cursor-pointer border border-slate-200"
                   aria-label="Back to menu"
                 >
                   <ArrowLeft className="w-5 h-5" />
@@ -3683,7 +3683,7 @@ export default function DashboardReports({
                 className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer"
                 title="Export PDF"
               >
-                <Printer className="w-4.5 h-4.5" />
+                <Printer className="w-[18px] h-[18px]" />
               </button>
             </div>
 
@@ -3746,26 +3746,26 @@ export default function DashboardReports({
                 <div className="space-y-5">
                   {/* Summary Metrics Grid */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                       <div className="flex items-center space-x-1.5 text-emerald-600">
                         <TrendingUp className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider font-mono">Total Sales</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Total Sales</span>
                       </div>
                       <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</span>
                     </div>
 
-                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                       <div className="flex items-center space-x-1.5 text-amber-500">
                         <Package className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider font-mono">Total COGS</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Total COGS</span>
                       </div>
                       <span className="text-sm font-black text-slate-800 font-sans mt-2">{currency}{Math.round(totalCOGS).toLocaleString()}</span>
                     </div>
 
-                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                       <div className="flex items-center space-x-1.5 text-rose-500">
                         <Receipt className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider font-mono">Operating Exp</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Operating Exp</span>
                       </div>
                       <span className="text-sm font-black text-rose-600 font-sans mt-2">{currency}{Math.round(totalExpensesCharged).toLocaleString()}</span>
                     </div>
@@ -3782,7 +3782,7 @@ export default function DashboardReports({
                   </div>
 
                   {/* Charts with horizontal scroll and max height 200px */}
-                  <div className="bg-white border border-slate-150 p-4 rounded-xl shadow-xs space-y-2 text-left">
+                  <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-2 text-left">
                     <h4 className="text-sm font-bold text-slate-800">Consolidated Margin Curve</h4>
                     <div className="w-full overflow-x-auto scrollbar-none">
                       <div className="min-w-[340px] h-[180px]">
@@ -3811,13 +3811,13 @@ export default function DashboardReports({
                         { label: 'Operating Expenses Burden', value: totalExpensesCharged, type: 'minus' },
                         { label: 'Consolidated Net Profit/Loss', value: netProfit, type: 'net' }
                       ].map((item, idx) => (
-                        <div key={idx} className={`flex items-center justify-between px-4 py-3 rounded-xl border border-slate-150 bg-white text-left ${
+                        <div key={idx} className={`flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 bg-white text-left ${
                           item.type === 'summary' ? 'bg-emerald-50 border-emerald-200' :
                           item.type === 'net' ? (item.value >= 0 ? 'bg-emerald-100 border-emerald-300' : 'bg-rose-50 border-rose-250') : 'bg-white'
                         }`}>
                           <div>
                             <span className="text-xs font-bold text-slate-800 block">{item.label}</span>
-                            <span className="text-[10px] text-slate-450 block mt-0.5">
+                            <span className="text-[10px] text-slate-500 block mt-0.5">
                               {item.type === 'minus' ? 'Debit/Expense' : item.type === 'plus' ? 'Gross Credit' : 'Accounting Margin'}
                             </span>
                           </div>
@@ -3840,7 +3840,7 @@ export default function DashboardReports({
                 <div className="space-y-4">
                   {/* Summary Metrics Grid */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                       <div className="flex items-center space-x-1.5 text-indigo-505">
                         <ShoppingBag className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Sales Count</span>
@@ -3848,28 +3848,28 @@ export default function DashboardReports({
                       <span className="text-sm font-black text-slate-800 font-sans mt-2">{salesReportMetrics.totalOrders} Tickets</span>
                     </div>
 
-                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                       <div className="flex items-center space-x-1.5 text-emerald-600">
                         <DollarSign className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Gross Revenue</span>
                       </div>
-                      <span className="text-sm font-black text-emerald-650 font-sans mt-2">{currency}{Math.round(salesReportMetrics.totalRevenue).toLocaleString()}</span>
+                      <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(salesReportMetrics.totalRevenue).toLocaleString()}</span>
                     </div>
 
-                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                       <div className="flex items-center space-x-1.5 text-emerald-505">
                         <CheckCircle className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-emerald-650 uppercase tracking-wider font-mono">Paid Channel</span>
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Paid Channel</span>
                       </div>
                       <span className="text-sm font-black text-emerald-700 font-sans mt-2">{currency}{Math.round(salesReportMetrics.paidRevenue).toLocaleString()}</span>
                     </div>
 
-                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                       <div className="flex items-center space-x-1.5 text-rose-500">
                         <ShieldAlert className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider font-mono">Credit Due</span>
                       </div>
-                      <span className="text-sm font-black text-rose-650 font-sans mt-2">{currency}{Math.round(salesReportMetrics.unpaidRevenue).toLocaleString()}</span>
+                      <span className="text-sm font-black text-rose-600 font-sans mt-2">{currency}{Math.round(salesReportMetrics.unpaidRevenue).toLocaleString()}</span>
                     </div>
                   </div>
 
@@ -3889,18 +3889,18 @@ export default function DashboardReports({
                   <div className="space-y-2.5 animate-fade-in text-left">
                     <div className="flex justify-between items-center px-1">
                       <h4 className="text-xs font-bold text-slate-800">Audit Journal Rows</h4>
-                      <span className="text-[10px] font-mono text-slate-450">{recordsFilteredSales.length} records</span>
+                      <span className="text-[10px] font-mono text-slate-500">{recordsFilteredSales.length} records</span>
                     </div>
 
                     {recordsFilteredSales.length === 0 ? (
-                      <div className="bg-white border border-slate-150 p-6 rounded-2xl flex flex-col items-center justify-center text-center">
+                      <div className="bg-white border border-slate-200 p-6 rounded-2xl flex flex-col items-center justify-center text-center">
                         <ShoppingBag className="w-10 h-10 text-slate-355 mb-2" />
                         <h4 className="text-sm font-semibold text-slate-700">No data available</h4>
                         <p className="text-xs text-slate-400 mt-1 max-w-[180px]">No sales transactions found in selected period.</p>
                       </div>
                     ) : (
                       recordsFilteredSales.slice(0, 30).map((sale) => (
-                        <div key={sale.id} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs space-y-2 text-left">
+                        <div key={sale.id} className="bg-white px-4 py-3 border border-slate-200 rounded-xl shadow-xs space-y-2 text-left">
                           <div className="flex justify-between items-start">
                             <div className="text-left">
                               <span className="text-sm font-bold text-slate-800 block">
@@ -3933,7 +3933,7 @@ export default function DashboardReports({
                 <div className="space-y-4">
                   {/* Summary Metrics Grid */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                       <div className="flex items-center space-x-1.5 text-emerald-600">
                         <DollarSign className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Cash Vault</span>
@@ -3941,7 +3941,7 @@ export default function DashboardReports({
                       <span className="text-sm font-black text-emerald-600 mt-2">{currency}{paymentBreakdown.Cash.toLocaleString()}</span>
                     </div>
 
-                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                       <div className="flex items-center space-x-1.5 text-indigo-500">
                         <CheckCircle className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Cards & Paystack</span>
@@ -3949,20 +3949,20 @@ export default function DashboardReports({
                       <span className="text-sm font-black text-slate-800 mt-2">{currency}{paymentBreakdown.CardAndOnline.toLocaleString()}</span>
                     </div>
 
-                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                       <div className="flex items-center space-x-1.5 text-amber-500">
                         <Smartphone className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Mobile Money</span>
                       </div>
-                      <span className="text-sm font-black text-slate-805 mt-2">{currency}{paymentBreakdown.MobileMoney.toLocaleString()}</span>
+                      <span className="text-sm font-black text-slate-800 mt-2">{currency}{paymentBreakdown.MobileMoney.toLocaleString()}</span>
                     </div>
 
-                    <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                       <div className="flex items-center space-x-1.5 text-rose-500">
                         <AlertTriangle className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Acquired Credit</span>
                       </div>
-                      <span className="text-sm font-black text-rose-650 mt-2">{currency}{paymentBreakdown.Credit.toLocaleString()}</span>
+                      <span className="text-sm font-black text-rose-600 mt-2">{currency}{paymentBreakdown.Credit.toLocaleString()}</span>
                     </div>
                   </div>
 
@@ -3975,7 +3975,7 @@ export default function DashboardReports({
                         return Object.entries(paymentBreakdown).map(([channel, amount]) => {
                           const pct = totalSum > 0 ? (amount / totalSum) * 100 : 0;
                           return (
-                            <div key={channel} className="bg-white border border-slate-150 px-4 py-3 rounded-xl shadow-xs flex items-center justify-between text-left">
+                            <div key={channel} className="bg-white border border-slate-200 px-4 py-3 rounded-xl shadow-xs flex items-center justify-between text-left">
                               <div>
                                 <span className="text-sm font-bold text-slate-800 block">
                                   {channel === 'CardAndOnline' ? 'Card & Paystack Gateway' :
@@ -4006,7 +4006,7 @@ export default function DashboardReports({
                     return (
                       <>
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-indigo-500">
                               <Package className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Shop Stock</span>
@@ -4014,7 +4014,7 @@ export default function DashboardReports({
                             <span className="text-sm font-black text-slate-800 mt-2">{currency}{Math.round(totalShopVal).toLocaleString()}</span>
                           </div>
 
-                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-amber-500">
                               <Archive className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Backroom Store</span>
@@ -4022,7 +4022,7 @@ export default function DashboardReports({
                             <span className="text-sm font-black text-slate-800 mt-2">{currency}{Math.round(totalStoreVal).toLocaleString()}</span>
                           </div>
 
-                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-blue-500">
                               <Tag className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Catalog SKUs</span>
@@ -4051,7 +4051,7 @@ export default function DashboardReports({
                               const totalQty = p.stockQty || 0;
                               const valAmount = totalQty * p.costPrice;
                               return (
-                                <div key={p.id} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs flex justify-between items-center text-left">
+                                <div key={p.id} className="bg-white px-4 py-3 border border-slate-200 rounded-xl shadow-xs flex justify-between items-center text-left">
                                   <div>
                                     <span className="text-sm font-bold text-slate-800 block">{p.name}</span>
                                     <span className="text-xs text-slate-400 block mt-0.5">
@@ -4098,7 +4098,7 @@ export default function DashboardReports({
                       <div className="space-y-4 text-left">
                         {/* Summary Metrics Grid */}
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-blue-500">
                               <Users className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Loyal Clients</span>
@@ -4106,7 +4106,7 @@ export default function DashboardReports({
                             <span className="text-sm font-black text-slate-800 mt-2">{Object.keys(custMap).length} Profiles</span>
                           </div>
 
-                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-emerald-500">
                               <Users className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Active Staff</span>
@@ -4120,7 +4120,7 @@ export default function DashboardReports({
                           <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono px-1">Customer Spend Ledger</h4>
                           <div className="space-y-2 animate-fade-in">
                             {Object.entries(custMap).map(([name, sum]) => (
-                              <div key={name} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs text-left flex justify-between items-center">
+                              <div key={name} className="bg-white px-4 py-3 border border-slate-200 rounded-xl shadow-xs text-left flex justify-between items-center">
                                 <div>
                                   <span className="text-sm font-bold text-slate-800 block text-left">{name}</span>
                                   <span className="text-xs text-slate-400 block mt-0.5 mt-0.5 text-left">{sum.count} transactions</span>
@@ -4138,7 +4138,7 @@ export default function DashboardReports({
                           <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono px-1">Staff Sales Performance</h4>
                           <div className="space-y-2 animate-fade-in">
                             {Object.entries(staffMap).map(([name, sum]) => (
-                              <div key={name} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs text-left flex justify-between items-center">
+                              <div key={name} className="bg-white px-4 py-3 border border-slate-200 rounded-xl shadow-xs text-left flex justify-between items-center">
                                 <div>
                                   <span className="text-sm font-bold text-slate-800 block text-left">{name}</span>
                                   <span className="text-xs text-slate-400 block mt-0.5 text-left">Approved transactions: {sum.count}</span>
@@ -4164,7 +4164,7 @@ export default function DashboardReports({
                       <div className="space-y-4 text-left">
                         {/* Summary Metrics Grid */}
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-rose-500">
                               <Receipt className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Expense Logs</span>
@@ -4189,14 +4189,14 @@ export default function DashboardReports({
                           </div>
 
                           {filteredExpenses.length === 0 ? (
-                            <div className="bg-white border border-slate-150 p-6 rounded-2xl flex flex-col items-center justify-center text-center">
+                            <div className="bg-white border border-slate-200 p-6 rounded-2xl flex flex-col items-center justify-center text-center">
                               <Receipt className="w-10 h-10 text-slate-355 mb-2" />
                               <h4 className="text-sm font-semibold text-slate-700">No logs found</h4>
                               <p className="text-xs text-slate-400 mt-1 max-w-[180px]">No operating expenses recorded within selected range.</p>
                             </div>
                           ) : (
                             filteredExpenses.slice(0, 30).map((e) => (
-                              <div key={e.id} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs text-left space-y-2">
+                              <div key={e.id} className="bg-white px-4 py-3 border border-slate-200 rounded-xl shadow-xs text-left space-y-2">
                                 <div className="flex justify-between items-start">
                                   <div>
                                     <span className="text-sm font-bold text-slate-800 block">{e.category}</span>
@@ -4280,7 +4280,7 @@ export default function DashboardReports({
                           return (
                             <>
                               <div className="grid grid-cols-2 gap-3">
-                                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                                   <div className="flex items-center space-x-1.5 text-indigo-505">
                                     <ShoppingBag className="w-4 h-4" />
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Units Sold</span>
@@ -4290,7 +4290,7 @@ export default function DashboardReports({
                                   </span>
                                 </div>
 
-                                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                                   <div className="flex items-center space-x-1.5 text-emerald-600">
                                     <DollarSign className="w-4 h-4" />
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Gross Income</span>
@@ -4298,7 +4298,7 @@ export default function DashboardReports({
                                   <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(totalRevenue).toLocaleString()}</span>
                                 </div>
 
-                                <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                                   <div className="flex items-center space-x-1.5 text-indigo-505">
                                     <Percent className="w-4 h-4" />
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Average Margin</span>
@@ -4320,10 +4320,10 @@ export default function DashboardReports({
                                 <h4 className="text-xs font-semibold text-slate-800 font-sans px-1 text-left">Profitability Rankings Contributions</h4>
                                 <div className="space-y-2">
                                   {matchItems.length === 0 ? (
-                                    <p className="text-center text-slate-400 italic text-xs py-10 bg-white border border-slate-150 rounded-xl text-center">No stats found for product list.</p>
+                                    <p className="text-center text-slate-400 italic text-xs py-10 bg-white border border-slate-200 rounded-xl text-center">No stats found for product list.</p>
                                   ) : (
                                     matchItems.map((item, idx) => (
-                                      <div key={idx} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs text-left flex justify-between items-center animate-fade-in">
+                                      <div key={idx} className="bg-white px-4 py-3 border border-slate-200 rounded-xl shadow-xs text-left flex justify-between items-center animate-fade-in">
                                         <div>
                                           <div className="flex items-center space-x-1.5 justify-start">
                                             <span className="text-[10px] font-mono font-bold text-indigo-650 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">Rank #{idx + 1}</span>
@@ -4395,7 +4395,7 @@ export default function DashboardReports({
                       <div className="space-y-4 font-sans text-left">
                         {/* Summary Metrics Grid */}
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-indigo-500">
                               <ShoppingBag className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Retail Sales</span>
@@ -4404,7 +4404,7 @@ export default function DashboardReports({
                             <span className="text-[10px] text-slate-400 font-mono mt-0.5">{currency}{Math.round(retailRevenue).toLocaleString()}</span>
                           </div>
 
-                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-amber-500">
                               <Archive className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Wholesale Sales</span>
@@ -4435,7 +4435,7 @@ export default function DashboardReports({
                           <h4 className="text-xs font-semibold text-slate-800 px-1 font-sans text-left">Active Split Wholesale/Retail Profiles</h4>
                           <div className="space-y-2 animate-fade-in">
                             {products.map((p) => (
-                              <div key={p.id} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs text-left space-y-2">
+                              <div key={p.id} className="bg-white px-4 py-3 border border-slate-200 rounded-xl shadow-xs text-left space-y-2">
                                 <div className="flex justify-between items-center text-left">
                                   <span className="text-sm font-bold text-slate-800 truncate block max-w-[180px]">{p.name}</span>
                                   <span className="text-[10px] text-slate-400 font-mono">{p.sku || 'N/A'}</span>
@@ -4475,7 +4475,7 @@ export default function DashboardReports({
                       <div className="space-y-4 font-sans text-left">
                         {/* Summary Metrics Grid */}
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-slate-500">
                               <Truck className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider font-mono">Fulfillments</span>
@@ -4483,7 +4483,7 @@ export default function DashboardReports({
                             <span className="text-sm font-black text-slate-800 mt-1">{validDeliveries.length} orders</span>
                           </div>
 
-                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-indigo-500">
                               <DollarSign className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider font-mono">Logistics Rev</span>
@@ -4491,7 +4491,7 @@ export default function DashboardReports({
                             <span className="text-sm font-black text-slate-800 mt-1">{currency}{deliveryIncome.toLocaleString()}</span>
                           </div>
 
-                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                             <div className="flex items-center space-x-1.5 text-rose-500">
                               <Receipt className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider font-mono">Fleet Outflow</span>
@@ -4513,18 +4513,18 @@ export default function DashboardReports({
                         {/* List replacements */}
                         <div className="space-y-2.5 animate-fade-in text-left">
                           <div className="flex justify-between items-center px-1">
-                            <h4 className="text-xs font-semibold text-slate-805">Active Logistics List</h4>
+                            <h4 className="text-xs font-semibold text-slate-800">Active Logistics List</h4>
                             <span className="text-[10px] font-mono text-slate-400">{validDeliveries.length} entries</span>
                           </div>
 
                           {validDeliveries.length === 0 ? (
-                            <div className="bg-white border border-slate-150 text-center py-10 rounded-xl">
-                              <span className="block text-slate-350 text-2xl mb-2">🚚</span>
+                            <div className="bg-white border border-slate-200 text-center py-10 rounded-xl">
+                              <span className="block text-slate-400 text-2xl mb-2">🚚</span>
                               <p className="text-xs text-slate-455 italic">No logistics delivery transactions logged yet.</p>
                             </div>
                           ) : (
                             validDeliveries.slice(0, 30).map((del) => (
-                              <div key={del.id} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs space-y-2 text-left">
+                              <div key={del.id} className="bg-white px-4 py-3 border border-slate-200 rounded-xl shadow-xs space-y-2 text-left">
                                 <div className="flex justify-between items-start text-left">
                                   <div>
                                     <span className="text-sm font-bold text-slate-800 block truncate max-w-[140px] text-left">{del.customerName}</span>
@@ -4542,7 +4542,7 @@ export default function DashboardReports({
                                 <div className="border-t border-slate-100 pt-2 grid grid-cols-2 text-[10px] text-slate-500 gap-1.5 leading-none">
                                   <div className="text-left">
                                     <span>Rider/Driver:</span>
-                                    <p className="font-bold text-slate-850 mt-1">{del.riderDetails?.name || del.riderId || 'Unassigned'}</p>
+                                    <p className="font-bold text-slate-800 mt-1">{del.riderDetails?.name || del.riderId || 'Unassigned'}</p>
                                   </div>
                                   <div className="border-l border-slate-100 pl-3 text-right">
                                     <span>Assigned Fee:</span>
@@ -4576,7 +4576,7 @@ export default function DashboardReports({
                     const sorted = Object.values(prodSells).sort((a,b) => b.qty - a.qty);
                     return (
                       <div className="space-y-4 text-left">
-                        <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
                           <div className="flex items-center space-x-1.5 text-indigo-500">
                             <TrendingUp className="w-4 h-4" />
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Top Velocity SKU</span>
@@ -4589,7 +4589,7 @@ export default function DashboardReports({
                           <h4 className="text-xs font-semibold text-slate-800 px-1 font-sans text-left">Relative Unit Sales Speed (30 Days)</h4>
                           <div className="space-y-2 animate-fade-in">
                             {sorted.map((item, idx) => (
-                              <div key={idx} className="bg-white px-4 py-3 border border-slate-150 rounded-xl shadow-xs text-left flex justify-between items-center">
+                              <div key={idx} className="bg-white px-4 py-3 border border-slate-200 rounded-xl shadow-xs text-left flex justify-between items-center">
                                 <div>
                                   <span className="text-sm font-bold text-slate-800 block truncate max-w-[170px]">{item.name}</span>
                                   <span className="text-xs text-slate-400 block mt-1">Barcode: {item.barcode || 'N/A'} • Doc: {item.sku || 'N/A'}</span>
@@ -4617,7 +4617,7 @@ export default function DashboardReports({
       {/* ------------------------------------------------------------- */}
       {isExpenseModalOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="relative bg-white border border-slate-205 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
+          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
             
             {/* Header */}
             <div className="px-6 py-5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
@@ -4637,11 +4637,11 @@ export default function DashboardReports({
             <form onSubmit={handleLogExpense} className="p-6 space-y-4">
               
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-450 uppercase tracking-widest block font-mono">Select Expense Category</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block font-mono">Select Expense Category</label>
                 <select
                   value={expenseCategory}
                   onChange={(e) => setExpenseCategory(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-rose-500 px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-755 outline-none cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-rose-500 px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-700 outline-none cursor-pointer"
                 >
                   {EXPENSE_CATEGORIES.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
@@ -4650,7 +4650,7 @@ export default function DashboardReports({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-450 uppercase tracking-widest block font-mono">Debit Amount ({currency})</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block font-mono">Debit Amount ({currency})</label>
                 <input
                   type="number"
                   required
@@ -4664,7 +4664,7 @@ export default function DashboardReports({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-450 uppercase tracking-widest block font-mono">Charges Description / Specs</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block font-mono">Charges Description / Specs</label>
                 <textarea
                   placeholder="Wrote check for..."
                   rows={2}
@@ -4675,7 +4675,7 @@ export default function DashboardReports({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-450 uppercase tracking-widest block font-mono">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block font-mono">
                   Receipt Voucher Image
                 </label>
                 
@@ -4727,7 +4727,7 @@ export default function DashboardReports({
                       <p className="text-[11px] font-bold text-slate-700">
                         Select Receipt Image
                       </p>
-                      <p className="text-[9px] text-slate-450 font-medium">
+                      <p className="text-[9px] text-slate-500 font-medium">
                         Drag & drop here, or click to browse
                       </p>
                     </div>
@@ -4770,7 +4770,7 @@ export default function DashboardReports({
           onClick={() => setPreviewReceiptImage(null)}
         >
           <div 
-            className="relative bg-white border border-slate-205 rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden p-4 flex flex-col"
+            className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden p-4 flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -4853,7 +4853,7 @@ export default function DashboardReports({
                 <div className="space-y-1.5 text-[10.5px] border-b border-dashed border-slate-200 pb-3">
                   <div className="flex justify-between">
                     <span className="text-slate-500">Document ID:</span>
-                    <span className="font-mono font-bold text-slate-805 select-all">{selectedInspectSale.id}</span>
+                    <span className="font-mono font-bold text-slate-800 select-all">{selectedInspectSale.id}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Date/Time:</span>
@@ -4896,7 +4896,7 @@ export default function DashboardReports({
                     const discountRate = item.discount || 0;
                     const netUnit = item.price * (1 - discountRate / 100);
                     return (
-                      <div key={index} className="grid grid-cols-12 text-[10.5px] font-sans gap-y-0.5 text-slate-850">
+                      <div key={index} className="grid grid-cols-12 text-[10.5px] font-sans gap-y-0.5 text-slate-800">
                         <span className="col-span-7 leading-tight font-medium">
                           {item.productName}
                           {discountRate > 0 && (
@@ -4997,7 +4997,7 @@ export default function DashboardReports({
             <span className="text-[8px] uppercase tracking-wider font-mono font-bold bg-slate-905 text-white px-2 py-0.5 rounded">
               Official Branch Accounts Report File
             </span>
-            <h1 className="text-xl font-bold font-sans mt-1.5 text-slate-905 uppercase">
+            <h1 className="text-xl font-bold font-sans mt-1.5 text-slate-900 uppercase">
               {activeTenant.name} Audit Ledger
             </h1>
             <p className="text-[9.5px] text-slate-505 font-medium font-sans mt-0.5">
@@ -5005,7 +5005,7 @@ export default function DashboardReports({
             </p>
           </div>
           <div className="text-right">
-            <span className="text-xs font-mono font-bold block text-slate-805">A4 AUDIT STATEMENT</span>
+            <span className="text-xs font-mono font-bold block text-slate-800">A4 AUDIT STATEMENT</span>
             <span className="text-[9px] text-slate-505 font-mono block mt-1">Date: {new Date().toLocaleString()}</span>
             <span className="text-[9px] text-slate-505 font-mono block mt-0.5">Author ID: {userName}</span>
             <span className="text-[9px] text-slate-505 font-mono block mt-0.5">Scope Period: {startDateStr} — {endDateStr}</span>
@@ -5014,7 +5014,7 @@ export default function DashboardReports({
 
         {/* Dynamic content wrapper based on active reportTab */}
         <div className="space-y-4">
-          <h2 className="text-sm font-extrabold uppercase font-mono tracking-wider border-b pb-1.5 border-slate-205">
+          <h2 className="text-sm font-extrabold uppercase font-mono tracking-wider border-b pb-1.5 border-slate-200">
             Active Statement Segment: {reportTab.replace('-', ' ').toUpperCase()}
           </h2>
 
@@ -5648,7 +5648,7 @@ export default function DashboardReports({
             </div>
             <div className="border-t border-slate-300 pt-3">
               <p className="font-bold uppercase">Fiscal Verifier Code</p>
-              <p className="mt-1 font-bold text-slate-805">JASPER-TZ-VFD-CERTIFIED</p>
+              <p className="mt-1 font-bold text-slate-800">JASPER-TZ-VFD-CERTIFIED</p>
               <p className="text-slate-400 mt-0.5 font-sans italic">✓ Tra Digital Integration Key</p>
             </div>
           </div>

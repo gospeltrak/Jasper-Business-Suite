@@ -696,7 +696,7 @@ export default function DashboardPurchases({
                 <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto border border-slate-200">
                   <Search className="w-6 h-6 text-slate-500" />
                 </div>
-                <h6 className="font-bold text-slate-750 text-sm">No Matches Found</h6>
+                <h6 className="font-bold text-slate-700 text-sm">No Matches Found</h6>
                 <p className="text-slate-455 max-w-sm mx-auto text-xs font-sans">
                   No purchases matched the active filters.
                 </p>
@@ -1074,7 +1074,7 @@ export default function DashboardPurchases({
                 ))}
 
                 {filteredProducts.length === 0 && (
-                  <div className="col-span-2 text-center p-12 space-y-2 text-slate-450 text-xs">
+                  <div className="col-span-2 text-center p-12 space-y-2 text-slate-500 text-xs">
                     <Package className="w-8 h-8 mx-auto text-slate-300" />
                     <p className="font-bold">No products matched</p>
                   </div>
@@ -1086,7 +1086,7 @@ export default function DashboardPurchases({
             <div className="lg:col-span-5 col-span-1 bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs">
               
               {/* Supplier & Destination */}
-              <div className="space-y-3 border-b border-slate-150 pb-4">
+              <div className="space-y-3 border-b border-slate-200 pb-4">
                 <h5 className="font-extrabold text-slate-800 text-sm">Supplier & Destination</h5>
                 
                 <div className="space-y-3.5">
@@ -1277,10 +1277,10 @@ export default function DashboardPurchases({
 
               {/* Payment section */}
               {cart.length > 0 && (
-                <div className="border-t border-slate-150 pt-4 space-y-4 font-sans text-xs">
+                <div className="border-t border-slate-200 pt-4 space-y-4 font-sans text-xs">
                   
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 font-mono text-[11px] text-slate-650">
-                    <div className="flex justify-between font-bold text-slate-755">
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 font-mono text-[11px] text-slate-600">
+                    <div className="flex justify-between font-bold text-slate-700">
                       <span>ITEMS GROSS COST</span>
                       <span>{currency}{Math.round(subtotal).toLocaleString()}</span>
                     </div>
@@ -1339,7 +1339,7 @@ export default function DashboardPurchases({
                     </select>
                   </div>
 
-                  <div className="flex justify-between items-center text-xs font-mono font-bold text-slate-650 border-t border-dashed border-slate-250 pt-2.5">
+                  <div className="flex justify-between items-center text-xs font-mono font-bold text-slate-600 border-t border-dashed border-slate-250 pt-2.5">
                     <span>OUTSTANDING BALANCE</span>
                     {amountDue > 0 ? (
                       <span className="text-amber-600 font-black">{currency}{Math.round(amountDue).toLocaleString()}</span>

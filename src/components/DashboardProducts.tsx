@@ -1619,7 +1619,7 @@ export default function DashboardProducts({
                       <select
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-750 transition-all outline-none font-semibold truncate"
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-700 transition-all outline-none font-semibold truncate"
                       >
                         <option value="">Select category</option>
                         {categoriesList.map(cat => (
@@ -1636,7 +1636,7 @@ export default function DashboardProducts({
                           setUnit(e.target.value);
                           if (!isBulkProduct) setBaseUnit(e.target.value);
                         }}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-750 transition-all outline-none font-semibold"
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-700 transition-all outline-none font-semibold"
                       >
                         {unitsList.map(u => (
                           <option key={u} value={u}>{u}</option>
@@ -1672,7 +1672,7 @@ export default function DashboardProducts({
                           <img src={productImage} alt="Product Base64 Preview" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
                         </div>
                       ) : (
-                        <div className="w-14 h-14 rounded-lg bg-slate-100 border border-slate-200 text-slate-450 flex flex-col items-center justify-center text-[8px] font-mono font-bold leading-tight flex-shrink-0 select-none">
+                        <div className="w-14 h-14 rounded-lg bg-slate-100 border border-slate-200 text-slate-500 flex flex-col items-center justify-center text-[8px] font-mono font-bold leading-tight flex-shrink-0 select-none">
                           <span>NO IMAGE</span>
                         </div>
                       )}
@@ -1707,7 +1707,7 @@ export default function DashboardProducts({
 
                 {/* Column 2: Barcode Actions & Stock level details */}
                 <div className="space-y-4">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-450 border-b border-slate-100 pb-1.5">2. Barcode Controls & Stock</h5>
+                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1.5">2. Barcode Controls & Stock</h5>
                   
                   <div className="space-y-1.5">
                     <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase block font-bold">
@@ -1866,7 +1866,7 @@ export default function DashboardProducts({
                     </div>
                   </div>
 
-                  <div className="bg-slate-50 font-mono text-[11px] p-4 rounded-2xl border border-slate-150 space-y-1.5 text-slate-500">
+                  <div className="bg-slate-50 font-mono text-[11px] p-4 rounded-2xl border border-slate-200 space-y-1.5 text-slate-500">
                     <div className="flex justify-between items-center text-xs border-b border-slate-200 pb-1 mb-1 text-slate-700 font-sans font-bold">
                       <span>Margin:</span>
                       <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
@@ -1879,7 +1879,7 @@ export default function DashboardProducts({
                       <span>Profit Margin:</span>
                       <span className="text-emerald-600 font-bold">{margin.toFixed(1)}%</span>
                     </div>
-                    <div className="flex justify-between font-sans font-bold text-slate-805 pt-1 mt-0.5 border-t border-slate-200">
+                    <div className="flex justify-between font-sans font-bold text-slate-800 pt-1 mt-0.5 border-t border-slate-200">
                       <span>Margin Gain per Unit:</span>
                       <span>{currency}{Math.round(profit).toLocaleString()}</span>
                     </div>
@@ -1888,7 +1888,7 @@ export default function DashboardProducts({
 
               </div>
 
-              <div className="space-y-4 pt-2 border-t border-slate-150">
+              <div className="space-y-4 pt-2 border-t border-slate-200">
                 <div className="flex items-center justify-between">
                   <div>
                     <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Smart Batch Costing</h5>
@@ -1944,10 +1944,10 @@ export default function DashboardProducts({
               </div>
 
               {activeTenant.businessType === 'pharmacy' && (
-                <div className="space-y-4 pt-2 border-t border-slate-150">
+                <div className="space-y-4 pt-2 border-t border-slate-200">
                   <div>
                     <span className="font-bold text-sm text-slate-800">Pharmacy Dose Setup</span>
-                    <p className="text-[10.5px] text-slate-450 mt-0.5">Set how to sell this item.</p>
+                    <p className="text-[10.5px] text-slate-500 mt-0.5">Set how to sell this item.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
                     <div className="space-y-1">
@@ -1982,7 +1982,7 @@ export default function DashboardProducts({
               )}
 
               {/* Bidhaa ya Jumla / Bulk Product SECTION */}
-              <div className="space-y-4 pt-2 border-t border-slate-150">
+              <div className="space-y-4 pt-2 border-t border-slate-200">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-sm text-slate-800">Retail Package Selling</span>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -2128,7 +2128,7 @@ export default function DashboardProducts({
           {/* Catalog Filter and Table */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs">
             
-            <div className="p-5 border-b border-slate-150/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="p-5 border-b border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
               <div className="relative w-full sm:max-w-xs">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input 
@@ -2272,7 +2272,7 @@ export default function DashboardProducts({
               <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50/75 text-[10px] text-slate-455 font-bold uppercase tracking-wider border-b border-slate-150 font-mono">
+                  <tr className="bg-slate-50/75 text-[10px] text-slate-455 font-bold uppercase tracking-wider border-b border-slate-200 font-mono">
                     <th className="py-4 px-5">Product Name</th>
                     <th className="py-4 px-4">Barcode</th>
                     <th className="py-4 px-4">Category</th>
@@ -2330,7 +2330,7 @@ export default function DashboardProducts({
                           {prod.category}
                         </td>
                         <td className="py-4 px-4 font-semibold text-slate-600 text-[11px]">
-                          {prod.brand || <span className="text-slate-350 font-normal">—</span>}
+                          {prod.brand || <span className="text-slate-400 font-normal">—</span>}
                         </td>
                         <td className="py-4 px-4 font-mono text-right text-slate-505 font-semibold">
                           {currency}{prod.costPrice.toLocaleString()}
@@ -2338,7 +2338,7 @@ export default function DashboardProducts({
                         <td className="py-4 px-4 font-mono text-right">
                           {canSellRetail ? (
                             <div className="flex flex-col items-end">
-                              <span className="text-slate-805 font-extrabold text-[12.5px]">
+                              <span className="text-slate-800 font-extrabold text-[12.5px]">
                                 {currency}{prod.sellingPrice.toLocaleString()}
                               </span>
                               {!canSellWholesale && (
@@ -2381,7 +2381,7 @@ export default function DashboardProducts({
                             {formatProductQuantity(storeQty, prod)}
                           </span>
                         </td>
-                        <td className="py-4 px-4 text-center font-black text-slate-750 font-mono text-xs">
+                        <td className="py-4 px-4 text-center font-black text-slate-700 font-mono text-xs">
                           {formatProductQuantity(totalQty, prod)}
                         </td>
                         <td className="py-4 px-4 text-center">
@@ -2419,7 +2419,7 @@ export default function DashboardProducts({
                               <button
                                 type="button"
                                 onClick={() => setDesktopMenuId(desktopMenuId === prod.id ? null : prod.id)}
-                                className="p-1.5 hover:bg-slate-100 text-slate-450 hover:text-slate-700 rounded-lg cursor-pointer transition-colors flex items-center justify-center"
+                                className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-700 rounded-lg cursor-pointer transition-colors flex items-center justify-center"
                                 title="Item Options"
                               >
                                 <MoreVertical className="w-4 h-4" />
@@ -2501,7 +2501,7 @@ export default function DashboardProducts({
               <div className="flex items-center space-x-3 bg-slate-900/60 p-3 rounded-2xl border border-slate-700">
                 <div className="flex items-center space-x-2">
                   <span className={`w-2.5 h-2.5 rounded-full ${isPrinterConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
-                  <span className="font-mono text-[10px] font-bold text-slate-350">
+                  <span className="font-mono text-[10px] font-bold text-slate-400">
                     {isPrinterConnected ? 'Connected' : 'Not connected'}
                   </span>
                 </div>
@@ -2612,18 +2612,18 @@ export default function DashboardProducts({
                       return (
                         <div 
                           key={p.id} 
-                          className="flex items-center justify-between p-3 border border-slate-150 rounded-2xl bg-white shadow-2xs hover:border-slate-250 transition-colors"
+                          className="flex items-center justify-between p-3 border border-slate-200 rounded-2xl bg-white shadow-2xs hover:border-slate-250 transition-colors"
                         >
                           <div className="flex items-center space-x-3 max-w-[55%]">
                             <div className="space-y-0.5 truncate text-left">
-                              <p className="font-bold text-slate-805 truncate text-[12px]">{p.name}</p>
+                              <p className="font-bold text-slate-800 truncate text-[12px]">{p.name}</p>
                               <span className="font-mono text-[9px] text-slate-400 block">Barcode: {p.barcode}</span>
                             </div>
                           </div>
 
                           <div className="flex items-center space-x-3 shrink-0">
                             {/* Copies count controller */}
-                            <div className="flex items-center space-x-1.5 bg-slate-50 border border-slate-205 px-2.5 py-1 rounded-xl">
+                            <div className="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-xl">
                               <label className="text-[9px] uppercase font-mono font-bold text-slate-400 shrink-0">Copies:</label>
                               <button
                                 type="button"
@@ -2676,7 +2676,7 @@ export default function DashboardProducts({
               
               {/* Paper selector */}
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold text-slate-450 block">Output format roll size</label>
+                <label className="text-[10px] uppercase font-bold text-slate-500 block">Output format roll size</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setLabelSize('thermal')}
@@ -2705,7 +2705,7 @@ export default function DashboardProducts({
 
               {/* Barcode Appearance Layout selection */}
               <div className="space-y-1.5 pt-1">
-                <label className="text-[10px] uppercase font-bold text-slate-450 block">Barcode label layout option</label>
+                <label className="text-[10px] uppercase font-bold text-slate-500 block">Barcode label layout option</label>
                 <div className="flex flex-col space-y-2">
                   <label className={`flex items-center space-x-2.5 p-2.5 border rounded-2xl cursor-pointer transition-all ${printLayoutOption === 'name_price' ? 'border-emerald-500 bg-emerald-50/20 text-emerald-800' : 'border-slate-200 text-slate-600 bg-white hover:border-slate-300'}`}>
                     <input 
@@ -2755,7 +2755,7 @@ export default function DashboardProducts({
               </div>
 
               {/* Printable stats summary */}
-              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-2 font-mono text-[10.5px] text-slate-500">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 font-mono text-[10.5px] text-slate-500">
                 <div className="flex justify-between font-sans font-bold text-slate-705 border-b border-slate-200 pb-1.5 mb-1 text-xs">
                   <span>Queue Totals</span>
                   <Sliders className="w-3.5 h-3.5" />
@@ -2823,7 +2823,7 @@ export default function DashboardProducts({
 
           {/* Section 3: Genuine physical layout print preview mockup sheet */}
           <div className="bg-slate-100 border border-slate-250 rounded-3xl p-6 shadow-sm space-y-4">
-            <div className="border-b border-slate-205 pb-3">
+            <div className="border-b border-slate-200 pb-3">
               <span className="font-bold text-xs uppercase font-mono tracking-wider text-slate-500">
                 🔎 Print Layout Preview (WYSIWYG layout simulation)
               </span>
@@ -2854,7 +2854,7 @@ export default function DashboardProducts({
                         <>
                           {/* Product Name placed centered in the middle */}
                           <div className="text-center font-sans">
-                            <p className="font-extrabold text-slate-850 truncate text-[11px] leading-tight">{p.name}</p>
+                            <p className="font-extrabold text-slate-800 truncate text-[11px] leading-tight">{p.name}</p>
                           </div>
 
                           {/* Price display if selected, placed below product name */}
@@ -2897,7 +2897,7 @@ export default function DashboardProducts({
               {/* A4 Sheet grid visualizer */}
               {labelSize === 'a4' && (
                 <div className="bg-white border border-slate-300 w-full max-w-3xl min-h-[480px] p-6 text-slate-900 rounded-xl shadow-xl flex flex-col space-y-4">
-                  <div className="border-b border-dashed border-slate-205 pb-3 flex items-center justify-between text-slate-500 font-mono select-none">
+                  <div className="border-b border-dashed border-slate-200 pb-3 flex items-center justify-between text-slate-500 font-mono select-none">
                     <div className="text-left">
                       <span className="font-bold text-[11px] block">📄 A4 Label Sheet Outline (4 x 6 = 24 Labels layout)</span>
                       <span className="text-[9px] text-slate-400 font-sans">Ready to print or download.</span>
@@ -2925,7 +2925,7 @@ export default function DashboardProducts({
                           <>
                             {/* Product name centered in the middle */}
                             <div className="text-center truncate">
-                              <p className="font-bold text-slate-850 truncate text-[10px] leading-tight">{p.name}</p>
+                              <p className="font-bold text-slate-800 truncate text-[10px] leading-tight">{p.name}</p>
                             </div>
 
                             {/* Price display below product name, if selected */}
@@ -2949,7 +2949,7 @@ export default function DashboardProducts({
                   </div>
 
                   {flattenedLabelsForPreview.length > 12 && (
-                    <p className="text-[10px] text-slate-450 italic text-center pt-2">
+                    <p className="text-[10px] text-slate-500 italic text-center pt-2">
                       + {flattenedLabelsForPreview.length - 12} more sticker items populated on following print sheets.
                     </p>
                   )}
@@ -2989,7 +2989,7 @@ export default function DashboardProducts({
                 <div className="absolute inset-x-12 inset-y-8 border-2 border-emerald-500/30 rounded-xl pointer-events-none" />
                 
                 <Camera className="w-8 h-8 text-slate-600 animate-pulse mb-1.5" />
-                <p className="font-mono text-[10px] text-slate-450 uppercase tracking-widest">Awaiting Laser Feed...</p>
+                <p className="font-mono text-[10px] text-slate-500 uppercase tracking-widest">Awaiting Laser Feed...</p>
                 <p className="text-[9px] text-slate-500 max-w-[180px] leading-relaxed mt-1">Scan or pick a sample.</p>
               </div>
 
@@ -3093,7 +3093,7 @@ export default function DashboardProducts({
                 <p className="text-[9px] text-slate-700 font-bold tracking-widest">JSP-DIAGNOSTIC-OK</p>
               </div>
 
-              <div className="text-[9.5px] italic text-slate-450 leading-relaxed pt-2">
+              <div className="text-[9.5px] italic text-slate-500 leading-relaxed pt-2">
                 "Printed successfully via active Jasper software. Live printer triggers are compatible with unified Windows PRN controllers & mobile thermal Bluetooth devices."
               </div>
 
@@ -3121,9 +3121,9 @@ export default function DashboardProducts({
           <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col uppercase text-xs">
             
             {/* Header */}
-            <div className="px-5 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
+            <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <ArrowLeftRight className="w-4 h-4 text-emerald-650" />
+                <ArrowLeftRight className="w-4 h-4 text-emerald-600" />
                 <h4 className="font-bold text-slate-800 text-xs tracking-wide">Internal Stock Transfer</h4>
               </div>
               <button onClick={() => setTransferProduct(null)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
@@ -3297,7 +3297,7 @@ export default function DashboardProducts({
                   className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between font-medium cursor-pointer ${
                     selectedCategoryFilter === null
                       ? 'bg-slate-900 border-slate-900 text-white font-bold shadow-md shadow-slate-950/10'
-                      : 'bg-slate-50 border-slate-150 text-slate-600 hover:bg-slate-100'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                   }`}
                 >
                   <span>All Registered Items</span>
@@ -3316,7 +3316,7 @@ export default function DashboardProducts({
                       className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between font-medium ${
                         selectedCategoryFilter === cat
                           ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-bold shadow-xs'
-                          : 'bg-slate-50 border-slate-150 text-slate-600 hover:bg-slate-100'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                       }`}
                     >
                       <button
@@ -3366,16 +3366,16 @@ export default function DashboardProducts({
 
           {/* Right Panel: Products under Category filtered list */}
           <div className="md:col-span-8 bg-white border border-slate-200 p-6 rounded-3xl shadow-xs space-y-5 flex flex-col min-h-[450px]">
-            <div className="border-b border-slate-150 pb-3 flex items-center justify-between">
+            <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
               <div className="space-y-0.5">
-                <h4 className="font-bold text-slate-805 text-sm uppercase font-mono">
+                <h4 className="font-bold text-slate-800 text-sm uppercase font-mono">
                   {selectedCategoryFilter || 'All Categories'}
                 </h4>
                 <p className="text-[11px] text-slate-400">
                   Stock for selected category.
                 </p>
               </div>
-              <span className="font-mono text-[11px] font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-650">
+              <span className="font-mono text-[11px] font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-600">
                 {products.filter(p => !selectedCategoryFilter || p.category === selectedCategoryFilter).length} matches
               </span>
             </div>
@@ -3390,7 +3390,7 @@ export default function DashboardProducts({
                   return (
                     <div key={prod.id} className="bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-start space-x-3 transition-all relative">
                       {prod.image ? (
-                        <div className="w-12 h-12 bg-white border border-slate-150 rounded-xl overflow-hidden flex-shrink-0 p-0.5 flex items-center justify-center">
+                        <div className="w-12 h-12 bg-white border border-slate-200 rounded-xl overflow-hidden flex-shrink-0 p-0.5 flex items-center justify-center">
                           <CachedImage src={prod.image} alt={prod.name} className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
                         </div>
                       ) : (
@@ -3400,12 +3400,12 @@ export default function DashboardProducts({
                       )}
                       
                       <div className="space-y-1 min-w-0 flex-grow">
-                        <h5 className="font-bold text-slate-805 text-[12.5px] truncate leading-snug">{prod.name}</h5>
+                        <h5 className="font-bold text-slate-800 text-[12.5px] truncate leading-snug">{prod.name}</h5>
                         <p className="text-[10px] text-slate-400 font-mono tracking-wider">Barcode: <span className="font-semibold text-slate-700">{prod.barcode}</span></p>
                         <p className="text-[10px] text-slate-400 font-semibold">Brand: <span className="text-slate-700">{prod.brand || '—'}</span></p>
                         <div className="flex items-center space-x-3 pt-1.5 font-mono text-[10.5px]">
                           <span className="text-emerald-700 font-bold font-mono">Cost: {currency}{prod.costPrice}</span>
-                          <span className="text-slate-350">|</span>
+                          <span className="text-slate-400">|</span>
                           <span className="text-slate-800 font-mono font-extrabold">Price: {currency}{prod.sellingPrice}</span>
                         </div>
                         <div className="pt-2">
@@ -3516,7 +3516,7 @@ export default function DashboardProducts({
                   className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between font-medium cursor-pointer ${
                     selectedBrandFilter === null
                       ? 'bg-slate-900 border-slate-900 text-white font-bold shadow-md shadow-slate-950/10'
-                      : 'bg-slate-50 border-slate-150 text-slate-600 hover:bg-slate-100'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                   }`}
                 >
                   <div className="flex items-center space-x-2.5">
@@ -3539,7 +3539,7 @@ export default function DashboardProducts({
                       className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between font-medium ${
                         selectedBrandFilter?.toLowerCase() === b.name.toLowerCase()
                           ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-bold shadow-xs'
-                          : 'bg-slate-50 border-slate-150 text-slate-600 hover:bg-slate-100'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                       }`}
                     >
                       <button
@@ -3588,16 +3588,16 @@ export default function DashboardProducts({
 
           {/* Right Panel: Products under Brand filtered list */}
           <div className="md:col-span-8 bg-white border border-slate-200 p-6 rounded-3xl shadow-xs space-y-5 flex flex-col min-h-[450px]">
-            <div className="border-b border-slate-150 pb-3 flex items-center justify-between">
+            <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
               <div className="space-y-0.5">
-                <h4 className="font-bold text-slate-850 text-sm uppercase font-mono flex items-center space-x-2">
+                <h4 className="font-bold text-slate-800 text-sm uppercase font-mono flex items-center space-x-2">
                   <span>{selectedBrandFilter || 'All Brands'} Products Grid</span>
                 </h4>
                 <p className="text-[11px] text-slate-400">
                   Showing active system registry lines under selected brand house labels.
                 </p>
               </div>
-              <span className="font-mono text-[11px] font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-650">
+              <span className="font-mono text-[11px] font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-600">
                 {products.filter(p => !selectedBrandFilter || p.brand?.toLowerCase() === selectedBrandFilter.toLowerCase()).length} matches
               </span>
             </div>
@@ -3612,7 +3612,7 @@ export default function DashboardProducts({
                   return (
                     <div key={prod.id} className="bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-start space-x-3 transition-all">
                       {prod.image ? (
-                        <div className="w-12 h-12 bg-white border border-slate-150 rounded-xl overflow-hidden flex-shrink-0 p-0.5 flex items-center justify-center">
+                        <div className="w-12 h-12 bg-white border border-slate-200 rounded-xl overflow-hidden flex-shrink-0 p-0.5 flex items-center justify-center">
                           <CachedImage src={prod.image} alt={prod.name} className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
                         </div>
                       ) : (
@@ -3622,7 +3622,7 @@ export default function DashboardProducts({
                       )}
                       
                       <div className="space-y-1 min-w-0 flex-grow">
-                        <h5 className="font-bold text-slate-805 text-[12.5px] truncate leading-snug">{prod.name}</h5>
+                        <h5 className="font-bold text-slate-800 text-[12.5px] truncate leading-snug">{prod.name}</h5>
                         <p className="text-[10px] text-slate-400 font-mono tracking-wider">Barcode: <span className="font-semibold text-slate-700">{prod.barcode}</span></p>
                         <p className="text-[10px] text-slate-400 font-semibold">
                           Category: <span className="text-slate-700">{prod.category}</span>
@@ -3630,7 +3630,7 @@ export default function DashboardProducts({
                         </p>
                         <div className="flex items-center space-x-3 pt-1.5 font-mono text-[10.5px]">
                           <span className="text-emerald-700 font-bold font-mono">Cost: {currency}{prod.costPrice}</span>
-                          <span className="text-slate-350">|</span>
+                          <span className="text-slate-400">|</span>
                           <span className="text-slate-800 font-mono font-extrabold">Price: {currency}{prod.sellingPrice}</span>
                         </div>
                         <div className="pt-2">
@@ -3659,12 +3659,12 @@ export default function DashboardProducts({
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
           <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] overflow-y-auto flex flex-col">
             {/* Header */}
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                <h4 className="font-bold text-slate-850 text-xs uppercase tracking-wider font-mono">Product View-Details Desk</h4>
+                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider font-mono">Product View-Details Desk</h4>
               </div>
-              <button type="button" onClick={() => setViewingProduct(null)} className="text-slate-450 hover:text-slate-700 cursor-pointer">
+              <button type="button" onClick={() => setViewingProduct(null)} className="text-slate-500 hover:text-slate-700 cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -3673,32 +3673,32 @@ export default function DashboardProducts({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Visual Block & Classification summary */}
                 <div className="space-y-4">
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">1. Descriptor & Image</h5>
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">1. Descriptor & Image</h5>
                   
                   <div className="space-y-1.5 normal-case font-semibold text-xs">
-                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Product Name / Title</label>
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold">
+                    <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Product Name / Title</label>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold">
                       {viewingProduct.name}
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Category Classification</label>
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold font-mono">
+                    <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Category Classification</label>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold font-mono">
                       {viewingProduct.category}
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Product Brand</label>
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold font-mono">
+                    <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Product Brand</label>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold font-mono">
                       {viewingProduct.brand || "—"}
                     </div>
                   </div>
 
                   <div className="space-y-2 pt-1 font-mono">
-                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Asset Image Preview</label>
-                    <div className="border border-slate-205 rounded-xl p-4 bg-slate-50 flex items-center justify-center">
+                    <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Asset Image Preview</label>
+                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 flex items-center justify-center">
                       {viewingProduct.image ? (
                         <CachedImage src={viewingProduct.image} alt={viewingProduct.name} className="max-h-36 object-contain" referrerPolicy="no-referrer" />
                       ) : (
@@ -3712,33 +3712,33 @@ export default function DashboardProducts({
 
                 {/* Stock levels block */}
                 <div className="space-y-4">
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">2. Barcode & Stocking</h5>
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">2. Barcode & Stocking</h5>
                   
                   <div className="space-y-1.5 font-mono">
-                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Retail barcode (SKU)</label>
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold font-mono tracking-wide">
+                    <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Retail barcode (SKU)</label>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold font-mono tracking-wide">
                       {viewingProduct.barcode}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 pb-1 font-mono">
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Shop shelf units</label>
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold">
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Shop shelf units</label>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold">
                         {formatProductQuantity(viewingProduct.shopStockQty ?? 0, viewingProduct)}
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">store room units</label>
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold font-mono">
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">store room units</label>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold font-mono">
                         {formatProductQuantity(viewingProduct.storeStockQty ?? 0, viewingProduct)}
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-1 font-mono">
-                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Low alert Level threshold</label>
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-850 font-bold font-mono">
+                    <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Low alert Level threshold</label>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold font-mono">
                       {formatProductQuantity(viewingProduct.alertQty ?? 5, viewingProduct)}
                     </div>
                   </div>
@@ -3751,33 +3751,33 @@ export default function DashboardProducts({
 
                 {/* Sells & Margin statistics */}
                 <div className="space-y-4 font-mono">
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">3. Financial Margin metrics</h5>
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">3. Financial Margin metrics</h5>
                   
                   <div className="grid grid-cols-2 gap-3 pb-1">
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Cost Buy pricing</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Cost Buy pricing</label>
                       <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-emerald-700 font-extrabold">
                         {currency}{(viewingProduct.costPrice ?? 0).toLocaleString()}
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Retail pricing</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Retail pricing</label>
                       <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-855 font-extrabold">
                         {viewingProduct.sellInRetail !== false ? `${currency}${(viewingProduct.sellingPrice ?? 0).toLocaleString()}` : 'LOCKED'}
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 border-b border-dashed border-slate-150 pb-3">
+                  <div className="grid grid-cols-2 gap-3 border-b border-dashed border-slate-200 pb-3">
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Wholesale pricing</label>
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-805 font-bold">
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Wholesale pricing</label>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold">
                         {viewingProduct.sellInWholesale ? `${currency}${(viewingProduct.wholesalePrice ?? 0).toLocaleString()}` : 'LOCKED'}
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Wholesale Min qty</label>
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-805 font-bold">
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Wholesale Min qty</label>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold">
                         {viewingProduct.sellInWholesale ? formatProductQuantity(viewingProduct.minWholesaleQty ?? 10, viewingProduct) : 'LOCKED'}
                       </div>
                     </div>
@@ -3798,7 +3798,7 @@ export default function DashboardProducts({
                           {(((viewingProduct.sellingPrice - viewingProduct.costPrice) / (viewingProduct.sellingPrice || 1)) * 105).toFixed(1)}%
                         </span>
                       </div>
-                      <div className="flex justify-between font-sans font-bold text-slate-850 pt-1 border-t border-slate-200">
+                      <div className="flex justify-between font-sans font-bold text-slate-800 pt-1 border-t border-slate-200">
                         <span>Margin Gain / Unit:</span>
                         <span className="text-emerald-700">{currency}{(viewingProduct.sellingPrice - viewingProduct.costPrice).toLocaleString()}</span>
                       </div>
@@ -3809,7 +3809,7 @@ export default function DashboardProducts({
                 {/* Batches Log */}
                 {viewingProduct.batches && viewingProduct.batches.length > 0 && (
                   <div className="md:col-span-3 space-y-4 font-mono mt-4">
-                    <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">4. Purchase Batches Log</h5>
+                    <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">4. Purchase Batches Log</h5>
                     <div className="overflow-x-auto rounded-xl border border-slate-200">
                       <table className="w-full text-left">
                         <thead className="bg-slate-50 border-b border-slate-200">
@@ -3870,12 +3870,12 @@ export default function DashboardProducts({
             className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] overflow-y-auto flex flex-col uppercase text-xs"
           >
             {/* Header */}
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Edit className="w-4 h-4 text-emerald-600 animate-pulse" />
-                <h4 className="font-bold text-slate-850 text-xs uppercase tracking-wider font-mono">Adjust Product details desk</h4>
+                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider font-mono">Adjust Product details desk</h4>
               </div>
-              <button type="button" onClick={() => setEditingProduct(null)} className="text-slate-450 hover:text-slate-700 cursor-pointer">
+              <button type="button" onClick={() => setEditingProduct(null)} className="text-slate-500 hover:text-slate-700 cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -3884,10 +3884,10 @@ export default function DashboardProducts({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Visual Block & Classification summary */}
                 <div className="space-y-4">
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">1. Descriptor & Image</h5>
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">1. Descriptor & Image</h5>
                   
                   <div className="space-y-1.5 normal-case font-semibold text-xs">
-                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Product Name / Title</label>
+                    <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Product Name / Title</label>
                     <input 
                       type="text" 
                       required
@@ -3899,11 +3899,11 @@ export default function DashboardProducts({
 
                   <div className="grid grid-cols-2 gap-3.5">
                     <div className="space-y-1.5">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Category Classification</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Category Classification</label>
                       <select
                         value={editForm.category || ''}
                         onChange={(e) => setEditForm(prev => ({ ...prev, category: e.target.value }))}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-750 font-bold outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-700 font-bold outline-none"
                       >
                         {categoriesList.map(cat => (
                           <option key={cat} value={cat}>{cat}</option>
@@ -3912,7 +3912,7 @@ export default function DashboardProducts({
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Units</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Units</label>
                       <select
                         value={editForm.unit || ''}
                         onChange={(e) => setEditForm(prev => ({
@@ -3920,7 +3920,7 @@ export default function DashboardProducts({
                           unit: e.target.value,
                           ...(prev.isBulkProduct || prev.allowScaleSelling ? {} : { baseUnit: e.target.value }),
                         }))}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-750 font-bold outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-700 font-bold outline-none"
                       >
                         <option value="">-- No Unit --</option>
                         {unitsList.map(u => (
@@ -3931,7 +3931,7 @@ export default function DashboardProducts({
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Product Brand</label>
+                    <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Product Brand</label>
                     <input 
                       type="text" 
                       placeholder="e.g. Nestle, Sprite"
@@ -3948,7 +3948,7 @@ export default function DashboardProducts({
                   </div>
 
                   <div className="space-y-2 pt-1 font-mono">
-                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Asset Image Preview</label>
+                    <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Asset Image Preview</label>
                     
                     <div className="border border-dashed border-slate-220 rounded-xl p-3 bg-slate-50 flex items-center space-x-3">
                       {editForm.image ? (
@@ -3988,10 +3988,10 @@ export default function DashboardProducts({
 
                 {/* Stock levels block */}
                 <div className="space-y-4">
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">2. Barcode & Stocking</h5>
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">2. Barcode & Stocking</h5>
                   
                   <div className="space-y-1.5 font-mono">
-                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Retail barcode (SKU)</label>
+                    <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Retail barcode (SKU)</label>
                     <input 
                       type="text" 
                       required
@@ -4003,7 +4003,7 @@ export default function DashboardProducts({
 
                   <div className="grid grid-cols-2 gap-3 pb-1 font-mono">
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Shop shelf ({activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'units') : 'Units'})</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Shop shelf ({activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'units') : 'Units'})</label>
                       <input 
                         type="number" 
                         min="0"
@@ -4017,7 +4017,7 @@ export default function DashboardProducts({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">store rooms ({activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'units') : 'Units'})</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">store rooms ({activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'units') : 'Units'})</label>
                       <input 
                         type="number" 
                         min="0"
@@ -4033,7 +4033,7 @@ export default function DashboardProducts({
                   </div>
 
                   <div className="space-y-1 font-mono">
-                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Low alert Level threshold</label>
+                    <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Low alert Level threshold</label>
                     <input 
                       type="number" 
                       min="1"
@@ -4055,12 +4055,12 @@ export default function DashboardProducts({
 
                 {/* Sells & Margin statistics */}
                 <div className="space-y-4 font-mono">
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-1.5 font-mono">3. Financial Margin metrics</h5>
+                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">3. Financial Margin metrics</h5>
                   
                   <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 space-y-2">
-                    <span className="text-[10px] font-bold text-slate-450 uppercase block tracking-wider font-mono">Active Selling Channels</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Active Selling Channels</span>
                     <div className="grid grid-cols-2 gap-2 font-sans font-bold leading-none text-slate-700">
-                      <label className="flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-205 cursor-pointer hover:border-slate-300">
+                      <label className="flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300">
                         <input 
                           type="checkbox" 
                           checked={editForm.sellInRetail !== false} 
@@ -4071,7 +4071,7 @@ export default function DashboardProducts({
                         />
                         <span className="font-semibold text-[11px] text-slate-700">Sell Retail</span>
                       </label>
-                      <label className="flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-205 cursor-pointer hover:border-slate-300">
+                      <label className="flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300">
                         <input 
                           type="checkbox" 
                           checked={!!editForm.sellInWholesale} 
@@ -4085,7 +4085,7 @@ export default function DashboardProducts({
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">{editForm.isBulkProduct && activeTenant.businessType !== 'pharmacy' ? `Package Buy Cost (${editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package'})` : 'Cost buy Price'}</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{editForm.isBulkProduct && activeTenant.businessType !== 'pharmacy' ? `Package Buy Cost (${editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package'})` : 'Cost buy Price'}</label>
                       <input 
                         type="number" 
                         min="0"
@@ -4103,7 +4103,7 @@ export default function DashboardProducts({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Retail price</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Retail price</label>
                       <input 
                         type="number" 
                         min="1"
@@ -4118,9 +4118,9 @@ export default function DashboardProducts({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 border-b border-dashed border-slate-150 pb-3">
+                  <div className="grid grid-cols-2 gap-3 border-b border-dashed border-slate-200 pb-3">
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Wholesale price</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Wholesale price</label>
                       <input 
                         type="number" 
                         min="1"
@@ -4134,7 +4134,7 @@ export default function DashboardProducts({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Wholesale Min Qty</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Wholesale Min Qty</label>
                       <input 
                         type="number" 
                         min="1"
@@ -4150,7 +4150,7 @@ export default function DashboardProducts({
                   </div>
 
                   <div className="space-y-1 pt-1 font-mono">
-                    <label className="text-[9.5px] font-bold text-slate-450 uppercase block">How Stock is Used</label>
+                    <label className="text-[9.5px] font-bold text-slate-500 uppercase block">How Stock is Used</label>
                     <select 
                       value={editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo'}
                       onChange={(e) => {
@@ -4222,15 +4222,15 @@ export default function DashboardProducts({
                   {activeTenant.businessType !== 'pharmacy' && (
                     <div className="grid grid-cols-3 gap-3">
                       <div className="space-y-1">
-                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Package Name</label>
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Package Name</label>
                         <input value={editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, purchaseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Sell / Count Unit</label>
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Sell / Count Unit</label>
                         <input value={editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, baseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">1 Package Contains</label>
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">1 Package Contains</label>
                         <input type="number" step="0.001" value={editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1} onChange={e => setEditForm(prev => ({ ...prev, conversionToBaseUnit: Number(e.target.value) || 1 }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                       </div>
                     </div>
@@ -4243,7 +4243,7 @@ export default function DashboardProducts({
                   <div className="border border-emerald-100 bg-emerald-50/40 rounded-2xl p-4 space-y-3">
                     <div>
                       <span className="font-bold text-[11px] text-slate-700 uppercase tracking-widest">Pharmacy Dose Setup</span>
-                      <p className="text-[10px] text-slate-450 mt-0.5">Packet, dose, half dose and tab pricing.</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Packet, dose, half dose and tab pricing.</p>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
@@ -4298,7 +4298,7 @@ export default function DashboardProducts({
                     <div className="p-4 bg-white border-t border-slate-200 space-y-4">
                       {/* Mode Selector */}
                       <div>
-                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block mb-1.5">{t('sellByWeightOrPcs')}</label>
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block mb-1.5">{t('sellByWeightOrPcs')}</label>
                         <div className="flex bg-slate-50 rounded-lg p-1 border border-slate-200">
                           <button 
                             type="button"
@@ -4327,21 +4327,21 @@ export default function DashboardProducts({
                       {/* Inputs */}
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <label className="text-[9.5px] font-bold text-slate-450 uppercase block">1 Package Contains</label>
+                          <label className="text-[9.5px] font-bold text-slate-500 uppercase block">1 Package Contains</label>
                           <input type="number" step="0.001" value={editForm.conversionToBaseUnit ?? editForm.inventorySettings?.conversionToBaseUnit ?? editForm.bulkPurchaseQty ?? ''} onChange={e => {
                             const value = e.target.value === '' ? undefined : Number(e.target.value);
                             setEditForm(prev => ({ ...prev, conversionToBaseUnit: value, bulkPurchaseQty: value }));
                           }} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Base Unit</label>
+                          <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Base Unit</label>
                           <input value={editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, baseUnit: e.target.value, sellUnit: e.target.value }))} placeholder="kg, litre, pcs" className="w-full bg-slate-50 border border-slate-200 text-[11px] px-2 py-2 rounded-xl" />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Quick Sale Portions</label>
+                          <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Quick Sale Portions</label>
                           {editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid' ? (
                             <div className="flex flex-col space-y-1">
                              <div className="flex space-x-1 overflow-x-auto scrollbar-hide flex-wrap gap-y-1">
@@ -4360,7 +4360,7 @@ export default function DashboardProducts({
                           )}
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Default Portion Qty</label>
+                          <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Default Portion Qty</label>
                           {editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid' ? (
                             <div className="w-full bg-slate-50 border border-slate-200 text-[11px] px-3 py-2 rounded-xl font-bold text-slate-700">
                               {editForm.sellUnitQty === 0.25 ? '1/4' : editForm.sellUnitQty === 0.5 ? '1/2' : editForm.sellUnitQty === 0.75 ? '3/4' : '1'} {editForm.baseUnit || editForm.inventorySettings?.baseUnit || 'kg'}
@@ -4372,7 +4372,7 @@ export default function DashboardProducts({
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[9.5px] font-bold text-slate-450 uppercase block">Price per 1 {editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || 'unit'}</label>
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Price per 1 {editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || 'unit'}</label>
                         <input type="number" value={editForm.sellUnitPrice ?? editForm.defaultPricePerBaseUnit ?? editForm.inventorySettings?.defaultPricePerBaseUnit ?? ''} onChange={e => setEditForm(prev => ({ ...prev, sellUnitPrice: e.target.value === '' ? undefined : Number(e.target.value), defaultPricePerBaseUnit: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold" />
                       </div>
 
@@ -4427,13 +4427,13 @@ export default function DashboardProducts({
       {replenishProduct && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
           <form onSubmit={handleReplenishSubmit} className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-150 flex flex-col space-y-1">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-col space-y-1">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Package className="w-4 h-4 text-emerald-600" />
-                  <h4 className="font-bold text-slate-850 text-xs uppercase tracking-wider font-mono">Stock Restock & Prices</h4>
+                  <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider font-mono">Stock Restock & Prices</h4>
                 </div>
-                <button type="button" onClick={() => setReplenishProduct(null)} className="text-slate-450 hover:text-slate-700 cursor-pointer">
+                <button type="button" onClick={() => setReplenishProduct(null)} className="text-slate-500 hover:text-slate-700 cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -4556,7 +4556,7 @@ export default function DashboardProducts({
               )}
             </div>
 
-            <div className="bg-slate-50 p-4 flex justify-between space-x-2 border-t border-slate-150">
+            <div className="bg-slate-50 p-4 flex justify-between space-x-2 border-t border-slate-200">
               <span className="text-[10px] text-slate-500 max-w-[240px] leading-tight flex items-center"><Package className="w-3 h-3 mr-1 shrink-0"/> {replenishCostingMethod === 'average_price' ? 'Saves batch and updates POS average price' : replenishCostingMethod === 'batch_price' ? 'Saves batch for batch-price selling' : 'Saves batch for FIFO selling'}</span>
               <div className="flex space-x-2">
                 <button type="button" onClick={() => setReplenishProduct(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-lg uppercase tracking-wider text-[10px] cursor-pointer">Cancel</button>

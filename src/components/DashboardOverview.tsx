@@ -586,7 +586,7 @@ export default function DashboardOverview({
       {/* ══════════ END MOBILE HERO ══════════ */}
 
       {/* 2. OVERVIEW HEADER WITH DYNAMIC DAY SELECTOR */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-150/80 dark:border-slate-800 p-5 rounded-2xl shadow-xs text-left select-none animate-fade-in hidden md:flex">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 rounded-2xl shadow-xs text-left select-none animate-fade-in hidden md:flex">
         <div className="flex items-center space-x-4">
           {/* Circular logo or Initials Avatar */}
           {(() => {
@@ -635,7 +635,7 @@ export default function DashboardOverview({
                 </span>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-x-2 text-slate-650 dark:text-slate-400">
+            <div className="flex flex-wrap items-center gap-x-2 text-slate-600 dark:text-slate-400">
               <span className="text-[11.5px] font-bold text-emerald-600 dark:text-emerald-400">
                 {(() => {
                   const currentLang = lang;
@@ -651,8 +651,8 @@ export default function DashboardOverview({
                   }
                 })()}
               </span>
-              <span className="text-[10px] text-slate-350 dark:text-slate-600">•</span>
-              <span className="text-[11px] font-medium text-slate-450 dark:text-slate-450 font-sans">
+              <span className="text-[10px] text-slate-400 dark:text-slate-600">•</span>
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-500 font-sans">
                 {(() => {
                   const currentLang = lang;
                   const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
@@ -665,7 +665,7 @@ export default function DashboardOverview({
 
         {/* Day Selector: Today, 1 Week, 1 Month, 3 Month, 1 Year */}
         {/* DESKTOP LAYOUT (completely untouched) */}
-        <div className="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-wrap gap-y-1 md:flex-nowrap border border-slate-150 shadow-inner">
+        <div className="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-wrap gap-y-1 md:flex-nowrap border border-slate-200 shadow-inner">
           {[
             { id: 'today', label: t('Today') },
             { id: 'week', label: t('1 Week') },
@@ -692,7 +692,7 @@ export default function DashboardOverview({
         </div>
 
         {/* MOBILE LAYOUT (clean compact single horizontal row without any horizontal scrolling) */}
-        <div className="flex md:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-150 shadow-inner select-none">
+        <div className="flex md:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner select-none">
           {[
             { id: 'today', label: t('Today') },
             { id: 'week', label: t('1 Week') },
@@ -737,7 +737,7 @@ export default function DashboardOverview({
             <p className="text-xl font-black text-[#1a1a2e] tracking-tight mt-1">
               {filteredSales.length}
             </p>
-            <p className="text-[10px] text-slate-450 mt-1.5 font-mono tracking-wide flex items-center gap-1">
+            <p className="text-[10px] text-slate-500 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
               {totalQtySold} items sold today
             </p>
@@ -766,7 +766,7 @@ export default function DashboardOverview({
             <p className="text-xl font-black text-[#1a1a2e] tracking-tight mt-1">
               {currency} {Math.round(filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').reduce((sum:number,s:any)=>sum+(s.dueAmount||s.amountDue||0),0)).toLocaleString()}
             </p>
-            <p className="text-[10px] text-slate-450 mt-1.5 font-mono tracking-wide flex items-center gap-1">
+            <p className="text-[10px] text-slate-500 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
               {filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').length} unpaid orders
             </p>
@@ -788,7 +788,7 @@ export default function DashboardOverview({
             <p className="text-xl font-black text-[#1a1a2e] tracking-tight mt-1">
               {currency} {Math.round(totalRevenue).toLocaleString()}
             </p>
-            <p className="text-[10px] text-slate-450 mt-1.5 font-mono tracking-wide flex items-center gap-1">
+            <p className="text-[10px] text-slate-500 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Money earned today
             </p>
@@ -817,7 +817,7 @@ export default function DashboardOverview({
             <p className="text-xl font-black text-[#1a1a2e] tracking-tight mt-1">
               {currency} {Math.round(simulatedPurchases).toLocaleString()}
             </p>
-            <p className="text-[10px] text-slate-450 mt-1.5 font-mono tracking-wide flex items-center gap-1">
+            <p className="text-[10px] text-slate-500 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
               Supply stock in
             </p>
@@ -839,7 +839,7 @@ export default function DashboardOverview({
             <p className="text-xl font-black text-[#1a1a2e] tracking-tight mt-1">
               {currency} {Math.round(totalExpensesAmt).toLocaleString()}
             </p>
-            <p className="text-[10px] text-slate-450 mt-1.5 font-mono tracking-wide flex items-center gap-1">
+            <p className="text-[10px] text-slate-500 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
               Operating outlays
             </p>
@@ -863,7 +863,7 @@ export default function DashboardOverview({
             <p className={`text-xl font-black tracking-tight mt-1 ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
               {currency} {Math.round(netProfit).toLocaleString()}
             </p>
-            <p className="text-[10px] text-slate-450 mt-1.5 font-mono tracking-wide flex items-center gap-1">
+            <p className="text-[10px] text-slate-500 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className={`w-1.5 h-1.5 rounded-full ${netProfit >= 0 ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
               Net profit share: {avgProfitMargin.toFixed(1)}%
             </p>
@@ -913,7 +913,7 @@ export default function DashboardOverview({
               </p>
             </div>
             {/* DESKTOP TIMEFRAME SELECTOR */}
-            <div className="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-nowrap border border-slate-150">
+            <div className="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-nowrap border border-slate-200">
               <button
                 id="btn-timeframe-today"
                 onClick={() => setStatusTimeframe('today')}
@@ -977,7 +977,7 @@ export default function DashboardOverview({
             </div>
 
             {/* MOBILE TIMEFRAME SELECTOR */}
-            <div className="flex md:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-150 shadow-inner select-none">
+            <div className="flex md:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner select-none">
               {[
                 { id: 'today', label: t('Today') },
                 { id: 'week', label: t('1 Week') },
@@ -1152,7 +1152,7 @@ export default function DashboardOverview({
                     className="fixed inset-0 z-10" 
                     onClick={() => setMethodFilterOpen(false)}
                   />
-                  <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-150 rounded-xl shadow-lg py-1.5 z-20 animate-fade-in text-xs font-semibold">
+                  <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-20 animate-fade-in text-xs font-semibold">
                     <div className="px-3 py-1 text-[10px] text-slate-400 uppercase tracking-wider font-bold border-b border-slate-50 mb-1">
                       Filter Payment Method
                     </div>
@@ -1486,7 +1486,7 @@ export default function DashboardOverview({
 
           <div className="space-y-3.5 flex-grow overflow-y-auto max-h-[350px] pr-1">
             {lowStockAlertProducts.length === 0 ? (
-              <div className="py-12 text-center text-slate-450">
+              <div className="py-12 text-center text-slate-500">
                 <ShieldAlert className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
                 <p className="text-xs font-bold text-slate-800">System OK Intact</p>
                 <p className="text-[10px] mt-1 text-slate-400">All items are stocked above target safety levels.</p>
@@ -1500,7 +1500,7 @@ export default function DashboardOverview({
                 let badgeColor = 'bg-rose-50 text-rose-600 border-rose-100';
                 let progressColor = 'bg-rose-500';
                 if (product.stockQty === 0) {
-                  badgeColor = 'bg-red-100 text-red-650 border-red-200 animate-pulse';
+                  badgeColor = 'bg-red-100 text-red-600 border-red-200 animate-pulse';
                   progressColor = 'bg-red-650';
                 } else if (product.stockQty > 5 && product.stockQty <= limit) {
                   badgeColor = 'bg-amber-50 text-amber-600 border-amber-100';
@@ -1546,7 +1546,7 @@ export default function DashboardOverview({
 
                     {/* Operational trigger dispatcher button */}
                     <div className="pt-1 flex items-center justify-between gap-1.5">
-                      <p className="text-[9.5px] text-slate-450 italic">
+                      <p className="text-[9.5px] text-slate-500 italic">
                         {product.stockQty === 0 ? 'Critical supply break!' : `Below limit by ${formatProductQuantity(Math.max(1, limit - product.stockQty), product)}`}
                       </p>
                     </div>

@@ -1288,7 +1288,7 @@ export default function DashboardSalesList({
               <div className="bg-emerald-505 p-5 border border-emerald-250 rounded-2xl">
                 <p className="text-[10px] font-mono font-bold text-emerald-600 uppercase tracking-widest leading-none">Total Payment-Ins Collected</p>
                 <h4 className="text-xl font-black text-emerald-800 mt-2">{currency}{Math.round(totalDebtPaidIn).toLocaleString()}</h4>
-                <p className="text-[10px] text-emerald-650 mt-1">Total credit installments & payments-in received.</p>
+                <p className="text-[10px] text-emerald-600 mt-1">Total credit installments & payments-in received.</p>
               </div>
               <div className="bg-amber-505 p-5 border border-amber-250 rounded-2xl">
                 <p className="text-[10px] font-mono font-bold text-amber-600 uppercase tracking-widest leading-none">Outstanding Balance Receivable</p>
@@ -1309,7 +1309,7 @@ export default function DashboardSalesList({
                   className="bg-transparent border-none focus:outline-none w-full text-slate-800 placeholder-slate-400 font-sans"
                 />
               </div>
-              <div className="text-xs text-slate-450 font-mono">
+              <div className="text-xs text-slate-500 font-mono">
                 Showing {filteredDebtSales.length} Credit Dockets ({clearedDebtsCount} Cleared)
               </div>
             </div>
@@ -1328,7 +1328,7 @@ export default function DashboardSalesList({
                 const isCleared = calculatedDue === 0;
 
                 return (
-                  <div key={s.id} className={`bg-white border rounded-2xl p-5 shadow-sm transition-all hover:shadow-md flex flex-col justify-between ${isCleared ? 'border-emerald-250 bg-emerald-50/20' : 'border-slate-205'}`}>
+                  <div key={s.id} className={`bg-white border rounded-2xl p-5 shadow-sm transition-all hover:shadow-md flex flex-col justify-between ${isCleared ? 'border-emerald-250 bg-emerald-50/20' : 'border-slate-200'}`}>
                     <div className="space-y-4">
                       
                       {/* Customer core card row */}
@@ -1342,7 +1342,7 @@ export default function DashboardSalesList({
                             <span>{s.customerName || 'Anonymous Account-Tab'}</span>
                           </h4>
                           {s.customerPhone && (
-                            <p className="text-[10px] text-slate-450 flex items-center space-x-1.5 mt-0.5 font-mono">
+                            <p className="text-[10px] text-slate-500 flex items-center space-x-1.5 mt-0.5 font-mono">
                               <Phone className="w-3 h-3 text-slate-400" />
                               <span>{s.customerPhone}</span>
                             </p>
@@ -1362,7 +1362,7 @@ export default function DashboardSalesList({
                         <span className="block text-[8px] font-mono font-bold uppercase tracking-widest text-slate-400">Items summary</span>
                         <div className="max-h-[70px] overflow-y-auto divide-y divide-slate-100">
                           {s.items.map((item, idx) => (
-                            <div key={idx} className="flex justify-between py-1 font-sans text-slate-650 text-[11px]">
+                            <div key={idx} className="flex justify-between py-1 font-sans text-slate-600 text-[11px]">
                               <span>{formatSaleItemQuantity(item, products.find(product => product.id === item.productId))} × {item.productName}</span>
                               <span className="font-mono">{currency}{item.price.toLocaleString()}</span>
                             </div>
@@ -1391,7 +1391,7 @@ export default function DashboardSalesList({
                           >
                             <div className="grid grid-cols-3 gap-2">
                               <div>
-                                <label className="block text-[8px] uppercase font-mono text-slate-450 font-bold mb-1">Pay-in Amount</label>
+                                <label className="block text-[8px] uppercase font-mono text-slate-500 font-bold mb-1">Pay-in Amount</label>
                                 <input
                                   type="number"
                                   name="pay-amount"
@@ -1403,7 +1403,7 @@ export default function DashboardSalesList({
                                 />
                               </div>
                               <div>
-                                <label className="block text-[8px] uppercase font-mono text-slate-450 font-bold mb-1">Payment Channel</label>
+                                <label className="block text-[8px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Channel</label>
                                 <select
                                   name="pay-method"
                                   className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold cursor-pointer font-sans text-slate-803 outline-none"
@@ -1416,7 +1416,7 @@ export default function DashboardSalesList({
                                 </select>
                               </div>
                               <div>
-                                <label className="block text-[8px] uppercase font-mono text-slate-450 font-bold mb-1">Payment Date</label>
+                                <label className="block text-[8px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Date</label>
                                 <input
                                   type="date"
                                   name="pay-date"
@@ -1437,7 +1437,7 @@ export default function DashboardSalesList({
                         </div>
                       ) : (
                         <div className="bg-emerald-100/50 border border-emerald-200 p-3 rounded-xl flex items-center space-x-2 text-emerald-800 font-bold text-[11px] font-sans">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-650 shrink-0" />
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                           <span>Cleared Account: Consolidated to tills ledger successfully!</span>
                         </div>
                       )}
@@ -1445,7 +1445,7 @@ export default function DashboardSalesList({
 
                     {/* Progress indicator */}
                     <div className="mt-4 space-y-1.5 font-sans">
-                      <div className="flex justify-between font-mono text-[10px] font-bold text-slate-450 uppercase leading-none">
+                      <div className="flex justify-between font-mono text-[10px] font-bold text-slate-500 uppercase leading-none">
                         <span>Reconciliation</span>
                         <span>{currentPercent}% Reconciled</span>
                       </div>
@@ -1455,9 +1455,9 @@ export default function DashboardSalesList({
                           style={{ width: `${currentPercent}%` }}
                         />
                       </div>
-                      <div className="flex justify-between font-mono text-[10px] font-bold text-slate-650 bg-slate-50 border border-slate-150 p-2 rounded-lg mt-1.5">
-                        <span className="text-slate-450">Paid: {currency}{Math.round(calculatedPaid).toLocaleString()}</span>
-                        <span className="text-rose-650">Bal: {currency}{Math.round(calculatedDue).toLocaleString()}</span>
+                      <div className="flex justify-between font-mono text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg mt-1.5">
+                        <span className="text-slate-500">Paid: {currency}{Math.round(calculatedPaid).toLocaleString()}</span>
+                        <span className="text-rose-600">Bal: {currency}{Math.round(calculatedDue).toLocaleString()}</span>
                       </div>
                     </div>
 
@@ -1466,7 +1466,7 @@ export default function DashboardSalesList({
               })}
 
               {filteredDebtSales.length === 0 && (
-                <div className="col-span-full py-12 text-center bg-white border border-slate-200 rounded-2xl text-slate-450 font-sans">
+                <div className="col-span-full py-12 text-center bg-white border border-slate-200 rounded-2xl text-slate-500 font-sans">
                   No outstanding credit accounts match search keyword or custom criteria.
                 </div>
               )}
@@ -1670,10 +1670,10 @@ export default function DashboardSalesList({
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in" id="shift-settlements-view">
                 
                 {/* COLUMN 1 (6 Cols): ACTIVE SHIFT SETTLEMENT & CASH HANDOFF FORM */}
-                <div className="lg:col-span-5 border border-slate-205 bg-white p-6 rounded-3xl shadow-sm space-y-5">
+                <div className="lg:col-span-5 border border-slate-200 bg-white p-6 rounded-3xl shadow-sm space-y-5">
                   <div>
                     <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest font-mono">Shift Close & Till Handoff</h3>
-                    <p className="text-[11px] text-slate-450 mt-1">
+                    <p className="text-[11px] text-slate-500 mt-1">
                       Finalize the current drawer session, count physical cash assets, and route drops to corporate bank safes or recipient payouts.
                     </p>
                   </div>
@@ -1708,7 +1708,7 @@ export default function DashboardSalesList({
 
                       <div className="flex items-end gap-3 pt-1">
                         <div className="flex-1">
-                          <label className="block text-[8px] font-mono font-bold uppercase text-slate-450 mb-1">Counted Opening Float ({currency})</label>
+                          <label className="block text-[8px] font-mono font-bold uppercase text-slate-500 mb-1">Counted Opening Float ({currency})</label>
                           <input
                             type="number"
                             min="0"
@@ -1777,20 +1777,20 @@ export default function DashboardSalesList({
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       
                       {/* Opening Float Card (Read-only) */}
-                      <div className="bg-slate-50 border border-slate-150 p-2.5 rounded-xl space-y-1">
+                      <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-xl space-y-1">
                         <span className="block text-[8px] font-mono font-bold uppercase text-slate-400">Opening Float</span>
                         <div className="flex items-center space-x-1">
-                          <span className="text-[10px] text-slate-450 font-mono">{currency}</span>
-                          <span className="text-xs font-mono font-black text-slate-755">{settleOpeningFloat}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">{currency}</span>
+                          <span className="text-xs font-mono font-black text-slate-700">{settleOpeningFloat}</span>
                         </div>
                         <span className="block text-[9px] text-slate-400 italic">Read-only preset</span>
                       </div>
 
                       {/* Shift Pay-Ins */}
-                      <div className="bg-slate-50 border border-slate-150 p-2.5 rounded-xl space-y-1">
-                        <label className="block text-[8px] font-mono font-bold uppercase text-slate-450">Shift Pay-Ins</label>
+                      <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-xl space-y-1">
+                        <label className="block text-[8px] font-mono font-bold uppercase text-slate-500">Shift Pay-Ins</label>
                         <div className="flex items-center space-x-1 bg-white border border-slate-200 rounded px-1.5 py-0.5">
-                          <span className="text-[9px] text-slate-450 font-mono">{currency}</span>
+                          <span className="text-[9px] text-slate-500 font-mono">{currency}</span>
                           <input
                             type="number"
                             min="0"
@@ -1803,10 +1803,10 @@ export default function DashboardSalesList({
                       </div>
 
                       {/* Shift Pay-Outs */}
-                      <div className="bg-slate-50 border border-slate-150 p-2.5 rounded-xl space-y-1">
+                      <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-xl space-y-1">
                         <label className="block text-[8px] font-mono font-bold uppercase text-slate-455">Shift Pay-Outs</label>
                         <div className="flex items-center space-x-1 bg-white border border-slate-200 rounded px-1.5 py-0.5">
-                          <span className="text-[9px] text-slate-450 font-mono">{currency}</span>
+                          <span className="text-[9px] text-slate-500 font-mono">{currency}</span>
                           <input
                             type="number"
                             min="0"
@@ -1861,13 +1861,13 @@ export default function DashboardSalesList({
                             {todayCashSales.map(s => {
                               const itemsSummary = s.items.map(i => `${i.productName} (${formatSaleItemQuantity(i, products.find(product => product.id === i.productId))})`).join(', ');
                               return (
-                                <div key={s.id} className="bg-white border border-slate-150 p-2 rounded-xl flex items-center justify-between text-[11px] hover:border-indigo-300 transition-all">
+                                <div key={s.id} className="bg-white border border-slate-200 p-2 rounded-xl flex items-center justify-between text-[11px] hover:border-indigo-300 transition-all">
                                   <div>
                                     <div className="font-bold text-slate-800 flex items-center space-x-1.5">
                                       <span className="text-indigo-600">{s.id}</span>
                                       <span className="text-slate-400 font-mono text-[9px]">{new Date(s.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                     </div>
-                                    <div className="text-[9.5px] text-slate-450 truncate max-w-[170px]" title={itemsSummary || 'Customer Sale Record'}>{itemsSummary || 'Customer Sale Record'}</div>
+                                    <div className="text-[9.5px] text-slate-500 truncate max-w-[170px]" title={itemsSummary || 'Customer Sale Record'}>{itemsSummary || 'Customer Sale Record'}</div>
                                   </div>
                                   <div className="text-right">
                                     <span className="font-mono font-bold text-emerald-800">+{currency}{(s.amountPaid !== undefined ? s.amountPaid : s.total).toLocaleString()}</span>
@@ -1878,13 +1878,13 @@ export default function DashboardSalesList({
                             })}
                             
                             {todayCashInstalls.map((inst, index) => (
-                              <div key={index} className="bg-white border border-slate-150 p-2 rounded-xl flex items-center justify-between text-[11px] hover:border-indigo-300 transition-all">
+                              <div key={index} className="bg-white border border-slate-200 p-2 rounded-xl flex items-center justify-between text-[11px] hover:border-indigo-300 transition-all">
                                 <div>
                                   <div className="font-bold text-slate-800 flex items-center space-x-1.5">
                                     <span className="text-rose-600">DEBT-PAY</span>
                                     <span className="text-slate-400 font-mono text-[9px]">{new Date(inst.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                   </div>
-                                  <div className="text-[9.5px] text-slate-450 truncate max-w-[170px]">Installment for Ticket {inst.saleId}</div>
+                                  <div className="text-[9.5px] text-slate-500 truncate max-w-[170px]">Installment for Ticket {inst.saleId}</div>
                                 </div>
                                 <div className="text-right">
                                   <span className="font-mono font-bold text-emerald-800">+{currency}{inst.amount.toLocaleString()}</span>
@@ -2027,7 +2027,7 @@ export default function DashboardSalesList({
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-[8px] font-mono font-bold uppercase text-slate-450 mb-1">Beneficiary Name</label>
+                            <label className="block text-[8px] font-mono font-bold uppercase text-slate-500 mb-1">Beneficiary Name</label>
                             <input
                               type="text"
                               required
@@ -2039,7 +2039,7 @@ export default function DashboardSalesList({
                           </div>
 
                           <div>
-                            <label className="block text-[8px] font-mono font-bold uppercase text-slate-450 mb-1">Payout Channel Type</label>
+                            <label className="block text-[8px] font-mono font-bold uppercase text-slate-500 mb-1">Payout Channel Type</label>
                             <select
                               value={settleRecipientTransferType}
                               onChange={(e) => setSettleRecipientTransferType(e.target.value as any)}
@@ -2136,7 +2136,7 @@ export default function DashboardSalesList({
                             <div className="flex items-center justify-center space-x-2">
                               <FileText className="w-5 h-5 text-indigo-600 animate-pulse" />
                               <span className="text-xs font-bold truncate max-w-[200px]" title={settleReceiptFile.name}>{settleReceiptFile.name}</span>
-                              <span className="text-[10px] text-slate-450 font-mono">({settleReceiptFile.size})</span>
+                              <span className="text-[10px] text-slate-500 font-mono">({settleReceiptFile.size})</span>
                             </div>
                             <button
                               type="button"
@@ -2147,7 +2147,7 @@ export default function DashboardSalesList({
                             </button>
                           </div>
                         ) : (
-                          <div className="space-y-1 text-slate-450 pointer-events-none">
+                          <div className="space-y-1 text-slate-500 pointer-events-none">
                             <div className="flex justify-center">
                               <Download className="w-5 h-5 text-slate-400" />
                             </div>
@@ -2173,7 +2173,7 @@ export default function DashboardSalesList({
                         value={settleSmsPasteText}
                         onChange={(e) => setSettleSmsPasteText(e.target.value)}
                         placeholder="Confirmation message..."
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-sans text-slate-755 outline-none focus:ring-1 focus:ring-indigo-500 font-mono text-[10px]"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-sans text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 font-mono text-[10px]"
                       />
                     </div>
 
@@ -2209,9 +2209,9 @@ export default function DashboardSalesList({
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                       <div>
                         <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest font-mono">Historical Till Settlements</h3>
-                        <p className="text-[11px] text-slate-450 mt-1">Shift settlement.</p>
+                        <p className="text-[11px] text-slate-500 mt-1">Shift settlement.</p>
                       </div>
-                      <div className="bg-slate-100 px-2.5 py-1.5 rounded-lg font-mono text-[10px] text-indigo-700 font-bold border border-slate-205">
+                      <div className="bg-slate-100 px-2.5 py-1.5 rounded-lg font-mono text-[10px] text-indigo-700 font-bold border border-slate-200">
                         Deposited Cash: {currency}{tillSettlements.reduce((tot, st) => tot + st.paymentInAmount, 0).toLocaleString()}
                       </div>
                     </div>
@@ -2235,7 +2235,7 @@ export default function DashboardSalesList({
                                 <span className="block font-bold">{new Date(st.timestamp).toLocaleDateString()}</span>
                                 <span className="text-[10px]">{new Date(st.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                               </td>
-                              <td className="p-2.5 font-bold font-sans text-slate-805">
+                              <td className="p-2.5 font-bold font-sans text-slate-800">
                                 {st.cashierName}
                                 <span className="block text-[8px] uppercase tracking-wider font-mono text-indigo-500 mt-0.5">{st.id}</span>
                               </td>
@@ -2262,7 +2262,7 @@ export default function DashboardSalesList({
                               </td>
                               <td className="p-2.5 font-sans leading-tight">
                                 <div className="font-bold text-slate-800 truncate max-w-[150px]">{st.vaultDestination}</div>
-                                {st.memo && <div className="text-[10px] text-slate-450 italic mt-0.5 truncate max-w-[150px]">{st.memo}</div>}
+                                {st.memo && <div className="text-[10px] text-slate-500 italic mt-0.5 truncate max-w-[150px]">{st.memo}</div>}
                                 
                                 {st.openingFloatVerified && (
                                   <div className="mt-1 text-[9px] font-mono text-emerald-800 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded w-max">
@@ -2298,7 +2298,7 @@ export default function DashboardSalesList({
                   </div>
 
                   {/* DOUBLE-ENTRY SPLIT JOURNAL VIEW */}
-                  <div className="border border-slate-205 bg-indigo-950 text-indigo-50 p-6 rounded-3xl shadow-sm space-y-4">
+                  <div className="border border-slate-200 bg-indigo-950 text-indigo-50 p-6 rounded-3xl shadow-sm space-y-4">
                     <div>
                       <div className="flex items-center justify-between">
                         <h4 className="text-xs font-bold uppercase tracking-widest font-mono text-indigo-400">
@@ -2412,7 +2412,7 @@ export default function DashboardSalesList({
                       className={`px-3 py-1.5 rounded-lg text-[10px] font-bold capitalize cursor-pointer transition-all ${
                         selectedDocTypeFilter === t
                           ? 'bg-white text-slate-950 shadow-xs font-black'
-                          : 'text-slate-500 hover:text-slate-850'
+                          : 'text-slate-500 hover:text-slate-800'
                       }`}
                     >
                       {t === 'all' ? 'Show All' : t}
@@ -2671,7 +2671,7 @@ export default function DashboardSalesList({
                         <div className="p-2 bg-indigo-600 text-white rounded-xl">
                           <Building className="w-6 h-6" />
                         </div>
-                        <h2 className="text-2xl font-black tracking-tight text-slate-850">{activeTenant.name}</h2>
+                        <h2 className="text-2xl font-black tracking-tight text-slate-800">{activeTenant.name}</h2>
                       </div>
                       <p className="text-xs text-slate-500 max-w-sm uppercase leading-relaxed font-semibold">
                         {activeTenant.businessType === 'pharmacy' ? 'Clinical Pharmacy Dispensary' : 'Retail Branch'} — {activeTenant.city}, West Africa Operations • Smart POS Ledger Verified
@@ -2681,7 +2681,7 @@ export default function DashboardSalesList({
                     <div className="space-y-1 text-left md:text-right font-mono text-xs">
                       <h3 className="text-base font-black font-sans text-slate-800 uppercase tracking-tight">TAX INVOICE</h3>
                       <p className="text-slate-400">INVOICE NO: <span className="font-bold text-slate-700">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</span></p>
-                      <p className="text-slate-400">ISSUED DATE: <span className="text-slate-750">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
+                      <p className="text-slate-400">ISSUED DATE: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
                       <p className="text-slate-400">TELLER SIGN: <span className="font-bold text-slate-700 uppercase">{selectedSale.cashierName || 'Primary Admin'}</span></p>
                     </div>
                   </div>
@@ -2745,7 +2745,7 @@ export default function DashboardSalesList({
                     <div className="border border-slate-200 rounded-xl overflow-hidden">
                       <table className="w-full text-left text-xs text-slate-700">
                         <thead>
-                          <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-mono font-black text-slate-450 uppercase uppercase-tracking-widest">
+                          <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-mono font-black text-slate-500 uppercase uppercase-tracking-widest">
                             <th className="p-3">Product Description / Code</th>
                             <th className="p-3 text-center">Unit Price Price</th>
                             <th className="p-3 text-center">Qty Qty</th>
@@ -2759,7 +2759,7 @@ export default function DashboardSalesList({
                               <tr key={index} className="hover:bg-slate-50/40 transition-colors">
                                 <td className="p-3">
                                   <p className="font-bold text-slate-800">{item.productName}</p>
-                                  <p className="text-[10px] text-slate-450 font-mono">PRODUCT CODE: {item.productId.toUpperCase().slice(0, 10)}</p>
+                                  <p className="text-[10px] text-slate-500 font-mono">PRODUCT CODE: {item.productId.toUpperCase().slice(0, 10)}</p>
                                 </td>
                                 <td className="p-3 text-center font-mono">
                                   {currency}{item.price.toLocaleString()}
@@ -2801,7 +2801,7 @@ export default function DashboardSalesList({
                               <span>{currency}{Math.round(originalSub).toLocaleString()}</span>
                             </div>
                             {hasDisc && (
-                              <div className="flex justify-between text-emerald-650 font-bold">
+                              <div className="flex justify-between text-emerald-600 font-bold">
                                 <span>ORDER DISCOUNT {selectedSale.discountType === 'cash' ? '' : `(${discVal}%)`}</span>
                                 <span>-{currency}{Math.round(discAmt).toLocaleString()}</span>
                               </div>
@@ -2847,7 +2847,7 @@ export default function DashboardSalesList({
                   </div>
 
                   {/* Corporate Footer Badge */}
-                  <div className="border-t border-slate-150 pt-6 text-center text-[10px] text-slate-400 font-mono uppercase tracking-widest leading-none">
+                  <div className="border-t border-slate-200 pt-6 text-center text-[10px] text-slate-400 font-mono uppercase tracking-widest leading-none">
                     {activeTenant.businessType === 'pharmacy' ? 'Certified Clinical Pharmacy System Verification' : 'Certified ISO 9001 Retail System Verification'} • {activeTenant.name} Invoice Ledger Database
                   </div>
 
@@ -2859,7 +2859,7 @@ export default function DashboardSalesList({
           ) : (
             
             /* CONDITION B: NARROW THERMAL POS SLIP RECEIPT MODE (ORIGINAL PRISTINE TICKET) */
-            <div className="relative bg-white border border-slate-205 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
               
               {/* Header branding */}
               <div className="bg-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800 shrink-0">
@@ -2897,12 +2897,12 @@ export default function DashboardSalesList({
                     />
                   )}
                   <h4 className="text-sm font-black tracking-tight text-slate-800 text-uppercase">{activeTenant.name}</h4>
-                  <p className="text-[10px] text-slate-450 uppercase">{activeTenant.city}</p>
+                  <p className="text-[10px] text-slate-500 uppercase">{activeTenant.city}</p>
                   <p className="text-[10px] text-slate-400 leading-normal mt-1.5 font-bold text-slate-500">TAX REGISTER INVOICE DEBT VOUCHER</p>
                 </div>
 
                 {/* Core Docket Information details */}
-                <div className="space-y-1.5 text-[11px] text-slate-650">
+                <div className="space-y-1.5 text-[11px] text-slate-600">
                   <div className="flex justify-between">
                     <span className="text-slate-400">RECEIPT NO</span>
                     <span className="font-bold text-slate-800">{selectedSale.reference || `REC-${selectedSale.id.toUpperCase().slice(0, 8)}`}</span>
@@ -2922,7 +2922,7 @@ export default function DashboardSalesList({
                   {selectedSale.customerName && (
                     <div className="flex justify-between pt-1 border-t border-slate-105">
                       <span className="text-slate-400">CLIENT</span>
-                      <span className="font-black text-slate-850 uppercase">{selectedSale.customerName}</span>
+                      <span className="font-black text-slate-800 uppercase">{selectedSale.customerName}</span>
                     </div>
                   )}
                   {selectedSale.customerPhone && (
@@ -2935,7 +2935,7 @@ export default function DashboardSalesList({
 
                 {/* Items checklist table split */}
                 <div className="space-y-2 border-t border-b border-dashed border-slate-200 py-4">
-                  <p className="text-[9.5px] uppercase font-black text-slate-450 tracking-wider">Purchased items</p>
+                  <p className="text-[9.5px] uppercase font-black text-slate-500 tracking-wider">Purchased items</p>
                   
                   <div className="space-y-3 font-sans">
                     {selectedSale.items.map((item, index) => {
@@ -2948,7 +2948,7 @@ export default function DashboardSalesList({
                         <div key={index} className="flex justify-between items-start text-xs text-slate-705">
                           <div className="space-y-0.5 max-w-[70%]">
                             <p className="font-bold text-slate-800 leading-tight">{item.productName}</p>
-                            <p className="text-[10.5px] text-slate-450 font-mono">
+                            <p className="text-[10.5px] text-slate-500 font-mono">
                               {formatSaleItemQuantity(item, itemProduct)} x {currency}{item.price.toLocaleString()}
                               {item.discount > 0 && (
                                 <span className="text-emerald-600 font-bold ml-1">
@@ -3013,7 +3013,7 @@ export default function DashboardSalesList({
                   )}
                   <div className="flex justify-between font-bold text-slate-900 border-t border-slate-200/60 pt-2 text-[11px]">
                     <span>TOTAL INVOICE PRICE</span>
-                    <span className="font-black text-slate-905">{currency}{Math.round(selectedSale.total).toLocaleString()}</span>
+                    <span className="font-black text-slate-900">{currency}{Math.round(selectedSale.total).toLocaleString()}</span>
                   </div>
 
                   {/* TRA VFD fiscal signature block if VAT was charged */}
@@ -3241,7 +3241,7 @@ export default function DashboardSalesList({
 
                     {/* NEW: Original Sale Audit Metadata */}
                     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5 text-xs text-slate-700 shadow-xs">
-                      <p className="text-[9.5px] uppercase font-mono font-black text-slate-450 tracking-wider">Original Sale Audit Info</p>
+                      <p className="text-[9.5px] uppercase font-mono font-black text-slate-500 tracking-wider">Original Sale Audit Info</p>
                       <div className="grid grid-cols-1 gap-2.5 border-t border-slate-200/60 pt-2.5 font-sans">
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="text-slate-500 flex items-center space-x-1">
@@ -3282,9 +3282,9 @@ export default function DashboardSalesList({
                           return (
                             <div key={idx} className="relative">
                               <span className={`absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full border border-white ${step.isFull ? 'bg-emerald-500' : 'bg-indigo-550'}`} />
-                              <div className="text-xs bg-slate-50 border border-slate-150 rounded-xl p-3.5 space-y-1.5 shadow-xs bg-white">
+                              <div className="text-xs bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1.5 shadow-xs bg-white">
                                 <div className="flex justify-between items-center font-bold">
-                                  <span className="text-slate-805 uppercase text-[10.5px] font-mono tracking-wider">{step.label}</span>
+                                  <span className="text-slate-800 uppercase text-[10.5px] font-mono tracking-wider">{step.label}</span>
                                   <span className={`font-mono text-[11px] font-black ${step.isFull ? 'text-emerald-700' : 'text-indigo-705'}`}>
                                     {currency}{step.entered.toLocaleString()}
                                   </span>
@@ -3292,7 +3292,7 @@ export default function DashboardSalesList({
                                 {step.isFull ? (
                                   <div className="text-slate-500 text-[10px] font-sans">
                                     Paid Amount: <span className="font-mono font-bold text-slate-705">{currency}{step.entered.toLocaleString()}</span> (Fully Paid at checkout) using <span className="font-semibold uppercase text-slate-655 bg-indigo-50 px-1 py-0.5 rounded text-[9.5px] text-indigo-700">{step.method}</span>.
-                                    <p className="text-[9.5px] text-slate-450 pt-1.5 font-mono">
+                                    <p className="text-[9.5px] text-slate-500 pt-1.5 font-mono">
                                       Posted on {new Date(step.date).toLocaleDateString()} using {step.method}
                                     </p>
                                   </div>
@@ -3342,7 +3342,7 @@ export default function DashboardSalesList({
                            const futureRemaining = Math.max(0, dueRemainder - activeInputAmt);
                            
                            return (
-                             <div className="bg-white border border-slate-150 rounded-xl p-3.5 space-y-1.5 font-sans shadow-xs">
+                             <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-1.5 font-sans shadow-xs">
                                <div className="flex justify-between items-center text-xs">
                                  <span className="text-slate-500 font-semibold">Amount required to be paid:</span>
                                  <span className="font-mono font-black text-slate-800 bg-slate-100 px-2 py-0.5 rounded text-[11px]">{currency}{dueRemainder.toLocaleString()}</span>
@@ -3378,7 +3378,7 @@ export default function DashboardSalesList({
                          >
                            <div className="grid grid-cols-3 gap-2">
                              <div>
-                               <label className="block text-[9px] uppercase font-mono text-slate-450 font-bold mb-1">Amount</label>
+                               <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Amount</label>
                                <input 
                                  type="text" 
                                  name="amount"
@@ -3397,7 +3397,7 @@ export default function DashboardSalesList({
                                />
                              </div>
                              <div>
-                               <label className="block text-[9px] uppercase font-mono text-slate-450 font-bold mb-1">Payment Mode</label>
+                               <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Mode</label>
                                <select 
                                  name="channel"
                                  className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold font-sans cursor-pointer focus:outline-none"
@@ -3406,7 +3406,7 @@ export default function DashboardSalesList({
                                  <option value="Card">Visa/Card Till</option>
                                  <option value="M-Pesa">M-Pesa Express</option>
                                  <option value="MTN MoMo">MTN MoMo API</option>
-                                 <option value="Paystack">Direct Paystack</option><option value="Airtel Money">Airtel Money</option></select></div><div><label className="block text-[9px] uppercase font-mono text-slate-450 font-bold mb-1">Payment Date</label><input type="date" name="paymentDate" defaultValue={new Date().toISOString().split("T")[0]} required className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold font-sans cursor-pointer focus:outline-none text-slate-800" /></div></div><div className="hidden"><div><select>
+                                 <option value="Paystack">Direct Paystack</option><option value="Airtel Money">Airtel Money</option></select></div><div><label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Date</label><input type="date" name="paymentDate" defaultValue={new Date().toISOString().split("T")[0]} required className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold font-sans cursor-pointer focus:outline-none text-slate-800" /></div></div><div className="hidden"><div><select>
                                  <option value="Airtel Money">Airtel Money</option>
                                </select>
                              </div>
@@ -3525,7 +3525,7 @@ export default function DashboardSalesList({
               <div className="space-y-2 text-left">
                 <h5 className="text-[10px] uppercase font-mono font-bold text-slate-400 tracking-wider">Items Purchased</h5>
                 
-                <div className="divide-y divide-slate-100 border border-slate-150 rounded-2xl overflow-hidden bg-white">
+                <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden bg-white">
                   {viewingSaleDetail.items.map((item, index) => {
                     const matchingProduct = products?.find(
                       p => p.id === item.productId || p.barcode === item.productId
@@ -3669,7 +3669,7 @@ export default function DashboardSalesList({
               {/* Client meta details information */}
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="block text-[9px] uppercase font-mono text-slate-450 font-bold mb-1">Purchaser Client Name</label>
+                  <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Purchaser Client Name</label>
                   <input
                     type="text"
                     value={editFormFields.customerName}
@@ -3679,7 +3679,7 @@ export default function DashboardSalesList({
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-mono text-slate-450 font-bold mb-1">Purchaser Client Phone</label>
+                  <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Purchaser Client Phone</label>
                   <input
                     type="text"
                     value={editFormFields.customerPhone}
@@ -3692,7 +3692,7 @@ export default function DashboardSalesList({
 
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="block text-[9px] uppercase font-mono text-slate-450 font-bold mb-1">Payment Method</label>
+                  <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Method</label>
                   <select
                     value={editFormFields.paymentMethod}
                     onChange={(e: any) => setEditFormFields({ ...editFormFields, paymentMethod: e.target.value })}
@@ -3708,7 +3708,7 @@ export default function DashboardSalesList({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-mono text-slate-450 font-bold mb-1">Adjust Amount Paid Initially</label>
+                  <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Adjust Amount Paid Initially</label>
                   <input
                     type="number"
                     value={editFormFields.amountPaid}
@@ -3731,8 +3731,8 @@ export default function DashboardSalesList({
                     return (
                       <div key={index} className="p-3 hover:bg-slate-50/50 transition-colors flex items-center justify-between gap-4 text-xs">
                         <div className="space-y-0.5 max-w-[50%]">
-                          <p className="font-bold text-slate-850 truncate">{item.productName}</p>
-                          <p className="text-[10px] font-mono text-slate-450">
+                          <p className="font-bold text-slate-800 truncate">{item.productName}</p>
+                          <p className="text-[10px] font-mono text-slate-500">
                             Unit Price: {currency}{item.price.toLocaleString()}
                           </p>
                         </div>
@@ -3748,7 +3748,7 @@ export default function DashboardSalesList({
                                 setEditFormFields({ ...editFormFields, items });
                               }
                             }}
-                            className="w-6 h-6 rounded-lg bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-650 cursor-pointer text-center font-bold font-sans text-xs flex items-center justify-center select-none"
+                            className="w-6 h-6 rounded-lg bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-600 cursor-pointer text-center font-bold font-sans text-xs flex items-center justify-center select-none"
                           >
                             -
                           </button>
@@ -3762,7 +3762,7 @@ export default function DashboardSalesList({
                               items[index] = { ...items[index], qty: items[index].qty + 1 };
                               setEditFormFields({ ...editFormFields, items });
                             }}
-                            className="w-6 h-6 rounded-lg bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-650 cursor-pointer text-center font-bold font-sans text-xs flex items-center justify-center select-none"
+                            className="w-6 h-6 rounded-lg bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-600 cursor-pointer text-center font-bold font-sans text-xs flex items-center justify-center select-none"
                           >
                             +
                           </button>
@@ -3905,8 +3905,8 @@ export default function DashboardSalesList({
               <div className="p-4 bg-rose-50/50 border border-rose-100 rounded-2xl flex items-start space-x-3">
                 <span className="text-xl">⚠️</span>
                 <div className="space-y-1 font-sans">
-                  <p className="text-xs text-slate-750 font-semibold leading-relaxed">
-                    You are attempting to completely erase checkouout record <strong className="font-bold text-rose-750 font-mono">{saleToDelete.reference || saleToDelete.id.toUpperCase()}</strong>.
+                  <p className="text-xs text-slate-700 font-semibold leading-relaxed">
+                    You are attempting to completely erase checkouout record <strong className="font-bold text-rose-700 font-mono">{saleToDelete.reference || saleToDelete.id.toUpperCase()}</strong>.
                   </p>
                   <p className="text-[11px] text-slate-500 leading-normal">
                     This will void the receipt.
@@ -3963,7 +3963,7 @@ export default function DashboardSalesList({
       {/* DIALOG: NEW DOCUMENT CREATOR MODAL */}
       {showNewDocModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
-          <div className="relative bg-white border border-slate-205 rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] font-sans">
+          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] font-sans">
             
             <div className="p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -3973,7 +3973,7 @@ export default function DashboardSalesList({
               <button
                 type="button"
                 onClick={() => setShowNewDocModal(false)}
-                className="w-8 h-8 rounded-full border border-slate-200 bg-white text-slate-450 hover:text-slate-800 flex items-center justify-center cursor-pointer transition-colors"
+                className="w-8 h-8 rounded-full border border-slate-200 bg-white text-slate-500 hover:text-slate-800 flex items-center justify-center cursor-pointer transition-colors"
               >
                 ✕
               </button>
@@ -3985,7 +3985,7 @@ export default function DashboardSalesList({
                 <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">1. Document Settings & Header</span>
                 
                 <div>
-                  <label className="block text-xs font-bold text-slate-650 mb-1">Select Document Class</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Select Document Class</label>
                   <div className="grid grid-cols-2 gap-2">
                     {(['price quote', 'price quote invoice'] as const).map(t => (
                       <button
@@ -4006,66 +4006,66 @@ export default function DashboardSalesList({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-650 mb-1">Client Name</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">Client Name</label>
                     <input
                       type="text"
                       placeholder="e.g. Lipa Traders Ltd"
                       value={newDocCustomerName}
                       onChange={(e) => setNewDocCustomerName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-850 focus:outline-emerald-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-650 mb-1">Customer Phone</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">Customer Phone</label>
                     <input
                       type="text"
                       placeholder="e.g. +254 755 123 456"
                       value={newDocCustomerPhone}
                       onChange={(e) => setNewDocCustomerPhone(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-850 focus:outline-emerald-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-650 mb-1">Billing & Delivery Address</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Billing & Delivery Address</label>
                   <input
                     type="text"
                     placeholder="e.g. Pipeline St, Nairobi, Kenya"
                     value={newDocCustomerAddress}
                     onChange={(e) => setNewDocCustomerAddress(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-850 focus:outline-emerald-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-650 mb-1">Document Date</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">Document Date</label>
                     <input
                       type="date"
                       value={newDocDate}
                       onChange={(e) => setNewDocDate(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-850 focus:outline-emerald-500 cursor-pointer"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500 cursor-pointer"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-xs font-bold text-slate-650 mb-1">Delivery / Transport Cost ({currency})</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">Delivery / Transport Cost ({currency})</label>
                     <input
                       type="number"
                       min="0"
                       placeholder="e.g. 1500"
                       value={newDocDeliveryCost || ''}
                       onChange={(e) => setNewDocDeliveryCost(Math.max(0, Number(e.target.value)))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-850 focus:outline-emerald-500 font-mono"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500 font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-650 mb-1">Payment Method</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">Payment Method</label>
                     <select
                       value={newDocPaymentMethod}
                       onChange={(e) => setNewDocPaymentMethod(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-850 focus:outline-emerald-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500"
                     >
                       {(systemSettings?.business?.paymentModes?.length ? systemSettings.business.paymentModes : ['Cash', 'Card', 'M-Pesa', 'Bank']).map(mode => (
                         <option key={mode} value={mode}>{mode}</option>
@@ -4092,26 +4092,26 @@ export default function DashboardSalesList({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-650 mb-1">Invoice Footer Tagline / Memo</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Invoice Footer Tagline / Memo</label>
                   <textarea
                     rows={2}
                     placeholder="Footer note..."
                     value={newDocTagline}
                     onChange={(e) => setNewDocTagline(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-850 focus:outline-emerald-500 resize-none font-sans"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500 resize-none font-sans"
                   />
                   <p className="text-[10px] text-slate-400 mt-1 font-sans">Shown in document footer.</p>
                 </div>
               </div>
 
               {/* Right Column: Adding Items and ledger preview */}
-              <div className="flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-150 md:pl-8 pt-6 md:pt-0">
+              <div className="flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-200 md:pl-8 pt-6 md:pt-0">
                 <div className="space-y-4 font-sans">
                   <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">2. Itemized Ledger list ({newDocItems.length})</span>
                   
                   {/* Select product row with search box */}
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-                    <span className="block text-[9px] uppercase tracking-wider font-bold text-slate-450 font-mono">Product Search & Picker Tool</span>
+                    <span className="block text-[9px] uppercase tracking-wider font-bold text-slate-500 font-mono">Product Search & Picker Tool</span>
                     <div className="space-y-2">
                       
                       {/* Search box for product code or barcode */}
@@ -4121,7 +4121,7 @@ export default function DashboardSalesList({
                           placeholder="Search product by name or barcode..."
                           value={docWizardProductSearchQuery}
                           onChange={(e) => setDocWizardProductSearchQuery(e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-8 py-2 text-xs font-medium text-slate-850 focus:outline-emerald-500"
+                          className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-8 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500"
                         />
                         <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
                         {docWizardProductSearchQuery && (
@@ -4165,7 +4165,7 @@ export default function DashboardSalesList({
                             min="1"
                             value={docWizardSelectedQty}
                             onChange={(e) => setDocWizardSelectedQty(Number(e.target.value))}
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-850 font-sans font-bold"
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-sans font-bold"
                           />
                         </div>
                         <div className="w-1/2">
@@ -4176,7 +4176,7 @@ export default function DashboardSalesList({
                             max="100"
                             value={docWizardSelectedDiscount}
                             onChange={(e) => setDocWizardSelectedDiscount(Number(e.target.value))}
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-850 font-sans font-bold"
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-sans font-bold"
                           />
                         </div>
                       </div>
@@ -4222,7 +4222,7 @@ export default function DashboardSalesList({
                     {newDocItems.map((item, idx) => (
                       <div key={idx} className="bg-slate-50 border border-slate-200 p-2.5 rounded-xl flex items-center justify-between text-xs font-sans">
                         <div>
-                          <p className="font-bold text-slate-850">{item.productName}</p>
+                          <p className="font-bold text-slate-800">{item.productName}</p>
                           <span className="text-[10px] text-slate-500 font-mono">Qty: {item.qty} | Price: {currency}{item.price}</span>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -4752,7 +4752,7 @@ export default function DashboardSalesList({
                 <h3 className="text-base font-extrabold text-slate-800 leading-tight">
                   {mobileActionsSale.customerName || 'Walk-In Customer'} — <span className="font-mono text-indigo-700">#{getSaleReference(mobileActionsSale)}</span>
                 </h3>
-                <p className="text-xs text-slate-450 mt-1 flex items-center justify-between">
+                <p className="text-xs text-slate-500 mt-1 flex items-center justify-between">
                   <span>Total Due: <strong className="font-extrabold text-slate-900">{currency}{Math.round(mobileActionsSale.total).toLocaleString()}</strong></span>
                   <span>{new Date(mobileActionsSale.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} &bull; {new Date(mobileActionsSale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </p>

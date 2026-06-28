@@ -2,7 +2,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'Admin' | 'Cashier' | 'Manager' | 'SuperAdmin';
+  role: 'Admin' | 'Cashier' | 'Manager' | 'SuperAdmin' | 'Affiliate' | 'Partner';
   tenantId: string;
   activeTenant: string;
   profileImage?: string;
@@ -18,6 +18,8 @@ export interface User {
   trial_end_date?: string;
   is_affiliate_lead?: boolean;
   referral_code_used?: string;
+  // Partner / Affiliate portal role
+  portal_role?: 'affiliate' | 'partner';
 }
 
 export interface Tenant {
