@@ -125,6 +125,26 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [tutorialLibrary, setTutorialLibrary] = useState<any[]>([]);
   const [tutorialAssignments, setTutorialAssignments] = useState<any[]>([]);
 
+  // ── RESTORE SESSION ON PAGE RELOAD ──────────────────────────────────────
+  // If user was already logged in (localStorage has their session), restore it
+  useEffect(() => {
+    const saved = localStorage.getItem('jasper_logged_affiliate');
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved);
+      if (!parsed?.id) return;
+      setActiveAffiliate(parsed);
+      setAuthMode('dashboard');
+      // Restore correct dashboard based on forcedRole or isSuper flag
+      if (forcedRole === 'partner' || parsed.isSuper === true) {
+        setDatabaseAgentWorkspaceEnabled(true);
+      } else {
+        setDatabaseWorkspaceEnabled(true);
+      }
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     // Load dynamic SSP banners from admin platform
     const savedBanners =
@@ -1474,6 +1494,17 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           <AffiliateAgentDesk onLogout={handleLogoutAffiliate} />
         ) : authMode === "dashboard" && databaseWorkspaceEnabled ? (
           <AffiliateWorkspace onLogout={handleLogoutAffiliate} />
+        ) : authMode === "dashboard" && activeAffiliate ? (
+          // Fallback: logged in via localStorage but workspace flags not set
+          // Redirect to correct dashboard based on portalRole
+          (() => {
+            if (portalRole === 'partner') {
+              setDatabaseAgentWorkspaceEnabled(true);
+            } else {
+              setDatabaseWorkspaceEnabled(true);
+            }
+            return null;
+          })()
         ) : authMode !== "dashboard" ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center py-6">
             {/* Left side: Pitch text */}
