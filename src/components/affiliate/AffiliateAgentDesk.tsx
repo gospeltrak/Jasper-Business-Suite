@@ -39,11 +39,22 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     setState('loading');
     try {
       const next = await loadAffiliateAgentWorkspace();
-      setWorkspace(next);
+      // Always show dashboard — new partners start with 0 affiliates
+      setWorkspace(next ?? { agentName: 'Partner', affiliates: [], assignments: [] } as any);
       setSelectedAffiliateId((current) => current || next?.affiliates[0]?.id || '');
-      setState(next?.affiliates.length ? 'ready' : 'missing');
+      setState('ready');
     } catch (error: any) {
-      setNotice(error?.message || 'Unable to load assigned affiliates.');
+      // Supabase unavailable — use localStorage session as fallback
+      const saved = localStorage.getItem('jasper_logged_affiliate');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setWorkspace({ agentName: parsed.name || 'Partner', affiliates: [], assignments: [] } as any);
+          setState('ready');
+          return;
+        } catch {}
+      }
+      setNotice(error?.message || 'Unable to load workspace.');
       setState('error');
     }
   }, []);
@@ -144,9 +155,13 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         <header className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Affiliate agent desk</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Partner Dashboard — Super Affiliate Agent</p>
               <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">{workspace.agentName}</h1>
-              <p className="mt-1 text-sm text-slate-500">{workspace.affiliates.length} assigned affiliate{workspace.affiliates.length === 1 ? '' : 's'}</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {workspace.affiliates.length === 0
+                  ? 'No affiliates yet — share your partner code to start recruiting'
+                  : `${workspace.affiliates.length} assigned affiliate${workspace.affiliates.length === 1 ? '' : 's'}`}
+              </p>
             </div>
             <div className="flex gap-2">
               <button type="button" onClick={refresh} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2.5 text-sm font-semibold text-slate-700"><RefreshCw className="h-4 w-4" /> Refresh</button>
