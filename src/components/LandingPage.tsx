@@ -37,7 +37,8 @@ import {
   Sun,
   Moon,
   Menu,
-  Factory
+  Factory,
+  Bell
 } from 'lucide-react';
 
 type FeaturedLogo = {
@@ -1563,14 +1564,14 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               </p>
             </div>
 
-            {/* Feat 3: Embed payments */}
+            {/* Feat 3: Daily Reports */}
             <div className={`p-8 rounded-2xl relative group transition-all border ${isDark ? 'bg-slate-900/45 border-slate-850 hover:border-slate-755' : 'bg-white border-slate-200 hover:border-slate-300 shadow-[0_2px_12px_rgba(0,0,0,0.06)]'}`}>
-              <div className={`p-3 w-fit rounded-xl border mb-6 group-hover:scale-110 transition-transform ${isDark ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
-                <Globe className="w-6 h-6 stroke-[1.75]" />
+              <div className={`p-3 w-fit rounded-xl border mb-6 group-hover:scale-110 transition-transform ${isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                <Bell className="w-6 h-6 stroke-[1.75]" />
               </div>
-              <h3 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-[#111827]'}`}>{t.featGatewayTitle || "Mobile Money Check"}</h3>
+              <h3 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-[#111827]'}`}>Daily Business Reports</h3>
               <p className={`text-sm leading-relaxed font-light ${isDark ? 'text-slate-400' : 'text-[#374151]'}`}>
-                {t.featGatewayDesc || "Invoices connect directly with M-Pesa, Tigo, and Airtel Money to verify transactions quickly."}
+                Receive automatic daily summaries of your sales, expenses, and profit delivered straight to your dashboard every day.
               </p>
             </div>
             
