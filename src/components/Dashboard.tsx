@@ -1715,22 +1715,46 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay, tabId: 'admin-promotions' },
     { id: 'admin-web-editor', label: 'Web Editor', icon: Globe, tabId: 'admin-web-editor' },
     { id: 'admin-settings', label: 'Settings', icon: SettingsIcon, tabId: 'admin-settings' }
-  ] : [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, tabId: 'overview' },
-    { id: 'parties', label: 'Parties', icon: Users, tabId: 'suppliers' },
-    { id: 'sales', label: 'Sales', icon: FileText, tabId: 'sales-list' },
-    { id: 'purchases', label: 'Purchases', icon: Truck, tabId: 'purchases-list' },
-    { id: 'pos', label: 'POS', icon: ShoppingCart, tabId: 'pos' },
-    { id: 'expenses', label: 'Expenses', icon: TrendingDown, tabId: 'expenses' },
-    { id: 'products', label: 'Product Manager', icon: Package, tabId: 'products', hasSubmenu: true },
-    { id: 'stock-transfer', label: 'Delivery Menu', icon: DeliveryMotorcycleIcon, tabId: 'deliveries' },
-    { id: 'cash-bank', label: 'Future Planning', icon: TrendingUp, tabId: 'forecasting' },
-    { id: 'ledger-balance-matrix', label: 'Money & Bank', icon: Wallet, tabId: 'cash-bank-matrix' },
-    { id: 'reports-menu', label: 'Reports', icon: PieChart, tabId: 'reports' },
-    { id: 'staff', label: 'staff', icon: Shield, tabId: 'staff-members' },
-    { id: 'settings', label: 'Settings', icon: SettingsIcon, tabId: 'settings' },
-    { id: 'subscription', label: 'Subscription', icon: CardIcon, tabId: 'subscription-modal' }
-  ];
+  ] : (() => {
+    // ── PACKAGE FEATURE GATES ──────────────────────────────────────────────
+    // Determines which menu items are visible based on the active subscription plan.
+    // Ruby = basic, Diamond = mid, Tanzanite = full
+    const planId = subStatus.plan.id;
+    const isRuby      = planId === 'ruby'      || planId === 'essential' || planId === 'trial';
+    const isDiamond   = planId === 'diamond'   || planId === 'business';
+    const isTanzanite = planId === 'tanzanite' || planId === 'wholesale';
+
+    // Features available per plan:
+    // Ruby:      POS, Sales, Products, Expenses, basic Reports, Settings, Subscription
+    // Diamond:   + Purchases, Deliveries, Money&Bank, Staff, Parties/Suppliers, advanced Reports
+    // Tanzanite: + Forecasting + everything in Diamond
+
+    const allItems = [
+      { id: 'dashboard',          label: 'Dashboard',       icon: LayoutDashboard,      tabId: 'overview',            plans: ['ruby','diamond','tanzanite'] },
+      { id: 'pos',                label: 'POS',             icon: ShoppingCart,          tabId: 'pos',                 plans: ['ruby','diamond','tanzanite'] },
+      { id: 'sales',              label: 'Sales',           icon: FileText,              tabId: 'sales-list',          plans: ['ruby','diamond','tanzanite'] },
+      { id: 'products',           label: 'Products',        icon: Package,               tabId: 'products',            plans: ['ruby','diamond','tanzanite'], hasSubmenu: true },
+      { id: 'expenses',           label: 'Expenses',        icon: TrendingDown,          tabId: 'expenses',            plans: ['ruby','diamond','tanzanite'] },
+      { id: 'reports-menu',       label: 'Reports',         icon: PieChart,              tabId: 'reports',             plans: ['ruby','diamond','tanzanite'] },
+      { id: 'parties',            label: 'Parties',         icon: Users,                 tabId: 'suppliers',           plans: ['diamond','tanzanite'] },
+      { id: 'purchases',          label: 'Purchases',       icon: Truck,                 tabId: 'purchases-list',      plans: ['diamond','tanzanite'] },
+      { id: 'stock-transfer',     label: 'Delivery Menu',   icon: DeliveryMotorcycleIcon,tabId: 'deliveries',          plans: ['diamond','tanzanite'] },
+      { id: 'ledger-balance-matrix', label: 'Money & Bank', icon: Wallet,               tabId: 'cash-bank-matrix',    plans: ['diamond','tanzanite'] },
+      { id: 'staff',              label: 'Staff',           icon: Shield,                tabId: 'staff-members',       plans: ['diamond','tanzanite'] },
+      { id: 'cash-bank',          label: 'Forecasting',     icon: TrendingUp,            tabId: 'forecasting',         plans: ['tanzanite'] },
+      { id: 'settings',           label: 'Settings',        icon: SettingsIcon,          tabId: 'settings',            plans: ['ruby','diamond','tanzanite'] },
+      { id: 'subscription',       label: 'Subscription',    icon: CardIcon,              tabId: 'subscription-modal',  plans: ['ruby','diamond','tanzanite'] },
+    ];
+
+    // For trial — show all items so user can see what they'll get, but limits still apply
+    if (subStatus.plan.id === 'trial') return allItems.map(({ plans, ...rest }) => rest);
+
+    // Filter by current plan
+    const currentPlanKey = isTanzanite ? 'tanzanite' : isDiamond ? 'diamond' : 'ruby';
+    return allItems
+      .filter(item => item.plans.includes(currentPlanKey))
+      .map(({ plans, ...rest }) => rest);
+  })();
 
   useEffect(() => {
     if (activeRoleName !== 'SuperAdmin' || !user.isSaaSStaff || isTabAllowed(activeTab)) return;
