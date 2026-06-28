@@ -1507,77 +1507,77 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           })()
         ) : authMode !== "dashboard" ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center py-6">
-            {/* Left side: Pitch text */}
+            {/* Left side: Pitch text — different for partner vs affiliate */}
             <div className="lg:col-span-6 space-y-8">
-              <div className="inline-flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 px-3.5 py-1.5 rounded-full border border-emerald-500/15 text-xs font-mono">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Jasper Saas Shared Growth</span>
-              </div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
-                Empower African Merchants.{" "}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">
-                  Share & Earn 15%.
-                </span>
-              </h1>
-              <p className="text-slate-400 text-sm sm:text-base leading-relaxed font-light">
-                Join Tanzania and East Africa’s fastest-growing retail suite.
-                Recommend Jasper to shop owners and Pharmacy owners. For every
-                monthly subscription they complete, you receive{" "}
-                <strong className="text-emerald-400">
-                  15% commission recurring
-                </strong>
-                , paid straight to your mobile wallet. No fine print. Just
-                beautiful tools.
-              </p>
-
-              <div className="space-y-4">
-                <div className="flex items-start space-x-3">
-                  <div className="p-1 bg-emerald-500/10 text-emerald-400 rounded mt-0.5">
-                    <Check className="w-4 h-4" />
+              {portalRole === 'partner' ? (
+                <>
+                  <div className="inline-flex items-center space-x-2 bg-amber-500/10 text-amber-400 px-3.5 py-1.5 rounded-full border border-amber-500/15 text-xs font-mono">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Jasper Partner Program</span>
                   </div>
-                  <div>
-                    <h5 className="text-sm font-bold text-slate-200">
-                      Instant Verification Linking
-                    </h5>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Custom reference URLs and Coupon registration inputs match
-                      sub-accounts.
-                    </p>
+                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                    Lead a Network.{" "}
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-300">
+                      Earn More as a Partner.
+                    </span>
+                  </h1>
+                  <p className="text-slate-400 text-sm sm:text-base leading-relaxed font-light">
+                    As a Jasper Partner (Super Affiliate Agent), you build and manage your own team of affiliates across Tanzania and East Africa. You earn{" "}
+                    <strong className="text-amber-400">15% on your direct referrals</strong>{" "}
+                    plus{" "}
+                    <strong className="text-amber-400">5% oversight commission</strong>{" "}
+                    on every sale made by affiliates under your network. No cap. No fine print.
+                  </p>
+                  <div className="space-y-4">
+                    {[
+                      { title: 'Recruit & Manage Affiliates', desc: 'Onboard affiliates under your network, assign promo codes, track their performance and send direct messages to your team.' },
+                      { title: '5% Override on Every Team Sale', desc: 'Every time an affiliate under you makes a referral, you automatically earn 5% on top — paid monthly to your mobile wallet.' },
+                      { title: 'Partner Command Dashboard', desc: 'Access a dedicated dashboard with network overview, monthly reconciliation, team management, and training tools for your downlines.' },
+                    ].map(item => (
+                      <div key={item.title} className="flex items-start space-x-3">
+                        <div className="p-1 bg-amber-500/10 text-amber-400 rounded mt-0.5 shrink-0"><Check className="w-4 h-4" /></div>
+                        <div>
+                          <h5 className="text-sm font-bold text-slate-200">{item.title}</h5>
+                          <p className="text-xs text-slate-400 mt-0.5">{item.desc}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <div className="p-1 bg-emerald-500/10 text-emerald-400 rounded mt-0.5">
-                    <Check className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  <div className="inline-flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 px-3.5 py-1.5 rounded-full border border-emerald-500/15 text-xs font-mono">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Jasper Affiliate Program</span>
                   </div>
-                  <div>
-                    <h5 className="text-sm font-bold text-slate-200">
-                      Guaranteed Monthly Payouts
-                    </h5>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Funds are aggregated and dispatched 1 time every month on
-                      the last week Friday afternoon. Guaranteed.
-                    </p>
+                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                    Empower African Merchants.{" "}
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">
+                      Share & Earn 15%.
+                    </span>
+                  </h1>
+                  <p className="text-slate-400 text-sm sm:text-base leading-relaxed font-light">
+                    Join Tanzania and East Africa's fastest-growing retail suite. Recommend Jasper to shop owners and Pharmacy owners. For every monthly subscription they complete, you receive{" "}
+                    <strong className="text-emerald-400">15% commission recurring</strong>, paid straight to your mobile wallet. No fine print. Just beautiful tools.
+                  </p>
+                  <div className="space-y-4">
+                    {[
+                      { title: 'Instant Verification Linking', desc: 'Custom reference URLs and Coupon registration inputs match sub-accounts.' },
+                      { title: 'Guaranteed Monthly Payouts', desc: 'Funds are aggregated and dispatched 1 time every month on the last week Friday afternoon. Guaranteed.' },
+                      { title: 'High Conversion Kits', desc: 'Get pre-designed HTML marketing copy banners, ready-made email newsletters, and templates to start referring today.' },
+                    ].map(item => (
+                      <div key={item.title} className="flex items-start space-x-3">
+                        <div className="p-1 bg-emerald-500/10 text-emerald-400 rounded mt-0.5 shrink-0"><Check className="w-4 h-4" /></div>
+                        <div>
+                          <h5 className="text-sm font-bold text-slate-200">{item.title}</h5>
+                          <p className="text-xs text-slate-400 mt-0.5">{item.desc}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <div className="p-1 bg-emerald-500/10 text-emerald-400 rounded mt-0.5">
-                    <Check className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h5 className="text-sm font-bold text-slate-200">
-                      High Conversion Kits
-                    </h5>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Get pre-designed HTML marketing copy banners, ready-made
-                      email newsletters, and templates to start referring today.
-                    </p>
-                  </div>
-                </div>
-              </div>
+                </>
+              )}
             </div>
-
             {/* Right side: Clean Login Form */}
             <div className="lg:col-span-6 flex items-center justify-center">
               <div className="w-full max-w-md bg-slate-900/80 border border-slate-800 p-8 rounded-3xl shadow-2xl backdrop-blur-md space-y-7">
