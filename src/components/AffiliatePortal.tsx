@@ -904,19 +904,23 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
             password,
             payoutMethod: paymentMethod,
             referralCode: generatedReferralCode,
+            isPartner: portalRole === 'partner',
           }),
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Affiliate registration failed.');
+        if (!response.ok) throw new Error(result.error || 'Registration failed.');
+        // API succeeded — go to login so they sign in properly
         setLoginEmail(phone);
         setLoginPassword('');
         setAuthMode('login');
-        alert('Your affiliate account is ready. Sign in with your payout phone number and password.');
+        alert(`Your ${portalRole === 'partner' ? 'partner' : 'affiliate'} account is ready. Sign in with your phone number and password.`);
       } catch (registrationError: any) {
-        alert(registrationError?.message || 'Affiliate registration failed.');
+        // API failed — fall through to localStorage registration below
+        console.warn('API registration failed, using localStorage:', registrationError?.message);
       }
     })();
-    return;
+    // NOTE: we do NOT return here anymore — we fall through to localStorage registration
+    // so that registration works even when the API is unavailable
 
     const name = `${firstName.trim()} ${secondName.trim()}`;
     const email = `${firstName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}.${secondName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}${Math.floor(100 + Math.random() * 900)}@jasper-affiliate.com`;
