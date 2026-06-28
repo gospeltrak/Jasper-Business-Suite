@@ -940,6 +940,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     localStorage.setItem("jasper_logged_affiliate", JSON.stringify(newAff));
     setActiveAffiliate(newAff);
     setAuthMode("dashboard");
+    if (portalRole === 'partner') {
+      setDatabaseAgentWorkspaceEnabled(true);
+    } else {
+      setDatabaseWorkspaceEnabled(true);
+    }
   };
 
   const handleQuickDemoAffiliate = () => {
@@ -962,6 +967,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     );
     setActiveAffiliate(defaultAffiliate);
     setAuthMode("dashboard");
+    setDatabaseWorkspaceEnabled(true);
   };
 
   const handleQuickDemoPartner = () => {
@@ -984,6 +990,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     );
     setActiveAffiliate(defaultAffiliate);
     setAuthMode("dashboard");
+    setDatabaseAgentWorkspaceEnabled(true);
   };
 
   const handleLoginAffiliate = async (e: any) => {
@@ -1067,6 +1074,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           );
           setActiveAffiliate(mappedAff);
           setAuthMode("dashboard");
+          // Set the correct workspace flag based on portal role
+          if (portalRole === 'partner') {
+            setDatabaseAgentWorkspaceEnabled(true);
+          } else {
+            setDatabaseWorkspaceEnabled(true);
+          }
           return;
         }
       } catch (err) {
@@ -1093,6 +1106,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       );
       setActiveAffiliate(mappedAff);
       setAuthMode("dashboard");
+      // Set the correct workspace flag
+      if (portalRole === 'partner') {
+        setDatabaseAgentWorkspaceEnabled(true);
+      } else {
+        setDatabaseWorkspaceEnabled(true);
+      }
     } else {
       // Allow seamless test fallback with email "partner@jasper.africa"
       const defaultAffiliate: Affiliate = {
@@ -1110,6 +1129,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       );
       setActiveAffiliate(defaultAffiliate);
       setAuthMode("dashboard");
+      // Set the correct workspace flag
+      if (portalRole === 'partner') {
+        setDatabaseAgentWorkspaceEnabled(true);
+      } else {
+        setDatabaseWorkspaceEnabled(true);
+      }
     }
   };
 
