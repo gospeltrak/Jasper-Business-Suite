@@ -76,7 +76,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
   tanzanite: {
     id: 'tanzanite',
     packageId: 'tanzanite',
-    name: 'Jasper',
+    name: 'Tanzanite',
     price: 50000,
     durationDays: 30,
     maxProducts: 999999,
@@ -137,7 +137,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
   wholesale: {
     id: 'wholesale',
     packageId: 'tanzanite',
-    name: 'Jasper',
+    name: 'Tanzanite',
     price: 50000,
     durationDays: 30,
     maxProducts: 999999,
