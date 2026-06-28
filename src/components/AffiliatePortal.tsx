@@ -90,6 +90,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [payoutPhone, setPayoutPhone] = useState("");
   const [password, setPassword] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("m-pesa");
   const [promoCode, setPromoCode] = useState("");
@@ -931,13 +932,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       id: assignedId,
       name,
       email,
-      phone,
+      phone,                              // WhatsApp login number
       paymentMethod,
       promoCode: cleanCode,
       parentSuperId,
       isSuper: isRegisterSuper,
       nidaNumber: nidaNumber || "N/A",
       tinNumber: tinNumber || "N/A",
+      payoutPhone: payoutPhone || phone,  // Commission payout number (fallback to phone)
     };
 
     // Store in global affiliates list
@@ -952,7 +954,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       name,
       username: `@${name.toLowerCase().replace(/\s+/g, "_")}_referrals`,
       email,
-      phone,
+      phone,                              // WhatsApp / login number
+      payoutPhone: payoutPhone || phone,  // Commission payout number
       status: "Active",
       joinedDate: new Date().toISOString().split("T")[0],
       affiliateLink: `https://dukaplus.co.tz/ref/${cleanCode.toLowerCase()}`,
@@ -1686,9 +1689,21 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Phone Number (Payout Wallet)</label>
-                      <input type="tel" required placeholder="e.g. 0754 002 991" value={phone} onChange={e => setPhone(e.target.value)}
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        WhatsApp Number <span className="text-[9px] text-slate-500 normal-case font-normal">(used as login)</span>
+                      </label>
+                      <input type="tel" required placeholder="e.g. +255 712 345 678" value={phone} onChange={e => setPhone(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm font-mono focus:border-emerald-500" />
+                      <p className="text-[9px] text-slate-500">This number will be your login username.</p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Commission Payout Number <span className="text-[9px] text-slate-500 normal-case font-normal">(mobile money)</span>
+                      </label>
+                      <input type="tel" required placeholder="e.g. 0754 002 991" value={payoutPhone} onChange={e => setPayoutPhone(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm font-mono focus:border-emerald-500" />
+                      <p className="text-[9px] text-slate-500">Commissions will be sent to this mobile money number.</p>
                     </div>
 
                     <div className="space-y-1.5">
