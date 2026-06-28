@@ -41,6 +41,8 @@ import {
   Search,
   ShoppingCart,
   Package,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import SaaSHardwarePOS from "./SaaSHardwarePOS";
 import SaaSHardwareInventory from "./SaaSHardwareInventory";
@@ -652,6 +654,21 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     alert(`✗ Affiliate ${name} has been removed from your network.`);
   };
 
+  const handleToggleDisableAffiliate = (affId: string, name: string, currentlyDisabled: boolean) => {
+    const action = currentlyDisabled ? 'enable' : 'disable';
+    if (!confirm(`Are you sure you want to ${action} ${name}? ${currentlyDisabled ? 'They will be able to use their promo code again.' : 'Their promo code will be deactivated and they will not be able to earn commissions.'}`)) return;
+
+    const raw = localStorage.getItem("saas_immersive_affiliates");
+    let list: any[] = [];
+    if (raw) { try { list = JSON.parse(raw); } catch {} }
+
+    const updated = list.map((a: any) =>
+      a.id === affId ? { ...a, isDisabled: !currentlyDisabled, status: currentlyDisabled ? 'Active' : 'Disabled' } : a
+    );
+    saveAffiliatesList(updated);
+    alert(`${currentlyDisabled ? '✅ Enabled' : '⛔ Disabled'}: ${name} has been ${action}d.`);
+  };
+
   const handleSendMessageToSubline = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMessageAffiliate) return;
@@ -811,6 +828,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
     if (!nidaNumber || nidaNumber.trim().length === 0) {
       alert("National ID (NIDA) is mandatory. Please provide a valid NIDA number.");
+      return;
+    }
+
+    // Agent/Partner promo code is REQUIRED for affiliates
+    if (portalRole !== 'partner' && !parentSuperCode.trim()) {
+      alert("⚠️ Agent / Partner code is required. Please enter the promo code of the Partner who recruited you.");
       return;
     }
 
@@ -1779,15 +1802,17 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                   <div className="space-y-1.5 text-left">
                     <label className="text-[10px] font-mono uppercase text-slate-500 tracking-wider font-extrabold text-teal-400">
-                      {t['agent code'] || "Agent Code"}
+                      {t['agent code'] || "Agent / Partner Code"} <span className="text-rose-400">*</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. LANGA"
+                      placeholder="Required — e.g. LANGA"
+                      required
                       value={parentSuperCode}
                       onChange={(e) => setParentSuperCode(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-600 outline-none rounded-2xl p-3 text-xs focus:border-teal-500 font-mono text-center tracking-widest uppercase"
+                      className={`w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl p-3 text-xs focus:border-teal-500 font-mono text-center tracking-widest uppercase ${parentSuperCode.trim() ? 'border-teal-500' : 'border-rose-500/50'}`}
                     />
+                    <p className="text-[9px] text-slate-500 font-mono">Enter the promo code of the Partner who recruited you. Required to register.</p>
                   </div>
 
                   <div className="space-y-1.5 relative text-left">
@@ -2622,14 +2647,21 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           return (
                             <div
                               key={aff.id}
-                              className="bg-slate-900 border border-slate-850 p-5 rounded-2xl flex flex-col justify-between space-y-4 text-left relative overflow-hidden group"
+                              className={`bg-slate-900 border p-5 rounded-2xl flex flex-col justify-between space-y-4 text-left relative overflow-hidden group ${aff.isDisabled ? 'border-rose-900/50 opacity-70' : 'border-slate-800'}`}
                             >
                               {/* Top Banner tag */}
                               <div className="flex justify-between items-start">
                                 <div>
-                                  <span className="text-[9px] bg-slate-950 text-slate-400 px-2 py-0.5 rounded font-mono font-bold uppercase">
-                                    {aff.id}
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[9px] bg-slate-950 text-slate-400 px-2 py-0.5 rounded font-mono font-bold uppercase">
+                                      {aff.id}
+                                    </span>
+                                    {aff.isDisabled && (
+                                      <span className="text-[9px] bg-rose-500/15 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded font-bold uppercase">
+                                        Disabled
+                                      </span>
+                                    )}
+                                  </div>
                                   <h4 className="text-xs font-black text-white mt-1.5">
                                     {aff.name}
                                   </h4>
@@ -2637,7 +2669,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                     {aff.email}
                                   </span>
                                 </div>
-                                <span className="bg-amber-500 text-slate-950 px-2.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase">
+                                <span className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase ${aff.isDisabled ? 'bg-slate-800 text-slate-500 line-through' : 'bg-amber-500 text-slate-950'}`}>
                                   {aff.promoCode}
                                 </span>
                               </div>
@@ -2715,10 +2747,23 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                     setSublineDirectMessage("");
                                     setShowSendMessageModal(true);
                                   }}
-                                  className="flex-1 py-1.5 bg-slate-950 hover:bg-slate-850 text-teal-400 hover:text-teal-300 font-extrabold font-mono text-[9.5px] uppercase rounded-lg transition-colors cursor-pointer border border-slate-800 flex items-center justify-center gap-1"
+                                  className="flex-1 py-1.5 bg-slate-950 hover:bg-slate-800 text-teal-400 hover:text-teal-300 font-extrabold font-mono text-[9.5px] uppercase rounded-lg transition-colors cursor-pointer border border-slate-800 flex items-center justify-center gap-1"
                                 >
                                   <MessageSquare className="w-3.5 h-3.5 text-teal-400" />
-                                  <span>Message Direct</span>
+                                  <span>Message</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleDisableAffiliate(aff.id, aff.name, !!aff.isDisabled)}
+                                  className={`p-2 rounded-xl transition-colors cursor-pointer border text-[9px] font-bold flex items-center gap-1 px-2 ${aff.isDisabled ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/20'}`}
+                                  title={aff.isDisabled ? 'Enable Affiliate' : 'Disable Affiliate'}
+                                >
+                                  {aff.isDisabled ? (
+                                    <><CheckCircle className="w-3.5 h-3.5" /><span>Enable</span></>
+                                  ) : (
+                                    <><XCircle className="w-3.5 h-3.5" /><span>Disable</span></>
+                                  )}
                                 </button>
 
                                 <button
