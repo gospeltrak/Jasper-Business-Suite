@@ -813,7 +813,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     localStorage.removeItem("jasper_logged_affiliate");
   }, []);
 
-  const handleUpdatePromoCode = (e: React.FormEvent) => {
+  const handleUpdatePromoCode = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleaned = newPromoInput.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
     if (!cleaned) {
@@ -913,6 +913,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     setIsEditingPromo(false);
     setPromoError(null);
     setPromoSuggestions([]);
+
+    // Also update in Supabase (source of truth)
+    try {
+      const client: any = await getDynamicSupabaseClient();
+      await client.from('affiliates')
+        .update({ promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() })
+        .eq('id', activeAffiliate?.id);
+    } catch { /* offline — will sync later */ }
   };
 
   const handleRegisterAffiliate = async (e: any) => {
