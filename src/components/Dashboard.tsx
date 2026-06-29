@@ -2715,46 +2715,54 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           <div className="flex items-center justify-between px-5 h-[60px] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 shrink-0" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)'}}>
             <div>
               <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-0.5">All Features</p>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">{activeTenant.name}</h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
+                {user.role === 'SuperAdmin' ? 'SaaS Admin Portal' : activeTenant.name}
+              </h2>
             </div>
-            <button
-              onClick={() => setMoreMenuOpen(false)}
-              className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 active:scale-90 transition-all border-none cursor-pointer"
-              type="button"
-            >
+            <button onClick={() => setMoreMenuOpen(false)} className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 active:scale-90 transition-all border-none cursor-pointer" type="button">
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto pb-24">
-
-            {/* App grid — 4-col icon grid like native apps */}
             <div className="px-5 pt-5 pb-2">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">All Features</p>
               <div className="grid grid-cols-4 gap-4">
-                {[
-                  { id: 'overview', label: 'Home', icon: LayoutDashboard, bg: 'bg-blue-500' },
-                  { id: 'sales-list', label: 'Sales', icon: FileText, bg: 'bg-emerald-500' },
-                  { id: 'pos', label: 'Sell', icon: ShoppingCart, bg: 'bg-gradient-to-r from-emerald-400 to-teal-400' },
-                  { id: 'purchases-list', label: 'Buying', icon: Package, bg: 'bg-violet-500' },
-                  { id: 'products', label: 'Stock', icon: Database, bg: 'bg-orange-500' },
-                  { id: 'expenses', label: 'Expenses', icon: MinusCircle, bg: 'bg-rose-500' },
-                  { id: 'reports', label: 'Reports', icon: PieChart, bg: 'bg-indigo-500' },
-                  { id: 'deliveries', label: 'Delivery', icon: MapPin, bg: 'bg-teal-500' },
-                  { id: 'suppliers', label: 'Partners', icon: Handshake, bg: 'bg-purple-500' },
-                  { id: 'cash-bank-matrix', label: 'Money', icon: Wallet, bg: 'bg-amber-500' },
-                  { id: 'forecasting', label: 'Planning', icon: TrendingUp, bg: 'bg-cyan-500' },
-                  { id: 'staff-members', label: 'Staff', icon: Shield, bg: 'bg-slate-700' },
-                ].map((item) => {
+                {(user.role === 'SuperAdmin' ? [
+                  // ── Super SaaS Admin more menu ─────────────────────
+                  { id: 'admin-dashboard',   label: 'Dashboard',  icon: LayoutDashboard, bg: 'bg-emerald-600' },
+                  { id: 'admin-subscribers', label: 'Subscribers',icon: Users,           bg: 'bg-blue-600' },
+                  { id: 'admin-affiliates',  label: 'Affiliates', icon: Award,           bg: 'bg-amber-500' },
+                  { id: 'admin-status',      label: 'Approvals',  icon: Activity,        bg: 'bg-teal-600' },
+                  { id: 'admin-hw-pos',      label: 'HW POS',     icon: ShoppingCart,    bg: 'bg-violet-600' },
+                  { id: 'admin-hw-inventory',label: 'HW Stock',   icon: Database,        bg: 'bg-orange-500' },
+                  { id: 'admin-hw-sales',    label: 'HW Sales',   icon: TrendingUp,      bg: 'bg-rose-500' },
+                  { id: 'admin-reports',     label: 'Reports',    icon: PieChart,        bg: 'bg-indigo-600' },
+                  { id: 'admin-expenses',    label: 'Expenses',   icon: MinusCircle,     bg: 'bg-rose-600' },
+                  { id: 'admin-chats',       label: 'Chats',      icon: MessageSquare,   bg: 'bg-cyan-600' },
+                  { id: 'admin-promotions',  label: 'Ads',        icon: MonitorPlay,     bg: 'bg-pink-600' },
+                  { id: 'admin-settings',    label: 'Settings',   icon: SettingsIcon,    bg: 'bg-slate-700' },
+                ] : [
+                  // ── Tenant / business user more menu (UNCHANGED) ──
+                  { id: 'overview',          label: 'Home',       icon: LayoutDashboard, bg: 'bg-blue-500' },
+                  { id: 'sales-list',        label: 'Sales',      icon: FileText,        bg: 'bg-emerald-500' },
+                  { id: 'pos',               label: 'Sell',       icon: ShoppingCart,    bg: 'bg-gradient-to-r from-emerald-400 to-teal-400' },
+                  { id: 'purchases-list',    label: 'Buying',     icon: Package,         bg: 'bg-violet-500' },
+                  { id: 'products',          label: 'Stock',      icon: Database,        bg: 'bg-orange-500' },
+                  { id: 'expenses',          label: 'Expenses',   icon: MinusCircle,     bg: 'bg-rose-500' },
+                  { id: 'reports',           label: 'Reports',    icon: PieChart,        bg: 'bg-indigo-500' },
+                  { id: 'deliveries',        label: 'Delivery',   icon: MapPin,          bg: 'bg-teal-500' },
+                  { id: 'suppliers',         label: 'Partners',   icon: Handshake,       bg: 'bg-purple-500' },
+                  { id: 'cash-bank-matrix',  label: 'Money',      icon: Wallet,          bg: 'bg-amber-500' },
+                  { id: 'forecasting',       label: 'Planning',   icon: TrendingUp,      bg: 'bg-cyan-500' },
+                  { id: 'staff-members',     label: 'Staff',      icon: Shield,          bg: 'bg-slate-700' },
+                ]).map((item) => {
                   const Icon = item.icon;
                   return (
-                    <button
-                      key={item.id}
-                      type="button"
+                    <button key={item.id} type="button"
                       onClick={() => { setActiveTab(item.id as any); setMoreMenuOpen(false); }}
-                      className="flex flex-col items-center gap-1.5 active:scale-90 transition-all duration-150 cursor-pointer bg-transparent border-none outline-none"
-                    >
+                      className="flex flex-col items-center gap-1.5 active:scale-90 transition-all duration-150 cursor-pointer bg-transparent border-none outline-none">
                       <div className={`w-14 h-14 rounded-2xl ${item.bg} flex items-center justify-center shadow-sm`}>
                         <Icon className="w-6 h-6 text-white" strokeWidth={2} />
                       </div>
@@ -2765,26 +2773,25 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               </div>
             </div>
 
-            {/* Divider */}
             <div className="mx-5 my-4 h-px bg-slate-200 dark:bg-slate-800" />
 
             {/* Quick actions list */}
             <div className="px-5">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">System</p>
               <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
-                {[
+                {(user.role === 'SuperAdmin' ? [
+                  { id: 'admin-web-editor', label: 'Web Editor',  icon: Globe,       desc: 'Edit landing page content', color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-500/10' },
+                  { id: 'admin-settings',   label: 'Settings',    icon: SettingsIcon,desc: 'System configuration',      color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
+                ] : [
                   { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
-                  { id: 'sync', label: 'Sync', icon: RefreshCw, desc: isOfflineMode ? 'You are offline' : 'All data synced', color: isOfflineMode ? 'text-amber-600' : 'text-emerald-600', bg: isOfflineMode ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-emerald-50 dark:bg-emerald-500/10' },
-                  { id: 'inventory', label: 'Inventory', icon: Package, desc: 'View stock levels', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10' },
-                ].map((item, idx, arr) => {
+                  { id: 'sync',     label: 'Sync',     icon: RefreshCw,    desc: isOfflineMode ? 'You are offline' : 'All data synced', color: isOfflineMode ? 'text-amber-600' : 'text-emerald-600', bg: isOfflineMode ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-emerald-50 dark:bg-emerald-500/10' },
+                  { id: 'inventory',label: 'Inventory',icon: Package,      desc: 'View stock levels',             color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-500/10' },
+                ]).map((item, idx, arr) => {
                   const Icon = item.icon;
                   return (
-                    <button
-                      key={item.id}
-                      type="button"
+                    <button key={item.id} type="button"
                       onClick={() => { setActiveTab(item.id as any); setMoreMenuOpen(false); }}
-                      className={`w-full flex items-center gap-3 px-4 py-3.5 active:bg-slate-50 dark:active:bg-slate-800/50 transition-colors cursor-pointer bg-transparent border-none text-left ${idx < arr.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''}`}
-                    >
+                      className={`w-full flex items-center gap-3 px-4 py-3.5 active:bg-slate-50 dark:active:bg-slate-800/50 transition-colors cursor-pointer bg-transparent border-none text-left ${idx < arr.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''}`}>
                       <div className={`w-9 h-9 rounded-xl ${item.bg} flex items-center justify-center shrink-0`}>
                         <Icon className={`w-5 h-5 ${item.color}`} strokeWidth={2} />
                       </div>

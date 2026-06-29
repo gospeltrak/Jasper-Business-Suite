@@ -105,6 +105,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const [notice, setNotice] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // Sub-affiliates from localStorage (real data)
   const [subAffiliates, setSubAffiliates] = useState<SubAffiliateProfile[]>([]);
@@ -1038,7 +1039,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             );
           })}
           {/* More button for tabs 6-8 */}
-          <button onClick={() => setActiveTab(NAV_TABS[5]?.id || 'hw-pos')}
+          <button onClick={() => setMoreOpen(true)}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 cursor-pointer border-none bg-transparent transition-all ${['hw-pos','hw-inventory','conferencing'].includes(activeTab) ? 'text-amber-400' : 'text-slate-500'}`}>
             <div className={`flex items-center justify-center w-7 h-6 rounded-lg ${['hw-pos','hw-inventory','conferencing'].includes(activeTab) ? 'bg-amber-500/15' : ''}`}>
               <Menu className="w-5 h-5" strokeWidth={1.8} />
@@ -1047,6 +1048,36 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           </button>
         </div>
       </nav>
+
+      {/* ── PARTNER MORE BOTTOM SHEET ── */}
+      {moreOpen && (
+        <div className="md:hidden fixed inset-0 z-50" onClick={() => setMoreOpen(false)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="absolute inset-x-0 bottom-0 bg-slate-900 border-t border-slate-700 rounded-t-3xl p-5 pb-[calc(20px+env(safe-area-inset-bottom))]"
+            onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-5" />
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">More Options</p>
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { id: 'conferencing', label: 'Video', icon: Video,     bg: 'bg-blue-600' },
+                { id: 'hw-pos',       label: 'HW POS', icon: Monitor,  bg: 'bg-violet-600' },
+                { id: 'hw-inventory', label: 'HW Stock',icon: HardDrive,bg: 'bg-orange-500' },
+              ].map(item => {
+                const Icon = item.icon;
+                return (
+                  <button key={item.id} onClick={() => { setActiveTab(item.id as DashTab); setMoreOpen(false); }}
+                    className="flex flex-col items-center gap-2 cursor-pointer bg-transparent border-none">
+                    <div className={`w-14 h-14 rounded-2xl ${item.bg} flex items-center justify-center shadow`}>
+                      <Icon className="w-6 h-6 text-white" strokeWidth={2} />
+                    </div>
+                    <span className="text-[11px] font-semibold text-slate-400 text-center">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
