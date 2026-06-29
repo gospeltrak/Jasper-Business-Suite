@@ -956,35 +956,113 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     triggerLogin(userObj.phone || userObj.email, userObj.password);
   };
 
-  const registerAffiliateReferral = (code: string, subscriberName: string) => {
-    const raw = localStorage.getItem('saas_immersive_affiliates');
-    if (!raw) return;
-    try {
-      const affiliates = JSON.parse(raw);
-      const matchIndex = affiliates.findIndex((a: any) => a.promoCode.toUpperCase() === code.toUpperCase());
-      if (matchIndex !== -1) {
-        affiliates[matchIndex].conversionsPromo = (affiliates[matchIndex].conversionsPromo || 0) + 1;
-        // Mock a subscription payment value of TSh 1,500,000
-        const revenueAdded = 1500000;
-        affiliates[matchIndex].revenueGenerated = (affiliates[matchIndex].revenueGenerated || 0) + revenueAdded;
-        affiliates[matchIndex].totalEarnings = (affiliates[matchIndex].totalEarnings || 0) + Math.round(revenueAdded * 0.15);
+  const registerAffiliateReferral = async (code: string, subscriberName: string, tenantId?: string) => {
+    const upperCode = code.toUpperCase();
 
-        // If this affiliate is recruited by a Super Affiliate:
-        if (affiliates[matchIndex].parentSuperId) {
-          const superId = affiliates[matchIndex].parentSuperId;
-          const superIndex = affiliates.findIndex((a: any) => a.id === superId);
-          if (superIndex !== -1) {
-            // Recruiter gets 5% oversight earnings
-            affiliates[superIndex].revenueGenerated = (affiliates[superIndex].revenueGenerated || 0) + revenueAdded;
-            affiliates[superIndex].totalEarnings = (affiliates[superIndex].totalEarnings || 0) + Math.round(revenueAdded * 0.05);
-            affiliates[superIndex].conversionsPromo = (affiliates[superIndex].conversionsPromo || 0) + 1;
-          }
+    // ── 1. Update localStorage (immediate, offline-safe) ──────────
+    const raw = localStorage.getItem('saas_immersive_affiliates');
+    let affiliates: any[] = [];
+    if (raw) {
+      try { affiliates = JSON.parse(raw); } catch {}
+    }
+    const matchIndex = affiliates.findIndex((a: any) => a.promoCode?.toUpperCase() === upperCode);
+    const revenueAdded = 1500000; // TSh 1,500,000 per subscription
+    if (matchIndex !== -1) {
+      affiliates[matchIndex].conversionsPromo = (affiliates[matchIndex].conversionsPromo || 0) + 1;
+      affiliates[matchIndex].revenueGenerated = (affiliates[matchIndex].revenueGenerated || 0) + revenueAdded;
+      affiliates[matchIndex].totalEarnings = (affiliates[matchIndex].totalEarnings || 0) + Math.round(revenueAdded * 0.15);
+      if (affiliates[matchIndex].parentSuperId) {
+        const superId = affiliates[matchIndex].parentSuperId;
+        const superIndex = affiliates.findIndex((a: any) => a.id === superId);
+        if (superIndex !== -1) {
+          affiliates[superIndex].revenueGenerated = (affiliates[superIndex].revenueGenerated || 0) + revenueAdded;
+          affiliates[superIndex].totalEarnings = (affiliates[superIndex].totalEarnings || 0) + Math.round(revenueAdded * 0.05);
+          affiliates[superIndex].conversionsPromo = (affiliates[superIndex].conversionsPromo || 0) + 1;
         }
-        localStorage.setItem('saas_immersive_affiliates', JSON.stringify(affiliates));
-        window.dispatchEvent(new Event('saas_logs_updated'));
       }
-    } catch (e) {
-      console.error('Error in tracing affiliate codes', e);
+      localStorage.setItem('saas_immersive_affiliates', JSON.stringify(affiliates));
+      window.dispatchEvent(new Event('saas_logs_updated'));
+    }
+
+    // ── 2. Save to Supabase — referred_customers + commission_ledger ──
+    try {
+      const client: any = await getDynamicSupabaseClient();
+
+      // Find sub-affiliate record in Supabase
+      const { data: subAff } = await client
+        .from('affiliates')
+        .select('id, display_name, parent_super_agent_id, account_type')
+        .ilike('promo_code', upperCode)
+        .maybeSingle();
+
+      const subAffiliateId = subAff?.id || (matchIndex !== -1 ? affiliates[matchIndex].id : null);
+      const parentSuperAgentId = subAff?.parent_super_agent_id || (matchIndex !== -1 ? affiliates[matchIndex].parentSuperId : null);
+      const now = new Date().toISOString();
+
+      // 2a. referred_customers — track which tenant came from which sub-affiliate
+      await client.from('referred_customers').insert({
+        id: `rc-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+        customer_id: tenantId || null,
+        customer_name: subscriberName,
+        source_type: parentSuperAgentId ? 'sub_affiliate' : 'organic_affiliate',
+        affiliate_id: subAffiliateId,
+        sub_affiliate_id: subAffiliateId,
+        parent_super_agent_id: parentSuperAgentId || null,
+        promo_code_used: upperCode,
+        referral_code_used: upperCode,
+        package_name: 'Trial',
+        package_price: revenueAdded,
+        amount_paid: revenueAdded,
+        payment_status: 'pending',
+        commission_status: 'pending',
+        commission_amount: Math.round(revenueAdded * 0.15),
+        created_at: now,
+      });
+
+      // 2b. commission_ledger — record the full 20% split
+      const grossCommission15 = Math.round(revenueAdded * 0.15);
+      const managerCommission5 = Math.round(revenueAdded * 0.05);
+      const networkPool20 = grossCommission15 + managerCommission5;
+
+      await client.from('commission_ledger').insert({
+        id: `cl-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+        customer_id: tenantId || null,
+        source_type: parentSuperAgentId ? 'sub_affiliate' : 'organic_affiliate',
+        affiliate_id: subAffiliateId,
+        sub_affiliate_id: subAffiliateId,
+        parent_super_agent_id: parentSuperAgentId || null,
+        revenue_amount: revenueAdded,
+        network_pool_20: networkPool20,
+        manager_commission_5: parentSuperAgentId ? managerCommission5 : 0,
+        sub_affiliate_gross_commission_15: grossCommission15,
+        withholding_tax_rate: 0.05,
+        withholding_tax_amount: Math.round(grossCommission15 * 0.05),
+        sub_affiliate_net_payout: grossCommission15, // full gross — WHT not yet active
+        tin_number_available: false,
+        withholding_status: 'not_active',
+        status: 'pending',
+        currency: 'TZS',
+        created_at: now,
+      });
+
+      // 2c. Update affiliates table revenue totals
+      if (subAffiliateId) {
+        await client.from('affiliates')
+          .update({
+            total_revenue: client.rpc ? undefined : undefined, // use increment below
+            customers_count: 1,
+          })
+          .eq('id', subAffiliateId);
+        // Increment counters
+        await client.rpc('increment_affiliate_stats', {
+          p_affiliate_id: subAffiliateId,
+          p_revenue: revenueAdded,
+          p_commission: grossCommission15,
+        }).catch(() => {}); // RPC may not exist — ignore
+      }
+
+    } catch (dbErr) {
+      console.warn('[referral] Supabase tracking failed — localStorage tracking active:', dbErr);
     }
   };
 
@@ -1091,6 +1169,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         autoRenewEnabled: true,
         paymentStatus: 'active'
       }));
+
+      // Track affiliate referral if code was used
+      if (affiliateCode.trim()) {
+        registerAffiliateReferral(affiliateCode.trim(), orgName, newTenant.id);
+      }
 
       setIsLoading(false);
       setSuccessMessage(`Success! Registered "${orgName}" as an isolated business tenant.`);
@@ -1263,7 +1346,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         paymentStatus: 'active' as const
       };
       localStorage.setItem('jasper_subscription_state', JSON.stringify(initialSubState));
-      registerAffiliateReferral(code, googleOrgName);
+      registerAffiliateReferral(code, googleOrgName, newTenantId);
     } else {
       const initialSubState = {
         planId: 'trial' as const,
