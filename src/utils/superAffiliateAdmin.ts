@@ -256,7 +256,91 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
     };
   });
 
-  return { affiliates: affiliateRows, organicSubscribers, agents, subAffiliates };
+  return mergeLocalStorageAffiliates({ affiliates: affiliateRows, organicSubscribers, agents, subAffiliates });
+}
+
+/** Merge localStorage immersive affiliates into monitoring data when DB is empty */
+function mergeLocalStorageAffiliates(data: AffiliateMonitoringData): AffiliateMonitoringData {
+  try {
+    const raw = localStorage.getItem('saas_immersive_affiliates');
+    if (!raw) return data;
+    const local: any[] = JSON.parse(raw);
+    if (!local.length) return data;
+
+    // Build sub-affiliates from localStorage (isSuper=false)
+    const localSubAffs = local
+      .filter(a => !a.isSuper)
+      .map(a => {
+        const revenue = a.revenueDate || a.totalEarnings || 0;
+        const commission = revenue * 0.15;
+        const withholdingTax = commission * 0.05;
+        return {
+          id: a.id,
+          userId: a.id,
+          name: a.name || a.display_name || 'Unknown',
+          parentAgentId: a.parentSuperId || '',
+          parentAgentName: a.parentSuperName || 'Partner',
+          parentAgentCode: a.parentSuperCode || '',
+          phone: a.phone || '',
+          promoCode: a.promoCode || a.referral_code || '',
+          referralLink: a.affiliateLink || '',
+          subscribers: a.conversionsPromo || a.conversionsLink || 0,
+          revenue,
+          commission,
+          withholdingTax,
+          netPayout: commission,
+          mobileMoneyNumber: a.payoutPhone || a.phone || '',
+          mobileMoneyProvider: a.paymentMethod || 'M-Pesa',
+          payoutStatus: 'pending' as const,
+          status: a.isDisabled ? 'suspended' : 'active',
+        };
+      });
+
+    // Build agents/partners from localStorage (isSuper=true)
+    const localAgents = local
+      .filter(a => a.isSuper)
+      .map(a => {
+        const networkSubs = localSubAffs.filter(s => s.parentAgentId === a.id || s.parentAgentCode === a.promoCode);
+        const revenue = networkSubs.reduce((s, sub) => s + sub.revenue, a.revenueDate || a.totalEarnings || 0);
+        const agentCut = revenue * 0.05;
+        return {
+          agentId: a.id,
+          agentName: a.name || a.display_name || 'Partner',
+          phone: a.phone || '',
+          agentCode: a.promoCode || '',
+          agentLink: a.affiliateLink || '',
+          mobileMoneyNumber: a.payoutPhone || a.phone || '',
+          mobileMoneyProvider: a.paymentMethod || 'M-Pesa',
+          status: a.isDisabled ? 'suspended' : 'active',
+          subAffiliates: networkSubs.length,
+          subscribers: a.conversionsPromo || 0,
+          revenue,
+          poolTotal: revenue * 0.20,
+          agentCut,
+          subAffiliatePool: revenue * 0.15,
+          withholdingTax: agentCut * 0.05,
+          netPayout: agentCut,
+        };
+      });
+
+    // Merge — avoid duplicates by id
+    const existingSubIds = new Set(data.subAffiliates.map(s => s.id));
+    const existingAgentIds = new Set(data.agents.map(a => a.agentId));
+
+    return {
+      ...data,
+      subAffiliates: [
+        ...data.subAffiliates,
+        ...localSubAffs.filter(s => !existingSubIds.has(s.id)),
+      ],
+      agents: [
+        ...data.agents,
+        ...localAgents.filter(a => !existingAgentIds.has(a.agentId)),
+      ],
+    };
+  } catch {
+    return data;
+  }
 }
 
 export async function loadSuperAffiliateRows(): Promise<SuperAffiliateRow[]> {

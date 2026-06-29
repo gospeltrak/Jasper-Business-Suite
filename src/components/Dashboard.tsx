@@ -1576,9 +1576,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   // Secondary options that go inside the Bottom Sheet "More" menu
   const secondaryMenuOptions = (user.role === 'SuperAdmin'
     ? [
-        { id: 'admin-affiliates-organic', label: 'Organic Affiliates', icon: Award },
-        { id: 'admin-affiliate-agents', label: 'Affiliate Agents', icon: Users },
-        { id: 'admin-sub-affiliates', label: 'Sub-Affiliates', icon: Shield },
+
         { id: 'admin-status', label: 'Status & Requests', icon: Activity },
         { id: 'admin-expenses', label: 'Expenses', icon: Receipt },
         { id: 'admin-chats', label: 'Chats / Broadcasts', icon: MessageSquare },
@@ -1634,9 +1632,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         { id: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'admin-subscribers', label: 'Subscribers List', icon: Users },
         { id: 'admin-affiliates', label: 'Affiliates', icon: Award },
-        { id: 'admin-affiliates-organic', label: 'Organic Affiliates', icon: Award },
-        { id: 'admin-affiliate-agents', label: 'Affiliate Agents', icon: Users },
-        { id: 'admin-sub-affiliates', label: 'Sub-Affiliates', icon: Shield },
+
         { id: 'admin-status', label: 'Status and Request', icon: Activity },
         { id: 'admin-reports', label: 'Reports', icon: Database },
         { id: 'admin-expenses', label: 'Expenses', icon: Receipt },
@@ -1704,9 +1700,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     { id: 'admin-hw-inventory', label: 'HW Inventory', icon: Package, tabId: 'admin-hw-inventory' },
     { id: 'admin-hw-sales', label: 'HW Sales', icon: TrendingUp, tabId: 'admin-hw-sales' },
     { id: 'admin-affiliates', label: 'Affiliates', icon: Award, tabId: 'admin-affiliates' },
-    { id: 'admin-affiliates-organic', label: 'Organic Affiliates', icon: Award, tabId: 'admin-affiliates-organic' },
-    { id: 'admin-affiliate-agents', label: 'Affiliate Agents', icon: Users, tabId: 'admin-affiliate-agents' },
-    { id: 'admin-sub-affiliates', label: 'Sub-Affiliates', icon: Shield, tabId: 'admin-sub-affiliates' },
+
     { id: 'admin-status', label: 'Status & Requests', icon: Activity, tabId: 'admin-status' },
     { id: 'admin-reports', label: 'Reports', icon: Database, tabId: 'admin-reports' },
     { id: 'admin-expenses', label: 'Expenses', icon: Receipt, tabId: 'admin-expenses' },
