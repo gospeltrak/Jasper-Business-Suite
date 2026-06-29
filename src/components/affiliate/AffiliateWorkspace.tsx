@@ -202,7 +202,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   );
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 pb-24 lg:pb-8">
+    <main className="bg-slate-50 text-slate-900 pb-24 lg:pb-8 min-h-[100dvh]">
       <div className="mx-auto grid min-h-screen max-w-[1440px] lg:grid-cols-[232px_minmax(0,1fr)]">
         <aside className="hidden h-screen sticky top-0 lg:flex flex-col border-r border-slate-200 bg-white p-5">
           <div className="flex items-center gap-3">

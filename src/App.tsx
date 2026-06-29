@@ -346,12 +346,12 @@ export default function App() {
         root.removeAttribute('data-page');
       }
     } else if (isScrollablePage) {
-      // Landing / Affiliate / Partner — fully scrollable web pages
+      // Affiliate / Partner portals + landing — always scrollable
       html.classList.add('landing-page');
-      html.style.overflow = '';
+      html.style.overflow = 'auto';
       html.style.height = '';
       document.body.style.position = '';
-      document.body.style.overflow = '';
+      document.body.style.overflow = 'auto';
       document.body.style.width = '';
       document.body.style.height = '';
       document.body.style.top = '';
@@ -359,7 +359,7 @@ export default function App() {
       document.body.style.right = '';
       document.body.style.bottom = '';
       if (root) {
-        root.style.overflow = '';
+        root.style.overflow = 'auto';
         root.style.height = '';
         root.style.position = '';
         root.setAttribute('data-page', 'landing');

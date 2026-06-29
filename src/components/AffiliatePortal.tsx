@@ -1589,7 +1589,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   return (
     <div
       id="affiliate-portal-view"
-      className="min-h-screen bg-slate-950 text-slate-100 font-sans leading-normal selection:bg-emerald-500 selection:text-slate-950"
+      className="min-h-screen bg-slate-950 text-slate-100 font-sans leading-normal selection:bg-emerald-500 selection:text-slate-950 overflow-y-auto"
     >
       {/* Background radial effects */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">

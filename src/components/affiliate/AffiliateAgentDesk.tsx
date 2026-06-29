@@ -436,7 +436,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   // ── Main Dashboard ────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+    <div className="flex flex-col bg-slate-950 text-white" style={{ height: '100dvh', overflow: 'hidden' }}>
 
       {/* Header */}
       <header style={{ background: 'linear-gradient(135deg,#0a0f1e,#0d1b2e)' }}
