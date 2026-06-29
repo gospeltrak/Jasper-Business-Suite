@@ -127,20 +127,24 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       setCodeSuggestions(sugg);
       return;
     }
+    // Save to Supabase
     try {
       const { getDynamicSupabaseClient } = await import('../../supabaseClient');
       const client: any = await getDynamicSupabaseClient();
       await client.from('affiliates').update({ promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() }).eq('id', partnerId);
-    } catch { /* offline */ }
+    } catch { /* offline — syncs later */ }
+    // Update localStorage — both stores
     const updated = all.map((a: any) => a.id === partnerId ? { ...a, promoCode: cleaned } : a);
     localStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
     const savedAff = JSON.parse(localStorage.getItem('jasper_logged_affiliate') || '{}');
     savedAff.promoCode = cleaned;
     localStorage.setItem('jasper_logged_affiliate', JSON.stringify(savedAff));
+    // Update displayed code immediately — force re-read partnerInfo
     setNotice(`✅ Partner code updated to ${cleaned}`);
     setEditingCode(false);
     setCodeError('');
     setCodeSuggestions([]);
+    // Force the component to re-read from localStorage by triggering refresh
     refresh();
   };
 
@@ -187,7 +191,21 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   }, []);
 
   const partnerName = partnerInfo?.name || workspace?.agentName || 'Partner';
-  const partnerCode = partnerInfo?.promoCode || partnerInfo?.promo_code || '';
+  const partnerCode = useMemo(() => {
+    // Try partnerInfo first, then sub-affiliates list
+    const code = partnerInfo?.promoCode || partnerInfo?.promo_code || '';
+    if (code) return code;
+    // Auto-generate a default code from partner name if none exists
+    const name = partnerInfo?.name || '';
+    if (name) {
+      const parts = name.trim().toUpperCase().split(' ');
+      return `${(parts[0] || '').slice(0, 5)}_${(parts[1] || 'JAR').slice(0, 3)}_${Math.floor(100 + Math.random() * 900)}`;
+    }
+    return '';
+  }, [partnerInfo]);
+
+  // Live referral link — updates as user types in the edit field
+  const liveCode = editingCode && newCode ? newCode : partnerCode;
   const partnerId   = partnerInfo?.id || 'partner-local';
 
   // ── Load data ───────────────────────────────────────────────
@@ -923,7 +941,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                     <div className="flex gap-3">
                       <button onClick={savePartnerCode}
                         className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl cursor-pointer border-none transition-colors">
-                        Save to Database
+                        Save
                       </button>
                       <button onClick={() => { setEditingCode(false); setCodeError(''); setCodeSuggestions([]); }}
                         className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl cursor-pointer border-none">
@@ -935,10 +953,10 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                   <div className="space-y-4">
                     <div className="flex items-center gap-3 bg-slate-800 border border-amber-500/20 rounded-2xl px-5 py-4">
                       <Zap className="w-5 h-5 text-amber-400 shrink-0" />
-                      <span className="flex-1 font-black text-amber-400 font-mono tracking-[0.2em] text-2xl">{partnerCode || '—'}</span>
+                      <span className="flex-1 font-black text-amber-400 font-mono tracking-[0.2em] text-2xl">{liveCode || '—'}</span>
                     </div>
                     <div className="flex gap-3">
-                      <button onClick={() => { navigator.clipboard.writeText(partnerCode); setNotice('✅ Partner code copied!'); }}
+                      <button onClick={() => { navigator.clipboard.writeText(liveCode || partnerCode); setNotice('✅ Partner code copied!'); }}
                         className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold rounded-xl cursor-pointer flex items-center justify-center gap-2 text-sm">
                         <Copy className="w-4 h-4" /> Copy Code
                       </button>
@@ -964,10 +982,10 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                 </div>
                 <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3">
                   <code className="text-sm text-slate-300 font-mono break-all">
-                    {window.location.origin}/?ref={partnerCode || 'YOUR_CODE'}
+                    {window.location.origin}/?ref={liveCode || 'YOUR_CODE'}
                   </code>
                 </div>
-                <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/?ref=${partnerCode}`); setNotice('✅ Referral link copied!'); }}
+                <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/?ref=${liveCode || partnerCode}`); setNotice('✅ Referral link copied!'); }}
                   className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl cursor-pointer border-none flex items-center justify-center gap-2">
                   <Copy className="w-4 h-4" /> Copy Referral Link
                 </button>

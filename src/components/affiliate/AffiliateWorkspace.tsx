@@ -58,6 +58,8 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const [notice, setNotice] = useState<string | null>(null);
   const [editingCode, setEditingCode] = useState(false);
   const [newCode, setNewCode] = useState('');
+  // Live referral link — derived from input while editing
+  const getLiveCode = (prof: any) => editingCode && newCode ? newCode : (prof?.referral_code || prof?.promo_code || '');
   const [codeError, setCodeError] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
@@ -95,7 +97,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
     setEditingCode(false);
     setCodeError('');
     setSuggestions([]);
-    await refresh();
+    await refresh(); // refresh workspace so profile.referral_code updates immediately
   };
 
   const refresh = useCallback(async () => {
@@ -349,7 +351,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
                   <div className="flex gap-3">
                     <button type="button" onClick={saveCode}
                       className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-lg cursor-pointer border-none text-sm">
-                      Save to Database
+                      Save
                     </button>
                     <button type="button" onClick={() => { setEditingCode(false); setCodeError(''); setSuggestions([]); }}
                       className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer border-none text-sm">
@@ -360,10 +362,10 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
               ) : (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                    <span className="flex-1 font-black text-slate-900 font-mono tracking-[0.2em] text-2xl">{profile.referral_code}</span>
+                    <span className="flex-1 font-black text-slate-900 font-mono tracking-[0.2em] text-2xl">{getLiveCode(profile) || profile.referral_code}</span>
                   </div>
                   <div className="flex gap-3">
-                    <button type="button" onClick={() => { navigator.clipboard.writeText(profile.referral_code); setNotice('✅ Promo code copied!'); }}
+                    <button type="button" onClick={() => { navigator.clipboard.writeText(getLiveCode(profile) || profile.referral_code); setNotice('✅ Promo code copied!'); }}
                       className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold rounded-lg cursor-pointer border-none flex items-center justify-center gap-2 text-sm">
                       <Copy className="h-4 w-4" /> Copy Code
                     </button>
@@ -388,9 +390,9 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
                 </div>
               </div>
               <code className="block w-full overflow-x-auto rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-700 font-mono break-all">
-                {window.location.origin}/?ref={profile.referral_code}
+                {window.location.origin}/?ref={getLiveCode(profile)}
               </code>
-              <button type="button" onClick={copyReferralLink}
+              <button type="button" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/?ref=${getLiveCode(profile) || profile.referral_code}`); setNotice('✅ Referral link copied!'); }}
                 className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg cursor-pointer border-none flex items-center justify-center gap-2 text-sm">
                 <Copy className="h-4 w-4" /> Copy Referral Link
               </button>
