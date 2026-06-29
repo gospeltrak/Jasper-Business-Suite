@@ -139,13 +139,12 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     const savedAff = JSON.parse(localStorage.getItem('jasper_logged_affiliate') || '{}');
     savedAff.promoCode = cleaned;
     localStorage.setItem('jasper_logged_affiliate', JSON.stringify(savedAff));
-    // Update displayed code immediately — force re-read partnerInfo
+    // Update React state immediately — no refresh needed
+    setPartnerInfo({ ...savedAff });
     setNotice(`✅ Partner code updated to ${cleaned}`);
     setEditingCode(false);
     setCodeError('');
     setCodeSuggestions([]);
-    // Force the component to re-read from localStorage by triggering refresh
-    refresh();
   };
 
   // Sub-affiliates from localStorage (real data)
@@ -181,21 +180,21 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   // Month filter for reconciliation
   const [reconMonth, setReconMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
-  // Partner identity from localStorage
-  const partnerInfo = useMemo(() => {
+  // Partner identity — useState so it updates immediately after code change
+  const [partnerInfo, setPartnerInfo] = useState<any>(() => {
     try {
       const s = localStorage.getItem('jasper_logged_affiliate');
       if (s) return JSON.parse(s);
     } catch {}
     return {};
-  }, []);
+  });
 
   const partnerName = partnerInfo?.name || workspace?.agentName || 'Partner';
+  const partnerId   = partnerInfo?.id || 'partner-local';
+
   const partnerCode = useMemo(() => {
-    // Try partnerInfo first, then sub-affiliates list
     const code = partnerInfo?.promoCode || partnerInfo?.promo_code || '';
     if (code) return code;
-    // Auto-generate a default code from partner name if none exists
     const name = partnerInfo?.name || '';
     if (name) {
       const parts = name.trim().toUpperCase().split(' ');
@@ -206,7 +205,6 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   // Live referral link — updates as user types in the edit field
   const liveCode = editingCode && newCode ? newCode : partnerCode;
-  const partnerId   = partnerInfo?.id || 'partner-local';
 
   // ── Load data ───────────────────────────────────────────────
 

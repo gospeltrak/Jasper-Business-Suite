@@ -58,8 +58,13 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const [notice, setNotice] = useState<string | null>(null);
   const [editingCode, setEditingCode] = useState(false);
   const [newCode, setNewCode] = useState('');
-  // Live referral link — derived from input while editing
-  const getLiveCode = (prof: any) => editingCode && newCode ? newCode : (prof?.referral_code || prof?.promo_code || '');
+  const [savedCode, setSavedCode] = useState(''); // overrides profile.referral_code immediately after save
+  // Live referral link — derived from input while editing, or savedCode after save
+  const getLiveCode = (prof: any) => {
+    if (editingCode && newCode) return newCode;
+    if (savedCode) return savedCode;
+    return prof?.referral_code || prof?.promo_code || '';
+  };
   const [codeError, setCodeError] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
@@ -93,11 +98,12 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
       savedAff.promoCode = cleaned;
       localStorage.setItem('jasper_logged_affiliate', JSON.stringify(savedAff));
     }
+    setSavedCode(cleaned); // update display immediately
     setNotice(`✅ Promo code updated to ${cleaned}`);
     setEditingCode(false);
     setCodeError('');
     setSuggestions([]);
-    await refresh(); // refresh workspace so profile.referral_code updates immediately
+    refresh(); // background refresh — savedCode already showing correct value
   };
 
   const refresh = useCallback(async () => {
