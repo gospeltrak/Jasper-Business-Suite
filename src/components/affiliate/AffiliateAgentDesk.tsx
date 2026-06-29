@@ -41,7 +41,7 @@ import {
   TinStatus,
 } from '../../utils/commissionEngine';
 
-type DashTab = 'overview' | 'reconciliation' | 'affiliates' | 'customers' | 'tutorials' | 'conferencing' | 'hw-pos' | 'hw-inventory';
+type DashTab = 'overview' | 'reconciliation' | 'affiliates' | 'customers' | 'code-link' | 'tutorials' | 'conferencing' | 'hw-pos' | 'hw-inventory';
 type StatusAction = 'deactivate' | 'suspend' | 'review' | 'activate';
 
 const NAV_TABS: { id: DashTab; label: string; icon: any; desc: string }[] = [
@@ -49,6 +49,7 @@ const NAV_TABS: { id: DashTab; label: string; icon: any; desc: string }[] = [
   { id: 'reconciliation', label: 'Monthly Reconciliation', icon: Coins,         desc: '20% split & withholding' },
   { id: 'affiliates',     label: 'Manage Sub-Affiliates',  icon: Users,         desc: 'Recruit, suspend, mirror' },
   { id: 'customers',      label: 'Network Customers',      icon: ShieldCheck,   desc: 'Customers from your team' },
+  { id: 'code-link',      label: 'Code & Link',            icon: Copy,          desc: 'Your partner code & referral link' },
   { id: 'tutorials',      label: 'Tutorials & Tasks',      icon: FileText,      desc: 'Training for your team' },
   { id: 'conferencing',   label: 'Video Conferencing',     icon: Video,         desc: 'Schedule team calls' },
   { id: 'hw-pos',         label: 'Hardware POS',           icon: Monitor,       desc: 'POS orders in network' },
@@ -550,70 +551,6 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
               <WhtNotice />
 
-              {/* ── PARTNER CODE + REFERRAL LINK ── */}
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-                <h3 className="text-sm font-black text-white flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-amber-400" /> Your Partner Code & Referral Link
-                </h3>
-                {/* Promo code edit */}
-                {editingCode ? (
-                  <div className="space-y-2">
-                    <div className="flex items-start gap-1.5 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                      <span className="text-amber-400 text-[10px] shrink-0">⚠️</span>
-                      <p className="text-[9px] text-amber-300 leading-relaxed">Badilisha mara moja tu. Code mpya itaathiri ufuatiliaji wa taarifa na malipo yako.</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <input autoFocus type="text" value={newCode}
-                        onChange={e => { setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g,'')); setCodeError(''); setCodeSuggestions([]); }}
-                        placeholder="NEW CODE" maxLength={20}
-                        className={`flex-1 bg-slate-800 border rounded-xl px-3 py-2.5 text-sm font-mono font-black text-amber-400 uppercase tracking-widest outline-none ${codeError ? 'border-rose-500' : 'border-teal-500'}`} />
-                      <button onClick={savePartnerCode} className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl cursor-pointer border-none">Save</button>
-                      <button onClick={() => { setEditingCode(false); setCodeError(''); setCodeSuggestions([]); }} className="px-3 py-2 bg-slate-800 text-slate-400 text-xs font-bold rounded-xl cursor-pointer border-none">✕</button>
-                    </div>
-                    {codeError && (
-                      <div className="space-y-1.5">
-                        <p className="text-[10px] text-rose-400 font-bold">{codeError}</p>
-                        {codeSuggestions.length > 0 && (
-                          <div className="flex gap-1.5 flex-wrap items-center">
-                            <span className="text-[9px] text-slate-500">Try:</span>
-                            {codeSuggestions.map(s => (
-                              <button key={s} onClick={() => { setNewCode(s); setCodeError(''); setCodeSuggestions([]); }}
-                                className="text-[10px] text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded font-black cursor-pointer">{s}</button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-slate-800 border border-amber-500/20 rounded-xl px-4 py-3 flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-amber-400 shrink-0" />
-                        <span className="font-black text-amber-400 font-mono tracking-widest text-xl">{partnerCode || '—'}</span>
-                      </div>
-                      <button onClick={() => { navigator.clipboard.writeText(partnerCode); setNotice('Partner code copied!'); }}
-                        className="px-3 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5">
-                        <Copy className="w-3.5 h-3.5" /> Copy
-                      </button>
-                      <button onClick={() => { setEditingCode(true); setNewCode(partnerCode); }}
-                        className="px-3 py-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5">
-                        <Edit2 className="w-3.5 h-3.5" /> Edit
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-[11px] text-slate-400 font-mono truncate">
-                        {window.location.origin}/?ref={partnerCode || 'YOUR_CODE'}
-                      </code>
-                      <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/?ref=${partnerCode}`); setNotice('Referral link copied!'); }}
-                        className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5 shrink-0">
-                        <Copy className="w-3.5 h-3.5" /> Copy Link
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
               {/* 8 KPI cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
@@ -937,6 +874,116 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           )}
 
           {/* ══ TUTORIALS ══ */}
+          {/* ══ CODE & LINK TAB ══ */}
+          {activeTab === 'code-link' && (
+            <div className="space-y-6 max-w-2xl">
+              <div>
+                <h2 className="text-lg font-black text-white">Code & Link</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Your partner promo code and referral link — share to recruit affiliates</p>
+              </div>
+
+              {/* Partner code card */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5">
+                <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
+                  <div className="w-10 h-10 bg-amber-500/15 rounded-xl flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Partner Code</p>
+                    <p className="text-xs text-slate-400">Share this code with affiliates you recruit</p>
+                  </div>
+                </div>
+
+                {editingCode ? (
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                      <span className="text-amber-400 shrink-0 mt-0.5">⚠️</span>
+                      <p className="text-[10px] text-amber-300 leading-relaxed">Badilisha mara moja tu. Code mpya itaathiri ufuatiliaji wa taarifa na malipo yako.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <input autoFocus type="text" value={newCode}
+                        onChange={e => { setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g,'')); setCodeError(''); setCodeSuggestions([]); }}
+                        placeholder="ENTER NEW CODE" maxLength={20}
+                        className={`flex-1 bg-slate-800 border rounded-xl px-4 py-3 text-lg font-mono font-black text-amber-400 uppercase tracking-widest outline-none ${codeError ? 'border-rose-500' : 'border-teal-500'}`} />
+                    </div>
+                    {codeError && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-rose-400 font-bold">⚠️ {codeError}</p>
+                        {codeSuggestions.length > 0 && (
+                          <div className="flex gap-2 flex-wrap items-center">
+                            <span className="text-xs text-slate-500">Available codes:</span>
+                            {codeSuggestions.map(s => (
+                              <button key={s} onClick={() => { setNewCode(s); setCodeError(''); setCodeSuggestions([]); }}
+                                className="text-xs text-teal-400 bg-teal-500/10 border border-teal-500/20 px-3 py-1 rounded-lg font-black cursor-pointer hover:bg-teal-500/20">{s}</button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex gap-3">
+                      <button onClick={savePartnerCode}
+                        className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl cursor-pointer border-none transition-colors">
+                        Save to Database
+                      </button>
+                      <button onClick={() => { setEditingCode(false); setCodeError(''); setCodeSuggestions([]); }}
+                        className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl cursor-pointer border-none">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 bg-slate-800 border border-amber-500/20 rounded-2xl px-5 py-4">
+                      <Zap className="w-5 h-5 text-amber-400 shrink-0" />
+                      <span className="flex-1 font-black text-amber-400 font-mono tracking-[0.2em] text-2xl">{partnerCode || '—'}</span>
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={() => { navigator.clipboard.writeText(partnerCode); setNotice('✅ Partner code copied!'); }}
+                        className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold rounded-xl cursor-pointer flex items-center justify-center gap-2 text-sm">
+                        <Copy className="w-4 h-4" /> Copy Code
+                      </button>
+                      <button onClick={() => { setEditingCode(true); setNewCode(partnerCode); }}
+                        className="flex-1 py-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 font-bold rounded-xl cursor-pointer flex items-center justify-center gap-2 text-sm">
+                        <Edit2 className="w-4 h-4" /> Edit Code
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Referral link card */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+                <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
+                  <div className="w-10 h-10 bg-blue-500/15 rounded-xl flex items-center justify-center">
+                    <ExternalLink className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Referral Link</p>
+                    <p className="text-xs text-slate-400">Share this link — new signups will be tracked to your account</p>
+                  </div>
+                </div>
+                <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3">
+                  <code className="text-sm text-slate-300 font-mono break-all">
+                    {window.location.origin}/?ref={partnerCode || 'YOUR_CODE'}
+                  </code>
+                </div>
+                <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/?ref=${partnerCode}`); setNotice('✅ Referral link copied!'); }}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl cursor-pointer border-none flex items-center justify-center gap-2">
+                  <Copy className="w-4 h-4" /> Copy Referral Link
+                </button>
+              </div>
+
+              {/* Info notice */}
+              <div className="flex items-start gap-3 p-4 bg-slate-900 border border-slate-800 rounded-2xl">
+                <AlertCircle className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Affiliates who register using your partner code or referral link will be added to your network.
+                  You earn <strong className="text-amber-400">5% override commission</strong> on all their referrals, on top of your own <strong className="text-amber-400">15% direct commission</strong>.
+                </p>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'tutorials' && (
             <div className="space-y-6">
               <div>

@@ -47,7 +47,7 @@ const isSafeExternalUrl = (value: string) => {
   }
 };
 
-type TabId = 'overview' | 'tasks' | 'ads' | 'meetings' | 'reports' | 'payouts';
+type TabId = 'overview' | 'code-link' | 'tasks' | 'ads' | 'meetings' | 'reports' | 'payouts';
 
 export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void }) {
   const [workspace, setWorkspace] = useState<AffiliateWorkspaceData | null>(null);
@@ -213,6 +213,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const upcomingMeetings = workspace!.meetings.filter((meeting) => ['upcoming', 'live'].includes(meeting.status));
   const navItems = [
     ['overview', 'Overview', BarChart3],
+    ['code-link', 'Code & Link', LinkIcon],
     ['tasks', 'Tasks', ClipboardList],
     ['ads', 'Ads by JB', Film],
     ['meetings', 'Meetings', CalendarClock],
@@ -282,66 +283,16 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
               <Metric label="Available" value={currency.format(metrics.available)} />
             </section>
 
-            {/* ── PROMO CODE + REFERRAL LINK CARD ── */}
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm space-y-4">
-              {/* Promo code row */}
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Your Promo Code</p>
-                <div className="flex items-center gap-2">
-                  {editingCode ? (
-                    <div className="flex-1 space-y-2">
-                      <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-700 leading-relaxed">
-                        ⚠️ Badilisha mara moja tu. Code mpya itaathiri ufuatiliaji wa taarifa na malipo yako.
-                      </div>
-                      <div className="flex gap-2">
-                        <input autoFocus type="text" value={newCode} onChange={e => { setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g,'')); setCodeError(''); setSuggestions([]); }}
-                          placeholder="NEW CODE" maxLength={20}
-                          className={`flex-1 rounded-md px-3 py-2 text-sm font-mono font-bold uppercase text-slate-900 border outline-none ${codeError ? 'border-rose-400 bg-rose-50' : 'border-emerald-400 bg-slate-50'}`} />
-                        <button type="button" onClick={saveCode} className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-md cursor-pointer border-none">Save</button>
-                        <button type="button" onClick={() => { setEditingCode(false); setCodeError(''); setSuggestions([]); }} className="px-3 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-md cursor-pointer border-none">Cancel</button>
-                      </div>
-                      {codeError && (
-                        <div className="space-y-1">
-                          <p className="text-xs text-rose-600 font-semibold">{codeError}</p>
-                          {suggestions.length > 0 && (
-                            <div className="flex gap-1.5 flex-wrap">
-                              <span className="text-[10px] text-slate-500">Try:</span>
-                              {suggestions.map(s => (
-                                <button key={s} type="button" onClick={() => { setNewCode(s); setCodeError(''); setSuggestions([]); }}
-                                  className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-bold cursor-pointer hover:bg-emerald-100">{s}</button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex-1 flex items-center gap-3 bg-slate-100 rounded-md px-4 py-2.5">
-                        <span className="font-black text-slate-900 text-base font-mono tracking-widest">{profile.referral_code}</span>
-                      </div>
-                      <button type="button" onClick={() => { navigator.clipboard.writeText(profile.referral_code); setNotice('Promo code copied!'); }}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer bg-white">
-                        <Copy className="h-3.5 w-3.5" /> Copy
-                      </button>
-                      <button type="button" onClick={() => { setEditingCode(true); setNewCode(profile.referral_code); }}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer bg-white">
-                        <PencilIcon className="h-3.5 w-3.5" /> Edit
-                      </button>
-                    </>
-                  )}
-                </div>
+            {/* ── PROMO CODE + REFERRAL LINK — moved to Code & Link tab ── */}
+            <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg cursor-pointer hover:bg-emerald-100 transition-colors"
+              onClick={() => setActiveTab('code-link')}>
+              <LinkIcon className="h-4 w-4 text-emerald-700 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-emerald-900">{profile.referral_code}</p>
+                <p className="text-xs text-emerald-700 truncate">{window.location.origin}/?ref={profile.referral_code}</p>
               </div>
-
-              {/* Referral link row */}
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Referral Link</p>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <code className="min-w-0 flex-1 overflow-x-auto rounded-md bg-slate-100 px-3 py-2.5 text-xs text-slate-700">{window.location.origin}/?ref={profile.referral_code}</code>
-                  <button type="button" onClick={copyReferralLink} className="inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white cursor-pointer border-none"><Copy className="h-4 w-4" /> Copy Link</button>
-                </div>
-              </div>
-            </section>
+              <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">Code & Link →</span>
+            </div>
             <section className="grid gap-5 xl:grid-cols-2">
               <Panel title="Latest tasks" action="View all" onAction={() => setActiveTab('tasks')}>
                 {openTasks.slice(0, 3).map((task) => <TaskRow key={task.id} task={task} busy={busyTaskId === task.id} onComplete={handleTaskComplete} onDownload={() => task.attachment_url && handleTrackedLink('task_download', 'task', task.id, task.attachment_url, task.attachment_name)} />)}
@@ -351,6 +302,98 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
                 {upcomingMeetings.slice(0, 3).map((meeting) => <MeetingRow key={meeting.id} meeting={meeting} onJoin={() => handleTrackedLink('meeting_join', 'meeting', meeting.id, meeting.meeting_url)} />)}
                 {upcomingMeetings.length === 0 && <Empty text="No upcoming meetings have been scheduled." />}
               </Panel>
+            </section>
+          </div>}
+
+          {activeTab === 'code-link' && <div className="space-y-5 max-w-2xl">
+            <div>
+              <h2 className="text-xl font-black text-slate-950">Code & Link</h2>
+              <p className="text-sm text-slate-500 mt-0.5">Your affiliate promo code and referral link</p>
+            </div>
+
+            {/* Promo code card */}
+            <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center">
+                  <LinkIcon className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Promo Code</p>
+                  <p className="text-xs text-slate-400">Share with customers to track your referrals</p>
+                </div>
+              </div>
+
+              {editingCode ? (
+                <div className="space-y-3">
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-700 leading-relaxed">
+                    ⚠️ Badilisha mara moja tu. Code mpya itaathiri ufuatiliaji wa taarifa na malipo yako.
+                  </div>
+                  <input autoFocus type="text" value={newCode}
+                    onChange={e => { setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g,'')); setCodeError(''); setSuggestions([]); }}
+                    placeholder="ENTER NEW CODE" maxLength={20}
+                    className={`w-full rounded-lg px-4 py-3 text-lg font-mono font-black uppercase tracking-widest text-slate-900 border-2 outline-none ${codeError ? 'border-rose-400 bg-rose-50' : 'border-emerald-400 bg-slate-50'}`} />
+                  {codeError && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-rose-600 font-semibold">⚠️ {codeError}</p>
+                      {suggestions.length > 0 && (
+                        <div className="flex gap-2 flex-wrap items-center">
+                          <span className="text-xs text-slate-500">Available:</span>
+                          {suggestions.map(s => (
+                            <button key={s} type="button" onClick={() => { setNewCode(s); setCodeError(''); setSuggestions([]); }}
+                              className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-lg font-bold cursor-pointer hover:bg-emerald-100">{s}</button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex gap-3">
+                    <button type="button" onClick={saveCode}
+                      className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-lg cursor-pointer border-none text-sm">
+                      Save to Database
+                    </button>
+                    <button type="button" onClick={() => { setEditingCode(false); setCodeError(''); setSuggestions([]); }}
+                      className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer border-none text-sm">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                    <span className="flex-1 font-black text-slate-900 font-mono tracking-[0.2em] text-2xl">{profile.referral_code}</span>
+                  </div>
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => { navigator.clipboard.writeText(profile.referral_code); setNotice('✅ Promo code copied!'); }}
+                      className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold rounded-lg cursor-pointer border-none flex items-center justify-center gap-2 text-sm">
+                      <Copy className="h-4 w-4" /> Copy Code
+                    </button>
+                    <button type="button" onClick={() => { setEditingCode(true); setNewCode(profile.referral_code); }}
+                      className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg cursor-pointer border-none flex items-center justify-center gap-2 text-sm">
+                      <PencilIcon className="h-4 w-4" /> Edit Code
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* Referral link card */}
+            <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
+                  <ExternalLink className="h-4 w-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Referral Link</p>
+                  <p className="text-xs text-slate-400">New signups via this link are tracked to your account</p>
+                </div>
+              </div>
+              <code className="block w-full overflow-x-auto rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-700 font-mono break-all">
+                {window.location.origin}/?ref={profile.referral_code}
+              </code>
+              <button type="button" onClick={copyReferralLink}
+                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg cursor-pointer border-none flex items-center justify-center gap-2 text-sm">
+                <Copy className="h-4 w-4" /> Copy Referral Link
+              </button>
             </section>
           </div>}
 
