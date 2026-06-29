@@ -614,7 +614,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-black text-white">Monthly Reconciliation</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">20% split: 5% manager + 15% sub-affiliate gross · WHT {WITHHOLDING_TAX_ACTIVE ? 'ACTIVE' : 'NOT ACTIVE'}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">20% split: 5% manager + 15% sub-affiliate gross · WHT shown for all affiliates</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="month" value={reconMonth} onChange={e => setReconMonth(e.target.value)}
@@ -639,40 +639,75 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-slate-800 bg-slate-800/40">
-                          {['Sub-Affiliate','TIN','Revenue','20% Pool','Your 5%','15% Gross','WHT 5%','Net Payout','Status'].map(h => (
+                          {[
+                            'Sub-Affiliate',
+                            'TIN',
+                            'Payout Number',
+                            'Network',
+                            'Revenue',
+                            '20% Pool',
+                            'Your 5%',
+                            '15% Gross',
+                            'WHT 5%',
+                            'Net Payout',
+                            'Status',
+                          ].map(h => (
                             <th key={h} className="py-3 px-4 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {recon.map(row => (
-                          <tr key={row.subAffiliateId} className="border-b border-slate-800/50 hover:bg-slate-800/20">
-                            <td className="py-3 px-4 font-bold text-white whitespace-nowrap">{row.subAffiliateName}</td>
-                            <td className="py-3 px-4"><TinBadge status={row.tinStatus} /></td>
-                            <td className="py-3 px-4 font-mono text-slate-300">{formatTZS(row.networkRevenue)}</td>
-                            <td className="py-3 px-4 font-mono text-purple-400">{formatTZS(row.networkPool20)}</td>
-                            <td className="py-3 px-4 font-mono text-amber-400 font-black">{formatTZS(row.managerCommission5)}</td>
-                            <td className="py-3 px-4 font-mono text-emerald-400">{formatTZS(row.subAffiliateGrossCommission15)}</td>
-                            <td className="py-3 px-4 font-mono text-slate-500">
-                              {WITHHOLDING_TAX_ACTIVE ? formatTZS(row.withholdingTax5) : <span className="italic text-[9px]">Not active</span>}
-                            </td>
-                            <td className="py-3 px-4 font-mono text-blue-400 font-black">{formatTZS(row.subAffiliateNetPayout)}</td>
-                            <td className="py-3 px-4">
-                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${row.payoutStatus === 'paid' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
-                                {row.payoutStatus}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {recon.map(row => {
+                          // Get payout phone and method from subAffiliates
+                          const aff = subAffiliates.find(a => a.id === row.subAffiliateId);
+                          const payoutPhone = aff?.payoutAccount || aff?.phone || '—';
+                          const payoutMethod = aff?.payoutMethod || '—';
+                          // WHT: always show — 0 if no TIN or not active, calculated if TIN submitted
+                          const whtAmount = (aff?.tinStatus === 'submitted' || aff?.tinStatus === 'verified')
+                            ? row.withholdingTax5
+                            : 0;
+                          const whtLabel = !WITHHOLDING_TAX_ACTIVE
+                            ? <span className="text-[9px] italic text-slate-600">TZS 0 (not active)</span>
+                            : aff?.tinStatus === 'not_submitted' || !aff?.tinStatus
+                            ? <span className="text-[9px] italic text-rose-400">TZS 0 (no TIN)</span>
+                            : <span className="text-rose-400 font-mono">{formatTZS(whtAmount)}</span>;
+
+                          return (
+                            <tr key={row.subAffiliateId} className="border-b border-slate-800/50 hover:bg-slate-800/20">
+                              <td className="py-3 px-4 font-bold text-white whitespace-nowrap">{row.subAffiliateName}</td>
+                              <td className="py-3 px-4"><TinBadge status={row.tinStatus} /></td>
+                              <td className="py-3 px-4">
+                                <div>
+                                  <p className="font-mono text-white text-[11px]">{payoutPhone}</p>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-[9px] font-bold text-slate-300 whitespace-nowrap">
+                                  {payoutMethod}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 font-mono text-slate-300">{formatTZS(row.networkRevenue)}</td>
+                              <td className="py-3 px-4 font-mono text-purple-400">{formatTZS(row.networkPool20)}</td>
+                              <td className="py-3 px-4 font-mono text-amber-400 font-black">{formatTZS(row.managerCommission5)}</td>
+                              <td className="py-3 px-4 font-mono text-emerald-400">{formatTZS(row.subAffiliateGrossCommission15)}</td>
+                              <td className="py-3 px-4">{whtLabel}</td>
+                              <td className="py-3 px-4 font-mono text-blue-400 font-black">{formatTZS(row.subAffiliateNetPayout)}</td>
+                              <td className="py-3 px-4">
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${row.payoutStatus === 'paid' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                                  {row.payoutStatus}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                         {/* Totals row */}
                         <tr className="border-t border-amber-500/20 bg-amber-500/5">
-                          <td className="py-3 px-4 font-black text-amber-400 text-[10px] uppercase tracking-wider">TOTALS</td>
-                          <td className="py-3 px-4" />
+                          <td className="py-3 px-4 font-black text-amber-400 text-[10px] uppercase tracking-wider" colSpan={4}>TOTALS</td>
                           <td className="py-3 px-4 font-black text-white font-mono">{formatTZS(recon.reduce((s,r) => s + r.networkRevenue, 0))}</td>
                           <td className="py-3 px-4 font-black text-purple-400 font-mono">{formatTZS(recon.reduce((s,r) => s + r.networkPool20, 0))}</td>
                           <td className="py-3 px-4 font-black text-amber-400 font-mono">{formatTZS(recon.reduce((s,r) => s + r.managerCommission5, 0))}</td>
                           <td className="py-3 px-4 font-black text-emerald-400 font-mono">{formatTZS(recon.reduce((s,r) => s + r.subAffiliateGrossCommission15, 0))}</td>
-                          <td className="py-3 px-4 font-mono text-slate-500">{WITHHOLDING_TAX_ACTIVE ? formatTZS(recon.reduce((s,r) => s + r.withholdingTax5, 0)) : '—'}</td>
+                          <td className="py-3 px-4 font-mono text-rose-400">{formatTZS(recon.reduce((s,r) => s + r.withholdingTax5, 0))}</td>
                           <td className="py-3 px-4 font-black text-blue-400 font-mono">{formatTZS(recon.reduce((s,r) => s + r.subAffiliateNetPayout, 0))}</td>
                           <td className="py-3 px-4" />
                         </tr>
@@ -787,7 +822,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                   When sub-affiliates refer customers who pay for Jasper subscriptions, those customers appear here
                   with package details, revenue, and your commission breakdown.
                 </p>
-                <p className="text-slate-500 text-xs">Run <strong className="text-amber-400">supabase_affiliate_migration.sql</strong> to enable referred_customers tracking</p>
+                <p className="text-slate-500 text-xs">Connect sub-affiliate promo codes to tenant registrations to see customer data here</p>
               </div>
             </div>
           )}
