@@ -10,6 +10,7 @@ import {
   Film,
   Link as LinkIcon,
   LoaderCircle,
+  Pencil as PencilIcon,
   PlayCircle,
   RefreshCw,
   ShieldCheck,
@@ -55,6 +56,47 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [editingCode, setEditingCode] = useState(false);
+  const [newCode, setNewCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  const saveCode = async () => {
+    if (!workspace || !newCode.trim()) return;
+    const cleaned = newCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+    if (!cleaned) { setCodeError('Code must contain letters or numbers only.'); return; }
+    // Check duplicates in localStorage
+    const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
+    const taken = all.some(a => a.promoCode?.toUpperCase() === cleaned && a.id !== workspace.profile.id);
+    if (taken) {
+      const sugg: string[] = [];
+      for (const sfx of ['1','2','3','_TZ','_EA','_PRO']) {
+        const s = `${cleaned}${sfx}`;
+        if (!all.some(a => a.promoCode?.toUpperCase() === s)) { sugg.push(s); if (sugg.length >= 3) break; }
+      }
+      setCodeError(`"${cleaned}" is already taken.`);
+      setSuggestions(sugg);
+      return;
+    }
+    try {
+      const { getDynamicSupabaseClient } = await import('../../supabaseClient');
+      const client: any = await getDynamicSupabaseClient();
+      await client.from('affiliates').update({ promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() }).eq('id', workspace.profile.id);
+    } catch { /* offline — will sync later */ }
+    // Update localStorage
+    const updated = all.map((a: any) => a.id === workspace.profile.id ? { ...a, promoCode: cleaned } : a);
+    localStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
+    const savedAff = JSON.parse(localStorage.getItem('jasper_logged_affiliate') || '{}');
+    if (savedAff.id === workspace.profile.id) {
+      savedAff.promoCode = cleaned;
+      localStorage.setItem('jasper_logged_affiliate', JSON.stringify(savedAff));
+    }
+    setNotice(`✅ Promo code updated to ${cleaned}`);
+    setEditingCode(false);
+    setCodeError('');
+    setSuggestions([]);
+    await refresh();
+  };
 
   const refresh = useCallback(async () => {
     setState('loading');
@@ -239,11 +281,65 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
               <Metric label="Downloads" value={metrics.downloads.toString()} />
               <Metric label="Available" value={currency.format(metrics.available)} />
             </section>
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Referral link</p>
-              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <code className="min-w-0 flex-1 overflow-x-auto rounded-md bg-slate-100 px-3 py-2.5 text-xs text-slate-700">{window.location.origin}/?ref={profile.referral_code}</code>
-                <button type="button" onClick={copyReferralLink} className="inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white"><Copy className="h-4 w-4" /> Copy</button>
+
+            {/* ── PROMO CODE + REFERRAL LINK CARD ── */}
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm space-y-4">
+              {/* Promo code row */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Your Promo Code</p>
+                <div className="flex items-center gap-2">
+                  {editingCode ? (
+                    <div className="flex-1 space-y-2">
+                      <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-700 leading-relaxed">
+                        ⚠️ Badilisha mara moja tu. Code mpya itaathiri ufuatiliaji wa taarifa na malipo yako.
+                      </div>
+                      <div className="flex gap-2">
+                        <input autoFocus type="text" value={newCode} onChange={e => { setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g,'')); setCodeError(''); setSuggestions([]); }}
+                          placeholder="NEW CODE" maxLength={20}
+                          className={`flex-1 rounded-md px-3 py-2 text-sm font-mono font-bold uppercase text-slate-900 border outline-none ${codeError ? 'border-rose-400 bg-rose-50' : 'border-emerald-400 bg-slate-50'}`} />
+                        <button type="button" onClick={saveCode} className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-md cursor-pointer border-none">Save</button>
+                        <button type="button" onClick={() => { setEditingCode(false); setCodeError(''); setSuggestions([]); }} className="px-3 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-md cursor-pointer border-none">Cancel</button>
+                      </div>
+                      {codeError && (
+                        <div className="space-y-1">
+                          <p className="text-xs text-rose-600 font-semibold">{codeError}</p>
+                          {suggestions.length > 0 && (
+                            <div className="flex gap-1.5 flex-wrap">
+                              <span className="text-[10px] text-slate-500">Try:</span>
+                              {suggestions.map(s => (
+                                <button key={s} type="button" onClick={() => { setNewCode(s); setCodeError(''); setSuggestions([]); }}
+                                  className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-bold cursor-pointer hover:bg-emerald-100">{s}</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex-1 flex items-center gap-3 bg-slate-100 rounded-md px-4 py-2.5">
+                        <span className="font-black text-slate-900 text-base font-mono tracking-widest">{profile.referral_code}</span>
+                      </div>
+                      <button type="button" onClick={() => { navigator.clipboard.writeText(profile.referral_code); setNotice('Promo code copied!'); }}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer bg-white">
+                        <Copy className="h-3.5 w-3.5" /> Copy
+                      </button>
+                      <button type="button" onClick={() => { setEditingCode(true); setNewCode(profile.referral_code); }}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer bg-white">
+                        <PencilIcon className="h-3.5 w-3.5" /> Edit
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Referral link row */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Referral Link</p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <code className="min-w-0 flex-1 overflow-x-auto rounded-md bg-slate-100 px-3 py-2.5 text-xs text-slate-700">{window.location.origin}/?ref={profile.referral_code}</code>
+                  <button type="button" onClick={copyReferralLink} className="inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white cursor-pointer border-none"><Copy className="h-4 w-4" /> Copy Link</button>
+                </div>
               </div>
             </section>
             <section className="grid gap-5 xl:grid-cols-2">

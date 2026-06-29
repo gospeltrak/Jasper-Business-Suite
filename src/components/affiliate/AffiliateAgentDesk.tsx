@@ -106,6 +106,42 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [editingCode, setEditingCode] = useState(false);
+  const [newCode, setNewCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [codeSuggestions, setCodeSuggestions] = useState<string[]>([]);
+
+  const savePartnerCode = async () => {
+    const cleaned = newCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+    if (!cleaned) { setCodeError('Code must contain letters or numbers only.'); return; }
+    const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
+    const taken = all.some((a: any) => a.promoCode?.toUpperCase() === cleaned && a.id !== partnerId);
+    if (taken) {
+      const sugg: string[] = [];
+      for (const sfx of ['1','2','3','_PRO','_TZ','_EA']) {
+        const s = `${cleaned}${sfx}`;
+        if (!all.some((a: any) => a.promoCode?.toUpperCase() === s)) { sugg.push(s); if (sugg.length >= 3) break; }
+      }
+      setCodeError(`"${cleaned}" is already taken.`);
+      setCodeSuggestions(sugg);
+      return;
+    }
+    try {
+      const { getDynamicSupabaseClient } = await import('../../supabaseClient');
+      const client: any = await getDynamicSupabaseClient();
+      await client.from('affiliates').update({ promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() }).eq('id', partnerId);
+    } catch { /* offline */ }
+    const updated = all.map((a: any) => a.id === partnerId ? { ...a, promoCode: cleaned } : a);
+    localStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
+    const savedAff = JSON.parse(localStorage.getItem('jasper_logged_affiliate') || '{}');
+    savedAff.promoCode = cleaned;
+    localStorage.setItem('jasper_logged_affiliate', JSON.stringify(savedAff));
+    setNotice(`✅ Partner code updated to ${cleaned}`);
+    setEditingCode(false);
+    setCodeError('');
+    setCodeSuggestions([]);
+    refresh();
+  };
 
   // Sub-affiliates from localStorage (real data)
   const [subAffiliates, setSubAffiliates] = useState<SubAffiliateProfile[]>([]);
@@ -513,6 +549,70 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
               </div>
 
               <WhtNotice />
+
+              {/* ── PARTNER CODE + REFERRAL LINK ── */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-amber-400" /> Your Partner Code & Referral Link
+                </h3>
+                {/* Promo code edit */}
+                {editingCode ? (
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-1.5 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                      <span className="text-amber-400 text-[10px] shrink-0">⚠️</span>
+                      <p className="text-[9px] text-amber-300 leading-relaxed">Badilisha mara moja tu. Code mpya itaathiri ufuatiliaji wa taarifa na malipo yako.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <input autoFocus type="text" value={newCode}
+                        onChange={e => { setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g,'')); setCodeError(''); setCodeSuggestions([]); }}
+                        placeholder="NEW CODE" maxLength={20}
+                        className={`flex-1 bg-slate-800 border rounded-xl px-3 py-2.5 text-sm font-mono font-black text-amber-400 uppercase tracking-widest outline-none ${codeError ? 'border-rose-500' : 'border-teal-500'}`} />
+                      <button onClick={savePartnerCode} className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl cursor-pointer border-none">Save</button>
+                      <button onClick={() => { setEditingCode(false); setCodeError(''); setCodeSuggestions([]); }} className="px-3 py-2 bg-slate-800 text-slate-400 text-xs font-bold rounded-xl cursor-pointer border-none">✕</button>
+                    </div>
+                    {codeError && (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] text-rose-400 font-bold">{codeError}</p>
+                        {codeSuggestions.length > 0 && (
+                          <div className="flex gap-1.5 flex-wrap items-center">
+                            <span className="text-[9px] text-slate-500">Try:</span>
+                            {codeSuggestions.map(s => (
+                              <button key={s} onClick={() => { setNewCode(s); setCodeError(''); setCodeSuggestions([]); }}
+                                className="text-[10px] text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded font-black cursor-pointer">{s}</button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-slate-800 border border-amber-500/20 rounded-xl px-4 py-3 flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span className="font-black text-amber-400 font-mono tracking-widest text-xl">{partnerCode || '—'}</span>
+                      </div>
+                      <button onClick={() => { navigator.clipboard.writeText(partnerCode); setNotice('Partner code copied!'); }}
+                        className="px-3 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5">
+                        <Copy className="w-3.5 h-3.5" /> Copy
+                      </button>
+                      <button onClick={() => { setEditingCode(true); setNewCode(partnerCode); }}
+                        className="px-3 py-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5">
+                        <Edit2 className="w-3.5 h-3.5" /> Edit
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-[11px] text-slate-400 font-mono truncate">
+                        {window.location.origin}/?ref={partnerCode || 'YOUR_CODE'}
+                      </code>
+                      <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/?ref=${partnerCode}`); setNotice('Referral link copied!'); }}
+                        className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5 shrink-0">
+                        <Copy className="w-3.5 h-3.5" /> Copy Link
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* 8 KPI cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
