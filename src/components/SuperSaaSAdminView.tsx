@@ -497,10 +497,49 @@ export default function SuperSaaSAdminView({
   }
 
   return (
-    <div id="super-saas-admin-container" className="flex-1 flex flex-col space-y-6 text-slate-100 font-sans text-left bg-slate-950 p-6 animate-fade-in select-text min-h-full">
-      
-      {/* Platform Header Command */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900 p-6 rounded-2xl border border-slate-800">
+    <div id="super-saas-admin-container" className="flex-1 flex flex-col text-slate-100 font-sans text-left bg-slate-950 animate-fade-in select-text min-h-full">
+
+      {/* ── MOBILE HEADER (md:hidden) ─────────────────────────── */}
+      <div className="md:hidden sticky top-0 z-30 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+            <Shield className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider leading-none">Super Admin</p>
+            <p className="text-xs font-black text-white leading-tight">Control Portal</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {isUnlocked ? (
+            <button onClick={() => { setIsUnlocked(false); setShowPasswordInput(false); setEnteredPassword(''); }}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-xl text-[10px] font-bold cursor-pointer">
+              <Unlock className="w-3 h-3" /> WRITE
+            </button>
+          ) : (
+            <button onClick={() => setShowPasswordInput(!showPasswordInput)}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded-xl text-[10px] font-bold cursor-pointer">
+              <Lock className="w-3 h-3" /> Unlock
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile password input */}
+      {showPasswordInput && !isUnlocked && (
+        <div className="md:hidden px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center gap-2">
+          <input type="password" placeholder="Admin password" value={enteredPassword}
+            onChange={e => setEnteredPassword(e.target.value)}
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono outline-none" />
+          <button onClick={handleVerifyPassword}
+            className="px-4 py-2 bg-emerald-500 text-slate-950 rounded-xl text-xs font-black cursor-pointer border-none">
+            Verify
+          </button>
+        </div>
+      )}
+
+      {/* ── DESKTOP HEADER (hidden on mobile) ────────────────────── */}
+      <div className="hidden md:flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900 p-6 rounded-2xl border border-slate-800 m-6 mb-0">
         <div>
           <div className="inline-flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-[10px] font-mono font-black uppercase tracking-wider mb-2">
             <Shield className="w-3.5 h-3.5 shrink-0" />
@@ -509,60 +548,38 @@ export default function SuperSaaSAdminView({
           <h2 className="text-xl font-extrabold text-white">Central SaaS Control Portal</h2>
           <p className="text-xs text-slate-400 mt-1">Manage subscriptions, partners, and devices.</p>
         </div>
-
-        {/* Live Admin Authorization lock state widget */}
         <div className="flex items-center space-x-3 bg-slate-900 border border-slate-800 p-2 rounded-xl">
           {isUnlocked ? (
             <div className="flex items-center space-x-2.5 px-2">
-              <div className="p-1.5 bg-emerald-500/10 rounded">
-                <Unlock className="w-4 h-4 text-emerald-400" />
-              </div>
+              <div className="p-1.5 bg-emerald-500/10 rounded"><Unlock className="w-4 h-4 text-emerald-400" /></div>
               <div className="text-left">
                 <span className="text-[10px] uppercase font-mono text-slate-400 block leading-tight">Scope</span>
                 <span className="text-[11px] text-emerald-400 font-bold block">WRITE</span>
               </div>
-              <button 
-                onClick={() => {
-                  setIsUnlocked(false);
-                  setShowPasswordInput(false);
-                  setEnteredPassword('');
-                }} 
-                className="ml-2 px-2.5 py-1 bg-red-500/20 hover:bg-red-650/30 text-red-400 text-[10px] font-mono uppercase tracking-wider rounded-lg transition-transform cursor-pointer"
-              >
+              <button onClick={() => { setIsUnlocked(false); setShowPasswordInput(false); setEnteredPassword(''); }}
+                className="ml-2 px-2.5 py-1 bg-red-500/20 text-red-400 text-[10px] font-mono uppercase tracking-wider rounded-lg cursor-pointer">
                 Return to Read Only
               </button>
             </div>
           ) : (
             <div className="flex items-center space-x-2.5 px-2">
               {!showPasswordInput ? (
-                <button 
-                  onClick={() => setShowPasswordInput(true)}
-                  className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 rounded cursor-pointer transition-colors group"
-                  title="Enter Write Mode"
-                >
-                  <Shield className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                <button onClick={() => setShowPasswordInput(true)}
+                  className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 rounded cursor-pointer group">
+                  <Shield className="w-4 h-4 text-amber-400" />
                 </button>
               ) : (
                 <>
-                  <button 
-                    onClick={() => setShowPasswordInput(false)}
-                    className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded cursor-pointer transition-colors"
-                    title="Cancel"
-                  >
+                  <button onClick={() => setShowPasswordInput(false)}
+                    className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded cursor-pointer">
                     <Shield className="w-4 h-4 text-slate-400" />
                   </button>
                   <div className="flex items-center space-x-1.5 ml-1">
-                    <input 
-                      type="password"
-                      placeholder="••••••••"
-                      value={enteredPassword}
-                      onChange={(e) => setEnteredPassword(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-xs text-white max-w-[105px] font-mono outline-none"
-                    />
-                    <button 
-                      onClick={handleVerifyPassword}
-                      className="bg-emerald-500 hover:bg-emerald-405 text-slate-950 px-2.5 py-1 text-[10px] rounded font-extrabold uppercase tracking-tight cursor-pointer"
-                    >
+                    <input type="password" placeholder="••••••••" value={enteredPassword}
+                      onChange={e => setEnteredPassword(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-xs text-white max-w-[105px] font-mono outline-none" />
+                    <button onClick={handleVerifyPassword}
+                      className="bg-emerald-500 text-slate-950 px-2.5 py-1 text-[10px] rounded font-extrabold uppercase cursor-pointer">
                       Verify
                     </button>
                   </div>
@@ -574,7 +591,7 @@ export default function SuperSaaSAdminView({
       </div>
 
       {/* Main interactive subpage container */}
-      <div id="saas-active-subpage-view" className="flex-1 flex flex-col min-h-[580px] w-full mt-2">
+      <div id="saas-active-subpage-view" className="flex-1 flex flex-col min-h-0 w-full p-3 md:p-6 space-y-4 md:space-y-6">
         
         {/* ======================= TAB 1: USER DESK ======================= */}
         {activeTab === 'subscribers' && (

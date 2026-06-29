@@ -1742,7 +1742,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       <div className="flex items-start gap-1.5 p-2.5 bg-blue-500/8 border border-blue-500/20 rounded-xl">
                         <span className="text-blue-400 text-[10px] shrink-0">ℹ️</span>
                         <p className="text-[9px] text-blue-300 leading-relaxed">
-                          <strong>Muhimu:</strong> Weka namba ya simu iliyosajiliwa na Kitambulisho chako cha NIDA chenye jina lako kamili. Namba hii itatumika kuthibitisha utambulisho wako wakati wa malipo ya kamisheni. Namba tofauti na NIDA inaweza kusababisha ucheleweshaji au kuzuiwa kwa malipo.
+                          ⚠️ Weka namba iliyosajiliwa na NIDA yenye jina lako. Namba tofauti inaweza kuzuia malipo.
                         </p>
                       </div>
                     </div>
@@ -1851,7 +1851,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       <div className="flex items-start gap-1.5 p-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl">
                         <span className="text-amber-400 text-[10px] shrink-0 mt-0.5">⚠️</span>
                         <p className="text-[9px] text-amber-300 leading-relaxed">
-                          <strong>Tahadhari:</strong> Unaweza kubadilisha promo code mara moja tu. Ukibadilisha, kuwa makini sana — mabadiliko mengi yanaweza kuzuia system kufuatilia taarifa zako na malipo yako. Hakikisha unachagua code utakayoitumia kwa muda mrefu.
+                          ⚠️ Badilisha mara moja tu. Code mpya itaathiri ufuatiliaji wa taarifa na malipo yako.
                         </p>
                       </div>
                       <form onSubmit={handleUpdatePromoCode} className="flex items-center space-x-1">
@@ -4132,7 +4132,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         <div className="flex items-start gap-2 p-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl">
                           <span className="text-amber-400 text-[10px] shrink-0">⚠️</span>
                           <p className="text-[9px] text-amber-300 leading-relaxed">
-                            <strong>Tahadhari:</strong> Unaweza kubadilisha promo code mara moja tu. Ukibadilisha, kuwa makini sana — mabadiliko mengi yanaweza kuzuia system kufuatilia taarifa zako na malipo yako. Chagua code utakayoitumia kwa muda mrefu.
+                            ⚠️ Badilisha mara moja tu. Code mpya itaathiri ufuatiliaji wa taarifa na malipo yako.
                           </p>
                         </div>
                         <div className="relative">

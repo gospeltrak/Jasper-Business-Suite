@@ -144,8 +144,10 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
     if (!row.grossRevenue && numberValue(item.revenue_generated) > 0) {
       row.grossRevenue += numberValue(item.revenue_generated);
       row.grossCommission = row.grossRevenue * 0.15;
+      // Always calculate WHT amount (5% of gross commission) for display
       row.withholdingTax = row.grossCommission * 0.05;
-      row.netPayout = row.grossCommission - row.withholdingTax;
+      // Net payout = gross commission (WHT not yet deducted until activated)
+      row.netPayout = row.grossCommission;
     }
     byAffiliate.set(item.affiliate_id, row);
   }
@@ -199,7 +201,7 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
       const sources = sourceBySubAffiliate.get(affiliate.id) || [];
       const revenue = sources.reduce((sum, row) => sum + numberValue(row.revenue_generated), affiliate.grossRevenue || 0);
       const commission = revenue * 0.15;
-      const withholdingTax = commission * 0.05;
+      const withholdingTax = commission * 0.05; // always calculate for display
       return {
         id: affiliate.id,
         userId: affiliate.user_id,
@@ -214,7 +216,7 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
         revenue,
         commission,
         withholdingTax,
-        netPayout: commission - withholdingTax,
+        netPayout: commission, // full commission — WHT not yet deducted
         mobileMoneyNumber: affiliate.mobile_money_number || affiliate.payout_account || '',
         mobileMoneyProvider: affiliate.mobile_money_provider || affiliate.payout_method || '',
         payoutStatus: affiliate.payoutStatus,

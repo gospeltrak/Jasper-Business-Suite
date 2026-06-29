@@ -170,7 +170,92 @@ function AgentMonitoringSection({ rows, totals, onExport }: { rows: AgentMonitor
 }
 
 function SubAffiliateSection({ rows, totals, onExport, onEdit }: { rows: SubAffiliateMonitoringRow[]; totals: { revenue: number; commission: number; tax: number; net: number }; onExport: () => void; onEdit: (row: SubAffiliateMonitoringRow) => void }) {
-  return <div className="space-y-4"><div className="flex justify-end"><button onClick={onExport} className="px-3 py-2 rounded-md bg-emerald-600 text-white text-sm font-semibold"><Download className="inline w-4 h-4 mr-2" />Download payout spreadsheet</button></div><div className="grid gap-3 md:grid-cols-4"><Metric label="Sub-affiliates" value={rows.length.toLocaleString()} /><Metric label="Revenue" value={money.format(totals.revenue)} /><Metric label="15% commission" value={money.format(totals.commission)} /><Metric label="Net payout" value={money.format(totals.net)} /></div><div className="hidden lg:block overflow-x-auto border border-slate-800 rounded-lg"><table className="w-full text-sm"><thead className="bg-slate-900 text-slate-400 text-xs"><tr><th className="p-3 text-left">Sub-affiliate</th><th className="p-3 text-left">Parent agent</th><th className="p-3 text-left">Promo / link</th><th className="p-3 text-center">Subscribers</th><th className="p-3 text-right">Revenue</th><th className="p-3 text-right">15%</th><th className="p-3 text-right">5% WHT</th><th className="p-3 text-right">Net payout</th><th className="p-3 text-left">Payout</th><th className="p-3" /></tr></thead><tbody className="divide-y divide-slate-800">{rows.map((row) => <tr key={row.id}><td className="p-3"><b>{row.name}</b><span className="block text-xs text-slate-500">{row.phone || 'No phone'} · {row.status}</span></td><td className="p-3">{row.parentAgentName}<span className="block text-xs text-slate-500">{row.parentAgentCode || 'No agent code'}</span></td><td className="p-3"><span className="font-mono text-xs text-emerald-300">{row.promoCode}</span><span className="block text-[11px] text-slate-500 truncate max-w-[220px]">{row.referralLink}</span></td><td className="p-3 text-center">{row.subscribers}</td><td className="p-3 text-right">{money.format(row.revenue)}</td><td className="p-3 text-right">{money.format(row.commission)}</td><td className="p-3 text-right text-amber-300">{money.format(row.withholdingTax)}</td><td className="p-3 text-right text-emerald-300 font-bold">{money.format(row.netPayout)}</td><td className="p-3 text-xs">{row.mobileMoneyProvider || 'No provider'}<span className="block text-slate-500">{row.mobileMoneyNumber || '—'} · {row.payoutStatus}</span></td><td className="p-3 text-right"><button onClick={() => window.dispatchEvent(new CustomEvent('saas_enter_mirror', { detail: { account: { id: row.userId, name: row.name, role: 'Affiliate', phone: row.phone }, isAffiliate: true } }))} className="p-2 rounded hover:bg-slate-800" title="Mirror sub-affiliate"><Eye className="w-4 h-4" /></button><button onClick={() => onEdit(row)} className="p-2 rounded hover:bg-slate-800" title="Edit sub-affiliate"><Pencil className="w-4 h-4" /></button></td></tr>)}{!rows.length && <tr><td colSpan={10} className="p-8 text-center text-slate-500">No sub-affiliates found yet.</td></tr>}</tbody></table></div><div className="lg:hidden space-y-3">{rows.map((row) => <Card key={row.id} title={row.name} meta={`${row.parentAgentName} · ${row.status}`} stats={[['Subscribers', row.subscribers], ['Revenue', money.format(row.revenue)], ['Commission', money.format(row.commission)], ['Net payout', money.format(row.netPayout)]]} />)}{!rows.length && <EmptyCard text="No sub-affiliates found yet." />}</div></div>;
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button onClick={onExport} className="px-3 py-2 rounded-md bg-emerald-600 text-white text-sm font-semibold">
+          <Download className="inline w-4 h-4 mr-2" />Download payout spreadsheet
+        </button>
+      </div>
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+        <Metric label="Sub-affiliates" value={rows.length.toLocaleString()} />
+        <Metric label="Revenue" value={money.format(totals.revenue)} />
+        <Metric label="15% commission" value={money.format(totals.commission)} />
+        <Metric label="5% WHT (future)" value={money.format(totals.tax)} />
+      </div>
+      {/* Desktop table */}
+      <div className="hidden lg:block overflow-x-auto border border-slate-800 rounded-lg">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-900 text-slate-400 text-xs">
+            <tr>
+              <th className="p-3 text-left">Sub-affiliate</th>
+              <th className="p-3 text-left">Parent agent</th>
+              <th className="p-3 text-left">Promo / link</th>
+              <th className="p-3 text-center">Subscribers</th>
+              <th className="p-3 text-right">Revenue</th>
+              <th className="p-3 text-right">15% Gross</th>
+              <th className="p-3 text-right">5% WHT</th>
+              <th className="p-3 text-right">Net Payout</th>
+              <th className="p-3 text-left">Payout Info</th>
+              <th className="p-3" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td className="p-3"><b>{row.name}</b><span className="block text-xs text-slate-500">{row.phone || 'No phone'} · {row.status}</span></td>
+                <td className="p-3">{row.parentAgentName}<span className="block text-xs text-slate-500">{row.parentAgentCode || '—'}</span></td>
+                <td className="p-3"><span className="font-mono text-xs text-emerald-300">{row.promoCode}</span><span className="block text-[11px] text-slate-500 truncate max-w-[200px]">{row.referralLink}</span></td>
+                <td className="p-3 text-center">{row.subscribers}</td>
+                <td className="p-3 text-right">{money.format(row.revenue)}</td>
+                <td className="p-3 text-right text-emerald-300">{money.format(row.commission)}</td>
+                <td className="p-3 text-right">
+                  <span className="text-amber-300">{money.format(row.withholdingTax)}</span>
+                  <span className="block text-[9px] text-slate-600 italic">Not yet active</span>
+                </td>
+                <td className="p-3 text-right text-emerald-300 font-bold">{money.format(row.netPayout)}</td>
+                <td className="p-3 text-xs">{row.mobileMoneyProvider || 'No provider'}<span className="block text-slate-500">{row.mobileMoneyNumber || '—'} · {row.payoutStatus}</span></td>
+                <td className="p-3 text-right">
+                  <button onClick={() => window.dispatchEvent(new CustomEvent('saas_enter_mirror', { detail: { account: { id: row.userId, name: row.name, role: 'Affiliate', phone: row.phone }, isAffiliate: true } }))} className="p-2 rounded hover:bg-slate-800" title="Mirror"><Eye className="w-4 h-4" /></button>
+                  <button onClick={() => onEdit(row)} className="p-2 rounded hover:bg-slate-800" title="Edit"><Pencil className="w-4 h-4" /></button>
+                </td>
+              </tr>
+            ))}
+            {!rows.length && <tr><td colSpan={10} className="p-8 text-center text-slate-500">No sub-affiliates found yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {/* Mobile cards */}
+      <div className="lg:hidden space-y-3">
+        {rows.map((row) => (
+          <article key={row.id} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="font-black text-white">{row.name}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{row.parentAgentName} · <span className="font-mono text-emerald-400">{row.promoCode}</span></p>
+              </div>
+              <div className="flex gap-1">
+                <button onClick={() => window.dispatchEvent(new CustomEvent('saas_enter_mirror', { detail: { account: { id: row.userId, name: row.name, role: 'Affiliate', phone: row.phone }, isAffiliate: true } }))} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-400"><Eye className="w-3.5 h-3.5" /></button>
+                <button onClick={() => onEdit(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-blue-400"><Pencil className="w-3.5 h-3.5" /></button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-slate-800 rounded-xl p-3"><p className="text-[9px] text-slate-500 uppercase font-bold">Revenue</p><p className="text-sm font-black text-white mt-0.5">{money.format(row.revenue)}</p></div>
+              <div className="bg-emerald-500/10 rounded-xl p-3"><p className="text-[9px] text-emerald-400/70 uppercase font-bold">15% Gross</p><p className="text-sm font-black text-emerald-400 mt-0.5">{money.format(row.commission)}</p></div>
+              <div className="bg-amber-500/10 rounded-xl p-3">
+                <p className="text-[9px] text-amber-400/70 uppercase font-bold">5% WHT</p>
+                <p className="text-sm font-black text-amber-400 mt-0.5">{money.format(row.withholdingTax)}</p>
+                <p className="text-[8px] text-slate-600 italic mt-0.5">Not yet active</p>
+              </div>
+              <div className="bg-blue-500/10 rounded-xl p-3"><p className="text-[9px] text-blue-400/70 uppercase font-bold">Net Payout</p><p className="text-sm font-black text-blue-400 mt-0.5">{money.format(row.netPayout)}</p></div>
+            </div>
+            <div className="text-[10px] text-slate-500 border-t border-slate-800 pt-2">{row.mobileMoneyProvider || 'No provider'} · {row.mobileMoneyNumber || '—'} · <span className={row.payoutStatus === 'paid' ? 'text-emerald-400' : 'text-amber-400'}>{row.payoutStatus}</span></div>
+          </article>
+        ))}
+        {!rows.length && <EmptyCard text="No sub-affiliates found yet." />}
+      </div>
+    </div>
+  );
 }
 
 function TabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) { return <button onClick={onClick} className={`shrink-0 px-4 py-2 rounded-lg text-xs font-bold border ${active ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-600'}`}>{label}</button>; }
