@@ -178,7 +178,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         customersGenerated: a.conversionsPromo || a.conversionsLink || 0,
         revenueGenerated: a.revenueDate || a.totalEarnings || 0,
         grossCommission15: (a.revenueDate || a.totalEarnings || 0) * 0.15,
-        withholdingTax5: 0, // not active yet
+        withholdingTax5: revenue * 0.15 * 0.05, // 5% of gross commission — always show actual amount
         netPayout: (a.revenueDate || a.totalEarnings || 0) * 0.15,
         tinNumber: a.tinNumber || '',
         tinStatus: (a.tinNumber ? 'submitted' : 'not_submitted') as TinStatus,
@@ -688,13 +688,13 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                               <td className="py-3 px-4 font-mono text-emerald-400">{formatTZS(row.subAffiliateGrossCommission15)}</td>
                               <td className="py-3 px-4">
                                 <div>
-                                  <p className={`font-mono text-xs font-black ${WITHHOLDING_TAX_ACTIVE ? 'text-rose-400' : 'text-slate-400'}`}>
-                                    {formatTZS(whtAmount)}
+                                  <p className={`font-mono text-xs font-black text-amber-400`}>
+                                    {formatTZS(grossComm * 0.05)}
                                   </p>
                                   <p className="text-[8px] mt-0.5">
                                     {WITHHOLDING_TAX_ACTIVE
-                                      ? noTin ? <span className="text-rose-400">No TIN — blocked</span> : <span className="text-rose-300">Deducted</span>
-                                      : <span className="text-slate-600 italic">Not yet active</span>
+                                      ? noTin ? <span className="text-rose-400">No TIN — blocked</span> : <span className="text-rose-300">Active</span>
+                                      : <span className="text-slate-600 italic">Prepared, not yet deducted</span>
                                     }
                                   </p>
                                 </div>

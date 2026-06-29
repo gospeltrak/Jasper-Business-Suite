@@ -65,7 +65,7 @@ interface Affiliate {
   name: string;
   email: string;
   phone: string;
-  paymentMethod: string; // 'm-pesa' | 'tigo_yas' | 'airtel_money' | 'halopesa'
+  paymentMethod: string;
   promoCode: string;
   password?: string;
   isSuper?: boolean;
@@ -73,6 +73,7 @@ interface Affiliate {
   parentSuperId?: string;
   nidaNumber?: string;
   tinNumber?: string;
+  payoutPhone?: string;
 }
 
 interface AffiliatePortalProps {
@@ -130,6 +131,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
   // ── RESTORE SESSION ON PAGE RELOAD ──────────────────────────────────────
   // If user was already logged in (localStorage has their session), restore it
+  // ── SESSION RESTORE ON PAGE LOAD ─────────────────────────────────────────
   useEffect(() => {
     const saved = localStorage.getItem('jasper_logged_affiliate');
     if (!saved) return;
@@ -138,7 +140,6 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       if (!parsed?.id) return;
       setActiveAffiliate(parsed);
       setAuthMode('dashboard');
-      // Restore correct dashboard based on forcedRole or isSuper flag
       if (forcedRole === 'partner' || parsed.isSuper === true) {
         setDatabaseAgentWorkspaceEnabled(true);
       } else {
@@ -146,6 +147,47 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       }
     } catch { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── ONLINE SYNC — when network returns, push localStorage records to Supabase ──
+  useEffect(() => {
+    const syncPendingToSupabase = async () => {
+      try {
+        const pending = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
+        if (!pending.length) return;
+        const client: any = await getDynamicSupabaseClient();
+        const { data: authData } = await client.auth.getUser();
+        if (!authData?.user) return; // not logged in as admin
+        for (const aff of pending) {
+          if (!aff._syncedToDb && aff.id?.startsWith('aff-')) {
+            // Try to insert into Supabase
+            const { error } = await client.from('affiliates').upsert({
+              display_name: aff.name,
+              referral_code: aff.promoCode || aff.referral_code,
+              promo_code: aff.promoCode || aff.referral_code,
+              status: aff.isDisabled ? 'suspended' : 'active',
+              account_type: aff.isSuper ? 'partner' : 'sub_affiliate',
+              parent_super_agent_id: aff.parentSuperId || null,
+              phone_whatsapp: aff.phone,
+              payout_account: aff.payoutPhone || aff.phone,
+              payout_method: aff.paymentMethod || 'm-pesa',
+              nida_number: aff.nidaNumber !== 'N/A' ? aff.nidaNumber : null,
+              tin_number: aff.tinNumber !== 'N/A' ? aff.tinNumber : null,
+              tin_status: aff.tinNumber && aff.tinNumber !== 'N/A' ? 'submitted' : 'not_submitted',
+            }, { onConflict: 'referral_code' });
+            if (!error) {
+              aff._syncedToDb = true;
+            }
+          }
+        }
+        localStorage.setItem('saas_immersive_affiliates', JSON.stringify(pending));
+      } catch { /* offline — try next time */ }
+    };
+
+    window.addEventListener('online', syncPendingToSupabase);
+    // Also try on mount
+    if (navigator.onLine) syncPendingToSupabase();
+    return () => window.removeEventListener('online', syncPendingToSupabase);
   }, []);
 
   useEffect(() => {
@@ -873,7 +915,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     setPromoSuggestions([]);
   };
 
-  const handleRegisterAffiliate = (e: any) => {
+  const handleRegisterAffiliate = async (e: any) => {
     e.preventDefault();
     if (!firstName || !secondName || !phone || !password) {
       alert("Please enter first name, second name, phone number, and password.");
@@ -969,30 +1011,23 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       id: assignedId,
       name,
       email,
-      phone,                              // WhatsApp login number
+      phone,
       paymentMethod,
       promoCode: cleanCode,
       parentSuperId,
       isSuper: isRegisterSuper,
       nidaNumber: nidaNumber || "N/A",
       tinNumber: tinNumber || "N/A",
-      payoutPhone: payoutPhone || phone,  // Commission payout number (fallback to phone)
+      payoutPhone: payoutPhone || phone,
     };
-
-    // Store in global affiliates list
-    const existing = JSON.parse(
-      localStorage.getItem("jasper_affiliates") || "[]",
-    );
-    existing.push(newAff);
-    localStorage.setItem("jasper_affiliates", JSON.stringify(existing));
 
     const newImmersiveRecord = {
       id: assignedId,
       name,
       username: `@${name.toLowerCase().replace(/\s+/g, "_")}_referrals`,
       email,
-      phone,                              // WhatsApp / login number
-      payoutPhone: payoutPhone || phone,  // Commission payout number
+      phone,
+      payoutPhone: payoutPhone || phone,
       status: "Active",
       joinedDate: new Date().toISOString().split("T")[0],
       affiliateLink: `https://dukaplus.co.tz/ref/${cleanCode.toLowerCase()}`,
@@ -1003,9 +1038,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       revenueDate: 0,
       parentSuperId,
       isSuper: isRegisterSuper,
-      monthlyEarnings: [
-        { month: new Date().toISOString().substring(0, 7), amount: 0 },
-      ],
+      monthlyEarnings: [{ month: new Date().toISOString().substring(0, 7), amount: 0 }],
       sessions: [],
       recentPayouts: [],
       paymentMethod,
@@ -1013,11 +1046,54 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       tinNumber: tinNumber || "N/A",
     };
 
+    // ── Save to localStorage (offline cache) ──────────────────
+    const existing = JSON.parse(localStorage.getItem("jasper_affiliates") || "[]");
+    existing.push(newAff);
+    localStorage.setItem("jasper_affiliates", JSON.stringify(existing));
     immersiveList.push(newImmersiveRecord);
-    localStorage.setItem(
-      "saas_immersive_affiliates",
-      JSON.stringify(immersiveList),
-    );
+    localStorage.setItem("saas_immersive_affiliates", JSON.stringify(immersiveList));
+
+    // ── Save to Supabase affiliates table (source of truth) ───
+    try {
+      const client: any = await getDynamicSupabaseClient();
+      // 1. Create Supabase auth account
+      const authEmail = `affiliate-${phone.replace(/\D/g, "")}@jasper.local`;
+      const { data: authData, error: authError } = await client.auth.signUp({
+        email: authEmail,
+        password,
+        options: { data: { display_name: name, is_affiliate: true } },
+      });
+      if (!authError && authData?.user) {
+        // 2. Insert affiliate profile into affiliates table
+        await client.from("affiliates").upsert({
+          user_id: authData.user.id,
+          display_name: name,
+          referral_code: cleanCode,
+          referral_slug: cleanCode.toLowerCase(),
+          status: "active",
+          account_type: isRegisterSuper ? "partner" : "sub_affiliate",
+          parent_super_agent_id: parentSuperId || null,
+          phone_whatsapp: phone,
+          payout_account: payoutPhone || phone,
+          payout_method: paymentMethod,
+          nida_number: nidaNumber || null,
+          tin_number: tinNumber || null,
+          tin_status: tinNumber ? "submitted" : "not_submitted",
+          promo_code: cleanCode,
+          is_disabled: false,
+          created_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
+      }
+    } catch (dbErr) {
+      // Silently continue — localStorage saved above, will sync when online
+      console.warn("[affiliate] Supabase save failed — saved to localStorage:", dbErr);
+    }
+
+    // ── Show promo code to user ────────────────────────────────
+    const promoMsg = isRegisterSuper
+      ? `✅ Partner account created!\n\nYour Partner Code: ${cleanCode}\n\nShare this code with affiliates you recruit. They must enter it when registering.`
+      : `✅ Affiliate account created!\n\nYour Promo Code: ${cleanCode}\n\nUse this code to track your referrals. Share it with customers.`;
+    alert(promoMsg);
 
     // Save active session
     localStorage.setItem("jasper_logged_affiliate", JSON.stringify(newAff));
@@ -1089,45 +1165,58 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       const authEmail = normalizedLogin.includes('@')
         ? normalizedLogin
         : `affiliate-${normalizedLogin.replace(/\D/g, '')}@jasper.local`;
+
       const { data: authData, error: authError } = await client.auth.signInWithPassword({
         email: authEmail,
         password: loginPassword,
       });
-      if (authError || !authData?.user) {
-        throw new Error(authError?.message || 'Sign in failed.');
-      }
 
-      if (portalRole === 'partner') {
-        const agentWorkspace = await loadAffiliateAgentWorkspace();
-        if (agentWorkspace?.affiliates.length) {
-          setDatabaseAgentWorkspaceEnabled(true);
+      if (!authError && authData?.user) {
+        // ── Supabase login success ─────────────────────────────
+        const { data: profile } = await client
+          .from('affiliates')
+          .select('id, user_id, display_name, referral_code, promo_code, account_type, parent_super_agent_id, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, nida_number, is_disabled')
+          .eq('user_id', authData.user.id)
+          .maybeSingle();
+
+        if (profile) {
+          const isPartnerAccount = profile.account_type === 'partner' || profile.account_type === 'super_agent';
+          const mappedAff: Affiliate = {
+            id: profile.id,
+            name: profile.display_name,
+            email: authData.user.email || '',
+            phone: profile.phone_whatsapp || '',
+            paymentMethod: profile.payout_method || 'm-pesa',
+            promoCode: profile.promo_code || profile.referral_code,
+            isSuper: isPartnerAccount,
+            nidaNumber: profile.nida_number || 'N/A',
+            tinNumber: profile.tin_number || 'N/A',
+            payoutPhone: profile.payout_account || '',
+          };
+          // Sync to localStorage for offline use
+          localStorage.setItem('jasper_logged_affiliate', JSON.stringify(mappedAff));
+          const immersive = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
+          const exists = immersive.find((a: any) => a.id === profile.id);
+          if (!exists) {
+            immersive.unshift({ ...mappedAff, status: 'Active', joinedDate: new Date().toISOString().split('T')[0] });
+            localStorage.setItem('saas_immersive_affiliates', JSON.stringify(immersive));
+          }
+          setActiveAffiliate(mappedAff);
+          if (portalRole === 'partner' || isPartnerAccount) {
+            setDatabaseAgentWorkspaceEnabled(true);
+          } else {
+            setDatabaseWorkspaceEnabled(true);
+          }
           setAuthMode('dashboard');
           return;
         }
       }
-
-      const workspace = await loadAffiliateWorkspace();
-      if (!workspace) {
-        await client.auth.signOut();
-        throw new Error('This account is not registered as an active affiliate.');
-      }
-
-      setActiveAffiliate({
-        id: workspace.profile.id,
-        name: workspace.profile.display_name,
-        email: authData.user.email || '',
-        phone: workspace.profile.payout_account || '',
-        paymentMethod: workspace.profile.payout_method || 'm-pesa',
-        promoCode: workspace.profile.referral_code,
-      });
-      setDatabaseWorkspaceEnabled(true);
-      setAuthMode('dashboard');
-      return;
-    } catch (authFailure: any) {
-      alert(authFailure?.message || 'Unable to sign in to the affiliate workspace.');
-      return;
+    } catch (networkErr) {
+      // Network unavailable — fall through to localStorage
+      console.warn('[affiliate login] Network unavailable, trying localStorage:', networkErr);
     }
 
+    // ── Offline fallback: read from localStorage ───────────────
     const isLoginSuper = portalRole === "partner";
 
     // 1. Seek in central SaaS Admin master list (supports seeded Langa Super Affiliate & assigned child affiliates)
