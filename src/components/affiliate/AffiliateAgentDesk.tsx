@@ -150,12 +150,33 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       setCodeSuggestions(sugg);
       return;
     }
-    // Save to Supabase — queues automatically if offline
-    await dbWrite('affiliates', 'update',
-      { promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() },
-      { column: 'id', value: partnerId },
-      partnerId
-    );
+    // Save to Supabase — update by user_id (auth) or id (row)
+    const supabaseUserId = partnerInfo?.supabaseUserId;
+    const supabaseRowId  = partnerInfo?.id;
+
+    if (supabaseUserId || supabaseRowId) {
+      try {
+        const { getDynamicSupabaseClient } = await import('../../supabaseClient');
+        const client: any = await getDynamicSupabaseClient();
+        const filter = supabaseUserId
+          ? { column: 'user_id', value: supabaseUserId }
+          : { column: 'id',      value: supabaseRowId };
+        await client.from('affiliates')
+          .update({ promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() })
+          .eq(filter.column, filter.value);
+      } catch {
+        // Queue for later sync
+        enqueueSyncItem({
+          table: 'affiliates',
+          operation: 'update',
+          data: { promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() },
+          filter: supabaseUserId
+            ? { column: 'user_id', value: supabaseUserId }
+            : { column: 'id',      value: supabaseRowId },
+          accountId: partnerId,
+        });
+      }
+    }
     // Update localStorage — both stores
     const updated = all.map((a: any) => a.id === partnerId ? { ...a, promoCode: cleaned } : a);
     localStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
@@ -218,20 +239,47 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       try {
         const { getDynamicSupabaseClient } = await import('../../supabaseClient');
         const client: any = await getDynamicSupabaseClient();
+
+        let profile: any = null;
+
+        // Try 1: Supabase auth session (reliable after Supabase login)
         const { data: authUser } = await client.auth.getUser();
-        if (!authUser?.user) return;
-        const { data: profile } = await client
-          .from('affiliates')
-          .select('id, display_name, promo_code, referral_code, account_type, phone_whatsapp, payout_account, payout_method, tin_number, tin_status')
-          .eq('user_id', authUser.user.id)
-          .maybeSingle();
+        if (authUser?.user) {
+          const { data } = await client.from('affiliates')
+            .select('id, user_id, display_name, promo_code, referral_code, account_type, phone_whatsapp, payout_account, payout_method, tin_number, tin_status')
+            .eq('user_id', authUser.user.id)
+            .maybeSingle();
+          profile = data;
+        }
+
+        // Try 2: Match by promo_code saved in localStorage (after localStorage login)
+        if (!profile && partnerInfo?.promoCode) {
+          const { data } = await client.from('affiliates')
+            .select('id, user_id, display_name, promo_code, referral_code, account_type, phone_whatsapp, payout_account, payout_method, tin_number, tin_status')
+            .eq('promo_code', partnerInfo.promoCode)
+            .maybeSingle();
+          profile = data;
+        }
+
+        // Try 3: Match by phone_whatsapp
+        if (!profile && partnerInfo?.phone) {
+          const phone = partnerInfo.phone.replace(/\D/g, '');
+          const { data } = await client.from('affiliates')
+            .select('id, user_id, display_name, promo_code, referral_code, account_type, phone_whatsapp, payout_account, payout_method, tin_number, tin_status')
+            .ilike('phone_whatsapp', `%${phone.slice(-9)}`)
+            .maybeSingle();
+          profile = data;
+        }
+
         if (profile) {
+          const code = profile.promo_code || profile.referral_code || partnerInfo?.promoCode || '';
           const updated = {
             ...partnerInfo,
             id: profile.id,
+            supabaseUserId: profile.user_id,
             name: profile.display_name || partnerInfo?.name,
-            promoCode: profile.promo_code || profile.referral_code || partnerInfo?.promoCode,
-            promo_code: profile.promo_code || profile.referral_code,
+            promoCode: code,
+            promo_code: code,
             payoutPhone: profile.payout_account,
             paymentMethod: profile.payout_method,
           };

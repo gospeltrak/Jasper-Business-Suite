@@ -1059,7 +1059,6 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     // ── Save to Supabase affiliates table (source of truth) ───
     try {
       const client: any = await getDynamicSupabaseClient();
-      // 1. Create Supabase auth account
       const authEmail = `affiliate-${phone.replace(/\D/g, "")}@jasper.local`;
       const { data: authData, error: authError } = await client.auth.signUp({
         email: authEmail,
@@ -1067,8 +1066,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         options: { data: { display_name: name, is_affiliate: true } },
       });
       if (!authError && authData?.user) {
-        // 2. Insert affiliate profile into affiliates table
-        await client.from("affiliates").upsert({
+        const { data: insertedRow } = await client.from("affiliates").upsert({
           user_id: authData.user.id,
           display_name: name,
           referral_code: cleanCode,
@@ -1085,10 +1083,31 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           promo_code: cleanCode,
           is_disabled: false,
           created_at: new Date().toISOString(),
-        }, { onConflict: "user_id" });
+        }, { onConflict: "user_id" }).select('id').maybeSingle();
+
+        // CRITICAL: save the Supabase row ID and auth user_id to the session
+        // so future updates hit the correct DB row
+        if (insertedRow?.id) {
+          newAff.id = insertedRow.id;
+          newAff.supabaseUserId = authData.user.id;
+        } else {
+          // Row may already exist — fetch it
+          const { data: existing } = await client.from("affiliates")
+            .select('id').eq('user_id', authData.user.id).maybeSingle();
+          if (existing?.id) {
+            newAff.id = existing.id;
+            newAff.supabaseUserId = authData.user.id;
+          }
+        }
+        // Update localStorage records with correct Supabase ID
+        const affIdx = immersiveList.findIndex((a: any) => a.promoCode === cleanCode);
+        if (affIdx !== -1) {
+          immersiveList[affIdx].id = newAff.id;
+          immersiveList[affIdx].supabaseUserId = authData.user.id;
+          localStorage.setItem("saas_immersive_affiliates", JSON.stringify(immersiveList));
+        }
       }
     } catch (dbErr) {
-      // Silently continue — localStorage saved above, will sync when online
       console.warn("[affiliate] Supabase save failed — saved to localStorage:", dbErr);
     }
 
