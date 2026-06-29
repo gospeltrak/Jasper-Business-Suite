@@ -468,10 +468,10 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0">
 
         {/* Sidebar */}
-        <aside className={`${sidebarOpen ? 'block' : 'hidden'} md:block w-60 border-r border-slate-800 bg-slate-900/50 flex-shrink-0 overflow-y-auto`}>
+        <aside className={`${sidebarOpen ? 'block' : 'hidden'} md:flex md:flex-col w-60 border-r border-slate-800 bg-slate-900/50 flex-shrink-0 overflow-y-auto`}>
           <nav className="p-3 space-y-0.5">
             {NAV_TABS.map(tab => {
               const Icon = tab.icon;
@@ -660,28 +660,25 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                       </thead>
                       <tbody>
                         {recon.map(row => {
-                          // Get payout phone and method from subAffiliates
                           const aff = subAffiliates.find(a => a.id === row.subAffiliateId);
                           const payoutPhone = aff?.payoutAccount || aff?.phone || '—';
                           const payoutMethod = aff?.payoutMethod || '—';
-                          // WHT: always show — 0 if no TIN or not active, calculated if TIN submitted
-                          const whtAmount = (aff?.tinStatus === 'submitted' || aff?.tinStatus === 'verified')
-                            ? row.withholdingTax5
-                            : 0;
-                          const whtLabel = !WITHHOLDING_TAX_ACTIVE
-                            ? <span className="text-[9px] italic text-slate-600">TZS 0 (not active)</span>
-                            : aff?.tinStatus === 'not_submitted' || !aff?.tinStatus
-                            ? <span className="text-[9px] italic text-rose-400">TZS 0 (no TIN)</span>
-                            : <span className="text-rose-400 font-mono">{formatTZS(whtAmount)}</span>;
+                          // Always show actual WHT amount — flag only controls if it's deducted
+                          const grossComm = row.subAffiliateGrossCommission15;
+                          const whtAmount = grossComm * 0.05;
+                          const noTin = !aff?.tinStatus || aff.tinStatus === 'not_submitted';
 
                           return (
                             <tr key={row.subAffiliateId} className="border-b border-slate-800/50 hover:bg-slate-800/20">
-                              <td className="py-3 px-4 font-bold text-white whitespace-nowrap">{row.subAffiliateName}</td>
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <p className="font-bold text-white text-xs">{row.subAffiliateName}</p>
+                                {aff?.promoCode && (
+                                  <p className="text-[9px] font-mono text-amber-400 mt-0.5">{aff.promoCode}</p>
+                                )}
+                              </td>
                               <td className="py-3 px-4"><TinBadge status={row.tinStatus} /></td>
                               <td className="py-3 px-4">
-                                <div>
-                                  <p className="font-mono text-white text-[11px]">{payoutPhone}</p>
-                                </div>
+                                <p className="font-mono text-white text-[11px]">{payoutPhone}</p>
                               </td>
                               <td className="py-3 px-4">
                                 <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-[9px] font-bold text-slate-300 whitespace-nowrap">
@@ -692,7 +689,19 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                               <td className="py-3 px-4 font-mono text-purple-400">{formatTZS(row.networkPool20)}</td>
                               <td className="py-3 px-4 font-mono text-amber-400 font-black">{formatTZS(row.managerCommission5)}</td>
                               <td className="py-3 px-4 font-mono text-emerald-400">{formatTZS(row.subAffiliateGrossCommission15)}</td>
-                              <td className="py-3 px-4">{whtLabel}</td>
+                              <td className="py-3 px-4">
+                                <div>
+                                  <p className={`font-mono text-xs font-black ${WITHHOLDING_TAX_ACTIVE ? 'text-rose-400' : 'text-slate-400'}`}>
+                                    {formatTZS(whtAmount)}
+                                  </p>
+                                  <p className="text-[8px] mt-0.5">
+                                    {WITHHOLDING_TAX_ACTIVE
+                                      ? noTin ? <span className="text-rose-400">No TIN — blocked</span> : <span className="text-rose-300">Deducted</span>
+                                      : <span className="text-slate-600 italic">Not yet active</span>
+                                    }
+                                  </p>
+                                </div>
+                              </td>
                               <td className="py-3 px-4 font-mono text-blue-400 font-black">{formatTZS(row.subAffiliateNetPayout)}</td>
                               <td className="py-3 px-4">
                                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${row.payoutStatus === 'paid' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>

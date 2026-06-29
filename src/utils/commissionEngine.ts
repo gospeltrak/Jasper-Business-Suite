@@ -182,17 +182,20 @@ export function calculateSubAffiliateGrossCommission(revenueAmount: number): num
 
 /**
  * Withholding tax: 5% of GROSS COMMISSION (not of revenue)
- * Currently returns 0 — not yet active
+ * Always returns the calculated amount for display purposes.
+ * WITHHOLDING_TAX_ACTIVE flag controls whether it is actually deducted from payout.
  */
 export function calculateWithholdingTax(grossCommission: number): number {
-  if (!WITHHOLDING_TAX_ACTIVE) return 0;
   return Math.round(grossCommission * WITHHOLDING_TAX_RATE * 100) / 100;
 }
 
 /**
  * Sub-affiliate net payout after withholding tax
+ * If WHT is not active, net payout = full gross commission
+ * If WHT is active, net payout = gross - WHT
  */
 export function calculateSubAffiliateNetPayout(grossCommission: number): number {
+  if (!WITHHOLDING_TAX_ACTIVE) return Math.round(grossCommission * 100) / 100;
   const wht = calculateWithholdingTax(grossCommission);
   return Math.round((grossCommission - wht) * 100) / 100;
 }

@@ -1739,7 +1739,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </label>
                       <input type="tel" required placeholder="e.g. 0754 002 991" value={payoutPhone} onChange={e => setPayoutPhone(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm font-mono focus:border-emerald-500" />
-                      <p className="text-[9px] text-slate-500">Commissions will be sent to this mobile money number.</p>
+                      <div className="flex items-start gap-1.5 p-2.5 bg-blue-500/8 border border-blue-500/20 rounded-xl">
+                        <span className="text-blue-400 text-[10px] shrink-0">ℹ️</span>
+                        <p className="text-[9px] text-blue-300 leading-relaxed">
+                          <strong>Muhimu:</strong> Weka namba ya simu iliyosajiliwa na Kitambulisho chako cha NIDA chenye jina lako kamili. Namba hii itatumika kuthibitisha utambulisho wako wakati wa malipo ya kamisheni. Namba tofauti na NIDA inaweza kusababisha ucheleweshaji au kuzuiwa kwa malipo.
+                        </p>
+                      </div>
                     </div>
 
                     <div className="space-y-1.5">
@@ -1841,7 +1846,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     Master Code:
                   </span>
                   {isEditingPromo ? (
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
+                      {/* ⚠️ Caution notice */}
+                      <div className="flex items-start gap-1.5 p-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl">
+                        <span className="text-amber-400 text-[10px] shrink-0 mt-0.5">⚠️</span>
+                        <p className="text-[9px] text-amber-300 leading-relaxed">
+                          <strong>Tahadhari:</strong> Unaweza kubadilisha promo code mara moja tu. Ukibadilisha, kuwa makini sana — mabadiliko mengi yanaweza kuzuia system kufuatilia taarifa zako na malipo yako. Hakikisha unachagua code utakayoitumia kwa muda mrefu.
+                        </p>
+                      </div>
                       <form onSubmit={handleUpdatePromoCode} className="flex items-center space-x-1">
                         <input
                           type="text"
@@ -4116,6 +4128,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                     {isEditingPromo ? (
                       <form onSubmit={handleUpdatePromoCode} className="space-y-2 pt-1">
+                        {/* ⚠️ Caution notice */}
+                        <div className="flex items-start gap-2 p-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl">
+                          <span className="text-amber-400 text-[10px] shrink-0">⚠️</span>
+                          <p className="text-[9px] text-amber-300 leading-relaxed">
+                            <strong>Tahadhari:</strong> Unaweza kubadilisha promo code mara moja tu. Ukibadilisha, kuwa makini sana — mabadiliko mengi yanaweza kuzuia system kufuatilia taarifa zako na malipo yako. Chagua code utakayoitumia kwa muda mrefu.
+                          </p>
+                        </div>
                         <div className="relative">
                           <input
                             type="text"
