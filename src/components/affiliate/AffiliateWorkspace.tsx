@@ -85,7 +85,8 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const getLiveCode = (prof: any) => {
     if (editingCode && newCode) return newCode;
     if (savedCode) return savedCode;
-    return prof?.referral_code || prof?.promo_code || '';
+    // promo_code is what gets updated on edit — prioritize it
+    return prof?.promo_code || prof?.referral_code || '';
   };
   const [codeError, setCodeError] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -404,7 +405,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
                       className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold rounded-lg cursor-pointer border-none flex items-center justify-center gap-2 text-sm">
                       <Copy className="h-4 w-4" /> Copy Code
                     </button>
-                    <button type="button" onClick={() => { setEditingCode(true); setNewCode(profile.referral_code); }}
+                    <button type="button" onClick={() => { setEditingCode(true); setNewCode(getLiveCode(profile) || profile.referral_code); }}
                       className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg cursor-pointer border-none flex items-center justify-center gap-2 text-sm">
                       <PencilIcon className="h-4 w-4" /> Edit Code
                     </button>

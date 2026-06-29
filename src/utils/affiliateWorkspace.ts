@@ -135,7 +135,7 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
 
   const { data: profile, error: profileError } = await client
     .from('affiliates')
-    .select('id, user_id, display_name, referral_code, referral_slug, status, payout_method, payout_account, profile_image_url')
+    .select('id, user_id, display_name, referral_code, promo_code, referral_slug, status, payout_method, payout_account, profile_image_url')
     .eq('user_id', authData.user.id)
     .maybeSingle();
 

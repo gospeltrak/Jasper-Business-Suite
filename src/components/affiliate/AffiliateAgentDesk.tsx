@@ -212,18 +212,44 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     return {};
   });
 
+  // Load latest profile from Supabase on mount to get fresh promo code
+  useEffect(() => {
+    const loadFreshProfile = async () => {
+      try {
+        const { getDynamicSupabaseClient } = await import('../../supabaseClient');
+        const client: any = await getDynamicSupabaseClient();
+        const { data: authUser } = await client.auth.getUser();
+        if (!authUser?.user) return;
+        const { data: profile } = await client
+          .from('affiliates')
+          .select('id, display_name, promo_code, referral_code, account_type, phone_whatsapp, payout_account, payout_method, tin_number, tin_status')
+          .eq('user_id', authUser.user.id)
+          .maybeSingle();
+        if (profile) {
+          const updated = {
+            ...partnerInfo,
+            id: profile.id,
+            name: profile.display_name || partnerInfo?.name,
+            promoCode: profile.promo_code || profile.referral_code || partnerInfo?.promoCode,
+            promo_code: profile.promo_code || profile.referral_code,
+            payoutPhone: profile.payout_account,
+            paymentMethod: profile.payout_method,
+          };
+          setPartnerInfo(updated);
+          localStorage.setItem('jasper_logged_affiliate', JSON.stringify(updated));
+        }
+      } catch { /* offline — use localStorage */ }
+    };
+    loadFreshProfile();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const partnerName = partnerInfo?.name || workspace?.agentName || 'Partner';
   const partnerId   = partnerInfo?.id || 'partner-local';
 
+  // partnerCode: reads from session — NEVER generates random (that caused disappearing)
   const partnerCode = useMemo(() => {
-    const code = partnerInfo?.promoCode || partnerInfo?.promo_code || '';
-    if (code) return code;
-    const name = partnerInfo?.name || '';
-    if (name) {
-      const parts = name.trim().toUpperCase().split(' ');
-      return `${(parts[0] || '').slice(0, 5)}_${(parts[1] || 'JAR').slice(0, 3)}_${Math.floor(100 + Math.random() * 900)}`;
-    }
-    return '';
+    return partnerInfo?.promoCode || partnerInfo?.promo_code || '';
   }, [partnerInfo]);
 
   // Live referral link — updates as user types in the edit field
