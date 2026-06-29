@@ -113,3 +113,27 @@ FROM information_schema.tables t
 WHERE table_schema = 'public'
   AND table_name IN ('tenants','users','tenant_payment_proofs','tenant_workspaces','tenant_data')
 ORDER BY table_name;
+
+-- ── Platform records: ensure unique constraint for upsert ─────────────────
+-- This allows savePlatformRecord to use onConflict: 'tenant_id,data_key'
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'tenant_data_unique' AND conrelid = 'public.tenant_data'::regclass
+  ) THEN
+    ALTER TABLE public.tenant_data
+      ADD CONSTRAINT tenant_data_unique UNIQUE (tenant_id, data_key);
+  END IF;
+END $$;
+
+-- ── Verify tenant_data can store platform records ─────────────────────────
+-- tenant_id = 'saas-global' is used for all super admin platform data
+-- data_key format: '{recordType}__{scopeId}' e.g. 'hardware_inventory__global'
+-- payload is JSONB — stores the full JSON array/object
+
+SELECT table_name, 
+  (SELECT count(*) FROM information_schema.columns c 
+   WHERE c.table_name = t.table_name AND c.table_schema = 'public') AS col_count
+FROM information_schema.tables t
+WHERE table_schema = 'public' AND table_name = 'tenant_data';

@@ -47,6 +47,7 @@ import SaaSHardwarePOS from './SaaSHardwarePOS';
 import SaaSHardwareInventory from './SaaSHardwareInventory';
 import SaaSHardwareSales from './SaaSHardwareSales';
 import SaaSStaffManager from './SaaSStaffManager';
+import { initPlatformSync } from '../utils/superAdminPlatformRecords';
 import SaaSWebEditor from './SaaSWebEditor';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 
@@ -64,6 +65,9 @@ export default function SuperSaaSAdminView({
   hideSidebar = false
 }: SuperSaaSAdminViewProps = {}) {
   const [internalActiveTab, setInternalActiveTab] = useState<SuperAdminWorkspaceTab>('dashboard');
+
+  // Init offline sync for platform records (hardware, etc.)
+  useEffect(() => { initPlatformSync(); }, []);
   const activeTab = externalActiveTab || internalActiveTab;
   const setActiveTab = (tab: SuperAdminWorkspaceTab) => {
     if (externalSetActiveTab) {
