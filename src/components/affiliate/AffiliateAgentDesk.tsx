@@ -26,6 +26,13 @@ import {
   createAffiliateTask,
   loadAffiliateAgentWorkspace,
 } from '../../utils/affiliateWorkspace';
+import {
+  isOnline,
+  initOfflineSync,
+  dbWrite,
+  clearAffiliateSession,
+  flushSyncQueue,
+} from '../../utils/offlineSync';
 import SaaSHardwarePOS from '../SaaSHardwarePOS';
 import SaaSHardwareInventory from '../SaaSHardwareInventory';
 import {
@@ -107,6 +114,22 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [isNetworkOnline, setIsNetworkOnline] = useState(isOnline());
+
+  useEffect(() => {
+    initOfflineSync((result) => {
+      setNotice(`✅ ${result.synced} changes synced to database.`);
+    });
+    const up   = () => { setIsNetworkOnline(true);  flushSyncQueue(); };
+    const down = () => setIsNetworkOnline(false);
+    window.addEventListener('online',  up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online',  up);
+      window.removeEventListener('offline', down);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [editingCode, setEditingCode] = useState(false);
   const [newCode, setNewCode] = useState('');
   const [codeError, setCodeError] = useState('');
@@ -127,12 +150,12 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       setCodeSuggestions(sugg);
       return;
     }
-    // Save to Supabase
-    try {
-      const { getDynamicSupabaseClient } = await import('../../supabaseClient');
-      const client: any = await getDynamicSupabaseClient();
-      await client.from('affiliates').update({ promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() }).eq('id', partnerId);
-    } catch { /* offline — syncs later */ }
+    // Save to Supabase — queues automatically if offline
+    await dbWrite('affiliates', 'update',
+      { promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() },
+      { column: 'id', value: partnerId },
+      partnerId
+    );
     // Update localStorage — both stores
     const updated = all.map((a: any) => a.id === partnerId ? { ...a, promoCode: cleaned } : a);
     localStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
@@ -491,6 +514,13 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   return (
     <div className="flex flex-col bg-slate-950 text-white" style={{ height: '100dvh', overflow: 'hidden' }}>
+
+      {/* Offline banner */}
+      {!isNetworkOnline && (
+        <div className="shrink-0 flex items-center justify-center gap-2 bg-amber-500 text-slate-950 text-xs font-bold py-1.5 px-4">
+          ⚠️ Offline — changes queued and will sync when connected
+        </div>
+      )}
 
       {/* Header */}
       <header style={{ background: 'linear-gradient(135deg,#0a0f1e,#0d1b2e)' }}

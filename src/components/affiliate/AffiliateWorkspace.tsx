@@ -24,6 +24,12 @@ import {
   loadAffiliateWorkspace,
   recordAffiliateActivity,
 } from '../../utils/affiliateWorkspace';
+import {
+  isOnline,
+  initOfflineSync,
+  dbWrite,
+  flushSyncQueue,
+} from '../../utils/offlineSync';
 
 const currency = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
 
@@ -56,6 +62,22 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [isNetworkOnline, setIsNetworkOnline] = useState(isOnline());
+
+  useEffect(() => {
+    initOfflineSync((result) => {
+      setNotice(`✅ ${result.synced} changes synced.`);
+    });
+    const up   = () => { setIsNetworkOnline(true);  flushSyncQueue(); };
+    const down = () => setIsNetworkOnline(false);
+    window.addEventListener('online',  up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online',  up);
+      window.removeEventListener('offline', down);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [editingCode, setEditingCode] = useState(false);
   const [newCode, setNewCode] = useState('');
   const [savedCode, setSavedCode] = useState(''); // overrides profile.referral_code immediately after save
@@ -85,11 +107,12 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
       setSuggestions(sugg);
       return;
     }
-    try {
-      const { getDynamicSupabaseClient } = await import('../../supabaseClient');
-      const client: any = await getDynamicSupabaseClient();
-      await client.from('affiliates').update({ promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() }).eq('id', workspace.profile.id);
-    } catch { /* offline — will sync later */ }
+    // Save to DB — queues automatically if offline, syncs when connected
+    await dbWrite('affiliates', 'update',
+      { promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() },
+      { column: 'id', value: workspace.profile.id },
+      workspace.profile.id
+    );
     // Update localStorage
     const updated = all.map((a: any) => a.id === workspace.profile.id ? { ...a, promoCode: cleaned } : a);
     localStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
@@ -254,6 +277,12 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
 
   return (
     <main className="bg-slate-50 text-slate-900 pb-24 lg:pb-8 min-h-[100dvh]">
+      {/* Offline banner */}
+      {!isNetworkOnline && (
+        <div className="flex items-center justify-center gap-2 bg-amber-500 text-slate-950 text-xs font-bold py-2 px-4">
+          ⚠️ Offline — Unafanya kazi bila intaneti. Mabadiliko yatasync ukiunganika. | Changes will sync when connected.
+        </div>
+      )}
       <div className="mx-auto grid min-h-screen max-w-[1440px] lg:grid-cols-[232px_minmax(0,1fr)]">
         <aside className="hidden h-screen sticky top-0 lg:flex flex-col border-r border-slate-200 bg-white p-5">
           <div className="flex items-center gap-3">

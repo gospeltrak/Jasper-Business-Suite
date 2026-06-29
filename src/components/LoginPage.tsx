@@ -1078,6 +1078,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       return;
     }
 
+    // Registration requires internet — block if offline
+    if (!navigator.onLine) {
+      setError('❌ Usajili unahitaji mtandao. Tafadhali unganisha intaneti na ujaribu tena. | Registration requires an internet connection. Please connect and try again.');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     const cleanOwnerPhone = normalizePhoneForWhatsapp(regEmail);

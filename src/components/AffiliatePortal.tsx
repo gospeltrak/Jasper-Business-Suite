@@ -50,6 +50,18 @@ import AffiliateWorkspace from "./affiliate/AffiliateWorkspace";
 import AffiliateAgentDesk from "./affiliate/AffiliateAgentDesk";
 import { loadAffiliateAgentWorkspace, loadAffiliateWorkspace } from "../utils/affiliateWorkspace";
 import { getDynamicSupabaseClient } from "../supabaseClient";
+import {
+  requireOnline,
+  isOnline,
+  initOfflineSync,
+  dbWrite,
+  saveAffiliateSession,
+  clearAffiliateSession,
+  getAffiliateSession,
+  enqueueSyncItem,
+  flushSyncQueue,
+  AffiliateSession,
+} from "../utils/offlineSync";
 import { useTranslation } from "../LanguageContext";
 import {
   getTermsTitle,
@@ -149,46 +161,24 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── ONLINE SYNC — when network returns, push localStorage records to Supabase ──
-  useEffect(() => {
-    const syncPendingToSupabase = async () => {
-      try {
-        const pending = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
-        if (!pending.length) return;
-        const client: any = await getDynamicSupabaseClient();
-        const { data: authData } = await client.auth.getUser();
-        if (!authData?.user) return; // not logged in as admin
-        for (const aff of pending) {
-          if (!aff._syncedToDb && aff.id?.startsWith('aff-')) {
-            // Try to insert into Supabase
-            const { error } = await client.from('affiliates').upsert({
-              display_name: aff.name,
-              referral_code: aff.promoCode || aff.referral_code,
-              promo_code: aff.promoCode || aff.referral_code,
-              status: aff.isDisabled ? 'suspended' : 'active',
-              account_type: aff.isSuper ? 'partner' : 'sub_affiliate',
-              parent_super_agent_id: aff.parentSuperId || null,
-              phone_whatsapp: aff.phone,
-              payout_account: aff.payoutPhone || aff.phone,
-              payout_method: aff.paymentMethod || 'm-pesa',
-              nida_number: aff.nidaNumber !== 'N/A' ? aff.nidaNumber : null,
-              tin_number: aff.tinNumber !== 'N/A' ? aff.tinNumber : null,
-              tin_status: aff.tinNumber && aff.tinNumber !== 'N/A' ? 'submitted' : 'not_submitted',
-            }, { onConflict: 'referral_code' });
-            if (!error) {
-              aff._syncedToDb = true;
-            }
-          }
-        }
-        localStorage.setItem('saas_immersive_affiliates', JSON.stringify(pending));
-      } catch { /* offline — try next time */ }
-    };
+  // ── INIT OFFLINE SYNC + ONLINE INDICATOR ────────────────────────────────
+  const [isNetworkOnline, setIsNetworkOnline] = useState(isOnline());
 
-    window.addEventListener('online', syncPendingToSupabase);
-    // Also try on mount
-    if (navigator.onLine) syncPendingToSupabase();
-    return () => window.removeEventListener('online', syncPendingToSupabase);
+  useEffect(() => {
+    initOfflineSync((result) => {
+      console.info(`[offlineSync] ${result.synced} pending changes synced to database.`);
+    });
+    const handleOnline  = () => { setIsNetworkOnline(true);  flushSyncQueue(); };
+    const handleOffline = () => setIsNetworkOnline(false);
+    window.addEventListener('online',  handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online',  handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Offline sync now handled by initOfflineSync() and flushSyncQueue()
 
   useEffect(() => {
     // Load dynamic SSP banners from admin platform
@@ -914,13 +904,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     setPromoError(null);
     setPromoSuggestions([]);
 
-    // Also update in Supabase (source of truth)
-    try {
-      const client: any = await getDynamicSupabaseClient();
-      await client.from('affiliates')
-        .update({ promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() })
-        .eq('id', activeAffiliate?.id);
-    } catch { /* offline — will sync later */ }
+    // Save to Supabase — queues automatically if offline, syncs when online
+    await dbWrite('affiliates',
+      'update',
+      { promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() },
+      { column: 'id', value: activeAffiliate?.id || '' },
+      activeAffiliate?.id
+    );
   };
 
   const handleRegisterAffiliate = async (e: any) => {
@@ -935,9 +925,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       return;
     }
 
-    // Agent/Partner promo code is REQUIRED for affiliates
     if (portalRole !== 'partner' && !parentSuperCode.trim()) {
       alert("⚠️ Agent / Partner code is required. Please enter the promo code of the Partner who recruited you.");
+      return;
+    }
+
+    // ── REQUIRE ONLINE FOR REGISTRATION ────────────────────────────────────
+    if (!isOnline()) {
+      alert("❌ Usajili unahitaji mtandao wa intaneti.\n\nRegistration requires an internet connection. Please connect and try again.\n\nData zako hazijahifadhiwa — tafadhali jaribu tena ukiwa na mtandao.");
       return;
     }
 
@@ -1323,7 +1318,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       const client: any = await getDynamicSupabaseClient();
       await client.auth.signOut();
     } catch { /* Local cleanup still runs if the network is unavailable. */ }
-    localStorage.removeItem("jasper_logged_affiliate");
+    clearAffiliateSession(); // properly clears jasper_logged_affiliate
     setActiveAffiliate(null);
     setDatabaseWorkspaceEnabled(false);
     setDatabaseAgentWorkspaceEnabled(false);
@@ -1591,6 +1586,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       id="affiliate-portal-view"
       className="min-h-screen bg-slate-950 text-slate-100 font-sans leading-normal selection:bg-emerald-500 selection:text-slate-950 overflow-y-auto"
     >
+      {/* Offline warning banner */}
+      {!isNetworkOnline && (
+        <div className="sticky top-0 z-50 flex items-center justify-center gap-2 bg-amber-500 text-slate-950 text-xs font-bold py-2 px-4">
+          <span>⚠️</span>
+          <span>Huna mtandao — Unafanya kazi bila intaneti. Mabadiliko yatahifadhiwa na kusync ukiunganika.</span>
+          <span className="hidden sm:inline">| Offline mode — changes will sync when connected.</span>
+        </div>
+      )}
       {/* Background radial effects */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
         <div className="absolute top-10 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-emerald-500/5 blur-[80px] sm:left-1/3 sm:h-[500px] sm:w-[500px] sm:translate-x-0 sm:blur-[100px]" />
