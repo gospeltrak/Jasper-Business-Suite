@@ -1,7 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Search, Plus, Trash, CheckCircle, User } from 'lucide-react';
 import { defaultHardwareInventory, loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
-import { loadSuperAdminOverview, mapSuperAdminUsers } from '../utils/superAdminData';
+import { getDynamicSupabaseClient } from '../supabaseClient';
+
+async function loadAffiliatesForPOS(): Promise<any[]> {
+  const results: any[] = [];
+  try {
+    const client: any = await getDynamicSupabaseClient();
+    const { data } = await client.from('affiliates')
+      .select('id, display_name, promo_code, referral_code, account_type, phone_whatsapp')
+      .order('created_at', { ascending: false });
+    if (data?.length) {
+      data.forEach((aff: any) => {
+        results.push({
+          id: aff.id,
+          name: aff.display_name || aff.promo_code || aff.referral_code,
+          promoCode: aff.promo_code || aff.referral_code,
+          phone: aff.phone_whatsapp,
+          isSuper: aff.account_type === 'partner' || aff.account_type === 'super_agent',
+        });
+      });
+    }
+  } catch { /* offline */ }
+  try {
+    const local: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
+    local.forEach((aff: any) => {
+      if (!results.some(r => r.id === aff.id || r.promoCode === aff.promoCode)) {
+        results.push({ id: aff.id, name: aff.name || aff.display_name || aff.promoCode, promoCode: aff.promoCode, phone: aff.phone, isSuper: !!aff.isSuper });
+      }
+    });
+  } catch { /* ignore */ }
+  return results;
+}
+
+async function loadSubscribersForPOS(): Promise<any[]> {
+  try {
+    const client: any = await getDynamicSupabaseClient();
+    const { data } = await client.from('tenants')
+      .select('id, name')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (data?.length) return data.map((t: any) => ({ id: t.id, name: t.name, business: t.name }));
+  } catch { /* offline */ }
+  // Fallback to localStorage
+  try {
+    const local: any[] = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
+    return local.map((t: any) => ({ id: t.id, name: t.name || t.businessName, business: t.name || t.businessName }));
+  } catch { return []; }
+}
 
 export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string }) {
   const [inventory, setInventory] = useState<any[]>([]);
@@ -26,17 +72,18 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
     let alive = true;
     Promise.all([
       loadPlatformRecord<any[]>(recordType, scopeId, affiliateId ? [] : defaultHardwareInventory),
-      loadSuperAdminOverview()
-    ]).then(([items, overview]) => {
+      loadAffiliatesForPOS(),
+      loadSubscribersForPOS(),
+    ]).then(([items, affList, subList]) => {
       if (!alive) return;
       setInventory(Array.isArray(items) ? items : []);
-      setSubscribers(mapSuperAdminUsers(overview).map((user) => ({ id: user.id, name: user.name, business: user.tenantName })));
-      setAffiliates((overview.affiliates || []).map((aff: any) => ({ id: aff.id, name: aff.display_name || aff.referral_code, isSuper: true })));
+      setAffiliates(affList);
+      setSubscribers(subList);
     }).catch(() => {
       if (!alive) return;
       setInventory(affiliateId ? [] : defaultHardwareInventory);
-      setSubscribers([]);
       setAffiliates([]);
+      setSubscribers([]);
     });
     return () => { alive = false; };
   }, [recordType, scopeId, affiliateId]);
@@ -149,23 +196,33 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
       await savePlatformRecord('hardware_purchases_by_subscriber', 'global', purchases);
     }
 
-    // If super admin selling to affiliate, assign to their own hardware inventory stock
-    if (isAff && !affiliateId) {
-      const affInv = await loadPlatformRecord<any[]>('affiliate_hardware_inventory', selectedAffiliate, []);
+    // If super admin selling to affiliate ON CREDIT — add to affiliate's inventory
+    // The affiliate's POS reads from: affiliate_hardware_inventory__{affiliate.id}
+    // We must use the same ID the Partner dashboard uses as partnerId
+    if (isAff && !affiliateId && selectedAffiliate) {
+      const affRecord = affiliates.find(a => a.id === selectedAffiliate);
+      const affId = affRecord?.id || selectedAffiliate;
 
-      // Distribute cart items into affiliate's inventory
+      const affInv = await loadPlatformRecord<any[]>('affiliate_hardware_inventory', affId, []);
       cart.forEach(cartItem => {
         const existing = affInv.find((i: any) => i.id === cartItem.id);
         if (existing) {
-          existing.stock += cartItem.qty;
+          existing.stock = (existing.stock || 0) + cartItem.qty;
         } else {
-          affInv.push({
-            ...cartItem,
-            stock: cartItem.qty
-          });
+          affInv.push({ ...cartItem, stock: cartItem.qty });
         }
       });
-      await savePlatformRecord('affiliate_hardware_inventory', selectedAffiliate, affInv);
+      await savePlatformRecord('affiliate_hardware_inventory', affId, affInv);
+
+      // Also save sale as a credit record for this affiliate
+      const creditSales = await loadPlatformRecord<any[]>('affiliate_credit_sales', affId, []);
+      await savePlatformRecord('affiliate_credit_sales', affId, [{
+        ...saleRecord,
+        soldOnCredit: true,
+        affiliateId: affId,
+        affiliateName: custName,
+        creditDate: new Date().toISOString(),
+      }, ...creditSales]);
     }
 
     alert(`Checkout successful! Hardware sale recorded as ${paymentMethod}.`);
@@ -257,11 +314,18 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
                 value={selectedAffiliate}
                 onChange={(e) => setSelectedAffiliate(e.target.value)}
               >
-                <option value="">-- Select Affiliate Partner --</option>
+                <option value="">-- Select Partner / Affiliate to sell on credit --</option>
                 {affiliates.map(a => (
-                  <option key={a.id} value={a.id}>{a.name} {a.isSuper ? '(Super)' : ''}</option>
+                  <option key={a.id} value={a.id}>
+                    {a.name}{a.promoCode ? ` (${a.promoCode})` : ''} — {a.isSuper ? 'Partner' : 'Affiliate'}
+                  </option>
                 ))}
               </select>
+              {selectedAffiliate && (
+                <p className="text-[10px] text-amber-400 mt-1">
+                  ⚠️ Items sold on credit will be added to this partner/affiliate's inventory automatically
+                </p>
+              )}
             </div>
           ) : (
             <div>
