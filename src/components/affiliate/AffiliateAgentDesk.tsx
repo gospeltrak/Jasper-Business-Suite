@@ -15,7 +15,7 @@ import {
   Activity, AlertTriangle, ArrowLeft, Award, BarChart3,
   CalendarPlus, CheckCircle, ChevronRight, ClipboardPlus,
   Coins, Copy, Edit2, ExternalLink, Eye, FileText,
-  HardDrive, Info, LoaderCircle, MessageSquare, Monitor,
+  HardDrive, Info, LoaderCircle, Menu, MessageSquare, Monitor,
   RefreshCw, Send, ShieldAlert, ShieldCheck, TrendingUp,
   Users, Video, Wallet, XCircle, Zap, AlertCircle,
   Download, PhoneCall,
@@ -442,9 +442,6 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       <header style={{ background: 'linear-gradient(135deg,#0a0f1e,#0d1b2e)' }}
         className="border-b border-slate-800 px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="md:hidden p-2 bg-slate-800 rounded-lg cursor-pointer border-none text-white">
-            <Activity className="w-4 h-4" />
-          </button>
           <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center">
             <Award className="w-4 h-4 text-amber-400" />
           </div>
@@ -470,14 +467,14 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
       <div className="flex flex-1 min-h-0">
 
-        {/* Sidebar */}
-        <aside className={`${sidebarOpen ? 'block' : 'hidden'} md:flex md:flex-col w-60 border-r border-slate-800 bg-slate-900/50 flex-shrink-0 overflow-y-auto`}>
+        {/* Sidebar — desktop only */}
+        <aside className="hidden md:flex md:flex-col w-60 border-r border-slate-800 bg-slate-900/50 flex-shrink-0 overflow-y-auto">
           <nav className="p-3 space-y-0.5">
             {NAV_TABS.map(tab => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
               return (
-                <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSidebarOpen(false); }}
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                   className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer border-none ${active ? 'bg-amber-500/15 text-amber-300' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                   <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${active ? 'text-amber-400' : ''}`} />
                   <div>
@@ -497,8 +494,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           )}
         </aside>
 
-        {/* Main */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        {/* Main — add bottom padding on mobile for the nav */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-6">
           {notice && (
             <div className="flex items-center gap-2 p-3 mb-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-sm text-emerald-400">
               <CheckCircle className="w-4 h-4 shrink-0" /> {notice}
@@ -1019,6 +1016,37 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           </div>
         </div>
       )}
+
+      {/* ── MOBILE BOTTOM NAV (Partner Dashboard — md:hidden) ── */}
+      <nav className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-slate-900/95 backdrop-blur border-t border-slate-800"
+        style={{ height: 'calc(60px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="flex items-stretch h-[60px]">
+          {NAV_TABS.slice(0, 5).map(tab => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.id;
+            return (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 cursor-pointer border-none bg-transparent transition-all active:scale-90 ${active ? 'text-amber-400' : 'text-slate-500'}`}>
+                <div className={`flex items-center justify-center w-7 h-6 rounded-lg transition-all ${active ? 'bg-amber-500/15' : ''}`}>
+                  <Icon className={`w-5 h-5 ${active ? 'text-amber-400' : 'text-slate-500'}`} strokeWidth={active ? 2.5 : 1.8} />
+                </div>
+                <span className={`text-[8px] font-bold leading-none truncate max-w-[52px] ${active ? 'text-amber-400' : 'text-slate-500'}`}>
+                  {tab.label.split(' ')[0]}
+                </span>
+                {active && <span className="absolute bottom-1 w-1 h-1 rounded-full bg-amber-400" />}
+              </button>
+            );
+          })}
+          {/* More button for tabs 6-8 */}
+          <button onClick={() => setActiveTab(NAV_TABS[5]?.id || 'hw-pos')}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 cursor-pointer border-none bg-transparent transition-all ${['hw-pos','hw-inventory','conferencing'].includes(activeTab) ? 'text-amber-400' : 'text-slate-500'}`}>
+            <div className={`flex items-center justify-center w-7 h-6 rounded-lg ${['hw-pos','hw-inventory','conferencing'].includes(activeTab) ? 'bg-amber-500/15' : ''}`}>
+              <Menu className="w-5 h-5" strokeWidth={1.8} />
+            </div>
+            <span className="text-[8px] font-bold leading-none">More</span>
+          </button>
+        </div>
+      </nav>
 
     </div>
   );

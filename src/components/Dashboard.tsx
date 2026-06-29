@@ -2648,13 +2648,21 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           {/* Mobile Bottom Navigation Component */}
           <nav className="md:hidden shrink-0 z-50 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800" style={{height:'calc(56px + env(safe-area-inset-bottom))', paddingBottom:'env(safe-area-inset-bottom)', boxShadow:'0 -1px 0 rgba(0,0,0,0.05)', transform:'translateZ(0)', willChange:'transform', isolation:'isolate'}}>
             <div className="flex items-stretch h-14">
-              {([
-                { id: 'overview', label: 'Home', icon: LayoutDashboard },
-                { id: 'sales-list', label: 'Sales', icon: FileText },
-                { id: 'pos', label: 'Sell', icon: ShoppingCart, isPOS: true },
-                { id: 'products', label: 'Stock', icon: Database },
-                { id: '__more__', label: 'More', icon: Menu },
-              ] as any[]).map((tab) => {
+              {(user.role === 'SuperAdmin' ? [
+                // ── Super SaaS Admin bottom nav ──────────────────────────
+                { id: 'admin-dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
+                { id: 'admin-subscribers',  label: 'Subscribers',  icon: Users },
+                { id: 'admin-affiliates',   label: 'Affiliates',   icon: Award },
+                { id: 'admin-status',       label: 'Approvals',    icon: Activity },
+                { id: '__more__',           label: 'More',         icon: Menu },
+              ] : [
+                // ── Tenant / business user bottom nav (UNCHANGED) ────────
+                { id: 'overview',    label: 'Home',  icon: LayoutDashboard },
+                { id: 'sales-list',  label: 'Sales', icon: FileText },
+                { id: 'pos',         label: 'Sell',  icon: ShoppingCart, isPOS: true },
+                { id: 'products',    label: 'Stock', icon: Database },
+                { id: '__more__',    label: 'More',  icon: Menu },
+              ]) .map((tab: any) => {
                 const isMore = tab.id === '__more__';
                 const isActive = (!isMore && activeTab === tab.id) || (isMore && moreMenuOpen);
                 const Icon = tab.icon;
