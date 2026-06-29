@@ -26,6 +26,8 @@ import {
   createAffiliateTask,
   loadAffiliateAgentWorkspace,
 } from '../../utils/affiliateWorkspace';
+import SaaSHardwarePOS from '../SaaSHardwarePOS';
+import SaaSHardwareInventory from '../SaaSHardwareInventory';
 import {
   SubAffiliateProfile,
   ReferredCustomer,
@@ -922,32 +924,12 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
           {/* ══ HW POS ══ */}
           {activeTab === 'hw-pos' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-lg font-black text-white">Hardware POS</h2>
-                <p className="text-xs text-slate-400 mt-0.5">POS hardware orders linked to your partner network</p>
-              </div>
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl py-16 text-center space-y-3">
-                <Monitor className="w-12 h-12 text-slate-700 mx-auto" />
-                <p className="text-white font-black">No Hardware POS Orders</p>
-                <p className="text-slate-400 text-sm">Hardware orders placed through your network will appear here</p>
-              </div>
-            </div>
+            <SaaSHardwarePOS affiliateId={partnerId} />
           )}
 
           {/* ══ HW INVENTORY ══ */}
           {activeTab === 'hw-inventory' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-lg font-black text-white">Hardware Inventory</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Devices assigned through your partner network</p>
-              </div>
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl py-16 text-center space-y-3">
-                <HardDrive className="w-12 h-12 text-slate-700 mx-auto" />
-                <p className="text-white font-black">No Inventory</p>
-                <p className="text-slate-400 text-sm">Hardware devices in your network will appear here</p>
-              </div>
-            </div>
+            <SaaSHardwareInventory affiliateId={partnerId} />
           )}
 
         </main>
