@@ -205,6 +205,18 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       // /affiliate and /partner both resolve to the same shared
       // affiliate login/register flow; account type after login is
       // determined by which table the credentials actually match.
+      //
+      // ONE-TIME EXCEPTION: a single-use secret link can briefly unlock
+      // the Partner registration form to create the one Super Affiliate
+      // Agent account. This is intentionally NOT documented anywhere in
+      // the UI and is independently re-verified against the live
+      // database at submit time (see handleRegisterAffiliate) — it
+      // cannot be used to create a second Partner even if reused.
+      const setupSecret = params.get("secret_partner_setup");
+      if (setupSecret === "PHZGkpnDpuwZRFqUV-XL5peClgsQ4yl-") {
+        setPortalRole("partner");
+        setAuthMode("register");
+      }
       if (modeParam === "login" || modeParam === "register" || modeParam === "dashboard") {
         setAuthMode(modeParam as any);
       }
@@ -853,6 +865,29 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     if (portalRole !== 'partner' && !parentSuperCode.trim()) {
       alert("⚠️ Agent / Partner code is required. Please enter the promo code of the Partner who recruited you.");
       return;
+    }
+
+    // ── ONE-TIME PARTNER SETUP SAFETY CHECK ──────────────────────────────
+    // portalRole can only become 'partner' via the one-time secret unlock
+    // below (?secret_partner_setup=...). This is a second, independent
+    // check against the live database — re-verified at submit time, not
+    // just page-load — so even if the secret were somehow reused, it
+    // cannot create a second Partner account once one already exists.
+    if (portalRole === 'partner') {
+      try {
+        const client: any = await getDynamicSupabaseClient();
+        const { count } = await client
+          .from('affiliate_partners')
+          .select('id', { count: 'exact', head: true });
+        if ((count ?? 0) > 0) {
+          alert('❌ A Partner account already exists. This one-time setup link can only be used once and has now been disabled.');
+          setPortalRole('affiliate');
+          return;
+        }
+      } catch {
+        alert('❌ Could not verify partner setup eligibility. Please check your connection and try again.');
+        return;
+      }
     }
 
     // ── REQUIRE ONLINE FOR REGISTRATION ────────────────────────────────────
@@ -1605,14 +1640,19 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                 {/* Header */}
                 <div className="text-center space-y-2">
-                  <div className="inline-flex p-3 rounded-2xl border items-center justify-center mb-1 bg-emerald-500/10 border-emerald-500/20">
+                  {portalRole === 'partner' && (
+                    <div className="mb-2 px-3 py-1.5 bg-amber-500/15 border border-amber-500/30 rounded-full text-amber-400 text-[10px] font-black uppercase tracking-wider inline-block">
+                      ⚠️ One-Time Partner Setup Mode
+                    </div>
+                  )}
+                  <div className={`inline-flex p-3 rounded-2xl border items-center justify-center mb-1 ${portalRole === 'partner' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
                     <img src="/jb-logo.png" alt="Jasper" className="w-10 h-10 object-contain" />
                   </div>
                   <h2 className="text-2xl font-black text-white tracking-tight">
-                    {authMode === 'login' ? 'Affiliate Login' : 'Affiliate Portal'}
+                    {portalRole === 'partner' ? 'Create Partner Account' : (authMode === 'login' ? 'Affiliate Login' : 'Affiliate Portal')}
                   </h2>
                   <p className="text-xs text-slate-400">
-                    Sign in with your phone number and password
+                    {portalRole === 'partner' ? 'This will create the one Super Affiliate Agent account' : 'Sign in with your phone number and password'}
                   </p>
                 </div>
 
