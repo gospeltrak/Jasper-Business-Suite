@@ -1037,8 +1037,34 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       const { data: authData, error: authError } = await client.auth.signUp({
         email: authEmail,
         password,
-        options: { data: { display_name: name, is_affiliate: true } },
+        options: {
+          data: { display_name: name, is_affiliate: true },
+          // emailRedirectTo is deliberately omitted — @jasper.local is a
+          // synthetic domain that cannot receive real emails. Email
+          // confirmation must be disabled in the Supabase project settings
+          // (Authentication → Sign In / Providers → Confirm email → OFF).
+        },
       });
+
+      // If Supabase created the user but email confirmation is ON in project
+      // settings, the user will exist but be unconfirmed and unable to log in.
+      // We detect this here and immediately confirm them via the admin client
+      // so the account is instantly usable regardless of that setting.
+      if (!authError && authData?.user && !authData.user.email_confirmed_at) {
+        try {
+          const { data: adminData } = await client.auth.admin.updateUserById(
+            authData.user.id,
+            { email_confirm: true }
+          );
+          if (adminData?.user) {
+            authData.user.email_confirmed_at = adminData.user.email_confirmed_at;
+          }
+        } catch {
+          // admin API not available — depends on Supabase project plan/config.
+          // The Supabase setting must be turned OFF as the fallback.
+        }
+      }
+
       if (!authError && authData?.user) {
         let insertedRow: any = null;
 
