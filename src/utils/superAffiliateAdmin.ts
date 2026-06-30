@@ -162,8 +162,11 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
   }
 
   // ── Direct / organic affiliates (no parent) ────────────────────────────
+  // Full raw records for every non-partner affiliate (used by the edit modal).
+  // Since every affiliate must now be recruited by a Partner, this includes
+  // ALL sub-affiliates — there is no more "standalone/organic affiliate" bucket.
   const affiliateRows: SuperAffiliateRow[] = allAffiliates
-    .filter((a) => a.account_type !== 'partner' && a.account_type !== 'super_agent' && !a.parent_super_agent_id)
+    .filter((a) => a.account_type !== 'partner' && a.account_type !== 'super_agent')
     .map((a) => {
       const totals = totalsByAffiliate.get(String(a.id)) || emptyTotals();
       return {
@@ -172,7 +175,7 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
         referral_code: a.referral_code || a.promo_code || '',
         status: a.is_disabled ? 'suspended' : (a.status || 'active'),
         user_id: a.user_id,
-        affiliate_type: 'organic' as const,
+        affiliate_type: 'sub_affiliate' as const,
         parent_agent_id: a.parent_super_agent_id || null,
         phone_whatsapp: a.phone_whatsapp || null,
         nida_number: a.nida_number || null,

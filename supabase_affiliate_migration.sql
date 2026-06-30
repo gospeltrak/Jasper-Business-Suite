@@ -207,3 +207,28 @@ WHERE table_schema = 'public'
     'monthly_reconciliation','mirror_access_logs','account_status_logs'
   )
 ORDER BY table_name;
+
+-- ============================================================
+-- ENFORCE: Every affiliate must be recruited by a Partner
+-- (No more standalone/organic affiliates — only Partners are exempt)
+-- ============================================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'affiliates_require_parent_unless_partner'
+    AND conrelid = 'public.affiliates'::regclass
+  ) THEN
+    ALTER TABLE public.affiliates
+      ADD CONSTRAINT affiliates_require_parent_unless_partner
+      CHECK (
+        account_type IN ('partner', 'super_agent')
+        OR parent_super_agent_id IS NOT NULL
+      );
+  END IF;
+END $$;
+
+-- Verify
+SELECT conname, contype FROM pg_constraint
+WHERE conrelid = 'public.affiliates'::regclass AND contype = 'c';

@@ -989,23 +989,36 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       alert(
         `👑 Congratulations! You have successfully registered your Recruiting Partner network console on Jasper Africa. Start onboarding downlines right away!`,
       );
-    } else if (cleanParentCode) {
-      const parentMatch = immersiveList.find(
-        (a: any) => a.promoCode.toUpperCase() === cleanParentCode && a.isSuper,
-      );
-      if (parentMatch) {
-        parentSuperId = parentMatch.id;
-        alert(
-          `🤝 Welcome under Super Affiliate recruiter ${parentMatch.name}! You have registered under their team. You enjoy a 15% rate, and they get 5% oversight.`,
-        );
-      } else {
-        alert(
-          `⚠️ Recruiter code "${cleanParentCode}" was not found or is not active as a Super Affiliate! You have been registered as an Organic Affiliate directly with the main SaaS (15% direct commission).`,
-        );
-      }
     } else {
+      // Every affiliate MUST be recruited by a real, active Partner — no exceptions.
+      let parentMatch = immersiveList.find(
+        (a: any) => a.promoCode?.toUpperCase() === cleanParentCode && a.isSuper && !a.isDisabled,
+      );
+
+      // Also check Supabase in case the partner isn't cached in this browser's localStorage
+      if (!parentMatch) {
+        try {
+          const client: any = await getDynamicSupabaseClient();
+          const { data: dbPartner } = await client
+            .from('affiliates')
+            .select('id, display_name, promo_code, referral_code, account_type, is_disabled')
+            .or(`promo_code.eq.${cleanParentCode},referral_code.eq.${cleanParentCode}`)
+            .in('account_type', ['partner', 'super_agent'])
+            .maybeSingle();
+          if (dbPartner && !dbPartner.is_disabled) {
+            parentMatch = { id: dbPartner.id, name: dbPartner.display_name, promoCode: dbPartner.promo_code || dbPartner.referral_code };
+          }
+        } catch { /* offline — already blocked by isOnline() check above */ }
+      }
+
+      if (!parentMatch) {
+        alert(`❌ Partner code "${cleanParentCode}" was not found, is inactive, or does not belong to an active Partner.\n\nEvery affiliate must be recruited by a valid Partner. Please confirm the code with your recruiter and try again.`);
+        return;
+      }
+
+      parentSuperId = parentMatch.id;
       alert(
-        `🌿 Registered successfully as an Organic Affiliate. You are managed directly by us and get 15% direct commission.`,
+        `🤝 Welcome under Partner ${parentMatch.name}! You have registered under their team. You earn 15%, and your Partner earns 5% oversight.`,
       );
     }
 
