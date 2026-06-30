@@ -15,7 +15,7 @@ import {
   Activity, AlertTriangle, ArrowLeft, Award, BarChart3,
   CalendarPlus, CheckCircle, ChevronRight, ClipboardPlus,
   Coins, Copy, Edit2, ExternalLink, Eye, FileText,
-  HardDrive, Info, LoaderCircle, Menu, MessageSquare, Monitor,
+  HardDrive, Info, LoaderCircle, Lock, Menu, MessageSquare, Monitor,
   RefreshCw, Send, ShieldAlert, ShieldCheck, TrendingUp,
   Users, Video, Wallet, XCircle, Zap, AlertCircle,
   Download, PhoneCall,
@@ -141,6 +141,10 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const [codeSuggestions, setCodeSuggestions] = useState<string[]>([]);
 
   const savePartnerCode = async () => {
+    if (partnerInfo?.promoCodeLocked) {
+      setCodeError('Your promo code has already been changed once and is now permanently locked.');
+      return;
+    }
     const cleaned = newCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     if (!cleaned) { setCodeError('Code must contain letters or numbers only.'); return; }
     const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
@@ -158,6 +162,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     // Save to Supabase — update by user_id (auth) or id (row) in affiliate_partners
     const supabaseUserId = partnerInfo?.supabaseUserId;
     const supabaseRowId  = partnerInfo?.id;
+    let dbConfirmedLock = false;
 
     if (supabaseUserId || supabaseRowId) {
       try {
@@ -166,31 +171,44 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         const filter = supabaseUserId
           ? { column: 'user_id', value: supabaseUserId }
           : { column: 'id',      value: supabaseRowId };
-        await client.from('affiliate_partners')
-          .update({ promo_code: cleaned, referral_slug: cleaned.toLowerCase() })
-          .eq(filter.column, filter.value);
+        // Server-side guard: only updates if not already locked — prevents
+        // a second edit slipping through even if stale UI state allowed the click.
+        const { data: updatedRows } = await client.from('affiliate_partners')
+          .update({ promo_code: cleaned, referral_slug: cleaned.toLowerCase(), promo_code_locked: true })
+          .eq(filter.column, filter.value)
+          .eq('promo_code_locked', false)
+          .select('id');
+        if (updatedRows && updatedRows.length > 0) {
+          dbConfirmedLock = true;
+        } else {
+          // No row matched the "not locked" condition — someone already used the edit
+          setCodeError('Your promo code has already been changed once and is now permanently locked.');
+          return;
+        }
       } catch {
-        // Queue for later sync
+        // Queue for later sync — still locks locally so the UI reflects it immediately
         enqueueSyncItem({
           table: 'affiliate_partners',
           operation: 'update',
-          data: { promo_code: cleaned, referral_slug: cleaned.toLowerCase() },
+          data: { promo_code: cleaned, referral_slug: cleaned.toLowerCase(), promo_code_locked: true },
           filter: supabaseUserId
             ? { column: 'user_id', value: supabaseUserId }
             : { column: 'id',      value: supabaseRowId },
           accountId: partnerId,
         });
+        dbConfirmedLock = true;
       }
     }
     // Update localStorage — both stores
-    const updated = all.map((a: any) => a.id === partnerId ? { ...a, promoCode: cleaned } : a);
+    const updated = all.map((a: any) => a.id === partnerId ? { ...a, promoCode: cleaned, promoCodeLocked: true } : a);
     localStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
     const savedAff = JSON.parse(localStorage.getItem('jasper_logged_affiliate') || '{}');
     savedAff.promoCode = cleaned;
+    savedAff.promoCodeLocked = true;
     localStorage.setItem('jasper_logged_affiliate', JSON.stringify(savedAff));
     // Update React state immediately — no refresh needed
     setPartnerInfo({ ...savedAff });
-    setNotice(`✅ Partner code updated to ${cleaned}`);
+    setNotice(`✅ Partner code updated to ${cleaned}. This was your one-time edit — it is now locked.`);
     setEditingCode(false);
     setCodeError('');
     setCodeSuggestions([]);
@@ -246,7 +264,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         const client: any = await getDynamicSupabaseClient();
 
         let profile: any = null;
-        const cols = 'id, user_id, display_name, promo_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status';
+        const cols = 'id, user_id, display_name, promo_code, promo_code_locked, phone_whatsapp, payout_account, payout_method, tin_number, tin_status';
 
         // Try 1: Supabase auth session (reliable after Supabase login)
         const { data: authUser } = await client.auth.getUser();
@@ -286,6 +304,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             name: profile.display_name || partnerInfo?.name,
             promoCode: code,
             promo_code: code,
+            promoCodeLocked: !!profile.promo_code_locked,
             payoutPhone: profile.payout_account,
             paymentMethod: profile.payout_method,
           };
@@ -1102,7 +1121,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                   <div className="space-y-3">
                     <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
                       <span className="text-amber-400 shrink-0 mt-0.5">⚠️</span>
-                      <p className="text-[10px] text-amber-300 leading-relaxed">Badilisha mara moja tu. Code mpya itaathiri ufuatiliaji wa taarifa na malipo yako.</p>
+                      <p className="text-[10px] text-amber-300 leading-relaxed">Una nafasi MOJA TU ya kubadilisha code hii. Baada ya kuihifadhi, haitabadilika tena. Hakikisha umechagua code sahihi kabla ya kuhifadhi.</p>
                     </div>
                     <div className="flex gap-2">
                       <input autoFocus type="text" value={newCode}
@@ -1127,7 +1146,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                     <div className="flex gap-3">
                       <button onClick={savePartnerCode}
                         className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl cursor-pointer border-none transition-colors">
-                        Save
+                        Save (Final — One Time Only)
                       </button>
                       <button onClick={() => { setEditingCode(false); setCodeError(''); setCodeSuggestions([]); }}
                         className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl cursor-pointer border-none">
@@ -1140,17 +1159,29 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                     <div className="flex items-center gap-3 bg-slate-800 border border-amber-500/20 rounded-2xl px-5 py-4">
                       <Zap className="w-5 h-5 text-amber-400 shrink-0" />
                       <span className="flex-1 font-black text-amber-400 font-mono tracking-[0.2em] text-2xl">{liveCode || '—'}</span>
+                      {partnerInfo?.promoCodeLocked && (
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-900 border border-slate-700 px-2.5 py-1 rounded-full uppercase tracking-wider">🔒 Locked</span>
+                      )}
                     </div>
                     <div className="flex gap-3">
                       <button onClick={() => { navigator.clipboard.writeText(liveCode || partnerCode); setNotice('✅ Partner code copied!'); }}
                         className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold rounded-xl cursor-pointer flex items-center justify-center gap-2 text-sm">
                         <Copy className="w-4 h-4" /> Copy Code
                       </button>
-                      <button onClick={() => { setEditingCode(true); setNewCode(partnerCode); }}
-                        className="flex-1 py-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 font-bold rounded-xl cursor-pointer flex items-center justify-center gap-2 text-sm">
-                        <Edit2 className="w-4 h-4" /> Edit Code
-                      </button>
+                      {partnerInfo?.promoCodeLocked ? (
+                        <div className="flex-1 py-3 bg-slate-900 border border-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-2 text-sm cursor-not-allowed" title="You already used your one-time edit">
+                          <Lock className="w-4 h-4" /> Code Locked
+                        </div>
+                      ) : (
+                        <button onClick={() => { setEditingCode(true); setNewCode(partnerCode); }}
+                          className="flex-1 py-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 font-bold rounded-xl cursor-pointer flex items-center justify-center gap-2 text-sm">
+                          <Edit2 className="w-4 h-4" /> Edit Code (1 time only)
+                        </button>
+                      )}
                     </div>
+                    {!partnerInfo?.promoCodeLocked && (
+                      <p className="text-[10px] text-slate-500 text-center">You can edit this code only once. Choose carefully — system tracking depends on it.</p>
+                    )}
                   </div>
                 )}
               </div>
