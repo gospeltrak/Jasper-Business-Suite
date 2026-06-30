@@ -114,17 +114,17 @@ export default function SuperAffiliateControlCenter({ initialTab = 'organic' }: 
   if (state === 'error') return <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 text-center"><ShieldCheck className="mx-auto w-7 h-7 text-amber-400" /><h2 className="mt-3 font-bold text-white">Live Super Admin access required</h2><p className="mt-2 text-sm text-slate-400">{error}</p><button onClick={refresh} className="mt-4 px-3 py-2 bg-slate-800 rounded-md text-sm font-semibold"><RefreshCw className="inline w-4 h-4 mr-2" />Retry</button></div>;
 
   return (
-    <section className="space-y-5 text-left">
+    <section className="space-y-5 text-left pt-1">
       <header className="flex flex-col gap-3 md:flex-row md:justify-between md:items-end">
         <div>
           <p className="text-xs text-emerald-400 font-semibold">Live Supabase source tracking</p>
           <h1 className="mt-1 text-xl font-bold text-white">Super Admin Affiliates Menu</h1>
           <p className="mt-1 text-xs text-slate-400">Every affiliate is recruited by a Partner — there are no standalone affiliates. Organic subscribers, partner networks, and their sub-affiliates are tracked separately below.</p>
         </div>
-        <button onClick={refresh} className="px-3 py-2 rounded-md border border-slate-700 text-sm"><RefreshCw className="inline w-4 h-4 mr-2" />Refresh</button>
+        <button onClick={refresh} className="px-3 py-2 rounded-md border border-slate-700 text-sm shrink-0"><RefreshCw className="inline w-4 h-4 mr-2" />Refresh</button>
       </header>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-wrap gap-2.5">
         <TabButton active={activeTab === 'organic'} onClick={() => setActiveTab('organic')} label="1. Organic Subscribers" />
         <TabButton active={activeTab === 'agents'} onClick={() => setActiveTab('agents')} label="2. Affiliate Agents (Partners)" />
         <TabButton active={activeTab === 'subAffiliates'} onClick={() => setActiveTab('subAffiliates')} label="3. Sub-Affiliates" />
@@ -258,8 +258,28 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit }: { rows: SubAffi
   );
 }
 
-function TabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) { return <button onClick={onClick} className={`shrink-0 px-4 py-2 rounded-lg text-xs font-bold border ${active ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-600'}`}>{label}</button>; }
-function Metric({ label, value }: { label: string; value: string }) { return <div className="bg-slate-900 border border-slate-800 rounded-lg p-4"><span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">{label}</span><strong className="block mt-1 text-lg text-white">{value}</strong></div>; }
+function TabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition-colors whitespace-nowrap ${
+        active
+          ? 'bg-emerald-600 text-white border-emerald-500'
+          : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-600 hover:text-white'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+      <span className="text-xs uppercase tracking-wider text-slate-400 font-bold">{label}</span>
+      <strong className="block mt-1.5 text-xl text-white">{value}</strong>
+    </div>
+  );
+}
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) { return <label className="block text-sm">{label}<input value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2" /></label>; }
 function EmptyCard({ text }: { text: string }) { return <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 text-center text-sm text-slate-500">{text}</div>; }
 function Card({ title, meta, stats }: { key?: string; title: string; meta: string; stats: Array<[string, string | number]> }) { return <article className="bg-slate-900 border border-slate-800 p-4 rounded-lg"><b>{title}</b><p className="text-xs text-slate-500 mt-1">{meta}</p><div className="mt-4 grid grid-cols-2 gap-3 text-xs">{stats.map(([label, value]) => <p key={label} className="text-slate-400">{label}<strong className="block text-white text-sm">{value}</strong></p>)}</div></article>; }
