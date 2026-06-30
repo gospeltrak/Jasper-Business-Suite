@@ -2246,7 +2246,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <button
                       type="button"
                       onClick={() => {
-                        const code = prompt('Enter coupon promo code (e.g. SARAH_JASPER):');
+                        const code = prompt('Enter coupon promo code (e.g. JASPER):');
                         if (code) setAffiliateCode(code);
                       }}
                       className="text-[9.5px] font-bold text-emerald-700 hover:underline bg-transparent border-none cursor-pointer"

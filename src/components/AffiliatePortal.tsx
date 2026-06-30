@@ -472,7 +472,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [mirroredStoreStatus, setMirroredStoreStatus] = useState("Paid");
   const [mirroredStoreCharge, setMirroredStoreCharge] = useState(35000);
 
-  // Generate beautiful pre-populated simulation stats for demo portfolios
+  // Click counter — real data only, no demo fallback
   const [clicksCount, setClicksCount] = useState<number>(() => {
     try {
       const cached = localStorage.getItem("jasper_logged_affiliate");
@@ -484,60 +484,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         if (savedClicks !== null) {
           return Number(savedClicks);
         }
-        if (code.toUpperCase() === "SARAH_JASPER") return 148;
-        if (code.toUpperCase() === "LANGA") return 325;
-        return 0;
       }
     } catch (e) {
       console.error(e);
     }
-    return 148; // Default fallback for unlogged or guest view
+    return 0;
   });
   const [claimsReloader, setClaimsReloader] = useState(0);
   const [subscribers, setSubscribers] = useState(() => {
-    const defaultSubs = [
-      {
-        id: "1",
-        storeName: "Kariakoo Glassware Ltd",
-        registeredAt: "2026-05-10",
-        tier: "Diamond",
-        status: "Paid",
-        charge: 35000,
-        commission: 5250,
-        affiliateCode: "SARAH_JASPER",
-      },
-      {
-        id: "2",
-        storeName: "Kisumu Chemists Shop",
-        registeredAt: "2026-05-18",
-        tier: "Ruby",
-        status: "Paid",
-        charge: 20000,
-        commission: 3000,
-        affiliateCode: "SARAH_JASPER",
-      },
-      {
-        id: "3",
-        storeName: "Mwenge Food Court",
-        registeredAt: "2026-05-22",
-        tier: "Tanzanite",
-        status: "Paid",
-        charge: 50000,
-        commission: 7500,
-        affiliateCode: "SARAH_JASPER",
-      },
-      {
-        id: "4",
-        storeName: "Arusha Highlands Lodge",
-        registeredAt: "2026-05-23",
-        tier: "trial",
-        status: "Active Trial",
-        charge: 0,
-        commission: 0,
-        affiliateCode: "SARAH_JASPER",
-      },
-    ];
-
     try {
       const referralLedger = JSON.parse(localStorage.getItem("jasper_referral_ledger") || "[]");
       const mappedLedger = referralLedger.map((r: any) => ({
@@ -550,9 +504,9 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         commission: r.commission || 0,
         affiliateCode: r.affiliateCode,
       }));
-      return [...defaultSubs, ...mappedLedger];
+      return mappedLedger;
     } catch (e) {
-      return defaultSubs;
+      return [];
     }
   });
 
@@ -4545,7 +4499,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             downloadCreative(
                               `Jasper ${sspMatch ? "SSP " + sspMatch.title : activeCreativeTab} Ad banner`,
                               sizeStr,
-                              activeAffiliate?.promoCode || "SARAH_JASPER",
+                              activeAffiliate?.promoCode || "",
                             );
                           }}
                           className="py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-bold flex items-center justify-center space-x-1 cursor-pointer transition-colors"
@@ -4732,7 +4686,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                         // Register in Global Referral Tracker ledger so it loads inside Super SaaS Admin too!
                         const promoToken =
-                          activeAffiliate?.promoCode || "SARAH_JASPER";
+                          activeAffiliate?.promoCode || "";
                         const referralLedger = JSON.parse(
                           localStorage.getItem("jasper_referral_ledger") ||
                             "[]",
@@ -4823,9 +4777,9 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         const newClaim = {
                           id: "CLM-" + Math.floor(Math.random() * 1000000),
                           affiliateId: activeAffiliate?.id || "unknown",
-                          affiliateName: activeAffiliate?.name || "Sarah",
+                          affiliateName: activeAffiliate?.name || "Unknown Affiliate",
                           affiliateEmail: activeAffiliate?.email || "",
-                          affiliatePromo: activeAffiliate?.promoCode || "SARAH",
+                          affiliatePromo: activeAffiliate?.promoCode || "",
                           parentSuperId: targetSuperMatch || null,
                           category,
                           message: claimMessage,
