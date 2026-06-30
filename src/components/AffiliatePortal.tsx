@@ -117,8 +117,9 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [loginPassword, setLoginPassword] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [portalRole, setPortalRole] = useState<"affiliate" | "partner">(
-    "affiliate",
+    forcedRole ?? "affiliate",
   );
+  const [isPartnerSetupMode, setIsPartnerSetupMode] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
@@ -215,6 +216,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       const setupSecret = params.get("secret_partner_setup");
       if (setupSecret === "PHZGkpnDpuwZRFqUV-XL5peClgsQ4yl-") {
         setPortalRole("partner");
+        setIsPartnerSetupMode(true);
         setAuthMode("register");
       }
       if (modeParam === "login" || modeParam === "register" || modeParam === "dashboard") {
@@ -1640,7 +1642,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                 {/* Header */}
                 <div className="text-center space-y-2">
-                  {portalRole === 'partner' && (
+                  {isPartnerSetupMode && (
                     <div className="mb-2 px-3 py-1.5 bg-amber-500/15 border border-amber-500/30 rounded-full text-amber-400 text-[10px] font-black uppercase tracking-wider inline-block">
                       ⚠️ One-Time Partner Setup Mode
                     </div>
@@ -1649,10 +1651,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     <img src="/jb-logo.png" alt="Jasper" className="w-10 h-10 object-contain" />
                   </div>
                   <h2 className="text-2xl font-black text-white tracking-tight">
-                    {portalRole === 'partner' ? 'Create Partner Account' : (authMode === 'login' ? 'Affiliate Login' : 'Affiliate Portal')}
+                    {isPartnerSetupMode ? 'Create Partner Account' : (portalRole === 'partner' ? 'Partner Login' : (authMode === 'login' ? 'Affiliate Login' : 'Affiliate Portal'))}
                   </h2>
                   <p className="text-xs text-slate-400">
-                    {portalRole === 'partner' ? 'This will create the one Super Affiliate Agent account' : 'Sign in with your phone number and password'}
+                    {isPartnerSetupMode ? 'This will create the one Super Affiliate Agent account' : (portalRole === 'partner' ? 'Sign in to your Super Affiliate Agent dashboard' : 'Sign in with your phone number and password')}
                   </p>
                 </div>
 
@@ -1669,7 +1671,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         placeholder="e.g. +255 712 345 678"
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
-                        className="w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3.5 text-sm font-mono focus:ring-0 border-slate-700 focus:border-emerald-500"
+                        className={`w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3.5 text-sm font-mono focus:ring-0 border-slate-700 ${portalRole === 'partner' ? 'focus:border-amber-500' : 'focus:border-emerald-500'}`}
                       />
                     </div>
 
@@ -1684,7 +1686,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           placeholder="••••••••"
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
-                          className="w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3.5 pr-11 text-sm focus:ring-0 border-slate-700 focus:border-emerald-500"
+                          className={`w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3.5 pr-11 text-sm focus:ring-0 border-slate-700 ${portalRole === 'partner' ? 'focus:border-amber-500' : 'focus:border-emerald-500'}`}
                         />
                         <button type="button" onClick={() => setShowLoginPassword(p => !p)}
                           className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer">
@@ -1694,20 +1696,24 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     </div>
 
                     <button type="submit"
-                      className="w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950">
+                      className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-2 text-slate-950 ${portalRole === 'partner' ? 'bg-amber-500 hover:bg-amber-400' : 'bg-emerald-500 hover:bg-emerald-400'}`}>
                       Sign In <ArrowRight className="w-4 h-4" />
                     </button>
 
-                    {/* Become an affiliate link */}
-                    <div className="text-center pt-2 border-t border-slate-800">
-                      <p className="text-xs text-slate-500">
-                        Don't have an affiliate account?
-                      </p>
-                      <button type="button" onClick={() => setAuthMode('register')}
-                        className="text-xs font-bold mt-1 cursor-pointer bg-transparent border-none text-emerald-400 hover:text-emerald-300">
-                        Become an Affiliate →
-                      </button>
-                    </div>
+                    {/* Become an affiliate link — hidden on the Partner login, since that
+                        portal is for the single Super Affiliate Agent signing in, not
+                        public registration */}
+                    {portalRole !== 'partner' && (
+                      <div className="text-center pt-2 border-t border-slate-800">
+                        <p className="text-xs text-slate-500">
+                          Don't have an affiliate account?
+                        </p>
+                        <button type="button" onClick={() => setAuthMode('register')}
+                          className="text-xs font-bold mt-1 cursor-pointer bg-transparent border-none text-emerald-400 hover:text-emerald-300">
+                          Become an Affiliate →
+                        </button>
+                      </div>
+                    )}
                   </form>
                 ) : portalRole === 'partner' && getPartnersCount() >= getPartnerCapacity() ? (
                   /* PARTNER CAPACITY REACHED */

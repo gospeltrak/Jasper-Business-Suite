@@ -264,11 +264,11 @@ export default function App() {
 
     if (currentPath === '/affiliate' || currentPath.startsWith('/affiliate/')) {
       if (!splashShownRef.current) { splashShownRef.current = true; setShowSplash(true); }
-      return <AffiliatePortal onNavigate={navigateTo} />;
+      return <AffiliatePortal onNavigate={navigateTo} forcedRole="affiliate" />;
     }
     if (currentPath === '/partner' || currentPath.startsWith('/partner/')) {
       if (!splashShownRef.current) { splashShownRef.current = true; setShowSplash(true); }
-      return <AffiliatePortal onNavigate={navigateTo} />;
+      return <AffiliatePortal onNavigate={navigateTo} forcedRole="partner" />;
     }
 
     if (isDashboardRoute(currentPath)) {
