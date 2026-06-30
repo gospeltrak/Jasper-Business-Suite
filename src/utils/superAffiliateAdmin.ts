@@ -109,156 +109,160 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
   const { data: user } = await client.auth.getUser();
   if (!user?.user) throw new Error('A Supabase-authenticated Super Admin account is required for live affiliate data.');
 
-  const [affiliates, commissions, referrals, payouts, sourceRows, users, tenants, agentProfiles] = await Promise.all([
-    client.from('affiliates').select('id, user_id, display_name, referral_code, status, affiliate_type, parent_agent_id, phone_whatsapp, nida_number, tin_number, payout_method, payout_account, mobile_money_number, mobile_money_provider, promo_code, referral_link').order('created_at', { ascending: false }),
-    client.from('affiliate_commissions').select('affiliate_id, account_type, gross_revenue, gross_commission, withholding_tax, net_payout, payout_status'),
-    client.from('affiliate_referrals').select('affiliate_id, agent_id, sub_affiliate_id, revenue_generated'),
-    client.from('affiliate_payouts').select('affiliate_id, amount, status'),
-    client.from('subscriber_source_tracking').select('*').order('created_at', { ascending: false }).limit(2000),
-    client.from('users').select('id, tenant_id, name, email, phone, username_phone, is_active'),
+  // Single source of truth: the 'affiliates' table (this is what registration writes to).
+  // Tables like affiliate_agents / affiliate_commissions / affiliate_referrals /
+  // affiliate_payouts / subscriber_source_tracking are not part of the current
+  // schema, so we no longer query them — doing so silently broke this function
+  // whenever those tables didn't exist.
+  const [affiliatesRes, tenantsRes, referredCustomersRes, commissionLedgerRes] = await Promise.all([
+    client.from('affiliates').select('id, user_id, display_name, referral_code, promo_code, status, account_type, parent_super_agent_id, phone_whatsapp, nida_number, tin_number, tin_status, payout_method, payout_account, total_revenue, gross_commission, withholding_tax, net_payout, customers_count, is_disabled, created_at').order('created_at', { ascending: false }),
     client.from('tenants').select('id, name, business_settings, company_settings, subscription_plan, created_at'),
-    client.from('affiliate_agents').select('*'),
+    client.from('referred_customers').select('affiliate_id, sub_affiliate_id, parent_super_agent_id, amount_paid, commission_amount, payment_status, created_at'),
+    client.from('commission_ledger').select('affiliate_id, sub_affiliate_id, parent_super_agent_id, revenue_amount, manager_commission_5, sub_affiliate_gross_commission_15, withholding_tax_amount, sub_affiliate_net_payout, status'),
   ]);
 
-  const failed = [affiliates, commissions, referrals, payouts, sourceRows, users, tenants, agentProfiles].find((result: any) => result.error);
+  const failed = [affiliatesRes, tenantsRes].find((result: any) => result.error);
   if (failed?.error) throw failed.error;
 
-  const userById = new Map((users.data || []).map((row: any) => [String(row.id), row]));
-  const tenantById = new Map((tenants.data || []).map((row: any) => [String(row.id), row]));
-  const agentProfileByUser = new Map((agentProfiles.data || []).map((row: any) => [String(row.user_id), row]));
+  const allAffiliates: any[] = affiliatesRes.data || [];
+  const tenantById = new Map((tenantsRes.data || []).map((row: any) => [String(row.id), row]));
+  const referredCustomers: any[] = referredCustomersRes.data || [];
+  const commissionRows: any[] = commissionLedgerRes.data || [];
 
-  const emptyAffiliateTotals = () => ({ grossRevenue: 0, grossCommission: 0, withholdingTax: 0, netPayout: 0, referrals: 0, payouts: 0, payoutStatus: 'pending' });
-  const byAffiliate = new Map<string, ReturnType<typeof emptyAffiliateTotals>>();
-  for (const item of commissions.data || []) {
-    const row = byAffiliate.get(item.affiliate_id) || emptyAffiliateTotals();
-    row.grossRevenue += numberValue(item.gross_revenue);
-    row.grossCommission += numberValue(item.gross_commission);
-    row.withholdingTax += numberValue(item.withholding_tax);
-    row.netPayout += numberValue(item.net_payout);
-    row.payoutStatus = item.payout_status || row.payoutStatus;
-    byAffiliate.set(item.affiliate_id, row);
-  }
-  for (const item of referrals.data || []) {
-    const row = byAffiliate.get(item.affiliate_id) || emptyAffiliateTotals();
-    row.referrals += 1;
-    if (!row.grossRevenue && numberValue(item.revenue_generated) > 0) {
-      row.grossRevenue += numberValue(item.revenue_generated);
-      row.grossCommission = row.grossRevenue * 0.15;
-      // Always calculate WHT amount (5% of gross commission) for display
-      row.withholdingTax = row.grossCommission * 0.05;
-      // Net payout = gross commission (WHT not yet deducted until activated)
-      row.netPayout = row.grossCommission;
+  // Index affiliates by their own id, for fast parent lookups
+  const affiliateById = new Map(allAffiliates.map((a) => [String(a.id), a]));
+
+  // Totals per affiliate, derived from commission_ledger (the real ledger we write to)
+  const totalsByAffiliate = new Map<string, { revenue: number; gross: number; wht: number; net: number; customers: number }>();
+  const emptyTotals = () => ({ revenue: 0, gross: 0, wht: 0, net: 0, customers: 0 });
+
+  for (const row of commissionRows) {
+    const key = String(row.sub_affiliate_id || row.affiliate_id);
+    const t = totalsByAffiliate.get(key) || emptyTotals();
+    t.revenue += numberValue(row.revenue_amount);
+    t.gross += numberValue(row.sub_affiliate_gross_commission_15);
+    t.wht += numberValue(row.withholding_tax_amount);
+    t.net += numberValue(row.sub_affiliate_net_payout);
+    totalsByAffiliate.set(key, t);
+
+    // Also credit the parent partner's manager commission
+    if (row.parent_super_agent_id) {
+      const pKey = String(row.parent_super_agent_id);
+      const pt = totalsByAffiliate.get(pKey) || emptyTotals();
+      pt.revenue += numberValue(row.revenue_amount);
+      pt.gross += numberValue(row.manager_commission_5); // partner earns the 5% cut
+      totalsByAffiliate.set(pKey, pt);
     }
-    byAffiliate.set(item.affiliate_id, row);
   }
-  for (const item of payouts.data || []) {
-    const row = byAffiliate.get(item.affiliate_id) || emptyAffiliateTotals();
-    row.payouts += numberValue(item.amount);
-    row.payoutStatus = item.status || row.payoutStatus;
-    byAffiliate.set(item.affiliate_id, row);
+  for (const row of referredCustomers) {
+    const key = String(row.sub_affiliate_id || row.affiliate_id);
+    const t = totalsByAffiliate.get(key) || emptyTotals();
+    t.customers += 1;
+    totalsByAffiliate.set(key, t);
   }
 
-  const affiliateRows: SuperAffiliateRow[] = (affiliates.data || []).map((affiliate: any) => ({
-    ...affiliate,
-    affiliate_type: affiliate.affiliate_type || 'organic',
-    promo_code: affiliate.promo_code || affiliate.referral_code,
-    referral_link: affiliate.referral_link || `/signup?ref=${String(affiliate.referral_code || '').toLowerCase()}`,
-    ...(byAffiliate.get(affiliate.id) || emptyAffiliateTotals())
-  }));
-
-  const sourceData = sourceRows.data || [];
-  const organicSubscribers = sourceData
-    .filter((row: any) => row.source_type === 'organic')
-    .map((row: any) => {
-      const subscriber = userById.get(String(row.subscriber_user_id)) as any;
-      const tenant = tenantById.get(String(row.tenant_id)) as any;
+  // ── Direct / organic affiliates (no parent) ────────────────────────────
+  const affiliateRows: SuperAffiliateRow[] = allAffiliates
+    .filter((a) => a.account_type !== 'partner' && a.account_type !== 'super_agent' && !a.parent_super_agent_id)
+    .map((a) => {
+      const totals = totalsByAffiliate.get(String(a.id)) || emptyTotals();
       return {
-        id: String(row.id),
-        subscriberUserId: String(row.subscriber_user_id || ''),
-        subscriberName: subscriber?.name || subscriber?.email || 'Subscriber',
-        phone: subscriber?.phone || subscriber?.username_phone || '',
-        tenantName: tenant?.name || 'No tenant',
-        subscriptionPackage: packageName(tenant),
-        registrationDate: dateValue(row.created_at),
-        sourceType: row.source_type,
-        revenue: numberValue(row.revenue_generated),
-        status: subscriber?.is_active === false ? 'inactive' : 'active',
+        id: a.id,
+        display_name: a.display_name,
+        referral_code: a.referral_code || a.promo_code || '',
+        status: a.is_disabled ? 'suspended' : (a.status || 'active'),
+        user_id: a.user_id,
+        affiliate_type: 'organic' as const,
+        parent_agent_id: a.parent_super_agent_id || null,
+        phone_whatsapp: a.phone_whatsapp || null,
+        nida_number: a.nida_number || null,
+        tin_number: a.tin_number || null,
+        payout_method: a.payout_method || null,
+        payout_account: a.payout_account || null,
+        mobile_money_number: a.payout_account || null,
+        mobile_money_provider: a.payout_method || null,
+        promo_code: a.promo_code || a.referral_code || null,
+        referral_link: null,
+        grossRevenue: totals.revenue || numberValue(a.total_revenue),
+        grossCommission: totals.gross || numberValue(a.gross_commission),
+        withholdingTax: totals.wht || numberValue(a.withholding_tax),
+        netPayout: totals.net || numberValue(a.net_payout),
+        referrals: totals.customers,
+        payouts: 0,
+        payoutStatus: 'pending',
       };
     });
 
-  const sourceBySubAffiliate = new Map<string, any[]>();
-  const sourceByAgent = new Map<string, any[]>();
-  for (const row of sourceData) {
-    if (row.sub_affiliate_id) sourceBySubAffiliate.set(String(row.sub_affiliate_id), [...(sourceBySubAffiliate.get(String(row.sub_affiliate_id)) || []), row]);
-    if (row.agent_id) sourceByAgent.set(String(row.agent_id), [...(sourceByAgent.get(String(row.agent_id)) || []), row]);
-  }
-
-  const subAffiliates = affiliateRows
-    .filter((affiliate) => affiliate.affiliate_type === 'sub_affiliate' && affiliate.parent_agent_id)
-    .map((affiliate) => {
-      const parentAgent = affiliate.parent_agent_id ? userById.get(affiliate.parent_agent_id) as any : null;
-      const parentProfile = affiliate.parent_agent_id ? agentProfileByUser.get(affiliate.parent_agent_id) as any : null;
-      const sources = sourceBySubAffiliate.get(affiliate.id) || [];
-      const revenue = sources.reduce((sum, row) => sum + numberValue(row.revenue_generated), affiliate.grossRevenue || 0);
-      const commission = revenue * 0.15;
-      const withholdingTax = commission * 0.05; // always calculate for display
+  // ── Sub-affiliates (have a parent_super_agent_id) ──────────────────────
+  const subAffiliates = allAffiliates
+    .filter((a) => a.parent_super_agent_id)
+    .map((a) => {
+      const totals = totalsByAffiliate.get(String(a.id)) || emptyTotals();
+      const parent = affiliateById.get(String(a.parent_super_agent_id));
       return {
-        id: affiliate.id,
-        userId: affiliate.user_id,
-        name: affiliate.display_name,
-        parentAgentId: affiliate.parent_agent_id || '',
-        parentAgentName: parentProfile?.display_name || parentAgent?.name || parentAgent?.email || 'Agent',
-        parentAgentCode: parentProfile?.agent_code || '',
-        phone: affiliate.phone_whatsapp || affiliate.payout_account || '',
-        promoCode: affiliate.promo_code || affiliate.referral_code,
-        referralLink: affiliate.referral_link || '',
-        subscribers: sources.length || affiliate.referrals,
+        id: a.id,
+        userId: a.user_id,
+        name: a.display_name,
+        parentAgentId: a.parent_super_agent_id,
+        parentAgentName: parent?.display_name || 'Partner',
+        parentAgentCode: parent?.promo_code || parent?.referral_code || '',
+        phone: a.phone_whatsapp || '',
+        promoCode: a.promo_code || a.referral_code,
+        referralLink: '',
+        subscribers: totals.customers,
+        revenue: totals.revenue || numberValue(a.total_revenue),
+        commission: totals.gross || numberValue(a.gross_commission),
+        withholdingTax: totals.wht || numberValue(a.withholding_tax),
+        netPayout: totals.net || numberValue(a.net_payout),
+        mobileMoneyNumber: a.payout_account || '',
+        mobileMoneyProvider: a.payout_method || '',
+        payoutStatus: 'pending',
+        status: a.is_disabled ? 'suspended' : (a.status || 'active'),
+        tinStatus: a.tin_status || 'not_submitted',
+      };
+    });
+
+  // ── Partners / Super Agents — derived from affiliates table directly ──
+  const agents = allAffiliates
+    .filter((a) => a.account_type === 'partner' || a.account_type === 'super_agent')
+    .map((a) => {
+      const totals = totalsByAffiliate.get(String(a.id)) || emptyTotals();
+      const networkSubs = subAffiliates.filter((s) => s.parentAgentId === a.id);
+      const revenue = totals.revenue || networkSubs.reduce((sum, s) => sum + s.revenue, 0);
+      const agentCut = totals.gross || revenue * 0.05;
+      return {
+        agentId: a.id,
+        agentName: a.display_name,
+        phone: a.phone_whatsapp || '',
+        agentCode: a.promo_code || a.referral_code || '',
+        agentLink: '',
+        mobileMoneyNumber: a.payout_account || '',
+        mobileMoneyProvider: a.payout_method || '',
+        status: a.is_disabled ? 'suspended' : (a.status || 'active'),
+        subAffiliates: networkSubs.length,
+        subscribers: totals.customers,
         revenue,
-        commission,
-        withholdingTax,
-        netPayout: commission, // full commission — WHT not yet deducted
-        mobileMoneyNumber: affiliate.mobile_money_number || affiliate.payout_account || '',
-        mobileMoneyProvider: affiliate.mobile_money_provider || affiliate.payout_method || '',
-        payoutStatus: affiliate.payoutStatus,
-        status: affiliate.status,
+        poolTotal: revenue * 0.20,
+        agentCut,
+        subAffiliatePool: revenue * 0.15,
+        withholdingTax: agentCut * 0.05,
+        netPayout: agentCut,
       };
     });
 
-  const agentIds = new Set<string>();
-  subAffiliates.forEach((row) => row.parentAgentId && agentIds.add(row.parentAgentId));
-  (agentProfiles.data || []).forEach((row: any) => agentIds.add(String(row.user_id)));
-
-  const agents = Array.from(agentIds).map((agentId) => {
-    const agentUser = userById.get(agentId) as any;
-    const profile = agentProfileByUser.get(agentId) as any;
-    const networkSources = sourceByAgent.get(agentId) || [];
-    const networkSubs = subAffiliates.filter((row) => row.parentAgentId === agentId);
-    const revenue = networkSources.reduce((sum, row) => sum + numberValue(row.revenue_generated), networkSubs.reduce((sum, row) => sum + row.revenue, 0));
-    const agentCut = revenue * 0.05;
-    const withholdingTax = agentCut * 0.05;
-    return {
-      agentId,
-      agentName: profile?.display_name || agentUser?.name || agentUser?.email || 'Agent',
-      phone: profile?.phone_whatsapp || agentUser?.phone || agentUser?.username_phone || '',
-      agentCode: profile?.agent_code || '',
-      agentLink: profile?.agent_link || '',
-      mobileMoneyNumber: profile?.mobile_money_number || agentUser?.phone || '',
-      mobileMoneyProvider: profile?.mobile_money_provider || '',
-      status: profile?.status || (agentUser?.is_active === false ? 'suspended' : 'active'),
-      subAffiliates: networkSubs.length,
-      subscribers: networkSources.length,
-      revenue,
-      poolTotal: revenue * 0.20,
-      agentCut,
-      subAffiliatePool: revenue * 0.15,
-      withholdingTax,
-      netPayout: agentCut - withholdingTax,
-    };
-  });
+  // ── Organic subscribers (tenants not tied to any affiliate) ────────────
+  const referredTenantIds = new Set(referredCustomers.map((r: any) => r.customer_id).filter(Boolean));
+  const organicSubscribers = (tenantsRes.data || [])
+    .filter((t: any) => !referredTenantIds.has(t.id))
+    .map((t: any) => ({
+      id: t.id,
+      name: t.name,
+      plan: t.subscription_plan || 'trial',
+      createdAt: t.created_at,
+    }));
 
   return mergeLocalStorageAffiliates({ affiliates: affiliateRows, organicSubscribers, agents, subAffiliates });
 }
-
 /** Merge localStorage immersive affiliates into monitoring data when DB is empty */
 function mergeLocalStorageAffiliates(data: AffiliateMonitoringData): AffiliateMonitoringData {
   try {
