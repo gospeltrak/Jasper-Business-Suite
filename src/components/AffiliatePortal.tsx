@@ -904,13 +904,23 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     setPromoError(null);
     setPromoSuggestions([]);
 
-    // Save to Supabase — queues automatically if offline, syncs when online
-    await dbWrite('affiliates',
-      'update',
-      { promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() },
-      { column: 'id', value: activeAffiliate?.id || '' },
-      activeAffiliate?.id
-    );
+    // Save to Supabase — partners live in affiliate_partners, everyone else in affiliates.
+    // Queues automatically if offline, syncs when online.
+    if (activeAffiliate?.isSuper) {
+      await dbWrite('affiliate_partners',
+        'update',
+        { promo_code: cleaned, referral_slug: cleaned.toLowerCase() },
+        { column: 'id', value: activeAffiliate?.id || '' },
+        activeAffiliate?.id
+      );
+    } else {
+      await dbWrite('affiliates',
+        'update',
+        { promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() },
+        { column: 'id', value: activeAffiliate?.id || '' },
+        activeAffiliate?.id
+      );
+    }
   };
 
   const handleRegisterAffiliate = async (e: any) => {
