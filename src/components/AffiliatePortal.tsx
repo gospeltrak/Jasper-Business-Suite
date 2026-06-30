@@ -117,7 +117,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [loginPassword, setLoginPassword] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [portalRole, setPortalRole] = useState<"affiliate" | "partner">(
-    forcedRole ?? "affiliate",
+    "affiliate",
   );
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -196,14 +196,15 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       setTutorialAssignments([]);
     }
     
-    // Parse URL query arguments to support separate pathway links
+    // Parse URL query arguments to support deep links into login/register
     try {
       const params = new URLSearchParams(window.location.search);
-      const roleParam = params.get("role");
       const modeParam = params.get("mode");
-      if (!forcedRole && (roleParam === "partner" || roleParam === "affiliate")) {
-        setPortalRole(roleParam);
-      }
+      // Note: the ?role=partner query param is intentionally no longer
+      // honored — partner registration is not publicly available.
+      // /affiliate and /partner both resolve to the same shared
+      // affiliate login/register flow; account type after login is
+      // determined by which table the credentials actually match.
       if (modeParam === "login" || modeParam === "register" || modeParam === "dashboard") {
         setAuthMode(modeParam as any);
       }
@@ -1116,25 +1117,32 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       }
 
       {
-        // ── Supabase login success — query the correct table based on portal ──
+        // ── Supabase login success — auto-detect account type ──────────
+        // Both /affiliate and /partner now share this one login form.
+        // Check affiliate_partners first (there is only ever one Super
+        // Affiliate Agent), then fall back to affiliates. Whichever
+        // table actually has a row for this user_id determines which
+        // dashboard opens — this is no longer driven by which URL the
+        // person visited.
         let profile: any = null;
         let isPartnerAccount = false;
 
-        if (portalRole === 'partner') {
-          const { data } = await client
-            .from('affiliate_partners')
-            .select('id, user_id, display_name, promo_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, nida_number, is_disabled')
-            .eq('user_id', authData.user.id)
-            .maybeSingle();
-          profile = data;
-          isPartnerAccount = !!profile;
+        const { data: partnerData } = await client
+          .from('affiliate_partners')
+          .select('id, user_id, display_name, promo_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, nida_number, is_disabled')
+          .eq('user_id', authData.user.id)
+          .maybeSingle();
+
+        if (partnerData) {
+          profile = partnerData;
+          isPartnerAccount = true;
         } else {
-          const { data } = await client
+          const { data: affiliateData } = await client
             .from('affiliates')
             .select('id, user_id, display_name, referral_code, promo_code, parent_super_agent_id, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, nida_number, is_disabled')
             .eq('user_id', authData.user.id)
             .maybeSingle();
-          profile = data;
+          profile = affiliateData;
         }
 
         if (profile) {
@@ -1174,9 +1182,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       return;
     }
 
-    // If we reach here, Supabase responded but no matching profile was found
-    // for this account in the expected table (partner vs affiliate).
-    alert('❌ Akaunti hii haikupatikana kwa aina hii ya usajili.\n\nThis account was not found for this login type. Please confirm you are using the correct portal (Partner or Affiliate) and try again.');
+    // If we reach here, Supabase authenticated the password successfully
+    // but no matching affiliate_partners or affiliates row was found for
+    // this account.
+    alert('❌ Akaunti hii haikupatikana.\n\nThis account could not be found. Please confirm your phone number and password, or register a new affiliate account.');
   };
 
   const handleLogoutAffiliate = async () => {
@@ -1596,16 +1605,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                 {/* Header */}
                 <div className="text-center space-y-2">
-                  <div className={`inline-flex p-3 rounded-2xl border items-center justify-center mb-1 ${portalRole === 'partner' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
+                  <div className="inline-flex p-3 rounded-2xl border items-center justify-center mb-1 bg-emerald-500/10 border-emerald-500/20">
                     <img src="/jb-logo.png" alt="Jasper" className="w-10 h-10 object-contain" />
                   </div>
                   <h2 className="text-2xl font-black text-white tracking-tight">
-                    {portalRole === 'partner' ? 'Partner Portal' : 'Affiliate Portal'}
+                    {authMode === 'login' ? 'Affiliate Login' : 'Affiliate Portal'}
                   </h2>
                   <p className="text-xs text-slate-400">
-                    {portalRole === 'partner'
-                      ? 'Sign in to your Super Affiliate Agent account'
-                      : 'Sign in to your Affiliate account'}
+                    Sign in with your phone number and password
                   </p>
                 </div>
 
@@ -1622,7 +1629,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         placeholder="e.g. +255 712 345 678"
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
-                        className={`w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3.5 text-sm font-mono focus:ring-0 ${portalRole === 'partner' ? 'border-slate-700 focus:border-amber-500' : 'border-slate-700 focus:border-emerald-500'}`}
+                        className="w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3.5 text-sm font-mono focus:ring-0 border-slate-700 focus:border-emerald-500"
                       />
                     </div>
 
@@ -1637,7 +1644,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           placeholder="••••••••"
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
-                          className={`w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3.5 pr-11 text-sm focus:ring-0 ${portalRole === 'partner' ? 'border-slate-700 focus:border-amber-500' : 'border-slate-700 focus:border-emerald-500'}`}
+                          className="w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3.5 pr-11 text-sm focus:ring-0 border-slate-700 focus:border-emerald-500"
                         />
                         <button type="button" onClick={() => setShowLoginPassword(p => !p)}
                           className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer">
@@ -1647,18 +1654,18 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     </div>
 
                     <button type="submit"
-                      className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-2 ${portalRole === 'partner' ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'}`}>
+                      className="w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950">
                       Sign In <ArrowRight className="w-4 h-4" />
                     </button>
 
-                    {/* Become a partner / affiliate link */}
+                    {/* Become an affiliate link */}
                     <div className="text-center pt-2 border-t border-slate-800">
                       <p className="text-xs text-slate-500">
-                        {portalRole === 'partner' ? "Don't have a partner account?" : "Don't have an affiliate account?"}
+                        Don't have an affiliate account?
                       </p>
                       <button type="button" onClick={() => setAuthMode('register')}
-                        className={`text-xs font-bold mt-1 cursor-pointer bg-transparent border-none ${portalRole === 'partner' ? 'text-amber-400 hover:text-amber-300' : 'text-emerald-400 hover:text-emerald-300'}`}>
-                        {portalRole === 'partner' ? 'Become a Partner →' : 'Become an Affiliate →'}
+                        className="text-xs font-bold mt-1 cursor-pointer bg-transparent border-none text-emerald-400 hover:text-emerald-300">
+                        Become an Affiliate →
                       </button>
                     </div>
                   </form>

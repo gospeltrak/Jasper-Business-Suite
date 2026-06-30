@@ -1950,17 +1950,6 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             </button>
           </div>
 
-          {/* Column 3 Link: Partner */}
-          <div className="space-y-2 text-xs">
-            <h5 className={`font-mono text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-slate-400' : 'text-[#111827]'}`}>Partner</h5>
-            <button
-              onClick={() => onNavigate('/partner')}
-              className={`transition-colors bg-transparent border-none p-0 outline-none cursor-pointer text-left font-sans text-base ${isDark ? 'text-slate-300 hover:text-emerald-400' : 'text-[#374151] hover:text-[#00b87a]'}`}
-            >
-              {t.footerCol3Title || "Partner"}
-            </button>
-          </div>
-
           {/* Social Icons */}
           <div className="space-y-3 text-xs">
             <h5 className={`font-mono text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-slate-400' : 'text-[#111827]'}`}>{t.footerCol4Title || "Follow Us"}</h5>
