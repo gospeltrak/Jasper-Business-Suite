@@ -1529,56 +1529,6 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
         </div>
       </section>
 
-      {/* Feature Pillar Bento Grid */}
-      <section id="features" className={`py-20 border-t transition-colors duration-300 px-4 sm:px-6 lg:px-8 order-${sectionsOrder.indexOf('features') + 1} ${hiddenSections['features'] ? 'hidden' : 'block'} ${isDark ? 'bg-slate-950 border-slate-900' : 'bg-[#f4f6f8] border-slate-200'}`}>
-        <div className="max-w-7xl mx-auto space-y-12 text-left">
-          
-          <div className="text-center max-w-3xl mx-auto space-y-4">
-            <h2 className={`text-xs font-mono uppercase tracking-widest font-bold ${isDark ? 'text-emerald-400' : 'text-[#007a52]'}`}>{t.advancedCapabilities || "Advanced Features"}</h2>
-            <p className={`text-3xl sm:text-4xl font-extrabold leading-tight ${isDark ? 'text-white' : 'text-[#111827]'}`}>
-              {t.advancedDesc || "Simple solutions to keep your cash registers working always."}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
-            
-            {/* Feat 1: Offline-First Hybrid Queue */}
-            <div className={`p-8 rounded-2xl relative group transition-all border ${isDark ? 'bg-slate-900/45 border-slate-850 hover:border-slate-755' : 'bg-white border-slate-200 hover:border-slate-300 shadow-[0_2px_12px_rgba(0,0,0,0.06)]'}`}>
-              <div className={`p-3 w-fit rounded-xl border mb-6 group-hover:scale-110 transition-transform ${isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-[#e6faf4] text-[#007a52] border-emerald-200'}`}>
-                <WifiOff className="w-6 h-6 stroke-[1.75]" />
-              </div>
-              <h3 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-[#111827]'}`}>{t.featOfflineTitle || "Offline Cashier Desk"}</h3>
-              <p className={`text-sm leading-relaxed font-light ${isDark ? 'text-slate-400' : 'text-[#374151]'}`}>
-                {t.featOfflineDesc || "No internet or power goes out? No problem. Keep selling as normal and sync when network is restored."}
-              </p>
-            </div>
-
-            {/* Feat 2: Multi-Tenant Enterprise Ledgers */}
-            <div className={`p-8 rounded-2xl relative group transition-all border ${isDark ? 'bg-slate-900/45 border-slate-850 hover:border-slate-755' : 'bg-white border-slate-200 hover:border-slate-300 shadow-[0_2px_12px_rgba(0,0,0,0.06)]'}`}>
-              <div className={`p-3 w-fit rounded-xl border mb-6 group-hover:scale-110 transition-transform ${isDark ? 'bg-teal-500/10 text-teal-400 border-teal-500/20' : 'bg-teal-50 text-[#007a52] border-teal-200'}`}>
-                <Layers className="w-6 h-6 stroke-[1.75]" />
-              </div>
-              <h3 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-[#111827]'}`}>{t.featLedgerTitle || "Multi-Country Currency"}</h3>
-              <p className={`text-sm leading-relaxed font-light ${isDark ? 'text-slate-400' : 'text-[#374151]'}`}>
-                {t.featLedgerDesc || "Supports TZS, KES, and NGN currencies with local tax rates easily."}
-              </p>
-            </div>
-
-            {/* Feat 3: Daily Reports */}
-            <div className={`p-8 rounded-2xl relative group transition-all border ${isDark ? 'bg-slate-900/45 border-slate-850 hover:border-slate-755' : 'bg-white border-slate-200 hover:border-slate-300 shadow-[0_2px_12px_rgba(0,0,0,0.06)]'}`}>
-              <div className={`p-3 w-fit rounded-xl border mb-6 group-hover:scale-110 transition-transform ${isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                <Bell className="w-6 h-6 stroke-[1.75]" />
-              </div>
-              <h3 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-[#111827]'}`}>Daily Business Reports</h3>
-              <p className={`text-sm leading-relaxed font-light ${isDark ? 'text-slate-400' : 'text-[#374151]'}`}>
-                Receive automatic daily summaries of your sales, expenses, and profit delivered straight to your dashboard every day.
-              </p>
-            </div>
-            
-
-          </div>
-        </div>
-      </section>
 
       {/* Moving / Infinite scrolling Marquee Band on Trusted Businesses with sleek, small partner logos (Just Logos) */}
       <section id="marquee-partners" className={`py-12 border-t border-b overflow-hidden relative transition-colors duration-300 order-${sectionsOrder.indexOf('marquee-partners') + 1} ${hiddenSections['marquee-partners'] ? 'hidden' : 'block'} ${isDark ? 'bg-slate-950 border-slate-900' : 'bg-white border-slate-200'}`}>

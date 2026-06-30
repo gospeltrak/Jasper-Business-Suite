@@ -48,7 +48,10 @@ import SaaSHardwarePOS from "./SaaSHardwarePOS";
 import SaaSHardwareInventory from "./SaaSHardwareInventory";
 import AffiliateWorkspace from "./affiliate/AffiliateWorkspace";
 import AffiliateAgentDesk from "./affiliate/AffiliateAgentDesk";
-import { loadAffiliateAgentWorkspace, loadAffiliateWorkspace } from "../utils/affiliateWorkspace";
+// loadAffiliateAgentWorkspace / loadAffiliateWorkspace intentionally NOT
+// imported here — the dashboards themselves (AffiliateAgentDesk.tsx,
+// AffiliateWorkspace.tsx) load their own workspace data after an explicit
+// login, so this portal-level component never auto-loads a dashboard.
 import { getDynamicSupabaseClient } from "../supabaseClient";
 import {
   requireOnline,
@@ -209,47 +212,17 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     }
   }, []);
 
-  useEffect(() => {
-    // Partner workspace loader — only runs at /partner
-    if (forcedRole !== 'partner') return;
-    let cancelled = false;
-    loadAffiliateAgentWorkspace()
-      .then((workspace) => {
-        if (cancelled) return;
-        // Even if no affiliates yet (new partner), still show Partner Dashboard
-        setDatabaseAgentWorkspaceEnabled(true);
-        setAuthMode('dashboard');
-      })
-      .catch(() => {
-        // Supabase failed — fall back to localStorage session restore
-        if (!cancelled) setDatabaseAgentWorkspaceEnabled(false);
-      });
-    return () => { cancelled = true; };
-  }, [forcedRole]);
+  // ── NO AUTO-LOGIN ON MOUNT ────────────────────────────────────────────
+  // Deliberately does NOT call loadAffiliateAgentWorkspace()/auto-jump to
+  // the dashboard here, even if Supabase still has a valid persisted
+  // session. Every visit to /partner must start at the login screen and
+  // require the user to actually submit their credentials.
 
-  useEffect(() => {
-    // Affiliate workspace loader — ONLY runs at /affiliate, never at /partner
-    if (forcedRole === 'partner') return;
-    let cancelled = false;
-    loadAffiliateWorkspace()
-      .then((workspace) => {
-        if (cancelled || !workspace) return;
-        setActiveAffiliate({
-          id: workspace.profile.id,
-          name: workspace.profile.display_name,
-          email: '',
-          phone: workspace.profile.payout_account || '',
-          paymentMethod: workspace.profile.payout_method || 'm-pesa',
-          promoCode: workspace.profile.referral_code,
-        });
-        setDatabaseWorkspaceEnabled(true);
-        setAuthMode('dashboard');
-      })
-      .catch(() => {
-        if (!cancelled) setDatabaseWorkspaceEnabled(false);
-      });
-    return () => { cancelled = true; };
-  }, [forcedRole]);
+  // ── NO AUTO-LOGIN ON MOUNT (affiliate side) ──────────────────────────
+  // Same reasoning as the partner side above: even if Supabase still has
+  // a valid persisted session after a manual sign-out, /affiliate must
+  // always start at the login screen and require the user to actually
+  // submit their credentials.
 
   // Clipboards feedback tracking
   const [copiedCode, setCopiedCode] = useState(false);
@@ -968,7 +941,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
       parentSuperId = parentMatch.id;
       alert(
-        `🤝 Welcome under Partner ${parentMatch.name}! You have registered under their team. You earn 15%, and your Partner earns 5% oversight.`,
+        `🤝 Welcome under Partner ${parentMatch.name}! You have registered under their team and earn 15% commission on every referral.`,
       );
     }
 
@@ -1211,6 +1184,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       const client: any = await getDynamicSupabaseClient();
       await client.auth.signOut();
     } catch { /* Local cleanup still runs if the network is unavailable. */ }
+    // Belt-and-suspenders: forcibly remove any Supabase-persisted session
+    // token from localStorage even if signOut() above failed silently.
+    try {
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith('sb-') && k.includes('-auth-token'))
+        .forEach((k) => localStorage.removeItem(k));
+    } catch { /* ignore */ }
     clearAffiliateSession(); // properly clears jasper_logged_affiliate
     setActiveAffiliate(null);
     setDatabaseWorkspaceEnabled(false);

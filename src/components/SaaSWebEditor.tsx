@@ -27,7 +27,6 @@ import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatf
 const DEFAULT_SECTIONS = [
   { id: 'landing-hero', label: 'Hero Section', desc: 'Main title, subtitle, registration call-to-action, and animated illustrations.' },
   { id: 'about', label: 'Niche Selector / About Us', desc: 'Detailed business types (Retail, Pharmacy, Restaurant, Hotel) and regional metrics.' },
-  { id: 'features', label: 'Advanced Features Grid', desc: 'Working offline state, multi-currency ledger, and mobile money check validation.' },
   { id: 'marquee-partners', label: 'Partner Logos Marquee', desc: 'Infinite scrolling layout showcasing trusted business partners and logos.' },
   { id: 'testimonials', label: 'Success Stories', desc: 'What shop owners say (testimonials from Mustafa, Kwame, Fatuma).' },
   { id: 'pricing', label: 'Subscription Pricing Plans', desc: 'Price card matrix displaying Ruby, Diamond, and Tanzanite packages.' },
@@ -1184,7 +1183,7 @@ export default function SaaSWebEditor() {
                       </div>
                     )}
                     
-                    {['features', 'marquee-partners', 'testimonials', 'pricing', 'faqs'].includes(sectionId) && (
+                    {['marquee-partners', 'testimonials', 'pricing', 'faqs'].includes(sectionId) && (
                       <div className="text-[9px] text-slate-500 italic pl-1">
                         Uses standard responsive cards & structured local lists data
                       </div>

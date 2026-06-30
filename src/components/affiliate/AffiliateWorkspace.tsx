@@ -59,6 +59,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const [workspace, setWorkspace] = useState<AffiliateWorkspaceData | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
+  const [autoRetryCount, setAutoRetryCount] = useState(0);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -145,6 +146,19 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // Newly registered accounts can briefly show 'missing' if the database
+  // insert hasn't fully propagated by the time this first loads. Auto-retry
+  // a few times with a short delay before asking the user to do it manually.
+  useEffect(() => {
+    if (state !== 'missing' || autoRetryCount >= 3) return;
+    const delay = 1200 * (autoRetryCount + 1);
+    const timer = setTimeout(() => {
+      setAutoRetryCount((c) => c + 1);
+      refresh();
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [state, autoRetryCount, refresh]);
+
   const metrics = useMemo(() => {
     const referrals = workspace?.referrals || [];
     const commissions = workspace?.commissions || [];
@@ -220,6 +234,15 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
     return <div className="min-h-[70vh] grid place-items-center bg-slate-50 text-slate-500"><LoaderCircle className="w-6 h-6 animate-spin" /></div>;
   }
 
+  if (state === 'missing' && autoRetryCount < 3) {
+    return (
+      <div className="min-h-[70vh] grid place-items-center bg-slate-50 text-slate-500 gap-3">
+        <LoaderCircle className="w-6 h-6 animate-spin" />
+        <p className="text-sm">Setting up your account...</p>
+      </div>
+    );
+  }
+
   if (state === 'missing' || state === 'error') {
     return (
       <main className="min-h-[70vh] grid place-items-center px-5 bg-slate-50">
@@ -232,7 +255,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
               : error}
           </p>
           <div className="mt-5 flex justify-center gap-3">
-            <button type="button" onClick={refresh} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md bg-slate-900 text-white text-sm font-semibold"><RefreshCw className="w-4 h-4" /> Retry</button>
+            <button type="button" onClick={() => { setAutoRetryCount(0); refresh(); }} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md bg-slate-900 text-white text-sm font-semibold"><RefreshCw className="w-4 h-4" /> Retry</button>
             <button type="button" onClick={onLogout} className="px-4 py-2.5 rounded-md border border-slate-300 text-slate-700 text-sm font-semibold">Sign out</button>
           </div>
         </section>
