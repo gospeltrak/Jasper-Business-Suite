@@ -18,7 +18,8 @@
 ──────────────────────────────────────────────────────────────────────────── */
 html.landing-page,
 html.landing-page body,
-html.landing-page #root {
+html.landing-page #root,
+html.landing-page #jasper-app-root {
   overflow: visible !important;
   overflow-y: auto !important;
   position: static !important;
@@ -34,7 +35,8 @@ html.landing-page body {
   overscroll-behavior: auto !important;
   -webkit-overflow-scrolling: auto !important;
 }
-html.landing-page #root {
+html.landing-page #root,
+html.landing-page #jasper-app-root {
   min-height: 100svh !important;
   overflow-y: auto !important;
 }
@@ -375,13 +377,9 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   animation-play-state: paused;
 }
 
-html,
-body,
-#root,
-#jasper-app-root {
-  min-height: 100%;
-  overflow-y: auto;
-}
+/* This unconditional rule was removed — it conflicted with the dashboard's
+   native-app scroll lock. Scroll behavior is now controlled exclusively by
+   the .landing-page class (see top of file) plus inline styles set in App.tsx. */
 
 .landing-page-shell {
   overflow-x: clip;

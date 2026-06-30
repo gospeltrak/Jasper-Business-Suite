@@ -369,6 +369,8 @@ export default function App() {
 
     return () => {
       html.classList.remove('landing-page');
+      // Inline styles are re-applied fresh on every route change by this
+      // same effect, so no explicit reset is needed here.
     };
   }, [currentPath]);
 
