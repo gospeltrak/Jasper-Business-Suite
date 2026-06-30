@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Eye, LoaderCircle, Pencil, RefreshCw, Search, ShieldCheck } from 'lucide-react';
+import { Download, Eye, LoaderCircle, Pencil, RefreshCw, Search, ShieldCheck, Trash2, X } from 'lucide-react';
 import {
   AffiliateMonitoringData,
   AgentMonitoringRow,
@@ -7,7 +7,10 @@ import {
   OrganicSubscriberRow,
   SubAffiliateMonitoringRow,
   SuperAffiliateRow,
-  updateSuperAffiliate
+  updateSuperAffiliate,
+  deleteSubAffiliate,
+  deletePartner,
+  verifyAdminOverridePassword,
 } from '../utils/superAffiliateAdmin';
 
 const money = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
@@ -26,6 +29,10 @@ export default function SuperAffiliateControlCenter({ initialTab = 'organic' }: 
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<SuperAffiliateRow | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; kind: 'partner' | 'subAffiliate' } | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const refresh = useCallback(async () => {
     setState('loading');
@@ -97,6 +104,30 @@ export default function SuperAffiliateControlCenter({ initialTab = 'organic' }: 
     }
   };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    if (!verifyAdminOverridePassword(deletePassword)) {
+      setDeleteError('Incorrect override password.');
+      return;
+    }
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      if (deleteTarget.kind === 'partner') {
+        await deletePartner(deleteTarget.id, deleteTarget.name);
+      } else {
+        await deleteSubAffiliate(deleteTarget.id, deleteTarget.name);
+      }
+      setDeleteTarget(null);
+      setDeletePassword('');
+      await refresh();
+    } catch (e: any) {
+      setDeleteError(e?.message || 'Delete failed.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const exportCsv = (filename: string, headers: string[], rows: unknown[][]) => {
     const blob = new Blob([[headers.map(csvValue).join(','), ...rows.map((row) => row.map(csvValue).join(','))].join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -153,10 +184,64 @@ export default function SuperAffiliateControlCenter({ initialTab = 'organic' }: 
       </div>
 
       {activeTab === 'organic' && <OrganicTrafficSection rows={organicRows} totals={organicTotals} />}
-      {activeTab === 'agents' && <AgentMonitoringSection rows={agentRows} totals={agentTotals} onExport={exportAgentPayouts} />}
-      {activeTab === 'subAffiliates' && <SubAffiliateSection rows={subAffiliateRows} totals={subTotals} onExport={exportSubPayouts} onEdit={(row) => setSelected(data.affiliates.find((affiliate) => affiliate.id === row.id) || null)} />}
+      {activeTab === 'agents' && <AgentMonitoringSection rows={agentRows} totals={agentTotals} onExport={exportAgentPayouts} onDelete={(row) => setDeleteTarget({ id: row.agentId, name: row.agentName, kind: 'partner' })} />}
+      {activeTab === 'subAffiliates' && <SubAffiliateSection rows={subAffiliateRows} totals={subTotals} onExport={exportSubPayouts} onEdit={(row) => setSelected(data.affiliates.find((affiliate) => affiliate.id === row.id) || null)} onDelete={(row) => setDeleteTarget({ id: row.id, name: row.name, kind: 'subAffiliate' })} />}
 
       {selected && <div className="fixed inset-0 z-50 bg-black/70 p-4 grid place-items-center"><form onSubmit={(e) => { e.preventDefault(); save(); }} className="w-full max-w-lg bg-slate-950 border border-slate-700 rounded-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto"><div className="flex justify-between"><h2 className="font-bold">Affiliate profile</h2><button type="button" onClick={() => setSelected(null)}>Close</button></div><p className="text-sm text-slate-400">Edits are limited to approved identity, payout, and status fields. Commission math remains database-derived.</p><Field label="Phone / WhatsApp" value={selected.phone_whatsapp || ''} onChange={(v) => setSelected({ ...selected, phone_whatsapp: v })} /><Field label="NIDA" value={selected.nida_number || ''} onChange={(v) => setSelected({ ...selected, nida_number: v })} /><Field label="TIN" value={selected.tin_number || ''} onChange={(v) => setSelected({ ...selected, tin_number: v })} /><Field label="Mobile money number" value={selected.mobile_money_number || selected.payout_account || ''} onChange={(v) => setSelected({ ...selected, mobile_money_number: v, payout_account: v })} /><Field label="Mobile money provider" value={selected.mobile_money_provider || selected.payout_method || ''} onChange={(v) => setSelected({ ...selected, mobile_money_provider: v, payout_method: v })} /><label className="block text-sm">Status<select value={selected.status} onChange={(e) => setSelected({ ...selected, status: e.target.value })} className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2"><option value="active">Active</option><option value="pending">Pending</option><option value="suspended">Suspended</option></select></label><button disabled={saving} className="w-full bg-emerald-600 text-white rounded-md py-2.5 font-semibold">{saving ? 'Saving...' : 'Save profile'}</button></form></div>}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 bg-black/70 p-4 grid place-items-center">
+          <div className="w-full max-w-md bg-slate-950 border border-rose-900 rounded-lg p-5 space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-rose-500" />
+                <h2 className="font-bold text-rose-400">
+                  Delete {deleteTarget.kind === 'partner' ? 'Partner' : 'Sub-Affiliate'}
+                </h2>
+              </div>
+              <button type="button" onClick={() => { setDeleteTarget(null); setDeletePassword(''); setDeleteError(''); }}><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-sm text-slate-300">
+              You are about to <strong className="text-rose-400">permanently delete</strong> <strong>{deleteTarget.name}</strong>.
+              This action cannot be undone.
+            </p>
+            {deleteTarget.kind === 'partner' && (
+              <p className="text-xs text-amber-400">
+                This will fail if the partner still has sub-affiliates assigned to them — reassign or delete those first.
+              </p>
+            )}
+            <label className="block text-sm">
+              Super Admin override password
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => { setDeletePassword(e.target.value); setDeleteError(''); }}
+                placeholder="Enter override password to confirm"
+                className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2"
+                autoFocus
+              />
+            </label>
+            {deleteError && <p className="text-sm text-rose-400">{deleteError}</p>}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setDeleteTarget(null); setDeletePassword(''); setDeleteError(''); }}
+                className="flex-1 bg-slate-800 text-white rounded-md py-2.5 font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleting || !deletePassword}
+                onClick={confirmDelete}
+                className="flex-1 bg-rose-600 disabled:opacity-50 text-white rounded-md py-2.5 font-semibold"
+              >
+                {deleting ? 'Deleting...' : 'Confirm Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -165,11 +250,11 @@ function OrganicTrafficSection({ rows, totals }: { rows: OrganicSubscriberRow[];
   return <div className="space-y-4"><div className="grid gap-3 md:grid-cols-4"><Metric label="Total organic subscribers" value={rows.length.toLocaleString()} /><Metric label="Active organic subscribers" value={totals.active.toLocaleString()} /><Metric label="New organic subscribers" value={rows.length.toLocaleString()} /><Metric label="Organic revenue" value={money.format(totals.revenue)} /></div><div className="hidden lg:block overflow-x-auto border border-slate-800 rounded-lg"><table className="w-full text-sm"><thead className="bg-slate-900 text-slate-400 text-xs"><tr><th className="p-3 text-left">Subscriber</th><th className="p-3 text-left">Business</th><th className="p-3 text-left">Package</th><th className="p-3 text-left">Registration</th><th className="p-3 text-right">Revenue</th><th className="p-3 text-left">Source</th></tr></thead><tbody className="divide-y divide-slate-800">{rows.map((row) => <tr key={row.id}><td className="p-3"><b>{row.subscriberName}</b><span className="block text-xs text-slate-500">{row.phone || 'No phone'}</span></td><td className="p-3">{row.tenantName}</td><td className="p-3">{row.subscriptionPackage}</td><td className="p-3">{row.registrationDate}</td><td className="p-3 text-right">{money.format(row.revenue)}</td><td className="p-3 text-emerald-300">No referral — signed up directly</td></tr>)}{!rows.length && <tr><td colSpan={6} className="p-8 text-center text-slate-500">No direct organic subscribers found yet.</td></tr>}</tbody></table></div><div className="lg:hidden space-y-3">{rows.map((row) => <Card key={row.id} title={row.subscriberName} meta={`${row.tenantName} · ${row.status}`} stats={[['Package', row.subscriptionPackage], ['Revenue', money.format(row.revenue)], ['Registered', row.registrationDate], ['Source', 'No referral']]} />)}{!rows.length && <EmptyCard text="No direct organic subscribers found yet." />}</div></div>;
 }
 
-function AgentMonitoringSection({ rows, totals, onExport }: { rows: AgentMonitoringRow[]; totals: { revenue: number; pool: number; agentCut: number; subPool: number }; onExport: () => void }) {
-  return <div className="space-y-4"><div className="flex justify-end"><button onClick={onExport} className="px-3 py-2 rounded-md bg-emerald-600 text-white text-sm font-semibold"><Download className="inline w-4 h-4 mr-2" />Download payout spreadsheet</button></div><div className="grid gap-3 md:grid-cols-4"><Metric label="Agents" value={rows.length.toLocaleString()} /><Metric label="Network revenue" value={money.format(totals.revenue)} /><Metric label="20% pool" value={money.format(totals.pool)} /><Metric label="Agent 5% cut" value={money.format(totals.agentCut)} /></div><div className="hidden lg:block overflow-x-auto border border-slate-800 rounded-lg"><table className="w-full text-sm"><thead className="bg-slate-900 text-slate-400 text-xs"><tr><th className="p-3 text-left">Agent</th><th className="p-3 text-left">Code / link</th><th className="p-3 text-center">Sub-affiliates</th><th className="p-3 text-center">Subscribers</th><th className="p-3 text-right">Revenue</th><th className="p-3 text-right">20% pool</th><th className="p-3 text-right">5% cut</th><th className="p-3 text-right">15% sub allocation</th><th className="p-3 text-right">Net</th><th className="p-3 text-left">Status</th></tr></thead><tbody className="divide-y divide-slate-800">{rows.map((row) => <tr key={row.agentId}><td className="p-3"><b>{row.agentName}</b><span className="block text-xs text-slate-500">{row.phone || 'No phone'}</span><span className="block text-xs text-slate-500">{row.mobileMoneyProvider || 'No provider'} · {row.mobileMoneyNumber || '—'}</span></td><td className="p-3"><span className="font-mono text-xs text-emerald-300">{row.agentCode || 'Not assigned'}</span><span className="block text-[11px] text-slate-500">{row.agentLink || 'No link'}</span></td><td className="p-3 text-center">{row.subAffiliates}</td><td className="p-3 text-center">{row.subscribers}</td><td className="p-3 text-right">{money.format(row.revenue)}</td><td className="p-3 text-right">{money.format(row.poolTotal)}</td><td className="p-3 text-right">{money.format(row.agentCut)}</td><td className="p-3 text-right">{money.format(row.subAffiliatePool)}</td><td className="p-3 text-right text-emerald-300 font-bold">{money.format(row.netPayout)}</td><td className="p-3">{row.status}</td></tr>)}{!rows.length && <tr><td colSpan={10} className="p-8 text-center text-slate-500">No agent accounts found yet.</td></tr>}</tbody></table></div><div className="lg:hidden space-y-3">{rows.map((row) => <Card key={row.agentId} title={row.agentName} meta={`${row.agentCode || 'No code'} · ${row.status}`} stats={[['Sub-affiliates', row.subAffiliates], ['Subscribers', row.subscribers], ['Revenue', money.format(row.revenue)], ['Agent cut', money.format(row.agentCut)]]} />)}{!rows.length && <EmptyCard text="No agent accounts found yet." />}</div></div>;
+function AgentMonitoringSection({ rows, totals, onExport, onDelete }: { rows: AgentMonitoringRow[]; totals: { revenue: number; pool: number; agentCut: number; subPool: number }; onExport: () => void; onDelete: (row: AgentMonitoringRow) => void }) {
+  return <div className="space-y-4"><div className="flex justify-end"><button onClick={onExport} className="px-3 py-2 rounded-md bg-emerald-600 text-white text-sm font-semibold"><Download className="inline w-4 h-4 mr-2" />Download payout spreadsheet</button></div><div className="grid gap-3 md:grid-cols-4"><Metric label="Agents" value={rows.length.toLocaleString()} /><Metric label="Network revenue" value={money.format(totals.revenue)} /><Metric label="20% pool" value={money.format(totals.pool)} /><Metric label="Agent 5% cut" value={money.format(totals.agentCut)} /></div><div className="hidden lg:block overflow-x-auto border border-slate-800 rounded-lg"><table className="w-full text-sm"><thead className="bg-slate-900 text-slate-400 text-xs"><tr><th className="p-3 text-left">Agent</th><th className="p-3 text-left">Code / link</th><th className="p-3 text-center">Sub-affiliates</th><th className="p-3 text-center">Subscribers</th><th className="p-3 text-right">Revenue</th><th className="p-3 text-right">20% pool</th><th className="p-3 text-right">5% cut</th><th className="p-3 text-right">15% sub allocation</th><th className="p-3 text-right">Net</th><th className="p-3 text-left">Status</th><th className="p-3" /></tr></thead><tbody className="divide-y divide-slate-800">{rows.map((row) => <tr key={row.agentId}><td className="p-3"><b>{row.agentName}</b><span className="block text-xs text-slate-500">{row.phone || 'No phone'}</span><span className="block text-xs text-slate-500">{row.mobileMoneyProvider || 'No provider'} · {row.mobileMoneyNumber || '—'}</span></td><td className="p-3"><span className="font-mono text-xs text-emerald-300">{row.agentCode || 'Not assigned'}</span><span className="block text-[11px] text-slate-500">{row.agentLink || 'No link'}</span></td><td className="p-3 text-center">{row.subAffiliates}</td><td className="p-3 text-center">{row.subscribers}</td><td className="p-3 text-right">{money.format(row.revenue)}</td><td className="p-3 text-right">{money.format(row.poolTotal)}</td><td className="p-3 text-right">{money.format(row.agentCut)}</td><td className="p-3 text-right">{money.format(row.subAffiliatePool)}</td><td className="p-3 text-right text-emerald-300 font-bold">{money.format(row.netPayout)}</td><td className="p-3">{row.status}</td><td className="p-3 text-right"><button onClick={() => onDelete(row)} className="p-2 rounded hover:bg-rose-950 text-rose-500" title="Delete partner"><Trash2 className="w-4 h-4" /></button></td></tr>)}{!rows.length && <tr><td colSpan={11} className="p-8 text-center text-slate-500">No agent accounts found yet.</td></tr>}</tbody></table></div><div className="lg:hidden space-y-3">{rows.map((row) => (<article key={row.agentId} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3"><div className="flex items-start justify-between"><div><p className="font-black text-white">{row.agentName}</p><p className="text-xs text-slate-500 mt-0.5">{row.agentCode || 'No code'} · {row.status}</p></div><button onClick={() => onDelete(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950 text-rose-500"><Trash2 className="w-3.5 h-3.5" /></button></div><div className="grid grid-cols-2 gap-2 text-sm"><div><span className="text-slate-500 text-xs">Sub-affiliates</span><p className="font-semibold">{row.subAffiliates}</p></div><div><span className="text-slate-500 text-xs">Subscribers</span><p className="font-semibold">{row.subscribers}</p></div><div><span className="text-slate-500 text-xs">Revenue</span><p className="font-semibold">{money.format(row.revenue)}</p></div><div><span className="text-slate-500 text-xs">Agent cut</span><p className="font-semibold">{money.format(row.agentCut)}</p></div></div></article>))}{!rows.length && <EmptyCard text="No agent accounts found yet." />}</div></div>;
 }
 
-function SubAffiliateSection({ rows, totals, onExport, onEdit }: { rows: SubAffiliateMonitoringRow[]; totals: { revenue: number; commission: number; tax: number; net: number }; onExport: () => void; onEdit: (row: SubAffiliateMonitoringRow) => void }) {
+function SubAffiliateSection({ rows, totals, onExport, onEdit, onDelete }: { rows: SubAffiliateMonitoringRow[]; totals: { revenue: number; commission: number; tax: number; net: number }; onExport: () => void; onEdit: (row: SubAffiliateMonitoringRow) => void; onDelete: (row: SubAffiliateMonitoringRow) => void }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -218,6 +303,7 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit }: { rows: SubAffi
                 <td className="p-3 text-right">
                   <button onClick={() => window.dispatchEvent(new CustomEvent('saas_enter_mirror', { detail: { account: { id: row.userId, name: row.name, role: 'Affiliate', phone: row.phone }, isAffiliate: true } }))} className="p-2 rounded hover:bg-slate-800" title="Mirror"><Eye className="w-4 h-4" /></button>
                   <button onClick={() => onEdit(row)} className="p-2 rounded hover:bg-slate-800" title="Edit"><Pencil className="w-4 h-4" /></button>
+                  <button onClick={() => onDelete(row)} className="p-2 rounded hover:bg-rose-950 text-rose-500" title="Delete sub-affiliate"><Trash2 className="w-4 h-4" /></button>
                 </td>
               </tr>
             ))}
@@ -237,6 +323,7 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit }: { rows: SubAffi
               <div className="flex gap-1">
                 <button onClick={() => window.dispatchEvent(new CustomEvent('saas_enter_mirror', { detail: { account: { id: row.userId, name: row.name, role: 'Affiliate', phone: row.phone }, isAffiliate: true } }))} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-400"><Eye className="w-3.5 h-3.5" /></button>
                 <button onClick={() => onEdit(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-blue-400"><Pencil className="w-3.5 h-3.5" /></button>
+                <button onClick={() => onDelete(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950 text-rose-500"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
