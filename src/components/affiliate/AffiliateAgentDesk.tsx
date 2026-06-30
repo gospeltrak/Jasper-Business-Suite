@@ -32,6 +32,7 @@ import {
   dbWrite,
   clearAffiliateSession,
   flushSyncQueue,
+  enqueueSyncItem,
 } from '../../utils/offlineSync';
 import SaaSHardwarePOS from '../SaaSHardwarePOS';
 import SaaSHardwareInventory from '../SaaSHardwareInventory';
@@ -47,6 +48,10 @@ import {
   WITHHOLDING_TAX_ACTIVE,
   TinStatus,
 } from '../../utils/commissionEngine';
+
+function numberValue(value: unknown): number {
+  return Number(value || 0);
+}
 
 type DashTab = 'overview' | 'reconciliation' | 'affiliates' | 'customers' | 'code-link' | 'tutorials' | 'conferencing' | 'hw-pos' | 'hw-inventory';
 type StatusAction = 'deactivate' | 'suspend' | 'review' | 'activate';
@@ -150,7 +155,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       setCodeSuggestions(sugg);
       return;
     }
-    // Save to Supabase — update by user_id (auth) or id (row)
+    // Save to Supabase — update by user_id (auth) or id (row) in affiliate_partners
     const supabaseUserId = partnerInfo?.supabaseUserId;
     const supabaseRowId  = partnerInfo?.id;
 
@@ -161,15 +166,15 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         const filter = supabaseUserId
           ? { column: 'user_id', value: supabaseUserId }
           : { column: 'id',      value: supabaseRowId };
-        await client.from('affiliates')
-          .update({ promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() })
+        await client.from('affiliate_partners')
+          .update({ promo_code: cleaned, referral_slug: cleaned.toLowerCase() })
           .eq(filter.column, filter.value);
       } catch {
         // Queue for later sync
         enqueueSyncItem({
-          table: 'affiliates',
+          table: 'affiliate_partners',
           operation: 'update',
-          data: { promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() },
+          data: { promo_code: cleaned, referral_slug: cleaned.toLowerCase() },
           filter: supabaseUserId
             ? { column: 'user_id', value: supabaseUserId }
             : { column: 'id',      value: supabaseRowId },
@@ -241,12 +246,13 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         const client: any = await getDynamicSupabaseClient();
 
         let profile: any = null;
+        const cols = 'id, user_id, display_name, promo_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status';
 
         // Try 1: Supabase auth session (reliable after Supabase login)
         const { data: authUser } = await client.auth.getUser();
         if (authUser?.user) {
-          const { data } = await client.from('affiliates')
-            .select('id, user_id, display_name, promo_code, referral_code, account_type, phone_whatsapp, payout_account, payout_method, tin_number, tin_status')
+          const { data } = await client.from('affiliate_partners')
+            .select(cols)
             .eq('user_id', authUser.user.id)
             .maybeSingle();
           profile = data;
@@ -254,8 +260,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
         // Try 2: Match by promo_code saved in localStorage (after localStorage login)
         if (!profile && partnerInfo?.promoCode) {
-          const { data } = await client.from('affiliates')
-            .select('id, user_id, display_name, promo_code, referral_code, account_type, phone_whatsapp, payout_account, payout_method, tin_number, tin_status')
+          const { data } = await client.from('affiliate_partners')
+            .select(cols)
             .eq('promo_code', partnerInfo.promoCode)
             .maybeSingle();
           profile = data;
@@ -264,15 +270,15 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         // Try 3: Match by phone_whatsapp
         if (!profile && partnerInfo?.phone) {
           const phone = partnerInfo.phone.replace(/\D/g, '');
-          const { data } = await client.from('affiliates')
-            .select('id, user_id, display_name, promo_code, referral_code, account_type, phone_whatsapp, payout_account, payout_method, tin_number, tin_status')
+          const { data } = await client.from('affiliate_partners')
+            .select(cols)
             .ilike('phone_whatsapp', `%${phone.slice(-9)}`)
             .maybeSingle();
           profile = data;
         }
 
         if (profile) {
-          const code = profile.promo_code || profile.referral_code || partnerInfo?.promoCode || '';
+          const code = profile.promo_code || partnerInfo?.promoCode || '';
           const updated = {
             ...partnerInfo,
             id: profile.id,
@@ -305,52 +311,103 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   // ── Load data ───────────────────────────────────────────────
 
-  const loadSubAffiliates = useCallback(() => {
-    try {
-      const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
-      const myCode = partnerCode.toUpperCase();
-      const mine = myCode
-        ? all.filter(a =>
-            a.parentSuperId?.toUpperCase() === myCode ||
-            a.parentSuperCode?.toUpperCase() === myCode ||
-            a.parentSuperId === partnerId
-          )
-        : all.filter(a => !a.isSuper);
+  const loadSubAffiliates = useCallback(async () => {
+    let mapped: SubAffiliateProfile[] = [];
 
-      const mapped: SubAffiliateProfile[] = mine.map((a: any) => ({
-        id: a.id,
-        userId: a.id,
-        parentSuperAgentId: partnerId,
-        name: a.name || a.display_name || 'Unnamed',
-        phone: a.phone || '',
-        email: a.email || '',
-        promoCode: a.promoCode || a.referral_code || '',
-        status: a.isDisabled ? 'suspended' : (a.status === 'Active' ? 'active' : 'active'),
-        customersGenerated: a.conversionsPromo || a.conversionsLink || 0,
-        revenueGenerated: a.revenueDate || a.totalEarnings || 0,
-        grossCommission15: (a.revenueDate || a.totalEarnings || 0) * 0.15,
-        withholdingTax5: revenue * 0.15 * 0.05, // 5% of gross commission — always show actual amount
-        netPayout: (a.revenueDate || a.totalEarnings || 0) * 0.15,
-        tinNumber: a.tinNumber || '',
-        tinStatus: (a.tinNumber ? 'submitted' : 'not_submitted') as TinStatus,
-        pendingCommission: (a.totalEarnings || 0) * 0.15,
-        paidCommission: a.paidAmount || 0,
-        payoutMethod: a.paymentMethod || 'M-Pesa',
-        payoutAccount: a.payoutPhone || a.phone || '',
-        isDisabled: !!a.isDisabled,
-        createdAt: a.joinedDate || new Date().toISOString(),
-      }));
+    // ── Try Supabase first — query affiliates WHERE parent_super_agent_id = partnerId ──
+    if (partnerId && partnerId !== 'partner-local') {
+      try {
+        const { getDynamicSupabaseClient } = await import('../../supabaseClient');
+        const client: any = await getDynamicSupabaseClient();
+        const { data } = await client.from('affiliates')
+          .select('id, user_id, display_name, promo_code, referral_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, total_revenue, gross_commission, withholding_tax, net_payout, customers_count, is_disabled, status, created_at')
+          .eq('parent_super_agent_id', partnerId)
+          .order('created_at', { ascending: false });
 
-      setSubAffiliates(mapped);
-
-      // Build reconciliation rows
-      const rows = mapped.map(aff =>
-        buildReconciliationRow(reconMonth, { id: partnerId, name: partnerName }, aff, [])
-      );
-      setRecon(rows);
-    } catch (e) {
-      console.warn('Error loading sub-affiliates:', e);
+        if (data?.length) {
+          mapped = data.map((a: any) => {
+            const revenue = numberValue(a.total_revenue);
+            const gross = a.gross_commission ? numberValue(a.gross_commission) : revenue * 0.15;
+            return {
+              id: a.id,
+              userId: a.user_id,
+              parentSuperAgentId: partnerId,
+              name: a.display_name || 'Unnamed',
+              phone: a.phone_whatsapp || '',
+              email: '',
+              promoCode: a.promo_code || a.referral_code || '',
+              status: a.is_disabled ? 'suspended' : 'active',
+              customersGenerated: a.customers_count || 0,
+              revenueGenerated: revenue,
+              grossCommission15: gross,
+              withholdingTax5: gross * 0.05,
+              netPayout: a.net_payout ? numberValue(a.net_payout) : gross,
+              tinNumber: a.tin_number || '',
+              tinStatus: (a.tin_status || 'not_submitted') as TinStatus,
+              pendingCommission: gross,
+              paidCommission: 0,
+              payoutMethod: a.payout_method || 'M-Pesa',
+              payoutAccount: a.payout_account || '',
+              isDisabled: !!a.is_disabled,
+              createdAt: a.created_at || new Date().toISOString(),
+            };
+          });
+        }
+      } catch { /* offline — fall through to localStorage */ }
     }
+
+    // ── Fallback / supplement: localStorage (offline-safe) ──────────────
+    if (!mapped.length) {
+      try {
+        const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
+        const myCode = partnerCode.toUpperCase();
+        const mine = myCode
+          ? all.filter(a =>
+              a.parentSuperId?.toUpperCase() === myCode ||
+              a.parentSuperCode?.toUpperCase() === myCode ||
+              a.parentSuperId === partnerId
+            )
+          : all.filter(a => !a.isSuper);
+
+        mapped = mine.map((a: any) => {
+          const revenue = a.revenueDate || a.totalEarnings || 0;
+          const gross = revenue * 0.15;
+          return {
+            id: a.id,
+            userId: a.id,
+            parentSuperAgentId: partnerId,
+            name: a.name || a.display_name || 'Unnamed',
+            phone: a.phone || '',
+            email: a.email || '',
+            promoCode: a.promoCode || a.referral_code || '',
+            status: a.isDisabled ? 'suspended' : 'active',
+            customersGenerated: a.conversionsPromo || a.conversionsLink || 0,
+            revenueGenerated: revenue,
+            grossCommission15: gross,
+            withholdingTax5: gross * 0.05,
+            netPayout: gross,
+            tinNumber: a.tinNumber || '',
+            tinStatus: (a.tinNumber ? 'submitted' : 'not_submitted') as TinStatus,
+            pendingCommission: gross,
+            paidCommission: a.paidAmount || 0,
+            payoutMethod: a.paymentMethod || 'M-Pesa',
+            payoutAccount: a.payoutPhone || a.phone || '',
+            isDisabled: !!a.isDisabled,
+            createdAt: a.joinedDate || new Date().toISOString(),
+          };
+        });
+      } catch (e) {
+        console.warn('Error loading sub-affiliates from localStorage:', e);
+      }
+    }
+
+    setSubAffiliates(mapped);
+
+    // Build reconciliation rows
+    const rows = mapped.map(aff =>
+      buildReconciliationRow(reconMonth, { id: partnerId, name: partnerName }, aff, [])
+    );
+    setRecon(rows);
   }, [partnerCode, partnerId, partnerName, reconMonth]);
 
   const refresh = useCallback(async () => {
@@ -363,7 +420,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       setWorkspace({ agentName: partnerName, affiliates: [], assignments: [] } as any);
       setState('ready');
     }
-    loadSubAffiliates();
+    await loadSubAffiliates();
   }, [partnerName, loadSubAffiliates]);
 
   useEffect(() => { refresh(); }, [refresh]);
@@ -376,14 +433,40 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   // ── Status change (Suspend / Deactivate / Activate) ─────────
   // NOTE: DELETE is removed — only Super SaaS Admin can delete
 
-  const handleStatusChange = () => {
+  const handleStatusChange = async () => {
     if (!statusModal) return;
     const { aff, action } = statusModal;
 
     const newStatus = action === 'activate' ? 'active' : action === 'deactivate' ? 'inactive' : 'suspended';
     const newIsDisabled = action !== 'activate';
 
-    // Update localStorage
+    // Update Supabase affiliates table
+    try {
+      const { getDynamicSupabaseClient } = await import('../../supabaseClient');
+      const client: any = await getDynamicSupabaseClient();
+      await client.from('affiliates')
+        .update({ is_disabled: newIsDisabled, status: newStatus })
+        .eq('id', aff.id);
+      await client.from('account_status_logs').insert({
+        id: `asl-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+        account_id: aff.id,
+        changed_by: partnerId,
+        old_status: aff.status,
+        new_status: newStatus,
+        reason: statusReason || action,
+        created_at: new Date().toISOString(),
+      });
+    } catch {
+      // Offline — queue both writes for later sync
+      enqueueSyncItem({
+        table: 'affiliates', operation: 'update',
+        data: { is_disabled: newIsDisabled, status: newStatus },
+        filter: { column: 'id', value: aff.id },
+        accountId: partnerId,
+      });
+    }
+
+    // Update localStorage (offline cache / instant UI)
     try {
       const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
       const updated = all.map(a =>
@@ -397,19 +480,6 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     setSubAffiliates(prev =>
       prev.map(a => a.id === aff.id ? { ...a, status: newStatus as any, isDisabled: newIsDisabled } : a)
     );
-
-    // Log the action
-    const logs: any[] = JSON.parse(localStorage.getItem('account_status_logs') || '[]');
-    logs.unshift({
-      id: Date.now().toString(),
-      account_id: aff.id,
-      changed_by: partnerId,
-      old_status: aff.status,
-      new_status: newStatus,
-      reason: statusReason || action,
-      created_at: new Date().toISOString(),
-    });
-    localStorage.setItem('account_status_logs', JSON.stringify(logs.slice(0, 200)));
 
     setNotice(`✅ ${aff.name} has been ${action}d.`);
     setStatusModal(null);
@@ -426,8 +496,17 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     setEditPayoutMethod(aff.payoutMethod);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editModal) return;
+
+    // Update Supabase
+    await dbWrite('affiliates', 'update',
+      { display_name: editName, phone_whatsapp: editPhone, payout_account: editPayoutPhone, payout_method: editPayoutMethod },
+      { column: 'id', value: editModal.id },
+      partnerId
+    );
+
+    // Update localStorage
     try {
       const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
       const updated = all.map(a =>
@@ -450,10 +529,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   // ── Mirror mode ─────────────────────────────────────────────
 
   const enterMirror = (aff: SubAffiliateProfile) => {
-    // Audit log
-    const logs: any[] = JSON.parse(localStorage.getItem('mirror_access_logs') || '[]');
-    logs.unshift({
-      id: Date.now().toString(),
+    const logEntry = {
+      id: `mal-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
       viewer_user_id: partnerId,
       viewer_role: 'super_agent',
       target_user_id: aff.id,
@@ -461,8 +538,15 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       action: 'mirror_view',
       fields_changed: null,
       created_at: new Date().toISOString(),
-    });
-    localStorage.setItem('mirror_access_logs', JSON.stringify(logs.slice(0, 500)));
+    };
+    // Audit log — DB write (queues if offline)
+    dbWrite('mirror_access_logs', 'insert', logEntry, undefined, partnerId).catch(() => {});
+    // Also keep a local copy for quick reference
+    try {
+      const logs: any[] = JSON.parse(localStorage.getItem('mirror_access_logs') || '[]');
+      logs.unshift(logEntry);
+      localStorage.setItem('mirror_access_logs', JSON.stringify(logs.slice(0, 500)));
+    } catch {}
     setMirrorTarget(aff);
   };
 

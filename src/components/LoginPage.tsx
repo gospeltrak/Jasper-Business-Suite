@@ -956,6 +956,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     triggerLogin(userObj.phone || userObj.email, userObj.password);
   };
 
+  const numberValue = (value: unknown): number => Number(value || 0);
+
   const registerAffiliateReferral = async (code: string, subscriberName: string, tenantId?: string) => {
     const upperCode = code.toUpperCase();
 
@@ -1045,20 +1047,35 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         created_at: now,
       });
 
-      // 2c. Update affiliates table revenue totals
+      // 2c. Update sub-affiliate's running totals in affiliates table
       if (subAffiliateId) {
+        const { data: currentRow } = await client
+          .from('affiliates')
+          .select('total_revenue, gross_commission, customers_count')
+          .eq('id', subAffiliateId)
+          .maybeSingle();
         await client.from('affiliates')
           .update({
-            total_revenue: client.rpc ? undefined : undefined, // use increment below
-            customers_count: 1,
+            total_revenue: numberValue(currentRow?.total_revenue) + revenueAdded,
+            gross_commission: numberValue(currentRow?.gross_commission) + grossCommission15,
+            customers_count: numberValue(currentRow?.customers_count) + 1,
           })
           .eq('id', subAffiliateId);
-        // Increment counters
-        await client.rpc('increment_affiliate_stats', {
-          p_affiliate_id: subAffiliateId,
-          p_revenue: revenueAdded,
-          p_commission: grossCommission15,
-        }).catch(() => {}); // RPC may not exist — ignore
+      }
+
+      // 2d. Update parent partner's running totals in affiliate_partners table
+      if (parentSuperAgentId) {
+        const { data: currentPartner } = await client
+          .from('affiliate_partners')
+          .select('total_revenue, manager_commission, sub_affiliate_count')
+          .eq('id', parentSuperAgentId)
+          .maybeSingle();
+        await client.from('affiliate_partners')
+          .update({
+            total_revenue: numberValue(currentPartner?.total_revenue) + revenueAdded,
+            manager_commission: numberValue(currentPartner?.manager_commission) + managerCommission5,
+          })
+          .eq('id', parentSuperAgentId);
       }
 
     } catch (dbErr) {

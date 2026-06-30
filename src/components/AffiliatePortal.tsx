@@ -1000,13 +1000,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         try {
           const client: any = await getDynamicSupabaseClient();
           const { data: dbPartner } = await client
-            .from('affiliates')
-            .select('id, display_name, promo_code, referral_code, account_type, is_disabled')
-            .or(`promo_code.eq.${cleanParentCode},referral_code.eq.${cleanParentCode}`)
-            .in('account_type', ['partner', 'super_agent'])
+            .from('affiliate_partners')
+            .select('id, display_name, promo_code, is_disabled')
+            .eq('promo_code', cleanParentCode)
             .maybeSingle();
           if (dbPartner && !dbPartner.is_disabled) {
-            parentMatch = { id: dbPartner.id, name: dbPartner.display_name, promoCode: dbPartner.promo_code || dbPartner.referral_code };
+            parentMatch = { id: dbPartner.id, name: dbPartner.display_name, promoCode: dbPartner.promo_code };
           }
         } catch { /* offline — already blocked by isOnline() check above */ }
       }
@@ -1079,24 +1078,56 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         options: { data: { display_name: name, is_affiliate: true } },
       });
       if (!authError && authData?.user) {
-        const { data: insertedRow } = await client.from("affiliates").upsert({
-          user_id: authData.user.id,
-          display_name: name,
-          referral_code: cleanCode,
-          referral_slug: cleanCode.toLowerCase(),
-          status: "active",
-          account_type: isRegisterSuper ? "partner" : "sub_affiliate",
-          parent_super_agent_id: parentSuperId || null,
-          phone_whatsapp: phone,
-          payout_account: payoutPhone || phone,
-          payout_method: paymentMethod,
-          nida_number: nidaNumber || null,
-          tin_number: tinNumber || null,
-          tin_status: tinNumber ? "submitted" : "not_submitted",
-          promo_code: cleanCode,
-          is_disabled: false,
-          created_at: new Date().toISOString(),
-        }, { onConflict: "user_id" }).select('id').maybeSingle();
+        let insertedRow: any = null;
+
+        if (isRegisterSuper) {
+          // Partner — own dedicated table
+          const { data } = await client.from("affiliate_partners").upsert({
+            user_id: authData.user.id,
+            display_name: name,
+            promo_code: cleanCode,
+            referral_slug: cleanCode.toLowerCase(),
+            status: "active",
+            phone_whatsapp: phone,
+            payout_account: payoutPhone || phone,
+            payout_method: paymentMethod,
+            nida_number: nidaNumber || null,
+            tin_number: tinNumber || null,
+            tin_status: tinNumber ? "submitted" : "not_submitted",
+            is_disabled: false,
+          }, { onConflict: "user_id" }).select('id').maybeSingle();
+          insertedRow = data;
+          if (!insertedRow?.id) {
+            const { data: existing } = await client.from("affiliate_partners")
+              .select('id').eq('user_id', authData.user.id).maybeSingle();
+            insertedRow = existing;
+          }
+        } else {
+          // Sub-affiliate — affiliates table, always tied to a partner
+          const { data } = await client.from("affiliates").upsert({
+            user_id: authData.user.id,
+            display_name: name,
+            referral_code: cleanCode,
+            referral_slug: cleanCode.toLowerCase(),
+            status: "active",
+            account_type: "sub_affiliate",
+            parent_super_agent_id: parentSuperId || null,
+            phone_whatsapp: phone,
+            payout_account: payoutPhone || phone,
+            payout_method: paymentMethod,
+            nida_number: nidaNumber || null,
+            tin_number: tinNumber || null,
+            tin_status: tinNumber ? "submitted" : "not_submitted",
+            promo_code: cleanCode,
+            is_disabled: false,
+          }, { onConflict: "user_id" }).select('id').maybeSingle();
+          insertedRow = data;
+          if (!insertedRow?.id) {
+            const { data: existing } = await client.from("affiliates")
+              .select('id').eq('user_id', authData.user.id).maybeSingle();
+            insertedRow = existing;
+          }
+        }
 
         // CRITICAL: save the Supabase row ID and auth user_id to the session
         // so future updates hit the correct DB row
@@ -1104,13 +1135,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           newAff.id = insertedRow.id;
           newAff.supabaseUserId = authData.user.id;
         } else {
-          // Row may already exist — fetch it
-          const { data: existing } = await client.from("affiliates")
-            .select('id').eq('user_id', authData.user.id).maybeSingle();
-          if (existing?.id) {
-            newAff.id = existing.id;
-            newAff.supabaseUserId = authData.user.id;
-          }
+          alert("⚠️ Account created locally but could not confirm the database save. Please check your connection and try logging in again — if the problem continues, contact support.");
         }
         // Update localStorage records with correct Supabase ID
         const affIdx = immersiveList.findIndex((a: any) => a.promoCode === cleanCode);
@@ -1121,7 +1146,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         }
       }
     } catch (dbErr) {
-      console.warn("[affiliate] Supabase save failed — saved to localStorage:", dbErr);
+      console.error("[affiliate] Supabase save failed:", dbErr);
+      alert("⚠️ We could not save your account to the database. Please check your internet connection and try registering again — your data was not stored.");
     }
 
     // ── Show promo code to user ────────────────────────────────
@@ -1207,15 +1233,28 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       });
 
       if (!authError && authData?.user) {
-        // ── Supabase login success ─────────────────────────────
-        const { data: profile } = await client
-          .from('affiliates')
-          .select('id, user_id, display_name, referral_code, promo_code, account_type, parent_super_agent_id, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, nida_number, is_disabled')
-          .eq('user_id', authData.user.id)
-          .maybeSingle();
+        // ── Supabase login success — query the correct table based on portal ──
+        let profile: any = null;
+        let isPartnerAccount = false;
+
+        if (portalRole === 'partner') {
+          const { data } = await client
+            .from('affiliate_partners')
+            .select('id, user_id, display_name, promo_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, nida_number, is_disabled')
+            .eq('user_id', authData.user.id)
+            .maybeSingle();
+          profile = data;
+          isPartnerAccount = !!profile;
+        } else {
+          const { data } = await client
+            .from('affiliates')
+            .select('id, user_id, display_name, referral_code, promo_code, parent_super_agent_id, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, nida_number, is_disabled')
+            .eq('user_id', authData.user.id)
+            .maybeSingle();
+          profile = data;
+        }
 
         if (profile) {
-          const isPartnerAccount = profile.account_type === 'partner' || profile.account_type === 'super_agent';
           const mappedAff: Affiliate = {
             id: profile.id,
             name: profile.display_name,
@@ -1237,7 +1276,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
             localStorage.setItem('saas_immersive_affiliates', JSON.stringify(immersive));
           }
           setActiveAffiliate(mappedAff);
-          if (portalRole === 'partner' || isPartnerAccount) {
+          if (isPartnerAccount) {
             setDatabaseAgentWorkspaceEnabled(true);
           } else {
             setDatabaseWorkspaceEnabled(true);
