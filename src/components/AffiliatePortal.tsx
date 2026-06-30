@@ -1070,7 +1070,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
         if (isRegisterSuper) {
           // Partner — own dedicated table
-          const { data } = await client.from("affiliate_partners").upsert({
+          const { data, error: upsertError } = await client.from("affiliate_partners").upsert({
             user_id: authData.user.id,
             display_name: name,
             promo_code: cleanCode,
@@ -1084,6 +1084,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
             tin_status: tinNumber ? "submitted" : "not_submitted",
             is_disabled: false,
           }, { onConflict: "user_id" }).select('id').maybeSingle();
+          if (upsertError) {
+            console.error("[partner registration] affiliate_partners upsert failed:", upsertError);
+            throw new Error(`Partner profile save failed: ${upsertError.message}`);
+          }
           insertedRow = data;
           if (!insertedRow?.id) {
             const { data: existing } = await client.from("affiliate_partners")
