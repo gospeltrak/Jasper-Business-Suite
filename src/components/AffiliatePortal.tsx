@@ -142,24 +142,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [tutorialAssignments, setTutorialAssignments] = useState<any[]>([]);
 
   // ── RESTORE SESSION ON PAGE RELOAD ──────────────────────────────────────
-  // If user was already logged in (localStorage has their session), restore it
-  // ── SESSION RESTORE ON PAGE LOAD ─────────────────────────────────────────
-  useEffect(() => {
-    const saved = localStorage.getItem('jasper_logged_affiliate');
-    if (!saved) return;
-    try {
-      const parsed = JSON.parse(saved);
-      if (!parsed?.id) return;
-      setActiveAffiliate(parsed);
-      setAuthMode('dashboard');
-      if (forcedRole === 'partner' || parsed.isSuper === true) {
-        setDatabaseAgentWorkspaceEnabled(true);
-      } else {
-        setDatabaseWorkspaceEnabled(true);
-      }
-    } catch { /* ignore */ }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ── NO SESSION RESTORE ON PAGE LOAD ──────────────────────────────────────
+  // The app is online-only: every visit to /affiliate or /partner requires
+  // a fresh login against Supabase. We deliberately do NOT trust whatever
+  // is sitting in jasper_logged_affiliate from a previous session/device —
+  // that was causing stale or demo accounts to silently auto-login.
 
   // ── INIT OFFLINE SYNC + ONLINE INDICATOR ────────────────────────────────
   const [isNetworkOnline, setIsNetworkOnline] = useState(isOnline());
@@ -1177,52 +1164,6 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     }
   };
 
-  const handleQuickDemoAffiliate = () => {
-    setLoginEmail("+255700000010");
-    setLoginPassword("password123");
-    const defaultAffiliate: Affiliate = {
-      id: "aff-demo-99",
-      name: "Sarah Mwakasege",
-      email: "partner@jasper.africa",
-      phone: "0754 002 991",
-      paymentMethod: "tigo_yas",
-      promoCode: "SARAH_JASPER",
-      isSuper: false,
-      nidaNumber: "19951204-45129-00001-44",
-      tinNumber: "124-954-122",
-    };
-    localStorage.setItem(
-      "jasper_logged_affiliate",
-      JSON.stringify(defaultAffiliate),
-    );
-    setActiveAffiliate(defaultAffiliate);
-    setAuthMode("dashboard");
-    setDatabaseWorkspaceEnabled(true);
-  };
-
-  const handleQuickDemoPartner = () => {
-    setLoginEmail("+255700000011");
-    setLoginPassword("password123");
-    const defaultAffiliate: Affiliate = {
-      id: "langa-super",
-      name: "Deogratius Langa",
-      email: "langa@jasper.com",
-      phone: "+255 712 345 678",
-      paymentMethod: "m-pesa",
-      promoCode: "LANGA",
-      isSuper: true,
-      nidaNumber: "19880112-21110-00002-88",
-      tinNumber: "109-883-994",
-    };
-    localStorage.setItem(
-      "jasper_logged_affiliate",
-      JSON.stringify(defaultAffiliate),
-    );
-    setActiveAffiliate(defaultAffiliate);
-    setAuthMode("dashboard");
-    setDatabaseAgentWorkspaceEnabled(true);
-  };
-
   const handleLoginAffiliate = async (e: any) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) {
@@ -1242,7 +1183,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         password: loginPassword,
       });
 
-      if (!authError && authData?.user) {
+      if (authError || !authData?.user) {
+        alert('❌ Namba ya simu au nenosiri si sahihi.\n\nIncorrect phone number or password. Please try again.');
+        return;
+      }
+
+      {
         // ── Supabase login success — query the correct table based on portal ──
         let profile: any = null;
         let isPartnerAccount = false;
@@ -1296,102 +1242,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         }
       }
     } catch (networkErr) {
-      // Network unavailable — fall through to localStorage
-      console.warn('[affiliate login] Network unavailable, trying localStorage:', networkErr);
+      console.error('[affiliate login] Login failed:', networkErr);
+      alert('❌ Imeshindwa kuingia. Hakikisha una mtandao wa intaneti na jaribu tena.\n\nLogin failed. Please check your internet connection and try again.');
+      return;
     }
 
-    // ── Offline fallback: read from localStorage ───────────────
-    const isLoginSuper = portalRole === "partner";
-
-    // 1. Seek in central SaaS Admin master list (supports seeded Langa Super Affiliate & assigned child affiliates)
-    const rawImmersive = localStorage.getItem("saas_immersive_affiliates");
-    if (rawImmersive) {
-      try {
-        const parsed = JSON.parse(rawImmersive);
-        const match = parsed.find(
-          (a: any) => (a.phone?.replace(/[^\d]/g, '') === loginEmail.replace(/[^\d]/g, '') || a.email?.toLowerCase() === loginEmail.toLowerCase()),
-        );
-        if (match) {
-          const mappedAff: Affiliate = {
-            id: match.id,
-            name: match.name,
-            email: match.email,
-            phone: match.phone,
-            paymentMethod: match.paymentMethod || "m-pesa",
-            promoCode: match.promoCode,
-            isSuper: isLoginSuper,
-            targetReferrals: match.targetReferrals || 200,
-            nidaNumber: match.nidaNumber || "N/A",
-            tinNumber: match.tinNumber || "N/A",
-          };
-          localStorage.setItem(
-            "jasper_logged_affiliate",
-            JSON.stringify(mappedAff),
-          );
-          setActiveAffiliate(mappedAff);
-          setAuthMode("dashboard");
-          // Set the correct workspace flag based on portal role
-          if (portalRole === 'partner') {
-            setDatabaseAgentWorkspaceEnabled(true);
-          } else {
-            setDatabaseWorkspaceEnabled(true);
-          }
-          return;
-        }
-      } catch (err) {
-        console.error("Error parsing immersive database", err);
-      }
-    }
-
-    // 2. Fall back to custom locally registered affiliates
-    const existing: Affiliate[] = JSON.parse(
-      localStorage.getItem("jasper_affiliates") || "[]",
-    );
-    const match = existing.find(
-      (a) => (a.phone?.replace(/[^\d]/g, '') === loginEmail.replace(/[^\d]/g, '') || a.email?.toLowerCase() === loginEmail.toLowerCase()),
-    );
-
-    if (match) {
-      const mappedAff: Affiliate = {
-        ...match,
-        isSuper: isLoginSuper,
-      };
-      localStorage.setItem(
-        "jasper_logged_affiliate",
-        JSON.stringify(mappedAff),
-      );
-      setActiveAffiliate(mappedAff);
-      setAuthMode("dashboard");
-      // Set the correct workspace flag
-      if (portalRole === 'partner') {
-        setDatabaseAgentWorkspaceEnabled(true);
-      } else {
-        setDatabaseWorkspaceEnabled(true);
-      }
-    } else {
-      // Allow seamless test fallback with email "partner@jasper.africa"
-      const defaultAffiliate: Affiliate = {
-        id: "aff-demo-99",
-        name: "Sarah Mwakasege",
-        email: loginEmail,
-        phone: "0754 002 991",
-        paymentMethod: "tigo_yas",
-        promoCode: "SARAH_JASPER",
-        isSuper: isLoginSuper,
-      };
-      localStorage.setItem(
-        "jasper_logged_affiliate",
-        JSON.stringify(defaultAffiliate),
-      );
-      setActiveAffiliate(defaultAffiliate);
-      setAuthMode("dashboard");
-      // Set the correct workspace flag
-      if (portalRole === 'partner') {
-        setDatabaseAgentWorkspaceEnabled(true);
-      } else {
-        setDatabaseWorkspaceEnabled(true);
-      }
-    }
+    // If we reach here, Supabase responded but no matching profile was found
+    // for this account in the expected table (partner vs affiliate).
+    alert('❌ Akaunti hii haikupatikana kwa aina hii ya usajili.\n\nThis account was not found for this login type. Please confirm you are using the correct portal (Partner or Affiliate) and try again.');
   };
 
   const handleLogoutAffiliate = async () => {
