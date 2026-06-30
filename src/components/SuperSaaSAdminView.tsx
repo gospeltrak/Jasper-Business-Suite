@@ -542,13 +542,8 @@ export default function SuperSaaSAdminView({
             </button>
           ) : (
             <button onClick={handleShieldClick}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded-xl text-[10px] font-bold cursor-pointer relative">
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded-xl text-[10px] font-bold cursor-pointer">
               <Lock className="w-3 h-3" /> Unlock
-              {shieldClickCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-amber-500 text-slate-950 text-[9px] font-black rounded-full flex items-center justify-center">
-                  {shieldClickCount}
-                </span>
-              )}
             </button>
           )}
         </div>
@@ -594,14 +589,8 @@ export default function SuperSaaSAdminView({
             <div className="flex items-center space-x-2.5 px-2">
               {!showPasswordInput ? (
                 <button onClick={handleShieldClick}
-                  title={shieldClickCount > 0 ? `${5 - shieldClickCount} more click${5 - shieldClickCount === 1 ? '' : 's'} to unlock` : undefined}
-                  className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 rounded cursor-pointer group relative">
+                  className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 rounded cursor-pointer group">
                   <Shield className="w-4 h-4 text-amber-400" />
-                  {shieldClickCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 text-slate-950 text-[8px] font-black rounded-full flex items-center justify-center">
-                      {shieldClickCount}
-                    </span>
-                  )}
                 </button>
               ) : (
                 <>

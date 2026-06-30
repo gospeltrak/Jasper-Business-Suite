@@ -742,7 +742,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
               </button>
               <button 
                 onClick={() => {
-                  if (mirrorPass1 === 'jasper123' && mirrorPass2 === 'admin123') {
+                  if (mirrorPass1 === '1472' && mirrorPass2 === '2583') {
                     window.dispatchEvent(new CustomEvent('saas_enter_mirror', { detail: { account: mirrorTarget, isAffiliate: false } }));
                     setShowMirrorModal(false);
                   } else {
