@@ -1664,7 +1664,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
             return null;
           })()
         ) : authMode !== "dashboard" ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center py-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:items-center py-6">
             {/* Left side: Pitch text — different for partner vs affiliate */}
             <div className="lg:col-span-6 space-y-8">
               {portalRole === 'partner' ? (
@@ -1737,8 +1737,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
               )}
             </div>
             {/* Right side: Clean Login Form */}
-            <div className="lg:col-span-6 flex items-center justify-center">
-              <div className="w-full max-w-md bg-slate-900/80 border border-slate-800 p-8 rounded-3xl shadow-2xl backdrop-blur-md space-y-7">
+            <div className="lg:col-span-6">
+              <div className="w-full max-w-md mx-auto bg-slate-900/80 border border-slate-800 p-8 rounded-3xl shadow-2xl backdrop-blur-md space-y-7">
 
                 {/* Header */}
                 <div className="text-center space-y-2">
