@@ -362,8 +362,8 @@ export async function updateSuperAffiliate(id: string, updates: Record<string, u
  */
 export function verifyAdminOverridePassword(entered: string): boolean {
   const savedKey = localStorage.getItem('saas_encrypted_master_key');
-  const actualSecret = savedKey ? atob(savedKey) : '0000';
-  return entered === actualSecret || entered === '0000' || entered === 'saas-secure-2026';
+  const actualSecret = savedKey ? atob(savedKey) : '3698';
+  return entered === actualSecret || entered === '3698' || entered === 'saas-secure-2026';
 }
 
 async function logAccountDeletion(accountId: string, reason: string) {

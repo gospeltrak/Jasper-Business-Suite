@@ -177,7 +177,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   };
 
   // Star-only Admin Password verification
-  const verifySecureKey = (expectedKey: string = '0000'): boolean => {
+  const verifySecureKey = (expectedKey: string = '3698'): boolean => {
     if (isActionLocked) {
       alert(`🔒 Lockout active. Please wait ${lockoutTimeLeft}s before trying again.`);
       return false;
@@ -186,7 +186,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
     const savedEncryptedKey = localStorage.getItem('saas_encrypted_master_key');
     const actualSecret = savedEncryptedKey ? decryptValue(savedEncryptedKey) : expectedKey;
 
-    if (secureKeyInput === actualSecret || secureKeyInput === '0000' || secureKeyInput === 'saas-secure-2026') {
+    if (secureKeyInput === actualSecret || secureKeyInput === '3698' || secureKeyInput === 'saas-secure-2026') {
       setFailedAttempts(0);
       setSecureKeyInput('');
       return true;

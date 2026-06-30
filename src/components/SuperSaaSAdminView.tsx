@@ -86,6 +86,26 @@ export default function SuperSaaSAdminView({
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [enteredPassword, setEnteredPassword] = useState('');
+  const [shieldClickCount, setShieldClickCount] = useState(0);
+  const [shieldClickTimer, setShieldClickTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+
+  // Security: the unlock control must be clicked 5 times in quick succession
+  // before the password input is revealed, so it can't be triggered
+  // accidentally or by a casual tap from someone glancing at the screen.
+  // The counter resets if more than 3 seconds pass between clicks.
+  const handleShieldClick = () => {
+    if (shieldClickTimer) clearTimeout(shieldClickTimer);
+    setShieldClickCount((count) => {
+      const next = count + 1;
+      if (next >= 5) {
+        setShowPasswordInput(true);
+        return 0;
+      }
+      return next;
+    });
+    const timer = setTimeout(() => setShieldClickCount(0), 3000);
+    setShieldClickTimer(timer);
+  };
   const [failedAttempts, setFailedAttempts] = useState(0);
 
   // Forms inputs
@@ -242,9 +262,9 @@ export default function SuperSaaSAdminView({
 
   const handleVerifyPassword = () => {
     const savedKey = localStorage.getItem('saas_encrypted_master_key');
-    const actualSecret = savedKey ? atob(savedKey) : '0000';
+    const actualSecret = savedKey ? atob(savedKey) : '3698';
 
-    if (enteredPassword === actualSecret || enteredPassword === '0000' || enteredPassword === 'saas-secure-2026') {
+    if (enteredPassword === actualSecret || enteredPassword === '3698' || enteredPassword === 'saas-secure-2026') {
       setIsUnlocked(true);
       setFailedAttempts(0);
       setEnteredPassword('');
@@ -521,9 +541,14 @@ export default function SuperSaaSAdminView({
               <Unlock className="w-3 h-3" /> WRITE
             </button>
           ) : (
-            <button onClick={() => setShowPasswordInput(!showPasswordInput)}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded-xl text-[10px] font-bold cursor-pointer">
+            <button onClick={handleShieldClick}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded-xl text-[10px] font-bold cursor-pointer relative">
               <Lock className="w-3 h-3" /> Unlock
+              {shieldClickCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-amber-500 text-slate-950 text-[9px] font-black rounded-full flex items-center justify-center">
+                  {shieldClickCount}
+                </span>
+              )}
             </button>
           )}
         </div>
@@ -568,9 +593,15 @@ export default function SuperSaaSAdminView({
           ) : (
             <div className="flex items-center space-x-2.5 px-2">
               {!showPasswordInput ? (
-                <button onClick={() => setShowPasswordInput(true)}
-                  className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 rounded cursor-pointer group">
+                <button onClick={handleShieldClick}
+                  title={shieldClickCount > 0 ? `${5 - shieldClickCount} more click${5 - shieldClickCount === 1 ? '' : 's'} to unlock` : undefined}
+                  className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 rounded cursor-pointer group relative">
                   <Shield className="w-4 h-4 text-amber-400" />
+                  {shieldClickCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 text-slate-950 text-[8px] font-black rounded-full flex items-center justify-center">
+                      {shieldClickCount}
+                    </span>
+                  )}
                 </button>
               ) : (
                 <>
