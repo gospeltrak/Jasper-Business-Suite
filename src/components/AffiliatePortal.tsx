@@ -1202,6 +1202,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         ? normalizedLogin
         : `affiliate-${normalizedLogin.replace(/\D/g, '')}@jasper.local`;
 
+      // Clear any stale session before signing in — prevents a previous
+      // session (e.g. from a different account) from interfering with the
+      // profile lookup that determines which dashboard to open.
+      await client.auth.signOut().catch(() => {});
+
       const { data: authData, error: authError } = await client.auth.signInWithPassword({
         email: authEmail,
         password: loginPassword,
