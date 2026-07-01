@@ -567,7 +567,8 @@ export default function DashboardOverview({
         {/* POS Hero Banner / Ad Placement */}
         {(() => {
           const adCode = localStorage.getItem('jasper_dashboard_ad_code');
-          if (adCode) {
+          const adEnabled = localStorage.getItem('jasper_dashboard_ad_enabled') !== 'false';
+          if (adCode && adEnabled) {
             return (
               <div
                 className="w-full overflow-hidden rounded-2xl"
@@ -890,7 +891,8 @@ export default function DashboardOverview({
       {/* ── QUICK ACTION / AD PLACEMENT — reads ad code from Web Editor if set ── */}
       {(() => {
         const adCode = localStorage.getItem('jasper_dashboard_ad_code');
-        if (adCode) {
+        const adEnabled = localStorage.getItem('jasper_dashboard_ad_enabled') !== 'false';
+        if (adCode && adEnabled) {
           return (
             <div
               className="w-full overflow-hidden rounded-2xl"
@@ -1609,7 +1611,8 @@ export default function DashboardOverview({
       {/* ── STICKY BOTTOM AD BANNER ─────────────────────────────────────── */}
       {(() => {
         const bottomAdCode = localStorage.getItem('jasper_bottom_ad_code');
-        if (!bottomAdCode || bottomAdDismissed) return null;
+        const bottomAdEnabled = localStorage.getItem('jasper_bottom_ad_enabled') !== 'false';
+        if (!bottomAdCode || !bottomAdEnabled || bottomAdDismissed) return null;
         return (
           <div
             className="fixed bottom-0 left-0 right-0 z-40 w-full"
@@ -1620,19 +1623,28 @@ export default function DashboardOverview({
                 from { transform: translateY(100%); opacity: 0; }
                 to   { transform: translateY(0);    opacity: 1; }
               }
+              .bottom-ad-container { width: 100%; overflow: hidden; }
+              .bottom-ad-container img,
+              .bottom-ad-container iframe,
+              .bottom-ad-container ins,
+              .bottom-ad-container > * {
+                max-width: 100% !important;
+                width: 100% !important;
+                display: block !important;
+              }
             `}</style>
-            <div className="relative w-full bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.12)] border-t border-slate-200">
-              {/* Close / minimize button */}
+            <div className="relative w-full bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.15)] border-t border-slate-200">
+              {/* Dismiss button */}
               <button
                 onClick={() => setBottomAdDismissed(true)}
                 className="absolute top-1.5 right-2 z-10 w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-xs font-black cursor-pointer border-none transition-colors"
-                title="Close ad"
+                title="Close"
               >
                 ×
               </button>
-              {/* Ad content — full width, responsive */}
+              {/* Ad content — responsive container */}
               <div
-                className="w-full overflow-hidden"
+                className="bottom-ad-container px-0 mx-auto"
                 dangerouslySetInnerHTML={{ __html: bottomAdCode }}
               />
             </div>

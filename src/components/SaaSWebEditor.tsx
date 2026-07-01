@@ -157,8 +157,14 @@ export default function SaaSWebEditor() {
   const [dashboardAdCode, setDashboardAdCode] = useState<string>(() => {
     return localStorage.getItem('jasper_dashboard_ad_code') || '';
   });
+  const [dashboardAdEnabled, setDashboardAdEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('jasper_dashboard_ad_enabled') !== 'false';
+  });
   const [dashboardBottomAdCode, setDashboardBottomAdCode] = useState<string>(() => {
     return localStorage.getItem('jasper_bottom_ad_code') || '';
+  });
+  const [bottomAdEnabled, setBottomAdEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('jasper_bottom_ad_enabled') !== 'false';
   });
   const [partnerWaitlist, setPartnerWaitlist] = useState<any[]>(() => {
     const saved = localStorage.getItem('jasper_partner_waitlist');
@@ -1211,9 +1217,26 @@ export default function SaaSWebEditor() {
               <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider font-bold flex items-center gap-1.5">
                 📢 Dashboard Ad Placement
               </span>
-              {dashboardAdCode && (
-                <span className="text-[9px] font-mono text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded">Active</span>
-              )}
+              <div className="flex items-center gap-2">
+                {dashboardAdCode && (
+                  <span className={`text-[9px] font-mono px-2 py-0.5 rounded ${dashboardAdEnabled ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 bg-slate-800'}`}>
+                    {dashboardAdEnabled ? 'ON' : 'OFF'}
+                  </span>
+                )}
+                {dashboardAdCode && (
+                  <button
+                    onClick={() => {
+                      const next = !dashboardAdEnabled;
+                      setDashboardAdEnabled(next);
+                      localStorage.setItem('jasper_dashboard_ad_enabled', String(next));
+                      window.dispatchEvent(new Event('jasper_ad_code_updated'));
+                    }}
+                    className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer border-none ${dashboardAdEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                  >
+                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${dashboardAdEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  </button>
+                )}
+              </div>
             </div>
             <p className="text-[10px] text-slate-500 leading-relaxed">
               Paste your ad network code (leaderboard, banner, or any format) here. It will replace the green Quick Action banner on the subscriber dashboard. Leave empty to keep the original button.
@@ -1257,9 +1280,26 @@ export default function SaaSWebEditor() {
               <span className="text-[10px] font-mono text-purple-400 uppercase tracking-wider font-bold flex items-center gap-1.5">
                 📌 Sticky Bottom Ad Banner
               </span>
-              {dashboardBottomAdCode && (
-                <span className="text-[9px] font-mono text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded">Active</span>
-              )}
+              <div className="flex items-center gap-2">
+                {dashboardBottomAdCode && (
+                  <span className={`text-[9px] font-mono px-2 py-0.5 rounded ${bottomAdEnabled ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 bg-slate-800'}`}>
+                    {bottomAdEnabled ? 'ON' : 'OFF'}
+                  </span>
+                )}
+                {dashboardBottomAdCode && (
+                  <button
+                    onClick={() => {
+                      const next = !bottomAdEnabled;
+                      setBottomAdEnabled(next);
+                      localStorage.setItem('jasper_bottom_ad_enabled', String(next));
+                      window.dispatchEvent(new Event('jasper_ad_code_updated'));
+                    }}
+                    className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer border-none ${bottomAdEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                  >
+                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${bottomAdEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  </button>
+                )}
+              </div>
             </div>
             <p className="text-[10px] text-slate-500 leading-relaxed">
               Paste your ad code here for a sticky banner that slides up from the bottom of the subscriber dashboard. The user can dismiss it with an × button. It reappears on their next session.
