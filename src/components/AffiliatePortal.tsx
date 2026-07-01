@@ -1091,6 +1091,15 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       }
 
       if (!authError && authData?.user) {
+        // Explicitly sign in to ensure a valid, committed session exists
+        // before the affiliates/affiliate_partners insert runs.
+        // auth.signUp() auto-signs-in but the session may not be fully
+        // propagated yet, causing the FK constraint on affiliates.user_id
+        // to fail because auth.users row isn't visible to the RLS context.
+        try {
+          await client.auth.signInWithPassword({ email: authEmail, password });
+        } catch { /* ignore — proceed with signUp session */ }
+
         let insertedRow: any = null;
 
         if (isRegisterSuper) {
