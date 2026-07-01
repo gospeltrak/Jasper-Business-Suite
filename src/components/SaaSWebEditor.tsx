@@ -1218,24 +1218,20 @@ export default function SaaSWebEditor() {
                 📢 Dashboard Ad Placement
               </span>
               <div className="flex items-center gap-2">
-                {dashboardAdCode && (
-                  <span className={`text-[9px] font-mono px-2 py-0.5 rounded ${dashboardAdEnabled ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 bg-slate-800'}`}>
-                    {dashboardAdEnabled ? 'ON' : 'OFF'}
-                  </span>
-                )}
-                {dashboardAdCode && (
-                  <button
-                    onClick={() => {
-                      const next = !dashboardAdEnabled;
-                      setDashboardAdEnabled(next);
-                      localStorage.setItem('jasper_dashboard_ad_enabled', String(next));
-                      window.dispatchEvent(new Event('jasper_ad_code_updated'));
-                    }}
-                    className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer border-none ${dashboardAdEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
-                  >
-                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${dashboardAdEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                  </button>
-                )}
+                <span className={`text-[9px] font-mono px-2 py-0.5 rounded ${dashboardAdEnabled ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 bg-slate-800'}`}>
+                  {dashboardAdEnabled ? 'ON' : 'OFF'}
+                </span>
+                <button
+                  onClick={() => {
+                    const next = !dashboardAdEnabled;
+                    setDashboardAdEnabled(next);
+                    localStorage.setItem('jasper_dashboard_ad_enabled', String(next));
+                    window.dispatchEvent(new Event('jasper_ad_code_updated'));
+                  }}
+                  className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer border-none ${dashboardAdEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${dashboardAdEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
               </div>
             </div>
             <p className="text-[10px] text-slate-500 leading-relaxed">
@@ -1281,24 +1277,20 @@ export default function SaaSWebEditor() {
                 📌 Sticky Bottom Ad Banner
               </span>
               <div className="flex items-center gap-2">
-                {dashboardBottomAdCode && (
-                  <span className={`text-[9px] font-mono px-2 py-0.5 rounded ${bottomAdEnabled ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 bg-slate-800'}`}>
-                    {bottomAdEnabled ? 'ON' : 'OFF'}
-                  </span>
-                )}
-                {dashboardBottomAdCode && (
-                  <button
-                    onClick={() => {
-                      const next = !bottomAdEnabled;
-                      setBottomAdEnabled(next);
-                      localStorage.setItem('jasper_bottom_ad_enabled', String(next));
-                      window.dispatchEvent(new Event('jasper_ad_code_updated'));
-                    }}
-                    className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer border-none ${bottomAdEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
-                  >
-                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${bottomAdEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                  </button>
-                )}
+                <span className={`text-[9px] font-mono px-2 py-0.5 rounded ${bottomAdEnabled ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 bg-slate-800'}`}>
+                  {bottomAdEnabled ? 'ON' : 'OFF'}
+                </span>
+                <button
+                  onClick={() => {
+                    const next = !bottomAdEnabled;
+                    setBottomAdEnabled(next);
+                    localStorage.setItem('jasper_bottom_ad_enabled', String(next));
+                    window.dispatchEvent(new Event('jasper_ad_code_updated'));
+                  }}
+                  className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer border-none ${bottomAdEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${bottomAdEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
               </div>
             </div>
             <p className="text-[10px] text-slate-500 leading-relaxed">
