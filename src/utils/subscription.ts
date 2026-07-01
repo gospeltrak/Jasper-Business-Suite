@@ -19,7 +19,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     id: 'trial',
     name: 'Sandbox Plan',
     price: 0,
-    durationDays: 14,
+    durationDays: 10,
     maxProducts: 200,
     maxStores: 1,
     maxStaff: 2,
@@ -60,7 +60,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     price: 35000,
     durationDays: 30,
     maxProducts: 5000,
-    maxStores: 2,
+    maxStores: 999999,
     maxStaff: 6,
     features: [
       'Max 5000 Products catalogued',
@@ -79,8 +79,8 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     name: 'Tanzanite',
     price: 50000,
     durationDays: 30,
-    maxProducts: 999999,
-    maxStores: 5,
+    maxProducts: 999999, // Unlimited
+    maxStores: 999999,
     maxStaff: 15,
     features: [
       'Unlimited Products catalogued',
@@ -121,7 +121,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     price: 35000,
     durationDays: 30,
     maxProducts: 5000,
-    maxStores: 2,
+    maxStores: 999999,
     maxStaff: 6,
     features: [
       'Max 5000 Products catalogued',
@@ -141,7 +141,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     price: 50000,
     durationDays: 30,
     maxProducts: 999999,
-    maxStores: 5,
+    maxStores: 999999,
     maxStaff: 15,
     features: [
       'Unlimited Products catalogued',
@@ -268,18 +268,35 @@ export function checkSubscriptionStatus(
 ): SubscriptionStatusInfo {
   const normalizedPlanId = normalizeSubscriptionPlanId(state.planId);
   const plan = SUBSCRIPTION_PLANS[normalizedPlanId];
+  const periodStartedAt = normalizedPlanId === 'trial'
+    ? state.trialStartedAt
+    : state.paidAt || state.trialStartedAt;
+  
+  // Calculate elapsed time
   let daysPassed = 0;
   if (state.simulatedDaysPassed !== undefined && state.simulatedDaysPassed > 0) {
     daysPassed = state.simulatedDaysPassed;
   } else {
-    const started = new Date(state.trialStartedAt).getTime();
+    const started = new Date(periodStartedAt).getTime();
     const now = new Date().getTime();
     daysPassed = Math.floor(Math.max(0, now - started) / (1000 * 60 * 60 * 24));
   }
-  const durationAllowed = normalizedPlanId === 'trial' ? (state.promoCodeUsed ? 30 : 14) : 30;
+  // If promo code was registered: 20 days free. Else 10 days free.
+  const durationAllowed = normalizedPlanId === 'trial' 
+    ? (state.promoCodeUsed ? 20 : 10) 
+    : 30;
+  
   const daysRemaining = Math.max(0, durationAllowed - daysPassed);
-  const isNearingExpiry = !state.isSubscribedPaid && daysRemaining > 0 && daysRemaining <= 3;
-  const isExpired = !state.isSubscribedPaid && daysPassed >= durationAllowed;
+  
+  // Notification triggered 3 days before any trial or paid subscription period ends.
+  const isNearingExpiry = daysRemaining > 0 && daysRemaining <= 3;
+  
+  // Expired state triggers lockouts automatically for trial users and renewal alerts for paid users.
+  const isExpired = daysPassed >= durationAllowed;
+
+  const productsLimitExceeded = currentProductCount >= plan.maxProducts;
+  const storesLimitExceeded = currentStoreCount >= plan.maxStores;
+  const staffLimitExceeded = currentStaffCount >= plan.maxStaff;
   return {
     state: { ...state, planId: normalizedPlanId },
     plan,

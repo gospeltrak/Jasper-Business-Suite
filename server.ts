@@ -927,6 +927,11 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
 
     try {
+      const trialDays = String(referralCode || '').trim() ? 20 : 10;
+      const subscriptionStartDate = new Date();
+      const subscriptionEndDate = new Date(subscriptionStartDate);
+      subscriptionEndDate.setDate(subscriptionEndDate.getDate() + trialDays);
+
       // 1. Create the user in Supabase Auth using the Admin API
       // We use the admin API securely on the backend so we can auto-confirm their email for now if desired
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -960,8 +965,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
           selected_package_id: null,
           active_package_id: null,
           subscription_status: 'trial',
-          subscription_start_date: new Date().toISOString(),
-          subscription_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          subscription_start_date: subscriptionStartDate.toISOString(),
+          subscription_end_date: subscriptionEndDate.toISOString(),
           package_updated_at: new Date().toISOString(),
           package_change_type: 'registration',
           package_change_note: 'New clean tenant account created on trial status'

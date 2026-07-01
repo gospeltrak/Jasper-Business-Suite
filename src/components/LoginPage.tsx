@@ -28,6 +28,7 @@ import { User, Tenant } from '../types';
 import { getDynamicSupabaseClient, isPlaceholderSupabaseClient } from '../supabaseClient';
 import { initializeCleanTenantWorkspace } from '../utils/tenantIsolation';
 import { startCloudSession } from '../utils/sessionControl';
+import { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
 
 declare global {
   interface Window {
@@ -372,6 +373,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         : user;
     };
     const systemUsers = [...DEMO_USERS, ...customUsers, ...saasStaffs].map(withPasswordOverride);
+    const resolveStaffPermissions = (settings: any, roleName: string) => {
+      const roles = settings.customRoles?.length ? settings.customRoles : DEFAULT_CUSTOM_ROLES;
+      const normalizedRole = (roleName || '').toLowerCase();
+      const roleKey = normalizedRole === 'waiter' ? 'seller' : normalizedRole;
+      return roles.find((role: any) => role.name.toLowerCase() === roleKey)?.permissions || {};
+    };
 
     // Scan all cached tenants settings for staffs
     for (let i = 0; i < localStorage.length; i++) {
@@ -382,16 +389,19 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             const settings = JSON.parse(localStorage.getItem(key) || '{}');
             if (settings.staffs && Array.isArray(settings.staffs)) {
               settings.staffs.forEach((staff: any) => {
+                 const staffRole = staff.role || 'Cashier';
                  systemUsers.push(withPasswordOverride({
                    id: staff.id,
                    email: staff.phone || staff.name.toLowerCase().replace(' ', '') + '@jasper.com', 
                    phone: staff.phone || '',
                    password: staff.password || 'password123',
                    name: staff.name,
-                   role: staff.role || 'Cashier',
+                   role: staffRole,
                    tenantId: tenantId,
                    activeTenant: tenantId,
-                   profileImage: staff.profileImage
+                   profileImage: staff.profileImage,
+                   isSaaSStaff: true,
+                   rolePermissions: resolveStaffPermissions(settings, staffRole)
                  }));
               });
             }
@@ -933,6 +943,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           activeTenant: match.activeTenant,
           profileImage: match.profileImage,
           phone: match.phone,
+          isSaaSStaff: match.isSaaSStaff || false,
+          rolePermissions: match.rolePermissions,
           trial_start_date: match.trial_start_date || new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
           trial_end_date: match.trial_end_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           is_affiliate_lead: match.is_affiliate_lead || false,
@@ -1154,6 +1166,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         console.warn('Account was created but this browser could not establish its cloud session.', signInError);
       }
 
+      const hasPromoCode = !!affiliateCode.trim();
+      const trialDays = hasPromoCode ? 20 : 10;
+      const trialStartDate = new Date();
+      const trialEndDate = new Date(trialStartDate);
+      trialEndDate.setDate(trialEndDate.getDate() + trialDays);
+
       // Store response variables
       const registeredUser: User = {
         id: authUserId,
@@ -1166,8 +1184,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         securityQuestion: regSecurityQuestion.trim(),
         securityAnswer: normalizeSecurityAnswer(regSecurityAnswer),
         isSaaSStaff: false,
-        trial_start_date: new Date().toISOString(),
-        trial_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+        trial_start_date: trialStartDate.toISOString(),
+        trial_end_date: trialEndDate.toISOString(),
+        is_affiliate_lead: hasPromoCode,
+        referral_code_used: hasPromoCode ? affiliateCode.trim() : ''
       };
 
       // Store custom tenants dynamically in localStorage
@@ -1186,9 +1206,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
       localStorage.setItem('jasper_subscription_state', JSON.stringify({
         planId: 'trial',
-        trialStartedAt: new Date().toISOString(),
+        trialStartedAt: trialStartDate.toISOString(),
         isSubscribedPaid: false,
         simulatedDaysPassed: 0,
+        promoCodeUsed: hasPromoCode ? affiliateCode.trim().toUpperCase() : undefined,
         autoRenewEnabled: true,
         paymentStatus: 'active'
       }));
@@ -1352,7 +1373,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         id: 'ref-dyn-google-' + Math.floor(1000 + Math.random() * 9000),
         affiliateCode: code,
         subscriberName: googleOrgName,
-        package: '30-Day Extended Free Trial (Promo Applied)',
+        package: '20-Day Extended Free Trial (Promo Applied)',
         payoutStatus: 'Trial Mode',
         registeredAt: new Date().toISOString().split('T')[0],
         commission: 0
@@ -1823,7 +1844,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     type="text"
                     required
                     value={ownerName}
-                    placeholder="e.g. Tunde Alao"
+                    placeholder="e.g. Jane Doe"
                     onChange={(e) => setOwnerName(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none"
                   />
@@ -1935,8 +1956,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   onChange={(e) => setAffiliateCode(e.target.value)}
                   className="w-full bg-white border border-emerald-250 focus:border-emerald-500 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-bold uppercase tracking-wider outline-none placeholder:font-bold placeholder:uppercase placeholder:text-slate-400"
                 />
-                <p className="text-[9.5px] text-emerald-700 font-sans leading-normal font-medium">
-                  Promo code gives you an extended 20 days free trial instead of 10 days.
+                <p className="text-[9.5px] text-emerald-700 font-sans leading-normal font-normal">
+                  Register with a promo code to get 20 free days instead of 10.
                 </p>
               </div>
 
@@ -2038,15 +2059,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   {/* Option A: Preferred Gmail account */}
                   <button
                     type="button"
-                    onClick={() => handleSelectGoogleAccount('gospeltrak@gmail.com', 'Tunde Alao')}
-                    className="w-full p-4 hover:bg-slate-50 border border-slate-200 hover:border-emerald-300 rounded-2xl text-left flex items-center justify-between transition-all cursor-pointer group"
+                    onClick={() => handleSelectGoogleAccount('demo@example.com', 'Jane Doe')}
+                    className="w-full p-4 hover:bg-slate-50 border border-slate-150 hover:border-emerald-300 rounded-2xl text-left flex items-center justify-between transition-all cursor-pointer group"
                   >
                     <div className="flex items-center space-x-3.5">
                       <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-sm tracking-wide shadow-inner">
                         TA
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-slate-800 group-hover:text-emerald-700 transition-colors">Tunde Alao (Owner)</p>
+                        <p className="text-xs font-bold text-slate-800 group-hover:text-emerald-700 transition-colors">Jane Doe (Owner)</p>
                         <p className="text-[10.5px] font-mono text-slate-400">gospeltrak@gmail.com</p>
                       </div>
                     </div>

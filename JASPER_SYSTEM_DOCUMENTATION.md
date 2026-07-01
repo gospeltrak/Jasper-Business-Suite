@@ -1,5 +1,5 @@
 # Jasper Business Suite: System Documentation
-**Comprehensive Enterprise SaaS Platform of JasperBrand TZ & Lim Company Ltd**
+**Comprehensive Enterprise SaaS Platform of JasperBrand TZ & Doe Company**
 
 ---
 
@@ -13,7 +13,7 @@ By eliminating manual paperwork, standardizing daily workflows, and providing re
 ### 1.2 Target Market & Corporate Alignment
 The suite serves as the core operating system and logistical backbone for the retail, wholesale, and trade sectors across East Africa, focusing specifically on:
 * **Tanzania’s Digital Economy:** Addressing the unique logistical and fiscal environment of urban centers (e.g., Dar es Salaam, Arusha) and regional trading nodes.
-* **JasperBrand TZ and Lim Company Ltd Umbrella:** Providing unified managerial oversight over multi-tenant retail networks, distribution depots, and specialized business units under holding company supervision.
+* **JasperBrand TZ and Doe Company Umbrella:** Providing unified managerial oversight over multi-tenant retail networks, distribution depots, and specialized business units under holding company supervision.
 * **Syk-forward SMBs and Enterprises:** Offering scalable tools for growing businesses that require robust multi-branch inventory tracking, multi-region compliance, and sophisticated role-based workflows without incurring prohibitive enterprise-hardware costs.
 
 ---

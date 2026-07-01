@@ -94,6 +94,7 @@ export default function DashboardProducts({
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
+  const getTotalStockQty = (shopQty: number, storeQty: number) => Number((Number(shopQty || 0) + Number(storeQty || 0)).toFixed(3));
   
   // Smart Batch Pricing & Restock
   const [replenishProduct, setReplenishProduct] = useState<Product | null>(null);
@@ -137,10 +138,13 @@ export default function DashboardProducts({
   }, [products, customCategories, systemSettings]);
 
   const unitsList = useMemo(() => {
+    if (activeTenant.businessType === 'pharmacy') {
+      return ['Box', 'Carton', 'Packet', 'Strip', 'Dose', 'Tablet', 'Capsule', 'Piece', 'Inner Box', 'Master Box'];
+    }
     return systemSettings?.productStore?.units && systemSettings.productStore.units.length > 0
       ? systemSettings.productStore.units
       : (isDemoTenant(activeTenant.id) ? ['Pcs', 'Kgs', 'Ltrs', 'Boxes', 'Cartons'] : []);
-  }, [systemSettings]);
+  }, [activeTenant.businessType, systemSettings]);
 
   // Self-healing, reactive list of brands that merges pre-loaded product brands and custom registered brands
   const brandsList = useMemo(() => {
@@ -166,6 +170,26 @@ export default function DashboardProducts({
     setEditForm({ ...prod });
   };
 
+  const getEditPharmacyStructure = (form: Partial<Product>) => {
+    const levels = form.pharmacyUnitLevels || [];
+    const productType = form.pharmacyProductType
+      || (form.pharmacyHierarchyStart === 'master_box' || form.pharmacyHierarchyStart === 'carton' ? 'non_pharmaceutical' : 'pharmaceutical');
+    const hierarchyStart = form.pharmacyHierarchyStart
+      || (productType === 'non_pharmaceutical' ? 'carton' : 'packet');
+    const base = form.pharmacyBaseUnit
+      || levels[levels.length - 1]?.unit
+      || form.pharmacyUnitBreakdown?.baseUnit
+      || (productType === 'non_pharmaceutical' ? 'Piece' : 'Tablet');
+    const doseQty = Math.max(1, Number((form as any).pharmacyDoseContains || levels.find(level => level.id === 'dose')?.quantityToBaseUnit || form.tabsPerDose || form.pharmacyUnitBreakdown?.tabletsPerStrip || 1));
+    const middleLevel = levels.find(level => level.id === 'strip');
+    const topLevel = levels.find(level => level.id === 'packet');
+    const middleQty = Math.max(1, Number((form as any).pharmacyMiddleContains || (middleLevel ? Math.round(middleLevel.quantityToBaseUnit / doseQty) : undefined) || form.dosesPerPacket || form.pharmacyUnitBreakdown?.stripsPerBox || 1));
+    const topQty = Math.max(1, Number((form as any).pharmacyTopContains || (topLevel && middleLevel ? Math.round(topLevel.quantityToBaseUnit / middleLevel.quantityToBaseUnit) : undefined) || 1));
+
+    const hierarchy = buildPharmacyHierarchy(productType, hierarchyStart, base, topQty, middleQty, doseQty);
+    return { productType, hierarchyStart, base, topQty, middleQty, doseQty, hierarchy };
+  };
+
   const handleSaveProductEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editForm.name) return;
@@ -176,10 +200,13 @@ export default function DashboardProducts({
         const rawCostPrice = editForm.costPrice ?? 0;
         const sellPrice = editForm.sellInRetail !== false ? (editForm.sellingPrice ?? 0) : 0;
         const b = editForm.barcode ? editForm.barcode.trim() : p.barcode;
-        const editDosesPerPacket = Math.max(1, Number(editForm.dosesPerPacket || editForm.pharmacyUnitBreakdown?.stripsPerBox || 1));
-        const editTabsPerDose = Math.max(1, Number(editForm.tabsPerDose || editForm.pharmacyUnitBreakdown?.tabletsPerStrip || editForm.tabsPerPack || 1));
-        const editTabsPerPacket = editDosesPerPacket * editTabsPerDose;
-        const editFullDosePrice = Number(editForm.fullDosePrice || (editDosesPerPacket > 0 ? sellPrice / editDosesPerPacket : sellPrice));
+        const editPharmacy = getEditPharmacyStructure(editForm);
+        const editDosesPerPacket = Math.max(1, Number(editPharmacy.middleQty || 1));
+        const editTabsPerDose = Math.max(1, Number(editPharmacy.doseQty || 1));
+        const editTopLevel = editPharmacy.hierarchy.levels[0];
+        const editDoseLevel = editPharmacy.hierarchy.levels.find(level => level.id === 'dose') || editPharmacy.hierarchy.levels[1] || editTopLevel;
+        const editTabsPerPacket = Math.max(1, Number(editTopLevel?.quantityToBaseUnit || editDosesPerPacket * editTabsPerDose));
+        const editFullDosePrice = Number(editForm.fullDosePrice || (Number(editDoseLevel?.quantityToBaseUnit || editTabsPerDose) * Number(editForm.tabPrice || (editTabsPerPacket > 0 ? sellPrice / editTabsPerPacket : sellPrice))));
         const editHalfDosePrice = Number(editForm.halfDosePrice || editFullDosePrice / 2);
         const editTabPrice = Number(editForm.tabPrice || (editTabsPerPacket > 0 ? sellPrice / editTabsPerPacket : sellPrice));
         const editUsesMeasuredUnit = !!editForm.isBulkProduct || !!editForm.allowScaleSelling ||
@@ -199,11 +226,11 @@ export default function DashboardProducts({
           name: editForm.name || '',
           brand: editForm.brand ? editForm.brand.trim() : undefined,
           category: editForm.category || '',
-          unit: editForm.unit || '',
+          unit: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.baseUnit : (editForm.unit || ''),
           barcode: b,
           costPrice: editLedgerCostPrice,
           sellingPrice: sellPrice,
-          stockQty: (editForm.shopStockQty ?? 0) + (editForm.storeStockQty ?? 0),
+          stockQty: getTotalStockQty(editForm.shopStockQty ?? 0, editForm.storeStockQty ?? 0),
           shopStockQty: editForm.shopStockQty ?? 0,
           storeStockQty: editForm.storeStockQty ?? 0,
           alertQty: editForm.alertQty ?? 5,
@@ -224,8 +251,8 @@ export default function DashboardProducts({
           sellingMethod: mapCostingMethodToLegacy(editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo'),
           allowPosMethodOverride: !!editForm.allowPosMethodOverride,
           allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
-          purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : editPurchaseUnit,
-          baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : editBaseUnit,
+          purchaseUnit: activeTenant.businessType === 'pharmacy' ? editTopLevel.unit : editPurchaseUnit,
+          baseUnit: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.baseUnit : editBaseUnit,
           conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : editConversionToBase,
           packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase,
           wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * editConversionToBase,
@@ -237,6 +264,10 @@ export default function DashboardProducts({
           dosesPerPacket: activeTenant.businessType === 'pharmacy' ? editDosesPerPacket : editForm.dosesPerPacket,
           tabsPerDose: activeTenant.businessType === 'pharmacy' ? editTabsPerDose : editForm.tabsPerDose,
           tabsPerPack: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : editForm.tabsPerPack,
+          pharmacyProductType: activeTenant.businessType === 'pharmacy' ? editPharmacy.productType : editForm.pharmacyProductType,
+          pharmacyHierarchyStart: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchyStart : editForm.pharmacyHierarchyStart,
+          pharmacyBaseUnit: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.baseUnit : editForm.pharmacyBaseUnit,
+          pharmacyUnitLevels: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.levels : editForm.pharmacyUnitLevels,
           allowsDosageDividing: activeTenant.businessType === 'pharmacy' ? true : editForm.allowsDosageDividing,
           packetPrice: activeTenant.businessType === 'pharmacy' ? sellPrice : editForm.packetPrice,
           fullDosePrice: activeTenant.businessType === 'pharmacy' ? editFullDosePrice : editForm.fullDosePrice,
@@ -245,8 +276,8 @@ export default function DashboardProducts({
           pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
             ? {
               purchaseUnit: 'Packet',
-              stripUnit: 'Dose',
-              baseUnit: 'Tab',
+              stripUnit: editDoseLevel.unit,
+              baseUnit: editPharmacy.hierarchy.baseUnit,
               stripsPerBox: editDosesPerPacket,
               tabletsPerStrip: editTabsPerDose,
             }
@@ -255,8 +286,8 @@ export default function DashboardProducts({
             costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
             allowPosMethodOverride: !!editForm.allowPosMethodOverride,
             allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
-            purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : editPurchaseUnit,
-            baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : editBaseUnit,
+            purchaseUnit: activeTenant.businessType === 'pharmacy' ? editTopLevel.unit : editPurchaseUnit,
+            baseUnit: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.baseUnit : editBaseUnit,
             conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : editConversionToBase,
             packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase,
             wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * editConversionToBase,
@@ -267,9 +298,9 @@ export default function DashboardProducts({
             fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
             pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
               ? {
-                purchaseUnit: 'Packet',
-                stripUnit: 'Dose',
-                baseUnit: 'Tab',
+                purchaseUnit: editTopLevel.unit,
+                stripUnit: editDoseLevel.unit,
+                baseUnit: editPharmacy.hierarchy.baseUnit,
                 stripsPerBox: editDosesPerPacket,
                 tabletsPerStrip: editTabsPerDose,
               }
@@ -467,6 +498,74 @@ export default function DashboardProducts({
   const [fullDosePrice, setFullDosePrice] = useState<number | ''>(0);
   const [halfDosePrice, setHalfDosePrice] = useState<number | ''>(0);
   const [tabPrice, setTabPrice] = useState<number | ''>(0);
+  const [pharmacyProductType, setPharmacyProductType] = useState<'pharmaceutical' | 'non_pharmaceutical'>('pharmaceutical');
+  const [pharmacyHierarchyStart, setPharmacyHierarchyStart] = useState<'box' | 'packet' | 'master_box' | 'carton'>('packet');
+  const [pharmacyBaseUnit, setPharmacyBaseUnit] = useState('Tablet');
+  const [pharmacyTopContains, setPharmacyTopContains] = useState<number | ''>(10);
+  const [pharmacyMiddleContains, setPharmacyMiddleContains] = useState<number | ''>(10);
+  const [pharmacyDoseContains, setPharmacyDoseContains] = useState<number | ''>(1);
+
+  const buildPharmacyHierarchy = (
+    productType: 'pharmaceutical' | 'non_pharmaceutical',
+    start: 'box' | 'packet' | 'master_box' | 'carton',
+    base: string,
+    topContains: number,
+    middleContains: number,
+    doseContains: number
+  ) => {
+    const safeTop = Math.max(1, Number(topContains) || 1);
+    const safeMiddle = Math.max(1, Number(middleContains) || 1);
+    const safeDose = Math.max(1, Number(doseContains) || 1);
+    if (productType === 'non_pharmaceutical') {
+      if (start === 'master_box') {
+        return {
+          baseUnit: 'Piece',
+          levels: [
+            { id: 'packet', label: 'Master Box', unit: 'Master Box', quantityToBaseUnit: safeTop * safeMiddle },
+            { id: 'strip', label: 'Carton / Inner Box', unit: 'Carton', quantityToBaseUnit: safeMiddle },
+            { id: 'tabs', label: 'Piece', unit: 'Piece', quantityToBaseUnit: 1 },
+          ]
+        };
+      }
+      return {
+        baseUnit: 'Piece',
+        levels: [
+          { id: 'packet', label: 'Carton', unit: 'Carton', quantityToBaseUnit: safeMiddle },
+          { id: 'tabs', label: 'Piece', unit: 'Piece', quantityToBaseUnit: 1 },
+        ]
+      };
+    }
+
+    const resolvedBase = base || 'Tablet';
+    if (start === 'box') {
+      return {
+        baseUnit: resolvedBase,
+        levels: [
+          { id: 'packet', label: 'Box / Carton', unit: 'Box', quantityToBaseUnit: safeTop * safeMiddle * safeDose },
+          { id: 'strip', label: 'Packet / Strip', unit: 'Strip', quantityToBaseUnit: safeMiddle * safeDose },
+          { id: 'dose', label: 'Dose', unit: 'Dose', quantityToBaseUnit: safeDose },
+          { id: 'tabs', label: resolvedBase, unit: resolvedBase, quantityToBaseUnit: 1 },
+        ]
+      };
+    }
+    return {
+      baseUnit: resolvedBase,
+      levels: [
+        { id: 'packet', label: 'Packet / Strip', unit: 'Strip', quantityToBaseUnit: safeMiddle * safeDose },
+        { id: 'dose', label: 'Dose', unit: 'Dose', quantityToBaseUnit: safeDose },
+        { id: 'tabs', label: resolvedBase, unit: resolvedBase, quantityToBaseUnit: 1 },
+      ]
+    };
+  };
+
+  const pharmacyFormHierarchy = useMemo(() => buildPharmacyHierarchy(
+    pharmacyProductType,
+    pharmacyHierarchyStart,
+    pharmacyBaseUnit,
+    Number(pharmacyTopContains) || 1,
+    Number(pharmacyMiddleContains || dosesPerPacket) || 1,
+    Number(pharmacyDoseContains || tabsPerDose) || 1
+  ), [pharmacyProductType, pharmacyHierarchyStart, pharmacyBaseUnit, pharmacyTopContains, pharmacyMiddleContains, pharmacyDoseContains, dosesPerPacket, tabsPerDose]);
 
   // Scanner Simulator modal in form
   const [isFormScannerOpen, setIsFormScannerOpen] = useState(false);
@@ -728,13 +827,22 @@ export default function DashboardProducts({
 
     // Use barcode, or automatically generate one if left blank
     const finalizedBarcode = barcode.trim() || `${Math.floor(10000000 + Math.random() * 90000000)}`;
-    const pharmacyDosesPerPacket = Math.max(1, Number(dosesPerPacket) || 1);
-    const pharmacyTabsPerDose = Math.max(1, Number(tabsPerDose) || 1);
-    const pharmacyTabsPerPacket = pharmacyDosesPerPacket * pharmacyTabsPerDose;
+    const hierarchy = buildPharmacyHierarchy(
+      pharmacyProductType,
+      pharmacyHierarchyStart,
+      pharmacyBaseUnit,
+      Number(pharmacyTopContains) || 1,
+      Number(pharmacyMiddleContains || dosesPerPacket) || 1,
+      Number(pharmacyDoseContains || tabsPerDose) || 1
+    );
+    const pharmacyTopLevel = hierarchy.levels[0];
+    const pharmacyDosesPerPacket = Math.max(1, Number(pharmacyMiddleContains || dosesPerPacket) || 1);
+    const pharmacyTabsPerDose = Math.max(1, Number(pharmacyDoseContains || tabsPerDose) || 1);
+    const pharmacyTabsPerPacket = Math.max(1, pharmacyTopLevel.quantityToBaseUnit);
     const pharmacyPacketPrice = finalSellingPrice;
-    const pharmacyFullDosePrice = Number(fullDosePrice) || (pharmacyPacketPrice / pharmacyDosesPerPacket);
-    const pharmacyHalfDosePrice = Number(halfDosePrice) || (pharmacyFullDosePrice / 2);
     const pharmacyTabPrice = Number(tabPrice) || (pharmacyPacketPrice / pharmacyTabsPerPacket);
+    const pharmacyFullDosePrice = Number(fullDosePrice) || (pharmacyTabPrice * (hierarchy.levels.find(level => level.id === 'dose')?.quantityToBaseUnit || pharmacyTabsPerDose));
+    const pharmacyHalfDosePrice = Number(halfDosePrice) || (pharmacyFullDosePrice / 2);
     // A simple product's selected unit is its stock and sales unit. Packaging and
     // scale products may explicitly use a different base unit for conversion.
     const retailBaseUnit = (isBulkProduct || allowScaleSelling) ? (baseUnit || unit || 'Unit') : (unit || 'Unit');
@@ -752,10 +860,10 @@ export default function DashboardProducts({
       sku: finalizedBarcode, // sku is populated behind the scenes with barcode to avoid breaking standard VM integrations
       barcode: finalizedBarcode,
       category,
-      unit,
+      unit: activeTenant.businessType === 'pharmacy' ? hierarchy.baseUnit : unit,
       costPrice: ledgerCostPrice,
       sellingPrice: finalSellingPrice,
-      stockQty: shopStockQty + storeStockQty,
+      stockQty: getTotalStockQty(shopStockQty, storeStockQty),
       shopStockQty: shopStockQty,
       storeStockQty: storeStockQty,
       alertQty: alertQty,
@@ -769,15 +877,19 @@ export default function DashboardProducts({
       sellingMethod: mapCostingMethodToLegacy(costingMethod),
       allowPosMethodOverride,
       allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (allowScaleSelling || isBulkProduct),
-      purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : retailPurchaseUnit,
-      baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : retailBaseUnit,
+      purchaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTopLevel.unit : retailPurchaseUnit,
+      baseUnit: activeTenant.businessType === 'pharmacy' ? hierarchy.baseUnit : retailBaseUnit,
       conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
       packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit,
       wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * retailConversionToBaseUnit,
       halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
       packageBuyingCost: activeTenant.businessType === 'pharmacy' ? undefined : retailPackageBuyingCost,
       allowCustomQuantity,
-      defaultPricePerBaseUnit: activeTenant.businessType === 'pharmacy' ? finalSellingPrice : retailPricePerBaseUnit,
+      defaultPricePerBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabPrice : retailPricePerBaseUnit,
+      pharmacyProductType: activeTenant.businessType === 'pharmacy' ? pharmacyProductType : undefined,
+      pharmacyHierarchyStart: activeTenant.businessType === 'pharmacy' ? pharmacyHierarchyStart : undefined,
+      pharmacyBaseUnit: activeTenant.businessType === 'pharmacy' ? hierarchy.baseUnit : undefined,
+      pharmacyUnitLevels: activeTenant.businessType === 'pharmacy' ? hierarchy.levels : undefined,
       dosesPerPacket: activeTenant.businessType === 'pharmacy' ? pharmacyDosesPerPacket : undefined,
       tabsPerDose: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerDose : undefined,
       tabsPerPack: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : undefined,
@@ -791,9 +903,9 @@ export default function DashboardProducts({
         : undefined,
       pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
         ? {
-          purchaseUnit: 'Packet',
-          stripUnit: 'Dose',
-          baseUnit: 'Tab',
+          purchaseUnit: pharmacyTopLevel.unit,
+          stripUnit: hierarchy.levels[1]?.unit || hierarchy.baseUnit,
+          baseUnit: hierarchy.baseUnit,
           stripsPerBox: pharmacyDosesPerPacket,
           tabletsPerStrip: pharmacyTabsPerDose,
         }
@@ -802,23 +914,23 @@ export default function DashboardProducts({
         costingMethod,
         allowPosMethodOverride,
         allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (allowScaleSelling || isBulkProduct),
-        purchaseUnit: activeTenant.businessType === 'pharmacy' ? 'Packet' : retailPurchaseUnit,
-        baseUnit: activeTenant.businessType === 'pharmacy' ? 'Tab' : retailBaseUnit,
+        purchaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTopLevel.unit : retailPurchaseUnit,
+        baseUnit: activeTenant.businessType === 'pharmacy' ? hierarchy.baseUnit : retailBaseUnit,
         conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
         packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit,
         wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * retailConversionToBaseUnit,
         halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
         packageBuyingCost: activeTenant.businessType === 'pharmacy' ? undefined : retailPackageBuyingCost,
         allowCustomQuantity,
-        defaultPricePerBaseUnit: activeTenant.businessType === 'pharmacy' ? finalSellingPrice : retailPricePerBaseUnit,
+        defaultPricePerBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabPrice : retailPricePerBaseUnit,
         fractionSaleOptions: activeTenant.businessType !== 'pharmacy' && (allowScaleSelling || isBulkProduct)
           ? getDefaultFractionOptions(retailBaseUnit, retailPricePerBaseUnit)
           : undefined,
         pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
           ? {
-            purchaseUnit: 'Packet',
-            stripUnit: 'Dose',
-            baseUnit: 'Tab',
+            purchaseUnit: pharmacyTopLevel.unit,
+            stripUnit: hierarchy.levels[1]?.unit || hierarchy.baseUnit,
+            baseUnit: hierarchy.baseUnit,
             stripsPerBox: pharmacyDosesPerPacket,
             tabletsPerStrip: pharmacyTabsPerDose,
           }
@@ -912,7 +1024,7 @@ export default function DashboardProducts({
           ...p,
           shopStockQty: nextShop,
           storeStockQty: nextStore,
-          stockQty: nextShop + nextStore
+          stockQty: getTotalStockQty(nextShop, nextStore)
         };
       }
       return p;
@@ -1006,7 +1118,7 @@ export default function DashboardProducts({
             brand: rawBrand,
             costPrice: rawCost,
             sellingPrice: rawSell,
-            stockQty: rawShopQty + rawStoreQty,
+            stockQty: getTotalStockQty(rawShopQty, rawStoreQty),
             shopStockQty: rawShopQty,
             storeStockQty: rawStoreQty,
             alertQty: rawAlert,
@@ -1736,7 +1848,7 @@ export default function DashboardProducts({
 
                   <div className="grid grid-cols-2 gap-3.5 border-b border-dashed border-slate-100 pb-3">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Shop Stock ({activeTenant.businessType !== 'pharmacy' ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : 'Units'})</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Shop Stock ({activeTenant.businessType !== 'pharmacy' ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : pharmacyFormHierarchy.baseUnit})</label>
                       <input 
                         type="number" 
                         min="0"
@@ -1747,7 +1859,7 @@ export default function DashboardProducts({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Store Stock ({activeTenant.businessType !== 'pharmacy' ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : 'Units'})</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Store Stock ({activeTenant.businessType !== 'pharmacy' ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : pharmacyFormHierarchy.baseUnit})</label>
                       <input 
                         type="number" 
                         min="0"
@@ -1946,36 +2058,92 @@ export default function DashboardProducts({
               {activeTenant.businessType === 'pharmacy' && (
                 <div className="space-y-4 pt-2 border-t border-slate-200">
                   <div>
-                    <span className="font-bold text-sm text-slate-800">Pharmacy Dose Setup</span>
-                    <p className="text-[10.5px] text-slate-500 mt-0.5">Set how to sell this item.</p>
+                    <span className="font-bold text-sm text-slate-800">Pharmacy Unit Hierarchy</span>
+                    <p className="text-[10.5px] text-slate-450 mt-0.5">Choose the product type, starting level, and how many units each level contains.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Doses per packet</label>
-                      <input type="number" min={1} value={dosesPerPacket} onChange={e => setDosesPerPacket(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Product Type</label>
+                      <select value={pharmacyProductType} onChange={e => {
+                        const next = e.target.value as 'pharmaceutical' | 'non_pharmaceutical';
+                        setPharmacyProductType(next);
+                        setPharmacyHierarchyStart(next === 'pharmaceutical' ? 'packet' : 'carton');
+                        setPharmacyBaseUnit(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
+                      }} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl">
+                        <option value="pharmaceutical">Pharmaceutical</option>
+                        <option value="non_pharmaceutical">Non-Pharmaceutical</option>
+                      </select>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Tabs per full dose</label>
-                      <input type="number" min={1} value={tabsPerDose} onChange={e => setTabsPerDose(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Starting Level</label>
+                      <select value={pharmacyHierarchyStart} onChange={e => setPharmacyHierarchyStart(e.target.value as any)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl">
+                        {pharmacyProductType === 'pharmaceutical' ? (
+                          <>
+                            <option value="box">Box / Carton</option>
+                            <option value="packet">Packet / Strip</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value="master_box">Master Box</option>
+                            <option value="carton">Carton</option>
+                          </>
+                        )}
+                      </select>
+                    </div>
+                    {pharmacyProductType === 'pharmaceutical' && (
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
+                        <select value={pharmacyBaseUnit} onChange={e => setPharmacyBaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl">
+                          <option value="Tablet">Tablet</option>
+                          <option value="Capsule">Capsule</option>
+                          <option value="Dose">Dose</option>
+                        </select>
+                      </div>
+                    )}
+                    {pharmacyHierarchyStart === 'box' && (
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Strips per Box</label>
+                        <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                    )}
+                    {pharmacyHierarchyStart === 'master_box' && (
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Cartons per Master Box</label>
+                        <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? `${pharmacyBaseUnit}s per Dose/Strip` : 'Pieces per Carton'}</label>
+                      <input type="number" min={1} value={pharmacyMiddleContains} onChange={e => setPharmacyMiddleContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                    </div>
+                    {pharmacyProductType === 'pharmaceutical' && (
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyBaseUnit}s per Dose</label>
+                        <input type="number" min={1} value={pharmacyDoseContains} onChange={e => setPharmacyDoseContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                    )}
+                    <div className="col-span-2 grid grid-cols-2 gap-3">
+                      {pharmacyFormHierarchy.levels.map(level => (
+                        <div key={level.id} className="bg-white/80 border border-emerald-100 rounded-xl px-3 py-2">
+                          <span className="block text-[9px] font-bold text-slate-400 uppercase">{level.label}</span>
+                          <span className="text-[11px] font-black text-emerald-800">1 {level.unit} = {level.quantityToBaseUnit} {pharmacyFormHierarchy.baseUnit}</span>
+                        </div>
+                      ))}
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Packet price</label>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Top Unit'} price</label>
                       <input type="number" value={sellingPrice} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Full dose price</label>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Dose / middle price</label>
                       <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Half dose price</label>
-                      <input type="number" value={halfDosePrice} onChange={e => setHalfDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Price per tab</label>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
                       <input type="number" value={tabPrice} onChange={e => setTabPrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                     </div>
                     <div className="col-span-2 text-[10px] font-mono text-emerald-800 bg-white/70 border border-emerald-100 rounded-xl px-3 py-2">
-                      1 packet = {(Number(dosesPerPacket) || 0)} doses = {((Number(dosesPerPacket) || 0) * (Number(tabsPerDose) || 0))} tabs. Half dose = {Math.max(1, Math.ceil((Number(tabsPerDose) || 1) / 2))} tabs.
+                      Total shop stock: {shopStockQty} {pharmacyFormHierarchy.baseUnit}. Total store stock: {storeStockQty} {pharmacyFormHierarchy.baseUnit}. POS will sell by {pharmacyFormHierarchy.levels.map(level => level.unit).join(', ')} and deduct from {pharmacyFormHierarchy.baseUnit}.
                     </div>
                   </div>
                 </div>
@@ -2153,7 +2321,7 @@ export default function DashboardProducts({
               {filteredProducts.map((prod) => {
                   const shopQty = prod.shopStockQty ?? 0;
                   const storeQty = prod.storeStockQty ?? 0;
-                  const totalQty = prod.stockQty ?? (shopQty + storeQty);
+                  const totalQty = getTotalStockQty(shopQty, storeQty);
                   const isOutOfStock = totalQty <= 0;
                   const isLow = !isOutOfStock && shopQty <= (prod.alertQty || 5);
                   const isCritical = isLow && shopQty <= Math.floor((prod.alertQty || 5) / 2);
@@ -2291,7 +2459,7 @@ export default function DashboardProducts({
                   {filteredProducts.map(prod => {
                     const shopQty = prod.shopStockQty ?? 0;
                     const storeQty = prod.storeStockQty ?? 0;
-                    const totalQty = prod.stockQty ?? (shopQty + storeQty);
+                    const totalQty = getTotalStockQty(shopQty, storeQty);
                     
                     const isOutOfStock = totalQty <= 0;
                     const isLow = !isOutOfStock && shopQty <= prod.alertQty;
@@ -4240,38 +4408,86 @@ export default function DashboardProducts({
 
               {activeTenant.businessType === 'pharmacy' && (
                 <div className="px-5 pb-5">
-                  <div className="border border-emerald-100 bg-emerald-50/40 rounded-2xl p-4 space-y-3">
-                    <div>
-                      <span className="font-bold text-[11px] text-slate-700 uppercase tracking-widest">Pharmacy Dose Setup</span>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Packet, dose, half dose and tab pricing.</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Doses per packet</label>
-                        <input type="number" min={1} value={editForm.dosesPerPacket ?? editForm.pharmacyUnitBreakdown?.stripsPerBox ?? 1} onChange={e => setEditForm(prev => ({ ...prev, dosesPerPacket: Number(e.target.value) || 1 }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                  {(() => {
+                    const structure = getEditPharmacyStructure(editForm);
+                    const topLabel = structure.hierarchyStart === 'box'
+                      ? 'Strips per Box'
+                      : structure.hierarchyStart === 'master_box'
+                        ? 'Cartons per Master Box'
+                        : '';
+                    const middleLabel = structure.productType === 'non_pharmaceutical' ? 'Pieces per Carton' : `${structure.base}s per Strip`;
+                    return (
+                      <div className="border border-emerald-100 bg-emerald-50/40 rounded-2xl p-4 space-y-3">
+                        <div>
+                          <span className="font-bold text-[11px] text-slate-700 uppercase tracking-widest">Pharmacy Unit Hierarchy</span>
+                          <p className="text-[10px] text-slate-450 mt-0.5">Edit pharmaceutical or non-pharmaceutical selling levels.</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase">Product type</label>
+                            <select value={structure.productType} onChange={e => setEditForm(prev => ({
+                              ...prev,
+                              pharmacyProductType: e.target.value as any,
+                              pharmacyHierarchyStart: e.target.value === 'non_pharmaceutical' ? 'carton' : 'packet',
+                              pharmacyBaseUnit: e.target.value === 'non_pharmaceutical' ? 'Piece' : (prev.pharmacyBaseUnit || 'Tablet')
+                            }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl">
+                              <option value="pharmaceutical">Pharmaceutical</option>
+                              <option value="non_pharmaceutical">Non-pharmaceutical</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase">Start level</label>
+                            <select value={structure.hierarchyStart} onChange={e => setEditForm(prev => ({ ...prev, pharmacyHierarchyStart: e.target.value as any }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl">
+                              {structure.productType === 'pharmaceutical' ? (
+                                <>
+                                  <option value="packet">Packet / Strip</option>
+                                  <option value="box">Box / Carton</option>
+                                </>
+                              ) : (
+                                <>
+                                  <option value="carton">Carton</option>
+                                  <option value="master_box">Master Box</option>
+                                </>
+                              )}
+                            </select>
+                          </div>
+                          {structure.productType === 'pharmaceutical' && (
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-slate-500 uppercase">Base unit</label>
+                              <input value={structure.base} onChange={e => setEditForm(prev => ({ ...prev, pharmacyBaseUnit: e.target.value }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                            </div>
+                          )}
+                          {topLabel && (
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-slate-500 uppercase">{topLabel}</label>
+                              <input type="number" min={1} value={structure.topQty} onChange={e => setEditForm(prev => ({ ...prev, pharmacyTopContains: Number(e.target.value) || 1 } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase">{middleLabel}</label>
+                            <input type="number" min={1} value={structure.middleQty} onChange={e => setEditForm(prev => ({ ...prev, pharmacyMiddleContains: Number(e.target.value) || 1, dosesPerPacket: Number(e.target.value) || 1 } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                          </div>
+                          {structure.productType === 'pharmaceutical' && (
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-slate-500 uppercase">{structure.base}s per Dose</label>
+                              <input type="number" min={1} value={structure.doseQty} onChange={e => setEditForm(prev => ({ ...prev, pharmacyDoseContains: Number(e.target.value) || 1, tabsPerDose: Number(e.target.value) || 1 } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase">{structure.hierarchy.levels[0]?.unit || 'Top unit'} price</label>
+                            <input type="number" value={editForm.sellingPrice ?? 0} onChange={e => setEditForm(prev => ({ ...prev, sellingPrice: Number(e.target.value) || 0 }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {structure.hierarchy.baseUnit}</label>
+                            <input type="number" value={editForm.tabPrice ?? ''} onChange={e => setEditForm(prev => ({ ...prev, tabPrice: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                          </div>
+                          <div className="col-span-2 text-[10px] font-mono text-emerald-800 bg-white/70 border border-emerald-100 rounded-xl px-3 py-2">
+                            POS levels: {structure.hierarchy.levels.map(level => `${level.unit} (${level.quantityToBaseUnit} ${structure.hierarchy.baseUnit})`).join(' -> ')}
+                          </div>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Tabs per full dose</label>
-                        <input type="number" min={1} value={editForm.tabsPerDose ?? editForm.pharmacyUnitBreakdown?.tabletsPerStrip ?? editForm.tabsPerPack ?? 1} onChange={e => setEditForm(prev => ({ ...prev, tabsPerDose: Number(e.target.value) || 1 }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Packet price</label>
-                        <input type="number" value={editForm.sellingPrice ?? 0} onChange={e => setEditForm(prev => ({ ...prev, sellingPrice: Number(e.target.value) || 0 }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Full dose price</label>
-                        <input type="number" value={editForm.fullDosePrice ?? ''} onChange={e => setEditForm(prev => ({ ...prev, fullDosePrice: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Half dose price</label>
-                        <input type="number" value={editForm.halfDosePrice ?? ''} onChange={e => setEditForm(prev => ({ ...prev, halfDosePrice: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Price per tab</label>
-                        <input type="number" value={editForm.tabPrice ?? ''} onChange={e => setEditForm(prev => ({ ...prev, tabPrice: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
               )}
 

@@ -38,7 +38,8 @@ import {
   CartesianGrid 
 } from 'recharts';
 import { Tenant, Expense, Product, Sale } from '../types';
-import { isDemoTenant } from '../utils/tenantIsolation';
+
+const DEFAULT_EXPENSE_CATEGORIES = ['Utilities & Power', 'Wages & Salary', 'Logistics & Transport', 'Packaging Materials', 'Rent & Logistics', 'Marketing & Ads', 'Miscellaneous'];
 
 interface DashboardExpensesProps {
   activeTenant: Tenant;
@@ -85,9 +86,7 @@ export default function DashboardExpenses({
         console.warn("Failed loading custom expense categories:", err);
       }
     }
-    return isDemoTenant(activeTenant.id)
-      ? ['Utilities & Power', 'Wages & Salary', 'Logistics & Transport', 'Packaging Materials', 'Rent & Logistics', 'Marketing & Ads', 'Miscellaneous']
-      : [];
+    return DEFAULT_EXPENSE_CATEGORIES;
   });
 
   // State for adding a new category
@@ -128,7 +127,10 @@ export default function DashboardExpenses({
 
   // Handle setting default category when categories load/change
   useEffect(() => {
-    if (categories.length > 0 && !formCategory) {
+    if (categories.length === 0) {
+      saveCategories(DEFAULT_EXPENSE_CATEGORIES);
+      setFormCategory(DEFAULT_EXPENSE_CATEGORIES[0]);
+    } else if (!formCategory) {
       setFormCategory(categories[0]);
     }
   }, [categories, formCategory]);

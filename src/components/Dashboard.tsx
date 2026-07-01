@@ -391,7 +391,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       {
         id: 'DL-MOCKNG1',
         saleId: 'SL-MOCK1',
-        customerName: 'Kunle Adebayo',
+        customerName: 'John Doe',
         customerPhone: '+234 803 444 5555',
         items: [
           { productId: 'p-lag-01', productName: 'Dangote Refined Sugar (50kg)', qty: 1, price: 45000, discount: 0 }
@@ -407,7 +407,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       {
         id: 'DL-MOCKKE1',
         saleId: 'SL-MOCK2',
-        customerName: 'Mary Atieno',
+        customerName: 'Jane Doe',
         customerPhone: '+254 722 000 111',
         items: [
           { productId: 'p-nai-05', productName: 'Menengai Bar Soap White (800g x 10)', qty: 2, price: 1500, discount: 0 }
@@ -799,6 +799,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   })();
 
   const getSimulatedPermissions = () => {
+    if (actingStaffId === 'logged-in-user' && user.rolePermissions) return user.rolePermissions;
+
     const customRoles = systemSettings.customRoles || [];
     const matched = customRoles.find(r => r.name.toLowerCase() === activeRoleName.toLowerCase());
     if (matched) return matched.permissions;
@@ -1094,14 +1096,65 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     currentStoreCount,
     currentStaffCount
   );
+  const isTrialAccount = normalizeSubscriptionPlanId(subStatus.state.planId) === 'trial' && !subStatus.state.isSubscribedPaid;
+  const isTrialAccessLocked = user.role !== 'SuperAdmin' && isTrialAccount && subStatus.isExpired;
 
   // Render Subscription Action Banner & Pay Simulator
   const renderSubscriptionStatusBlock = () => {
-    return null;
+    if (subStatus.daysRemaining <= 0 && !isTrialAccessLocked) return null;
+
+    const isWarning = subStatus.daysRemaining <= 3;
+    const message = isWarning
+      ? isTrialAccount
+        ? `Your free trial expires in ${subStatus.daysRemaining} days - subscribe now to keep access.`
+        : `Your subscription expires in ${subStatus.daysRemaining} days - renew now to avoid interruption.`
+      : isTrialAccount
+        ? `Free trial: ${subStatus.daysRemaining} days remaining`
+        : '';
+
+    if (!message) return null;
+
+    return (
+      <div className={`sticky top-0 z-40 -mx-4 md:-mx-6 -mt-4 md:-mt-6 mb-4 md:mb-6 px-4 py-1.5 text-center text-[11px] font-medium border-b ${
+        isWarning
+          ? 'bg-amber-50 text-amber-800 border-amber-200'
+          : 'bg-emerald-50 text-emerald-800 border-emerald-100'
+      }`}>
+        <span>{message}</span>
+        {isWarning && (
+          <button
+            type="button"
+            onClick={() => setSubModal({
+              show: true,
+              title: isTrialAccount ? 'Subscribe to keep access' : 'Renew Subscription',
+              limitType: 'expired',
+              description: isTrialAccount
+                ? 'Your trial is ending soon. Choose a package to keep using Jasper without interruption.'
+                : 'Your paid subscription is close to renewal. Choose a package and submit your receipt to avoid interruption.'
+            })}
+            className="ml-2 underline underline-offset-2 font-semibold hover:text-amber-950"
+          >
+            {isTrialAccount ? 'Subscribe now' : 'Renew now'}
+          </button>
+        )}
+      </div>
+    );
   };
 
   // Mutators passed down
   const handleAddExpense = (expense: Expense) => {
+    const hasValidExpensePayload = Boolean(
+      expense?.id &&
+      expense?.category?.trim() &&
+      expense?.description?.trim() &&
+      Number.isFinite(Number(expense?.amount)) &&
+      Number(expense?.amount) > 0
+    );
+    if (!hasValidExpensePayload) {
+      console.warn('Blocked invalid automatic expense payload', expense);
+      return;
+    }
+
     setExpensesMap(prev => {
       const currentTenantExpenses = prev[activeTenant.id] || [];
       return {
@@ -1749,12 +1802,13 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       .filter(item => item.plans.includes(currentPlanKey))
       .map(({ plans, ...rest }) => rest);
   })();
+  const visibleSidebarItems = customSidebarItems.filter(item => isTabAllowed(item.tabId || item.id));
 
   useEffect(() => {
-    if (activeRoleName !== 'SuperAdmin' || !user.isSaaSStaff || isTabAllowed(activeTab)) return;
-    const firstAllowed = customSidebarItems.find((item) => isTabAllowed(item.tabId || item.id));
+    if (isTabAllowed(activeTab)) return;
+    const firstAllowed = visibleSidebarItems.find((item) => isTabAllowed(item.tabId || item.id));
     if (firstAllowed?.tabId) setActiveTab(firstAllowed.tabId);
-  }, [activeRoleName, activeTab, customSidebarItems, user.isSaaSStaff]);
+  }, [activeRoleName, activeTab, user.isSaaSStaff]);
 
   if (user.isDuress) {
     return <DuressDashboard onLogout={onLogout} onNavigate={onNavigate} />;
@@ -1877,7 +1931,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
         {/* Scrollable list of sidebar items */}
         <div className={`flex-grow overflow-y-auto ${sidebarCollapsed ? 'px-2' : 'px-3'} py-4 space-y-1 scrollbar-none flex flex-col items-center ${sidebarCollapsed ? 'items-center' : 'items-stretch'}`}>
-          {customSidebarItems.map(item => {
+          {visibleSidebarItems.map(item => {
             const IconComponent = item.icon;
             const isActive = activeTab === item.tabId;
 
@@ -2002,7 +2056,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                     {activeTenant.name}
                   </span>
                   <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mt-0.5">
-                    {t(customSidebarItems.find((m: any) => m.id === activeTab || m.tabId === activeTab)?.label || activeTab.replace(/-/g, ' '))}
+                    {t(visibleSidebarItems.find((m: any) => m.id === activeTab || m.tabId === activeTab)?.label || activeTab.replace(/-/g, ' '))}
                   </span>
                 </div>
               </div>
@@ -2193,7 +2247,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   {activeTenant.name}
                 </span>
                 <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  {t(customSidebarItems.find((m: any) => m.id === activeTab || m.tabId === activeTab)?.label || activeTab.replace(/-/g, ' '))}
+                  {t(visibleSidebarItems.find((m: any) => m.id === activeTab || m.tabId === activeTab)?.label || activeTab.replace(/-/g, ' '))}
                 </span>
               </div>
             </div>
@@ -2280,6 +2334,57 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           <main id="workspace-content" className={`flex-1 overflow-y-auto scrollbar-none overscroll-none touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-4 md:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-6 min-h-0`}>
             
             {user.role !== 'SuperAdmin' && renderSubscriptionStatusBlock()}
+
+            {isTrialAccessLocked ? (
+              <div className="min-h-[calc(100dvh-180px)] flex items-center justify-center">
+                <div className="w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 text-center shadow-sm space-y-5">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 flex items-center justify-center mx-auto text-amber-600">
+                    <AlertTriangle className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                      Your free trial has expired
+                    </h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-w-lg mx-auto">
+                      We redirected you to the subscription packages page because your trial period has ended. Choose Diamond or Tanzanite to continue using your dashboard without losing your business data.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setManualActivationPackage('diamond');
+                        setSubModal({
+                          show: true,
+                          title: 'Subscribe with Diamond',
+                          limitType: 'expired',
+                          description: 'Select Diamond, pay, and upload your receipt for activation.'
+                        });
+                      }}
+                      className="rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-4 py-3 transition-colors"
+                    >
+                      Diamond Package
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setManualActivationPackage('tanzanite');
+                        setSubModal({
+                          show: true,
+                          title: 'Subscribe with Tanzanite',
+                          limitType: 'expired',
+                          description: 'Select Tanzanite, pay, and upload your receipt for activation.'
+                        });
+                      }}
+                      className="rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm px-4 py-3 transition-colors"
+                    >
+                      Tanzanite Package
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+            <>
 
           {/* TAB ROOT: Hotel Property Management Room Matrix (PMS) */}
           {activeTab === 'hotel-pms' && (
@@ -2643,6 +2748,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             />
           )}
 
+            </>
+            )}
+
           </main>
 
           {/* Mobile Bottom Navigation Component */}
@@ -2662,7 +2770,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 { id: 'pos',         label: 'Sell',  icon: ShoppingCart, isPOS: true },
                 { id: 'products',    label: 'Stock', icon: Database },
                 { id: '__more__',    label: 'More',  icon: Menu },
-              ]) .map((tab: any) => {
+              ]).filter(tab => tab.id === '__more__' || isTabAllowed(tab.id)).map((tab: any) => {
                 const isMore = tab.id === '__more__';
                 const isActive = (!isMore && activeTab === tab.id) || (isMore && moreMenuOpen);
                 const Icon = tab.icon;
@@ -2757,7 +2865,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   { id: 'cash-bank-matrix',  label: 'Money',      icon: Wallet,          bg: 'bg-amber-500' },
                   { id: 'forecasting',       label: 'Planning',   icon: TrendingUp,      bg: 'bg-cyan-500' },
                   { id: 'staff-members',     label: 'Staff',      icon: Shield,          bg: 'bg-slate-700' },
-                ]).map((item) => {
+                ]).filter(item => isTabAllowed(item.id)).map((item) => {
                   const Icon = item.icon;
                   return (
                     <button key={item.id} type="button"
@@ -2784,9 +2892,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   { id: 'admin-settings',   label: 'Settings',    icon: SettingsIcon,desc: 'System configuration',      color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
                 ] : [
                   { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
-                  { id: 'sync',     label: 'Sync',     icon: RefreshCw,    desc: isOfflineMode ? 'You are offline' : 'All data synced', color: isOfflineMode ? 'text-amber-600' : 'text-emerald-600', bg: isOfflineMode ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-emerald-50 dark:bg-emerald-500/10' },
-                  { id: 'inventory',label: 'Inventory',icon: Package,      desc: 'View stock levels',             color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-500/10' },
-                ]).map((item, idx, arr) => {
+                  { id: 'sync', label: 'Sync', icon: RefreshCw, desc: isOfflineMode ? 'You are offline' : 'All data synced', color: isOfflineMode ? 'text-amber-600' : 'text-emerald-600', bg: isOfflineMode ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-emerald-50 dark:bg-emerald-500/10' },
+                  { id: 'inventory', label: 'Inventory', icon: Package, desc: 'View stock levels', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+                ]).filter(item => isTabAllowed(item.id)).map((item, idx, arr) => {
                   const Icon = item.icon;
                   return (
                     <button key={item.id} type="button"

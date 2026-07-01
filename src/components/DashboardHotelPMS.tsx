@@ -100,7 +100,7 @@ export default function DashboardHotelPMS({ activeTenant, currentUser, onAddSync
     },
     {
       id: 'RES-4402',
-      guestName: 'Alhaji Kunle',
+      guestName: 'John Doe',
       guestPhone: '+234 803 111 9222',
       roomNumber: '301',
       checkIn: '2026-05-20',

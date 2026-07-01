@@ -269,7 +269,7 @@ export default function DashboardSalesList({
         tax: 0,
         customerName: 'Amani Supermarket Ltd',
         customerPhone: '+254 711 222 333',
-        customerAddress: 'Tom Mboya Street, Nairobi',
+        customerAddress: '123 Main Street, City',
         timestamp: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
         tenantId: activeTenant.id,
         status: 'pending'
@@ -285,7 +285,7 @@ export default function DashboardSalesList({
         tax: 0,
         customerName: 'Lipa Wholesale Traders',
         customerPhone: '+254 733 444 555',
-        customerAddress: 'Pipeline Road, Nairobi',
+        customerAddress: '123 Main Street, City',
         timestamp: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
         tenantId: activeTenant.id,
         status: 'pending'
@@ -507,6 +507,16 @@ export default function DashboardSalesList({
   }, [settleOpeningFloat, expectedTodayDrawerSales, settleShiftPayIns, settleShiftPayOuts]);
 
   // Filter logic
+  const classifyPaymentMethod = (method?: string) => {
+    const value = String(method || '').toLowerCase();
+    if (value.includes('credit')) return 'Credit';
+    if (value.includes('cash')) return 'Cash';
+    if (value.includes('card') || value.includes('paystack')) return 'Card';
+    if (value.includes('bank') || value.includes('transfer') || value.includes('wire')) return 'Bank';
+    if (value.includes('mpesa') || value.includes('m-pesa') || value.includes('momo') || value.includes('money') || value.includes('airtel') || value.includes('yas') || value.includes('mixx') || value.includes('tigo') || value.includes('wallet')) return 'Mobile Money';
+    return method || 'Cash';
+  };
+
   const filteredSales = sales.filter(s => {
     const matchesSearch = 
       s.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -515,10 +525,10 @@ export default function DashboardSalesList({
     
     const matchesPayment = 
       selectedPaymentMethod === 'All' || 
-      (selectedPaymentMethod === 'Mobile Money' && ['M-Pesa', 'MTN MoMo', 'Airtel Money'].includes(s.paymentMethod)) ||
-      (selectedPaymentMethod === 'Card' && ['Card', 'Paystack'].includes(s.paymentMethod)) ||
-      (selectedPaymentMethod === 'Cash' && s.paymentMethod === 'Cash') ||
-      (selectedPaymentMethod === 'Credit' && s.paymentMethod === 'Credit');
+      (selectedPaymentMethod === 'Mobile Money' && classifyPaymentMethod(s.paymentMethod) === 'Mobile Money') ||
+      (selectedPaymentMethod === 'Card' && classifyPaymentMethod(s.paymentMethod) === 'Card') ||
+      (selectedPaymentMethod === 'Cash' && classifyPaymentMethod(s.paymentMethod) === 'Cash') ||
+      (selectedPaymentMethod === 'Credit' && classifyPaymentMethod(s.paymentMethod) === 'Credit');
     
     const matchesSync = 
       selectedSyncStatus === 'All' || 
@@ -2033,7 +2043,7 @@ export default function DashboardSalesList({
                               required
                               value={settleRecipientName}
                               onChange={(e) => setSettleRecipientName(e.target.value)}
-                              placeholder="e.g. Lilian Mbawala (Manager)"
+                              placeholder="e.g. Jane Doe (Manager)"
                               className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none"
                             />
                           </div>
@@ -2847,8 +2857,8 @@ export default function DashboardSalesList({
                   </div>
 
                   {/* Corporate Footer Badge */}
-                  <div className="border-t border-slate-200 pt-6 text-center text-[10px] text-slate-400 font-mono uppercase tracking-widest leading-none">
-                    {activeTenant.businessType === 'pharmacy' ? 'Certified Clinical Pharmacy System Verification' : 'Certified ISO 9001 Retail System Verification'} • {activeTenant.name} Invoice Ledger Database
+                  <div className="border-t border-slate-150 pt-6 text-center text-[10px] text-slate-400 font-mono leading-tight">
+                    Thank you for shopping with us! Powered by: jasper.africa
                   </div>
 
                 </div>
@@ -4031,7 +4041,7 @@ export default function DashboardSalesList({
                   <label className="block text-xs font-bold text-slate-600 mb-1">Billing & Delivery Address</label>
                   <input
                     type="text"
-                    placeholder="e.g. Pipeline St, Nairobi, Kenya"
+                    placeholder="e.g. 123 Main Street, City"
                     value={newDocCustomerAddress}
                     onChange={(e) => setNewDocCustomerAddress(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500"
@@ -4348,7 +4358,7 @@ export default function DashboardSalesList({
         const activeStaff = systemSettings?.staffs?.find(
           s => s.name.toLowerCase() === (currentUser?.name || '').toLowerCase()
         );
-        const preparerName = activeStaff?.name || currentUser?.name || systemSettings?.invoiceSettings?.authorisedPerson || 'Lilian Mbawala';
+        const preparerName = activeStaff?.name || currentUser?.name || systemSettings?.invoiceSettings?.authorisedPerson || 'Jane Doe';
         const preparerRole = activeStaff?.role || currentUser?.role || 'Accounts & Finance Dept';
 
         const docTypeLabel =

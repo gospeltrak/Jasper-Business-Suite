@@ -239,38 +239,53 @@ export default function DashboardCashBank({
       });
     });
 
-    // Link incoming sales to correct payment methods automatically
-    sales.forEach(sale => {
+    const getPaymentChannel = (methodName: string, reference: string) => {
       let targetChannelId = 'counter-01';
-      let desc = `Received sale payment from customer: Receipt ${sale.reference}`;
-      const method = sale.paymentMethod?.toLowerCase() || '';
-      
+      let desc = `Received sale payment from customer: Receipt ${reference}`;
+      const method = methodName.toLowerCase();
+
       if (method.includes('mpesa')) {
         targetChannelId = 'mpesa-till';
-        desc = `M-Pesa payment received: Receipt ${sale.reference}`;
+        desc = `M-Pesa payment received: Receipt ${reference}`;
       } else if (method.includes('momo') || method.includes('money') || method.includes('tigo') || method.includes('yas') || method.includes('mixx') || method.includes('airtel')) {
         targetChannelId = 'yas-merchant';
-        desc = `Mobile money payment received: Receipt ${sale.reference}`;
+        desc = `Mobile money payment received: Receipt ${reference}`;
       } else if (method.includes('card') || method.includes('paystack')) {
         targetChannelId = 'pos-card-terminal';
-        desc = `Card machine payment received: Receipt ${sale.reference}`;
-      } else if (method.includes('bank')) {
+        desc = `Card machine payment received: Receipt ${reference}`;
+      } else if (method.includes('bank') || method.includes('transfer')) {
         targetChannelId = 'crdb-corporate';
-        desc = `Direct bank transfer received: Receipt ${sale.reference}`;
+        desc = `Direct bank transfer received: Receipt ${reference}`;
       } else {
         targetChannelId = 'counter-01';
-        desc = `Cash received in register drawer: Receipt ${sale.reference}`;
+        desc = `Cash received in register drawer: Receipt ${reference}`;
       }
 
-      generated.push({
-        id: `POS-RECON-${sale.id}`,
-        tenantId: activeTenant.id,
-        channelId: targetChannelId,
-        amount: Math.max(0, sale.total - (sale.deliveryCost || 0)),
-        entryType: 'credit',
-        sourceType: 'POS_CHECKOUT',
-        description: desc,
-        timestamp: sale.timestamp
+      return { targetChannelId, desc };
+    };
+
+    // Link incoming sales to correct payment methods automatically
+    sales.forEach(sale => {
+      const saleAmount = Math.max(0, sale.total - (sale.deliveryCost || 0));
+      const breakdown = Array.isArray(sale.paymentBreakdown) && sale.paymentBreakdown.length > 0
+        ? sale.paymentBreakdown
+        : [{ method: sale.paymentMethod || 'Cash', amount: saleAmount }];
+
+      breakdown.forEach((part, index) => {
+        const amount = Math.max(0, Number(part.amount || 0));
+        if (amount <= 0) return;
+        const { targetChannelId, desc } = getPaymentChannel(part.method || sale.paymentMethod || 'Cash', sale.reference);
+
+        generated.push({
+          id: `POS-RECON-${sale.id}-${index}`,
+          tenantId: activeTenant.id,
+          channelId: targetChannelId,
+          amount,
+          entryType: 'credit',
+          sourceType: 'POS_CHECKOUT',
+          description: desc,
+          timestamp: sale.timestamp
+        });
       });
     });
 

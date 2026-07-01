@@ -317,10 +317,11 @@ export default function DashboardReports({
         csv = headerPrefix;
         csv += "Payment Channel,Invoiced Total ($),Approval Count,% Contribution\r\n";
         const sumTotal = Object.values(paymentBreakdown).reduce((a, b) => a + b, 0);
-        csv += `Cash,${paymentBreakdown.Cash.toFixed(2)},${filteredSales.filter(s => s.paymentMethod === 'Cash').length},${sumTotal > 0 ? ((paymentBreakdown.Cash / sumTotal) * 100).toFixed(1) : 0}%\r\n`;
-        csv += `Card/Online,${paymentBreakdown.CardAndOnline.toFixed(2)},${filteredSales.filter(s => ['Card', 'Paystack'].includes(s.paymentMethod)).length},${sumTotal > 0 ? ((paymentBreakdown.CardAndOnline / sumTotal) * 100).toFixed(1) : 0}%\r\n`;
-        csv += `Mobile Money,${paymentBreakdown.MobileMoney.toFixed(2)},${filteredSales.filter(s => ['M-Pesa', 'MTN MoMo', 'Airtel Money'].includes(s.paymentMethod)).length},${sumTotal > 0 ? ((paymentBreakdown.MobileMoney / sumTotal) * 100).toFixed(1) : 0}%\r\n`;
-        csv += `Deferred Credit,${paymentBreakdown.Credit.toFixed(2)},${filteredSales.filter(s => s.paymentMethod === 'Credit').length},${sumTotal > 0 ? ((paymentBreakdown.Credit / sumTotal) * 100).toFixed(1) : 0}%\r\n`;
+        csv += `Cash,${paymentBreakdown.Cash.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Cash').length},${sumTotal > 0 ? ((paymentBreakdown.Cash / sumTotal) * 100).toFixed(1) : 0}%\r\n`;
+        csv += `Card/Online,${paymentBreakdown.CardAndOnline.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Card').length},${sumTotal > 0 ? ((paymentBreakdown.CardAndOnline / sumTotal) * 100).toFixed(1) : 0}%\r\n`;
+        csv += `Mobile Money,${paymentBreakdown.MobileMoney.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Mobile Money').length},${sumTotal > 0 ? ((paymentBreakdown.MobileMoney / sumTotal) * 100).toFixed(1) : 0}%\r\n`;
+        csv += `Bank Transfer,${paymentBreakdown.BankTransfer.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Bank').length},${sumTotal > 0 ? ((paymentBreakdown.BankTransfer / sumTotal) * 100).toFixed(1) : 0}%\r\n`;
+        csv += `Deferred Credit,${paymentBreakdown.Credit.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Credit').length},${sumTotal > 0 ? ((paymentBreakdown.Credit / sumTotal) * 100).toFixed(1) : 0}%\r\n`;
         break;
       }
       case 'product-monitoring': {
@@ -674,32 +675,36 @@ export default function DashboardReports({
   // -------------------------------------------------------------
   // 2. Payments Reports Calculation
   // -------------------------------------------------------------
-  // paymentMethods: Cash, Card, M-Pesa, MTN MoMo, Paystack, Airtel Money, Credit
-  const paymentModesList = ['All', 'Cash', 'Card', 'Mobile Money', 'Credit'];
+  // paymentMethods: Cash, Card, bank transfer, mobile wallets, Credit
+  const paymentModesList = ['All', 'Cash', 'Card', 'Mobile Money', 'Bank', 'Credit'];
+  const classifyPaymentMethod = (method?: string) => {
+    const value = String(method || '').toLowerCase();
+    if (value.includes('credit')) return 'Credit';
+    if (value.includes('cash')) return 'Cash';
+    if (value.includes('card') || value.includes('paystack')) return 'Card';
+    if (value.includes('bank') || value.includes('transfer') || value.includes('wire')) return 'Bank';
+    if (value.includes('mpesa') || value.includes('m-pesa') || value.includes('momo') || value.includes('money') || value.includes('airtel') || value.includes('yas') || value.includes('mixx') || value.includes('tigo') || value.includes('wallet')) return 'Mobile Money';
+    return method || 'Cash';
+  };
   
   const matchesSelectedPaymentMode = (payMethod: string) => {
     if (selectedPaymentMode === 'All') return true;
-    if (selectedPaymentMode === 'Mobile Money') {
-      return ['M-Pesa', 'MTN MoMo', 'Airtel Money'].includes(payMethod);
-    }
-    if (selectedPaymentMode === 'Card') {
-      return ['Card', 'Paystack'].includes(payMethod);
-    }
-    return payMethod === selectedPaymentMode;
+    return classifyPaymentMethod(payMethod) === selectedPaymentMode;
   };
 
   const paymentsSalesFiltered = filteredSales.filter(s => matchesSelectedPaymentMode(s.paymentMethod));
   
   const paymentBreakdown = {
-    Cash: filteredSales.filter(s => s.paymentMethod === 'Cash').reduce((a, s) => a + Math.max(0, s.total - (s.deliveryCost || 0)), 0),
-    CardAndOnline: filteredSales.filter(s => ['Card', 'Paystack'].includes(s.paymentMethod)).reduce((a, s) => a + Math.max(0, s.total - (s.deliveryCost || 0)), 0),
-    MobileMoney: filteredSales.filter(s => ['M-Pesa', 'MTN MoMo', 'Airtel Money'].includes(s.paymentMethod)).reduce((a, s) => a + Math.max(0, s.total - (s.deliveryCost || 0)), 0),
-    Credit: filteredSales.filter(s => s.paymentMethod === 'Credit').reduce((a, s) => a + Math.max(0, s.total - (s.deliveryCost || 0)), 0)
+    Cash: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Cash').reduce((a, s) => a + Math.max(0, s.total - (s.deliveryCost || 0)), 0),
+    CardAndOnline: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Card').reduce((a, s) => a + Math.max(0, s.total - (s.deliveryCost || 0)), 0),
+    MobileMoney: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Mobile Money').reduce((a, s) => a + Math.max(0, s.total - (s.deliveryCost || 0)), 0),
+    BankTransfer: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Bank').reduce((a, s) => a + Math.max(0, s.total - (s.deliveryCost || 0)), 0),
+    Credit: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Credit').reduce((a, s) => a + Math.max(0, s.total - (s.deliveryCost || 0)), 0)
   };
 
   // Group Payments by Date/Time Range Frequency (Daily, Monthly, Yearly)
   const getGroupedPayments = (freq: 'day' | 'month' | 'year') => {
-    const groups: Record<string, { total: number; cash: number; card: number; momo: number; credit: number; count: number }> = {};
+    const groups: Record<string, { total: number; cash: number; card: number; momo: number; bank: number; credit: number; count: number }> = {};
     
     paymentsSalesFiltered.forEach(sale => {
       const dateObj = new Date(sale.timestamp);
@@ -713,16 +718,18 @@ export default function DashboardReports({
       }
 
       if (!groups[key]) {
-        groups[key] = { total: 0, cash: 0, card: 0, momo: 0, credit: 0, count: 0 };
+        groups[key] = { total: 0, cash: 0, card: 0, momo: 0, bank: 0, credit: 0, count: 0 };
       }
 
       groups[key].total += sale.total;
       groups[key].count += 1;
       
-      if (sale.paymentMethod === 'Cash') groups[key].cash += sale.total;
-      else if (['Card', 'Paystack'].includes(sale.paymentMethod)) groups[key].card += sale.total;
-      else if (['M-Pesa', 'MTN MoMo', 'Airtel Money'].includes(sale.paymentMethod)) groups[key].momo += sale.total;
-      else if (sale.paymentMethod === 'Credit') groups[key].credit += sale.total;
+      const paymentClass = classifyPaymentMethod(sale.paymentMethod);
+      if (paymentClass === 'Cash') groups[key].cash += sale.total;
+      else if (paymentClass === 'Card') groups[key].card += sale.total;
+      else if (paymentClass === 'Mobile Money') groups[key].momo += sale.total;
+      else if (paymentClass === 'Bank') groups[key].bank += sale.total;
+      else if (paymentClass === 'Credit') groups[key].credit += sale.total;
     });
 
     return Object.entries(groups).map(([date, vals]) => ({ date, ...vals }));
@@ -3979,7 +3986,8 @@ export default function DashboardReports({
                               <div>
                                 <span className="text-sm font-bold text-slate-800 block">
                                   {channel === 'CardAndOnline' ? 'Card & Paystack Gateway' :
-                                   channel === 'MobileMoney' ? 'Mobile Money Wallets' : channel}
+                                   channel === 'MobileMoney' ? 'Mobile Money Wallets' :
+                                   channel === 'BankTransfer' ? 'Bank Transfer' : channel}
                                 </span>
                                 <span className="text-xs text-slate-400 block mt-0.5 mt-0.5">Cleared settlement channel</span>
                               </div>
@@ -4956,8 +4964,8 @@ export default function DashboardReports({
 
                 {/* Footer Notes */}
                 <div className="text-center text-[9px] text-slate-400 border-t border-dashed border-slate-200 pt-3 leading-relaxed">
-                  <p>Certified ISO 9001 Retail/PHR Audit System</p>
-                  <p className="uppercase font-mono tracking-wider font-bold">Ledger Ledger Verification Approved</p>
+                  <p>Thank you for shopping with us!</p>
+                  <p className="font-mono font-bold">Powered by: jasper.africa</p>
                 </div>
 
               </div>
@@ -5151,7 +5159,11 @@ export default function DashboardReports({
                     const totalSum = Object.values(paymentBreakdown).reduce((a, b) => a + b, 0);
                     return (
                       <tr key={channel}>
-                        <td className="p-2 font-bold">{channel}</td>
+                        <td className="p-2 font-bold">
+                          {channel === 'CardAndOnline' ? 'Card & Online' :
+                           channel === 'MobileMoney' ? 'Mobile Money' :
+                           channel === 'BankTransfer' ? 'Bank Transfer' : channel}
+                        </td>
                         <td className="p-2 text-right font-mono">{currency}{amount.toLocaleString()}</td>
                         <td className="p-2 text-right font-mono font-black">{totalSum > 0 ? ((amount / totalSum) * 100).toFixed(1) : '0.0'}%</td>
                       </tr>

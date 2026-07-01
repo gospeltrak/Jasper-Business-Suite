@@ -24,7 +24,7 @@
     }
   },
   "subscribers": [
-    { "name": "Juma Rashid", "business": "Juma General Store", "package": "Basic", "amount": "25,000 TZS/month", "status": "Active ✅", "daysLeft": "18 days", "source": "Website" },
+    { "name": "John Doe", "business": "Doe Company", "package": "Basic", "amount": "25,000 TZS/month", "status": "Active ✅", "daysLeft": "18 days", "source": "Website" },
     { "name": "Amina Salehe", "business": "Amina Fashion House", "package": "Standard", "amount": "45,000 TZS/month", "status": "Active ✅", "daysLeft": "7 days", "source": "Affiliate" },
     { "name": "Baraka Mselem", "business": "Baraka Restaurant", "package": "Standard", "amount": "45,000 TZS/month", "status": "Active ✅", "daysLeft": "23 days", "source": "Website" },
     { "name": "Neema Chande", "business": "Neema Boutique", "package": "Basic", "amount": "25,000 TZS/month", "status": "Active ✅", "daysLeft": "3 days ⚠️", "source": "Affiliate" },
@@ -49,10 +49,10 @@
     "affiliateCount": 9,
     "affiliatePercent": "50%",
     "affiliateTable": [
-      { "name": "Peter Otieno", "count": 3 },
-      { "name": "Hamisi Juma", "count": 2 },
-      { "name": "Grace Wanjiku", "count": 2 },
-      { "name": "Zuhura Salim", "count": 1 },
+      { "name": "John Doe", "count": 3 },
+      { "name": "Jane Doe", "count": 2 },
+      { "name": "Jane Doe", "count": 2 },
+      { "name": "John Doe", "count": 1 },
       { "name": "Unknown/Other", "count": 1 }
     ]
   },
@@ -65,7 +65,7 @@
   },
   "affiliates": [
     {
-      "name": "Peter Otieno",
+      "name": "John Doe",
       "performance": "⭐ Top Performer",
       "status": "Active",
       "referred": "4 total (3 active)",
@@ -77,7 +77,7 @@
       "activeTime": "Today"
     },
     {
-      "name": "Hamisi Juma",
+      "name": "Jane Doe",
       "performance": "",
       "status": "Active",
       "referred": "2 total (2 active)",
@@ -89,7 +89,7 @@
       "activeTime": "4 days ago"
     },
     {
-      "name": "Grace Wanjiku",
+      "name": "Jane Doe",
       "performance": "",
       "status": "Active",
       "referred": "2 total (1 active)",
@@ -101,7 +101,7 @@
       "activeTime": "3 weeks ago"
     },
     {
-      "name": "Zuhura Salim",
+      "name": "John Doe",
       "performance": "",
       "status": "Inactive",
       "referred": "1 total (0 active)",
@@ -126,6 +126,6 @@
     { "id": "msg-2", "subject": "New marketing materials uploaded", "target": "All Affiliates", "time": "2 weeks ago", "delivered": 4 },
     { "id": "msg-3", "subject": "Commission paid for last month", "target": "All Affiliates", "time": "3 weeks ago", "delivered": 4 },
     { "id": "msg-4", "subject": "System maintenance tonight 11pm", "target": "All Subscribers", "time": "1 month ago", "delivered": 13 },
-    { "id": "msg-5", "subject": "Welcome to Jasper! 🎉", "target": "Juma Rashid (Direct)", "time": "1 month ago", "delivered": 1 }
+    { "id": "msg-5", "subject": "Welcome to Jasper! 🎉", "target": "John Doe (Direct)", "time": "1 month ago", "delivered": 1 }
   ]
 }

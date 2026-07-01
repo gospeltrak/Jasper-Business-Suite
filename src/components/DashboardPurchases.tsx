@@ -804,7 +804,7 @@ export default function DashboardPurchases({
                                 {openMenuId === pc.id && (
                                   <>
                                     <div className="fixed inset-0 z-[60]" onClick={() => setOpenMenuId(null)} />
-                                    <div className="absolute right-0 top-full mt-1 z-[70] bg-white border border-slate-100 rounded-2xl shadow-2xl w-44 py-1.5 overflow-hidden"
+                                    <div className="absolute right-0 top-full mt-1 z-[70] bg-white border border-slate-100 rounded-2xl shadow-2xl w-44 max-w-[calc(100vw-2rem)] py-1.5 overflow-hidden"
                                       style={{boxShadow:'0 8px 32px rgba(0,0,0,0.12),0 0 0 1px rgba(0,0,0,0.04)'}}>
                                       <button onClick={() => { setOpenMenuId(null); setViewPurchase(pc); }}
                                         className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">

@@ -238,11 +238,11 @@ export default function DashboardDeliveries({
   };
 
   const [noteDate, setNoteDate] = useState(() => getTodayFormatted());
-  const [noteDeliveryToTitle, setNoteDeliveryToTitle] = useState('The President Office');
-  const [noteDeliveryToAddress, setNoteDeliveryToAddress] = useState('Barabara ya Julius Nyerere, Dodoma.');
+  const [noteDeliveryToTitle, setNoteDeliveryToTitle] = useState('Doe Company');
+  const [noteDeliveryToAddress, setNoteDeliveryToAddress] = useState('123 Main Street, City');
   const [noteDeclaration, setNoteDeclaration] = useState('Goods delivered in good order and condition.');
-  const [noteDeliveredByName, setNoteDeliveredByName] = useState('Lilian Mbawala');
-  const [noteDeliveredBySignature, setNoteDeliveredBySignature] = useState('Lilian M.');
+  const [noteDeliveredByName, setNoteDeliveredByName] = useState('Jane Doe');
+  const [noteDeliveredBySignature, setNoteDeliveredBySignature] = useState('Jane D.');
   const [noteDeliveredDate, setNoteDeliveredDate] = useState(() => getTodayFormatted());
 
   const [newRiderSignature, setNewRiderSignature] = useState('');
@@ -252,11 +252,11 @@ export default function DashboardDeliveries({
 
   // Dynamically computed supplier details
   const computedLogo = systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url || '';
-  const computedLogoName = activeTenant?.name || 'Lim Cleaners';
-  const computedCompanyTitle = systemSettings?.business?.businessName || activeTenant?.name || 'Lim Company Limited';
-  const computedCompanyAddress = systemSettings?.company?.address || 'Wazo-Bwani, Dar es Salaam';
-  const computedCompanyPhone = systemSettings?.company?.phone || '+255713965853/+255714296200';
-  const computedCompanyEmail = systemSettings?.business?.businessEmail || 'limcompanyltd@gmail.com';
+  const computedLogoName = activeTenant?.name || 'Doe Company';
+  const computedCompanyTitle = systemSettings?.business?.businessName || activeTenant?.name || 'Doe Company';
+  const computedCompanyAddress = systemSettings?.company?.address || '123 Main Street, City';
+  const computedCompanyPhone = systemSettings?.company?.phone || '+255700000000';
+  const computedCompanyEmail = systemSettings?.business?.businessEmail || 'hello@example.com';
   const computedTIN = systemSettings?.invoiceSettings?.tin || '140-763-403';
   const computedInvoiceColor = systemSettings?.invoiceSettings?.invoiceColor || '#102d68';
   const selectedRiderForNote = riders.find(r => r.id === selectedRiderForNoteId);
@@ -359,7 +359,7 @@ export default function DashboardDeliveries({
 
   const handleFinishDeliveryNote = () => {
     // Validate mandatory fields
-    if (!noteDeliveryToAddress.trim() || noteDeliveryToAddress === 'Barabara ya Julius Nyerere, Dodoma.') {
+    if (!noteDeliveryToAddress.trim() || noteDeliveryToAddress === '123 Main Street, City') {
       alert('⚠️ Mandatory delivery location/address is missing or needs to be customized! Please provide the exact location address.');
       return;
     }
@@ -1143,12 +1143,12 @@ Vehicle Plate Number: ${plateNumber}
                   setNotePINo(`PI-${Math.floor(10000 + Math.random() * 90000)}`);
                   setNoteLPO(`LP-${Math.floor(100 + Math.random() * 900)}`);
                   setNoteDate(getTodayFormatted());
-                  setNoteDeliveryToTitle('The President Office');
-                  setNoteDeliveryToAddress('Barabara ya Julius Nyerere, Dodoma.');
+                  setNoteDeliveryToTitle('Doe Company');
+                  setNoteDeliveryToAddress('123 Main Street, City');
                   setNoteTransportType('');
                   setNoteVehiclePlate('');
-                  setNoteDeliveredByName('Lilian Mbawala');
-                  setNoteDeliveredBySignature('Lilian M.');
+                  setNoteDeliveredByName('Jane Doe');
+                  setNoteDeliveredBySignature('Jane D.');
                 }}
                 className="bg-indigo-700 hover:bg-indigo-805 text-white font-extrabold px-3 py-1.5 rounded-xl text-[10px] cursor-pointer transition-all border border-indigo-500"
               >
@@ -1372,11 +1372,11 @@ Vehicle Plate Number: ${plateNumber}
                     setNotePINo(`PI-${Math.floor(10000 + Math.random() * 90000)}`);
                     setNoteLPO(`LP-${Math.floor(100 + Math.random() * 900)}`);
                     setNoteDate(getTodayFormatted());
-                    setNoteDeliveryToTitle('The President Office');
-                    setNoteDeliveryToAddress('Barabara ya Julius Nyerere, Dodoma.');
+                    setNoteDeliveryToTitle('Doe Company');
+                    setNoteDeliveryToAddress('123 Main Street, City');
                     setNoteDeclaration('Goods delivered in good order and condition.');
-                    setNoteDeliveredByName('Lilian Mbawala');
-                    setNoteDeliveredBySignature('Lilian M.');
+                    setNoteDeliveredByName('Jane Doe');
+                    setNoteDeliveredBySignature('Jane D.');
                     setNoteDeliveredDate(getTodayFormatted());
                     setSelectedRiderForNoteId('');
                     setNoteItems([

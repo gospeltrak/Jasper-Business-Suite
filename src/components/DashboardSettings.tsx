@@ -572,8 +572,8 @@ export default function DashboardSettings({
       tin: systemSettings?.company?.tin || '',
       bankName: 'NMB Bank',
       accountNumber: '23710039969',
-      accountName: systemSettings?.company?.companyName || 'Lim Company Ltd',
-      authorisedPerson: 'Lilian Mbawala',
+      accountName: systemSettings?.company?.companyName || 'Doe Company',
+      authorisedPerson: 'Jane Doe',
       termsAndConditions: [
         'Goods once sold will not be taken back or exchanged.',
         'The buyer is responsible for all delivery costs.'
@@ -868,11 +868,22 @@ export default function DashboardSettings({
 
   // Store management states
   const [newStoreName, setNewStoreName] = useState('');
+  const [storeLimitMessage, setStoreLimitMessage] = useState<string | null>(null);
+  const openStoreUpgrade = (planId: 'diamond' | 'tanzanite') => {
+    setStoreLimitMessage(null);
+    onTriggerUpgrade?.('stores');
+  };
   const handleAddStore = () => {
     if (newStoreName.trim()) {
       if (subscriptionStatus) {
         if (subscriptionStatus.isExpired) {
           onTriggerUpgrade?.('expired');
+          return;
+        }
+        const planId = String(subscriptionStatus.state?.planId || subscriptionStatus.plan?.packageId || subscriptionStatus.plan?.name || '').toLowerCase();
+        const isRubyPlan = planId === 'ruby' || planId === 'essential' || subscriptionStatus.plan?.name === 'Ruby';
+        if (isRubyPlan && businessForm.registeredStores.length >= 1) {
+          setStoreLimitMessage('ruby-multiple-stores');
           return;
         }
         if (businessForm.registeredStores.length >= subscriptionStatus.plan.maxStores) {
@@ -886,6 +897,7 @@ export default function DashboardSettings({
           registeredStores: [...prev.registeredStores, newStoreName.trim()]
         }));
       }
+      setStoreLimitMessage(null);
       setNewStoreName('');
     }
   };
@@ -958,9 +970,22 @@ export default function DashboardSettings({
     setCredentialEditPassword('');
   };
 
+  const persistStaffsList = (updatedStaffs: StaffSettings[]) => {
+    setStaffsList(updatedStaffs);
+    onSaveSettings({
+      company: companyForm,
+      business: businessForm,
+      productStore: productForm,
+      staffs: updatedStaffs,
+      customRoles: customRolesList,
+      invoiceSettings: invoiceSettingsForm,
+      posSettings: posSettingsForm
+    });
+  };
+
   const handleSaveStaffCredentials = (staffId: string) => {
     if (!credentialEditPhone.trim() || !credentialEditPassword.trim()) return;
-    setStaffsList(prev => prev.map(staff =>
+    const updatedStaffs = staffsList.map(staff =>
       staff.id === staffId
         ? {
             ...staff,
@@ -970,11 +995,12 @@ export default function DashboardSettings({
             temporaryPasswordIssuedAt: new Date().toISOString()
           }
         : staff
-    ));
+    );
+    persistStaffsList(updatedStaffs);
     setCredentialEditStaffId('');
     setCredentialEditPhone('');
     setCredentialEditPassword('');
-    setSaveSuccess('Staff login credentials updated. Remember to save settings to keep this change.');
+    setSaveSuccess('Staff login credentials updated and saved.');
     setTimeout(() => setSaveSuccess(null), 3500);
   };
 
@@ -1014,7 +1040,7 @@ export default function DashboardSettings({
       signatureImage: staffForm.signatureImage
     };
 
-    setStaffsList(prev => [...prev, newStaff]);
+    persistStaffsList([...staffsList, newStaff]);
     setStaffForm({
       name: '',
       phone: '',
@@ -1027,7 +1053,7 @@ export default function DashboardSettings({
   };
 
   const handleRemoveStaff = (id: string) => {
-    setStaffsList(prev => prev.filter(s => s.id !== id));
+    persistStaffsList(staffsList.filter(s => s.id !== id));
   };
 
   // Global Save triggers
@@ -1782,7 +1808,10 @@ export default function DashboardSettings({
                     <input
                       type="text"
                       value={newStoreName}
-                      onChange={(e) => setNewStoreName(e.target.value)}
+                      onChange={(e) => {
+                        setNewStoreName(e.target.value);
+                        if (storeLimitMessage) setStoreLimitMessage(null);
+                      }}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddStore()}
                       placeholder="e.g. Backroom Freezer, Main Store..."
                       className="flex-1 px-3.5 py-1.5 text-xs outline-none bg-transparent"
@@ -1795,6 +1824,27 @@ export default function DashboardSettings({
                       Add
                     </button>
                   </div>
+                  {storeLimitMessage === 'ruby-multiple-stores' && (
+                    <p className="max-w-sm text-[11px] leading-relaxed text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                      Sorry, this feature is not available in your current package. Upgrade to{' '}
+                      <button
+                        type="button"
+                        onClick={() => openStoreUpgrade('diamond')}
+                        className="font-bold underline underline-offset-2 hover:text-amber-900"
+                      >
+                        Diamond
+                      </button>
+                      {' '}or{' '}
+                      <button
+                        type="button"
+                        onClick={() => openStoreUpgrade('tanzanite')}
+                        className="font-bold underline underline-offset-2 hover:text-amber-900"
+                      >
+                        Tanzanite
+                      </button>
+                      {' '}to unlock multiple store locations.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -2006,7 +2056,7 @@ export default function DashboardSettings({
                     <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">Authorized Person Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. Lilian Mbawala"
+                      placeholder="e.g. Jane Doe"
                       value={invoiceSettingsForm.authorisedPerson || ''}
                       onChange={(e) => setInvoiceSettingsForm(prev => ({ ...prev, authorisedPerson: e.target.value }))}
                       className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-700 focus:ring-1 focus:ring-slate-500 font-medium outline-none"
@@ -2039,7 +2089,7 @@ export default function DashboardSettings({
                     <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">Bank Account Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. Lim Company Ltd"
+                      placeholder="e.g. Doe Company"
                       value={invoiceSettingsForm.accountName || ''}
                       onChange={(e) => setInvoiceSettingsForm(prev => ({ ...prev, accountName: e.target.value }))}
                       className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-700 focus:ring-1 focus:ring-slate-500 font-medium outline-none"
