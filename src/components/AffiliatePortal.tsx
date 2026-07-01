@@ -1166,9 +1166,9 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           localStorage.setItem("saas_immersive_affiliates", JSON.stringify(immersiveList));
         }
       }
-    } catch (dbErr) {
+    } catch (dbErr: any) {
       console.error("[affiliate] Supabase save failed:", dbErr);
-      alert("⚠️ We could not save your account to the database. Please check your internet connection and try registering again — your data was not stored.");
+      alert(`⚠️ Registration failed: ${dbErr?.message || 'Could not save your account to the database. Please check your internet connection and try again.'}`);
     }
 
     // ── Show promo code to user ────────────────────────────────
