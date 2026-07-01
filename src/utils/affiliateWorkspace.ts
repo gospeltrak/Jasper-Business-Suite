@@ -142,19 +142,19 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
   if (profileError) throw profileError;
   if (!profile) return null;
 
-  const [tasksResult, meetingsResult, assignmentsResult, referralsResult, commissionsResult, payoutsResult, activitiesResult] = await Promise.all([
-    client.from('affiliate_tasks').select('*').order('created_at', { ascending: false }).limit(50),
-    client.from('affiliate_meetings').select('*').order('starts_at', { ascending: true }).limit(50),
-    client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(*)').order('created_at', { ascending: false }).limit(50),
-    client.from('affiliate_referrals').select('id, status, created_at').order('created_at', { ascending: false }).limit(500),
-    client.from('affiliate_commissions').select('id, amount, gross_revenue, gross_commission, withholding_tax, net_payout, currency, status, created_at, available_at, paid_at').order('created_at', { ascending: false }).limit(500),
-    client.from('affiliate_payouts').select('id, amount, currency, payout_method, payout_reference, status, requested_at, processed_at, notes').order('requested_at', { ascending: false }).limit(100),
-    client.from('affiliate_activity_events').select('*').order('created_at', { ascending: false }).limit(200),
-  ]);
+  const safeQuery = async (fn: () => Promise<any>) => {
+    try { const r = await fn(); return r.error ? { data: [] } : r; } catch { return { data: [] }; }
+  };
 
-  const queryError = [tasksResult, meetingsResult, assignmentsResult, referralsResult, commissionsResult, payoutsResult, activitiesResult]
-    .find((result: any) => result.error)?.error;
-  if (queryError) throw queryError;
+  const [tasksResult, meetingsResult, assignmentsResult, referralsResult, commissionsResult, payoutsResult, activitiesResult] = await Promise.all([
+    safeQuery(() => client.from('affiliate_tasks').select('*').order('created_at', { ascending: false }).limit(50)),
+    safeQuery(() => client.from('affiliate_meetings').select('*').order('starts_at', { ascending: true }).limit(50)),
+    safeQuery(() => client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(*)').order('created_at', { ascending: false }).limit(50)),
+    safeQuery(() => client.from('affiliate_referrals').select('id, status, created_at').order('created_at', { ascending: false }).limit(500)),
+    safeQuery(() => client.from('affiliate_commissions').select('id, amount, gross_revenue, gross_commission, withholding_tax, net_payout, currency, status, created_at, available_at, paid_at').order('created_at', { ascending: false }).limit(500)),
+    safeQuery(() => client.from('affiliate_payouts').select('id, amount, currency, payout_method, payout_reference, status, requested_at, processed_at, notes').order('requested_at', { ascending: false }).limit(100)),
+    safeQuery(() => client.from('affiliate_activity_events').select('*').order('created_at', { ascending: false }).limit(200)),
+  ]);
 
   const campaigns = asArray<any>(assignmentsResult.data)
     .map((assignment) => assignment.campaign)
