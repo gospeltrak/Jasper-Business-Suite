@@ -58,6 +58,7 @@ type TabId = 'overview' | 'code-link' | 'tasks' | 'ads' | 'meetings' | 'reports'
 export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void }) {
   const [workspace, setWorkspace] = useState<AffiliateWorkspaceData | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading');
+  const [bottomAdDismissed, setBottomAdDismissed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoRetryCount, setAutoRetryCount] = useState(0);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
@@ -337,6 +338,18 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
           {notice && <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{notice}</div>}
 
           {activeTab === 'overview' && <div className="space-y-5">
+
+            {/* ── DASHBOARD AD PLACEMENT ── same slot as tenant dashboard ── */}
+            {(() => {
+              const adCode = localStorage.getItem('jasper_dashboard_ad_code');
+              const adEnabled = localStorage.getItem('jasper_dashboard_ad_enabled') !== 'false';
+              if (!adCode || !adEnabled) return null;
+              return (
+                <div className="w-full overflow-hidden rounded-2xl"
+                  dangerouslySetInnerHTML={{ __html: adCode }} />
+              );
+            })()}
+
             <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
               <Metric label="Registrations" value={metrics.registrations.toString()} />
               <Metric label="Conversions" value={metrics.conversions.toString()} />
@@ -469,6 +482,34 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden">
         {navItems.map(([id, label, Icon]) => <button key={id} type="button" onClick={() => setActiveTab(id)} className={`grid min-h-16 place-items-center gap-1 text-[10px] font-bold ${activeTab === id ? 'text-emerald-700' : 'text-slate-500'}`}><Icon className="h-5 w-5" />{label}</button>)}
       </nav>
+
+      {/* ── STICKY BOTTOM AD — sits above mobile nav bar ── */}
+      {(() => {
+        const bottomAdCode = localStorage.getItem('jasper_bottom_ad_code');
+        const bottomAdEnabled = localStorage.getItem('jasper_bottom_ad_enabled') !== 'false';
+        if (!bottomAdCode || !bottomAdEnabled || bottomAdDismissed) return null;
+        return (
+          <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 z-35 w-full"
+            style={{ animation: 'slideUpAd 0.4s ease-out' }}>
+            <style>{`
+              @keyframes slideUpAd {
+                from { transform: translateY(100%); opacity: 0; }
+                to   { transform: translateY(0); opacity: 1; }
+              }
+              .aff-bottom-ad img,.aff-bottom-ad iframe,.aff-bottom-ad ins,.aff-bottom-ad>*{
+                max-width:100%!important;width:100%!important;display:block!important;
+              }
+            `}</style>
+            <div className="relative w-full bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.15)] border-t border-slate-200">
+              <button onClick={() => setBottomAdDismissed(true)}
+                className="absolute top-1.5 right-2 z-10 w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-xs font-black cursor-pointer border-none">×</button>
+              <div className="aff-bottom-ad w-full overflow-hidden"
+                dangerouslySetInnerHTML={{ __html: bottomAdCode }} />
+            </div>
+          </div>
+        );
+      })()}
+
     </main>
   );
 }

@@ -116,6 +116,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const [workspace, setWorkspace] = useState<AffiliateAgentWorkspace | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [notice, setNotice] = useState<string | null>(null);
+  const [bottomAdDismissed, setBottomAdDismissed] = useState(false);
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -771,6 +772,17 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                 <h2 className="text-lg font-black text-white">Network Overview</h2>
                 <p className="text-xs text-slate-400 mt-0.5">20% commission pool — your 5% + sub-affiliate 15%</p>
               </div>
+
+              {/* ── DASHBOARD AD PLACEMENT ── same slot as tenant dashboard ── */}
+              {(() => {
+                const adCode = localStorage.getItem('jasper_dashboard_ad_code');
+                const adEnabled = localStorage.getItem('jasper_dashboard_ad_enabled') !== 'false';
+                if (!adCode || !adEnabled) return null;
+                return (
+                  <div className="w-full overflow-hidden rounded-2xl"
+                    dangerouslySetInnerHTML={{ __html: adCode }} />
+                );
+              })()}
 
               <WhtNotice />
 
@@ -1460,6 +1472,33 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           </div>
         </div>
       )}
+
+      {/* ── STICKY BOTTOM AD ── */}
+      {(() => {
+        const bottomAdCode = localStorage.getItem('jasper_bottom_ad_code');
+        const bottomAdEnabled = localStorage.getItem('jasper_bottom_ad_enabled') !== 'false';
+        if (!bottomAdCode || !bottomAdEnabled || bottomAdDismissed) return null;
+        return (
+          <div className="fixed bottom-0 left-0 right-0 z-40 w-full"
+            style={{ animation: 'slideUpAd 0.4s ease-out' }}>
+            <style>{`
+              @keyframes slideUpAd {
+                from { transform: translateY(100%); opacity: 0; }
+                to   { transform: translateY(0); opacity: 1; }
+              }
+              .partner-bottom-ad img,.partner-bottom-ad iframe,.partner-bottom-ad ins,.partner-bottom-ad>*{
+                max-width:100%!important;width:100%!important;display:block!important;
+              }
+            `}</style>
+            <div className="relative w-full bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.15)] border-t border-slate-200">
+              <button onClick={() => setBottomAdDismissed(true)}
+                className="absolute top-1.5 right-2 z-10 w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-xs font-black cursor-pointer border-none">×</button>
+              <div className="partner-bottom-ad w-full overflow-hidden"
+                dangerouslySetInnerHTML={{ __html: bottomAdCode }} />
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
