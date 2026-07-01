@@ -154,6 +154,9 @@ export default function SaaSWebEditor() {
     const saved = localStorage.getItem('jasper_partner_capacity');
     return saved ? parseInt(saved, 10) : 5;
   });
+  const [dashboardAdCode, setDashboardAdCode] = useState<string>(() => {
+    return localStorage.getItem('jasper_dashboard_ad_code') || '';
+  });
   const [partnerWaitlist, setPartnerWaitlist] = useState<any[]>(() => {
     const saved = localStorage.getItem('jasper_partner_waitlist');
     return saved ? JSON.parse(saved) : [];
@@ -1197,6 +1200,52 @@ export default function SaaSWebEditor() {
                 <span className="font-bold text-white">🏢 System Footer</span>
                 <span className="text-[8px] text-slate-500">© 2026 JASPER SUITE</span>
               </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider font-bold flex items-center gap-1.5">
+                📢 Dashboard Ad Placement
+              </span>
+              {dashboardAdCode && (
+                <span className="text-[9px] font-mono text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded">Active</span>
+              )}
+            </div>
+            <p className="text-[10px] text-slate-500 leading-relaxed">
+              Paste your ad network code (leaderboard, banner, or any format) here. It will replace the green Quick Action banner on the subscriber dashboard. Leave empty to keep the original button.
+            </p>
+            <textarea
+              value={dashboardAdCode}
+              onChange={e => setDashboardAdCode(e.target.value)}
+              placeholder={'<!-- Paste your ad code here -->\n<script async src="https://..."></script>\n<ins class="adsbygoogle" ...></ins>'}
+              rows={6}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-[11px] font-mono text-slate-300 placeholder-slate-600 outline-none focus:border-amber-500 resize-y"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  localStorage.setItem('jasper_dashboard_ad_code', dashboardAdCode);
+                  window.dispatchEvent(new Event('jasper_ad_code_updated'));
+                  alert('✅ Ad code saved. It will appear on the subscriber dashboard immediately.');
+                }}
+                className="flex-1 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs cursor-pointer border-none"
+              >
+                Save Ad Code
+              </button>
+              {dashboardAdCode && (
+                <button
+                  onClick={() => {
+                    setDashboardAdCode('');
+                    localStorage.removeItem('jasper_dashboard_ad_code');
+                    window.dispatchEvent(new Event('jasper_ad_code_updated'));
+                    alert('✅ Ad code removed. The original Quick Action button has been restored.');
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-xs cursor-pointer border-none"
+                >
+                  Remove
+                </button>
+              )}
             </div>
           </div>
 

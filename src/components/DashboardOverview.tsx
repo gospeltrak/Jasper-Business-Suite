@@ -563,24 +563,37 @@ export default function DashboardOverview({
           ))}
         </div>
 
-        {/* POS Hero Banner */}
-        <div
-          className="rounded-2xl p-5 flex items-center justify-between cursor-pointer active:scale-98 transition-all"
-          style={{background: 'linear-gradient(135deg, #059669 0%, #047857 100%)'}}
-          onClick={() => {
-            const el = document.querySelector('[data-tab="pos"]') as HTMLElement;
-            if (el) el.click();
-          }}
-        >
-          <div>
-            <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mb-1">Quick action</p>
-            <p className="text-[17px] font-black text-white leading-tight">Open Sell Screen</p>
-            <p className="text-[11px] text-white/75 font-medium mt-0.5">Tap to start selling now</p>
-          </div>
-          <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-            <ShoppingCart className="w-6 h-6 text-white" strokeWidth={2.5} />
-          </div>
-        </div>
+        {/* POS Hero Banner / Ad Placement */}
+        {(() => {
+          const adCode = localStorage.getItem('jasper_dashboard_ad_code');
+          if (adCode) {
+            return (
+              <div
+                className="w-full overflow-hidden rounded-2xl"
+                dangerouslySetInnerHTML={{ __html: adCode }}
+              />
+            );
+          }
+          return (
+            <div
+              className="rounded-2xl p-5 flex items-center justify-between cursor-pointer active:scale-98 transition-all"
+              style={{background: 'linear-gradient(135deg, #059669 0%, #047857 100%)'}}
+              onClick={() => {
+                const el = document.querySelector('[data-tab="pos"]') as HTMLElement;
+                if (el) el.click();
+              }}
+            >
+              <div>
+                <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mb-1">Quick action</p>
+                <p className="text-[17px] font-black text-white leading-tight">Open Sell Screen</p>
+                <p className="text-[11px] text-white/75 font-medium mt-0.5">Tap to start selling now</p>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <ShoppingCart className="w-6 h-6 text-white" strokeWidth={2.5} />
+              </div>
+            </div>
+          );
+        })()}
 
       </div>
       {/* ══════════ END MOBILE HERO ══════════ */}
@@ -873,29 +886,42 @@ export default function DashboardOverview({
       </div>
 
       {/* 4. MIDDLE ROW (two columns) */}
-      {/* ── QUICK ACTION — DESKTOP: above sales & purchases stats — same as mobile position ── */}
-      <div
-        className="hidden md:flex items-center justify-between rounded-2xl px-6 py-4 cursor-pointer select-none"
-        style={{background: 'linear-gradient(135deg, #059669 0%, #10b981 60%, #34d399 100%)', boxShadow: '0 4px 24px rgba(16,185,129,0.20)'}}
-        onClick={() => {
-          const el = document.querySelector('[data-tab="pos"]') as HTMLElement;
-          if (el) el.click();
-        }}
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
-            <ShoppingCart className="w-5 h-5 text-white" strokeWidth={2.5} />
+      {/* ── QUICK ACTION / AD PLACEMENT — reads ad code from Web Editor if set ── */}
+      {(() => {
+        const adCode = localStorage.getItem('jasper_dashboard_ad_code');
+        if (adCode) {
+          return (
+            <div
+              className="w-full overflow-hidden rounded-2xl"
+              dangerouslySetInnerHTML={{ __html: adCode }}
+            />
+          );
+        }
+        return (
+          <div
+            className="hidden md:flex items-center justify-between rounded-2xl px-6 py-4 cursor-pointer select-none"
+            style={{background: 'linear-gradient(135deg, #059669 0%, #10b981 60%, #34d399 100%)', boxShadow: '0 4px 24px rgba(16,185,129,0.20)' }}
+            onClick={() => {
+              const el = document.querySelector('[data-tab="pos"]') as HTMLElement;
+              if (el) el.click();
+            }}
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
+                <ShoppingCart className="w-5 h-5 text-white" strokeWidth={2.5} />
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-white/60 uppercase tracking-widest mb-0.5">Quick Action</p>
+                <p className="text-base font-black text-white leading-tight">Open Sell Screen</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 bg-white/15 hover:bg-white/25 px-5 py-2 rounded-xl transition-colors">
+              <span className="text-white font-bold text-sm">Start Selling</span>
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] font-semibold text-white/60 uppercase tracking-widest mb-0.5">Quick Action</p>
-            <p className="text-base font-black text-white leading-tight">Open Sell Screen</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 bg-white/15 hover:bg-white/25 px-5 py-2 rounded-xl transition-colors">
-          <span className="text-white font-bold text-sm">Start Selling</span>
-          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
-        </div>
-      </div>
+        );
+      })()}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">        
         {/* Left Column (Spans 2 grids, i.e., 65% width representation, collapses responsively) */}
