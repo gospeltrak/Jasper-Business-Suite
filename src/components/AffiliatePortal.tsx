@@ -931,7 +931,32 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
     const name = `${firstName.trim()} ${secondName.trim()}`;
     const email = `${firstName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}.${secondName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}${Math.floor(100 + Math.random() * 900)}@jasper-affiliate.com`;
-    const cleanCode = `${firstName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_${secondName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_JAR_${Math.floor(100 + Math.random() * 900)}`;
+    // Generate a short promo code from first name only.
+    // If the base code is taken, append 2 digits (e.g. MAGRETH → MAGRETH12).
+    const baseName = firstName.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 8);
+    let cleanCode = baseName || `JAR${Math.floor(10 + Math.random() * 90)}`;
+
+    // Auto-resolve uniqueness — check both tables and append digits if taken
+    try {
+      const clientCheck: any = await getDynamicSupabaseClient();
+      const [{ data: apRow }, { data: afRow }] = await Promise.all([
+        clientCheck.from('affiliate_partners').select('id').eq('promo_code', cleanCode).maybeSingle(),
+        clientCheck.from('affiliates').select('id').eq('promo_code', cleanCode).maybeSingle(),
+      ]);
+      if (apRow || afRow) {
+        // Code is taken — append 2 random digits until we find a free one
+        let attempts = 0;
+        while (attempts < 20) {
+          const candidate = `${cleanCode}${Math.floor(10 + Math.random() * 90)}`;
+          const [{ data: ap2 }, { data: af2 }] = await Promise.all([
+            clientCheck.from('affiliate_partners').select('id').eq('promo_code', candidate).maybeSingle(),
+            clientCheck.from('affiliates').select('id').eq('promo_code', candidate).maybeSingle(),
+          ]);
+          if (!ap2 && !af2) { cleanCode = candidate; break; }
+          attempts++;
+        }
+      }
+    } catch { /* offline or DB unreachable — proceed with base code */ }
 
     // Check for parent super-affiliate recruiter assignment
     let parentSuperId: string | undefined = undefined;
