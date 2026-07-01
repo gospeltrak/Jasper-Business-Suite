@@ -1004,7 +1004,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
       parentSuperId = parentMatch.id;
       alert(
-        `🤝 Welcome under Partner ${parentMatch.name}! You have registered under their team and earn 15% commission on every referral.`,
+        `🎉 Welcome to the Jasper Affiliate Program! Your account is active and you can now earn 15% recurring commission on every subscription you refer. Share your code and start earning today.`,
       );
     }
 
