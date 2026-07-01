@@ -1098,6 +1098,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         // to fail because auth.users row isn't visible to the RLS context.
         try {
           await client.auth.signInWithPassword({ email: authEmail, password });
+          // Wait for session to fully propagate before inserting
+          await new Promise(resolve => setTimeout(resolve, 800));
         } catch { /* ignore — proceed with signUp session */ }
 
         let insertedRow: any = null;
@@ -1122,12 +1124,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
             console.error("[partner registration] affiliate_partners upsert failed:", upsertError);
             throw new Error(`Partner profile save failed: ${upsertError.message}`);
           }
-          insertedRow = data;
-          if (!insertedRow?.id) {
-            const { data: existing } = await client.from("affiliate_partners")
-              .select('id').eq('user_id', authData.user.id).maybeSingle();
-            insertedRow = existing;
-          }
+          insertedRow = data || { id: authData.user.id };
         } else {
           // Sub-affiliate — affiliates table, always tied to a partner
           const { data, error: affUpsertError } = await client.from("affiliates").upsert({
@@ -1151,12 +1148,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
             console.error("[affiliate registration] affiliates upsert failed:", affUpsertError);
             throw new Error(`Affiliate profile save failed: ${affUpsertError.message}`);
           }
-          insertedRow = data;
-          if (!insertedRow?.id) {
-            const { data: existing } = await client.from("affiliates")
-              .select('id').eq('user_id', authData.user.id).maybeSingle();
-            insertedRow = existing;
-          }
+          // If upsert returned no data but also no error, it succeeded —
+          // use the auth user id as the row identifier rather than re-querying
+          // (which would fail if the SELECT RLS policy blocks the current session)
+          insertedRow = data || { id: authData.user.id };
         }
 
         // CRITICAL: save the Supabase row ID and auth user_id to the session
