@@ -157,6 +157,9 @@ export default function SaaSWebEditor() {
   const [dashboardAdCode, setDashboardAdCode] = useState<string>(() => {
     return localStorage.getItem('jasper_dashboard_ad_code') || '';
   });
+  const [dashboardBottomAdCode, setDashboardBottomAdCode] = useState<string>(() => {
+    return localStorage.getItem('jasper_bottom_ad_code') || '';
+  });
   const [partnerWaitlist, setPartnerWaitlist] = useState<any[]>(() => {
     const saved = localStorage.getItem('jasper_partner_waitlist');
     return saved ? JSON.parse(saved) : [];
@@ -1240,6 +1243,52 @@ export default function SaaSWebEditor() {
                     localStorage.removeItem('jasper_dashboard_ad_code');
                     window.dispatchEvent(new Event('jasper_ad_code_updated'));
                     alert('✅ Ad code removed. The original Quick Action button has been restored.');
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-xs cursor-pointer border-none"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono text-purple-400 uppercase tracking-wider font-bold flex items-center gap-1.5">
+                📌 Sticky Bottom Ad Banner
+              </span>
+              {dashboardBottomAdCode && (
+                <span className="text-[9px] font-mono text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded">Active</span>
+              )}
+            </div>
+            <p className="text-[10px] text-slate-500 leading-relaxed">
+              Paste your ad code here for a sticky banner that slides up from the bottom of the subscriber dashboard. The user can dismiss it with an × button. It reappears on their next session.
+            </p>
+            <textarea
+              value={dashboardBottomAdCode}
+              onChange={e => setDashboardBottomAdCode(e.target.value)}
+              placeholder={'<!-- Paste your sticky bottom ad code here -->'}
+              rows={5}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-[11px] font-mono text-slate-300 placeholder-slate-600 outline-none focus:border-purple-500 resize-y"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  localStorage.setItem('jasper_bottom_ad_code', dashboardBottomAdCode);
+                  window.dispatchEvent(new Event('jasper_ad_code_updated'));
+                  alert('✅ Sticky bottom ad saved. It will slide up from the bottom of the subscriber dashboard.');
+                }}
+                className="flex-1 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs cursor-pointer border-none"
+              >
+                Save Bottom Ad
+              </button>
+              {dashboardBottomAdCode && (
+                <button
+                  onClick={() => {
+                    setDashboardBottomAdCode('');
+                    localStorage.removeItem('jasper_bottom_ad_code');
+                    window.dispatchEvent(new Event('jasper_ad_code_updated'));
+                    alert('✅ Sticky bottom ad removed.');
                   }}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-xs cursor-pointer border-none"
                 >
