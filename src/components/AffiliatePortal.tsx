@@ -1121,7 +1121,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           }
         } else {
           // Sub-affiliate — affiliates table, always tied to a partner
-          const { data } = await client.from("affiliates").upsert({
+          const { data, error: affUpsertError } = await client.from("affiliates").upsert({
             user_id: authData.user.id,
             display_name: name,
             referral_code: cleanCode,
@@ -1138,6 +1138,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
             promo_code: cleanCode,
             is_disabled: false,
           }, { onConflict: "user_id" }).select('id').maybeSingle();
+          if (affUpsertError) {
+            console.error("[affiliate registration] affiliates upsert failed:", affUpsertError);
+            throw new Error(`Affiliate profile save failed: ${affUpsertError.message}`);
+          }
           insertedRow = data;
           if (!insertedRow?.id) {
             const { data: existing } = await client.from("affiliates")
