@@ -592,10 +592,12 @@ export default function DashboardOverview({
           const adEnabled = adSettings.dashboardAdEnabled;
           if (adCode && adEnabled) {
             return (
-              <div
-                className="w-full overflow-hidden rounded-2xl"
-                dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }}
-              />
+              <div className="flex min-h-[90px] w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+                <div
+                  className="min-h-[90px] w-full max-w-[728px] overflow-hidden [&>*]:max-w-full"
+                  dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }}
+                />
+              </div>
             );
           }
           return (
@@ -916,10 +918,12 @@ export default function DashboardOverview({
         const adEnabled = adSettings.dashboardAdEnabled;
         if (adCode && adEnabled) {
           return (
-            <div
-              className="w-full overflow-hidden rounded-2xl"
-              dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }}
-            />
+            <div className="hidden min-h-[90px] w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm md:flex">
+              <div
+                className="min-h-[90px] w-full max-w-[728px] overflow-hidden [&>*]:max-w-full"
+                dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }}
+              />
+            </div>
           );
         }
         return (
