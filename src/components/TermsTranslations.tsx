@@ -286,14 +286,24 @@ export function renderTermsContent(lang: string, portalRole?: string) {
         <p className="text-[11px] font-mono text-slate-400 italic mb-4">
           Tarehe ya Kuanza: Juni 17, 2026
         </p>
-        <p className="font-bold text-slate-100 text-[13px] pt-2">1. USHIRIKI NA VIGEZO VYA AFYA YA AKAUNTI</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">Ushiriki, Utambulisho na Uhalali wa Akaunti</p>
         <p>Kwa kujiunga na mtandao wa washirika wa Jasper Business Suite, unathibitisha una umri kuanzia miaka 18 na unaishi au una uwepo kisheria wa kifedha nchini Tanzania au Afrika Mashariki. Ili kuzuia ulaghai, wanachama wote lazima watoe Jina la Kwanza na Jina la Pili kama ilivyoandikwa kwenye Kitambulisho chao cha Taifa (NIDA) pamoja na Nambari halali ya Kitambulisho cha NIDA, namba ya simu ya kupokelea malipo na namba ya TIN ya mlipakodi.</p>
-        <p className="font-bold text-slate-100 text-[13px] pt-2">2. MTINDO WA KOMECHELI NA MAPATO</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">Kamisheni na Malipo</p>
         <p>Utapokea kamisheni ya asilimia 15 (15% recurring commission) ya malipo ya kila mwezi ya usajili wa maduka, maduka ya dawa au migahawa uliyowaunganisha kwenye Jasper Business Suite.</p>
-        <p className="font-bold text-slate-100 text-[13px] pt-2">3. SHEREHE ZA UTII WA KODI (TRA)</p>
+        <p>Kamisheni huhesabiwa kwenye mapato yaliyolipwa na kuthibitishwa pekee. Hakuna kamisheni kwa akaunti za majaribio, akaunti bandia, chargebacks, refunds, malipo yanayopingwa au biashara uliyojisajili mwenyewe kwa code yako.</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">Utii wa Kodi na Taarifa Sahihi</p>
         <p>Malipo yote yanafanyika kulingana na miongozo na sheria za kodi za Mamlaka ya Mapato Tanzania (TRA).</p>
-        <p className="font-bold text-slate-100 text-[13px] pt-2">4. UTARATIBU WA WASHIRIKA NA MAMBO YALIYOKATAZWA</p>
-        <p>Ni marufuku kujisajili mwenyewe kwa kutumia kodi yako mwenyewe ya washirika au kutumia mbinu za kitapeli.</p>
+        <p>Unawajibika kutoa NIDA, TIN na taarifa za malipo zilizo sahihi. Jasper inaweza kuchelewesha, kukataa au kusimamisha malipo pale kuna hitilafu, taarifa za uongo, uchunguzi wa udanganyifu au matakwa ya kisheria.</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">Matumizi ya Promo Materials na Matangazo</p>
+        <p>Unaweza kutumia flyers, video, captions, banners na nyenzo rasmi zinazotolewa na Jasper kwa lengo la kutangaza mfumo. Huruhusiwi kubadilisha maana ya matangazo, kutoa ahadi zisizo rasmi, kusema wewe ni mfanyakazi wa Jasper bila ruhusa, au kutangaza kwa njia inayovunja maadili, sheria, faragha au usalama wa watumiaji.</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">Mambo Yaliyokatazwa</p>
+        <p>Ni marufuku kujisajili mwenyewe kwa kutumia code yako, kutumia accounts bandia, kuiba leads za affiliate mwingine, kutumia spam, kudanganya bei/kifurushi, kudai uhakika wa mapato, kuharibu jina la Jasper, au kukusanya taarifa za wateja bila ridhaa halali.</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">Faragha na Ulinzi wa Data</p>
+        <p>Kwa kusajiliwa unakubali Jasper kuchakata jina, simu, NIDA, TIN, taarifa za malipo, referral code na shughuli zako za affiliate kwa ajili ya kuendesha program, kuzuia udanganyifu, kulipa kamisheni na kutimiza sheria. Jasper itazingatia Sheria ya Ulinzi wa Taarifa Binafsi, 2022 ya Tanzania, lakini wewe pia unawajibika kulinda data za wateja unaowaleta.</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">Haki za Jasper na Kikomo cha Dhima</p>
+        <p>Jasper inaweza kubadilisha commissions, rules, promo materials, payout thresholds au kusimamisha program kwa taarifa inayofaa. Akaunti inaweza kusimamishwa mara moja kwa udanganyifu, kuvunja sheria au kuhatarisha jina la kampuni. Dhima ya Jasper haitazidi kamisheni halali uliyolipwa katika miezi mitatu iliyopita kabla ya madai.</p>
+        <p className="font-bold text-slate-100 text-[13px] pt-2">Sheria na Migogoro</p>
+        <p>Masharti haya yanatawaliwa na sheria za Tanzania. Migogoro itajaribiwa kwanza kwa mazungumzo ya nia njema, kisha njia za usuluhishi au mamlaka husika Dar es Salaam pale inapohitajika.</p>
       </div>
     );
   }
@@ -333,16 +343,27 @@ export function renderTermsContent(lang: string, portalRole?: string) {
     <div className="space-y-4">
       <p className="font-bold text-amber-400 text-sm border-b border-slate-800 pb-2">AFFILIATE PROGRAM TERMS & CONDITIONS</p>
       <p className="text-[11px] font-mono text-slate-400 italic mb-4">Effective Date: June 17, 2026</p>
-      <p className="font-bold text-slate-100 text-[13px] pt-2">1. ENROLLMENT ELIGIBILITY & FRAUD PROTECTION</p>
+      <p className="font-bold text-slate-100 text-[13px] pt-2">Enrollment, Identity & Account Integrity</p>
       <p>By enrolling in the Jasper suite affiliate partner network, you declare that you are at least 18 years of age and currently reside or possess a legal financial presence in Tanzania or East Africa. To prevent identity and financial fraud, all members must supply their first name and second name exactly as they appear on their National ID card, Tanzania National ID Number (NIDA Number), and Taxpayer Identification Number (TIN Number) upon registration.</p>
       <p>Any attempt to submit false NIDA IDs or non-matching taxpayer certificates to circumvent local revenue withholding mandates will result in registration rejection, account forfeiture, and permanent blacklisting from our retail suite.</p>
-      <p className="font-bold text-slate-100 text-[13px] pt-2">2. REVENUE COMMISSION SCHEDULE</p>
+      <p className="font-bold text-slate-100 text-[13px] pt-2">Revenue Commission Schedule</p>
       <p>You shall receive a 15% recurring commission on all monthly subscription invoices paid in full by shop, hotel, pharmacy, or restaurant operators whom you refer to Jasper. No commissions shall accrue on cancelled accounts, test accounts, credit balances, or transactions disputed for suspicious charge activity.</p>
       <p>Commissions are calculated in Tanzanian Shillings (TSh) and paid to your designated mobile money wallet (Vodacom M-Pesa, Mixx by Yas, Airtel Money, Halopesa) on the last Friday of every calendar month.</p>
-      <p className="font-bold text-slate-100 text-[13px] pt-2">3. TAXATION & WITHHOLDING COMPLIANCE (TRA)</p>
+      <p>Commission is calculated only on settled revenue actually received by Jasper. Free trials, refunds, chargebacks, disputed payments, internal demos, fraudulent tenants, self-referrals, duplicate tenants and accounts registered for artificial commission generation do not qualify.</p>
+      <p className="font-bold text-slate-100 text-[13px] pt-2">Taxation & Withholding Compliance</p>
       <p>All payments are subject to local tax laws specified by the Tanzania Revenue Authority (TRA). Withholding tax of 5% (with TIN) or 15% (without TIN) shall be automatically filed and paid on your behalf under your supplied Taxpayer Identification Number.</p>
-      <p className="font-bold text-slate-100 text-[13px] pt-2">4. COMPLIANCE & PROHIBITED PRACTICES</p>
+      <p>You remain responsible for personal tax filings, truthful registration information and keeping payout details current. Jasper may delay, reverse or withhold payment during fraud review, legal review, technical reconciliation or where supplied data is incomplete.</p>
+      <p className="font-bold text-slate-100 text-[13px] pt-2">Marketing Materials, Ads & Brand Rules</p>
+      <p>Jasper may provide flyers, videos, banners, captions, links, codes and promotional materials. You may use them only to promote Jasper honestly and lawfully. You may not alter their meaning, make unofficial promises, impersonate Jasper staff, run misleading campaigns, or publish promotions that violate public morals, privacy, consumer safety, advertising law, cyber law or platform rules.</p>
+      <p className="font-bold text-slate-100 text-[13px] pt-2">Compliance & Prohibited Practices</p>
       <p>Affiliates are strictly forbidden from executing self-referrals, creating fake accounts, making misleading advertisements, or impersonating Jasper staff. In any such instance, your user account will be locked and all accrued balances forfeited with no appeal.</p>
+      <p>Spam, unauthorized scraping, collecting customer data without consent, bribing staff, stealing another affiliate's lead, reselling account access, tampering with referral links, defaming Jasper, or promising guaranteed profits are prohibited.</p>
+      <p className="font-bold text-slate-100 text-[13px] pt-2">Privacy & Data Protection</p>
+      <p>By registering, you consent to Jasper collecting and processing your name, phone, NIDA, TIN, payout details, referral code, activity logs and commission records for operating the affiliate program, paying commissions, preventing fraud, enforcing rules and complying with law. Jasper observes the Tanzania Personal Data Protection Act, 2022. You must also protect customer and tenant data you handle.</p>
+      <p className="font-bold text-slate-100 text-[13px] pt-2">Company Rights, Suspension & Limitation of Liability</p>
+      <p>Jasper may amend commission rates, payout thresholds, promotional assets, program rules or eligibility requirements with reasonable notice through the platform. Jasper may immediately suspend or terminate an account for fraud, abuse, breach, reputational harm, unlawful marketing or security risk. Jasper's maximum liability to an affiliate is limited to lawful commissions paid to that affiliate in the three months before the claim.</p>
+      <p className="font-bold text-slate-100 text-[13px] pt-2">Governing Law & Disputes</p>
+      <p>These affiliate terms are governed by the laws of the United Republic of Tanzania. Disputes must first be handled through good-faith negotiation, then lawful mediation, arbitration or competent authorities in Dar es Salaam where required.</p>
     </div>
   );
 }

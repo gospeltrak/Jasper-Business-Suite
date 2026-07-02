@@ -29,6 +29,7 @@ import { getDynamicSupabaseClient, isPlaceholderSupabaseClient } from '../supaba
 import { initializeCleanTenantWorkspace } from '../utils/tenantIsolation';
 import { startCloudSession } from '../utils/sessionControl';
 import { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
+import PrivacyAndTermsModals from './PrivacyAndTermsModals';
 
 declare global {
   interface Window {
@@ -214,6 +215,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     return urlParams.get('ref') || urlParams.get('promo') || '';
   });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [acceptedTenantLegal, setAcceptedTenantLegal] = useState(false);
+  const [tenantLegalModalType, setTenantLegalModalType] = useState<'privacy' | 'terms' | null>(null);
 
   // Tenant Workspace Onboarding States
   const [onboardingUser, setOnboardingUser] = useState<User | null>(null);
@@ -1131,6 +1134,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   // Perform dynamic tenant/business registration
   const handleRegisterSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!acceptedTenantLegal) {
+      setError('Please read and accept the Terms & Conditions and Privacy Policy before registration.');
+      return;
+    }
     if (!ownerName || !regEmail || !regPassword || !orgName || !regSecurityQuestion || !regSecurityAnswer) {
       setError('Please fill in all registration inputs.');
       return;
@@ -2029,10 +2036,32 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </div>
               </div>
 
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
+                <label className="flex items-start gap-3 text-[11px] leading-relaxed text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={acceptedTenantLegal}
+                    onChange={(e) => setAcceptedTenantLegal(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600"
+                  />
+                  <span>
+                    I have read and agree to Jasper Business Suite's{' '}
+                    <button type="button" onClick={() => setTenantLegalModalType('terms')} className="font-black text-emerald-700 underline bg-transparent border-none p-0 cursor-pointer">
+                      Terms & Conditions
+                    </button>
+                    {' '}and{' '}
+                    <button type="button" onClick={() => setTenantLegalModalType('privacy')} className="font-black text-emerald-700 underline bg-transparent border-none p-0 cursor-pointer">
+                      Privacy Policy
+                    </button>
+                    , including secure data processing, lawful advertising placements, and system-use responsibilities.
+                  </span>
+                </label>
+              </div>
+
               <button
                 type="submit"
-                disabled={isLoading}
-                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-55 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2"
+                disabled={isLoading || !acceptedTenantLegal}
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-55 disabled:cursor-not-allowed text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2"
               >
                 {isLoading ? (
                   <>
@@ -2341,6 +2370,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           </div>
         </div>
       )}
+
+      <PrivacyAndTermsModals
+        isOpen={tenantLegalModalType !== null}
+        type={tenantLegalModalType || 'terms'}
+        onClose={() => setTenantLegalModalType(null)}
+        isDark={isDark}
+      />
 
       {/* Personalized Welcome Splash Screen Overlay */}
       {splashInfo && (

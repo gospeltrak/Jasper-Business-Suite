@@ -101,7 +101,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <p className="text-xs font-light">
                     Jasper Suite ("we", "our", "us") values your business records and confidential merchant data. 
                     This Privacy Policy is compiled to comply strictly with modern personal data protection laws, including the 
-                    <strong> Tanzania Personal Data Protection Act of 2019</strong>, 
+                    <strong> Tanzania Personal Data Protection Act, 2022</strong>, 
                     <strong> Kenya Data Protection Act of 2019</strong>, 
                     <strong> Nigeria Data Protection Act (NDPA) of 2023</strong>, and the 
                     <strong> European Union General Data Protection Regulation (GDPR)</strong>.
@@ -144,9 +144,10 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">5. Non-Disclosure & Anti-Exploitation Guarantee</h4>
                   <p className="text-xs font-light">
-                    <strong>We do not run advertisements.</strong> Jasper Suite never sells, rents, distributes, or trades your private commercial reports, 
-                    sales margins, cost of goods data, or tax computations to any third-party marketing companies, brokers, or data aggregators. 
-                    Your financial metrics remain exclusively your trade secret.
+                    Jasper Suite may display platform-controlled ads, sponsor banners, product notices, or promotional placements inside dashboard spaces. 
+                    We do not sell, rent, distribute, or trade your private commercial reports, sales margins, cost of goods data, or tax computations to third-party brokers or data aggregators.
+                    Ads must not promote illegal conduct, unsafe products, hate, sexual exploitation, gambling to restricted persons, harmful medical claims, malware, fraud, or content that violates public morals or threatens user safety.
+                    Your financial metrics remain your trade secret and are not used to expose your business performance to advertisers.
                   </p>
                 </div>
 
@@ -169,6 +170,62 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                     <a href="mailto:deployments@jasper.africa" className="text-emerald-500 underline ml-1">deployments@jasper.africa</a>.
                   </p>
                 </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">8. Lawful Basis, Consent & Purpose Limitation</h4>
+                  <p className="text-xs font-light">
+                    We process personal data only for clear business purposes: account creation, authentication, tenant isolation, subscription billing, support, fraud prevention, legal compliance, analytics, service improvement, and secure advertising placement. Where consent is required, you may withdraw it prospectively, subject to lawful retention duties.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">9. Data Subject Rights</h4>
+                  <p className="text-xs font-light">
+                    Subject to applicable law, users may request access, correction, deletion, restriction, objection to certain processing, portability, and information about how their data is processed. Requests may require identity verification before action is taken.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">10. Data Sharing & Processors</h4>
+                  <p className="text-xs font-light">
+                    We may share necessary data with hosting providers, payment processors, authentication providers, SMS/WhatsApp support channels, tax/legal advisers, fraud-prevention providers, and lawful authorities when required. Such sharing is limited to legitimate operational purposes and confidentiality obligations where applicable.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">11. Cross-Border Storage & Transfers</h4>
+                  <p className="text-xs font-light">
+                    Cloud infrastructure, backups, and support tools may process data outside Tanzania. We use reasonable contractual, technical, and organisational safeguards to protect personal data during cross-border transfers.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">12. Cookies, Local Storage & Tracking</h4>
+                  <p className="text-xs font-light">
+                    Jasper uses cookies, local storage, IndexedDB, and similar technologies for login sessions, offline operation, sync queues, preferences, analytics, and security checks. Clearing browser storage may remove unsynced device data before it reaches the cloud.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">13. Security & Breach Response</h4>
+                  <p className="text-xs font-light">
+                    We apply reasonable access controls, encryption-in-transit, account isolation, audit logs, and sync safeguards. No system is risk-free. If a material data breach occurs, we will assess, contain, remediate, and notify affected parties or authorities where legally required.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">14. Retention</h4>
+                  <p className="text-xs font-light">
+                    We retain personal and business data only as long as reasonably necessary for service delivery, accounting, dispute handling, legal obligations, security, and backup integrity. Some records may remain in backups for a limited period before deletion cycles complete.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">15. Children, Sensitive Data & User Responsibility</h4>
+                  <p className="text-xs font-light">
+                    Jasper is intended for business users aged 18 or older. Do not upload unnecessary sensitive personal data, children’s data, medical records, or third-party confidential information unless you have lawful authority and appropriate safeguards. You remain responsible for the legality of data you enter into your tenant workspace.
+                  </p>
+                </div>
               </div>
             ) : (
               // PRIVACY POLICY (SWAHILI)
@@ -181,7 +238,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <p className="text-xs font-light">
                     Jasper Suite ("sisi", "yetu") inathamini sana rekodi za biashara yako na data zako za siri.
                     Sera hii ya Faragha imeandaliwa ili kufuata kikamilifu sheria za kisasa za ulinzi wa data za kibinafsi, ikiwa ni pamoja na 
-                    <strong> Sheria ya Ulinzi wa Taarifa Binafsi ya Tanzania ya Mwaka 2019</strong>, 
+                    <strong> Sheria ya Ulinzi wa Taarifa Binafsi ya Tanzania, 2022</strong>, 
                     <strong> Sheria ya Ulinzi wa Data ya Kenya ya Mwaka 2019</strong>, 
                     <strong> Sheria ya Ulinzi wa Taarifa ya Nigeria (NDPA) ya Mwaka 2023</strong>, pamoja na 
                     <strong> Mwongozo Mkuu wa Ulinzi wa Data wa Umoja wa Ulaya (GDPR)</strong>.
@@ -224,9 +281,10 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">5. Ahadi ya Kuzuia Unyonyaji na Kutoshiriki Data</h4>
                   <p className="text-xs font-light">
-                    <strong>Hatufanyi biashara ya matangazo.</strong> Jasper Suite kamwe haiuzi, haikodishi, haigawi wala kubadilishana ripoti zako za siri za mauzo, 
-                    faida yako, wala maelezo ya kodi kwa kampuni nyingine za matangazo au madalali wa data.
-                    Takwimu zako za kifedha zinasalia kuwa siri yako ya kibiashara pekee.
+                    Jasper Suite inaweza kuonyesha matangazo yanayodhibitiwa na mfumo, mabango ya wadhamini, taarifa za bidhaa au matangazo ya kibiashara kwenye sehemu maalum za dashboard.
+                    Hatuuzi, hatukodishi, hatugawi wala kubadilishana ripoti zako za siri za mauzo, faida, gharama za bidhaa au maelezo ya kodi kwa madalali wa data.
+                    Matangazo hayataruhusiwa kuvunja maadili, kuhamasisha uhalifu, bidhaa hatarishi, chuki, udhalilishaji wa kingono, kamari kwa watu wasioruhusiwa, madai ya tiba yasiyo salama, malware, utapeli au jambo linalohatarisha usalama wa watumiaji.
+                    Takwimu zako za kifedha zinasalia kuwa siri yako ya kibiashara.
                   </p>
                 </div>
 
@@ -247,6 +305,62 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                     Sera hizi zinaweza kuboreshwa mara kwa mara ili kufuata mabadiliko ya kisheria. 
                     Kama una swali lolote la kisheria au faragha, wasiliana na timu yetu kupitia barua pepe ya 
                     <a href="mailto:deployments@jasper.africa" className="text-emerald-500 underline ml-1">deployments@jasper.africa</a>.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">8. Msingi wa Kisheria, Ridhaa na Kusudi la Matumizi</h4>
+                  <p className="text-xs font-light">
+                    Tunachakata taarifa binafsi kwa madhumuni ya wazi: kufungua akaunti, kuingia salama, kutenganisha tenant, malipo ya vifurushi, msaada kwa wateja, kuzuia udanganyifu, kutimiza sheria, uchambuzi, kuboresha huduma na kuweka matangazo salama. Pale ridhaa inapohitajika, unaweza kuiondoa kwa matumizi ya baadaye kulingana na wajibu wa kisheria.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">9. Haki za Mhusika wa Taarifa</h4>
+                  <p className="text-xs font-light">
+                    Kwa mujibu wa sheria, mtumiaji anaweza kuomba kuona, kurekebisha, kufuta, kuzuia uchakataji, kupinga baadhi ya matumizi, kuhamisha taarifa, au kujulishwa namna taarifa zake zinavyochakatwa. Tunaweza kuthibitisha utambulisho kabla ya kutekeleza ombi.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">10. Kushiriki Data na Watoa Huduma</h4>
+                  <p className="text-xs font-light">
+                    Tunaweza kushiriki taarifa zinazohitajika na watoa huduma wa hosting, malipo, uthibitishaji, SMS/WhatsApp support, washauri wa kodi/sheria, watoa huduma wa kuzuia udanganyifu na mamlaka halali inapohitajika. Kushiriki huko kunakuwa kwa madhumuni halali na kwa usiri unaofaa.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">11. Uhifadhi Nje ya Nchi na Uhamishaji</h4>
+                  <p className="text-xs font-light">
+                    Miundombinu ya cloud, backups na zana za msaada zinaweza kuchakata taarifa nje ya Tanzania. Tunatumia hatua za kimkataba, kiufundi na kiutawala kulinda taarifa wakati wa uhamishaji wa mipaka.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">12. Cookies, Local Storage na Ufuatiliaji</h4>
+                  <p className="text-xs font-light">
+                    Jasper hutumia cookies, local storage, IndexedDB na teknolojia zinazofanana kwa session, kazi bila mtandao, foleni ya sync, mapendeleo, analytics na ukaguzi wa usalama. Ukifuta browser storage unaweza kuondoa data ambazo hazijasync kwenda cloud.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">13. Usalama na Tukio la Uvujaji</h4>
+                  <p className="text-xs font-light">
+                    Tunatumia udhibiti wa ruhusa, encryption wakati wa usafirishaji, utengano wa akaunti, audit logs na ulinzi wa sync. Hakuna mfumo usio na hatari kabisa. Tukio kubwa la uvujaji likitokea, tutachunguza, kudhibiti, kurekebisha na kutoa taarifa kwa wahusika au mamlaka pale sheria inapohitaji.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">14. Muda wa Kuhifadhi</h4>
+                  <p className="text-xs font-light">
+                    Tunahifadhi taarifa binafsi na za biashara kwa muda unaohitajika kwa huduma, hesabu, migogoro, wajibu wa kisheria, usalama na backup. Baadhi ya rekodi zinaweza kubaki kwenye backup kwa muda mfupi kabla ya mzunguko wa kufuta kukamilika.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">15. Watoto, Taarifa Nyeti na Wajibu wa Mtumiaji</h4>
+                  <p className="text-xs font-light">
+                    Jasper ni kwa watumiaji wa biashara wenye miaka 18 au zaidi. Usiweke taarifa nyeti zisizo za lazima, taarifa za watoto, rekodi za kitabibu au siri za watu wengine bila mamlaka ya kisheria na ulinzi unaofaa. Unawajibika kwa uhalali wa taarifa unazoingiza kwenye workspace yako.
                   </p>
                 </div>
               </div>
@@ -337,7 +451,49 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 </div>
 
                 <div className="space-y-3">
-                  <h4 className="font-bold text-base tracking-tight border-b pb-1 font-semibold">9. Governing Law & Constructive Arbitration</h4>
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">9. Advertising Placements & Ethical Content</h4>
+                  <p className="text-xs font-light">
+                    Jasper may display dashboard banners, sticky ads, sponsor messages, educational promotions, Jasper product notices, and third-party ad placements approved by the platform. Ads must not violate public morals, encourage crime, endanger user safety, spread malware, impersonate institutions, promote illegal goods, contain hate or sexual exploitation, target restricted persons with gambling or harmful products, or make unsafe medical/financial claims. We may remove, block, or suspend any ad at our sole discretion.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">10. Merchant Content & Legal Responsibility</h4>
+                  <p className="text-xs font-light">
+                    You are responsible for all products, services, customer records, prices, invoices, staff actions, advertisements, uploaded content, and business decisions entered into your tenant workspace. You warrant that you have legal authority to process any customer, employee, supplier, and patient data you upload.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">11. Acceptable Use & Security Conduct</h4>
+                  <p className="text-xs font-light">
+                    You must not attack, probe, bypass, overload, reverse engineer, scrape, resell, clone, or misuse Jasper services. You must not introduce malware, share credentials, create fraudulent accounts, tamper with subscription controls, or use the platform for unlawful surveillance, harassment, money laundering, tax evasion, or regulated activities without proper licences.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">12. Service Changes, Suspension & Enforcement</h4>
+                  <p className="text-xs font-light">
+                    We may update features, pricing, limits, integrations, AI availability, advertising spaces, and operational rules to protect the platform and comply with law. We may suspend or terminate accounts for non-payment, security risk, abuse, unlawful conduct, false registration information, or breach of these Terms.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">13. Third-Party Services & Connectivity</h4>
+                  <p className="text-xs font-light">
+                    Jasper may rely on internet providers, cloud hosts, payment networks, AI providers, mobile-money channels, app stores, ad networks, SMS/WhatsApp channels, and device hardware. We are not responsible for outages, policy changes, fees, rejection, throttling, hardware defects, or inaccurate data supplied by third parties outside our direct control.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">14. Indemnity</h4>
+                  <p className="text-xs font-light">
+                    You agree to defend and indemnify Jasper, its owner, directors, staff, agents, and service providers from claims, penalties, losses, costs, or damages arising from your unlawful use, uploaded data, customer disputes, tax errors, staff misuse, breach of privacy duties, breach of these Terms, or violation of third-party rights.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1 font-semibold">15. Governing Law & Constructive Arbitration</h4>
                   <p className="text-xs font-light">
                     This Agreement, any affiliate engagements, and POS terminal codes are governed under the local commercial regulatory frameworks of the operating country. 
                     Any disputes arising out of the system's performance shall undergo constructive bilateral arbitration in regional urban offices (Dar es Salaam / Nairobi) 
@@ -429,7 +585,49 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 </div>
 
                 <div className="space-y-3">
-                  <h4 className="font-bold text-base tracking-tight border-b pb-1 font-semibold">9. Sheria Zinazotawala na Utatuzi wa Migogoro</h4>
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">9. Matangazo na Maadili ya Maudhui</h4>
+                  <p className="text-xs font-light">
+                    Jasper inaweza kuonyesha mabango ya dashboard, sticky ads, ujumbe wa wadhamini, matangazo ya elimu, taarifa za bidhaa za Jasper na matangazo ya watu wa tatu yaliyoidhinishwa na mfumo. Matangazo hayaruhusiwi kuvunja maadili ya jamii, kuhamasisha uhalifu, kuhatarisha usalama, kusambaza malware, kujifanya taasisi, kuuza bidhaa haramu, kueneza chuki au udhalilishaji wa kingono, kulenga watu wasioruhusiwa kwa kamari/bidhaa hatarishi, au kutoa madai ya tiba/fedha yasiyo salama. Tunaweza kuondoa, kuzuia au kusimamisha tangazo lolote kwa uamuzi wetu.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">10. Maudhui ya Mfanyabiashara na Wajibu wa Kisheria</h4>
+                  <p className="text-xs font-light">
+                    Unawajibika kwa bidhaa, huduma, rekodi za wateja, bei, risiti, vitendo vya staff, matangazo, maudhui uliyopakia na maamuzi ya biashara unayoingiza kwenye tenant yako. Unathibitisha una mamlaka ya kisheria kuchakata taarifa za wateja, wafanyakazi, wasambazaji au wagonjwa unazoingiza.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">11. Matumizi Yanayokubalika na Usalama</h4>
+                  <p className="text-xs font-light">
+                    Huruhusiwi kushambulia, kuchunguza kwa nia mbaya, kupita ulinzi, kulemea, kunakili, kuuza upya au kutumia vibaya huduma za Jasper. Huruhusiwi kuingiza malware, kugawa credentials, kutengeneza akaunti bandia, kuchezea controls za subscription, au kutumia mfumo kwa ufuatiliaji haramu, unyanyasaji, utakatishaji fedha, ukwepaji kodi au shughuli zilizo na leseni bila leseni sahihi.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">12. Mabadiliko ya Huduma, Kusimamisha na Utekelezaji</h4>
+                  <p className="text-xs font-light">
+                    Tunaweza kubadilisha features, bei, limits, integrations, upatikanaji wa AI, maeneo ya matangazo na kanuni za uendeshaji ili kulinda mfumo na kufuata sheria. Tunaweza kusimamisha au kufuta akaunti kwa kutolipa, hatari ya usalama, matumizi mabaya, taarifa za uongo, vitendo haramu au kuvunja Masharti haya.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">13. Huduma za Watu wa Tatu na Muunganisho</h4>
+                  <p className="text-xs font-light">
+                    Jasper inaweza kutegemea watoa intaneti, cloud hosts, mitandao ya malipo, watoa AI, mobile-money, app stores, ad networks, SMS/WhatsApp channels na vifaa vya hardware. Hatutawajibika kwa kukatika kwa huduma, mabadiliko ya sera, ada, kukataliwa, throttling, hitilafu za vifaa au data isiyo sahihi kutoka kwa wahusika walio nje ya udhibiti wetu.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1">14. Kufidia Hasara na Madai</h4>
+                  <p className="text-xs font-light">
+                    Unakubali kumlinda na kumfidia Jasper, mmiliki wake, wakurugenzi, wafanyakazi, mawakala na watoa huduma dhidi ya madai, adhabu, hasara, gharama au uharibifu unaotokana na matumizi yako haramu, data uliyopakia, migogoro ya wateja, makosa ya kodi, matumizi mabaya ya staff, kuvunja wajibu wa faragha, kuvunja Masharti haya au kukiuka haki za wengine.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-bold text-base tracking-tight border-b pb-1 font-semibold">15. Sheria Zinazotawala na Utatuzi wa Migogoro</h4>
                   <p className="text-xs font-light">
                     Masharti na Masharti haya yanatawaliwa na kutafsiriwa kwa mujibu wa sheria za kibiashara za nchi uliyopo. 
                     Migogoro yote inayohusiana na mfumo huu inapaswa kujaribiwa kutatuliwa kwanza kwa usuluhishi wa amani wa pande mbili (Tanzania / Kenya) 
