@@ -900,34 +900,63 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
     const registeredName = `${firstName.trim()} ${secondName.trim()}`;
     const generatedReferralCode = `${firstName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_${secondName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_JAR_${Math.floor(100 + Math.random() * 900)}`;
-    void (async () => {
-      try {
-        const response = await fetch('/api/affiliate/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: registeredName,
-            phone,
-            password,
-            payoutMethod: paymentMethod,
-            referralCode: generatedReferralCode,
-            isPartner: portalRole === 'partner',
-          }),
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Registration failed.');
-        // API succeeded — go to login so they sign in properly
-        setLoginEmail(phone);
-        setLoginPassword('');
-        setAuthMode('login');
-        alert(`Your ${portalRole === 'partner' ? 'partner' : 'affiliate'} account is ready. Sign in with your phone number and password.`);
-      } catch (registrationError: any) {
-        // API failed — fall through to localStorage registration below
-        console.warn('API registration failed, using localStorage:', registrationError?.message);
+    try {
+      const response = await fetch('/api/affiliate/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: registeredName,
+          phone,
+          password,
+          payoutMethod: paymentMethod,
+          payoutProvider: paymentMethod,
+          mobileMoneyNumber: payoutPhone || phone,
+          payoutPhone: payoutPhone || phone,
+          referralCode: generatedReferralCode,
+          parentSuperCode: parentSuperCode.trim(),
+          isPartner: portalRole === 'partner',
+          nidaNumber,
+          tinNumber,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result?.affiliate?.id) {
+        throw new Error(result?.error || 'Registration failed before the affiliate profile was connected.');
       }
-    })();
-    // NOTE: we do NOT return here anymore — we fall through to localStorage registration
-    // so that registration works even when the API is unavailable
+
+      const mappedAffiliate: Affiliate = {
+        id: result.affiliate.id,
+        name: registeredName,
+        email: result.authEmail || '',
+        phone,
+        paymentMethod,
+        promoCode: result.affiliate.promo_code || result.affiliate.referral_code || generatedReferralCode,
+        parentSuperId: result.affiliate.parent_super_agent_id,
+        isSuper: portalRole === 'partner',
+        nidaNumber: nidaNumber || 'N/A',
+        tinNumber: tinNumber || 'N/A',
+        payoutPhone: payoutPhone || phone,
+      };
+      const existing = JSON.parse(localStorage.getItem("jasper_affiliates") || "[]").filter((item: any) => item.id !== mappedAffiliate.id);
+      localStorage.setItem("jasper_affiliates", JSON.stringify([mappedAffiliate, ...existing]));
+      const immersive = JSON.parse(localStorage.getItem("saas_immersive_affiliates") || "[]").filter((item: any) => item.id !== mappedAffiliate.id);
+      localStorage.setItem("saas_immersive_affiliates", JSON.stringify([{
+        ...mappedAffiliate,
+        status: 'Active',
+        joinedDate: new Date().toISOString().split('T')[0],
+        affiliateLink: `https://dukaplus.co.tz/ref/${mappedAffiliate.promoCode.toLowerCase()}`,
+      }, ...immersive]));
+
+      setLoginEmail(phone);
+      setLoginPassword('');
+      setAuthMode('login');
+      alert(`Your ${portalRole === 'partner' ? 'partner' : 'affiliate'} account is ready. Sign in with your phone number and password.`);
+      return;
+    } catch (registrationError: any) {
+      console.error('[affiliate registration] API registration failed:', registrationError);
+      alert(`❌ Registration failed: ${registrationError?.message || 'Could not connect your affiliate profile. Please try again.'}`);
+      return;
+    }
 
     const name = `${firstName.trim()} ${secondName.trim()}`;
     const email = `${firstName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}.${secondName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}${Math.floor(100 + Math.random() * 900)}@jasper-affiliate.com`;

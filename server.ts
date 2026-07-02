@@ -487,51 +487,52 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.get('/api/super-admin/overview', async (req, res) => {
     try {
       await requirePlatformAdmin(req);
+      const safeSelect = async (label: string, query: PromiseLike<any>) => {
+        try {
+          const result = await query;
+          if (result?.error) {
+            console.warn(`[Super Admin Overview] ${label} skipped:`, result.error.message || result.error);
+            return [];
+          }
+          return result?.data || [];
+        } catch (error: any) {
+          console.warn(`[Super Admin Overview] ${label} failed:`, error?.message || error);
+          return [];
+        }
+      };
+
       const [
-        tenantsResult,
-        usersResult,
-        workspacesResult,
-        sessionsResult,
-        affiliatesResult,
-        referralsResult,
-        commissionsResult,
-        payoutsResult,
-        auditResult
+        tenants,
+        users,
+        workspaces,
+        sessions,
+        affiliates,
+        referrals,
+        commissions,
+        payouts,
+        auditLogs
       ] = await Promise.all([
-        adminTable('tenants').select('*').order('name', { ascending: true }),
-        adminTable('users').select('*').order('name', { ascending: true }),
-        adminTable('tenant_workspaces').select('*').order('updated_at', { ascending: false }),
-        adminTable('user_sessions').select('*').order('last_activity_at', { ascending: false }).limit(500),
-        adminTable('affiliates').select('*').order('created_at', { ascending: false }),
-        adminTable('affiliate_referrals').select('*').order('created_at', { ascending: false }).limit(1000),
-        adminTable('affiliate_commissions').select('*').order('created_at', { ascending: false }).limit(1000),
-        adminTable('affiliate_payouts').select('*').order('created_at', { ascending: false }).limit(1000),
-        adminTable('super_admin_audit_logs').select('*').order('created_at', { ascending: false }).limit(250)
+        safeSelect('tenants', adminTable('tenants').select('*').order('name', { ascending: true })),
+        safeSelect('users', adminTable('users').select('*').order('name', { ascending: true })),
+        safeSelect('tenant_workspaces', adminTable('tenant_workspaces').select('*').order('updated_at', { ascending: false })),
+        safeSelect('user_sessions', adminTable('user_sessions').select('*').order('last_activity_at', { ascending: false }).limit(500)),
+        safeSelect('affiliates', adminTable('affiliates').select('*').order('created_at', { ascending: false })),
+        safeSelect('affiliate_referrals', adminTable('affiliate_referrals').select('*').order('created_at', { ascending: false }).limit(1000)),
+        safeSelect('affiliate_commissions', adminTable('affiliate_commissions').select('*').order('created_at', { ascending: false }).limit(1000)),
+        safeSelect('affiliate_payouts', adminTable('affiliate_payouts').select('*').order('created_at', { ascending: false }).limit(1000)),
+        safeSelect('super_admin_audit_logs', adminTable('super_admin_audit_logs').select('*').order('created_at', { ascending: false }).limit(250))
       ]);
 
-      const firstError = [
-        tenantsResult.error,
-        usersResult.error,
-        workspacesResult.error,
-        sessionsResult.error,
-        affiliatesResult.error,
-        referralsResult.error,
-        commissionsResult.error,
-        payoutsResult.error,
-        auditResult.error
-      ].find(Boolean);
-      if (firstError) throw firstError;
-
       return res.json({
-        tenants: tenantsResult.data || [],
-        users: usersResult.data || [],
-        workspaces: workspacesResult.data || [],
-        sessions: sessionsResult.data || [],
-        affiliates: affiliatesResult.data || [],
-        referrals: referralsResult.data || [],
-        commissions: commissionsResult.data || [],
-        payouts: payoutsResult.data || [],
-        auditLogs: auditResult.data || []
+        tenants,
+        users,
+        workspaces,
+        sessions,
+        affiliates,
+        referrals,
+        commissions,
+        payouts,
+        auditLogs
       });
     } catch (error: any) {
       return platformAdminError(res, error);
@@ -842,8 +843,11 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       payoutProvider,
       mobileMoneyNumber,
       referralCode,
+      parentSuperCode,
+      isPartner,
       nidaNumber,
       tinNumber,
+      payoutPhone,
     } = req.body || {};
     const normalizedPhone = String(phone || '').replace(/\D/g, '');
     const normalizedCode = String(referralCode || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
@@ -853,17 +857,37 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
     const authEmail = `affiliate-${normalizedPhone}@jasper.local`;
     try {
-      const { data: existingCode } = await adminTable('affiliates')
-        .select('id')
-        .eq('referral_code', normalizedCode)
-        .maybeSingle();
-      if (existingCode) return res.status(409).json({ error: 'This referral code is already in use.' });
+      const [{ data: existingAffiliateCode }, { data: existingPartnerCode }] = await Promise.all([
+        adminTable('affiliates').select('id').or(`referral_code.eq.${normalizedCode},promo_code.eq.${normalizedCode}`).maybeSingle(),
+        adminTable('affiliate_partners').select('id').eq('promo_code', normalizedCode).maybeSingle(),
+      ]);
+      if (existingAffiliateCode || existingPartnerCode) return res.status(409).json({ error: 'This referral code is already in use.' });
+
+      let parentPartner: any = null;
+      if (isPartner) {
+        const { count, error: countError } = await adminTable('affiliate_partners')
+          .select('id', { count: 'exact', head: true });
+        if (countError) throw countError;
+        if ((count || 0) > 0) return res.status(409).json({ error: 'A Partner account already exists.' });
+      } else {
+        const normalizedParentCode = String(parentSuperCode || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+        if (!normalizedParentCode) return res.status(400).json({ error: 'Partner code is required for affiliate registration.' });
+        const { data, error } = await adminTable('affiliate_partners')
+          .select('id, display_name, promo_code, is_disabled, status')
+          .eq('promo_code', normalizedParentCode)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data || data.is_disabled || String(data.status || 'active').toLowerCase() !== 'active') {
+          return res.status(400).json({ error: `Partner code "${normalizedParentCode}" was not found or is inactive.` });
+        }
+        parentPartner = data;
+      }
 
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: authEmail,
         password: String(password),
         email_confirm: true,
-        user_metadata: { full_name: String(name).trim(), phone: normalizedPhone, account_type: 'affiliate' },
+        user_metadata: { full_name: String(name).trim(), phone: normalizedPhone, account_type: isPartner ? 'partner' : 'affiliate' },
       });
       if (authError || !authData.user) throw new Error(authError?.message || 'Unable to create affiliate account.');
 
@@ -874,9 +898,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         name: String(name).trim(),
         phone: normalizedPhone,
         role: 'Admin',
-        account_type: 'affiliate',
+        account_type: isPartner ? 'partner' : 'affiliate',
         username_phone: normalizedPhone,
-        role_key: 'affiliate',
+        role_key: isPartner ? 'partner' : 'affiliate',
         role_permissions: {},
         is_active: true,
       });
@@ -886,29 +910,46 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       }
 
       const referralSlug = normalizedCode.toLowerCase().replace(/_/g, '-');
-      const { data: affiliate, error: affiliateError } = await adminTable('affiliates').insert({
+      const commonProfile = {
         user_id: userId,
         display_name: String(name).trim(),
         phone_whatsapp: normalizedPhone,
-        referral_code: normalizedCode,
         referral_slug: referralSlug,
-        promo_code: normalizedCode,
-        referral_link: `/signup?ref=${referralSlug}`,
-        affiliate_type: 'organic',
+        status: 'active',
         nida_number: String(nidaNumber || '').trim() || null,
         tin_number: String(tinNumber || '').trim() || null,
+        tin_status: tinNumber ? 'submitted' : 'not_submitted',
         payout_method: payoutMethod || null,
-        payout_account: normalizedPhone,
-        mobile_money_number: String(mobileMoneyNumber || '').replace(/\D/g, '') || normalizedPhone,
-        mobile_money_provider: payoutProvider || payoutMethod || null,
-      }).select('id, display_name, referral_code').single();
-      if (affiliateError) {
+        payout_account: String(payoutPhone || mobileMoneyNumber || normalizedPhone).replace(/\D/g, '') || normalizedPhone,
+        is_disabled: false,
+      };
+      const insertQuery = isPartner
+        ? adminTable('affiliate_partners').insert({
+            ...commonProfile,
+            promo_code: normalizedCode,
+            phone_whatsapp: normalizedPhone,
+            referral_slug: referralSlug,
+          }).select('id, display_name, promo_code').single()
+        : adminTable('affiliates').insert({
+            ...commonProfile,
+            referral_code: normalizedCode,
+            promo_code: normalizedCode,
+            referral_link: `/signup?ref=${referralSlug}`,
+            affiliate_type: 'sub_affiliate',
+            account_type: 'sub_affiliate',
+            parent_super_agent_id: parentPartner.id,
+            mobile_money_number: String(mobileMoneyNumber || payoutPhone || '').replace(/\D/g, '') || normalizedPhone,
+            mobile_money_provider: payoutProvider || payoutMethod || null,
+          }).select('id, display_name, referral_code, promo_code, parent_super_agent_id').single();
+
+      const { data: affiliate, error: affiliateError } = await insertQuery;
+      if (affiliateError || !affiliate) {
         await adminTable('users').delete().eq('id', userId);
         await supabaseAdmin.auth.admin.deleteUser(userId);
-        throw affiliateError;
+        throw affiliateError || new Error('Affiliate profile was not created.');
       }
 
-      return res.status(201).json({ affiliate, authEmail });
+      return res.status(201).json({ affiliate, authEmail, userId, isPartner: !!isPartner });
     } catch (error: any) {
       return res.status(400).json({ error: error?.message || 'Affiliate registration failed.' });
     }

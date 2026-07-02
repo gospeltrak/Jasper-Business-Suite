@@ -140,7 +140,36 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
     .maybeSingle();
 
   if (profileError) throw profileError;
-  if (!profile) return null;
+  if (!profile) {
+    try {
+      const cached = JSON.parse(localStorage.getItem('jasper_logged_affiliate') || 'null');
+      const authPhone = String(authData.user.email || '').replace(/^affiliate-/, '').replace(/@jasper\.local$/, '');
+      const cachedPhone = String(cached?.phone || '').replace(/\D/g, '');
+      if (cached?.id && cached?.promoCode && (!authPhone || !cachedPhone || authPhone === cachedPhone)) {
+        return {
+          profile: {
+            id: cached.id,
+            user_id: authData.user.id,
+            display_name: cached.name || authData.user.email || 'Affiliate',
+            referral_code: cached.promoCode,
+            referral_slug: String(cached.promoCode).toLowerCase(),
+            status: 'active',
+            payout_method: cached.paymentMethod || null,
+            payout_account: cached.payoutPhone || cached.phone || null,
+            profile_image_url: null,
+          },
+          tasks: [],
+          meetings: [],
+          campaigns: [],
+          referrals: [],
+          commissions: [],
+          payouts: [],
+          activities: [],
+        };
+      }
+    } catch {}
+    return null;
+  }
 
   const safeQuery = async (fn: () => Promise<any>) => {
     try { const r = await fn(); return r.error ? { data: [] } : r; } catch { return { data: [] }; }
