@@ -79,6 +79,7 @@ import {
   Pill,
   Utensils,
   Globe,
+  Clock,
   Settings as SettingsIcon,
   Coins,
   Wallet,
@@ -1151,8 +1152,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const isTrialAccount = normalizeSubscriptionPlanId(subStatus.state.planId) === 'trial' && !subStatus.state.isSubscribedPaid;
   const isTrialAccessLocked = user.role !== 'SuperAdmin' && isTrialAccount && subStatus.isExpired;
 
-  // Render Subscription Action Banner & Pay Simulator
-  const renderSubscriptionStatusBlock = () => {
+  const getSubscriptionCountdown = () => {
     if (subStatus.daysRemaining <= 0 && !isTrialAccessLocked) return null;
 
     const isWarning = subStatus.daysRemaining <= 3;
@@ -1164,32 +1164,37 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         ? `Free trial: ${subStatus.daysRemaining} days remaining`
         : '';
 
-    if (!message) return null;
+    return message ? { message, isWarning } : null;
+  };
+
+  // Compact header countdown between search and online status.
+  const renderSubscriptionCountdownBadge = () => {
+    const countdown = getSubscriptionCountdown();
+    if (!countdown || user.role === 'SuperAdmin') return null;
+    const { message, isWarning } = countdown;
 
     return (
-      <div className={`sticky top-0 z-40 -mx-4 md:-mx-6 -mt-4 md:-mt-6 mb-4 md:mb-6 px-4 py-1.5 text-center text-[11px] font-medium border-b ${
+      <button
+        type="button"
+        onClick={() => {
+          if (!isWarning) return;
+          setSubModal({
+            show: true,
+            title: isTrialAccount ? 'Subscribe to keep access' : 'Renew Subscription',
+            limitType: 'expired',
+            description: isTrialAccount
+              ? 'Your trial is ending soon. Choose a package to keep using Jasper without interruption.'
+              : 'Your paid subscription is close to renewal. Choose a package and submit your receipt to avoid interruption.'
+          });
+        }}
+        className={`hidden lg:flex items-center space-x-2 text-[11px] font-medium tracking-tight px-3 py-1.5 rounded-xl border transition-all font-sans ${
         isWarning
-          ? 'bg-amber-50 text-amber-800 border-amber-200'
-          : 'bg-emerald-50 text-emerald-800 border-emerald-100'
+          ? 'border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100'
+          : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 cursor-default'
       }`}>
-        <span>{message}</span>
-        {isWarning && (
-          <button
-            type="button"
-            onClick={() => setSubModal({
-              show: true,
-              title: isTrialAccount ? 'Subscribe to keep access' : 'Renew Subscription',
-              limitType: 'expired',
-              description: isTrialAccount
-                ? 'Your trial is ending soon. Choose a package to keep using Jasper without interruption.'
-                : 'Your paid subscription is close to renewal. Choose a package and submit your receipt to avoid interruption.'
-            })}
-            className="ml-2 underline underline-offset-2 font-semibold hover:text-amber-950"
-          >
-            {isTrialAccount ? 'Subscribe now' : 'Renew now'}
-          </button>
-        )}
-      </div>
+        <Clock className={`w-3.5 h-3.5 ${isWarning ? 'text-amber-500' : 'text-emerald-500'}`} />
+        <span className="font-semibold whitespace-nowrap">{message}</span>
+      </button>
     );
   };
 
@@ -2127,6 +2132,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             </div>
 
             <div className="flex items-center space-x-4">
+              {renderSubscriptionCountdownBadge()}
+
               {/* Online / offline state tag indicators with globe icon */}
               <div 
                 title={isOfflineMode ? 'Device is offline' : 'Device is online'}
@@ -2387,8 +2394,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
           {/* Core workspace content viewports */}
           <main id="workspace-content" className={`flex-1 overflow-y-auto scrollbar-none overscroll-none touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-4 md:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-6 min-h-0`}>
-            
-            {user.role !== 'SuperAdmin' && renderSubscriptionStatusBlock()}
 
             {isTrialAccessLocked ? (
               <div className="min-h-[calc(100dvh-180px)] flex items-center justify-center">
