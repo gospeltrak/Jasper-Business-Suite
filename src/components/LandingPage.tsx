@@ -104,8 +104,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     stockDesc: "Track your product levels and get simple notifications when low.",
     offlineTitle: "Works Without Internet",
     offlineDesc: "Runs 100% offline. Accepts mobile money instantly with no slowdowns.",
-    meetLucy: "Meet Lucy, Your AI",
-    lucyDesc: "Your friendly AI assistant to answer questions and help you grow daily.",
+    meetLucy: "Lucy AI Business Assistant",
+    lucyDesc: "Lucy guides users through Jasper, answers business questions in any language, creates reports, and helps owners grow with safer AI support.",
+    featLucyTitle: "Lucy AI Business Assistant",
+    featLucyDesc: "Ask Lucy how to use Jasper, understand sales, stock, expenses, and generate guided business reports from Diamond plan and above.",
     creed: "Jasper helps your business grow higher!",
     getStarted: "Get Started — It's Free",
     offlineMetric: "Works Offline",
@@ -151,7 +153,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     limitPremium: "Unlimited Products • 10 Stores • Unlimited Users",
     featureReport: "Standard POS transaction reports",
     featureNoExpiry: "Expiry date tracker & alerts",
-    featureAiHelp: "Direct Lucy assistance",
+    featureAiHelp: "Lucy AI guidance for business growth",
     featureVip: "VIP priority assistance support",
     choosePlan: "Choose Plan",
     startFree: "Start Trial Free",
@@ -199,8 +201,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     stockDesc: "Fuatilia idadi ya bidhaa zako na upate taarifa zikiisha.",
     offlineTitle: "Inafanya Kazi Bure Bila Internet",
     offlineDesc: "Inafanya kazi 100% bila internet. Pokea malipo ya simu haraka.",
-    meetLucy: "Kutana na Lucy",
-    lucyDesc: "msaidizi na rafiki yako wa karibu atakayekusaidia kutumia mfumo na kukuza biashara yako",
+    meetLucy: "Msaidizi wa Biashara Lucy AI",
+    lucyDesc: "Lucy humuelekeza mtumiaji kutumia Jasper, hujibu maswali ya biashara kwa lugha yoyote, hutengeneza ripoti, na husaidia biashara kukua kwa usalama.",
+    featLucyTitle: "Msaidizi wa Biashara Lucy AI",
+    featLucyDesc: "Muulize Lucy jinsi ya kutumia Jasper, kuelewa mauzo, stoki, gharama, na kutengeneza ripoti za biashara kuanzia kifurushi cha Diamond na kuendelea.",
     creed: "Jasper inasaidia biashara yako kukua zaidi!",
     getStarted: "Anza Sasa - Ni Bure",
     offlineMetric: "Bila Mtandao",
@@ -246,7 +250,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     limitPremium: "Idadi ya Bidhaa Bila Kikomo • Maduka 10",
     featureReport: "Ripoti za Mauzo za Kawaida",
     featureNoExpiry: "Kufuatilia tarehe ya mwisho wa bidhaa",
-    featureAiHelp: "Usaidizi wa Lucy",
+    featureAiHelp: "Mwongozo wa Lucy AI kukuza biashara",
     featureVip: "Msaada maalum kwanza",
     choosePlan: "Chagua Kifurushi",
     startFree: "Anza Majaribio Bure",
@@ -1455,13 +1459,13 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
                 <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl" />
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Lucy Core Assistant
+                  {t.featLucyTitle || t.meetLucy || "Lucy AI Business Assistant"}
                 </span>
                 <h4 className={`text-base font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   {t.meetLucy || "Meet Lucy"}
                 </h4>
                 <p className={`text-xs font-light leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                  {t.lucyDesc || "Your friendly assistant to answer questions and help you grow daily."}
+                  {t.featLucyDesc || t.lucyDesc || "Your friendly assistant to answer questions and help you grow daily."}
                 </p>
               </div>
 
