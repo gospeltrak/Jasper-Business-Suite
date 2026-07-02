@@ -475,20 +475,11 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
 
           {activeTab === 'tasks' && <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.tasks.map((task) => <TaskRow key={task.id} task={task} busy={busyTaskId === task.id} onComplete={handleTaskComplete} onDownload={() => task.attachment_url && handleTrackedLink('task_download', 'task', task.id, task.attachment_url, task.attachment_name)} />)}{workspace!.tasks.length === 0 && <Empty text="No tasks, notes, or files have been assigned to you yet." />}</section>}
           {activeTab === 'ads' && (
-            <section className="space-y-4">
-              {adSettings.dashboardAdCode && adSettings.dashboardAdEnabled && (
-                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Global Ads Placement</p>
-                  <div className="mt-3 w-full overflow-hidden rounded-2xl"
-                    dangerouslySetInnerHTML={{ __html: adSettings.dashboardAdCode }} />
-                </div>
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {workspace!.campaigns.map(renderCampaign)}
+              {workspace!.campaigns.length === 0 && (
+                <div className="md:col-span-2 xl:col-span-3"><Empty text="No Ads by JB campaigns are assigned to your account." /></div>
               )}
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {workspace!.campaigns.map(renderCampaign)}
-                {workspace!.campaigns.length === 0 && !adSettings.dashboardAdCode && (
-                  <div className="md:col-span-2 xl:col-span-3"><Empty text="No Ads by JB campaigns are assigned to your account." /></div>
-                )}
-              </div>
             </section>
           )}
           {activeTab === 'meetings' && <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.meetings.map((meeting) => <MeetingRow key={meeting.id} meeting={meeting} onJoin={() => handleTrackedLink('meeting_join', 'meeting', meeting.id, meeting.meeting_url)} />)}{workspace!.meetings.length === 0 && <Empty text="No agent meetings are scheduled for your account." />}</section>}
