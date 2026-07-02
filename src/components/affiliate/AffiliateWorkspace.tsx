@@ -31,6 +31,7 @@ import {
   flushSyncQueue,
 } from '../../utils/offlineSync';
 import { useGlobalAdSettings } from '../../utils/adPlacement';
+import { sanitizeTrustedHtml } from '../../utils/safeHtml';
 
 const currency = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
 
@@ -361,7 +362,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
               if (!adCode || !adEnabled) return null;
               return (
                 <div className="w-full overflow-hidden rounded-2xl"
-                  dangerouslySetInnerHTML={{ __html: adCode }} />
+                  dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }} />
               );
             })()}
 
@@ -526,7 +527,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
               <button onClick={() => setBottomAdDismissed(true)}
                 className="absolute top-1.5 right-2 z-10 w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-xs font-black cursor-pointer border-none">×</button>
               <div className="aff-bottom-ad w-full overflow-hidden"
-                dangerouslySetInnerHTML={{ __html: bottomAdCode }} />
+                dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(bottomAdCode) }} />
             </div>
           </div>
         );

@@ -27,6 +27,61 @@ const getBearerToken = (req: express.Request) => {
   return scheme?.toLowerCase() === 'bearer' && token ? token : null;
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SAFE_RECORD_RE = /^[a-zA-Z0-9_-]{1,80}$/;
+const PUBLIC_PLATFORM_RECORD_TYPES = new Set([
+  'ad_placements',
+  'global_ad_placement',
+  'promotional_banners',
+  'training_tutorials',
+  'web_editor_settings'
+]);
+
+const isUuid = (value: unknown) => UUID_RE.test(String(value || ''));
+const isSafeRecordToken = (value: unknown) => SAFE_RECORD_RE.test(String(value || ''));
+const sanitizeScopeId = (value: unknown) => String(value || 'global').trim() || 'global';
+const sanitizeRecordType = (value: unknown) => String(value || '').trim();
+const normalizeEmail = (value: unknown) => String(value || '').trim().toLowerCase();
+const normalizeText = (value: unknown, max = 180) => String(value || '').trim().slice(0, max);
+const isStrongPassword = (value: unknown) => {
+  const password = String(value || '');
+  return password.length >= 10 && /[A-Za-z]/.test(password) && /\d/.test(password);
+};
+
+const readClientIp = (req: express.Request) =>
+  String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
+
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+const rateLimit = (options: { windowMs: number; max: number; prefix: string }) =>
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const now = Date.now();
+    const key = `${options.prefix}:${readClientIp(req)}`;
+    const bucket = rateBuckets.get(key);
+    if (!bucket || bucket.resetAt <= now) {
+      rateBuckets.set(key, { count: 1, resetAt: now + options.windowMs });
+      return next();
+    }
+    bucket.count += 1;
+    if (bucket.count > options.max) {
+      res.setHeader('Retry-After', Math.ceil((bucket.resetAt - now) / 1000));
+      return res.status(429).json({ error: 'Too many requests. Please wait and try again.' });
+    }
+    return next();
+  };
+
+const securityHeaders = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  }
+  next();
+};
+
 async function requirePlatformAdmin(req: express.Request) {
   if (!supabaseAdmin) throw new Error('Supabase backend client is not configured');
   const token = getBearerToken(req);
@@ -57,6 +112,50 @@ async function requirePlatformAdmin(req: express.Request) {
 
   if (profileError || !isPlatformAdmin) {
     const error: any = new Error('Super SaaS administrator access required');
+    error.status = 403;
+    throw error;
+  }
+
+  return authData.user;
+}
+
+async function requireTenantUser(req: express.Request, tenantId: string) {
+  if (!supabaseAdmin) throw new Error('Supabase backend client is not configured');
+  if (!isUuid(tenantId)) {
+    const error: any = new Error('Invalid tenant identifier');
+    error.status = 400;
+    throw error;
+  }
+
+  const token = getBearerToken(req);
+  if (!token) {
+    const error: any = new Error('Authentication required');
+    error.status = 401;
+    throw error;
+  }
+
+  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !authData.user) {
+    const error: any = new Error('Invalid session');
+    error.status = 401;
+    throw error;
+  }
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('users')
+    .select('id, tenant_id, active_tenant, account_type, role, role_key, is_active')
+    .eq('id', authData.user.id)
+    .maybeSingle();
+
+  const normalizedRole = String((profile as any)?.role_key || (profile as any)?.role || '').toLowerCase();
+  const isPlatformAdmin = Boolean(
+    (profile as any)?.is_active &&
+    ((profile as any)?.account_type === 'super_admin' || ['superadmin', 'super_admin', 'admin'].includes(normalizedRole))
+  );
+  const belongsToTenant = String((profile as any)?.tenant_id || '') === tenantId || String((profile as any)?.active_tenant || '') === tenantId;
+
+  if (profileError || !(isPlatformAdmin || belongsToTenant)) {
+    const error: any = new Error('Tenant access denied');
     error.status = 403;
     throw error;
   }
@@ -452,9 +551,18 @@ async function generateResilientContent(ai: GoogleGenAI, params: any) {
 export async function createApp(options: { serveClient?: boolean } = {}) {
   const { serveClient = true } = options;
   const app = express();
+  app.disable('x-powered-by');
+  app.set('trust proxy', 1);
 
-  // Body parser limit expanded for rich sales ledger payloads
-  app.use(express.json({ limit: '10mb' }));
+  app.use(securityHeaders);
+  app.use('/api/auth/register', rateLimit({ prefix: 'tenant-register', windowMs: 15 * 60 * 1000, max: 12 }));
+  app.use('/api/affiliate/register', rateLimit({ prefix: 'affiliate-register', windowMs: 15 * 60 * 1000, max: 12 }));
+  app.use('/api/forecast', rateLimit({ prefix: 'forecast', windowMs: 60 * 1000, max: 20 }));
+  app.use('/api/copilot', rateLimit({ prefix: 'copilot', windowMs: 60 * 1000, max: 30 }));
+  app.use('/api/tools/remove-bg', rateLimit({ prefix: 'remove-bg', windowMs: 60 * 1000, max: 10 }));
+  app.use('/api', rateLimit({ prefix: 'api', windowMs: 60 * 1000, max: 240 }));
+
+  app.use(express.json({ limit: '6mb' }));
 
   // Supabase Database Verification Route
   app.get('/api/db/test', async (req, res) => {
@@ -463,25 +571,62 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
     
     try {
-      // Just test a simple fetch from the tenants table (or any core table)
-      const { data, error } = await supabaseAdmin.from('tenants').select('*').limit(1);
+      await requirePlatformAdmin(req);
+      const { error } = await supabaseAdmin.from('tenants').select('id', { count: 'exact', head: true });
       
       if (error) {
         throw error;
       }
       
-      return res.json({ success: true, message: 'Database connection active.', data });
+      return res.json({ success: true, message: 'Database connection active.' });
     } catch (err: any) {
-      return res.status(500).json({ error: 'Database test failed', details: err?.message || String(err) });
+      return platformAdminError(res, err);
     }
   });
 
   // Public configuration endpoint for runtime frontend initialization
   app.get('/api/auth/config', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
     return res.json({
       supabaseUrl: process.env.SUPABASE_URL || null,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null
     });
+  });
+
+  app.get('/api/platform-records/:type/:scope?', async (req, res) => {
+    try {
+      if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase backend client is not configured' });
+      const recordType = sanitizeRecordType(req.params.type);
+      const scopeId = sanitizeScopeId(req.params.scope);
+      if (!isSafeRecordToken(recordType) || !isSafeRecordToken(scopeId)) {
+        return res.status(400).json({ error: 'Invalid platform record request.' });
+      }
+      if (!PUBLIC_PLATFORM_RECORD_TYPES.has(recordType)) {
+        return res.status(403).json({ error: 'This platform record is not public.' });
+      }
+
+      const { data: platformRecord, error: platformError } = await adminTable('super_admin_platform_records')
+        .select('payload, updated_at')
+        .eq('record_type', recordType)
+        .eq('scope_id', scopeId)
+        .maybeSingle();
+      if (platformError) throw platformError;
+      if (platformRecord?.payload !== undefined) {
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        return res.json({ payload: platformRecord.payload, updatedAt: platformRecord.updated_at || null });
+      }
+
+      const { data: legacyRecord, error: legacyError } = await adminTable('tenant_data')
+        .select('payload, updated_at')
+        .eq('tenant_id', 'saas-global')
+        .eq('data_key', `${recordType}__${scopeId}`)
+        .maybeSingle();
+      if (legacyError) throw legacyError;
+      res.setHeader('Cache-Control', 'no-store, max-age=0');
+      return res.json({ payload: legacyRecord?.payload ?? null, updatedAt: legacyRecord?.updated_at || null });
+    } catch (error: any) {
+      return res.status(Number(error?.status || 500)).json({ error: error?.message || 'Platform record request failed' });
+    }
   });
 
   app.get('/api/super-admin/overview', async (req, res) => {
@@ -543,15 +688,16 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     try {
       const adminUser = await requirePlatformAdmin(req);
       const targetUserId = String(req.params.id || '');
+      if (!isUuid(targetUserId)) return res.status(400).json({ error: 'Invalid user identifier.' });
       const { name, email, phone, roleKey, rolePermissions, isActive } = req.body || {};
       const updates: Record<string, any> = {};
-      if (typeof name === 'string') updates.name = name.trim();
-      if (typeof email === 'string') updates.email = email.trim();
+      if (typeof name === 'string') updates.name = normalizeText(name);
+      if (typeof email === 'string') updates.email = normalizeEmail(email);
       if (typeof phone === 'string') {
-        updates.phone = phone.trim();
-        updates.username_phone = phone.replace(/\D/g, '') || phone.trim();
+        updates.phone = normalizeText(phone, 40);
+        updates.username_phone = phone.replace(/\D/g, '') || normalizeText(phone, 40);
       }
-      if (typeof roleKey === 'string') updates.role_key = roleKey.trim();
+      if (typeof roleKey === 'string') updates.role_key = normalizeText(roleKey, 80);
       if (rolePermissions && typeof rolePermissions === 'object') updates.role_permissions = rolePermissions;
       if (typeof isActive === 'boolean') updates.is_active = isActive;
 
@@ -564,8 +710,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         .single();
       if (error) throw error;
 
-      if (typeof email === 'string' && email.trim()) {
-        await supabaseAdmin!.auth.admin.updateUserById(targetUserId, { email: email.trim(), email_confirm: true });
+      if (typeof email === 'string' && normalizeEmail(email)) {
+        await supabaseAdmin!.auth.admin.updateUserById(targetUserId, { email: normalizeEmail(email), email_confirm: true });
       }
 
       await adminTable('super_admin_audit_logs').insert({
@@ -586,8 +732,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     try {
       const adminUser = await requirePlatformAdmin(req);
       const targetUserId = String(req.params.id || '');
+      if (!isUuid(targetUserId)) return res.status(400).json({ error: 'Invalid user identifier.' });
       const password = String(req.body?.password || '');
-      if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+      if (!isStrongPassword(password)) return res.status(400).json({ error: 'Password must be 10+ characters and include letters and numbers.' });
 
       const { data: targetUser } = await adminTable('users')
         .select('tenant_id')
@@ -614,6 +761,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     try {
       const adminUser = await requirePlatformAdmin(req);
       const targetUserId = String(req.params.id || '');
+      if (!isUuid(targetUserId)) return res.status(400).json({ error: 'Invalid user identifier.' });
       if (targetUserId === adminUser.id) return res.status(400).json({ error: 'You cannot delete your own Super Admin account.' });
 
       const { data: targetUser, error: targetError } = await adminTable('users')
@@ -659,14 +807,17 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (!String(name || '').trim() || !String(email || '').trim()) {
         return res.status(400).json({ error: 'Name and email are required.' });
       }
+      if (password && !isStrongPassword(password)) {
+        return res.status(400).json({ error: 'Password must be 10+ characters and include letters and numbers.' });
+      }
 
-      const emailValue = String(email).trim();
+      const emailValue = normalizeEmail(email);
       const userPayload: Record<string, any> = {
         email: emailValue,
         email_confirm: true,
-        user_metadata: { full_name: String(name).trim(), account_type: 'super_admin_staff' }
+        user_metadata: { full_name: normalizeText(name), account_type: 'super_admin_staff' }
       };
-      if (String(password || '').length >= 8) userPayload.password = String(password);
+      if (String(password || '')) userPayload.password = String(password);
 
       const { data: authData, error: authError } = await supabaseAdmin!.auth.admin.createUser(userPayload as any);
       if (authError || !authData.user) throw new Error(authError?.message || 'Unable to create SaaS staff account.');
@@ -674,7 +825,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const { data, error } = await adminTable('users').insert({
         id: authData.user.id,
         email: emailValue,
-        name: String(name).trim(),
+        name: normalizeText(name),
         role: 'Admin',
         account_type: 'super_admin',
         role_key: 'super_admin_staff',
@@ -704,11 +855,12 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     try {
       const adminUser = await requirePlatformAdmin(req);
       const staffId = String(req.params.id || '');
+      if (!isUuid(staffId)) return res.status(400).json({ error: 'Invalid staff identifier.' });
       const { name, email, password, profileImageUrl, permissions, isActive } = req.body || {};
       const updates: Record<string, any> = {};
-      if (typeof name === 'string') updates.name = name.trim();
-      if (typeof email === 'string') updates.email = email.trim();
-      if (typeof profileImageUrl === 'string') updates.profile_image_url = profileImageUrl;
+      if (typeof name === 'string') updates.name = normalizeText(name);
+      if (typeof email === 'string') updates.email = normalizeEmail(email);
+      if (typeof profileImageUrl === 'string') updates.profile_image_url = normalizeText(profileImageUrl, 1000);
       if (permissions && typeof permissions === 'object') updates.role_permissions = permissions;
       if (typeof isActive === 'boolean') updates.is_active = isActive;
 
@@ -721,11 +873,14 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (error) throw error;
 
       const authUpdates: Record<string, any> = {};
-      if (typeof email === 'string' && email.trim()) {
-        authUpdates.email = email.trim();
+      if (typeof email === 'string' && normalizeEmail(email)) {
+        authUpdates.email = normalizeEmail(email);
         authUpdates.email_confirm = true;
       }
-      if (String(password || '').length >= 8) authUpdates.password = String(password);
+      if (String(password || '')) {
+        if (!isStrongPassword(password)) return res.status(400).json({ error: 'Password must be 10+ characters and include letters and numbers.' });
+        authUpdates.password = String(password);
+      }
       if (Object.keys(authUpdates).length) await supabaseAdmin!.auth.admin.updateUserById(staffId, authUpdates);
 
       await adminTable('super_admin_audit_logs').insert({
@@ -744,6 +899,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     try {
       const adminUser = await requirePlatformAdmin(req);
       const staffId = String(req.params.id || '');
+      if (!isUuid(staffId)) return res.status(400).json({ error: 'Invalid staff identifier.' });
       if (staffId === adminUser.id) return res.status(400).json({ error: 'You cannot delete your own account.' });
       const { error } = await supabaseAdmin!.auth.admin.deleteUser(staffId);
       if (error) throw error;
@@ -762,8 +918,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.get('/api/super-admin/platform-records', async (req, res) => {
     try {
       await requirePlatformAdmin(req);
-      const recordType = String(req.query.type || '').trim();
+      const recordType = sanitizeRecordType(req.query.type);
       const scopeId = String(req.query.scope || '').trim();
+      if (recordType && !isSafeRecordToken(recordType)) return res.status(400).json({ error: 'Invalid record type.' });
+      if (scopeId && !isSafeRecordToken(scopeId)) return res.status(400).json({ error: 'Invalid record scope.' });
       let query = adminTable('super_admin_platform_records')
         .select('*')
         .order('updated_at', { ascending: false });
@@ -780,9 +938,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.put('/api/super-admin/platform-records/:type/:scope', async (req, res) => {
     try {
       const adminUser = await requirePlatformAdmin(req);
-      const recordType = String(req.params.type || '').trim();
-      const scopeId = String(req.params.scope || '').trim() || 'global';
-      if (!recordType) return res.status(400).json({ error: 'Record type is required.' });
+      const recordType = sanitizeRecordType(req.params.type);
+      const scopeId = sanitizeScopeId(req.params.scope);
+      if (!isSafeRecordToken(recordType)) return res.status(400).json({ error: 'Invalid record type.' });
+      if (!isSafeRecordToken(scopeId)) return res.status(400).json({ error: 'Invalid record scope.' });
 
       const payload = req.body?.payload ?? {};
       const { data, error } = await adminTable('super_admin_platform_records')
@@ -812,8 +971,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.delete('/api/super-admin/platform-records/:type/:scope', async (req, res) => {
     try {
       const adminUser = await requirePlatformAdmin(req);
-      const recordType = String(req.params.type || '').trim();
-      const scopeId = String(req.params.scope || '').trim() || 'global';
+      const recordType = sanitizeRecordType(req.params.type);
+      const scopeId = sanitizeScopeId(req.params.scope);
+      if (!isSafeRecordToken(recordType)) return res.status(400).json({ error: 'Invalid record type.' });
+      if (!isSafeRecordToken(scopeId)) return res.status(400).json({ error: 'Invalid record scope.' });
       const { error } = await adminTable('super_admin_platform_records')
         .delete()
         .eq('record_type', recordType)
@@ -851,8 +1012,11 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     } = req.body || {};
     const normalizedPhone = String(phone || '').replace(/\D/g, '');
     const normalizedCode = String(referralCode || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
-    if (!name?.trim() || normalizedPhone.length < 8 || String(password || '').length < 8 || !normalizedCode) {
-      return res.status(400).json({ error: 'Name, phone, password (8+ characters), and referral code are required.' });
+    if (!name?.trim() || normalizedPhone.length < 8 || !normalizedCode) {
+      return res.status(400).json({ error: 'Name, phone, and referral code are required.' });
+    }
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({ error: 'Password must be 10+ characters and include letters and numbers.' });
     }
 
     const authEmail = `affiliate-${normalizedPhone}@jasper.local`;
@@ -887,7 +1051,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         email: authEmail,
         password: String(password),
         email_confirm: true,
-        user_metadata: { full_name: String(name).trim(), phone: normalizedPhone, account_type: isPartner ? 'partner' : 'affiliate' },
+        user_metadata: { full_name: normalizeText(name), phone: normalizedPhone, account_type: isPartner ? 'partner' : 'affiliate' },
       });
       if (authError || !authData.user) throw new Error(authError?.message || 'Unable to create affiliate account.');
 
@@ -895,7 +1059,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const { error: userError } = await adminTable('users').insert({
         id: userId,
         email: authEmail,
-        name: String(name).trim(),
+        name: normalizeText(name),
         phone: normalizedPhone,
         role: 'Admin',
         account_type: isPartner ? 'partner' : 'affiliate',
@@ -912,7 +1076,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const referralSlug = normalizedCode.toLowerCase().replace(/_/g, '-');
       const commonProfile = {
         user_id: userId,
-        display_name: String(name).trim(),
+        display_name: normalizeText(name),
         phone_whatsapp: normalizedPhone,
         referral_slug: referralSlug,
         status: 'active',
@@ -962,9 +1126,16 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
     
     const { email, password, name, businessName, phone, country, city, currency, currencyCode, taxRate, businessType, referralCode } = req.body;
+    const emailValue = normalizeEmail(email);
     
-    if (!email || !password || !name || !businessName) {
+    if (!emailValue || !password || !name || !businessName) {
       return res.status(400).json({ error: 'Missing required registration fields' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+      return res.status(400).json({ error: 'Valid email is required.' });
+    }
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({ error: 'Password must be 10+ characters and include letters and numbers.' });
     }
 
     try {
@@ -976,10 +1147,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       // 1. Create the user in Supabase Auth using the Admin API
       // We use the admin API securely on the backend so we can auto-confirm their email for now if desired
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email,
+        email: emailValue,
         password,
         email_confirm: true,
-        user_metadata: { full_name: name, phone: phone || '' }
+        user_metadata: { full_name: normalizeText(name), phone: normalizeText(phone, 40) }
       });
 
       if (authError || !authData.user) {
@@ -992,13 +1163,13 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const { data: tenantData, error: tenantError } = await supabaseAdmin
         .from('tenants')
         .insert({
-          name: businessName,
-          country: country || 'Tanzania',
-          city: city || '',
-          currency: currency || 'TSh',
-          currency_code: currencyCode || 'TZS',
+          name: normalizeText(businessName),
+          country: normalizeText(country, 80) || 'Tanzania',
+          city: normalizeText(city, 80),
+          currency: normalizeText(currency, 20) || 'TSh',
+          currency_code: normalizeText(currencyCode, 10) || 'TZS',
           tax_rate: Number.isFinite(taxRate) ? taxRate : 0,
-          business_type: businessType || 'retail',
+          business_type: normalizeText(businessType, 60) || 'retail',
           mobile_money_providers: [],
           company_settings: {},
           business_settings: {},
@@ -1028,9 +1199,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
           id: authUserId, // SAME AS auth.users.id
           tenant_id: (tenantData as any).id,
           active_tenant: (tenantData as any).id,
-          email,
-          name,
-          phone: phone || '',
+          email: emailValue,
+          name: normalizeText(name),
+          phone: normalizeText(phone, 40),
           role: 'Admin', // The creator of the business is the Admin
           is_saas_staff: false
         } as any);
@@ -1161,7 +1332,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.get('/api/tenant/logo-by-id', async (req, res) => {
     const tenantId = req.query.tenantId as string;
     try {
-      if (!supabaseAdmin || !tenantId) {
+      if (!supabaseAdmin || !tenantId || !isUuid(tenantId)) {
         return res.json({ logoUrl: null });
       }
 
@@ -1188,7 +1359,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
   // API Route: Fetch tenant logo by domain or subdomain dynamically on login screen load
   app.get('/api/tenant/logo-by-domain', async (req, res) => {
-    const domain = req.query.domain as string;
+    const domain = normalizeText(req.query.domain, 120);
     try {
       if (!supabaseAdmin) {
         return res.json({ logoUrl: null });
@@ -1240,19 +1411,21 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.post('/api/tenant/logo', async (req, res) => {
     const { tenantId, logoBase64 } = req.body;
 
-    if (!tenantId || !logoBase64) {
+    if (!tenantId || !logoBase64 || !isUuid(tenantId)) {
       return res.status(400).json({ error: 'tenantId and logoBase64 are required.' });
+    }
+    if (typeof logoBase64 !== 'string' || !logoBase64.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'Only image data URLs are accepted for logos.' });
+    }
+    if (logoBase64.length > 4_500_000) {
+      return res.status(413).json({ error: 'Logo file is too large. Please upload an image below 3 MB.' });
     }
 
     try {
       if (!supabaseAdmin) {
-        console.warn('[Server] Supabase client is not initialized. Using fallback persistence mode.');
-        return res.json({
-          success: true,
-          message: 'Saved locally. (Supabase not initialized)',
-          logoUrl: logoBase64
-        });
+        return res.status(503).json({ error: 'Supabase backend client is not configured' });
       }
+      await requireTenantUser(req, String(tenantId));
 
       // Parse the base64 string
       let base64Data = logoBase64;
@@ -1268,9 +1441,18 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
           extension = mimeType.split('/')[1] || 'png';
         }
       }
+      if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(mimeType)) {
+        return res.status(400).json({ error: 'Unsupported logo image type.' });
+      }
+      if (!/^[A-Za-z0-9+/=]+$/.test(base64Data)) {
+        return res.status(400).json({ error: 'Invalid logo image data.' });
+      }
 
       // Convert base64 to Buffer
       const buffer = Buffer.from(base64Data, 'base64');
+      if (buffer.length > 3_000_000) {
+        return res.status(413).json({ error: 'Logo file is too large. Please upload an image below 3 MB.' });
+      }
       const fileName = `tenant-${tenantId}-${Date.now()}.${extension}`;
 
       // Ensure the "logos" bucket exists
@@ -1344,12 +1526,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
     } catch (err: any) {
       console.error('[Logo Persistence] Error:', err);
-      // Return a friendly fallback instead of crashing
-      return res.json({
-        success: true,
-        message: 'Fallback local storage persistence (Server: ' + (err?.message || String(err)) + ')',
-        logoUrl: logoBase64
-      });
+      return res.status(Number(err?.status || 500)).json({ error: err?.message || 'Logo could not be saved securely.' });
     }
   });
 

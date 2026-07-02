@@ -38,6 +38,7 @@ import {
   Truck
 } from 'lucide-react';
 import { DashboardNotificationsSettings } from './DashboardNotificationsSettings';
+import { getDynamicSupabaseClient } from '../supabaseClient';
 
 export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
   {
@@ -616,9 +617,17 @@ export default function DashboardSettings({
     setIsLogoSaving(true);
     setLogoSaveStatus(null);
     try {
+      const client: any = await getDynamicSupabaseClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Please sign in again before saving the logo.');
+      }
       const response = await fetch(`/api/tenant/logo`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           tenantId: activeTenant.id,
           logoBase64: companyForm.logo

@@ -4,6 +4,7 @@ import { useTranslation } from '../LanguageContext';
 import { Tenant, Product, Sale } from '../types';
 import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitFormatter';
 import { useGlobalAdSettings } from '../utils/adPlacement';
+import { sanitizeTrustedHtml } from '../utils/safeHtml';
 import { 
   ResponsiveContainer, 
   ComposedChart, 
@@ -574,7 +575,7 @@ export default function DashboardOverview({
             return (
               <div
                 className="w-full overflow-hidden rounded-2xl"
-                dangerouslySetInnerHTML={{ __html: adCode }}
+                dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }}
               />
             );
           }
@@ -898,7 +899,7 @@ export default function DashboardOverview({
           return (
             <div
               className="w-full overflow-hidden rounded-2xl"
-              dangerouslySetInnerHTML={{ __html: adCode }}
+              dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }}
             />
           );
         }
@@ -1647,7 +1648,7 @@ export default function DashboardOverview({
               {/* Ad content — responsive container */}
               <div
                 className="bottom-ad-container px-0 mx-auto"
-                dangerouslySetInnerHTML={{ __html: bottomAdCode }}
+                dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(bottomAdCode) }}
               />
             </div>
           </div>

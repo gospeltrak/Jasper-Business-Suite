@@ -86,6 +86,7 @@ interface Affiliate {
   isSuper?: boolean;
   targetReferrals?: number;
   parentSuperId?: string;
+  supabaseUserId?: string;
   nidaNumber?: string;
   tinNumber?: string;
   payoutPhone?: string;

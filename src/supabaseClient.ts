@@ -18,7 +18,7 @@ export async function getDynamicSupabaseClient() {
 
   if (!url || !key) {
     try {
-      const res = await fetch(`/api/auth/config`);
+      const res = await fetch(`/api/auth/config`, { cache: 'no-store', headers: { Accept: 'application/json' } });
       const contentType = res.headers.get('content-type') || '';
       if (!res.ok || !contentType.includes('application/json')) {
         throw new Error('frontend config endpoint unavailable');
