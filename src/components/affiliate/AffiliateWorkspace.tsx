@@ -30,6 +30,7 @@ import {
   dbWrite,
   flushSyncQueue,
 } from '../../utils/offlineSync';
+import { useGlobalAdSettings } from '../../utils/adPlacement';
 
 const currency = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
 
@@ -65,6 +66,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isNetworkOnline, setIsNetworkOnline] = useState(isOnline());
+  const adSettings = useGlobalAdSettings();
 
   useEffect(() => {
     initOfflineSync((result) => {
@@ -341,8 +343,8 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
 
             {/* ── DASHBOARD AD PLACEMENT ── same slot as tenant dashboard ── */}
             {(() => {
-              const adCode = localStorage.getItem('jasper_dashboard_ad_code');
-              const adEnabled = localStorage.getItem('jasper_dashboard_ad_enabled') !== 'false';
+              const adCode = adSettings.dashboardAdCode;
+              const adEnabled = adSettings.dashboardAdEnabled;
               if (!adCode || !adEnabled) return null;
               return (
                 <div className="w-full overflow-hidden rounded-2xl"
@@ -472,7 +474,23 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
           </div>}
 
           {activeTab === 'tasks' && <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.tasks.map((task) => <TaskRow key={task.id} task={task} busy={busyTaskId === task.id} onComplete={handleTaskComplete} onDownload={() => task.attachment_url && handleTrackedLink('task_download', 'task', task.id, task.attachment_url, task.attachment_name)} />)}{workspace!.tasks.length === 0 && <Empty text="No tasks, notes, or files have been assigned to you yet." />}</section>}
-          {activeTab === 'ads' && <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{workspace!.campaigns.map(renderCampaign)}{workspace!.campaigns.length === 0 && <div className="md:col-span-2 xl:col-span-3"><Empty text="No Ads by JB campaigns are assigned to your account." /></div>}</section>}
+          {activeTab === 'ads' && (
+            <section className="space-y-4">
+              {adSettings.dashboardAdCode && adSettings.dashboardAdEnabled && (
+                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Global Ads Placement</p>
+                  <div className="mt-3 w-full overflow-hidden rounded-2xl"
+                    dangerouslySetInnerHTML={{ __html: adSettings.dashboardAdCode }} />
+                </div>
+              )}
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {workspace!.campaigns.map(renderCampaign)}
+                {workspace!.campaigns.length === 0 && !adSettings.dashboardAdCode && (
+                  <div className="md:col-span-2 xl:col-span-3"><Empty text="No Ads by JB campaigns are assigned to your account." /></div>
+                )}
+              </div>
+            </section>
+          )}
           {activeTab === 'meetings' && <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.meetings.map((meeting) => <MeetingRow key={meeting.id} meeting={meeting} onJoin={() => handleTrackedLink('meeting_join', 'meeting', meeting.id, meeting.meeting_url)} />)}{workspace!.meetings.length === 0 && <Empty text="No agent meetings are scheduled for your account." />}</section>}
           {activeTab === 'reports' && <section className="space-y-5"><div className="grid grid-cols-2 gap-3 xl:grid-cols-4"><Metric label="Clicks" value={metrics.clicks.toString()} /><Metric label="Links copied" value={metrics.copiedLinks.toString()} /><Metric label="Meetings joined" value={metrics.meetingJoins.toString()} /><Metric label="Paid commission" value={currency.format(metrics.paid)} /></div><Panel title="Recent activity">{workspace!.activities.slice(0, 12).map((event) => <div key={event.id} className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 last:border-0"><div><p className="text-sm font-semibold capitalize text-slate-800">{event.event_type.replace(/_/g, ' ')}</p><p className="text-xs text-slate-500">{event.resource_type || 'workspace'} · {formatDateTime(event.created_at)}</p></div><span className="text-[11px] font-semibold uppercase text-slate-400">{event.resource_id ? 'tracked' : 'recorded'}</span></div>)}{workspace!.activities.length === 0 && <Empty text="No tracked affiliate activity yet." />}</Panel></section>}
           {activeTab === 'payouts' && <section className="space-y-5"><div className="grid gap-3 sm:grid-cols-3"><Metric label="Commission earned" value={currency.format(metrics.earned)} /><Metric label="Available" value={currency.format(metrics.available)} /><Metric label="Paid" value={currency.format(metrics.paid)} /></div><div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.payouts.map((payout) => <div key={payout.id} className="flex items-center justify-between gap-3 border-b border-slate-100 p-4 last:border-0"><div><p className="text-sm font-bold">{currency.format(payout.amount)}</p><p className="text-xs text-slate-500">{payout.payout_method || 'Payout method pending'} · {formatDateTime(payout.requested_at)}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold capitalize text-slate-700">{payout.status}</span></div>)}{workspace!.payouts.length === 0 && <Empty text="No payout requests yet. Confirmed payouts will appear here." />}</div></section>}
@@ -485,8 +503,8 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
 
       {/* ── STICKY BOTTOM AD — sits above mobile nav bar ── */}
       {(() => {
-        const bottomAdCode = localStorage.getItem('jasper_bottom_ad_code');
-        const bottomAdEnabled = localStorage.getItem('jasper_bottom_ad_enabled') !== 'false';
+        const bottomAdCode = adSettings.bottomAdCode;
+        const bottomAdEnabled = adSettings.bottomAdEnabled;
         if (!bottomAdCode || !bottomAdEnabled || bottomAdDismissed) return null;
         return (
           <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 z-35 w-full"

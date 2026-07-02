@@ -34,6 +34,7 @@ import {
   flushSyncQueue,
   enqueueSyncItem,
 } from '../../utils/offlineSync';
+import { useGlobalAdSettings } from '../../utils/adPlacement';
 import SaaSHardwarePOS from '../SaaSHardwarePOS';
 import SaaSHardwareInventory from '../SaaSHardwareInventory';
 import {
@@ -156,6 +157,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [isNetworkOnline, setIsNetworkOnline] = useState(isOnline());
+  const adSettings = useGlobalAdSettings();
 
   useEffect(() => {
     initOfflineSync((result) => {
@@ -911,8 +913,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
               {/* ── DASHBOARD AD PLACEMENT ── same slot as tenant dashboard ── */}
               {(() => {
-                const adCode = localStorage.getItem('jasper_dashboard_ad_code');
-                const adEnabled = localStorage.getItem('jasper_dashboard_ad_enabled') !== 'false';
+                const adCode = adSettings.dashboardAdCode;
+                const adEnabled = adSettings.dashboardAdEnabled;
                 if (!adCode || !adEnabled) return null;
                 return (
                   <div className="w-full overflow-hidden rounded-2xl"
@@ -1608,8 +1610,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
       {/* ── STICKY BOTTOM AD ── */}
       {(() => {
-        const bottomAdCode = localStorage.getItem('jasper_bottom_ad_code');
-        const bottomAdEnabled = localStorage.getItem('jasper_bottom_ad_enabled') !== 'false';
+        const bottomAdCode = adSettings.bottomAdCode;
+        const bottomAdEnabled = adSettings.bottomAdEnabled;
         if (!bottomAdCode || !bottomAdEnabled || bottomAdDismissed) return null;
         return (
           <div className="fixed bottom-0 left-0 right-0 z-40 w-full"

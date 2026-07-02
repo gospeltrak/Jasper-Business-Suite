@@ -3,6 +3,7 @@ import { useTenantLogo } from '../TenantLogoContext';
 import { useTranslation } from '../LanguageContext';
 import { Tenant, Product, Sale } from '../types';
 import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitFormatter';
+import { useGlobalAdSettings } from '../utils/adPlacement';
 import { 
   ResponsiveContainer, 
   ComposedChart, 
@@ -67,6 +68,7 @@ export default function DashboardOverview({
 }: DashboardOverviewProps) {
   const { logoUrl } = useTenantLogo();
   const { t, lang } = useTranslation();
+  const adSettings = useGlobalAdSettings();
   const currency = activeTenant.currencyCode || 'TSh';
   
   // Date timeframe filtering state: 'today' | 'week' | 'month' | '3month' | 'year'
@@ -566,8 +568,8 @@ export default function DashboardOverview({
 
         {/* POS Hero Banner / Ad Placement */}
         {(() => {
-          const adCode = localStorage.getItem('jasper_dashboard_ad_code');
-          const adEnabled = localStorage.getItem('jasper_dashboard_ad_enabled') !== 'false';
+          const adCode = adSettings.dashboardAdCode;
+          const adEnabled = adSettings.dashboardAdEnabled;
           if (adCode && adEnabled) {
             return (
               <div
@@ -890,8 +892,8 @@ export default function DashboardOverview({
       {/* 4. MIDDLE ROW (two columns) */}
       {/* ── QUICK ACTION / AD PLACEMENT — reads ad code from Web Editor if set ── */}
       {(() => {
-        const adCode = localStorage.getItem('jasper_dashboard_ad_code');
-        const adEnabled = localStorage.getItem('jasper_dashboard_ad_enabled') !== 'false';
+        const adCode = adSettings.dashboardAdCode;
+        const adEnabled = adSettings.dashboardAdEnabled;
         if (adCode && adEnabled) {
           return (
             <div
@@ -1610,8 +1612,8 @@ export default function DashboardOverview({
 
       {/* ── STICKY BOTTOM AD BANNER ─────────────────────────────────────── */}
       {(() => {
-        const bottomAdCode = localStorage.getItem('jasper_bottom_ad_code');
-        const bottomAdEnabled = localStorage.getItem('jasper_bottom_ad_enabled') !== 'false';
+        const bottomAdCode = adSettings.bottomAdCode;
+        const bottomAdEnabled = adSettings.bottomAdEnabled;
         if (!bottomAdCode || !bottomAdEnabled || bottomAdDismissed) return null;
         return (
           <div
