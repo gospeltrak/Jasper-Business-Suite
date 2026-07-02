@@ -7,6 +7,7 @@ export interface SuperAdminOverview {
   sessions: any[];
   affiliates: any[];
   referrals: any[];
+  sourceTracking: any[];
   commissions: any[];
   payouts: any[];
   auditLogs: any[];
@@ -22,6 +23,10 @@ export interface SuperAdminUserRow {
   phone: string;
   referralSource: 'direct' | 'affiliate';
   referringAffiliate?: string;
+  subscriberSourceType?: 'organic' | 'organic_affiliate' | 'sub_affiliate' | 'unknown' | 'untracked';
+  promoCodeUsed?: string;
+  referralCodeUsed?: string;
+  subAffiliateId?: string | null;
   subscriptionPlan: string;
   paymentStatus: 'Paid' | 'Unpaid' | 'Grace Period' | 'Overdue';
   paymentMethod: string;
@@ -56,6 +61,7 @@ const EMPTY_SUPER_ADMIN_OVERVIEW: SuperAdminOverview = {
   sessions: [],
   affiliates: [],
   referrals: [],
+  sourceTracking: [],
   commissions: [],
   payouts: [],
   auditLogs: []
@@ -68,6 +74,7 @@ const normalizeOverview = (overview?: Partial<SuperAdminOverview> | null): Super
   sessions: Array.isArray(overview?.sessions) ? overview.sessions : [],
   affiliates: Array.isArray(overview?.affiliates) ? overview.affiliates : [],
   referrals: Array.isArray(overview?.referrals) ? overview.referrals : [],
+  sourceTracking: Array.isArray(overview?.sourceTracking) ? overview.sourceTracking : [],
   commissions: Array.isArray(overview?.commissions) ? overview.commissions : [],
   payouts: Array.isArray(overview?.payouts) ? overview.payouts : [],
   auditLogs: Array.isArray(overview?.auditLogs) ? overview.auditLogs : []
@@ -229,6 +236,8 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
     sessionsByUser.set(key, [...(sessionsByUser.get(key) || []), session]);
   });
   const referralsByUser = new Map(safeOverview.referrals.map((referral) => [String(referral.registered_user_id), referral]));
+  const trackingByUser = new Map(safeOverview.sourceTracking.map((row) => [String(row.subscriber_user_id), row]));
+  const trackingByTenant = new Map(safeOverview.sourceTracking.map((row) => [String(row.tenant_id), row]));
   const usersByTenant = new Map<string, any[]>();
   safeOverview.users.forEach((user) => {
     if (!user.tenant_id) return;
@@ -247,6 +256,9 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
       const products = Array.isArray(workspace.products) ? workspace.products : [];
       const tenantUsers = tenantId ? usersByTenant.get(tenantId) || [] : [];
       const referral = referralsByUser.get(String(user.id));
+      const sourceTrack = trackingByUser.get(String(user.id)) || (tenantId ? trackingByTenant.get(tenantId) : null);
+      const promoCodeUsed = sourceTrack?.promo_code_used || sourceTrack?.referral_code_used || referral?.promo_code_used || referral?.referral_code || user.referral_code_used || '';
+      const sourceType = (sourceTrack?.source_type || (promoCodeUsed ? 'sub_affiliate' : 'organic')) as SuperAdminUserRow['subscriberSourceType'];
       const sessions = (sessionsByUser.get(String(user.id)) || []).map((session) => {
         const loginAt = session.login_at ? new Date(session.login_at) : null;
         const logoutAt = session.logout_at ? new Date(session.logout_at) : null;
@@ -289,8 +301,12 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
         username: user.username_phone || user.phone || user.email || '',
         email: user.email || '',
         phone: user.phone || user.username_phone || '',
-        referralSource: referral ? 'affiliate' : 'direct',
-        referringAffiliate: referral?.referral_code || user.referral_code_used || undefined,
+        referralSource: promoCodeUsed ? 'affiliate' : 'direct',
+        referringAffiliate: promoCodeUsed || undefined,
+        subscriberSourceType: sourceType,
+        promoCodeUsed: promoCodeUsed || undefined,
+        referralCodeUsed: sourceTrack?.referral_code_used || referral?.referral_code || user.referral_code_used || undefined,
+        subAffiliateId: sourceTrack?.sub_affiliate_id || referral?.sub_affiliate_id || null,
         subscriptionPlan: getTenantPlan(tenant),
         paymentStatus: getPaymentStatus(tenant, user),
         paymentMethod: readTenantSettings(tenant)?.paymentMethod || 'Not recorded',

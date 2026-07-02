@@ -653,6 +653,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         sessions,
         affiliates,
         referrals,
+        sourceTracking,
         commissions,
         payouts,
         auditLogs
@@ -663,6 +664,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         safeSelect('user_sessions', adminTable('user_sessions').select('*').order('last_activity_at', { ascending: false }).limit(500)),
         safeSelect('affiliates', adminTable('affiliates').select('*').order('created_at', { ascending: false })),
         safeSelect('affiliate_referrals', adminTable('affiliate_referrals').select('*').order('created_at', { ascending: false }).limit(1000)),
+        safeSelect('subscriber_source_tracking', adminTable('subscriber_source_tracking').select('*').order('created_at', { ascending: false }).limit(2000)),
         safeSelect('affiliate_commissions', adminTable('affiliate_commissions').select('*').order('created_at', { ascending: false }).limit(1000)),
         safeSelect('affiliate_payouts', adminTable('affiliate_payouts').select('*').order('created_at', { ascending: false }).limit(1000)),
         safeSelect('super_admin_audit_logs', adminTable('super_admin_audit_logs').select('*').order('created_at', { ascending: false }).limit(250))
@@ -675,6 +677,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         sessions,
         affiliates,
         referrals,
+        sourceTracking,
         commissions,
         payouts,
         auditLogs
