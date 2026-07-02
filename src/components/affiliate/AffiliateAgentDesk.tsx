@@ -13,7 +13,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowLeft, Award, BarChart3,
-  CalendarPlus, CheckCircle, ChevronRight, ClipboardPlus,
+  CalendarPlus, CheckCircle, ClipboardPlus,
   Coins, Copy, Edit2, ExternalLink, Eye, FileText,
   HardDrive, Info, LoaderCircle, Lock, Menu, MessageSquare, Monitor,
   RefreshCw, Send, ShieldAlert, ShieldCheck, TrendingUp,
@@ -38,7 +38,6 @@ import SaaSHardwarePOS from '../SaaSHardwarePOS';
 import SaaSHardwareInventory from '../SaaSHardwareInventory';
 import {
   SubAffiliateProfile,
-  ReferredCustomer,
   MonthlyReconciliationRow,
   calculateCommissionBreakdown,
   calculateSuperAgentNetworkTotals,
@@ -55,6 +54,20 @@ function numberValue(value: unknown): number {
 
 type DashTab = 'overview' | 'reconciliation' | 'affiliates' | 'customers' | 'code-link' | 'tutorials' | 'conferencing' | 'hw-pos' | 'hw-inventory';
 type StatusAction = 'deactivate' | 'suspend' | 'review' | 'activate';
+type ReferredTenantRow = {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  phoneNumber: string;
+  packageName: string;
+  paymentStatus: string;
+  amountPaid: number;
+  promoCodeUsed: string;
+  subscriptionEndDate: string;
+  daysRemaining: number;
+  registeredAt: string;
+  subAffiliateId: string;
+};
 
 const NAV_TABS: { id: DashTab; label: string; icon: any; desc: string }[] = [
   { id: 'overview',       label: 'Network Overview',       icon: BarChart3,     desc: 'Team performance & earnings' },
@@ -108,6 +121,28 @@ function WhtNotice({ tinStatus }: { tinStatus?: TinStatus }) {
       </div>
     </div>
   );
+}
+
+function normalizeTinStatus(tinNumber?: string | null, status?: string | null): TinStatus {
+  const cleanTin = String(tinNumber || '').trim();
+  if (!cleanTin || cleanTin.toUpperCase() === 'N/A') return 'not_submitted';
+  return (status || 'submitted') as TinStatus;
+}
+
+function readablePlan(value?: string | null): string {
+  const plan = String(value || 'free').toLowerCase();
+  if (plan === 'trial' || plan === 'free') return 'Free';
+  if (plan === 'ruby') return 'Ruby';
+  if (plan === 'diamond') return 'Diamond';
+  if (plan === 'tanzanite') return 'Tanzanite';
+  return value || 'Free';
+}
+
+function daysUntil(dateValue?: string | null): number {
+  if (!dateValue) return 0;
+  const end = new Date(dateValue).getTime();
+  if (!Number.isFinite(end)) return 0;
+  return Math.max(0, Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24)));
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -217,7 +252,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   // Sub-affiliates from localStorage (real data)
   const [subAffiliates, setSubAffiliates] = useState<SubAffiliateProfile[]>([]);
-  const [customers, setCustomers] = useState<ReferredCustomer[]>([]);
+  const [customers, setCustomers] = useState<ReferredTenantRow[]>([]);
   const [recon, setRecon] = useState<MonthlyReconciliationRow[]>([]);
 
   // Task/meeting form
@@ -348,6 +383,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           mapped = data.map((a: any) => {
             const revenue = numberValue(a.total_revenue);
             const gross = a.gross_commission ? numberValue(a.gross_commission) : revenue * 0.15;
+            const tinNumber = a.tin_number || '';
             return {
               id: a.id,
               userId: a.user_id,
@@ -362,8 +398,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
               grossCommission15: gross,
               withholdingTax5: gross * 0.05,
               netPayout: a.net_payout ? numberValue(a.net_payout) : gross,
-              tinNumber: a.tin_number || '',
-              tinStatus: (a.tin_status || 'not_submitted') as TinStatus,
+              tinNumber,
+              tinStatus: normalizeTinStatus(tinNumber, a.tin_status),
               pendingCommission: gross,
               paidCommission: 0,
               payoutMethod: a.payout_method || 'M-Pesa',
@@ -392,6 +428,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         mapped = mine.map((a: any) => {
           const revenue = a.revenueDate || a.totalEarnings || 0;
           const gross = revenue * 0.15;
+          const tinNumber = a.tinNumber && a.tinNumber !== 'N/A' ? a.tinNumber : '';
           return {
             id: a.id,
             userId: a.id,
@@ -406,8 +443,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             grossCommission15: gross,
             withholdingTax5: gross * 0.05,
             netPayout: gross,
-            tinNumber: a.tinNumber || '',
-            tinStatus: (a.tinNumber ? 'submitted' : 'not_submitted') as TinStatus,
+            tinNumber,
+            tinStatus: normalizeTinStatus(tinNumber, a.tinStatus),
             pendingCommission: gross,
             paidCommission: a.paidAmount || 0,
             payoutMethod: a.paymentMethod || 'M-Pesa',
@@ -422,6 +459,52 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     }
 
     setSubAffiliates(mapped);
+
+    if (!mapped.length) {
+      setCustomers([]);
+    } else {
+      try {
+        const { getDynamicSupabaseClient } = await import('../../supabaseClient');
+        const client: any = await getDynamicSupabaseClient();
+        const subIds = mapped.map((aff) => aff.id).filter(Boolean);
+        const { data: referredRows } = await client.from('referred_customers')
+          .select('id, tenant_id, customer_id, customer_name, phone_number, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, sub_affiliate_id, created_at')
+          .in('sub_affiliate_id', subIds)
+          .order('created_at', { ascending: false });
+
+        const tenantIds = Array.from(new Set((referredRows || []).map((row: any) => row.tenant_id || row.customer_id).filter(Boolean)));
+        let tenantById = new Map<string, any>();
+        if (tenantIds.length) {
+          const { data: tenants } = await client.from('tenants')
+            .select('id, name, subscription_plan, selected_package_id, active_package_id, subscription_status, subscription_start_date, subscription_end_date, created_at')
+            .in('id', tenantIds);
+          tenantById = new Map((tenants || []).map((tenant: any) => [String(tenant.id), tenant]));
+        }
+
+        setCustomers((referredRows || []).map((row: any) => {
+          const tenantId = String(row.tenant_id || row.customer_id || '');
+          const tenant = tenantById.get(tenantId);
+          const packageName = readablePlan(tenant?.active_package_id || tenant?.selected_package_id || tenant?.subscription_plan || row.package_id || row.package_name);
+          const subscriptionEndDate = tenant?.subscription_end_date || row.subscription_end_date || '';
+          return {
+            id: row.id,
+            tenantId,
+            tenantName: tenant?.name || row.customer_name || 'Unnamed tenant',
+            phoneNumber: row.phone_number || '',
+            packageName,
+            paymentStatus: tenant?.subscription_status || row.payment_status || 'pending',
+            amountPaid: numberValue(row.amount_paid),
+            promoCodeUsed: row.promo_code_used || row.referral_code_used || '',
+            subscriptionEndDate,
+            daysRemaining: daysUntil(subscriptionEndDate),
+            registeredAt: row.created_at || tenant?.created_at || '',
+            subAffiliateId: row.sub_affiliate_id,
+          };
+        }));
+      } catch {
+        setCustomers([]);
+      }
+    }
 
     // Build reconciliation rows
     const rows = mapped.map(aff =>
@@ -600,6 +683,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   if (mirrorTarget) {
     const bd = calculateCommissionBreakdown(mirrorTarget.revenueGenerated);
+    const mirrorTenants = customers.filter((customer) => customer.subAffiliateId === mirrorTarget.id);
     return (
       <div className="min-h-screen bg-slate-950 text-white">
         {/* Mirror banner */}
@@ -649,6 +733,58 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
           <WhtNotice tinStatus={mirrorTarget.tinStatus} />
 
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black text-white">Registered Tenants</h3>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  Tenants registered with {mirrorTarget.name}'s promo code
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-black">
+                {mirrorTenants.length} tenants
+              </span>
+            </div>
+            {mirrorTenants.length === 0 ? (
+              <div className="py-10 text-center">
+                <ShieldCheck className="w-8 h-8 text-slate-700 mx-auto" />
+                <p className="text-sm text-slate-500 mt-2">No tenants registered with this promo code yet.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-800/50 text-slate-500 uppercase tracking-wider text-[9px]">
+                    <tr>
+                      <th className="py-3 px-4 text-left">Tenant</th>
+                      <th className="py-3 px-4 text-left">Package</th>
+                      <th className="py-3 px-4 text-left">Status</th>
+                      <th className="py-3 px-4 text-left">Days Left</th>
+                      <th className="py-3 px-4 text-left">Registered</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {mirrorTenants.map((tenant) => (
+                      <tr key={tenant.id} className="hover:bg-slate-800/25">
+                        <td className="py-3 px-4">
+                          <p className="font-bold text-white">{tenant.tenantName}</p>
+                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">{tenant.promoCodeUsed || mirrorTarget.promoCode}</p>
+                        </td>
+                        <td className="py-3 px-4 text-slate-200 font-semibold">{tenant.packageName}</td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[9px] font-bold text-slate-300">
+                            {tenant.paymentStatus}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-black text-amber-400">{tenant.daysRemaining} days</td>
+                        <td className="py-3 px-4 text-slate-400">{tenant.registeredAt ? tenant.registeredAt.split('T')[0] : 'Not recorded'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
           {/* Profile details */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
             <h3 className="text-sm font-black text-white border-b border-slate-800 pb-3">Profile Details</h3>
@@ -657,7 +793,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
               { label: 'Payout Account',  value: mirrorTarget.payoutAccount },
               { label: 'Payout Method',   value: mirrorTarget.payoutMethod },
               { label: 'TIN Number',      value: mirrorTarget.tinNumber ? maskTIN(mirrorTarget.tinNumber) : 'Not submitted' },
-              { label: 'Customers',       value: String(mirrorTarget.customersGenerated) },
+              { label: 'Tenants registered', value: String(mirrorTenants.length) },
               { label: 'Joined',          value: mirrorTarget.createdAt.split('T')[0] },
             ].map(f => (
               <div key={f.label} className="flex items-center justify-between text-sm border-b border-slate-800/50 pb-2">
@@ -834,48 +970,6 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                   Example: TZS 100,000 revenue → Pool TZS 20,000 → You get TZS 5,000 · Sub-affiliate gets TZS 15,000
                   {WITHHOLDING_TAX_ACTIVE && ' → WHT TZS 750 → Net TZS 14,250'}
                 </div>
-              </div>
-
-              {/* Quick affiliate preview */}
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
-                  <h3 className="font-black text-white text-sm">Sub-Affiliates</h3>
-                  <button onClick={() => setActiveTab('affiliates')} className="text-[10px] text-amber-400 flex items-center gap-1 cursor-pointer border-none bg-transparent font-bold">
-                    Manage all <ChevronRight className="w-3 h-3" />
-                  </button>
-                </div>
-                {subAffiliates.length === 0 ? (
-                  <div className="py-12 text-center space-y-2">
-                    <Users className="w-8 h-8 text-slate-700 mx-auto" />
-                    <p className="text-slate-500 text-sm">No sub-affiliates yet</p>
-                    <p className="text-slate-600 text-xs">Share partner code <strong className="text-amber-400">{partnerCode}</strong></p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-slate-800">
-                    {subAffiliates.slice(0, 5).map(aff => {
-                      const bd = calculateCommissionBreakdown(aff.revenueGenerated);
-                      return (
-                        <div key={aff.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-white truncate">{aff.name}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[9px] text-slate-500 font-mono">{aff.promoCode}</span>
-                              <TinBadge status={aff.tinStatus} />
-                              {aff.isDisabled && <span className="text-[9px] bg-rose-500/10 text-rose-400 px-1.5 py-0.5 rounded font-bold">Disabled</span>}
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-xs font-black text-amber-400">{formatTZS(bd.managerCommission5)}</p>
-                            <p className="text-[9px] text-slate-500">your 5%</p>
-                          </div>
-                          <button onClick={() => enterMirror(aff)} className="p-2 bg-slate-800 hover:bg-slate-700 text-teal-400 rounded-lg cursor-pointer border-none">
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -1096,14 +1190,53 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                 <h2 className="text-lg font-black text-white">Network Customers</h2>
                 <p className="text-xs text-slate-400 mt-0.5">Customers generated by all sub-affiliates under your network</p>
               </div>
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl py-16 text-center space-y-3">
-                <ShieldCheck className="w-12 h-12 text-slate-700 mx-auto" />
-                <p className="text-white font-black">Customer tracking active</p>
-                <p className="text-slate-400 text-sm max-w-md mx-auto">
-                  When sub-affiliates refer customers who pay for Jasper subscriptions, those customers appear here
-                  with package details, revenue, and your commission breakdown.
-                </p>
-                <p className="text-slate-500 text-xs">Connect sub-affiliate promo codes to tenant registrations to see customer data here</p>
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                {customers.length === 0 ? (
+                  <div className="py-16 text-center space-y-3">
+                    <ShieldCheck className="w-12 h-12 text-slate-700 mx-auto" />
+                    <p className="text-white font-black">No referred tenants yet</p>
+                    <p className="text-slate-400 text-sm max-w-md mx-auto">
+                      Tenants registered through sub-affiliate promo codes will appear here with package and subscription remaining days.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-800/50 text-slate-500 uppercase tracking-wider text-[9px]">
+                        <tr>
+                          <th className="py-3 px-4 text-left">Tenant</th>
+                          <th className="py-3 px-4 text-left">Sub-Affiliate</th>
+                          <th className="py-3 px-4 text-left">Package</th>
+                          <th className="py-3 px-4 text-left">Status</th>
+                          <th className="py-3 px-4 text-left">Days Left</th>
+                          <th className="py-3 px-4 text-left">Registered</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        {customers.map((tenant) => {
+                          const owner = subAffiliates.find((aff) => aff.id === tenant.subAffiliateId);
+                          return (
+                            <tr key={tenant.id} className="hover:bg-slate-800/25">
+                              <td className="py-3 px-4">
+                                <p className="font-bold text-white">{tenant.tenantName}</p>
+                                <p className="text-[10px] text-slate-500 font-mono mt-0.5">{tenant.promoCodeUsed || owner?.promoCode || 'No promo code'}</p>
+                              </td>
+                              <td className="py-3 px-4 text-slate-300">{owner?.name || 'Unknown'}</td>
+                              <td className="py-3 px-4 text-slate-200 font-semibold">{tenant.packageName}</td>
+                              <td className="py-3 px-4">
+                                <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[9px] font-bold text-slate-300">
+                                  {tenant.paymentStatus}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 font-black text-amber-400">{tenant.daysRemaining} days</td>
+                              <td className="py-3 px-4 text-slate-400">{tenant.registeredAt ? tenant.registeredAt.split('T')[0] : 'Not recorded'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}

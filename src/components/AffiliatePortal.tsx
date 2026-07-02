@@ -548,8 +548,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       revenueDate: 0,
       targetReferrals: Number(addAffTarget) || 150,
       parentSuperId: activeAffiliate?.id || "LANGA",
-      nidaNumber: addAffNida.trim() || "N/A",
-      tinNumber: addAffTin.trim() || "N/A",
+      nidaNumber: addAffNida.trim() || "",
+      tinNumber: addAffTin.trim(),
     };
 
     const updatedList = [...list, newAff];
@@ -595,8 +595,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           promoCode: editAffPromo.trim().toUpperCase(),
           paymentMethod: editAffPhoneMethod,
           targetReferrals: Number(editAffTarget) || 150,
-          nidaNumber: editAffNida.trim() || "N/A",
-          tinNumber: editAffTin.trim() || "N/A",
+          nidaNumber: editAffNida.trim() || "",
+          tinNumber: editAffTin.trim(),
         };
       }
       return a;
@@ -933,8 +933,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         promoCode: result.affiliate.promo_code || result.affiliate.referral_code || generatedReferralCode,
         parentSuperId: result.affiliate.parent_super_agent_id,
         isSuper: portalRole === 'partner',
-        nidaNumber: nidaNumber || 'N/A',
-        tinNumber: tinNumber || 'N/A',
+        nidaNumber: nidaNumber || '',
+        tinNumber: tinNumber || '',
         payoutPhone: payoutPhone || phone,
       };
       const existing = JSON.parse(localStorage.getItem("jasper_affiliates") || "[]").filter((item: any) => item.id !== mappedAffiliate.id);
@@ -1047,8 +1047,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       promoCode: cleanCode,
       parentSuperId,
       isSuper: isRegisterSuper,
-      nidaNumber: nidaNumber || "N/A",
-      tinNumber: tinNumber || "N/A",
+      nidaNumber: nidaNumber || "",
+      tinNumber: tinNumber || "",
       payoutPhone: payoutPhone || phone,
     };
 
@@ -1073,8 +1073,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       sessions: [],
       recentPayouts: [],
       paymentMethod,
-      nidaNumber: nidaNumber || "N/A",
-      tinNumber: tinNumber || "N/A",
+      nidaNumber: nidaNumber || "",
+      tinNumber: tinNumber || "",
     };
 
     // ── Save to localStorage (offline cache) ──────────────────
@@ -1288,8 +1288,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
             paymentMethod: profile.payout_method || 'm-pesa',
             promoCode: profile.promo_code || profile.referral_code,
             isSuper: isPartnerAccount,
-            nidaNumber: profile.nida_number || 'N/A',
-            tinNumber: profile.tin_number || 'N/A',
+            nidaNumber: profile.nida_number || '',
+            tinNumber: profile.tin_number || '',
             payoutPhone: profile.payout_account || '',
           };
           // Sync to localStorage for offline use
@@ -1888,7 +1888,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-3 py-3 text-xs font-mono focus:border-amber-500" />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TIN (Optional)</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TIN</label>
                         <input type="text" placeholder="124-954-122" value={tinNumber} onChange={e => setTinNumber(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-3 py-3 text-xs font-mono focus:border-emerald-500" />
                       </div>
@@ -2518,7 +2518,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 const subAffiliatesCut = totalRevenue * 0.15;
                 const hasTIN =
                   !!activeAffiliate?.tinNumber &&
-                  activeAffiliate?.tinNumber.trim() !== "";
+                  activeAffiliate?.tinNumber.trim() !== "" &&
+                  activeAffiliate?.tinNumber.trim().toUpperCase() !== "N/A";
                 const taxRate = hasTIN ? 0.05 : 0.15;
                 const superAgentWithholdingTax = superCommissionTotal * taxRate;
 
@@ -2805,7 +2806,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                 <span>
                                   TIN:{" "}
                                   <strong className="text-slate-400">
-                                    {aff.tinNumber || "N/A"}
+                                    {aff.tinNumber && aff.tinNumber.toUpperCase() !== "N/A" ? aff.tinNumber : "Not submitted"}
                                   </strong>
                                 </span>
                               </div>
@@ -5142,8 +5143,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           ...managedKids.map((k: any) => [
                             k.name,
                             k.phone,
-                            k.nidaNumber || "19951204-45129",
-                            k.tinNumber || "124-954-122",
+                            k.nidaNumber || "Not submitted",
+                            k.tinNumber || "Not submitted",
                             k.revenueGenerated || 0,
                             Math.round((k.revenueGenerated || 0) * 0.15 * 0.1),
                           ]),
@@ -5175,7 +5176,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         const text = managedKids
                           .map(
                             (k: any) =>
-                              `Name: ${k.name} | Phone: ${k.phone} | NIDA: ${k.nidaNumber || "N/A"} | TIN: ${k.tinNumber || "N/A"}`,
+                              `Name: ${k.name} | Phone: ${k.phone} | NIDA: ${k.nidaNumber || "Not submitted"} | TIN: ${k.tinNumber || "Not submitted"}`,
                           )
                           .join("\n");
                         navigator.clipboard.writeText(text);
@@ -5219,10 +5220,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                               {k.phone}
                             </td>
                             <td className="p-4 font-mono text-slate-400">
-                              {k.nidaNumber || "19951204-45129-00001-44"}
+                              {k.nidaNumber || "Not submitted"}
                             </td>
                             <td className="p-4 font-mono text-amber-500 font-bold">
-                              {k.tinNumber || "124-954-122"}
+                              {k.tinNumber || "Not submitted"}
                             </td>
                             <td className="p-4 text-right font-mono text-emerald-400 font-bold">
                               TSh {(k.revenueGenerated || 0).toLocaleString()}
