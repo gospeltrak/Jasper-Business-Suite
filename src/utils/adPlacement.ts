@@ -10,11 +10,22 @@ export interface GlobalAdPlacementSettings {
 
 export const AD_SETTINGS_EVENT = 'jasper_ad_code_updated';
 
+export const SAMPLE_HORIZONTAL_AD_CODE = `
+<div style="width:100%;max-width:728px;min-height:90px;margin:0 auto;box-sizing:border-box;border:1px solid rgba(16,185,129,0.35);border-radius:14px;background:linear-gradient(90deg,#07111f 0%,#0f766e 48%,#16a34a 100%);color:#ffffff;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;overflow:hidden;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="min-width:0;">
+    <p style="margin:0 0 3px;font-size:10px;line-height:1.2;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;opacity:0.75;">Sample 728x90 Ad Placement</p>
+    <p style="margin:0;font-size:20px;line-height:1.05;font-weight:950;">Grow faster with Jasper Suite</p>
+    <p style="margin:4px 0 0;font-size:12px;line-height:1.25;opacity:0.86;">POS, inventory, reports and Lucy AI in one business system.</p>
+  </div>
+  <a href="https://jasper-business-suite.vercel.app" target="_blank" rel="noopener noreferrer" style="flex:0 0 auto;border-radius:999px;background:#ffffff;color:#065f46;padding:9px 13px;font-size:12px;line-height:1;font-weight:900;text-decoration:none;white-space:nowrap;">Open Jasper</a>
+</div>
+`.trim();
+
 const DEFAULT_AD_SETTINGS: GlobalAdPlacementSettings = {
-  dashboardAdCode: '',
+  dashboardAdCode: SAMPLE_HORIZONTAL_AD_CODE,
   dashboardAdEnabled: true,
   bottomAdCode: '',
-  bottomAdEnabled: true,
+  bottomAdEnabled: false,
 };
 
 const LEGACY_KEYS = {
@@ -25,11 +36,16 @@ const LEGACY_KEYS = {
 };
 
 function readLegacySettings(): GlobalAdPlacementSettings {
+  const dashboardAdCode = localStorage.getItem(LEGACY_KEYS.dashboardAdCode);
+  const dashboardAdEnabled = localStorage.getItem(LEGACY_KEYS.dashboardAdEnabled);
+  const bottomAdCode = localStorage.getItem(LEGACY_KEYS.bottomAdCode);
+  const bottomAdEnabled = localStorage.getItem(LEGACY_KEYS.bottomAdEnabled);
+
   return {
-    dashboardAdCode: localStorage.getItem(LEGACY_KEYS.dashboardAdCode) || '',
-    dashboardAdEnabled: localStorage.getItem(LEGACY_KEYS.dashboardAdEnabled) !== 'false',
-    bottomAdCode: localStorage.getItem(LEGACY_KEYS.bottomAdCode) || '',
-    bottomAdEnabled: localStorage.getItem(LEGACY_KEYS.bottomAdEnabled) !== 'false',
+    dashboardAdCode: dashboardAdCode === null ? DEFAULT_AD_SETTINGS.dashboardAdCode : dashboardAdCode,
+    dashboardAdEnabled: dashboardAdEnabled === null ? DEFAULT_AD_SETTINGS.dashboardAdEnabled : dashboardAdEnabled !== 'false',
+    bottomAdCode: bottomAdCode === null ? DEFAULT_AD_SETTINGS.bottomAdCode : bottomAdCode,
+    bottomAdEnabled: bottomAdEnabled === null ? DEFAULT_AD_SETTINGS.bottomAdEnabled : bottomAdEnabled !== 'false',
   };
 }
 

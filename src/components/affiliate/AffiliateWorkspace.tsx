@@ -354,18 +354,6 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
           {notice && <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{notice}</div>}
 
           {activeTab === 'overview' && <div className="space-y-5">
-
-            {/* ── DASHBOARD AD PLACEMENT ── same slot as tenant dashboard ── */}
-            {(() => {
-              const adCode = adSettings.dashboardAdCode;
-              const adEnabled = adSettings.dashboardAdEnabled;
-              if (!adCode || !adEnabled) return null;
-              return (
-                <div className="w-full overflow-hidden rounded-2xl"
-                  dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }} />
-              );
-            })()}
-
             <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
               <Metric label="Registrations" value={metrics.registrations.toString()} />
               <Metric label="Conversions" value={metrics.conversions.toString()} />
@@ -373,16 +361,31 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
               <Metric label="Available" value={currency.format(metrics.available)} />
             </section>
 
-            {/* ── PROMO CODE + REFERRAL LINK — moved to Code & Link tab ── */}
-            <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg cursor-pointer hover:bg-emerald-100 transition-colors"
-              onClick={() => setActiveTab('code-link')}>
-              <LinkIcon className="h-4 w-4 text-emerald-700 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-emerald-900">{profile.referral_code}</p>
-                <p className="text-xs text-emerald-700 truncate">{window.location.origin}/?ref={profile.referral_code}</p>
-              </div>
-              <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">Code & Link →</span>
-            </div>
+            {(() => {
+              const adCode = adSettings.dashboardAdCode?.trim();
+              if (adSettings.dashboardAdEnabled && adCode) {
+                return (
+                  <div className="flex min-h-[90px] w-full items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                    <div
+                      className="min-h-[90px] w-full max-w-[728px] overflow-hidden [&>*]:max-w-full"
+                      dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }}
+                    />
+                  </div>
+                );
+              }
+
+              return (
+                <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg cursor-pointer hover:bg-emerald-100 transition-colors"
+                  onClick={() => setActiveTab('code-link')}>
+                  <LinkIcon className="h-4 w-4 text-emerald-700 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-emerald-900">{profile.referral_code}</p>
+                    <p className="text-xs text-emerald-700 truncate">{window.location.origin}/?ref={profile.referral_code}</p>
+                  </div>
+                  <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">Code & Link →</span>
+                </div>
+              );
+            })()}
             <section className="grid gap-5 xl:grid-cols-2">
               <Panel title="Latest tasks" action="View all" onAction={() => setActiveTab('tasks')}>
                 {openTasks.slice(0, 3).map((task) => <TaskRow key={task.id} task={task} busy={busyTaskId === task.id} onComplete={handleTaskComplete} onDownload={() => task.attachment_url && handleTrackedLink('task_download', 'task', task.id, task.attachment_url, task.attachment_name)} />)}

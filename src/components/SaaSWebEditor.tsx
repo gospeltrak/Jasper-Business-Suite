@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { DEFAULT_TENANTS } from '../data';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
-import { loadGlobalAdSettings, saveGlobalAdSettings, GlobalAdPlacementSettings } from '../utils/adPlacement';
+import { loadGlobalAdSettings, saveGlobalAdSettings, GlobalAdPlacementSettings, SAMPLE_HORIZONTAL_AD_CODE } from '../utils/adPlacement';
 
 const DEFAULT_SECTIONS = [
   { id: 'landing-hero', label: 'Hero Section', desc: 'Main title, subtitle, registration call-to-action, and animated illustrations.' },
@@ -1271,7 +1271,7 @@ export default function SaaSWebEditor() {
               </div>
             </div>
             <p className="text-[10px] text-slate-500 leading-relaxed">
-              Paste your ad network code (leaderboard, banner, or any format) here. It will replace the green Quick Action banner on the subscriber dashboard. Leave empty to keep the original button.
+              Paste a 728x90 horizontal banner code here. It replaces the green Quick Action banner on subscriber dashboards and the Code & Link banner on affiliate dashboards. Leave empty to keep the original button.
             </p>
             <textarea
               value={dashboardAdCode}
@@ -1280,7 +1280,13 @@ export default function SaaSWebEditor() {
               rows={6}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-[11px] font-mono text-slate-300 placeholder-slate-600 outline-none focus:border-amber-500 resize-y"
             />
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setDashboardAdCode(SAMPLE_HORIZONTAL_AD_CODE)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold rounded-xl text-xs cursor-pointer border-none"
+              >
+                Load 728x90 Sample
+              </button>
               <button
                 onClick={async () => {
                   await publishAdSettings({ ...currentAdSettings(), dashboardAdCode }, 'Dashboard ad code published to subscriber, affiliate, and partner dashboards.');
