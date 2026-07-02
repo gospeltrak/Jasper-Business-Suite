@@ -1671,8 +1671,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         { id: 'admin-expenses', label: 'Expenses', icon: Receipt },
         { id: 'admin-chats', label: 'Chats / Broadcasts', icon: MessageSquare },
         { id: 'admin-inbox', label: 'User Inbox', icon: Inbox },
-        { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
         { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay },
+        { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
         { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
         { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
       ]
@@ -1729,8 +1729,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         { id: 'admin-expenses', label: 'Expenses', icon: Receipt },
         { id: 'admin-chats', label: 'Chats', icon: MessageSquare },
         { id: 'admin-inbox', label: 'Inbox', icon: Inbox },
-        { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
         { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay },
+        { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
         { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
         { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
       ]
@@ -1798,8 +1798,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     { id: 'admin-expenses', label: 'Expenses', icon: Receipt, tabId: 'admin-expenses' },
     { id: 'admin-chats', label: 'Chats', icon: MessageSquare, tabId: 'admin-chats' },
     { id: 'admin-inbox', label: 'Inbox', icon: Inbox, tabId: 'admin-inbox' },
-    { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay, tabId: 'admin-promotions' },
     { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay, tabId: 'admin-ad-placements' },
+    { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay, tabId: 'admin-promotions' },
     { id: 'admin-web-editor', label: 'Web Editor', icon: Globe, tabId: 'admin-web-editor' },
     { id: 'admin-settings', label: 'Settings', icon: SettingsIcon, tabId: 'admin-settings' }
   ] : (() => {
@@ -2888,8 +2888,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   { id: 'admin-reports',     label: 'Reports',    icon: PieChart,        bg: 'bg-indigo-600' },
                   { id: 'admin-expenses',    label: 'Expenses',   icon: MinusCircle,     bg: 'bg-rose-600' },
                   { id: 'admin-chats',       label: 'Chats',      icon: MessageSquare,   bg: 'bg-cyan-600' },
-                  { id: 'admin-promotions',  label: 'Ads',        icon: MonitorPlay,     bg: 'bg-pink-600' },
                   { id: 'admin-ad-placements', label: 'Placements', icon: MonitorPlay,   bg: 'bg-purple-600' },
+                  { id: 'admin-promotions',  label: 'Ads',        icon: MonitorPlay,     bg: 'bg-pink-600' },
                   { id: 'admin-settings',    label: 'Settings',   icon: SettingsIcon,    bg: 'bg-slate-700' },
                 ] : [
                   // ── Tenant / business user more menu (UNCHANGED) ──
