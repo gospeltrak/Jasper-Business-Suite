@@ -36,6 +36,7 @@ import {
 } from '../../utils/offlineSync';
 import { useGlobalAdSettings } from '../../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../utils/safeHtml';
+import GlobalStickyAd from '../GlobalStickyAd';
 import SaaSHardwarePOS from '../SaaSHardwarePOS';
 import SaaSHardwareInventory from '../SaaSHardwareInventory';
 import {
@@ -153,7 +154,6 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const [workspace, setWorkspace] = useState<AffiliateAgentWorkspace | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [notice, setNotice] = useState<string | null>(null);
-  const [bottomAdDismissed, setBottomAdDismissed] = useState(false);
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -1609,32 +1609,11 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         </div>
       )}
 
-      {/* ── STICKY BOTTOM AD ── */}
-      {(() => {
-        const bottomAdCode = adSettings.bottomAdCode;
-        const bottomAdEnabled = adSettings.bottomAdEnabled;
-        if (!bottomAdCode || !bottomAdEnabled || bottomAdDismissed) return null;
-        return (
-          <div className="fixed bottom-0 left-0 right-0 z-40 w-full"
-            style={{ animation: 'slideUpAd 0.4s ease-out' }}>
-            <style>{`
-              @keyframes slideUpAd {
-                from { transform: translateY(100%); opacity: 0; }
-                to   { transform: translateY(0); opacity: 1; }
-              }
-              .partner-bottom-ad img,.partner-bottom-ad iframe,.partner-bottom-ad ins,.partner-bottom-ad>*{
-                max-width:100%!important;width:100%!important;display:block!important;
-              }
-            `}</style>
-            <div className="relative w-full bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.15)] border-t border-slate-200">
-              <button onClick={() => setBottomAdDismissed(true)}
-                className="absolute top-1.5 right-2 z-10 w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-xs font-black cursor-pointer border-none">×</button>
-              <div className="partner-bottom-ad w-full overflow-hidden"
-                dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(bottomAdCode) }} />
-            </div>
-          </div>
-        );
-      })()}
+      <GlobalStickyAd
+        bottomOffsetClass="bottom-[calc(4.75rem+env(safe-area-inset-bottom))] lg:bottom-4"
+        leftOffsetClass="left-3 lg:left-[calc(18rem+1rem)]"
+        maxWidthClass="max-w-[760px]"
+      />
 
     </div>
   );

@@ -32,6 +32,7 @@ import {
 } from '../../utils/offlineSync';
 import { useGlobalAdSettings } from '../../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../utils/safeHtml';
+import GlobalStickyAd from '../GlobalStickyAd';
 
 const currency = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
 
@@ -61,7 +62,6 @@ type TabId = 'overview' | 'code-link' | 'tasks' | 'ads' | 'meetings' | 'reports'
 export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void }) {
   const [workspace, setWorkspace] = useState<AffiliateWorkspaceData | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading');
-  const [bottomAdDismissed, setBottomAdDismissed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoRetryCount, setAutoRetryCount] = useState(0);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
@@ -509,32 +509,11 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
         {navItems.map(([id, label, Icon]) => <button key={id} type="button" onClick={() => setActiveTab(id)} className={`grid min-h-16 place-items-center gap-1 text-[10px] font-bold ${activeTab === id ? 'text-emerald-700' : 'text-slate-500'}`}><Icon className="h-5 w-5" />{label}</button>)}
       </nav>
 
-      {/* ── STICKY BOTTOM AD — sits above mobile nav bar ── */}
-      {(() => {
-        const bottomAdCode = adSettings.bottomAdCode;
-        const bottomAdEnabled = adSettings.bottomAdEnabled;
-        if (!bottomAdCode || !bottomAdEnabled || bottomAdDismissed) return null;
-        return (
-          <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 z-35 w-full"
-            style={{ animation: 'slideUpAd 0.4s ease-out' }}>
-            <style>{`
-              @keyframes slideUpAd {
-                from { transform: translateY(100%); opacity: 0; }
-                to   { transform: translateY(0); opacity: 1; }
-              }
-              .aff-bottom-ad img,.aff-bottom-ad iframe,.aff-bottom-ad ins,.aff-bottom-ad>*{
-                max-width:100%!important;width:100%!important;display:block!important;
-              }
-            `}</style>
-            <div className="relative w-full bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.15)] border-t border-slate-200">
-              <button onClick={() => setBottomAdDismissed(true)}
-                className="absolute top-1.5 right-2 z-10 w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-xs font-black cursor-pointer border-none">×</button>
-              <div className="aff-bottom-ad w-full overflow-hidden"
-                dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(bottomAdCode) }} />
-            </div>
-          </div>
-        );
-      })()}
+      <GlobalStickyAd
+        bottomOffsetClass="bottom-[calc(4.75rem+env(safe-area-inset-bottom))] lg:bottom-4"
+        leftOffsetClass="left-3 lg:left-[calc(16rem+1rem)]"
+        maxWidthClass="max-w-[760px]"
+      />
 
     </main>
   );

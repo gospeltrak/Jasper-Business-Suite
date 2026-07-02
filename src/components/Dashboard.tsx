@@ -33,6 +33,7 @@ import DashboardWhiteLabel from './DashboardWhiteLabel';
 import DashboardSettings, { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
 import DashboardStaff from './DashboardStaff';
 import AIBusinessCopilot from './AIBusinessCopilot';
+import GlobalStickyAd from './GlobalStickyAd';
 import SuperSaaSAdminView from './SuperSaaSAdminView';
 import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
@@ -3002,6 +3003,13 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         expenses={activeExpenses}
         subscriptionStatus={subStatus}
       />
+      {user.role !== 'SuperAdmin' && (
+        <GlobalStickyAd
+          bottomOffsetClass="bottom-[calc(5.25rem+env(safe-area-inset-bottom))] md:bottom-4"
+          leftOffsetClass="left-3 md:left-[calc(18rem+1rem)]"
+          maxWidthClass="max-w-[760px]"
+        />
+      )}
 
       {/* Live Premium Subscription upgrade popups */}
       {subModal && subModal.show && (

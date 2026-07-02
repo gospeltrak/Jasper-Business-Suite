@@ -273,7 +273,6 @@ export default function DashboardOverview({
   const [posFilterMethod, setPosFilterMethod] = useState<'All' | 'Cash' | 'Card' | 'M-Pesa' | 'Credit'>('All');
   const [methodFilterOpen, setMethodFilterOpen] = useState(false);
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
-  const [bottomAdDismissed, setBottomAdDismissed] = useState(false);
 
   // Auto dismiss toast
   useEffect(() => {
@@ -1633,51 +1632,6 @@ export default function DashboardOverview({
           <button onClick={() => setFeedbackToast(null)} className="text-slate-400 hover:text-white ml-2 text-xs font-bold font-mono">×</button>
         </div>
       )}
-
-      {/* ── STICKY BOTTOM AD BANNER ─────────────────────────────────────── */}
-      {(() => {
-        const bottomAdCode = adSettings.bottomAdCode;
-        const bottomAdEnabled = adSettings.bottomAdEnabled;
-        if (!bottomAdCode || !bottomAdEnabled || bottomAdDismissed) return null;
-        return (
-          <div
-            className="fixed bottom-0 left-0 right-0 z-40 w-full"
-            style={{ animation: 'slideUpAd 0.4s ease-out' }}
-          >
-            <style>{`
-              @keyframes slideUpAd {
-                from { transform: translateY(100%); opacity: 0; }
-                to   { transform: translateY(0);    opacity: 1; }
-              }
-              .bottom-ad-container { width: 100%; overflow: hidden; }
-              .bottom-ad-container img,
-              .bottom-ad-container iframe,
-              .bottom-ad-container ins,
-              .bottom-ad-container > * {
-                max-width: 100% !important;
-                width: 100% !important;
-                display: block !important;
-              }
-            `}</style>
-            <div className="relative w-full bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.15)] border-t border-slate-200">
-              {/* Dismiss button */}
-              <button
-                onClick={() => setBottomAdDismissed(true)}
-                className="absolute top-1.5 right-2 z-10 w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-xs font-black cursor-pointer border-none transition-colors"
-                title="Close"
-              >
-                ×
-              </button>
-              {/* Ad content — responsive container */}
-              <div
-                className="bottom-ad-container px-0 mx-auto"
-                dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(bottomAdCode) }}
-              />
-            </div>
-          </div>
-        );
-      })()}
-
     </div>
   );
 }
