@@ -1121,51 +1121,42 @@ export default function SuperSaaSAdminView({
               {/* SSP Banners display */}
               <div className="w-full bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
                 <span className="text-[10px] uppercase font-mono text-slate-500 font-bold block">Active Ad Exchange Inventory (SSP)</span>
-                <div className="space-y-3">
+                <div className="grid gap-2">
                   {banners.map((ban, idx) => (
-                    <div key={idx} className="bg-slate-950 border border-slate-850 p-4 rounded-xl space-y-2 relative text-left text-xs font-mono">
-                      <div className="flex justify-between border-b border-slate-900 pb-1.5 text-[9px] text-slate-500">
-                        <span>FORMAT TYPE: {ban.size} / {(ban.adType || ban.category || 'image').toString().toUpperCase()}</span>
-                        <span className="text-emerald-400 font-bold uppercase">{ban.status}</span>
-                      </div>
-                      <div className="h-32 rounded-lg border border-slate-800 bg-slate-900 overflow-hidden flex items-center justify-center">
-                        {ban.assetData && (ban.creativeMime || '').startsWith('video/') ? (
-                          <video src={ban.assetData} className="w-full h-full object-cover" muted playsInline preload="metadata" />
-                        ) : ban.assetData ? (
-                          <img src={ban.assetData} alt={ban.title || 'SSP creative'} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="p-4 text-center">
-                            <p className="text-[11px] text-white font-bold line-clamp-3">{ban.message || ban.title}</p>
+                    <div key={idx} className="rounded-xl border border-slate-850 bg-slate-950 p-3 text-left">
+                      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                        <div className="min-w-0 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="min-w-0 truncate text-sm font-black text-white">{ban.title}</p>
+                            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-300">{ban.status}</span>
+                            <span className="rounded-full border border-slate-800 bg-slate-900 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400">{ban.size}</span>
+                            <span className="rounded-full border border-slate-800 bg-slate-900 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400">{(ban.adType || ban.category || 'image').toString()}</span>
                           </div>
-                        )}
-                      </div>
-                      <p className="font-bold text-white text-[11px] font-sans truncate">{ban.title}</p>
-                      {ban.message && (
-                        <p className="text-[10px] text-slate-300 leading-snug line-clamp-2">{ban.message}</p>
-                      )}
-                      {ban.creativeName && (
-                        <p className="text-[10px] text-cyan-300 leading-none truncate break-all">CREATIVE: {ban.creativeName}</p>
-                      )}
-                      <p className="text-[10px] text-slate-400 leading-none truncate break-all">DESTINATION: {ban.url}</p>
-                      <div className="flex justify-between pt-1.5 items-center text-[10px] text-slate-500">
-                        <span>SSP Network: AdSense Compatible</span>
-                        <span className="text-emerald-400 font-bold">Impressions / Clicks: {ban.clicks * 42} / {ban.clicks}</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 pt-2">
-                        <button
-                          type="button"
-                          onClick={() => handleEditBanner(ban)}
-                          className="rounded-lg bg-slate-800 px-3 py-2 text-[10px] font-bold uppercase text-cyan-300 hover:bg-slate-700"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteBanner(ban.id)}
-                          className="rounded-lg bg-slate-800 px-3 py-2 text-[10px] font-bold uppercase text-rose-400 hover:bg-slate-700"
-                        >
-                          Delete
-                        </button>
+                          <div className="grid gap-1 text-[10px] font-mono text-slate-500 sm:grid-cols-2 xl:grid-cols-3">
+                            <p className="truncate">Creative: <span className="text-cyan-300">{ban.creativeName || (ban.message ? 'Message ad' : 'Stored asset')}</span></p>
+                            <p className="truncate">Destination: <span className="text-slate-300">{ban.url}</span></p>
+                            <p className="truncate">Impressions / Clicks: <span className="text-emerald-300">{ban.clicks * 42} / {ban.clicks}</span></p>
+                          </div>
+                          {ban.message && (
+                            <p className="line-clamp-1 text-[10px] text-slate-400">{ban.message}</p>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleEditBanner(ban)}
+                            className="rounded-lg bg-slate-800 px-4 py-2 text-[10px] font-bold uppercase text-cyan-300 hover:bg-slate-700"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBanner(ban.id)}
+                            className="rounded-lg bg-slate-800 px-4 py-2 text-[10px] font-bold uppercase text-rose-400 hover:bg-slate-700"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
