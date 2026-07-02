@@ -2759,7 +2759,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                  activeTab === 'admin-chats' ? 'chats' :
                  activeTab === 'admin-inbox' ? 'inbox' :
                  activeTab === 'admin-promotions' ? 'promotions' :
-                 activeTab === 'admin-ad-placements' ? 'web-editor' :
+                 activeTab === 'admin-ad-placements' ? 'ad-placements' :
                  activeTab === 'admin-web-editor' ? 'web-editor' :
                  activeTab === 'admin-settings' ? 'settings' : 'dashboard'
                }
@@ -2779,6 +2779,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                    subTab === 'chats' ? 'admin-chats' :
                    subTab === 'inbox' ? 'admin-inbox' :
                    subTab === 'promotions' ? 'admin-promotions' :
+                   subTab === 'ad-placements' ? 'admin-ad-placements' :
                    subTab === 'web-editor' ? 'admin-web-editor' :
                    subTab === 'settings' ? 'admin-settings' : 'admin-dashboard';
                  setActiveTab(mappedTab);

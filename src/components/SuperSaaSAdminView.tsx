@@ -49,9 +49,10 @@ import SaaSHardwareSales from './SaaSHardwareSales';
 import SaaSStaffManager from './SaaSStaffManager';
 import { initPlatformSync } from '../utils/superAdminPlatformRecords';
 import SaaSWebEditor from './SaaSWebEditor';
+import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 
-export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'web-editor' | 'settings';
+export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
 
 export interface SuperSaaSAdminViewProps {
   activeAdminSubTab?: SuperAdminWorkspaceTab;
@@ -683,6 +684,13 @@ export default function SuperSaaSAdminView({
         {activeTab === 'web-editor' && (
           <div className="space-y-6 animate-fade-in text-left">
             <SaaSWebEditor />
+          </div>
+        )}
+
+        {/* ======================= TAB: AD PLACEMENTS ======================= */}
+        {activeTab === 'ad-placements' && (
+          <div className="animate-fade-in text-left">
+            <SaaSAdPlacementsPanel />
           </div>
         )}
 

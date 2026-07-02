@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { DEFAULT_TENANTS } from '../data';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
-import { loadGlobalAdSettings, saveGlobalAdSettings, GlobalAdPlacementSettings, SAMPLE_HORIZONTAL_AD_CODE } from '../utils/adPlacement';
+import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
 
 const DEFAULT_SECTIONS = [
   { id: 'landing-hero', label: 'Hero Section', desc: 'Main title, subtitle, registration call-to-action, and animated illustrations.' },
@@ -155,39 +155,11 @@ export default function SaaSWebEditor() {
     const saved = localStorage.getItem('jasper_partner_capacity');
     return saved ? parseInt(saved, 10) : 5;
   });
-  const [dashboardAdCode, setDashboardAdCode] = useState<string>(() => {
-    return localStorage.getItem('jasper_dashboard_ad_code') || '';
-  });
-  const [dashboardAdEnabled, setDashboardAdEnabled] = useState<boolean>(() => {
-    return localStorage.getItem('jasper_dashboard_ad_enabled') !== 'false';
-  });
-  const [dashboardBottomAdCode, setDashboardBottomAdCode] = useState<string>(() => {
-    return localStorage.getItem('jasper_bottom_ad_code') || '';
-  });
-  const [bottomAdEnabled, setBottomAdEnabled] = useState<boolean>(() => {
-    return localStorage.getItem('jasper_bottom_ad_enabled') !== 'false';
-  });
   const [partnerWaitlist, setPartnerWaitlist] = useState<any[]>(() => {
     const saved = localStorage.getItem('jasper_partner_waitlist');
     return saved ? JSON.parse(saved) : [];
   });
   const [saveNotification, setSaveNotification] = useState<string | null>(null);
-
-  const currentAdSettings = (): GlobalAdPlacementSettings => ({
-    dashboardAdCode,
-    dashboardAdEnabled,
-    bottomAdCode: dashboardBottomAdCode,
-    bottomAdEnabled,
-  });
-
-  const publishAdSettings = async (next: GlobalAdPlacementSettings, message: string) => {
-    setDashboardAdCode(next.dashboardAdCode);
-    setDashboardAdEnabled(next.dashboardAdEnabled);
-    setDashboardBottomAdCode(next.bottomAdCode);
-    setBottomAdEnabled(next.bottomAdEnabled);
-    await saveGlobalAdSettings(next);
-    showToast(message);
-  };
 
   useEffect(() => {
     const handleWaitlistReload = () => {
@@ -202,15 +174,6 @@ export default function SaaSWebEditor() {
 
   useEffect(() => {
     let alive = true;
-    loadGlobalAdSettings()
-      .then((settings) => {
-        if (!alive) return;
-        setDashboardAdCode(settings.dashboardAdCode);
-        setDashboardAdEnabled(settings.dashboardAdEnabled);
-        setDashboardBottomAdCode(settings.bottomAdCode);
-        setBottomAdEnabled(settings.bottomAdEnabled);
-      })
-      .catch(() => {});
     loadPlatformRecord<any>('web_editor_settings', 'global', null)
       .then((settings) => {
         if (!alive || !settings) return;
@@ -1250,114 +1213,8 @@ export default function SaaSWebEditor() {
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider font-bold flex items-center gap-1.5">
-                📢 Dashboard Ad Placement
-              </span>
-              <div className="flex items-center gap-2">
-                <span className={`text-[9px] font-mono px-2 py-0.5 rounded ${dashboardAdEnabled ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 bg-slate-800'}`}>
-                  {dashboardAdEnabled ? 'ON' : 'OFF'}
-                </span>
-                <button
-                  onClick={async () => {
-                    const next = !dashboardAdEnabled;
-                    await publishAdSettings({ ...currentAdSettings(), dashboardAdEnabled: next }, `Dashboard ad placement turned ${next ? 'ON' : 'OFF'}.`);
-                  }}
-                  className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer border-none ${dashboardAdEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
-                >
-                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${dashboardAdEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                </button>
-              </div>
-            </div>
-            <p className="text-[10px] text-slate-500 leading-relaxed">
-              Paste a 728x90 horizontal banner code here. It replaces the green Quick Action banner on subscriber dashboards and the Code & Link banner on affiliate dashboards. Leave empty to keep the original button.
-            </p>
-            <textarea
-              value={dashboardAdCode}
-              onChange={e => setDashboardAdCode(e.target.value)}
-              placeholder={'<!-- Paste your ad code here -->\n<script async src="https://..."></script>\n<ins class="adsbygoogle" ...></ins>'}
-              rows={6}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-[11px] font-mono text-slate-300 placeholder-slate-600 outline-none focus:border-amber-500 resize-y"
-            />
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setDashboardAdCode(SAMPLE_HORIZONTAL_AD_CODE)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold rounded-xl text-xs cursor-pointer border-none"
-              >
-                Load 728x90 Sample
-              </button>
-              <button
-                onClick={async () => {
-                  await publishAdSettings({ ...currentAdSettings(), dashboardAdCode }, 'Dashboard ad code published to subscriber, affiliate, and partner dashboards.');
-                }}
-                className="flex-1 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs cursor-pointer border-none"
-              >
-                {dashboardAdCode ? 'Save / Edit Ad Code' : 'Save Ad Code'}
-              </button>
-              {dashboardAdCode && (
-                <button
-                  onClick={async () => {
-                    await publishAdSettings({ ...currentAdSettings(), dashboardAdCode: '' }, 'Dashboard ad deleted. Original dashboard action area is restored.');
-                  }}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-xs cursor-pointer border-none"
-                >
-                  Delete Ad
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-purple-400 uppercase tracking-wider font-bold flex items-center gap-1.5">
-                📌 Sticky Bottom Ad Banner
-              </span>
-              <div className="flex items-center gap-2">
-                <span className={`text-[9px] font-mono px-2 py-0.5 rounded ${bottomAdEnabled ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 bg-slate-800'}`}>
-                  {bottomAdEnabled ? 'ON' : 'OFF'}
-                </span>
-                <button
-                  onClick={async () => {
-                    const next = !bottomAdEnabled;
-                    await publishAdSettings({ ...currentAdSettings(), bottomAdEnabled: next }, `Sticky bottom ad turned ${next ? 'ON' : 'OFF'}.`);
-                  }}
-                  className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer border-none ${bottomAdEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
-                >
-                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${bottomAdEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                </button>
-              </div>
-            </div>
-            <p className="text-[10px] text-slate-500 leading-relaxed">
-              Paste your ad code here for a sticky banner that slides up from the bottom of the subscriber dashboard. The user can dismiss it with an × button. It reappears on their next session.
-            </p>
-            <textarea
-              value={dashboardBottomAdCode}
-              onChange={e => setDashboardBottomAdCode(e.target.value)}
-              placeholder={'<!-- Paste your sticky bottom ad code here -->'}
-              rows={5}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-[11px] font-mono text-slate-300 placeholder-slate-600 outline-none focus:border-purple-500 resize-y"
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={async () => {
-                  await publishAdSettings({ ...currentAdSettings(), bottomAdCode: dashboardBottomAdCode }, 'Sticky bottom ad published to subscriber, affiliate, and partner dashboards.');
-                }}
-                className="flex-1 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs cursor-pointer border-none"
-              >
-                {dashboardBottomAdCode ? 'Save / Edit Bottom Ad' : 'Save Bottom Ad'}
-              </button>
-              {dashboardBottomAdCode && (
-                <button
-                  onClick={async () => {
-                    await publishAdSettings({ ...currentAdSettings(), bottomAdCode: '' }, 'Sticky bottom ad deleted.');
-                  }}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-xs cursor-pointer border-none"
-                >
-                  Delete Ad
-                </button>
-              )}
-            </div>
+          <div className="pt-4 border-t border-slate-800">
+            <SaaSAdPlacementsPanel compact />
           </div>
 
           <div className="pt-4 border-t border-slate-800 space-y-2">
