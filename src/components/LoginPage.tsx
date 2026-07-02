@@ -180,6 +180,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [password, setPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasActiveLoginAttempt, setHasActiveLoginAttempt] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loginOtpMode, setLoginOtpMode] = useState(false);
   const [loginOtp, setLoginOtp] = useState('');
@@ -268,6 +269,24 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
 
     return () => window.removeEventListener('saas_niches_updated', handleUpdate);
+  }, []);
+
+  useEffect(() => {
+    const clearTransientLoginError = () => {
+      setHasActiveLoginAttempt(false);
+      setError((current) => current?.startsWith('Invalid credentials') ? null : current);
+    };
+
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) clearTransientLoginError();
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('beforeunload', clearTransientLoginError);
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('beforeunload', clearTransientLoginError);
+    };
   }, []);
 
   // Google SSO states
@@ -754,6 +773,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   const handleLoginSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setHasActiveLoginAttempt(true);
     if (!emailChecked) {
       handleCheckEmail(e);
     } else if (loginOtpMode) {
@@ -950,13 +970,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           referral_code_used: match.referral_code_used || ''
         });
       } else {
-        setError('Invalid credentials. Check the quick-fill profiles below to test standard roles!');
+        setHasActiveLoginAttempt(true);
+        setError('Invalid login details. Please check your email or phone number and password, then try again.');
         setIsLoading(false);
       }
     }, 600);
   };
 
   const handleQuickFill = (userObj: typeof DEMO_USERS[0]) => {
+    setHasActiveLoginAttempt(true);
     setEmail(userObj.phone || userObj.email);
     setPassword(userObj.password);
     setLoginOtpMode(false);
@@ -1421,6 +1443,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }, 800);
   };
 
+  const isInvalidCredentialsError = error?.startsWith('Invalid credentials');
+  const visibleError = isInvalidCredentialsError && !hasActiveLoginAttempt ? null : error;
+  const visibleNotice = successMessage || redirectMessage || visibleError;
+
   return (
     <div id="login-container" className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col justify-start py-12 px-4 sm:px-6 lg:px-8 relative selection:bg-emerald-100 selection:text-emerald-950 transition-colors duration-300">
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden font-sans">
@@ -1452,21 +1478,21 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         </div>
 
         {/* Warning or Success outputs */}
-        {(successMessage || redirectMessage || error) && (
+        {visibleNotice && (
           <div className={`p-4 rounded-2xl border flex items-start space-x-3 text-xs font-mono animate-fade-in ${
             successMessage 
               ? 'bg-emerald-50 text-emerald-800 border-emerald-250' 
-              : error 
+              : visibleError 
                 ? 'bg-red-50 text-red-700 border-red-200' 
                 : 'bg-amber-50 text-amber-700 border-amber-200'
           }`}>
             <span className="shrink-0 mt-0.5">⚠️</span>
             <div className="space-y-1 font-sans">
               <p className="font-bold">
-                {successMessage ? 'Registration Ledger updated' : error ? 'Fault Signal' : 'Active Safe Tunnel Redirect'}
+                {successMessage ? 'Registration Ledger updated' : visibleError ? 'Login needs attention' : 'Active Safe Tunnel Redirect'}
               </p>
               <p className="font-medium text-[11px] leading-relaxed">
-                {successMessage || error || redirectMessage}
+                {successMessage || visibleError || redirectMessage}
               </p>
             </div>
           </div>
