@@ -297,7 +297,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     'admin-hw-inventory',
     'admin-hw-sales',
     'admin-affiliates',
-    'admin-affiliates-organic',
     'admin-affiliate-agents',
     'admin-sub-affiliates',
     'admin-status',
@@ -871,7 +870,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       'admin-hw-inventory': 'hw-inventory',
       'admin-hw-sales': 'hw-sales',
       'admin-affiliates': 'affiliates',
-      'admin-affiliates-organic': 'affiliates',
       'admin-affiliate-agents': 'affiliates',
       'admin-sub-affiliates': 'affiliates',
       'admin-status': 'status',
@@ -2748,7 +2746,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                  activeTab === 'admin-hw-inventory' ? 'hw-inventory' :
                  activeTab === 'admin-hw-sales' ? 'hw-sales' :
                  activeTab === 'admin-affiliates' ? 'affiliates' :
-                 activeTab === 'admin-affiliates-organic' ? 'affiliate-organic' :
                  activeTab === 'admin-affiliate-agents' ? 'affiliate-agents' :
                  activeTab === 'admin-sub-affiliates' ? 'sub-affiliates' :
                  activeTab === 'admin-status' ? 'status' :
@@ -2768,7 +2765,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                    subTab === 'hw-inventory' ? 'admin-hw-inventory' :
                    subTab === 'hw-sales' ? 'admin-hw-sales' :
                    subTab === 'affiliates' ? 'admin-affiliates' :
-                   subTab === 'affiliate-organic' ? 'admin-affiliates-organic' :
                    subTab === 'affiliate-agents' ? 'admin-affiliate-agents' :
                    subTab === 'sub-affiliates' ? 'admin-sub-affiliates' :
                    subTab === 'status' ? 'admin-status' :

@@ -78,7 +78,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<'all' | 'organic_subscribers' | 'organic_affiliate' | 'sub_affiliate'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'affiliate' | 'sub_affiliate'>('all');
   const [affiliates, setAffiliates] = useState<any[]>([]);
   const [loadError, setLoadError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -317,19 +317,16 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                           u.phone.includes(searchQuery);
     
     let matchesCategory = true;
-    if (categoryFilter === 'organic_subscribers') {
-      matchesCategory = u.referralSource === 'direct';
-    } else if (categoryFilter === 'organic_affiliate' || categoryFilter === 'sub_affiliate') {
+    if (categoryFilter === 'affiliate' || categoryFilter === 'sub_affiliate') {
       if (u.referralSource !== 'affiliate' || !u.referringAffiliate) {
         matchesCategory = false;
       } else {
         const referringAff = affiliates.find(a => a.promoCode === u.referringAffiliate);
         if (!referringAff) {
-          // If affiliate not found, fallback based on some logic or assume organic
-          matchesCategory = categoryFilter === 'organic_affiliate';
+          matchesCategory = categoryFilter === 'affiliate';
         } else {
           const isSuperOrSub = referringAff.isSuper || !!referringAff.parentSuperId;
-          if (categoryFilter === 'organic_affiliate') {
+          if (categoryFilter === 'affiliate') {
              matchesCategory = !isSuperOrSub;
           } else if (categoryFilter === 'sub_affiliate') {
              matchesCategory = isSuperOrSub;
@@ -409,17 +406,11 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
               >
                 All
               </button>
-              <button 
-                onClick={() => setCategoryFilter('organic_subscribers')}
-                className={`flex-1 min-w-[20%] text-center py-1.5 px-1 text-[9px] font-mono rounded font-bold uppercase ${categoryFilter === 'organic_subscribers' ? 'bg-slate-800 text-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}
+              <button
+                onClick={() => setCategoryFilter('affiliate')}
+                className={`flex-1 min-w-[20%] text-center py-1.5 px-1 text-[9px] font-mono rounded font-bold uppercase ${categoryFilter === 'affiliate' ? 'bg-slate-800 text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
               >
-                Organic Subscribers
-              </button>
-              <button 
-                onClick={() => setCategoryFilter('organic_affiliate')}
-                className={`flex-1 min-w-[20%] text-center py-1.5 px-1 text-[9px] font-mono rounded font-bold uppercase ${categoryFilter === 'organic_affiliate' ? 'bg-slate-800 text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
-              >
-                Organic Affiliates Subscriber
+                Affiliate Subscribers
               </button>
               <button 
                 onClick={() => setCategoryFilter('sub_affiliate')}

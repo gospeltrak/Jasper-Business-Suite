@@ -51,7 +51,7 @@ import { initPlatformSync } from '../utils/superAdminPlatformRecords';
 import SaaSWebEditor from './SaaSWebEditor';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 
-export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-organic' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'web-editor' | 'settings';
+export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'web-editor' | 'settings';
 
 export interface SuperSaaSAdminViewProps {
   activeAdminSubTab?: SuperAdminWorkspaceTab;
@@ -644,7 +644,7 @@ export default function SuperSaaSAdminView({
         )}
 
         {/* ======================= TAB 2: AFFILIATE DESK ======================= */}
-        {(activeTab === 'affiliates' || activeTab === 'affiliate-organic' || activeTab === 'affiliate-agents' || activeTab === 'sub-affiliates') && (
+        {(activeTab === 'affiliates' || activeTab === 'affiliate-agents' || activeTab === 'sub-affiliates') && (
           <div className="space-y-6 animate-fade-in text-left">
             <SuperAffiliateControlCenter
               initialTab={
@@ -652,7 +652,7 @@ export default function SuperSaaSAdminView({
                   ? 'agents'
                   : activeTab === 'sub-affiliates'
                     ? 'subAffiliates'
-                    : 'organic'
+                    : 'agents'
               }
             />
           </div>
