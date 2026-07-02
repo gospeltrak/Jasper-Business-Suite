@@ -2977,6 +2977,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         products={activeProducts}
         sales={activeSales}
         expenses={activeExpenses}
+        subscriptionStatus={subStatus}
       />
 
       {/* Live Premium Subscription upgrade popups */}
