@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../LanguageContext';
 import { useTenantLogo } from '../TenantLogoContext';
 import { useJasperNotifications } from '../JasperNotificationContext';
@@ -559,6 +559,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     hasVat?: boolean;
   } | null>(null);
   const [workspaceReady, setWorkspaceReady] = useState(false);
+  const localWorkspaceChangedAtRef = useRef(0);
+  const skipNextWorkspaceSaveRef = useRef(false);
 
   // Automatically refresh settings when pivot branch (activeTenant) updates
   useEffect(() => {
@@ -587,10 +589,12 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   useEffect(() => {
     let active = true;
     let unsubscribe = () => undefined;
+    let refreshInFlight = false;
     setWorkspaceReady(false);
 
     const applyWorkspace = (workspace: TenantWorkspace) => {
       if (!active) return;
+      skipNextWorkspaceSaveRef.current = true;
       setProductsMap(prev => ({ ...prev, [activeTenant.id]: workspace.products || [] }));
       setBranchesMap(prev => ({ ...prev, [activeTenant.id]: workspace.branches || [] }));
       setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStocks || [] }));
@@ -600,7 +604,27 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: workspace.deliveries || [] }));
       setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
       setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
-      if (workspace.settings) setSystemSettings(workspace.settings);
+      if (workspace.settings) {
+        setSystemSettings(workspace.settings);
+        try {
+          localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(workspace.settings));
+        } catch (e) {
+          // Cache write failure should not block live DB state.
+        }
+      }
+    };
+
+    const refreshWorkspaceFromDatabase = async (force = false) => {
+      if (!active || !navigator.onLine || refreshInFlight) return;
+      if (!force && Date.now() - localWorkspaceChangedAtRef.current < 1500) return;
+      refreshInFlight = true;
+      try {
+        await flushPendingTenantWorkspace(activeTenant.id);
+        const workspace = await loadTenantWorkspace(activeTenant.id);
+        if (workspace) applyWorkspace(workspace);
+      } finally {
+        refreshInFlight = false;
+      }
     };
 
     loadTenantWorkspace(activeTenant.id).then((workspace) => {
@@ -613,14 +637,33 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       unsubscribe = cleanup;
     });
 
+    const handleOnline = () => {
+      refreshWorkspaceFromDatabase(true);
+    };
+    const handleFocus = () => {
+      refreshWorkspaceFromDatabase(true);
+    };
+    const liveRefreshTimer = window.setInterval(refreshWorkspaceFromDatabase, 1000);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('focus', handleFocus);
+
     return () => {
       active = false;
+      window.clearInterval(liveRefreshTimer);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('focus', handleFocus);
       unsubscribe();
     };
   }, [activeTenant.id]);
 
   useEffect(() => {
     if (!workspaceReady) return;
+    if (skipNextWorkspaceSaveRef.current) {
+      skipNextWorkspaceSaveRef.current = false;
+      return;
+    }
+    localWorkspaceChangedAtRef.current = Date.now();
     const workspace: TenantWorkspace = {
       branches:             branchesMap[activeTenant.id]             || [],
       branchStocks:         branchStocksMap[activeTenant.id]         || [],
@@ -636,12 +679,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     const timer = window.setTimeout(() => saveTenantWorkspace(activeTenant.id, workspace), 450);
     return () => window.clearTimeout(timer);
   }, [workspaceReady, activeTenant.id, branchesMap, branchStocksMap, branchStaffAssignmentsMap, productsMap, salesMap, expensesMap, systemSettings, deliveriesMap, pendingDeliveryNotesMap, purchasesMap]);
-
-  useEffect(() => {
-    const syncWorkspace = () => flushPendingTenantWorkspace(activeTenant.id);
-    window.addEventListener('online', syncWorkspace);
-    return () => window.removeEventListener('online', syncWorkspace);
-  }, [activeTenant.id]);
 
   // Service Worker and Offline background synchronizer listener
   useEffect(() => {
