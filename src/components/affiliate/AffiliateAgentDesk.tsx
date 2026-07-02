@@ -16,9 +16,9 @@ import {
   CalendarPlus, CheckCircle, ClipboardPlus,
   Coins, Copy, Edit2, ExternalLink, Eye, FileText,
   HardDrive, Info, LoaderCircle, Lock, Menu, MessageSquare, Monitor,
-  RefreshCw, Send, ShieldAlert, ShieldCheck, TrendingUp,
+  RefreshCw, Send, Settings, ShieldAlert, ShieldCheck, TrendingUp,
   Users, Video, Wallet, XCircle, Zap, AlertCircle,
-  Download, PhoneCall,
+  Download, LogOut, PhoneCall,
 } from 'lucide-react';
 import {
   AffiliateAgentWorkspace,
@@ -55,7 +55,7 @@ function numberValue(value: unknown): number {
   return Number(value || 0);
 }
 
-type DashTab = 'overview' | 'reconciliation' | 'affiliates' | 'customers' | 'code-link' | 'tutorials' | 'conferencing' | 'hw-pos' | 'hw-inventory';
+type DashTab = 'overview' | 'reconciliation' | 'affiliates' | 'customers' | 'code-link' | 'tutorials' | 'conferencing' | 'hw-pos' | 'hw-inventory' | 'settings';
 type StatusAction = 'deactivate' | 'suspend' | 'review' | 'activate';
 type ReferredTenantRow = {
   id: string;
@@ -82,6 +82,7 @@ const NAV_TABS: { id: DashTab; label: string; icon: any; desc: string }[] = [
   { id: 'conferencing',   label: 'Video Conferencing',     icon: Video,         desc: 'Schedule team calls' },
   { id: 'hw-pos',         label: 'Hardware POS',           icon: Monitor,       desc: 'POS orders in network' },
   { id: 'hw-inventory',   label: 'Hardware Inventory',     icon: HardDrive,     desc: 'Devices in network' },
+  { id: 'settings',       label: 'Settings',               icon: Settings,      desc: 'Profile & preferences' },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -294,6 +295,24 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     } catch {}
     return {};
   });
+  const [partnerProfileDraft, setPartnerProfileDraft] = useState({ name: '', phone: '', payoutMethod: '', payoutPhone: '' });
+  const [partnerPrefs, setPartnerPrefs] = useState({ emailUpdates: true, compactView: false });
+
+  useEffect(() => {
+    const prefsKey = `jasper_partner_preferences_${partnerInfo?.id || 'local'}`;
+    let savedPrefs = partnerPrefs;
+    try {
+      savedPrefs = { ...partnerPrefs, ...JSON.parse(localStorage.getItem(prefsKey) || '{}') };
+    } catch {}
+    setPartnerProfileDraft({
+      name: partnerInfo?.name || '',
+      phone: partnerInfo?.phone || '',
+      payoutMethod: partnerInfo?.paymentMethod || '',
+      payoutPhone: partnerInfo?.payoutPhone || '',
+    });
+    setPartnerPrefs(savedPrefs);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partnerInfo?.id]);
 
   // Load latest profile from Supabase on mount to get fresh promo code
   useEffect(() => {
@@ -366,6 +385,36 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   // Live referral link — updates as user types in the edit field
   const liveCode = editingCode && newCode ? newCode : partnerCode;
+
+  const savePartnerSettings = async () => {
+    const updated = {
+      ...partnerInfo,
+      name: partnerProfileDraft.name.trim() || partnerName,
+      phone: partnerProfileDraft.phone.trim(),
+      paymentMethod: partnerProfileDraft.payoutMethod.trim(),
+      payoutPhone: partnerProfileDraft.payoutPhone.trim(),
+    };
+    setPartnerInfo(updated);
+    localStorage.setItem('jasper_logged_affiliate', JSON.stringify(updated));
+    localStorage.setItem(`jasper_partner_preferences_${partnerId}`, JSON.stringify(partnerPrefs));
+    if (partnerId && partnerId !== 'partner-local') {
+      const result = await dbWrite(
+        'affiliate_partners',
+        'update',
+        {
+          display_name: updated.name,
+          phone_whatsapp: updated.phone || null,
+          payout_method: updated.paymentMethod || null,
+          payout_account: updated.payoutPhone || null,
+        },
+        { column: 'id', value: partnerId },
+        partnerId,
+      );
+      setNotice(result.queued ? 'Profile saved locally and will sync when online.' : 'Profile settings saved.');
+      return;
+    }
+    setNotice('Profile settings saved on this device.');
+  };
 
   // ── Load data ───────────────────────────────────────────────
 
@@ -1367,6 +1416,49 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             </div>
           )}
 
+          {activeTab === 'settings' && (
+            <div className="max-w-3xl space-y-6">
+              <div>
+                <h2 className="text-lg font-black text-white">Profile Settings</h2>
+                <p className="mt-0.5 text-xs text-slate-400">Manage your partner profile, payout details, and dashboard preferences.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="space-y-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Display name
+                    <input value={partnerProfileDraft.name} onChange={event => setPartnerProfileDraft({ ...partnerProfileDraft, name: event.target.value })} className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-none focus:border-amber-500" />
+                  </label>
+                  <label className="space-y-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Phone
+                    <input value={partnerProfileDraft.phone} onChange={event => setPartnerProfileDraft({ ...partnerProfileDraft, phone: event.target.value })} placeholder="+255..." className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-none focus:border-amber-500" />
+                  </label>
+                  <label className="space-y-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Payout provider
+                    <input value={partnerProfileDraft.payoutMethod} onChange={event => setPartnerProfileDraft({ ...partnerProfileDraft, payoutMethod: event.target.value })} placeholder="M-Pesa, Airtel Money..." className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-none focus:border-amber-500" />
+                  </label>
+                  <label className="space-y-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Payout phone
+                    <input value={partnerProfileDraft.payoutPhone} onChange={event => setPartnerProfileDraft({ ...partnerProfileDraft, payoutPhone: event.target.value })} placeholder="+255..." className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-none focus:border-amber-500" />
+                  </label>
+                </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <label className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm font-bold text-slate-300">
+                    Email updates
+                    <input type="checkbox" checked={partnerPrefs.emailUpdates} onChange={event => setPartnerPrefs({ ...partnerPrefs, emailUpdates: event.target.checked })} className="h-4 w-4 accent-amber-500" />
+                  </label>
+                  <label className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm font-bold text-slate-300">
+                    Compact dashboard
+                    <input type="checkbox" checked={partnerPrefs.compactView} onChange={event => setPartnerPrefs({ ...partnerPrefs, compactView: event.target.checked })} className="h-4 w-4 accent-amber-500" />
+                  </label>
+                </div>
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                  <button type="button" onClick={savePartnerSettings} className="flex-1 rounded-xl bg-amber-500 px-4 py-3 text-sm font-black text-slate-950 hover:bg-amber-400">Save Settings</button>
+                  <button type="button" onClick={onLogout} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-black text-rose-400 hover:bg-rose-500/20"><LogOut className="h-4 w-4" /> Sign out</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'tutorials' && (
             <div className="space-y-6">
               <div>
@@ -1552,7 +1644,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       <nav className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-slate-900/95 backdrop-blur border-t border-slate-800"
         style={{ height: 'calc(60px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-stretch h-[60px]">
-          {NAV_TABS.slice(0, 5).map(tab => {
+          {NAV_TABS.slice(0, 3).map(tab => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
             return (
@@ -1568,10 +1660,10 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
               </button>
             );
           })}
-          {/* More button for tabs 6-8 */}
+          {/* More button for the remaining partner tools */}
           <button onClick={() => setMoreOpen(true)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 cursor-pointer border-none bg-transparent transition-all ${['hw-pos','hw-inventory','conferencing'].includes(activeTab) ? 'text-amber-400' : 'text-slate-500'}`}>
-            <div className={`flex items-center justify-center w-7 h-6 rounded-lg ${['hw-pos','hw-inventory','conferencing'].includes(activeTab) ? 'bg-amber-500/15' : ''}`}>
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 cursor-pointer border-none bg-transparent transition-all ${NAV_TABS.slice(3).some(tab => tab.id === activeTab) || moreOpen ? 'text-amber-400' : 'text-slate-500'}`}>
+            <div className={`flex items-center justify-center w-7 h-6 rounded-lg ${NAV_TABS.slice(3).some(tab => tab.id === activeTab) || moreOpen ? 'bg-amber-500/15' : ''}`}>
               <Menu className="w-5 h-5" strokeWidth={1.8} />
             </div>
             <span className="text-[8px] font-bold leading-none">More</span>
@@ -1588,22 +1680,26 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-5" />
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">More Options</p>
             <div className="grid grid-cols-3 gap-4">
-              {[
-                { id: 'conferencing', label: 'Video', icon: Video,     bg: 'bg-blue-600' },
-                { id: 'hw-pos',       label: 'HW POS', icon: Monitor,  bg: 'bg-violet-600' },
-                { id: 'hw-inventory', label: 'HW Stock',icon: HardDrive,bg: 'bg-orange-500' },
-              ].map(item => {
+              {NAV_TABS.slice(3).map((item, index) => {
                 const Icon = item.icon;
+                const colors = ['bg-blue-600', 'bg-emerald-600', 'bg-cyan-600', 'bg-violet-600', 'bg-orange-500', 'bg-slate-700'];
                 return (
                   <button key={item.id} onClick={() => { setActiveTab(item.id as DashTab); setMoreOpen(false); }}
                     className="flex flex-col items-center gap-2 cursor-pointer bg-transparent border-none">
-                    <div className={`w-14 h-14 rounded-2xl ${item.bg} flex items-center justify-center shadow`}>
+                    <div className={`w-14 h-14 rounded-2xl ${colors[index] || 'bg-slate-700'} flex items-center justify-center shadow`}>
                       <Icon className="w-6 h-6 text-white" strokeWidth={2} />
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-400 text-center">{item.label}</span>
+                    <span className="text-[11px] font-semibold text-slate-400 text-center">{item.label.split(' ')[0]}</span>
                   </button>
                 );
               })}
+              <button onClick={() => { setMoreOpen(false); onLogout(); }}
+                className="flex flex-col items-center gap-2 cursor-pointer bg-transparent border-none">
+                <div className="w-14 h-14 rounded-2xl bg-rose-600 flex items-center justify-center shadow">
+                  <LogOut className="w-6 h-6 text-white" strokeWidth={2} />
+                </div>
+                <span className="text-[11px] font-semibold text-rose-400 text-center">Sign out</span>
+              </button>
             </div>
           </div>
         </div>
@@ -1611,8 +1707,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
       <GlobalStickyAd
         bottomOffsetClass="bottom-[calc(4.75rem+env(safe-area-inset-bottom))] lg:bottom-4"
-        leftOffsetClass="left-3 lg:left-[calc(18rem+1rem)]"
-        maxWidthClass="max-w-[760px]"
+        leftOffsetClass="left-3 lg:left-1/2 lg:-translate-x-1/2"
+        maxWidthClass="max-w-[640px]"
       />
 
     </div>

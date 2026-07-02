@@ -2821,7 +2821,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 { id: 'admin-dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
                 { id: 'admin-subscribers',  label: 'Subscribers',  icon: Users },
                 { id: 'admin-affiliates',   label: 'Affiliates',   icon: Award },
-                { id: 'admin-status',       label: 'Approvals',    icon: Activity },
                 { id: '__more__',           label: 'More',         icon: Menu },
               ] : [
                 // ── Tenant / business user bottom nav (UNCHANGED) ────────
@@ -3011,8 +3010,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       {user.role !== 'SuperAdmin' && (
         <GlobalStickyAd
           bottomOffsetClass="bottom-[calc(5.25rem+env(safe-area-inset-bottom))] md:bottom-4"
-          leftOffsetClass="left-3 md:left-[calc(18rem+1rem)]"
-          maxWidthClass="max-w-[760px]"
+          leftOffsetClass="left-3 md:left-1/2 md:-translate-x-1/2"
+          maxWidthClass="max-w-[640px]"
         />
       )}
 

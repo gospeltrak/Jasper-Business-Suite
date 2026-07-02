@@ -13,8 +13,8 @@ type GlobalStickyAdProps = {
 
 export default function GlobalStickyAd({
   bottomOffsetClass = 'bottom-[calc(0.75rem+env(safe-area-inset-bottom))] md:bottom-4',
-  leftOffsetClass = 'left-3 md:left-[calc(18rem+1rem)]',
-  maxWidthClass = 'max-w-[760px]',
+  leftOffsetClass = 'left-3 md:left-1/2 md:-translate-x-1/2',
+  maxWidthClass = 'max-w-[640px]',
   className = '',
 }: GlobalStickyAdProps) {
   const adSettings = useGlobalAdSettings();
@@ -54,7 +54,7 @@ export default function GlobalStickyAd({
           height: auto !important;
         }
       `}</style>
-      <div className={`relative ml-auto w-full ${maxWidthClass} pointer-events-auto rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-[0_18px_60px_rgba(15,23,42,0.24)] backdrop-blur`}>
+      <div className={`relative mx-auto w-full ${maxWidthClass} pointer-events-auto rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-[0_18px_60px_rgba(15,23,42,0.24)] backdrop-blur`}>
         <button
           type="button"
           onClick={() => {

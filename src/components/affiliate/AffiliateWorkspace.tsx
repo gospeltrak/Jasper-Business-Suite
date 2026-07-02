@@ -9,10 +9,13 @@ import {
   ExternalLink,
   Film,
   Link as LinkIcon,
+  LogOut,
   LoaderCircle,
+  Menu,
   Pencil as PencilIcon,
   PlayCircle,
   RefreshCw,
+  Settings,
   ShieldCheck,
   TrendingUp,
   Wallet,
@@ -57,7 +60,7 @@ const isSafeExternalUrl = (value: string) => {
   }
 };
 
-type TabId = 'overview' | 'code-link' | 'tasks' | 'ads' | 'meetings' | 'reports' | 'payouts';
+type TabId = 'overview' | 'code-link' | 'tasks' | 'ads' | 'meetings' | 'reports' | 'payouts' | 'settings';
 
 export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void }) {
   const [workspace, setWorkspace] = useState<AffiliateWorkspaceData | null>(null);
@@ -65,9 +68,12 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const [error, setError] = useState<string | null>(null);
   const [autoRetryCount, setAutoRetryCount] = useState(0);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isNetworkOnline, setIsNetworkOnline] = useState(isOnline());
+  const [profileDraft, setProfileDraft] = useState({ displayName: '', payoutMethod: '', payoutAccount: '' });
+  const [profilePrefs, setProfilePrefs] = useState({ emailUpdates: true, compactView: false });
   const adSettings = useGlobalAdSettings();
 
   useEffect(() => {
@@ -151,6 +157,22 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  useEffect(() => {
+    if (!workspace?.profile) return;
+    const prefsKey = `jasper_affiliate_preferences_${workspace.profile.id}`;
+    let savedPrefs = profilePrefs;
+    try {
+      savedPrefs = { ...profilePrefs, ...JSON.parse(localStorage.getItem(prefsKey) || '{}') };
+    } catch {}
+    setProfileDraft({
+      displayName: workspace.profile.display_name || '',
+      payoutMethod: workspace.profile.payout_method || '',
+      payoutAccount: workspace.profile.payout_account || '',
+    });
+    setProfilePrefs(savedPrefs);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspace?.profile?.id]);
+
   // Newly registered accounts can briefly show 'missing' if the database
   // insert hasn't fully propagated by the time this first loads. Auto-retry
   // a few times with a short delay before asking the user to do it manually.
@@ -202,6 +224,32 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
     } finally {
       setBusyTaskId(null);
     }
+  };
+
+  const saveAffiliateSettings = async () => {
+    if (!workspace?.profile) return;
+    const displayName = profileDraft.displayName.trim() || workspace.profile.display_name;
+    const payoutMethod = profileDraft.payoutMethod.trim() || null;
+    const payoutAccount = profileDraft.payoutAccount.trim() || null;
+    const prefsKey = `jasper_affiliate_preferences_${workspace.profile.id}`;
+    localStorage.setItem(prefsKey, JSON.stringify(profilePrefs));
+    setWorkspace({
+      ...workspace,
+      profile: {
+        ...workspace.profile,
+        display_name: displayName,
+        payout_method: payoutMethod,
+        payout_account: payoutAccount,
+      },
+    });
+    const result = await dbWrite(
+      'affiliates',
+      'update',
+      { display_name: displayName, payout_method: payoutMethod, payout_account: payoutAccount },
+      { column: 'id', value: workspace.profile.id },
+      workspace.profile.id,
+    );
+    setNotice(result.queued ? 'Profile saved locally and will sync when online.' : 'Profile settings saved.');
   };
 
   const downloadUrl = (url: string, fileName?: string | null) => {
@@ -290,7 +338,10 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
     ['meetings', 'Meetings', CalendarClock],
     ['reports', 'Reports', TrendingUp],
     ['payouts', 'Payouts', Wallet],
+    ['settings', 'Settings', Settings],
   ] as const;
+  const mobilePrimaryNav = navItems.slice(0, 3);
+  const mobileMoreNav = navItems.slice(3);
 
   const renderCampaign = (campaign: AffiliateCampaign) => (
     <article key={campaign.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -502,17 +553,73 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
           {activeTab === 'meetings' && <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.meetings.map((meeting) => <MeetingRow key={meeting.id} meeting={meeting} onJoin={() => handleTrackedLink('meeting_join', 'meeting', meeting.id, meeting.meeting_url)} />)}{workspace!.meetings.length === 0 && <Empty text="No agent meetings are scheduled for your account." />}</section>}
           {activeTab === 'reports' && <section className="space-y-5"><div className="grid grid-cols-2 gap-3 xl:grid-cols-4"><Metric label="Clicks" value={metrics.clicks.toString()} /><Metric label="Links copied" value={metrics.copiedLinks.toString()} /><Metric label="Meetings joined" value={metrics.meetingJoins.toString()} /><Metric label="Paid commission" value={currency.format(metrics.paid)} /></div><Panel title="Recent activity">{workspace!.activities.slice(0, 12).map((event) => <div key={event.id} className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 last:border-0"><div><p className="text-sm font-semibold capitalize text-slate-800">{event.event_type.replace(/_/g, ' ')}</p><p className="text-xs text-slate-500">{event.resource_type || 'workspace'} · {formatDateTime(event.created_at)}</p></div><span className="text-[11px] font-semibold uppercase text-slate-400">{event.resource_id ? 'tracked' : 'recorded'}</span></div>)}{workspace!.activities.length === 0 && <Empty text="No tracked affiliate activity yet." />}</Panel></section>}
           {activeTab === 'payouts' && <section className="space-y-5"><div className="grid gap-3 sm:grid-cols-3"><Metric label="Commission earned" value={currency.format(metrics.earned)} /><Metric label="Available" value={currency.format(metrics.available)} /><Metric label="Paid" value={currency.format(metrics.paid)} /></div><div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.payouts.map((payout) => <div key={payout.id} className="flex items-center justify-between gap-3 border-b border-slate-100 p-4 last:border-0"><div><p className="text-sm font-bold">{currency.format(payout.amount)}</p><p className="text-xs text-slate-500">{payout.payout_method || 'Payout method pending'} · {formatDateTime(payout.requested_at)}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold capitalize text-slate-700">{payout.status}</span></div>)}{workspace!.payouts.length === 0 && <Empty text="No payout requests yet. Confirmed payouts will appear here." />}</div></section>}
+          {activeTab === 'settings' && (
+            <section className="max-w-3xl space-y-5">
+              <div>
+                <h2 className="text-xl font-black text-slate-950">Profile Settings</h2>
+                <p className="mt-0.5 text-sm text-slate-500">Update your affiliate profile, payout details, and workspace preferences.</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="space-y-1 text-sm font-semibold text-slate-700">
+                    Display name
+                    <input value={profileDraft.displayName} onChange={(event) => setProfileDraft({ ...profileDraft, displayName: event.target.value })} className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-500" />
+                  </label>
+                  <label className="space-y-1 text-sm font-semibold text-slate-700">
+                    Payout method
+                    <input value={profileDraft.payoutMethod} onChange={(event) => setProfileDraft({ ...profileDraft, payoutMethod: event.target.value })} placeholder="M-Pesa, Airtel Money..." className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-500" />
+                  </label>
+                  <label className="space-y-1 text-sm font-semibold text-slate-700 sm:col-span-2">
+                    Payout account / phone
+                    <input value={profileDraft.payoutAccount} onChange={(event) => setProfileDraft({ ...profileDraft, payoutAccount: event.target.value })} placeholder="+255..." className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-500" />
+                  </label>
+                </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <label className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700">
+                    Email updates
+                    <input type="checkbox" checked={profilePrefs.emailUpdates} onChange={(event) => setProfilePrefs({ ...profilePrefs, emailUpdates: event.target.checked })} className="h-4 w-4 accent-emerald-600" />
+                  </label>
+                  <label className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700">
+                    Compact dashboard
+                    <input type="checkbox" checked={profilePrefs.compactView} onChange={(event) => setProfilePrefs({ ...profilePrefs, compactView: event.target.checked })} className="h-4 w-4 accent-emerald-600" />
+                  </label>
+                </div>
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                  <button type="button" onClick={saveAffiliateSettings} className="inline-flex flex-1 items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-500">Save Settings</button>
+                  <button type="button" onClick={onLogout} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-rose-200 px-4 py-3 text-sm font-black text-rose-600 hover:bg-rose-50"><LogOut className="h-4 w-4" /> Sign out</button>
+                </div>
+              </div>
+            </section>
+          )}
         </section>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden">
-        {navItems.map(([id, label, Icon]) => <button key={id} type="button" onClick={() => setActiveTab(id)} className={`grid min-h-16 place-items-center gap-1 text-[10px] font-bold ${activeTab === id ? 'text-emerald-700' : 'text-slate-500'}`}><Icon className="h-5 w-5" />{label}</button>)}
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden">
+        {mobilePrimaryNav.map(([id, label, Icon]) => <button key={id} type="button" onClick={() => { setActiveTab(id); setMobileMoreOpen(false); }} className={`grid min-h-16 place-items-center gap-1 text-[10px] font-bold ${activeTab === id ? 'text-emerald-700' : 'text-slate-500'}`}><Icon className="h-5 w-5" />{label}</button>)}
+        <button type="button" onClick={() => setMobileMoreOpen(true)} className={`grid min-h-16 place-items-center gap-1 text-[10px] font-bold ${mobileMoreOpen || mobileMoreNav.some(([id]) => id === activeTab) ? 'text-emerald-700' : 'text-slate-500'}`}><Menu className="h-5 w-5" />More</button>
       </nav>
+      {mobileMoreOpen && (
+        <div className="fixed inset-0 z-40 bg-slate-950/35 lg:hidden" onClick={() => setMobileMoreOpen(false)}>
+          <section className="absolute inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-200" />
+            <div className="grid grid-cols-3 gap-3">
+              {mobileMoreNav.map(([id, label, Icon]) => (
+                <button key={id} type="button" onClick={() => { setActiveTab(id); setMobileMoreOpen(false); }} className={`grid gap-1 rounded-xl border px-2 py-3 text-center text-[11px] font-bold ${activeTab === id ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-100 text-slate-600'}`}>
+                  <Icon className="mx-auto h-5 w-5" />{label}
+                </button>
+              ))}
+              <button type="button" onClick={() => { setMobileMoreOpen(false); onLogout(); }} className="grid gap-1 rounded-xl border border-rose-100 px-2 py-3 text-center text-[11px] font-bold text-rose-600">
+                <LogOut className="mx-auto h-5 w-5" />Sign out
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       <GlobalStickyAd
         bottomOffsetClass="bottom-[calc(4.75rem+env(safe-area-inset-bottom))] lg:bottom-4"
-        leftOffsetClass="left-3 lg:left-[calc(16rem+1rem)]"
-        maxWidthClass="max-w-[760px]"
+        leftOffsetClass="left-3 lg:left-1/2 lg:-translate-x-1/2"
+        maxWidthClass="max-w-[640px]"
       />
 
     </main>
