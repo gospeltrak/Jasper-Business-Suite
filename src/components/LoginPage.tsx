@@ -847,6 +847,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const triggerLogin = async (targetIdentifier: string, targetPass: string) => {
     setIsLoading(true);
     setError(null);
+    const cleanIdentifier = String(targetIdentifier || '').trim();
+    const cleanPassword = String(targetPass || '').trim();
 
     try {
       const client: any = await getDynamicSupabaseClient();
@@ -855,13 +857,23 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         setIsLoading(false);
         return;
       }
-      const authEmail = targetIdentifier.includes('@') ? targetIdentifier.trim() : makeInternalEmailFromPhone(targetIdentifier);
+      const authEmail = cleanIdentifier.includes('@') ? cleanIdentifier.toLowerCase() : makeInternalEmailFromPhone(cleanIdentifier);
       
       // Perform authentic authentication via Supabase Auth securely
-      const { data: authData, error: authError } = await client.auth.signInWithPassword({
+      let { data: authData, error: authError } = await client.auth.signInWithPassword({
         email: authEmail,
-        password: targetPass
+        password: cleanPassword
       });
+
+      if (authError && typeof navigator !== 'undefined' && navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
+        try {
+          await client.auth.signOut({ scope: 'local' });
+          ({ data: authData, error: authError } = await client.auth.signInWithPassword({
+            email: authEmail,
+            password: cleanPassword
+          }));
+        } catch (_) { /* fallback continues below */ }
+      }
 
       if (!authError && authData?.user) {
         // Authenticated successfully via Supabase Auth! Fetch matching public users row
@@ -882,7 +894,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             role: 'Admin',
             tenantId: null,
             activeTenant: null,
-            phone: authData.user.phone || targetIdentifier || null,
+          phone: authData.user.phone || cleanIdentifier || null,
           });
           return;
         }
@@ -935,7 +947,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setTimeout(() => {
       const combinedUsers = getAllSystemUsers();
 
-      if (sameLoginIdentifier(targetIdentifier, 'saas.admin@jasper.com') && targetPass !== 'password123') {
+      if (sameLoginIdentifier(cleanIdentifier, 'saas.admin@jasper.com') && cleanPassword !== 'password123') {
         onLogin({
           id: 'u-saas-duress',
           email: 'saas.admin@jasper.com',
@@ -949,7 +961,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       }
 
       const match = combinedUsers.find(
-        (u: any) => (sameLoginIdentifier(u.phone, targetIdentifier) || sameLoginIdentifier(u.email, targetIdentifier)) && u.password === targetPass
+        (u: any) => (sameLoginIdentifier(u.phone, cleanIdentifier) || sameLoginIdentifier(u.email, cleanIdentifier)) && String(u.password || '').trim() === cleanPassword
       );
 
       if (match) {

@@ -305,6 +305,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     'admin-chats',
     'admin-inbox',
     'admin-promotions',
+    'admin-ad-placements',
     'admin-web-editor',
     'admin-settings',
     'hotel-pms',
@@ -878,6 +879,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       'admin-chats': 'chats',
       'admin-inbox': 'inbox',
       'admin-promotions': 'promotions',
+      'admin-ad-placements': 'web-editor',
       'admin-tutorials': 'tutorials',
       'admin-web-editor': 'web-editor',
       'admin-settings': 'settings'
@@ -1670,6 +1672,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         { id: 'admin-chats', label: 'Chats / Broadcasts', icon: MessageSquare },
         { id: 'admin-inbox', label: 'User Inbox', icon: Inbox },
         { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
+        { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay },
         { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
         { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
       ]
@@ -1727,6 +1730,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         { id: 'admin-chats', label: 'Chats', icon: MessageSquare },
         { id: 'admin-inbox', label: 'Inbox', icon: Inbox },
         { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
+        { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay },
         { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
         { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
       ]
@@ -1795,6 +1799,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     { id: 'admin-chats', label: 'Chats', icon: MessageSquare, tabId: 'admin-chats' },
     { id: 'admin-inbox', label: 'Inbox', icon: Inbox, tabId: 'admin-inbox' },
     { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay, tabId: 'admin-promotions' },
+    { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay, tabId: 'admin-ad-placements' },
     { id: 'admin-web-editor', label: 'Web Editor', icon: Globe, tabId: 'admin-web-editor' },
     { id: 'admin-settings', label: 'Settings', icon: SettingsIcon, tabId: 'admin-settings' }
   ] : (() => {
@@ -2754,6 +2759,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                  activeTab === 'admin-chats' ? 'chats' :
                  activeTab === 'admin-inbox' ? 'inbox' :
                  activeTab === 'admin-promotions' ? 'promotions' :
+                 activeTab === 'admin-ad-placements' ? 'web-editor' :
                  activeTab === 'admin-web-editor' ? 'web-editor' :
                  activeTab === 'admin-settings' ? 'settings' : 'dashboard'
                }
@@ -2883,6 +2889,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   { id: 'admin-expenses',    label: 'Expenses',   icon: MinusCircle,     bg: 'bg-rose-600' },
                   { id: 'admin-chats',       label: 'Chats',      icon: MessageSquare,   bg: 'bg-cyan-600' },
                   { id: 'admin-promotions',  label: 'Ads',        icon: MonitorPlay,     bg: 'bg-pink-600' },
+                  { id: 'admin-ad-placements', label: 'Placements', icon: MonitorPlay,   bg: 'bg-purple-600' },
                   { id: 'admin-settings',    label: 'Settings',   icon: SettingsIcon,    bg: 'bg-slate-700' },
                 ] : [
                   // ── Tenant / business user more menu (UNCHANGED) ──
@@ -2922,6 +2929,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
                 {(user.role === 'SuperAdmin' ? [
                   { id: 'admin-web-editor', label: 'Web Editor',  icon: Globe,       desc: 'Edit landing page content', color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-500/10' },
+                  { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay, desc: 'Control dashboard and sticky ads', color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10' },
                   { id: 'admin-settings',   label: 'Settings',    icon: SettingsIcon,desc: 'System configuration',      color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
                 ] : [
                   { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
