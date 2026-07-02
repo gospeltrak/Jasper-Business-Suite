@@ -1877,7 +1877,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         return res.status(403).json({
           responseText: lang === 'sw'
             ? 'Lucy AI inapatikana kuanzia kifurushi cha Diamond. Pandisha kifurushi ili nitumike online kukuelekeza kutumia mfumo na kukuza biashara.'
-            : 'Lucy AI is available from the Diamond package. Upgrade to use online guidance, reports, and business growth support.',
+            : 'Lucy AI is available from the Diamond package. Upgrade to unlock online guidance, reports, and business growth support.',
           action: 'UPGRADE_REQUIRED',
           targetTab: 'subscription-modal',
           unsupportedFeature: null,

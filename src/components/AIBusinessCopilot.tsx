@@ -46,6 +46,48 @@ const inferLucyIntent = (text: string): 'chat' | 'report' | 'forecast' => {
   return 'chat';
 };
 
+const LUCY_VOICE_KEY = 'jasper_lucy_voice_name';
+const LUCY_FEMALE_VOICE_HINTS = [
+  'google uk english female',
+  'google us english',
+  'samantha',
+  'serena',
+  'karen',
+  'susan',
+  'victoria',
+  'zira',
+  'aria',
+  'jenny',
+  'female',
+  'woman',
+  'google'
+];
+
+const pickLucyVoice = (voices: SpeechSynthesisVoice[]) => {
+  if (!voices.length) return null;
+  const saved = localStorage.getItem(LUCY_VOICE_KEY);
+  if (saved) {
+    const savedVoice = voices.find((voice) => voice.name === saved);
+    if (savedVoice) return savedVoice;
+  }
+
+  const scored = voices
+    .map((voice) => {
+      const haystack = `${voice.name} ${voice.lang}`.toLowerCase();
+      const hintScore = LUCY_FEMALE_VOICE_HINTS.reduce((score, hint, index) => (
+        haystack.includes(hint) ? score + (LUCY_FEMALE_VOICE_HINTS.length - index) : score
+      ), 0);
+      const langScore = voice.lang.toLowerCase().startsWith('en') ? 4 : voice.lang.toLowerCase().startsWith('sw') ? 3 : 0;
+      const localScore = voice.localService ? 1 : 0;
+      return { voice, score: hintScore + langScore + localScore };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const selected = scored[0]?.voice || voices[0];
+  if (selected) localStorage.setItem(LUCY_VOICE_KEY, selected.name);
+  return selected;
+};
+
 export default function AIBusinessCopilot({ 
   activeTenant, 
   activeTab, 
@@ -89,6 +131,7 @@ export default function AIBusinessCopilot({
   const [isListening, setIsListening] = useState(false);
   const [isSpokenOutputEnabled, setIsSpokenOutputEnabled] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [speechVoices, setSpeechVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -116,13 +159,42 @@ export default function AIBusinessCopilot({
       const speakText = cleanSpokenText(text);
       if (!speakText) return;
       const utterance = new SpeechSynthesisUtterance(speakText);
-      utterance.pitch = 1.1;
-      utterance.rate = 0.9;
+      const selectedVoice = pickLucyVoice(speechVoices.length ? speechVoices : window.speechSynthesis.getVoices());
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        utterance.lang = selectedVoice.lang;
+      } else {
+        utterance.lang = detectLucyLanguage(text) === 'sw' ? 'sw-TZ' : 'en-US';
+      }
+      utterance.pitch = 1.08;
+      utterance.rate = 0.92;
       window.speechSynthesis.speak(utterance);
     } catch (e) {
       console.warn('Speech synthesis fail', e);
     }
   };
+
+  const openSubscriptionPackages = () => {
+    setIsOpen(false);
+    onNavigate('subscription-modal');
+    window.dispatchEvent(new CustomEvent('jasper_open_subscription_packages', { detail: { source: 'lucy' } }));
+  };
+
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) return;
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      setSpeechVoices(voices);
+      pickLucyVoice(voices);
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => {
+      if (window.speechSynthesis.onvoiceschanged === loadVoices) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -165,7 +237,7 @@ export default function AIBusinessCopilot({
     if (!textToSend.trim()) return;
     if (!isLucyEnabled) {
       setIsOpen(true);
-      onNavigate('subscription-modal');
+      openSubscriptionPackages();
       return;
     }
     if (!customMessage) setInput('');
@@ -372,11 +444,11 @@ export default function AIBusinessCopilot({
                     <h4 className="text-xs font-black uppercase tracking-wider">Diamond unlock required</h4>
                   </div>
                   <p className="text-xs leading-relaxed">
-                    Lucy starts from Diamond so AI costs stay controlled. Upgrade to unlock online guidance, business reports, and multilingual help.
+                    Lucy starts from Diamond. Upgrade to unlock online guidance, business reports, and multilingual help.
                   </p>
                   <button
                     type="button"
-                    onClick={() => onNavigate('subscription-modal')}
+                    onClick={openSubscriptionPackages}
                     className="px-3 py-2 rounded-xl bg-slate-950 text-white text-[11px] font-black"
                   >
                     View Packages

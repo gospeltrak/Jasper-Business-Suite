@@ -992,6 +992,20 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     limitType: 'products' | 'stores' | 'staff' | 'expired';
   } | null>(null);
 
+  useEffect(() => {
+    const openPackages = () => {
+      setManualActivationPackage('diamond');
+      setSubModal({
+        show: true,
+        title: 'Choose Subscription Package',
+        limitType: 'expired',
+        description: 'Choose a package and submit your payment receipt for activation.'
+      });
+    };
+    window.addEventListener('jasper_open_subscription_packages', openPackages);
+    return () => window.removeEventListener('jasper_open_subscription_packages', openPackages);
+  }, []);
+
   // Sync state with localstorage on change of tenant
   useEffect(() => {
     setSubState(getSubscriptionState());

@@ -46,7 +46,7 @@ const LEGACY_KEYS = {
   bottomAdEnabled: 'jasper_bottom_ad_enabled',
 };
 
-const SAMPLE_SEED_KEY = 'jasper_ad_samples_v2_seeded';
+const SAMPLE_SEED_KEY = 'jasper_ad_samples_v3_seeded';
 
 function readLegacySettings(): GlobalAdPlacementSettings {
   const dashboardAdCode = localStorage.getItem(LEGACY_KEYS.dashboardAdCode);
@@ -73,18 +73,24 @@ export async function loadGlobalAdSettings(): Promise<GlobalAdPlacementSettings>
   const fallback = { ...DEFAULT_AD_SETTINGS, ...readLegacySettings() };
   const settings = await loadPlatformRecord<GlobalAdPlacementSettings>('global_ad_placement', 'global', fallback);
   const normalized = { ...DEFAULT_AD_SETTINGS, ...settings };
+  let seededSamples = false;
   if (localStorage.getItem(SAMPLE_SEED_KEY) !== 'true') {
     if (!normalized.dashboardAdCode?.trim()) {
       normalized.dashboardAdCode = SAMPLE_HORIZONTAL_AD_CODE;
       normalized.dashboardAdEnabled = true;
+      seededSamples = true;
     }
     if (!normalized.bottomAdCode?.trim()) {
       normalized.bottomAdCode = SAMPLE_STICKY_AD_CODE;
       normalized.bottomAdEnabled = true;
+      seededSamples = true;
     }
     localStorage.setItem(SAMPLE_SEED_KEY, 'true');
   }
   cacheLegacySettings(normalized);
+  if (seededSamples && typeof navigator !== 'undefined' && navigator.onLine) {
+    savePlatformRecord('global_ad_placement', 'global', normalized).catch(() => {});
+  }
   return normalized;
 }
 
