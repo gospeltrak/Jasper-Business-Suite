@@ -46,6 +46,7 @@ import {
 } from 'lucide-react';
 import { shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
+import { normalizeSubscriptionPlanId } from '../utils/subscription';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
 function DeliveryMotorcycleIcon({ className, size = 14 }: { className?: string; size?: number }) {
@@ -237,19 +238,97 @@ export default function DashboardSalesList({
   // Sub tab selection (Sales transaction ledger vs. Customer A/R Debt vs. Seller Shift settlements)
   const [activeSubTab, setActiveSubTab] = useState<'sales' | 'debts' | 'settlement' | 'documents'>('sales');
 
+  const activePlanId = normalizeSubscriptionPlanId(
+    subscriptionStatus?.state?.planId
+      || subscriptionStatus?.plan?.packageId
+      || subscriptionStatus?.plan?.id
+      || activeTenant.activePackageId
+      || activeTenant.selectedPackageId
+      || (activeTenant as any).subscriptionPlan
+  );
+  const canUseTillSettlement = activePlanId !== 'ruby';
+
+  useEffect(() => {
+    if (!canUseTillSettlement && activeSubTab === 'settlement') {
+      setActiveSubTab('sales');
+    }
+  }, [activeSubTab, canUseTillSettlement]);
+
+  const salesSubTabs = [
+    { id: 'sales', icon: <Receipt className="w-4 h-4" />, label: 'Receipts', color: '#4f46e5' },
+    { id: 'debts', icon: <Coins className="w-4 h-4" />, label: 'Credit & Debts', color: '#d97706', badge: sales.filter(s=>s.paymentMethod==='Credit'&&(s.total-(s.amountPaid!==undefined?s.amountPaid:0))>0).length },
+    { id: 'settlement', icon: <Building className="w-4 h-4" />, label: 'Till Settlement', color: '#7c3aed' },
+    { id: 'documents', icon: <FileText className="w-4 h-4" />, label: 'Quotes & Invoices', color: '#0d9488' },
+  ].filter(tab => tab.id !== 'settlement' || canUseTillSettlement);
+
+  const mobileSalesSubTabs = [
+    { id: 'sales', icon: <Receipt className="w-[18px] h-[18px]" />, label: 'Receipts', color: '#4f46e5', activeBg: '#4f46e5' },
+    { id: 'debts', icon: <Coins className="w-[18px] h-[18px]" />, label: 'Debts', color: '#ea580c', activeBg: '#ea580c', badge: sales.filter(s => s.paymentMethod === 'Credit' && (s.total - (s.amountPaid !== undefined ? s.amountPaid : 0)) > 0).length },
+    { id: 'settlement', icon: <Building className="w-[18px] h-[18px]" />, label: 'Settle', color: '#7c3aed', activeBg: '#7c3aed' },
+    { id: 'documents', icon: <FileText className="w-[18px] h-[18px]" />, label: 'Quotes', color: '#0d9488', activeBg: '#0d9488' },
+  ].filter(tab => tab.id !== 'settlement' || canUseTillSettlement);
+
+  const toNumber = (value: unknown, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+  const money = (value: unknown) => `${currency}${Math.round(toNumber(value)).toLocaleString()}`;
+  const normalizeDocType = (type: SalesDocument['type'] | string): SalesDocument['type'] => {
+    if (type === 'price quote invoice' || type === 'invoice') return 'proforma invoice';
+    if (type === 'quotation') return 'price quote';
+    return (type as SalesDocument['type']) || 'price quote';
+  };
+  const getDocumentLabel = (type: SalesDocument['type'] | string) => normalizeDocType(type) === 'proforma invoice' ? 'Proforma Invoice' : 'Price Quote';
+  const getDocumentItemName = (item: SaleItem) => {
+    const product = products.find(p => p.id === item.productId);
+    return (item as any).item_description || (item as any).description || item.productName || (item as any).name || product?.name || 'Item';
+  };
+  const getDocumentItemUnit = (item: SaleItem) => item.unit || item.sellUnit || item.baseUnit || '';
+  const getLineTotal = (item: SaleItem) => {
+    const qty = toNumber(item.qty);
+    const price = toNumber(item.price);
+    const discount = toNumber(item.discount);
+    const effectivePrice = item.discountType === 'cash'
+      ? Math.max(0, price - discount)
+      : price * (1 - discount / 100);
+    return Math.max(0, effectivePrice * qty);
+  };
+  const getDocumentTotals = (doc: SalesDocument) => {
+    const subTotal = (doc.items || []).reduce((sum, item) => sum + getLineTotal(item), 0);
+    const discount = toNumber((doc as any).discountAmount);
+    const tax = doc.hasVat ? toNumber(doc.tax, Math.max(0, subTotal - discount) * (activeTenant.taxRate || 0.18)) : toNumber(doc.tax);
+    const delivery = toNumber(doc.deliveryCost);
+    const storedTotal = toNumber(doc.total, NaN);
+    const total = Number.isFinite(storedTotal) && storedTotal > 0
+      ? storedTotal
+      : Math.max(0, subTotal - discount) + tax + delivery;
+    const paid = toNumber((doc as any).paidAmount);
+    return { subTotal, discount, tax, delivery, total, paid, balance: Math.max(0, total - paid) };
+  };
+  const getInvoiceFooter = (doc?: SalesDocument) => {
+    const businessName = systemSettings?.business?.businessName || systemSettings?.company?.companyName || activeTenant.name;
+    const mainMessage = doc?.tagline || systemSettings?.invoiceSettings?.footerNote || 'Thank you for doing business with us.';
+    const poweredBy = (systemSettings as any)?.systemWebLink || (systemSettings as any)?.business?.website || 'Powered by Jasper.Africa';
+    return { mainMessage, businessName, poweredBy };
+  };
+
   // Load documents from localStorage on mount
   const [documents, setDocuments] = useState<SalesDocument[]>(() => {
     const cached = localStorage.getItem(`jasper_docs_${activeTenant.id}`);
     if (cached) {
       try {
         const parsed = JSON.parse(cached) as SalesDocument[];
-        // Map legacy document types gracefully to unified 'price quote invoice' and add mock defaults if empty
+        // Map legacy document types gracefully to the current labels.
         return parsed.map(d => {
-          const typeStr = d.type as string;
-          if (typeStr === 'quotation' || typeStr === 'invoice' || typeStr === 'price quote invoice') {
-            return { ...d, type: 'price quote invoice' as const };
-          }
-          return d;
+          const normalizedItems = (d.items || []).map(item => ({
+            ...item,
+            productName: getDocumentItemName(item),
+            unit: getDocumentItemUnit(item),
+            price: toNumber(item.price),
+            qty: toNumber(item.qty),
+            discount: toNumber(item.discount),
+          }));
+          return { ...d, type: normalizeDocType(d.type), items: normalizedItems, total: toNumber(d.total, normalizedItems.reduce((sum, item) => sum + getLineTotal(item), 0)), tax: toNumber(d.tax) };
         });
       } catch (e) {
         return [];
@@ -276,7 +355,7 @@ export default function DashboardSalesList({
       },
       {
         id: 'doc-pf-002',
-        type: 'price quote invoice',
+        type: 'proforma invoice',
         documentNumber: 'PRO-2026-0002',
         items: [
           { productId: 'p-2', productName: 'White Sugar (Fine Grain Box)', qty: 20, price: 30, discount: 5, discountType: 'percent' }
@@ -364,10 +443,10 @@ export default function DashboardSalesList({
   const [documentSendOpen, setDocumentSendOpen] = useState(false);
   const [documentSendPhone, setDocumentSendPhone] = useState('');
   const [pdfShareStatus, setPdfShareStatus] = useState<string | null>(null);
-  const [selectedDocTypeFilter, setSelectedDocTypeFilter] = useState<'all' | 'price quote' | 'price quote invoice'>('all');
+  const [selectedDocTypeFilter, setSelectedDocTypeFilter] = useState<'all' | 'price quote' | 'proforma invoice'>('all');
   
   // States for wizard: document creator
-  const [newDocType, setNewDocType] = useState<'price quote' | 'price quote invoice'>('price quote');
+  const [newDocType, setNewDocType] = useState<'price quote' | 'proforma invoice'>('price quote');
   const [newDocCustomerName, setNewDocCustomerName] = useState('');
   const [newDocCustomerPhone, setNewDocCustomerPhone] = useState('');
   const [newDocCustomerAddress, setNewDocCustomerAddress] = useState('');
@@ -450,7 +529,12 @@ export default function DashboardSalesList({
   const expectedTodayDrawerSales = todayCashSalesVolume + todayCashInstallmentsVolume;
 
   // Settle Form States
-  const [settleOpeningFloat, setSettleOpeningFloat] = useState(100);
+  const getLastDrawerBalance = () => {
+    const latest = [...tillSettlements].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+    if (!latest) return 0;
+    return Math.max(0, toNumber(latest.actualCashInDrawer) - toNumber(latest.paymentInAmount));
+  };
+  const [settleOpeningFloat, setSettleOpeningFloat] = useState(() => getLastDrawerBalance());
   const [settleShiftPayIns, setSettleShiftPayIns] = useState(0);
   const [settleShiftPayOuts, setSettleShiftPayOuts] = useState(0);
   const [settleActualDrawerCount, setSettleActualDrawerCount] = useState<number | ''>('');
@@ -610,7 +694,7 @@ export default function DashboardSalesList({
   };
 
   const buildDocumentWhatsAppMessage = (doc: SalesDocument) => {
-    const documentLabel = doc.type === 'quotation' ? 'quotation' : 'price quote invoice';
+    const documentLabel = getDocumentLabel(doc.type).toLowerCase();
     const customer = doc.customerName?.trim() || 'valued customer';
     return `Hello ${customer}, please find attached your ${documentLabel} PDF ${doc.documentNumber} from ${activeTenant.name}. Thank you.`;
   };
@@ -620,7 +704,7 @@ export default function DashboardSalesList({
       setPdfShareStatus('Preparing PDF...');
       await shareElementPdfToWhatsApp({
         elementId: 'sales-document-a4-pdf-template',
-        fileName: `${doc.type.replace(/\s+/g, '-')}-${doc.documentNumber}.pdf`,
+        fileName: `${normalizeDocType(doc.type).replace(/\s+/g, '-')}-${doc.documentNumber}.pdf`,
         phone: phone || doc.customerPhone,
         message: buildDocumentWhatsAppMessage(doc),
         format: 'a4'
@@ -653,16 +737,40 @@ export default function DashboardSalesList({
 
   const sendDocumentToSales = (doc: SalesDocument) => {
     if (!onPreloadCartForPOS) return;
+    if (doc.status === 'converted') {
+      alert(`This ${getDocumentLabel(doc.type)} has already been recorded as a sale.`);
+      return;
+    }
 
-    onPreloadCartForPOS(doc.items, doc.timestamp, {
-      deliveryCost: doc.deliveryCost || 0,
+    const normalizedItems = (doc.items || []).map(item => ({
+      ...item,
+      productName: getDocumentItemName(item),
+      unit: getDocumentItemUnit(item),
+      qty: toNumber(item.qty),
+      price: toNumber(item.price),
+      discount: toNumber(item.discount),
+    })).filter(item => item.productName && item.qty > 0);
+
+    if (normalizedItems.length === 0) {
+      alert('This document has no valid items to record as a sale.');
+      return;
+    }
+
+    onPreloadCartForPOS(normalizedItems, doc.timestamp, {
+      deliveryCost: toNumber(doc.deliveryCost),
       paymentMethod: doc.paymentMethod || 'Cash',
       customerName: doc.customerName,
       customerPhone: doc.customerPhone,
       hasVat: !!doc.hasVat
     });
 
-    setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, status: 'converted' } : d));
+    setDocuments(prev => prev.map(d => d.id === doc.id ? {
+      ...d,
+      items: normalizedItems,
+      status: 'converted',
+      convertedSaleId: `pending-pos-${Date.now()}`,
+      convertedAt: new Date().toISOString()
+    } : d));
     setViewingDocument(null);
   };
 
@@ -787,12 +895,7 @@ export default function DashboardSalesList({
         {/* 4. Tab navigation */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex bg-white border border-slate-200 p-1 rounded-2xl gap-1 shadow-xs">
-            {[
-              { id: 'sales', icon: <Receipt className="w-4 h-4" />, label: 'Receipts', color: '#4f46e5' },
-              { id: 'debts', icon: <Coins className="w-4 h-4" />, label: 'Credit & Debts', color: '#d97706', badge: sales.filter(s=>s.paymentMethod==='Credit'&&(s.total-(s.amountPaid!==undefined?s.amountPaid:0))>0).length },
-              { id: 'settlement', icon: <Building className="w-4 h-4" />, label: 'Till Settlement', color: '#7c3aed' },
-              { id: 'documents', icon: <FileText className="w-4 h-4" />, label: 'Quotes & Invoices', color: '#0d9488' },
-            ].map(tab => {
+            {salesSubTabs.map(tab => {
               const active = activeSubTab === tab.id;
               return (
                 <button key={tab.id} type="button" onClick={() => setActiveSubTab(tab.id as any)}
@@ -812,12 +915,7 @@ export default function DashboardSalesList({
       {/* MOBILE ONLY TAB NAVIGATION — visible pill tabs */}
       <div className="md:hidden pb-3 select-none">
         <div className="flex bg-slate-200/70 dark:bg-slate-800 p-1 rounded-2xl gap-1">
-          {[
-            { id: 'sales',      icon: <Receipt className="w-[18px] h-[18px]" />,  label: 'Receipts', color: '#4f46e5', activeBg: '#4f46e5' },
-            { id: 'debts',      icon: <Coins className="w-[18px] h-[18px]" />,    label: 'Debts',    color: '#ea580c', activeBg: '#ea580c', badge: sales.filter(s => s.paymentMethod === 'Credit' && (s.total - (s.amountPaid !== undefined ? s.amountPaid : 0)) > 0).length },
-            { id: 'settlement', icon: <Building className="w-[18px] h-[18px]" />, label: 'Settle',   color: '#7c3aed', activeBg: '#7c3aed' },
-            { id: 'documents',  icon: <FileText className="w-[18px] h-[18px]" />, label: 'Quotes',   color: '#0d9488', activeBg: '#0d9488' },
-          ].map(tab => {
+          {mobileSalesSubTabs.map(tab => {
             const active = activeSubTab === tab.id;
             return (
               <button
@@ -1487,10 +1585,6 @@ export default function DashboardSalesList({
       })()}
       {/* SECTION C: CASH DRAWER SHIFT CLOSE & SETTLEMENTS (PAYMENT-INS) */}
       {activeSubTab === 'settlement' && (() => {
-        // Gating subscription tier logic
-        const planTier = localStorage.getItem(`plan_tier_${activeTenant.id}`) || 'premium';
-        const isPremium = planTier === 'premium';
-
         const totalExpectedCalculated = Number(settleOpeningFloat) + expectedTodayDrawerSales + Number(settleShiftPayIns) - Number(settleShiftPayOuts);
         const discrepancyVal = settleActualDrawerCount !== '' ? (Number(settleActualDrawerCount) - totalExpectedCalculated) : 0;
 
@@ -1605,14 +1699,6 @@ export default function DashboardSalesList({
           }, 6000);
         };
 
-        const toggleFeatureGateSim = () => {
-          const nextTier = planTier === 'premium' ? 'standard' : 'premium';
-          localStorage.setItem(`plan_tier_${activeTenant.id}`, nextTier);
-          // Simple trigger reload or message
-          setSettleSuccessMsg(`Membership tier changed to: ${nextTier.toUpperCase()}`);
-          setTimeout(() => setSettleSuccessMsg(null), 3000);
-        };
-
         const preRegisteredCompanyOptions = [
           'Equity Bank Operating Treasury (A/C: 1024-555)',
           'CRDB Corporate Deposit Node (A/C: 4002-887)',
@@ -1633,50 +1719,17 @@ export default function DashboardSalesList({
                   <span className="text-[9px] uppercase tracking-widest font-mono text-indigo-400 font-bold block">SaaS Membership Module</span>
                   <div className="flex items-center space-x-2 mt-1">
                     <h4 className="text-xs font-bold font-mono">
-                      Tenant Level: <span className="text-emerald-400 capitalize underline px-1">{planTier}</span>
+                      Tenant Level: <span className="text-emerald-400 capitalize underline px-1">{activePlanId}</span>
                     </h4>
                     <span className="text-xs text-slate-400">•</span>
                     <p className="text-[11px] text-slate-300">
-                      Shift Settle and Cash Drawer tracking restricted to <strong className="font-bold">Premium Tier</strong>.
+                      Shift Settle and Cash Drawer tracking follows the active subscription package.
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={toggleFeatureGateSim}
-                  className="px-3.5 py-1.5 bg-indigo-950 hover:bg-slate-800 text-indigo-300 hover:text-indigo-200 text-[10px] font-mono font-bold uppercase rounded-lg border border-indigo-800/40 cursor-pointer transition-all"
-                >
-                  🔄 Toggle Tenant Plan ({planTier === 'premium' ? 'Downgrade' : 'Upgrade Premium'})
-                </button>
               </div>
             )}
 
-            {!isPremium && isAdmin ? (
-              <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center space-y-6 shadow-sm mx-auto max-w-xl animate-fade-in my-8">
-                <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto text-rose-500 border border-rose-100 animate-pulse">
-                  <XOctagon className="w-8 h-8" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-md font-bold text-slate-800 uppercase tracking-wider font-mono">Premium Sub Ledger Workspace Locked</h3>
-                  <p className="text-slate-500 text-xs leading-relaxed max-w-sm mx-auto font-sans">
-                    Shift settlement is premium.
-                  </p>
-                </div>
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      localStorage.setItem(`plan_tier_${activeTenant.id}`, 'premium');
-                      setSettleSuccessMsg("🎉 Premium plan unlocked! Drawer auditing and shift settling are now available.");
-                      setTimeout(() => setSettleSuccessMsg(null), 4050);
-                    }}
-                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-[10px] tracking-wider rounded-xl transition-all shadow-md cursor-pointer border-none"
-                  >
-                    ✨ Activate Premium Tier & Unlock (Single-Click Bypass)
-                  </button>
-                </div>
-              </div>
-            ) : (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in" id="shift-settlements-view">
                 
                 {/* COLUMN 1 (6 Cols): ACTIVE SHIFT SETTLEMENT & CASH HANDOFF FORM */}
@@ -2384,8 +2437,6 @@ export default function DashboardSalesList({
                 </div>
 
               </div>
-            )}
-
           </div>
         );
       })()}
@@ -2414,7 +2465,7 @@ export default function DashboardSalesList({
                   <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
                 </div>
                 <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200">
-                  {(['all', 'price quote', 'price quote invoice'] as const).map(t => (
+                  {(['all', 'price quote', 'proforma invoice'] as const).map(t => (
                     <button
                       key={t}
                       type="button"
@@ -2425,7 +2476,7 @@ export default function DashboardSalesList({
                           : 'text-slate-500 hover:text-slate-800'
                       }`}
                     >
-                      {t === 'all' ? 'Show All' : t}
+                      {t === 'all' ? 'Show All' : getDocumentLabel(t)}
                     </button>
                   ))}
                 </div>
@@ -2450,12 +2501,9 @@ export default function DashboardSalesList({
             {/* List of generated documents */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
               {filteredDocs.map(doc => {
-                const subTotal = doc.items.reduce((sum, item) => {
-                  const itemPrice = item.discountType === 'cash' ? Math.max(0, item.price - item.discount) : item.price * (1 - item.discount / 100);
-                  return sum + (itemPrice * item.qty);
-                }, 0);
+                const totals = getDocumentTotals(doc);
 
-                const typeColor = doc.type === 'quotation' || doc.type === 'price quote'
+                const typeColor = normalizeDocType(doc.type) === 'price quote'
                   ? { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' }
                   : { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0' };
 
@@ -2469,7 +2517,7 @@ export default function DashboardSalesList({
                     <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
                       <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg"
                         style={{ background: typeColor.bg, color: typeColor.text, border: `1px solid ${typeColor.border}` }}>
-                        {doc.type === 'quotation' ? 'Quote' : doc.type === 'price quote invoice' ? 'Invoice' : doc.type}
+                        {getDocumentLabel(doc.type)}
                       </span>
                       <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
                         doc.status === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
@@ -2500,7 +2548,7 @@ export default function DashboardSalesList({
                       {/* Total + actions */}
                       <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
                         <p className="font-black text-slate-900 text-[15px] font-mono">
-                          {currency}{Math.round(subTotal).toLocaleString()}
+                          {money(totals.total)}
                         </p>
                         <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
                           <button
@@ -3997,7 +4045,7 @@ export default function DashboardSalesList({
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1">Select Document Class</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {(['price quote', 'price quote invoice'] as const).map(t => (
+                    {(['price quote', 'proforma invoice'] as const).map(t => (
                       <button
                         key={t}
                         type="button"
@@ -4008,7 +4056,7 @@ export default function DashboardSalesList({
                             : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                         }`}
                       >
-                        {t}
+                        {getDocumentLabel(t)}
                       </button>
                     ))}
                   </div>
@@ -4304,7 +4352,7 @@ export default function DashboardSalesList({
                     disabled={newDocItems.length === 0}
                     onClick={() => {
                       const prefixMap = {
-                        quotation: 'QUO',
+                        'price quote': 'QUO',
                         'proforma invoice': 'PFI'
                       };
                       const prefix = prefixMap[newDocType] || 'DOC';
@@ -4319,7 +4367,14 @@ export default function DashboardSalesList({
                         id: 'doc-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
                         type: newDocType,
                         documentNumber: nextNum,
-                        items: newDocItems,
+                        items: newDocItems.map(item => ({
+                          ...item,
+                          productName: getDocumentItemName(item),
+                          unit: getDocumentItemUnit(item),
+                          qty: toNumber(item.qty),
+                          price: toNumber(item.price),
+                          discount: toNumber(item.discount),
+                        })),
                         total: totalSum,
                         tax: taxSum,
                         deliveryCost: shippingSum,
@@ -4350,10 +4405,8 @@ export default function DashboardSalesList({
 
       {/* DIALOG: VIEW & PRINT A4 COMMERCIAL DOCUMENT LAYOUT */}
       {viewingDocument && (() => {
-        const subTotal = viewingDocument.items.reduce((sum, item) => {
-          const itemPrice = item.discountType === 'cash' ? Math.max(0, item.price - item.discount) : item.price * (1 - item.discount / 100);
-          return sum + (itemPrice * item.qty);
-        }, 0);
+        const totals = getDocumentTotals(viewingDocument);
+        const invoiceFooter = getInvoiceFooter(viewingDocument);
 
         const activeStaff = systemSettings?.staffs?.find(
           s => s.name.toLowerCase() === (currentUser?.name || '').toLowerCase()
@@ -4361,11 +4414,7 @@ export default function DashboardSalesList({
         const preparerName = activeStaff?.name || currentUser?.name || systemSettings?.invoiceSettings?.authorisedPerson || 'Jane Doe';
         const preparerRole = activeStaff?.role || currentUser?.role || 'Accounts & Finance Dept';
 
-        const docTypeLabel =
-          viewingDocument.type === 'quotation' ? 'Quotation' :
-          viewingDocument.type === 'proforma invoice' ? 'Proforma Invoice' :
-          viewingDocument.type === 'price quote invoice' ? 'Price Quote Invoice' :
-          'Invoice';
+        const docTypeLabel = getDocumentLabel(viewingDocument.type);
 
         return (
           <div className="fixed inset-0 z-[200] flex flex-col bg-[#404040] font-sans print:bg-white"
@@ -4613,25 +4662,27 @@ export default function DashboardSalesList({
                         </thead>
                         <tbody>
                           {viewingDocument.items.map((item, idx) => {
-                            const effectivePrice = item.discountType === 'cash'
-                              ? Math.max(0, item.price - item.discount)
-                              : item.price * (1 - item.discount / 100);
-                            const lineTotal = effectivePrice * item.qty;
+                            const lineTotal = getLineTotal(item);
+                            const displayName = getDocumentItemName(item);
+                            const itemDescription = (item as any).description || (item as any).item_description;
+                            const unitPrice = toNumber(item.price);
+                            const qty = toNumber(item.qty);
+                            const discount = toNumber(item.discount);
                             return (
                               <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
                                 <td className="py-3 px-4 text-slate-400 font-mono">{idx + 1}</td>
                                 <td className="py-3 px-4">
-                                  <span className="font-semibold text-slate-800">{item.name}</span>
-                                  {item.description && <span className="block text-[10px] text-slate-400 mt-0.5">{item.description}</span>}
+                                  <span className="font-semibold text-slate-800">{displayName}</span>
+                                  {itemDescription && itemDescription !== displayName && <span className="block text-[10px] text-slate-400 mt-0.5">{itemDescription}</span>}
                                 </td>
-                                <td className="py-3 px-4 text-center font-mono text-slate-700">{item.qty} {item.unit || ''}</td>
-                                <td className="py-3 px-4 text-right font-mono text-slate-700">{currency}{item.price.toLocaleString()}</td>
-                                {viewingDocument.items.some(i => i.discount > 0) && (
+                                <td className="py-3 px-4 text-center font-mono text-slate-700">{qty} {getDocumentItemUnit(item)}</td>
+                                <td className="py-3 px-4 text-right font-mono text-slate-700">{money(unitPrice)}</td>
+                                {viewingDocument.items.some(i => toNumber(i.discount) > 0) && (
                                   <td className="py-3 px-4 text-right font-mono text-amber-600 text-[10px]">
-                                    {item.discount > 0 ? (item.discountType === 'cash' ? `-${currency}${item.discount}` : `-${item.discount}%`) : '—'}
+                                    {discount > 0 ? (item.discountType === 'cash' ? `-${money(discount)}` : `-${discount}%`) : '—'}
                                   </td>
                                 )}
-                                <td className="py-3 px-4 text-right font-black font-mono text-slate-900">{currency}{Math.round(lineTotal).toLocaleString()}</td>
+                                <td className="py-3 px-4 text-right font-black font-mono text-slate-900">{money(lineTotal)}</td>
                               </tr>
                             );
                           })}
@@ -4644,23 +4695,39 @@ export default function DashboardSalesList({
                       <div className="w-72 space-y-2 font-mono text-xs">
                         <div className="flex justify-between text-slate-500 pb-1">
                           <span>Subtotal</span>
-                          <span className="font-bold text-slate-800">{currency}{Math.round(subTotal).toLocaleString()}</span>
+                          <span className="font-bold text-slate-800">{money(totals.subTotal)}</span>
                         </div>
-                        {viewingDocument.discountAmount > 0 && (
+                        {totals.discount > 0 && (
                           <div className="flex justify-between text-amber-600 pb-1">
                             <span>Discount</span>
-                            <span className="font-bold">-{currency}{Math.round(viewingDocument.discountAmount).toLocaleString()}</span>
+                            <span className="font-bold">-{money(totals.discount)}</span>
                           </div>
                         )}
                         {viewingDocument.hasVat && (
                           <div className="flex justify-between text-slate-500 pb-1">
                             <span>VAT ({Math.round((activeTenant.taxRate || 0.18) * 100)}%)</span>
-                            <span className="font-bold text-slate-700">{currency}{Math.round((subTotal - (viewingDocument.discountAmount || 0)) * (activeTenant.taxRate || 0.18)).toLocaleString()}</span>
+                            <span className="font-bold text-slate-700">{money(totals.tax)}</span>
+                          </div>
+                        )}
+                        {totals.delivery > 0 && (
+                          <div className="flex justify-between text-slate-500 pb-1">
+                            <span>Delivery</span>
+                            <span className="font-bold text-slate-700">{money(totals.delivery)}</span>
+                          </div>
+                        )}
+                        {totals.paid > 0 && (
+                          <div className="flex justify-between text-emerald-600 pb-1">
+                            <span>Paid</span>
+                            <span className="font-bold">{money(totals.paid)}</span>
                           </div>
                         )}
                         <div className="flex justify-between bg-slate-900 text-white rounded-xl px-4 py-3">
                           <span className="font-black text-sm uppercase tracking-wide">Total</span>
-                          <span className="font-black text-base">{currency}{Math.round(viewingDocument.totalAmount).toLocaleString()}</span>
+                          <span className="font-black text-base">{money(totals.total)}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-500 px-4">
+                          <span>Balance</span>
+                          <span className="font-bold text-slate-800">{money(totals.balance)}</span>
                         </div>
                       </div>
                     </div>
@@ -4698,8 +4765,10 @@ export default function DashboardSalesList({
                     </div>
 
                     {/* Footer */}
-                    <div className="text-center text-[10px] text-slate-300 font-mono border-t border-slate-100 pt-4">
-                      {activeTenant.name} · {systemSettings?.company?.phone || ''} · Powered by Jasper Business Suite
+                    <div className="text-center border-t border-slate-100 pt-4 space-y-1">
+                      <p className="text-xs text-slate-600 font-semibold">{invoiceFooter.mainMessage}</p>
+                      <p className="text-[11px] text-slate-500">Thank you for shopping with {invoiceFooter.businessName}</p>
+                      <p className="text-[8px] text-slate-300 font-mono">{invoiceFooter.poweredBy}</p>
                     </div>
                   </div>
                 </div>

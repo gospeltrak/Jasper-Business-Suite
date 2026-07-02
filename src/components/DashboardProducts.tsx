@@ -139,7 +139,7 @@ export default function DashboardProducts({
 
   const unitsList = useMemo(() => {
     if (activeTenant.businessType === 'pharmacy') {
-      return ['Box', 'Carton', 'Packet', 'Strip', 'Dose', 'Tablet', 'Capsule', 'Piece', 'Inner Box', 'Master Box'];
+      return ['Master Box', 'Carton', 'Inner Box', 'Box', 'Packet', 'Strip', 'Blister', 'Bottle', 'Vial', 'Ampoule', 'Sachet', 'Dose', 'Tablet', 'Capsule', 'Piece'];
     }
     return systemSettings?.productStore?.units && systemSettings.productStore.units.length > 0
       ? systemSettings.productStore.units

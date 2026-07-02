@@ -589,6 +589,7 @@ export interface SalesDocument {
   tenantId: string;
   status: 'pending' | 'converted' | 'cancelled';
   convertedSaleId?: string;
+  convertedAt?: string;
   tagline?: string;
 }
 

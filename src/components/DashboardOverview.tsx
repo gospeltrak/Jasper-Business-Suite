@@ -168,10 +168,30 @@ export default function DashboardOverview({
     return creditSalesTotal > 0 ? creditSalesTotal : (sales.length === 0 ? 0 : Math.round(totalRevenue * 0.125));
   }, [sales, totalRevenue]);
 
+  const isActualExpense = (expense: any) => {
+    const markers = [
+      expense?.type,
+      expense?.category,
+      expense?.source,
+      expense?.entryType,
+      expense?.ledgerType,
+      expense?.module,
+    ].map(value => String(value || '').toLowerCase());
+
+    return !markers.some(marker =>
+      marker.includes('cogs') ||
+      marker.includes('cost of goods') ||
+      marker.includes('inventory_cost') ||
+      marker.includes('product_cost') ||
+      marker.includes('sale_cost')
+    );
+  };
+
   // Filter expenses based on selected timeframe
   const filteredExpenses = useMemo(() => {
     const now = new Date();
     return expenses.filter(exp => {
+      if (!isActualExpense(exp)) return false;
       const expDate = new Date(exp.timestamp);
       const diffTime = Math.abs(now.getTime() - expDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -214,9 +234,8 @@ export default function DashboardOverview({
 
   // Aggregate expenses
   const totalExpensesAmt = useMemo(() => {
-    const sum = filteredExpenses.reduce((acc, curr) => acc + curr.amount, 0);
-    return sum > 0 ? sum : Math.round(totalCost * 0.45);
-  }, [filteredExpenses, totalCost]);
+    return filteredExpenses.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  }, [filteredExpenses]);
 
   // Aggregate purchases
   const totalPurchasesAmt = useMemo(() => {
@@ -554,7 +573,7 @@ export default function DashboardOverview({
           {[
             { label: 'Total Orders', value: sales.filter((s:any) => new Date(s.timestamp).toDateString() === new Date().toDateString()).length, sub: `${filteredSales.reduce((sum:number,s:any)=>sum+(s.items?.reduce((a:number,i:any)=>a+(i.qty||0),0)||0),0)} items sold`, color: '#2196F3', up: true },
             { label: "Today's Sales", value: `${currency} ${Math.round(todayTotalRevenue).toLocaleString()}`, sub: todayTotalRevenue > 0 ? '↑ Today' : 'No sales yet', color: '#10B981', up: todayTotalRevenue > 0 },
-            { label: 'Expenses', value: `${currency} ${Math.round(expenses.reduce((s:number,e:any)=>s+(e.amount||0),0)).toLocaleString()}`, sub: 'Total spending', color: '#ef4444', up: false },
+            { label: 'Expenses', value: `${currency} ${Math.round(totalExpensesAmt).toLocaleString()}`, sub: 'Total spending', color: '#ef4444', up: false },
             { label: 'Profit', value: `${currency} ${Math.round(netProfit).toLocaleString()}`, sub: `${avgProfitMargin.toFixed(1)}% margin`, color: netProfit >= 0 ? '#00C853' : '#ef4444', up: netProfit >= 0 },
             { label: 'Purchases', value: `${currency} ${Math.round(purchases.reduce((s:number,p:any)=>s+(p.total||p.amount||0),0)).toLocaleString()}`, sub: `${purchases.length} orders`, color: '#7c3aed', up: false },
             { label: 'Dues Owed', value: `${currency} ${Math.round(filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').reduce((sum:number,s:any)=>sum+(s.dueAmount||s.amountDue||0),0)).toLocaleString()}`, sub: `${filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').length} unpaid`, color: '#f59e0b', up: false },
