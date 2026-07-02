@@ -48,7 +48,8 @@ const formatBytes = (value: number | null) => {
 const isSafeExternalUrl = (value: string) => {
   try {
     const url = new URL(value, window.location.origin);
-    return url.protocol === 'https:' || url.protocol === 'http:';
+    if (url.protocol === 'https:' || url.protocol === 'http:') return true;
+    return value.startsWith('data:image/') || value.startsWith('data:video/') || value.startsWith('data:text/');
   } catch {
     return false;
   }
@@ -233,6 +234,17 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
     downloadUrl(url, fileName);
   };
 
+  const copyCampaignMaterial = async (campaign: AffiliateCampaign) => {
+    const copyValue = campaign.recommended_caption || campaign.description || campaign.campaign_url || campaign.media_url;
+    if (!copyValue) {
+      setNotice('This campaign has no text or link to copy.');
+      return;
+    }
+    try { await recordAffiliateActivity('campaign_link_copy', 'campaign', campaign.id); } catch { /* Tracking should not block copying. */ }
+    await navigator.clipboard.writeText(copyValue);
+    setNotice('Promo material copied.');
+  };
+
   if (state === 'loading') {
     return <div className="min-h-[70vh] grid place-items-center bg-slate-50 text-slate-500"><LoaderCircle className="w-6 h-6 animate-spin" /></div>;
   }
@@ -295,8 +307,9 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
         {campaign.duration_seconds ? <span>{Math.ceil(campaign.duration_seconds / 60)} min video</span> : null}
         {formatBytes(campaign.media_size_bytes) ? <span>{formatBytes(campaign.media_size_bytes)}</span> : null}
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
         <button type="button" onClick={() => handleTrackedLink('ad_download', 'campaign', campaign.id, campaign.media_url, campaign.media_name)} className="inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-3 py-2.5 text-xs font-semibold text-white"><Download className="w-3.5 h-3.5" /> Download</button>
+        <button type="button" onClick={() => copyCampaignMaterial(campaign)} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2.5 text-xs font-semibold text-slate-700"><Copy className="w-3.5 h-3.5" /> Copy text</button>
         {campaign.campaign_url ? <button type="button" onClick={() => handleTrackedLink('campaign_link_copy', 'campaign', campaign.id, campaign.campaign_url!)} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2.5 text-xs font-semibold text-slate-700"><Copy className="w-3.5 h-3.5" /> Copy link</button> : <span className="grid place-items-center rounded-md border border-dashed border-slate-300 px-3 py-2.5 text-xs text-slate-400">No link</span>}
       </div>
     </article>

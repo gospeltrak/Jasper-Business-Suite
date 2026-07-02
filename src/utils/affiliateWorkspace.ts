@@ -1,4 +1,5 @@
 import { getDynamicSupabaseClient } from '../supabaseClient';
+import { loadPlatformRecord } from './superAdminPlatformRecords';
 
 export type AffiliateTaskStatus = 'new' | 'pending' | 'completed' | 'reviewed';
 export type AffiliateMeetingStatus = 'upcoming' | 'live' | 'completed' | 'cancelled';
@@ -128,6 +129,36 @@ export interface AffiliateAgentWorkspace {
 
 const asArray = <T,>(value: T[] | null | undefined): T[] => value || [];
 
+const mapSspBannerToCampaign = (banner: any): AffiliateCampaign | null => {
+  if (!banner) return null;
+  const status = String(banner.status || 'active').toLowerCase();
+  if (status !== 'active' && status !== 'live') return null;
+
+  const isMessage = banner.adType === 'message' || banner.category === 'Message Ad';
+  const mediaUrl = banner.assetData || (isMessage && banner.message
+    ? `data:text/plain;charset=utf-8,${encodeURIComponent(banner.message)}`
+    : banner.url);
+
+  if (!mediaUrl) return null;
+
+  return {
+    id: String(banner.id || `ssp-${banner.title || Date.now()}`),
+    campaign_name: 'Ad Exchange SSP',
+    title: banner.title || 'Promotional Material',
+    description: banner.message || banner.description || null,
+    recommended_caption: banner.message || null,
+    media_url: mediaUrl,
+    media_name: banner.creativeName || `${String(banner.title || 'promo-material').replace(/\s+/g, '-').toLowerCase()}.txt`,
+    media_mime_type: banner.creativeMime || (isMessage ? 'text/plain' : null),
+    media_size_bytes: banner.assetData ? Math.round(String(banner.assetData).length * 0.75) : null,
+    duration_seconds: null,
+    campaign_url: banner.url || null,
+    status: 'active',
+    available_from: null,
+    available_until: null,
+  };
+};
+
 export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData | null> {
   const client: any = await getDynamicSupabaseClient();
   const { data: authData, error: authError } = await client.auth.getUser();
@@ -175,20 +206,26 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
     try { const r = await fn(); return r.error ? { data: [] } : r; } catch { return { data: [] }; }
   };
 
-  const [tasksResult, meetingsResult, assignmentsResult, referralsResult, commissionsResult, payoutsResult, activitiesResult] = await Promise.all([
+  const [tasksResult, meetingsResult, assignmentsResult, sspBanners, referralsResult, commissionsResult, payoutsResult, activitiesResult] = await Promise.all([
     safeQuery(() => client.from('affiliate_tasks').select('*').order('created_at', { ascending: false }).limit(50)),
     safeQuery(() => client.from('affiliate_meetings').select('*').order('starts_at', { ascending: true }).limit(50)),
     safeQuery(() => client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(*)').order('created_at', { ascending: false }).limit(50)),
+    loadPlatformRecord<any[]>('promotional_banners', 'global', []),
     safeQuery(() => client.from('affiliate_referrals').select('id, status, created_at').order('created_at', { ascending: false }).limit(500)),
     safeQuery(() => client.from('affiliate_commissions').select('id, amount, gross_revenue, gross_commission, withholding_tax, net_payout, currency, status, created_at, available_at, paid_at').order('created_at', { ascending: false }).limit(500)),
     safeQuery(() => client.from('affiliate_payouts').select('id, amount, currency, payout_method, payout_reference, status, requested_at, processed_at, notes').order('requested_at', { ascending: false }).limit(100)),
     safeQuery(() => client.from('affiliate_activity_events').select('*').order('created_at', { ascending: false }).limit(200)),
   ]);
 
-  const campaigns = asArray<any>(assignmentsResult.data)
+  const assignedCampaigns = asArray<any>(assignmentsResult.data)
     .map((assignment) => assignment.campaign)
     .filter(Boolean)
     .filter((campaign, index, all) => all.findIndex((candidate) => candidate.id === campaign.id) === index) as AffiliateCampaign[];
+  const sspCampaigns = asArray<any>(sspBanners)
+    .map(mapSspBannerToCampaign)
+    .filter(Boolean) as AffiliateCampaign[];
+  const campaigns = [...assignedCampaigns, ...sspCampaigns]
+    .filter((campaign, index, all) => all.findIndex((candidate) => candidate.id === campaign.id) === index);
 
   return {
     profile: profile as AffiliateWorkspaceProfile,
