@@ -21,11 +21,22 @@ export const SAMPLE_HORIZONTAL_AD_CODE = `
 </div>
 `.trim();
 
+export const SAMPLE_STICKY_AD_CODE = `
+<div style="width:100%;max-width:760px;margin:0 auto;box-sizing:border-box;border:1px solid rgba(168,85,247,0.35);border-radius:16px;background:linear-gradient(90deg,#111827 0%,#581c87 48%,#7c3aed 100%);color:#ffffff;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 16px;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 18px 42px rgba(88,28,135,0.28);">
+  <div style="min-width:0;">
+    <p style="margin:0 0 3px;font-size:10px;line-height:1.2;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;opacity:0.72;">Sample Sticky Bottom Ad</p>
+    <p style="margin:0;font-size:16px;line-height:1.15;font-weight:950;">Lucy AI + business reports are ready</p>
+    <p style="margin:3px 0 0;font-size:11px;line-height:1.25;opacity:0.82;">Upgrade to manage sales, stock and insights from one dashboard.</p>
+  </div>
+  <a href="https://jasper-business-suite.vercel.app" target="_blank" rel="noopener noreferrer" style="flex:0 0 auto;border-radius:999px;background:#ffffff;color:#581c87;padding:9px 12px;font-size:11px;line-height:1;font-weight:900;text-decoration:none;white-space:nowrap;">View Plans</a>
+</div>
+`.trim();
+
 const DEFAULT_AD_SETTINGS: GlobalAdPlacementSettings = {
   dashboardAdCode: SAMPLE_HORIZONTAL_AD_CODE,
   dashboardAdEnabled: true,
-  bottomAdCode: '',
-  bottomAdEnabled: false,
+  bottomAdCode: SAMPLE_STICKY_AD_CODE,
+  bottomAdEnabled: true,
 };
 
 const LEGACY_KEYS = {
@@ -34,6 +45,8 @@ const LEGACY_KEYS = {
   bottomAdCode: 'jasper_bottom_ad_code',
   bottomAdEnabled: 'jasper_bottom_ad_enabled',
 };
+
+const SAMPLE_SEED_KEY = 'jasper_ad_samples_v2_seeded';
 
 function readLegacySettings(): GlobalAdPlacementSettings {
   const dashboardAdCode = localStorage.getItem(LEGACY_KEYS.dashboardAdCode);
@@ -60,6 +73,17 @@ export async function loadGlobalAdSettings(): Promise<GlobalAdPlacementSettings>
   const fallback = { ...DEFAULT_AD_SETTINGS, ...readLegacySettings() };
   const settings = await loadPlatformRecord<GlobalAdPlacementSettings>('global_ad_placement', 'global', fallback);
   const normalized = { ...DEFAULT_AD_SETTINGS, ...settings };
+  if (localStorage.getItem(SAMPLE_SEED_KEY) !== 'true') {
+    if (!normalized.dashboardAdCode?.trim()) {
+      normalized.dashboardAdCode = SAMPLE_HORIZONTAL_AD_CODE;
+      normalized.dashboardAdEnabled = true;
+    }
+    if (!normalized.bottomAdCode?.trim()) {
+      normalized.bottomAdCode = SAMPLE_STICKY_AD_CODE;
+      normalized.bottomAdEnabled = true;
+    }
+    localStorage.setItem(SAMPLE_SEED_KEY, 'true');
+  }
   cacheLegacySettings(normalized);
   return normalized;
 }

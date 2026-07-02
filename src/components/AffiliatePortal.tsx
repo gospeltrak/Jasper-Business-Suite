@@ -4349,6 +4349,95 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       ))}
                     </div>
 
+                    {sspInventory.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-[9.5px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                            Jasper Ads Materials
+                          </span>
+                          <span className="text-[9px] text-slate-500 font-mono">
+                            Preview before download
+                          </span>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                          {sspInventory.map((sspAd) => {
+                            const isVideo = sspAd.adType === "video" || (sspAd.creativeMime || "").startsWith("video/");
+                            const isVisual = !!sspAd.assetData && (sspAd.adType === "image" || sspAd.adType === "motion" || isVideo);
+                            const [rawWidth, rawHeight] = (sspAd.size || "300x250").split("x").map((value: string) => Number(value));
+                            const previewRatio = Number.isFinite(rawWidth) && Number.isFinite(rawHeight) && rawWidth > 0 && rawHeight > 0
+                              ? `${rawWidth} / ${rawHeight}`
+                              : "16 / 9";
+                            const adTag = `<iframe src="${sspAd.url}?ref=${activeAffiliate?.promoCode}" width="${Number.isFinite(rawWidth) ? rawWidth : 300}" height="${Number.isFinite(rawHeight) ? rawHeight : 250}" style="border:none;overflow:hidden"></iframe>`;
+
+                            return (
+                              <div key={sspAd.id} className="rounded-xl border border-slate-800 bg-slate-950 p-3 space-y-3">
+                                <div className="relative overflow-hidden rounded-lg border border-slate-800 bg-slate-900" style={{ aspectRatio: previewRatio }}>
+                                  {isVisual && isVideo && (
+                                    <>
+                                      <video src={sspAd.assetData} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                                      <div className="absolute inset-0 grid place-items-center bg-slate-950/25">
+                                        <span className="grid h-10 w-10 place-items-center rounded-full bg-white/90 text-slate-950">
+                                          <Play className="h-4 w-4 fill-current" />
+                                        </span>
+                                      </div>
+                                    </>
+                                  )}
+                                  {isVisual && !isVideo && (
+                                    <img src={sspAd.assetData} alt={sspAd.title || "Jasper ad material"} className="h-full w-full object-cover" />
+                                  )}
+                                  {!isVisual && (
+                                    <div className="flex h-full w-full items-center justify-center p-4 text-center">
+                                      <p className="text-xs font-bold leading-snug text-white line-clamp-4">{sspAd.message || sspAd.title}</p>
+                                    </div>
+                                  )}
+                                  <span className="absolute left-2 top-2 rounded bg-slate-950/80 px-2 py-1 text-[8px] font-bold uppercase tracking-wider text-emerald-300">
+                                    {sspAd.size}
+                                  </span>
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="truncate text-xs font-black text-white">{sspAd.title}</h4>
+                                  <p className="mt-1 truncate text-[10px] text-slate-500">{sspAd.creativeName || sspAd.message || "SSP promotional material"}</p>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveCreativeTab(sspAd.id)}
+                                    className="rounded-lg bg-emerald-500 px-2 py-2 text-[10px] font-black text-slate-950 hover:bg-emerald-400"
+                                  >
+                                    View
+                                  </button>
+                                  {sspAd.assetData ? (
+                                    <a
+                                      href={sspAd.assetData}
+                                      download={sspAd.creativeName || `${sspAd.title}.asset`}
+                                      className="rounded-lg bg-slate-900 px-2 py-2 text-center text-[10px] font-black text-slate-200 hover:text-white"
+                                    >
+                                      Download
+                                    </a>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => downloadCreative(`Jasper SSP ${sspAd.title} Ad banner`, sspAd.size, activeAffiliate?.promoCode || "")}
+                                      className="rounded-lg bg-slate-900 px-2 py-2 text-[10px] font-black text-slate-200 hover:text-white"
+                                    >
+                                      Download
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(adTag, setCopiedBanner)}
+                                    className="rounded-lg bg-slate-900 px-2 py-2 text-[10px] font-black text-emerald-300 hover:text-white"
+                                  >
+                                    Copy
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Active creative interactive preview box */}
                     <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-850 space-y-3">
                       <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 uppercase">

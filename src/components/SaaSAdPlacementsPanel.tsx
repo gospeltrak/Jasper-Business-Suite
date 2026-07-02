@@ -4,6 +4,7 @@ import {
   GlobalAdPlacementSettings,
   loadGlobalAdSettings,
   SAMPLE_HORIZONTAL_AD_CODE,
+  SAMPLE_STICKY_AD_CODE,
   saveGlobalAdSettings,
 } from '../utils/adPlacement';
 
@@ -187,7 +188,14 @@ export default function SaaSAdPlacementsPanel({ compact = false }: { compact?: b
             rows={compact ? 6 : 9}
             className="mt-4 min-h-44 w-full resize-y rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 font-mono text-[11px] leading-relaxed text-slate-300 outline-none placeholder:text-slate-600 focus:border-purple-400"
           />
-          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+          <div className="mt-3 grid gap-2 sm:grid-cols-[auto_1fr_auto]">
+            <button
+              type="button"
+              onClick={() => setBottomAdCode(SAMPLE_STICKY_AD_CODE)}
+              className="rounded-xl border-none bg-slate-800 px-4 py-2.5 text-xs font-black text-purple-300 hover:bg-slate-700"
+            >
+              Load Sticky Sample
+            </button>
             <button
               type="button"
               disabled={saving}
