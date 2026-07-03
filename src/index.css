@@ -123,6 +123,12 @@ body {
     padding-right: max(1.25rem, env(safe-area-inset-right));
     padding-top: 1.25rem;
   }
+  #overview-component {
+    width: 100%;
+    max-width: 560px;
+    margin-left: auto;
+    margin-right: auto;
+  }
 }
 /* Scrollable areas must explicitly opt-in */
 .overflow-y-auto, .overflow-y-scroll {
@@ -957,6 +963,5 @@ button:active:not(:disabled),
 .dark ::-webkit-scrollbar-thumb {
   background: #4b5563;
 }
-
 
 
