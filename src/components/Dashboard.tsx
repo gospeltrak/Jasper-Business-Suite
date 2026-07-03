@@ -563,6 +563,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const localWorkspaceChangedAtRef = useRef(0);
   const skipNextWorkspaceSaveRef = useRef(false);
+  const LOCAL_WORKSPACE_PROTECTION_MS = 12000;
 
   // Automatically refresh settings when pivot branch (activeTenant) updates
   useEffect(() => {
@@ -592,10 +593,14 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     let active = true;
     let unsubscribe = () => undefined;
     let refreshInFlight = false;
+    localWorkspaceChangedAtRef.current = 0;
     setWorkspaceReady(false);
 
     const applyWorkspace = (workspace: TenantWorkspace) => {
       if (!active) return;
+      if (Date.now() - localWorkspaceChangedAtRef.current < LOCAL_WORKSPACE_PROTECTION_MS) {
+        return;
+      }
       skipNextWorkspaceSaveRef.current = true;
       setProductsMap(prev => ({ ...prev, [activeTenant.id]: workspace.products || [] }));
       setBranchesMap(prev => ({ ...prev, [activeTenant.id]: workspace.branches || [] }));
@@ -618,7 +623,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
     const refreshWorkspaceFromDatabase = async (force = false) => {
       if (!active || !navigator.onLine || refreshInFlight) return;
-      if (!force && Date.now() - localWorkspaceChangedAtRef.current < 1500) return;
+      if (Date.now() - localWorkspaceChangedAtRef.current < LOCAL_WORKSPACE_PROTECTION_MS) return;
       refreshInFlight = true;
       try {
         await flushPendingTenantWorkspace(activeTenant.id);
@@ -2595,6 +2600,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               products={activeProducts}
               systemSettings={systemSettings}
               onUpdateSettings={(updated) => {
+                localWorkspaceChangedAtRef.current = Date.now();
                 setSystemSettings(updated);
                 localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
                 saveData(activeTenant.id, 'settings', updated);
@@ -2759,6 +2765,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               user={user}
               systemSettings={systemSettings}
               onUpdateSystemSettings={(updated) => {
+                localWorkspaceChangedAtRef.current = Date.now();
                 setSystemSettings(updated);
                 localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
                 saveData(activeTenant.id, 'settings', updated);
@@ -2778,6 +2785,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             <DashboardStaff 
               systemSettings={systemSettings}
               onUpdateSettings={(updated) => {
+                localWorkspaceChangedAtRef.current = Date.now();
                 setSystemSettings(updated);
                 localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
                 saveData(activeTenant.id, 'settings', updated);
@@ -2795,9 +2803,22 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               activeTenant={activeTenant}
               systemSettings={systemSettings}
               onSaveSettings={(updated) => {
+                localWorkspaceChangedAtRef.current = Date.now();
                 setSystemSettings(updated);
                 localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
                 saveData(activeTenant.id, 'settings', updated);
+                saveTenantWorkspace(activeTenant.id, {
+                  branches: branchesMap[activeTenant.id] || [],
+                  branchStocks: branchStocksMap[activeTenant.id] || [],
+                  branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+                  products: productsMap[activeTenant.id] || [],
+                  sales: salesMap[activeTenant.id] || [],
+                  expenses: expensesMap[activeTenant.id] || [],
+                  settings: updated,
+                  deliveries: deliveriesMap[activeTenant.id] || [],
+                  pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+                  purchases: purchasesMap[activeTenant.id] || [],
+                });
                 let logoToSave = '';
                 if (updated.company?.logo) {
                   logoToSave = updated.company.logo;

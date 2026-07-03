@@ -205,8 +205,16 @@ export function emptyWorkspace(settings?: Partial<SystemSettings>): TenantWorksp
     expenses: [],
     settings: {
       company: { businessName: '', businessType: '', currency: 'TZS', currencySymbol: 'TSh', country: 'Tanzania', city: '', taxRate: 18, logoUrl: '' },
-      business: { allowNegativeStock: false, defaultUnit: 'pcs', requireStockCheck: true, autoGenerateBarcode: false },
-      productStore: { showImages: true, compactView: false },
+      business: {
+        allowNegativeStock: false,
+        defaultUnit: 'pcs',
+        requireStockCheck: true,
+        autoGenerateBarcode: false,
+        paymentModes: [],
+        deliveryPaymentModes: [],
+        registeredStores: []
+      },
+      productStore: { showImages: true, compactView: false, categories: [], units: [] },
       staffs: [],
       ...(settings || {}),
     } as SystemSettings,
