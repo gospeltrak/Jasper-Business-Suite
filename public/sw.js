@@ -1,5 +1,5 @@
 // Jasper Business Suite Service Worker (Premium POS/ERP Offline-First Support)
-const CACHE_NAME = 'jasper-pos-cache-v3';
+const CACHE_NAME = 'jasper-pos-cache-v4';
 
 // Assets to cache immediately on SW install
 const ASSETS_TO_CACHE = [
@@ -7,9 +7,10 @@ const ASSETS_TO_CACHE = [
   '/index.html',
   '/manifest.json',
   '/jb-logo.png',
-  '/src/main.tsx',
-  '/src/App.tsx',
-  '/src/index.css'
+  '/jasper_logo_transparent.png',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -43,8 +44,30 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Let API and Gemini endpoint requests pass through to the live network with no caching
-  if (event.request.url.includes('/api/') || event.request.url.includes('google.com') || event.request.method !== 'GET') {
+  const url = new URL(event.request.url);
+  // Let API and AI endpoint requests pass through to the live network with no caching
+  if (
+    event.request.method !== 'GET' ||
+    url.pathname.startsWith('/api/') ||
+    url.hostname.includes('google.com') ||
+    url.hostname.includes('generativelanguage.googleapis.com')
+  ) {
+    return;
+  }
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put('/', copy));
+          return response;
+        })
+        .catch(async () => {
+          const cache = await caches.open(CACHE_NAME);
+          return (await cache.match('/')) || (await cache.match('/index.html'));
+        })
+    );
     return;
   }
 

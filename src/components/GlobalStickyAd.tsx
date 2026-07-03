@@ -12,7 +12,7 @@ type GlobalStickyAdProps = {
 };
 
 export default function GlobalStickyAd({
-  bottomOffsetClass = 'bottom-[calc(0.75rem+env(safe-area-inset-bottom))] xl:bottom-4',
+  bottomOffsetClass = 'bottom-[calc(0.75rem+env(safe-area-inset-bottom)+var(--browser-bottom-inset,0px))] xl:bottom-4',
   leftOffsetClass = 'left-3 xl:left-1/2 xl:-translate-x-1/2',
   maxWidthClass = 'max-w-[640px]',
   className = '',

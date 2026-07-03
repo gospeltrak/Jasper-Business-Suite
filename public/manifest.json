@@ -1,6 +1,7 @@
 {
   "short_name": "Jasper",
   "name": "Jasper Business Suite",
+  "id": "/?source=pwa",
   "description": "Premium African retail POS, dine-in, pharmacy, and hotel ERP workspace.",
   "icons": [
     {
@@ -16,9 +17,13 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "background_color": "#0f172a",
   "display": "standalone",
+  "display_override": ["standalone", "fullscreen", "minimal-ui", "browser"],
   "theme_color": "#0f172a",
-  "orientation": "portrait"
+  "orientation": "portrait",
+  "categories": ["business", "productivity", "finance"],
+  "prefer_related_applications": false
 }
