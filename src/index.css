@@ -89,6 +89,41 @@ body {
   overflow: hidden;
   position: relative;
 }
+#dashboard-scaffold {
+  height: 100svh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+@supports (-webkit-touch-callout: none) {
+  #dashboard-scaffold {
+    height: -webkit-fill-available;
+    max-height: -webkit-fill-available;
+  }
+}
+@media (max-width: 1023px) {
+  #workspace-content {
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+    scroll-padding-bottom: calc(6.75rem + env(safe-area-inset-bottom));
+  }
+  #dashboard-scaffold input,
+  #dashboard-scaffold textarea,
+  #dashboard-scaffold select {
+    font-size: 16px;
+  }
+  #dashboard-scaffold .rounded-3xl {
+    border-radius: 1.5rem;
+  }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  #workspace-content {
+    padding-left: max(1.25rem, env(safe-area-inset-left));
+    padding-right: max(1.25rem, env(safe-area-inset-right));
+    padding-top: 1.25rem;
+  }
+}
 /* Scrollable areas must explicitly opt-in */
 .overflow-y-auto, .overflow-y-scroll {
   overscroll-behavior: contain;
@@ -922,7 +957,6 @@ button:active:not(:disabled),
 .dark ::-webkit-scrollbar-thumb {
   background: #4b5563;
 }
-
 
 
 
