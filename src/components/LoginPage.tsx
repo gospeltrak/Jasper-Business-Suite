@@ -203,6 +203,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [ownerName, setOwnerName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [showRegPassword, setShowRegPassword] = useState(false);
   const [regSecurityQuestion, setRegSecurityQuestion] = useState('');
   const [regSecurityAnswer, setRegSecurityAnswer] = useState('');
   const [orgName, setOrgName] = useState('');
@@ -1920,14 +1921,24 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Pin Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={regPassword}
-                    placeholder="••••••••"
-                    onChange={(e) => setRegPassword(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none font-mono"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showRegPassword ? 'text' : 'password'}
+                      required
+                      value={regPassword}
+                      placeholder="••••••••"
+                      onChange={(e) => setRegPassword(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 pr-11 text-xs text-slate-800 outline-none font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowRegPassword((prev) => !prev)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                      aria-label={showRegPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
