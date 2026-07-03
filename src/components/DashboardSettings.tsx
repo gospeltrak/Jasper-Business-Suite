@@ -950,45 +950,68 @@ export default function DashboardSettings({
     }));
   };
 
+  const persistProductStoreSettings = (nextProductForm: ProductStoreSettings) => {
+    onSaveSettings({
+      company: companyForm,
+      business: businessForm,
+      productStore: nextProductForm,
+      staffs: staffsList,
+      customRoles: customRolesList,
+      invoiceSettings: invoiceSettingsForm,
+      posSettings: posSettingsForm
+    });
+  };
+
   // Product Categories management states
   const [newCategory, setNewCategory] = useState('');
   const handleAddCategory = () => {
-    if (newCategory.trim()) {
-      if (!productForm.categories.includes(newCategory.trim())) {
-        setProductForm(prev => ({
-          ...prev,
-          categories: [...prev.categories, newCategory.trim()]
-        }));
-      }
-      setNewCategory('');
+    const category = newCategory.trim();
+    if (!category) return;
+
+    const currentCategories = productForm.categories || [];
+    if (!currentCategories.includes(category)) {
+      const nextProductForm = {
+        ...productForm,
+        categories: [...currentCategories, category]
+      };
+      setProductForm(nextProductForm);
+      persistProductStoreSettings(nextProductForm);
     }
+    setNewCategory('');
   };
   const handleRemoveCategory = (cat: string) => {
-    setProductForm(prev => ({
-      ...prev,
-      categories: prev.categories.filter(c => c !== cat)
-    }));
+    const nextProductForm = {
+      ...productForm,
+      categories: (productForm.categories || []).filter(c => c !== cat)
+    };
+    setProductForm(nextProductForm);
+    persistProductStoreSettings(nextProductForm);
   };
 
   // Product Units management states
   const [newUnit, setNewUnit] = useState('');
   const handleAddUnit = () => {
-    if (newUnit.trim()) {
-      const formatted = newUnit.trim().toLowerCase();
-      if (!productForm.units.includes(formatted)) {
-        setProductForm(prev => ({
-          ...prev,
-          units: [...prev.units, formatted]
-        }));
-      }
-      setNewUnit('');
+    const formatted = newUnit.trim().toLowerCase();
+    if (!formatted) return;
+
+    const currentUnits = productForm.units || [];
+    if (!currentUnits.includes(formatted)) {
+      const nextProductForm = {
+        ...productForm,
+        units: [...currentUnits, formatted]
+      };
+      setProductForm(nextProductForm);
+      persistProductStoreSettings(nextProductForm);
     }
+    setNewUnit('');
   };
   const handleRemoveUnit = (unit: string) => {
-    setProductForm(prev => ({
-      ...prev,
-      units: prev.units.filter(u => u !== unit)
-    }));
+    const nextProductForm = {
+      ...productForm,
+      units: (productForm.units || []).filter(u => u !== unit)
+    };
+    setProductForm(nextProductForm);
+    persistProductStoreSettings(nextProductForm);
   };
 
   // HRM states for registering staffs
