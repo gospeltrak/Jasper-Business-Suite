@@ -138,7 +138,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     fatumaRole: "Managing Director • Arusha",
     pricingHeader: "Simple Prices",
     pricingSub: "Choose a plan that fits your shop scale",
-    pricingDesc: "Start with a 14-day free trial. Choose a plan to continue. Switch plans anytime.",
+    pricingDesc: "Start with a 10-day free trial, or 20 days with a valid promo code. Choose a plan to continue. Switch plans anytime.",
     trialName: "Free Trial",
     trialDesc: "Test all options and load your products free today.",
     essentialName: "Essential",
@@ -235,7 +235,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     fatumaRole: "Meneja wa Hoteli • Arusha",
     pricingHeader: "Bei Rahisi",
     pricingSub: "Chagua kifurushi kinachofaa duka lako",
-    pricingDesc: "Anza na siku 14 bure. Chagua kifurushi ili uendelee. Badilisha kifurushi wakati wowote.",
+    pricingDesc: "Anza na siku 10 bure, au siku 20 kwa promo code halali. Chagua kifurushi ili uendelee. Badilisha kifurushi wakati wowote.",
     trialName: "Majaribio Bure",
     trialDesc: "Kagua vipengele na uandae orodha ya bidhaa zako bure kabisa.",
     essentialName: "Msingi",
@@ -1053,8 +1053,8 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
         a: "Yes, absolutely! If your internet connection or power goes down, Jasper keeps checking out customers and tracking stock locally on your device. Once the internet is restored, it automatically synchronizes and updates your cloud dashboard."
       },
       {
-        q: "How do I pay after my 14-day free trial?",
-        a: "At the end of your 14 days, you will receive a friendly notification in your dashboard to choose a suitable package. You can pay easily using standard local methods like M-Pesa, Airtel Money, Tigo Mixx by Yas, or Visa/Mastercard."
+        q: "How do I pay after my free trial?",
+        a: "At the end of your 10-day trial, or 20 days when registered with a valid promo code, you will receive a friendly notification in your dashboard to choose a suitable package. You can pay easily using standard local methods like M-Pesa, Airtel Money, Tigo Mixx by Yas, or Visa/Mastercard."
       },
       {
         q: "How does the multi-store consolidated bookkeeping work?",
@@ -1071,8 +1071,8 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
         a: "Ndiyo, kabisa! Internet au umeme ukikatika, Jasper itaendelea kufanya kazi ya mauzo na kupunguza stoki kama kawaida. Internet ikirudi, mfumo unajisawazisha wenyewe kwenye mtandao wako."
       },
       {
-        q: "Ninalipia vipi baada ya majaribio ya siku 14 kupita?",
-        a: "Baada ya majaribio ya bure kuisha, utapata ujumbe kwenye skrini yako ukikuongoza kuchagua kifurushi chako. Unaweza kulipa kwa M-Pesa, Airtel Money, Tigo Mixx au kadi ya benki."
+        q: "Ninalipia vipi baada ya majaribio ya bure kuisha?",
+        a: "Baada ya siku 10 za majaribio, au siku 20 kama ulijisajili kwa promo code halali, utapata ujumbe kwenye skrini yako ukikuongoza kuchagua kifurushi chako. Unaweza kulipa kwa M-Pesa, Airtel Money, Tigo Mixx au kadi ya benki."
       },
       {
         q: "Inasaidiaje kuunganisha maduka mengi pamoja?",
@@ -1588,7 +1588,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               Simple, transparent pricing
             </h2>
             <p className={`text-sm leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Start with a 14-day free trial. No credit card required. Upgrade or cancel anytime.
+              Start with a 10-day free trial. Promo-code registrations can get 20 days. No credit card required. Upgrade or cancel anytime.
             </p>
           </div>
 
@@ -1770,7 +1770,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
 
           {/* Footer note */}
           <p className={`text-center text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            All packages include a <strong>14-day free trial</strong>. Cancel anytime. Prices in Tanzanian Shillings (TZS).
+            All packages include a <strong>10-day free trial</strong>. Valid promo-code registrations can get <strong>20 days</strong>. Cancel anytime. Prices in Tanzanian Shillings (TZS).
           </p>
 
         </div>

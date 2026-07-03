@@ -99,13 +99,14 @@ export default function AIBusinessCopilot({
 }: AIBusinessCopilotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
-  const planId = normalizeSubscriptionPlanId(
+  const rawPlanId = normalizeSubscriptionPlanId(
     subscriptionStatus?.state?.planId
       || subscriptionStatus?.plan?.packageId
       || subscriptionStatus?.plan?.id
       || activeTenant.activePackageId
       || activeTenant.selectedPackageId
   );
+  const planId = rawPlanId === 'trial' && !subscriptionStatus?.isExpired ? 'diamond' : rawPlanId;
   const isLucyEnabled = planId === 'diamond' || planId === 'tanzanite';
   const dailyLimits = planId === 'tanzanite'
     ? { chat: 500, report: 6, forecast: 3 }

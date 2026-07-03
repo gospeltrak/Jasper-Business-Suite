@@ -1198,7 +1198,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   // SaaS Tenant & User Registration Setup Endpoint
   app.post('/api/auth/register', async (req, res) => {
     if (!supabaseAdmin) {
-      return res.status(503).json({ error: 'Supabase backend client is not configured' });
+      return res.status(503).json({ error: 'Secure encrypted database client is not configured' });
     }
     
     const { email, password, name, businessName, phone, country, city, currency, currencyCode, taxRate, businessType, referralCode } = req.body;

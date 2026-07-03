@@ -17,20 +17,23 @@ export interface SubscriptionPlan {
 export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = {
   trial: {
     id: 'trial',
-    name: 'Sandbox Plan',
+    name: 'Diamond Free Trial',
     price: 0,
     durationDays: 10,
-    maxProducts: 200,
-    maxStores: 1,
-    maxStaff: 2,
+    maxProducts: 5000,
+    maxStores: 999999,
+    maxStaff: 6,
     features: [
-      'Max 200 Products catalogued',
-      'Max 1 Active Store branch',
-      'Max 2 Users / staff access',
-      'Supplies management',
-      'Cashier Till (POS Simulator)',
-      'Basic Business Reports',
-      'Customer management system'
+      'Diamond experience during trial',
+      'Max 5000 Products catalogued',
+      'Max 2 Active Store branches',
+      'Max 6 Users / staff accounts',
+      'Custom Role Security permissions',
+      'Supplies & supplier log ledger',
+      'Cashier POS Till checkout',
+      'Consolidated P&L index generators',
+      'Branch management and stock transfer',
+      'Lucy AI Diamond access while trial is active'
     ]
   },
   ruby: {
@@ -195,19 +198,27 @@ export async function loadSubscriptionFromDB(tenantId: string): Promise<Subscrip
 
     const { data, error } = await client
       .from('tenants')
-      .select('subscription_plan, subscription_activated_at')
+      .select('subscription_plan, subscription_status, subscription_start_date, subscription_end_date, subscription_activated_at, active_package_id, selected_package_id')
       .eq('id', tenantId)
       .maybeSingle();
 
-    if (error || !data || !data.subscription_plan) return null;
+    if (error || !data) return null;
 
-    const normalizedPlanId = normalizeSubscriptionPlanId(data.subscription_plan);
+    const rawPlan = data.active_package_id || data.selected_package_id || data.subscription_plan || data.subscription_status || 'trial';
+    const normalizedPlanId = normalizeSubscriptionPlanId(rawPlan);
+    const startedAt = data.subscription_start_date || data.subscription_activated_at || new Date().toISOString();
+    const startMs = new Date(startedAt).getTime();
+    const endMs = data.subscription_end_date ? new Date(data.subscription_end_date).getTime() : 0;
+    const dbTrialDays = Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs
+      ? Math.round((endMs - startMs) / (1000 * 60 * 60 * 24))
+      : 10;
     const state: SubscriptionState = {
       planId: normalizedPlanId,
-      trialStartedAt: data.subscription_activated_at || new Date().toISOString(),
+      trialStartedAt: startedAt,
       isSubscribedPaid: normalizedPlanId !== 'trial',
       paidAt: data.subscription_activated_at || undefined,
-      paymentStatus: 'active',
+      promoCodeUsed: normalizedPlanId === 'trial' && dbTrialDays >= 15 ? 'PROMO' : undefined,
+      paymentStatus: data.subscription_status === 'expired' ? 'expired' : 'active',
       autoRenewEnabled: true,
     };
     saveSubscriptionState(state);
@@ -267,7 +278,9 @@ export function checkSubscriptionStatus(
   currentStaffCount: number
 ): SubscriptionStatusInfo {
   const normalizedPlanId = normalizeSubscriptionPlanId(state.planId);
-  const plan = SUBSCRIPTION_PLANS[normalizedPlanId];
+  const plan = normalizedPlanId === 'trial'
+    ? SUBSCRIPTION_PLANS.trial
+    : SUBSCRIPTION_PLANS[normalizedPlanId];
   const periodStartedAt = normalizedPlanId === 'trial'
     ? state.trialStartedAt
     : state.paidAt || state.trialStartedAt;

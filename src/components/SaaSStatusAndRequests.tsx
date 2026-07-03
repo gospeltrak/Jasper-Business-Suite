@@ -342,7 +342,7 @@ export default function SaaSStatusAndRequests() {
           </select>
           <select value={emergencyPlan} onChange={e => setEmergencyPlan(e.target.value)}
             className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-amber-500 cursor-pointer">
-            <option value="trial">Trial (14 days)</option>
+            <option value="trial">Trial (10 days / 20 with promo)</option>
             <option value="ruby">Ruby – TZS 20,000</option>
             <option value="diamond">Diamond – TZS 35,000</option>
             <option value="tanzanite">Tanzanite – TZS 50,000</option>

@@ -841,7 +841,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       profileImage: loginOtpUser.profileImage,
       phone: loginOtpUser.phone,
       trial_start_date: loginOtpUser.trial_start_date || new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      trial_end_date: loginOtpUser.trial_end_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      trial_end_date: loginOtpUser.trial_end_date || new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
       is_affiliate_lead: loginOtpUser.is_affiliate_lead || false,
       referral_code_used: loginOtpUser.referral_code_used || ''
     });
@@ -980,7 +980,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           isSaaSStaff: match.isSaaSStaff || false,
           rolePermissions: match.rolePermissions,
           trial_start_date: match.trial_start_date || new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          trial_end_date: match.trial_end_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          trial_end_date: match.trial_end_date || new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
           is_affiliate_lead: match.is_affiliate_lead || false,
           referral_code_used: match.referral_code_used || ''
         });

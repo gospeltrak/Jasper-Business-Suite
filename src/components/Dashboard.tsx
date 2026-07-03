@@ -1151,6 +1151,23 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   );
   const isTrialAccount = normalizeSubscriptionPlanId(subStatus.state.planId) === 'trial' && !subStatus.state.isSubscribedPaid;
   const isTrialAccessLocked = user.role !== 'SuperAdmin' && isTrialAccount && subStatus.isExpired;
+  const trialDurationDays = subStatus.state.promoCodeUsed ? 20 : 10;
+  const rubyDowngradeNotes = [
+    'Lucy AI online assistant is not included',
+    'Product limit drops from 5,000 to 1,000',
+    'Branch limit drops from Diamond multi-branch to 1 store',
+    'Staff limit drops from 6 users to 2 users',
+    'Custom role security and advanced branch stock controls are reduced',
+    'Advanced consolidated reports and delivery/branch workflows are limited'
+  ];
+  const tanzaniteUpgradeNotes = [
+    'Unlimited product catalog capacity',
+    'Up to 5 active branches',
+    'Up to 15 staff accounts',
+    'Lucy AI Tanzanite limits: 500 chats, 6 reports, 3 forecasts per day',
+    'Full white-label branding tools',
+    'Staff payroll, allowances, and richer executive reporting'
+  ];
 
   const getSubscriptionCountdown = () => {
     if (subStatus.daysRemaining <= 0 && !isTrialAccessLocked) return null;
@@ -2396,52 +2413,106 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           <main id="workspace-content" className={`flex-1 overflow-y-auto scrollbar-none overscroll-none touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-4 md:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-6 min-h-0`}>
 
             {isTrialAccessLocked ? (
-              <div className="min-h-[calc(100dvh-180px)] flex items-center justify-center">
-                <div className="w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 text-center shadow-sm space-y-5">
-                  <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 flex items-center justify-center mx-auto text-amber-600">
-                    <AlertTriangle className="w-7 h-7" />
+              <div className="min-h-[calc(100dvh-120px)]">
+                <section className="mx-auto flex w-full max-w-6xl flex-col gap-5">
+                  <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-xl dark:border-slate-800">
+                    <div className="grid gap-6 p-6 md:grid-cols-[1.15fr_0.85fr] md:p-8">
+                      <div className="space-y-5">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-300">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          Trial expired
+                        </div>
+                        <div className="space-y-2">
+                          <h2 className="text-3xl font-black tracking-tight md:text-4xl">Your Diamond free trial has ended</h2>
+                          <p className="max-w-2xl text-sm leading-6 text-slate-300">
+                            During your free trial you were using the Diamond package experience for {trialDurationDays} days. Your business data is still preserved. Choose Ruby, Diamond, or Tanzanite below, submit payment proof, and continue with the package limits you select.
+                          </p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Trial package</p>
+                            <p className="mt-1 text-lg font-black text-emerald-300">Diamond</p>
+                          </div>
+                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Trial length</p>
+                            <p className="mt-1 text-lg font-black text-white">{trialDurationDays} days</p>
+                          </div>
+                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Data status</p>
+                            <p className="mt-1 text-lg font-black text-white">Preserved</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="rounded-3xl border border-amber-300/20 bg-amber-300/10 p-5">
+                        <h3 className="text-sm font-black uppercase tracking-wider text-amber-200">Before choosing Ruby</h3>
+                        <p className="mt-2 text-xs leading-5 text-amber-50/85">Ruby is cheaper, but because your trial was Diamond, these Diamond features will no longer be available on Ruby:</p>
+                        <ul className="mt-3 space-y-2 text-xs text-amber-50/90">
+                          {rubyDowngradeNotes.map((note) => <li key={note} className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />{note}</li>)}
+                        </ul>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                      Your free trial has expired
-                    </h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-w-lg mx-auto">
-                      We redirected you to the subscription packages page because your trial period has ended. Choose Diamond or Tanzanite to continue using your dashboard without losing your business data.
-                    </p>
+
+                  <div className="grid gap-4 lg:grid-cols-3">
+                    {([
+                      { id: 'ruby' as const, tag: 'Lower cost', tone: 'border-rose-200 bg-white', cta: 'Choose Ruby', notes: ['TZS 20,000 / month', '1,000 products', '1 store', '2 staff users'] },
+                      { id: 'diamond' as const, tag: 'Same as trial', tone: 'border-emerald-300 bg-emerald-50', cta: 'Keep Diamond', notes: ['TZS 35,000 / month', '5,000 products', 'Diamond Lucy AI', '6 staff users'] },
+                      { id: 'tanzanite' as const, tag: 'Full upgrade', tone: 'border-cyan-300 bg-white', cta: 'Upgrade Tanzanite', notes: ['TZS 50,000 / month', 'Unlimited products', 'Forecasting + higher Lucy limits', '15 staff users'] },
+                    ]).map((pkg) => {
+                      const plan = SUBSCRIPTION_PLANS[pkg.id];
+                      const isDiamond = pkg.id === 'diamond';
+                      return (
+                        <article key={pkg.id} className={`rounded-3xl border p-5 shadow-sm ${pkg.tone}`}>
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest ${isDiamond ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{pkg.tag}</span>
+                              <h3 className="mt-3 text-2xl font-black text-slate-950">{plan.name}</h3>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Monthly</p>
+                              <p className="text-lg font-black text-slate-950">{activeTenant.currency}{plan.price.toLocaleString()}</p>
+                            </div>
+                          </div>
+                          <ul className="mt-5 space-y-2 text-sm text-slate-600">
+                            {pkg.notes.map((note) => <li key={note} className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />{note}</li>)}
+                          </ul>
+                          {pkg.id === 'tanzanite' && (
+                            <div className="mt-4 rounded-2xl bg-cyan-50 p-3">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-cyan-700">Extra vs Diamond</p>
+                              <ul className="mt-2 space-y-1.5 text-xs text-cyan-900">
+                                {tanzaniteUpgradeNotes.slice(0, 4).map((note) => <li key={note}>+ {note}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setManualActivationPackage(pkg.id);
+                              setSubModal({
+                                show: true,
+                                title: `${pkg.cta}`,
+                                limitType: 'expired',
+                                description: `Select ${plan.name}, pay, and upload your receipt for activation.`
+                              });
+                            }}
+                            className={`mt-5 w-full rounded-2xl px-4 py-3 text-sm font-black transition-colors ${isDiamond ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
+                          >
+                            {pkg.cta}
+                          </button>
+                        </article>
+                      );
+                    })}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setManualActivationPackage('diamond');
-                        setSubModal({
-                          show: true,
-                          title: 'Subscribe with Diamond',
-                          limitType: 'expired',
-                          description: 'Select Diamond, pay, and upload your receipt for activation.'
-                        });
-                      }}
-                      className="rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-4 py-3 transition-colors"
-                    >
-                      Diamond Package
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setManualActivationPackage('tanzanite');
-                        setSubModal({
-                          show: true,
-                          title: 'Subscribe with Tanzanite',
-                          limitType: 'expired',
-                          description: 'Select Tanzanite, pay, and upload your receipt for activation.'
-                        });
-                      }}
-                      className="rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm px-4 py-3 transition-colors"
-                    >
-                      Tanzanite Package
-                    </button>
+
+                  <div className="rounded-3xl border border-cyan-200 bg-cyan-50 p-5">
+                    <h3 className="text-sm font-black uppercase tracking-wider text-cyan-900">If you choose Tanzanite you gain</h3>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {tanzaniteUpgradeNotes.map((note) => (
+                        <div key={note} className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-cyan-950 shadow-sm">{note}</div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                </section>
               </div>
             ) : (
             <>
