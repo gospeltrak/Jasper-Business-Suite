@@ -882,6 +882,32 @@ export default function DashboardSettings({
     }));
   };
 
+  const persistCompanySettings = (nextCompanyForm: CompanySettings) => {
+    markSettingsDraftChanged();
+    onSaveSettings({
+      company: nextCompanyForm,
+      business: businessForm,
+      productStore: productForm,
+      staffs: staffsList,
+      customRoles: customRolesList,
+      invoiceSettings: invoiceSettingsForm,
+      posSettings: posSettingsForm
+    });
+  };
+
+  const persistBusinessSettings = (nextBusinessForm: BusinessSettings) => {
+    markSettingsDraftChanged();
+    onSaveSettings({
+      company: companyForm,
+      business: nextBusinessForm,
+      productStore: productForm,
+      staffs: staffsList,
+      customRoles: customRolesList,
+      invoiceSettings: invoiceSettingsForm,
+      posSettings: posSettingsForm
+    });
+  };
+
   // Drag and drop logo processors
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'company' | 'business' | 'business_light' | 'business_dark') => {
     const file = e.target.files?.[0];
@@ -890,22 +916,30 @@ export default function DashboardSettings({
       reader.onloadend = () => {
         const base64String = reader.result as string;
         if (target === 'company') {
-          setCompanyForm(prev => ({ ...prev, logo: base64String }));
+          const nextCompanyForm = { ...companyForm, logo: base64String };
+          setCompanyForm(nextCompanyForm);
           setHasNewLogoToSave(true);
+          persistCompanySettings(nextCompanyForm);
         } else if (target === 'business_light') {
-          setBusinessForm(prev => ({ 
-            ...prev, 
+          const nextBusinessForm = { 
+            ...businessForm, 
             businessLogoLight: base64String, 
-            businessLogo: prev.businessLogo || base64String // set as general if empty
-          }));
+            businessLogo: businessForm.businessLogo || base64String
+          };
+          setBusinessForm(nextBusinessForm);
+          persistBusinessSettings(nextBusinessForm);
         } else if (target === 'business_dark') {
-          setBusinessForm(prev => ({ 
-            ...prev, 
+          const nextBusinessForm = { 
+            ...businessForm, 
             businessLogoDark: base64String,
-            businessLogo: prev.businessLogo || base64String // set as general if empty
-          }));
+            businessLogo: businessForm.businessLogo || base64String
+          };
+          setBusinessForm(nextBusinessForm);
+          persistBusinessSettings(nextBusinessForm);
         } else {
-          setBusinessForm(prev => ({ ...prev, businessLogo: base64String }));
+          const nextBusinessForm = { ...businessForm, businessLogo: base64String };
+          setBusinessForm(nextBusinessForm);
+          persistBusinessSettings(nextBusinessForm);
         }
       };
       reader.readAsDataURL(file);
@@ -915,42 +949,51 @@ export default function DashboardSettings({
   // Delivery Payment Mode management states
   const [newDeliveryPaymentMode, setNewDeliveryPaymentMode] = useState('');
   const handleAddDeliveryPaymentMode = () => {
-    if (newDeliveryPaymentMode.trim()) {
-      if (!businessForm.deliveryPaymentModes?.includes(newDeliveryPaymentMode.trim())) {
-        setBusinessForm(prev => ({
-          ...prev,
-          deliveryPaymentModes: [...(prev.deliveryPaymentModes || []), newDeliveryPaymentMode.trim()]
-        }));
-      }
-      setNewDeliveryPaymentMode('');
+    const deliveryMode = newDeliveryPaymentMode.trim();
+    if (!deliveryMode) return;
+    const currentDeliveryPaymentModes = businessForm.deliveryPaymentModes || [];
+    if (!currentDeliveryPaymentModes.includes(deliveryMode)) {
+      const nextBusinessForm = {
+        ...businessForm,
+        deliveryPaymentModes: [...currentDeliveryPaymentModes, deliveryMode]
+      };
+      setBusinessForm(nextBusinessForm);
+      persistBusinessSettings(nextBusinessForm);
     }
+    setNewDeliveryPaymentMode('');
   };
   const handleRemoveDeliveryPaymentMode = (mode: string) => {
-    setBusinessForm(prev => ({
-      ...prev,
-      deliveryPaymentModes: (prev.deliveryPaymentModes || []).filter(m => m !== mode)
-    }));
+    const nextBusinessForm = {
+      ...businessForm,
+      deliveryPaymentModes: (businessForm.deliveryPaymentModes || []).filter(m => m !== mode)
+    };
+    setBusinessForm(nextBusinessForm);
+    persistBusinessSettings(nextBusinessForm);
   };
 
   // Payment Mode management states
   const [newPaymentMode, setNewPaymentMode] = useState('');
   const handleAddPaymentMode = () => {
-    if (newPaymentMode.trim()) {
-      const currentPaymentModes = businessForm.paymentModes || [];
-      if (!currentPaymentModes.includes(newPaymentMode.trim())) {
-        setBusinessForm(prev => ({
-          ...prev,
-          paymentModes: [...(prev.paymentModes || []), newPaymentMode.trim()]
-        }));
-      }
-      setNewPaymentMode('');
+    const paymentMode = newPaymentMode.trim();
+    if (!paymentMode) return;
+    const currentPaymentModes = businessForm.paymentModes || [];
+    if (!currentPaymentModes.includes(paymentMode)) {
+      const nextBusinessForm = {
+        ...businessForm,
+        paymentModes: [...currentPaymentModes, paymentMode]
+      };
+      setBusinessForm(nextBusinessForm);
+      persistBusinessSettings(nextBusinessForm);
     }
+    setNewPaymentMode('');
   };
   const handleRemovePaymentMode = (mode: string) => {
-    setBusinessForm(prev => ({
-      ...prev,
-      paymentModes: (prev.paymentModes || []).filter(m => m !== mode)
-    }));
+    const nextBusinessForm = {
+      ...businessForm,
+      paymentModes: (businessForm.paymentModes || []).filter(m => m !== mode)
+    };
+    setBusinessForm(nextBusinessForm);
+    persistBusinessSettings(nextBusinessForm);
   };
 
   // Store management states
@@ -980,20 +1023,24 @@ export default function DashboardSettings({
         }
       }
       if (!(businessForm.registeredStores || []).includes(newStoreName.trim())) {
-        setBusinessForm(prev => ({
-          ...prev,
-          registeredStores: [...(prev.registeredStores || []), newStoreName.trim()]
-        }));
+        const nextBusinessForm = {
+          ...businessForm,
+          registeredStores: [...(businessForm.registeredStores || []), newStoreName.trim()]
+        };
+        setBusinessForm(nextBusinessForm);
+        persistBusinessSettings(nextBusinessForm);
       }
       setStoreLimitMessage(null);
       setNewStoreName('');
     }
   };
   const handleRemoveStore = (store: string) => {
-    setBusinessForm(prev => ({
-      ...prev,
-      registeredStores: (prev.registeredStores || []).filter(s => s !== store)
-    }));
+    const nextBusinessForm = {
+      ...businessForm,
+      registeredStores: (businessForm.registeredStores || []).filter(s => s !== store)
+    };
+    setBusinessForm(nextBusinessForm);
+    persistBusinessSettings(nextBusinessForm);
   };
 
   const persistProductStoreSettings = (nextProductForm: ProductStoreSettings) => {
