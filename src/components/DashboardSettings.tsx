@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CompanySettings, BusinessSettings, ProductStoreSettings, StaffSettings, SystemSettings, Tenant, CustomRole, RolePermission, InvoiceSettings, Sale, Expense, Delivery } from '../types';
 import { useTheme } from '../ThemeContext';
 import { useTenantLogo } from '../TenantLogoContext';
@@ -576,6 +576,8 @@ const normalizeProductStoreSettings = (settings?: Partial<ProductStoreSettings>)
   units: Array.isArray(settings?.units) ? settings.units : []
 } as ProductStoreSettings);
 
+const SETTINGS_DRAFT_PROTECTION_MS = 15000;
+
 export default function DashboardSettings({ 
   activeTenant, 
   systemSettings, 
@@ -588,6 +590,9 @@ export default function DashboardSettings({
 }: DashboardSettingsProps) {
   const { isDark, toggleTheme } = useTheme();
   const { setLogoUrl } = useTenantLogo();
+  const incomingSettingsSyncRef = useRef(false);
+  const settingsDraftReadyRef = useRef(false);
+  const settingsDraftTouchedAtRef = useRef(0);
   // Navigation tabs for Settings
   const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'hrm' | 'roles' | 'notifications'>('company');
   
@@ -702,6 +707,9 @@ export default function DashboardSettings({
   // Dynamic Roles & Permissions States
   const [selectedRoleId, setSelectedRoleId] = useState<string>('role-seller');
   const [newRoleName, setNewRoleName] = useState<string>('');
+  const markSettingsDraftChanged = () => {
+    settingsDraftTouchedAtRef.current = Date.now();
+  };
 
   const handleTogglePermission = (roleId: string, module: string, permissionType: 'read' | 'write' | 'edit') => {
     setCustomRolesList(prev => prev.map(r => {
@@ -810,6 +818,10 @@ export default function DashboardSettings({
 
   // Synchronize when the active props update
   useEffect(() => {
+    if (Date.now() - settingsDraftTouchedAtRef.current < SETTINGS_DRAFT_PROTECTION_MS) {
+      return;
+    }
+    incomingSettingsSyncRef.current = true;
     setCompanyForm(systemSettings?.company || companyForm);
     setBusinessForm(normalizeBusinessSettings(systemSettings?.business));
     setProductForm(normalizeProductStoreSettings(systemSettings?.productStore));
@@ -817,7 +829,41 @@ export default function DashboardSettings({
     setCustomRolesList(systemSettings?.customRoles && systemSettings.customRoles.length > 0
       ? systemSettings?.customRoles
       : DEFAULT_CUSTOM_ROLES);
+    window.setTimeout(() => {
+      incomingSettingsSyncRef.current = false;
+    }, 0);
   }, [systemSettings]);
+
+  useEffect(() => {
+    if (incomingSettingsSyncRef.current) return;
+    if (!settingsDraftReadyRef.current) {
+      settingsDraftReadyRef.current = true;
+      return;
+    }
+
+    settingsDraftTouchedAtRef.current = Date.now();
+    const timer = window.setTimeout(() => {
+      onSaveSettings({
+        company: companyForm,
+        business: businessForm,
+        productStore: productForm,
+        staffs: staffsList,
+        customRoles: customRolesList,
+        invoiceSettings: invoiceSettingsForm,
+        posSettings: posSettingsForm
+      });
+    }, 650);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    companyForm,
+    businessForm,
+    productForm,
+    staffsList,
+    customRolesList,
+    invoiceSettingsForm,
+    posSettingsForm
+  ]);
 
   // Handle Company Name change to system auto-generate usernameKey
   const handleCompanyNameChange = (val: string) => {
@@ -951,6 +997,7 @@ export default function DashboardSettings({
   };
 
   const persistProductStoreSettings = (nextProductForm: ProductStoreSettings) => {
+    markSettingsDraftChanged();
     onSaveSettings({
       company: companyForm,
       business: businessForm,
@@ -1175,7 +1222,11 @@ export default function DashboardSettings({
   ].filter(Boolean).length;
 
   return (
-    <div className="space-y-5 pb-24 md:pb-8">
+    <div
+      className="space-y-5 pb-24 md:pb-8"
+      onInputCapture={markSettingsDraftChanged}
+      onChangeCapture={markSettingsDraftChanged}
+    >
       
       {/* Title Header with descriptive details */}
       <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
