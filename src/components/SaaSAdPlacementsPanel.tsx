@@ -142,7 +142,7 @@ export default function SaaSAdPlacementsPanel({ compact = false }: { compact?: b
             {dashboardAdCode && (
               <button
                 type="button"
-                onClick={() => publishSettings({ ...currentSettings(), dashboardAdCode: '' }, 'Dashboard ad deleted. Original banners restored.')}
+                onClick={() => publishSettings({ ...currentSettings(), dashboardAdCode: '', dashboardAdEnabled: false }, 'Dashboard ad deleted and turned off.')}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border-none bg-slate-800 px-4 py-2.5 text-xs font-black text-rose-400 hover:bg-slate-700"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -207,7 +207,7 @@ export default function SaaSAdPlacementsPanel({ compact = false }: { compact?: b
             {bottomAdCode && (
               <button
                 type="button"
-                onClick={() => publishSettings({ ...currentSettings(), bottomAdCode: '' }, 'Sticky bottom ad deleted.')}
+                onClick={() => publishSettings({ ...currentSettings(), bottomAdCode: '', bottomAdEnabled: false }, 'Sticky bottom ad deleted and turned off.')}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border-none bg-slate-800 px-4 py-2.5 text-xs font-black text-rose-400 hover:bg-slate-700"
               >
                 <Trash2 className="h-3.5 w-3.5" />

@@ -33,10 +33,10 @@ export const SAMPLE_STICKY_AD_CODE = `
 `.trim();
 
 const DEFAULT_AD_SETTINGS: GlobalAdPlacementSettings = {
-  dashboardAdCode: SAMPLE_HORIZONTAL_AD_CODE,
-  dashboardAdEnabled: true,
-  bottomAdCode: SAMPLE_STICKY_AD_CODE,
-  bottomAdEnabled: true,
+  dashboardAdCode: '',
+  dashboardAdEnabled: false,
+  bottomAdCode: '',
+  bottomAdEnabled: false,
 };
 
 const LEGACY_KEYS = {
@@ -45,8 +45,6 @@ const LEGACY_KEYS = {
   bottomAdCode: 'jasper_bottom_ad_code',
   bottomAdEnabled: 'jasper_bottom_ad_enabled',
 };
-
-const SAMPLE_SEED_KEY = 'jasper_ad_samples_v3_seeded';
 
 function readLegacySettings(): GlobalAdPlacementSettings {
   const dashboardAdCode = localStorage.getItem(LEGACY_KEYS.dashboardAdCode);
@@ -73,24 +71,7 @@ export async function loadGlobalAdSettings(): Promise<GlobalAdPlacementSettings>
   const fallback = { ...DEFAULT_AD_SETTINGS, ...readLegacySettings() };
   const settings = await loadPlatformRecord<GlobalAdPlacementSettings>('global_ad_placement', 'global', fallback);
   const normalized = { ...DEFAULT_AD_SETTINGS, ...settings };
-  let seededSamples = false;
-  if (localStorage.getItem(SAMPLE_SEED_KEY) !== 'true') {
-    if (!normalized.dashboardAdCode?.trim()) {
-      normalized.dashboardAdCode = SAMPLE_HORIZONTAL_AD_CODE;
-      normalized.dashboardAdEnabled = true;
-      seededSamples = true;
-    }
-    if (!normalized.bottomAdCode?.trim()) {
-      normalized.bottomAdCode = SAMPLE_STICKY_AD_CODE;
-      normalized.bottomAdEnabled = true;
-      seededSamples = true;
-    }
-    localStorage.setItem(SAMPLE_SEED_KEY, 'true');
-  }
   cacheLegacySettings(normalized);
-  if (seededSamples && typeof navigator !== 'undefined' && navigator.onLine) {
-    savePlatformRecord('global_ad_placement', 'global', normalized).catch(() => {});
-  }
   return normalized;
 }
 
@@ -120,10 +101,12 @@ export function useGlobalAdSettings() {
     refresh();
     window.addEventListener(AD_SETTINGS_EVENT, refresh);
     window.addEventListener('focus', refresh);
+    const interval = window.setInterval(refresh, 2000);
     return () => {
       alive = false;
       window.removeEventListener(AD_SETTINGS_EVENT, refresh);
       window.removeEventListener('focus', refresh);
+      window.clearInterval(interval);
     };
   }, []);
 
