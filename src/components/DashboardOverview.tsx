@@ -1181,7 +1181,7 @@ export default function DashboardOverview({
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start pb-6">
         
         {/* Left Column (Spans 2 grids, i.e., 65% width representation, Recent Sales table with menu actions) */}
-        <div className="bg-white rounded-[16px] p-6 border border-slate-100 shadow-sm xl:col-span-2 text-left relative overflow-visible">
+        <div className="hidden xl:block bg-white rounded-[16px] p-6 border border-slate-100 shadow-sm xl:col-span-2 text-left relative overflow-visible">
           
           <div className="flex items-center justify-between border-b border-slate-50 pb-4 mb-4">
             <div className="text-left">
