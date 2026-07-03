@@ -117,7 +117,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <ul className="list-disc list-inside space-y-1.5 text-xs font-light ml-2">
                     <li><strong>Merchant Credentials:</strong> Standard email registrations, hashed security access controls, phone numbers, and optional white-label logo directories.</li>
                     <li><strong>Store Datasets:</strong> Inventory items, unit metrics, cost parameters, categorical classification tags, and supplier/customer phone books.</li>
-                    <li><strong>POS Transaction Enregistrations:</strong> Real-time checkout receipts, physical monetary ledger totals, cost of goods (COGS), multi-country tax valuations, and daily expense reports.</li>
+                    <li><strong>POS Transaction Records:</strong> Real-time checkout receipts, physical monetary ledger totals, cost of goods (COGS), statutory rate settings, and daily expense reports.</li>
                     <li><strong>Mobile money metadata:</strong> Encrypted carrier feedback records and GSM verification keys needed to counter mobile cash payment fraud during manual checkout.</li>
                   </ul>
                 </div>
@@ -125,10 +125,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">3. Offline-First Caching & Data Residency</h4>
                   <p className="text-xs font-light">
-                    Unlike standard internet-dependent SaaS platforms, Jasper is uniquely built with an <strong>Offline-First Framework</strong>. 
-                    Your daily cash log files, sales balances, and secret cashier ledger items are stored securely inside your device’s local databases (IndexedDB, LocalStorage, and local cache) 
-                    before they are safely uploaded to our encrypted cloud servers. 
-                    As a merchant, you own full sovereignty over your physical registers and device memory logs. 
+                    Jasper is built with a secure <strong>offline-first encrypted sync model</strong>. Your detailed sales, stock, customer, staff, supplier, and operating records are controlled inside your own tenant workspace and device cache until they are synchronized through encrypted transport to the encrypted database. Jasper's platform administration view is limited to service-level records such as account creation date, subscription/payment status, package type, trial/subscription expiry, and system access status. Jasper does not operate as your bookkeeper and does not manually inspect your private transaction ledger in ordinary service operation.
                   </p>
                 </div>
 
@@ -145,7 +142,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">5. Non-Disclosure & Anti-Exploitation Guarantee</h4>
                   <p className="text-xs font-light">
                     Jasper Suite may display platform-controlled ads, sponsor banners, product notices, or promotional placements inside dashboard spaces. 
-                    We do not sell, rent, distribute, or trade your private commercial reports, sales margins, cost of goods data, or tax computations to third-party brokers or data aggregators.
+                    We do not sell, rent, distribute, or trade your private commercial reports, sales margins, cost of goods data, or statutory calculation records to third-party brokers or data aggregators.
                     Ads must not promote illegal conduct, unsafe products, hate, sexual exploitation, gambling to restricted persons, harmful medical claims, malware, fraud, or content that violates public morals or threatens user safety.
                     Your financial metrics remain your trade secret and are not used to expose your business performance to advertisers.
                   </p>
@@ -154,18 +151,18 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">6. Decoupling, Portability & Right to Erasure</h4>
                   <p className="text-xs font-light">
-                    Under East African personal data laws and GDPR frameworks, you hold absolute authority over your business intelligence:
+                    Under East African personal data laws and GDPR frameworks, you hold control over your business intelligence:
                   </p>
                   <ul className="list-disc list-inside space-y-1 text-xs font-light ml-2">
                     <li><strong>Right to Portability:</strong> You may download, export, and transfer your transaction history logs at any time.</li>
-                    <li><strong>Right to Deletion:</strong> You can purge your cloud server listings and restore/empty your local physical cache directly through settings. Once wiped, we cannot recover this data.</li>
+                    <li><strong>Right to Deletion:</strong> You can purge eligible service records and restore/empty your local physical cache directly through settings. Once unsynced local data is wiped, we cannot recover it.</li>
                   </ul>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">7. Policy Bulletins & Contact Channel</h4>
                   <p className="text-xs font-light">
-                    We may update our privacy policies periodically to adapt to newly promulgated local tax laws. 
+                    We may update our privacy policies periodically to adapt to service, security, and legal changes.
                     For privacy inquiries or custom deletion requests, contact our dedicated compliance handler at 
                     <a href="mailto:deployments@jasper.africa" className="text-emerald-500 underline ml-1">deployments@jasper.africa</a>.
                   </p>
@@ -188,7 +185,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">10. Data Sharing & Processors</h4>
                   <p className="text-xs font-light">
-                    We may share necessary data with hosting providers, payment processors, authentication providers, SMS/WhatsApp support channels, tax/legal advisers, fraud-prevention providers, and lawful authorities when required. Such sharing is limited to legitimate operational purposes and confidentiality obligations where applicable.
+                    We may share only necessary service-level data with hosting providers, payment processors, authentication providers, SMS/WhatsApp support channels, legal advisers, fraud-prevention providers, and lawful authorities when legally required. Such sharing is limited to legitimate operational purposes and confidentiality obligations where applicable.
                   </p>
                 </div>
 
@@ -202,14 +199,14 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">12. Cookies, Local Storage & Tracking</h4>
                   <p className="text-xs font-light">
-                    Jasper uses cookies, local storage, IndexedDB, and similar technologies for login sessions, offline operation, sync queues, preferences, analytics, and security checks. Clearing browser storage may remove unsynced device data before it reaches the cloud.
+                    Jasper uses cookies, local storage, IndexedDB, and similar technologies for login sessions, offline operation, sync queues, preferences, analytics, and security checks. Before clearing browser storage, the user must open the Sync menu and confirm there are no pending jobs. Clearing browser storage may permanently remove unsynced device data before it reaches the encrypted database.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">13. Security & Breach Response</h4>
                   <p className="text-xs font-light">
-                    We apply reasonable access controls, encryption-in-transit, account isolation, audit logs, and sync safeguards. No system is risk-free. If a material data breach occurs, we will assess, contain, remediate, and notify affected parties or authorities where legally required.
+                    We apply reasonable access controls, encryption-in-transit, account isolation, audit logs, and sync safeguards. Users remain responsible for device security, passwords, staff permissions, browser cache handling, and lawful entry of their own business data. If a material platform-side data breach occurs, we will assess, contain, remediate, and notify where legally required.
                   </p>
                 </div>
 
@@ -254,7 +251,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <ul className="list-disc list-inside space-y-1.5 text-xs font-light ml-2">
                     <li><strong>Maelezo ya Kuingia ya Mfanyabiashara:</strong> Barua pepe za usajili, nenosiri lililosimbwa kwa ulinzi, namba za simu, na nembo za hiari za mfumo.</li>
                     <li><strong>Seti ya Data za Duka:</strong> Orodha ya bidhaa, vipimo, bei, gharama, makundi ya bidhaa, na majina ya wasambazaji pamoja na wateja.</li>
-                    <li><strong>Rekodi za Mauzo (POS):</strong> Stakabadhi za malipo, hesabu kamili ya pesa za keshia, gharama ya bidhaa (COGS), hesabu za kodi za nchi husika, na ripoti za matumizi ya duka.</li>
+                    <li><strong>Rekodi za Mauzo (POS):</strong> Stakabadhi za malipo, hesabu kamili ya pesa za keshia, gharama ya bidhaa (COGS), mipangilio ya viwango vya kisheria, na ripoti za matumizi ya duka.</li>
                     <li><strong>Data ya Malipo ya Simu:</strong> Kumbukumbu zilizosimbwa za miamala ya simu ili kusaidia mfanyabiashara kupambana na utapeli wa miamala ya uongo.</li>
                   </ul>
                 </div>
@@ -262,10 +259,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">3. Uhifadhi Bila Mtandao (Offline-First)</h4>
                   <p className="text-xs font-light">
-                    Tofauti na mifumo mingine inayotegemea intaneti pekee, Jasper imeundwa kufanya kazi hata bila mtandao kabisa. 
-                    Mauzo yako ya kila siku, salio la pesa, na madaftari ya duka yanahifadhiwa kwanza ndani ya kifaa chako chenyewe (IndexedDB na LocalStorage) 
-                    kabla ya kusawazishwa kwa njia salama kwenye seva zetu za cloud. 
-                    Wewe kama mfanyabiashara una umiliki kamili na uamuzi juu ya kifaa chako na rekodi zako.
+                    Jasper imeundwa kwa mfumo salama wa <strong>offline-first encrypted sync</strong>. Rekodi za kina za mauzo, stoki, wateja, wafanyakazi, wasambazaji na uendeshaji zinadhibitiwa ndani ya tenant workspace yako na cache ya kifaa chako hadi zisawazishwe kwa njia iliyosimbwa kwenda kwenye encrypted database. Upande wa uendeshaji wa Jasper unaona taarifa za kiwango cha huduma kama tarehe uliyojiunga, hali ya malipo, kifurushi, muda wa trial/subscription kuisha na hali ya access ya mfumo. Jasper si mhasibu wako na haikagui ledger yako binafsi ya miamala katika matumizi ya kawaida ya huduma.
                   </p>
                 </div>
 
@@ -282,7 +276,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">5. Ahadi ya Kuzuia Unyonyaji na Kutoshiriki Data</h4>
                   <p className="text-xs font-light">
                     Jasper Suite inaweza kuonyesha matangazo yanayodhibitiwa na mfumo, mabango ya wadhamini, taarifa za bidhaa au matangazo ya kibiashara kwenye sehemu maalum za dashboard.
-                    Hatuuzi, hatukodishi, hatugawi wala kubadilishana ripoti zako za siri za mauzo, faida, gharama za bidhaa au maelezo ya kodi kwa madalali wa data.
+                    Hatuuzi, hatukodishi, hatugawi wala kubadilishana ripoti zako za siri za mauzo, faida, gharama za bidhaa au rekodi za hesabu za kisheria kwa madalali wa data.
                     Matangazo hayataruhusiwa kuvunja maadili, kuhamasisha uhalifu, bidhaa hatarishi, chuki, udhalilishaji wa kingono, kamari kwa watu wasioruhusiwa, madai ya tiba yasiyo salama, malware, utapeli au jambo linalohatarisha usalama wa watumiaji.
                     Takwimu zako za kifedha zinasalia kuwa siri yako ya kibiashara.
                   </p>
@@ -291,11 +285,11 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">6. Uhuru wa Kuhamisha na Kufuta Data</h4>
                   <p className="text-xs font-light">
-                    Chini ya sheria za ulinzi wa taarifa binafsi za Afrika Mashariki na sheria ya GDPR ya Ulaya, una mamlaka kamili juu ya habari zako:
+                    Chini ya sheria za ulinzi wa taarifa binafsi za Afrika Mashariki na sheria ya GDPR ya Ulaya, una udhibiti juu ya habari zako:
                   </p>
                   <ul className="list-disc list-inside space-y-1 text-xs font-light ml-2">
                     <li><strong>Haki ya Kuhamisha:</strong> Unaweza kupakua au kuhamisha kumbukumbu zako za mauzo wakati wowote.</li>
-                    <li><strong>Haki ya Kufutwa kabisa:</strong> Unaweza kufuta data zako zote kwenye seva za cloud pamoja na kusafisha kumbukumbu ya kifaa chako moja kwa moja kupitia sehemu ya mipangilio. Mara baada ya kufutwa, data hizi haziwezi kurejeshwa tena.</li>
+                    <li><strong>Haki ya Kufutwa kabisa:</strong> Unaweza kufuta service records zinazostahili pamoja na kusafisha kumbukumbu ya kifaa chako moja kwa moja kupitia sehemu ya mipangilio. Data ya local ambayo haijasync ikifutwa haiwezi kurejeshwa tena.</li>
                   </ul>
                 </div>
 
@@ -325,28 +319,28 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">10. Kushiriki Data na Watoa Huduma</h4>
                   <p className="text-xs font-light">
-                    Tunaweza kushiriki taarifa zinazohitajika na watoa huduma wa hosting, malipo, uthibitishaji, SMS/WhatsApp support, washauri wa kodi/sheria, watoa huduma wa kuzuia udanganyifu na mamlaka halali inapohitajika. Kushiriki huko kunakuwa kwa madhumuni halali na kwa usiri unaofaa.
+                    Tunaweza kushiriki taarifa za kiwango cha huduma zinazohitajika na watoa huduma wa hosting, malipo, uthibitishaji, SMS/WhatsApp support, washauri wa sheria, watoa huduma wa kuzuia udanganyifu na taasisi halali pale sheria inapohitaji. Kushiriki huko kunakuwa kwa madhumuni halali na kwa usiri unaofaa.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">11. Uhifadhi Nje ya Nchi na Uhamishaji</h4>
                   <p className="text-xs font-light">
-                    Miundombinu ya cloud, backups na zana za msaada zinaweza kuchakata taarifa nje ya Tanzania. Tunatumia hatua za kimkataba, kiufundi na kiutawala kulinda taarifa wakati wa uhamishaji wa mipaka.
+                    Miundombinu ya encrypted database, backups na zana za msaada zinaweza kuchakata taarifa nje ya Tanzania. Tunatumia hatua za kimkataba, kiufundi na kiutawala kulinda taarifa wakati wa uhamishaji wa mipaka.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">12. Cookies, Local Storage na Ufuatiliaji</h4>
                   <p className="text-xs font-light">
-                    Jasper hutumia cookies, local storage, IndexedDB na teknolojia zinazofanana kwa session, kazi bila mtandao, foleni ya sync, mapendeleo, analytics na ukaguzi wa usalama. Ukifuta browser storage unaweza kuondoa data ambazo hazijasync kwenda cloud.
+                    Jasper hutumia cookies, local storage, IndexedDB na teknolojia zinazofanana kwa session, kazi bila mtandao, foleni ya sync, mapendeleo, analytics na ukaguzi wa usalama. Kabla ya kufuta browser storage, mtumiaji lazima afungue Sync menu na kuthibitisha hakuna pending jobs. Ukifuta browser storage unaweza kuondoa kabisa data ambazo hazijasync kwenda encrypted database.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">13. Usalama na Tukio la Uvujaji</h4>
                   <p className="text-xs font-light">
-                    Tunatumia udhibiti wa ruhusa, encryption wakati wa usafirishaji, utengano wa akaunti, audit logs na ulinzi wa sync. Hakuna mfumo usio na hatari kabisa. Tukio kubwa la uvujaji likitokea, tutachunguza, kudhibiti, kurekebisha na kutoa taarifa kwa wahusika au mamlaka pale sheria inapohitaji.
+                    Tunatumia udhibiti wa ruhusa, encryption wakati wa usafirishaji, utengano wa akaunti, audit logs na ulinzi wa sync. Mtumiaji anawajibika kwa usalama wa kifaa, nywila, ruhusa za staff, matumizi ya browser cache na uhalali wa data anazoingiza. Tukio kubwa la uvujaji wa upande wa platform likitokea, tutachunguza, kudhibiti, kurekebisha na kutoa taarifa pale sheria inapohitaji.
                   </p>
                 </div>
 
@@ -407,8 +401,9 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                     <strong>The merchant absolutely acknowledges and covenants that:</strong>
                   </p>
                   <ul className="list-disc list-inside space-y-1.5 text-xs font-light ml-2">
-                    <li>If you clear your web browser’s physical cache file, format your local registry, or perform a manual physical browser cleanout BEFORE synchronizing with our secure cloud database, all unsynced data logs will be permanently destroyed. We possess NO retrieval mechanisms for un-synced client-side states.</li>
-                    <li>Merchants agree to establish an internet connection periodically (at least once every 7 calendar days) to trigger automatic data synchronization checks. Jasper is not responsible for local data fragmentation due to neglected synchronization.</li>
+                    <li>If you clear your web browser cache, format your device, reset browser storage, or perform a manual browser cleanout BEFORE checking the Sync menu and synchronizing with the encrypted database, all unsynced device records may be permanently destroyed. Jasper cannot recover data that never reached the encrypted database.</li>
+                    <li>Before deleting cache, changing device, reinstalling the browser, or servicing a terminal, the merchant must open the Sync menu and confirm there are no pending jobs. Jasper is not responsible for local data loss caused by neglected synchronization, device misuse, staff misuse, malware, stolen passwords, or browser cache removal.</li>
+                    <li>Jasper's support/admin view is limited to service-level account information such as registration date, package, payment status, expiry date, and access status. Detailed tenant business records remain the responsibility of the tenant.</li>
                   </ul>
                 </div>
 
@@ -426,16 +421,16 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <p className="text-xs font-light">
                     All suggestions, business performance projections, stock forecasting alerts, and expense advice generated by 
                     our integrated virtual assistant "Lucy" or AI tools are provided <strong>exclusively for informational purposes</strong>. 
-                    Lucy's calculations do not constitute official legal, tax, accounting, or professional financial advice. 
-                    Merchants must seekcertified regional audits to satisfy tax authority compliance requirements.
+                    Lucy's calculations do not constitute official legal, accounting, regulatory, or professional financial advice.
+                    Merchants must seek certified professional advice where formal legal, accounting, regulatory, or financial decisions are required.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">7. Billing Subscription Plans, Cancellations & Upgrades</h4>
                   <p className="text-xs font-light">
-                    Jasper Suite provides an active 14-day free trial on selected tiers. After trial expiration, 
-                    the selected subscription plan (Ruby, Diamond, or Tanzanite) will require timely payments to avoid automated cashier write-access lockouts. 
+                    Jasper Suite provides a standard 10-day free trial. Accounts registered with a valid affiliate promo code may receive 20 free trial days. After trial expiration,
+                    the selected subscription plan (Ruby, Diamond, or Tanzanite) will require timely payments to avoid automated write-access restrictions.
                     All subscription payments are non-refundable. You may cancel or upgrade your store registers directly through the account billing gateway.
                   </p>
                 </div>
@@ -445,8 +440,8 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <p className="text-xs font-light">
                     To the absolute maximum extent permitted under applicable local laws of your operating jurisdiction (including Kenya, Tanzania, Nigeria, Uganda, and Rwanda), 
                     Jasper Suite, its directors, developers, and regional installer agents <strong>shall never be liable for any indirect, incidental, punitive, or consequential damages</strong>. 
-                    This includes, without limitation: loss of store profits, inventory accounting discrepancies, incorrect tax rate filings, cashier embezzlement, 
-                    or server sync interruptions. Our total composite liability shall not exceed the subscription fees you actively paid us in the six (6) months prior to the dispute trigger.
+                    This includes, without limitation: loss of store profits, inventory accounting discrepancies, incorrect statutory rate settings, cashier embezzlement,
+                    or encrypted database sync interruptions. Our total composite liability shall not exceed the subscription fees you actively paid us in the six (6) months prior to the dispute trigger.
                   </p>
                 </div>
 
@@ -467,7 +462,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">11. Acceptable Use & Security Conduct</h4>
                   <p className="text-xs font-light">
-                    You must not attack, probe, bypass, overload, reverse engineer, scrape, resell, clone, or misuse Jasper services. You must not introduce malware, share credentials, create fraudulent accounts, tamper with subscription controls, or use the platform for unlawful surveillance, harassment, money laundering, tax evasion, or regulated activities without proper licences.
+                    You must not attack, probe, bypass, overload, reverse engineer, scrape, resell, clone, or misuse Jasper services. You must not introduce malware, share credentials, create fraudulent accounts, tamper with subscription controls, or use the platform for unlawful surveillance, harassment, money laundering, illegal conduct, or regulated activities without proper licences.
                   </p>
                 </div>
 
@@ -481,14 +476,14 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">13. Third-Party Services & Connectivity</h4>
                   <p className="text-xs font-light">
-                    Jasper may rely on internet providers, cloud hosts, payment networks, AI providers, mobile-money channels, app stores, ad networks, SMS/WhatsApp channels, and device hardware. We are not responsible for outages, policy changes, fees, rejection, throttling, hardware defects, or inaccurate data supplied by third parties outside our direct control.
+                    Jasper may rely on internet providers, secure infrastructure providers, payment networks, AI providers, mobile-money channels, app stores, ad networks, SMS/WhatsApp channels, and device hardware. We are not responsible for outages, policy changes, fees, rejection, throttling, hardware defects, or inaccurate data supplied by third parties outside our direct control.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">14. Indemnity</h4>
                   <p className="text-xs font-light">
-                    You agree to defend and indemnify Jasper, its owner, directors, staff, agents, and service providers from claims, penalties, losses, costs, or damages arising from your unlawful use, uploaded data, customer disputes, tax errors, staff misuse, breach of privacy duties, breach of these Terms, or violation of third-party rights.
+                    You agree to defend and indemnify Jasper, its owner, directors, staff, agents, and service providers from claims, penalties, losses, costs, or damages arising from your unlawful use, uploaded data, customer disputes, statutory calculation errors, staff misuse, breach of privacy duties, breach of these Terms, or violation of third-party rights.
                   </p>
                 </div>
 
@@ -541,8 +536,9 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                     <strong>Mfanyabiashara anakubali na kuahidi yafuatayo:</strong>
                   </p>
                   <ul className="list-disc list-inside space-y-1.5 text-xs font-light ml-2">
-                    <li>Ukifuta 'cache' ya kivinjari chako cha mtandao (browser cache), uki-format kifaa chako, au kufanya usafishaji mkubwa wa kivinjari KABLA ya kusawazisha (sync) maelezo hayo na mfumo wetu mkuu wa cloud, data zako zote ambazo hazijasawazishwa zitapotea kabisa. Sisi hatuna uwezo kabisa wa kurejesha data zilizofutwa kwenye kifaa chako kabla ya kusawazishwa.</li>
-                    <li>Wamiliki wa maduka wanakubali kuunganisha kifaa chao na intaneti angalau mara moja kila baada ya siku 7 (siku saba) ili mfumo uweze kusawazisha data na cloud moja kwa moja. Jasper haitahusika na upotevu wa data kwa duka ambalo limekaa muda mrefu bila kusawazisha kumbukumbu zake.</li>
+                    <li>Ukifuta cache ya browser, uki-format kifaa, uki-reset browser storage, au kufanya usafishaji mkubwa KABLA ya kuangalia Sync menu na kusawazisha na encrypted database, rekodi zote ambazo hazijasync zinaweza kupotea kabisa. Jasper haiwezi kurejesha data ambayo haikuwahi kufika kwenye encrypted database.</li>
+                    <li>Kabla ya kufuta cache, kubadilisha kifaa, kusakinisha browser upya au kupeleka kifaa service, mfanyabiashara lazima afungue Sync menu na kuthibitisha hakuna pending jobs. Jasper haitawajibika kwa upotevu wa data unaosababishwa na kutosync, matumizi mabaya ya kifaa, matumizi mabaya ya staff, malware, password kuibiwa au browser cache kufutwa.</li>
+                    <li>Upande wa admin/support wa Jasper unaona tu taarifa za kiwango cha huduma kama tarehe ya kujiunga, kifurushi, hali ya malipo, tarehe ya kuisha na hali ya access. Rekodi za kina za biashara ya tenant ni wajibu wa tenant mwenyewe.</li>
                   </ul>
                 </div>
 
@@ -560,16 +556,16 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <p className="text-xs font-light">
                     Ushauri wote, makadirio ya mienendo ya kifedha, utabiri wa stoki, na mapendekezo ya matumizi yanayotolewa na 
                     msaidizi wa AI "Lucy" au mifumo ya artificial intelligence kwenye Dashboard yanatolewa <strong>kwa madhumuni ya kukusaidia kujifunza na kutambua mambo tu</strong>. 
-                    Ushauri huo si ushauri rasmi wa kisheria, kodi, au kihasibu wa kitaalamu. 
-                    Mteja ana jukumu la kushauriana na wakaguzi rasmi wa kodi ili kukidhi matakwa ya mamlaka ya mapato ya nchi husika.
+                    Ushauri huo si ushauri rasmi wa kisheria, kihasibu, kibiashara au kifedha wa kitaalamu.
+                    Mteja ana jukumu la kushauriana na mtaalamu husika pale maamuzi rasmi yanapohitajika.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">7. Malipo ya Vifurushi, Kughairi na Kubadilisha Huduma</h4>
                   <p className="text-xs font-light">
-                    Jasper Suite inatoa siku 14 za majaribio bure kwenye baadhi ya vifurushi. Baada ya kipindi cha majaribio kwisha, 
-                    kifurushi kilichochaguliwa (Msingi, Kati, au Mkuu) kitahitaji malipo kwa wakati ili kuzuia akaunti kufungwa au kusimamisha uwezo wa kuandika mauzo mapya. 
+                    Jasper Suite inatoa siku 10 za majaribio bure. Akaunti iliyosajiliwa kwa promo code halali ya affiliate inaweza kupata siku 20 za majaribio bure. Baada ya kipindi cha majaribio kwisha,
+                    kifurushi kilichochaguliwa (Ruby, Diamond, au Tanzanite) kitahitaji malipo kwa wakati ili kuzuia akaunti kufungwa au kusimamisha uwezo wa kuandika taarifa mpya.
                     Malipo yote yaliyofanyika hayarudishwi (non-refundable). Unaweza kurejesha au kuongeza vifurushi moja kwa moja kupitia sehemu ya kulipia.
                   </p>
                 </div>
@@ -579,8 +575,8 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <p className="text-xs font-light">
                     Kwa kiwango cha juu kabisa kinachoruhusiwa na sheria husika za nchi unakoendesha biashara yako (Kenya, Tanzania, Nigeria, nk), 
                     Jasper Suite, wakurugenzi wake, watengenezaji wake, na mawakala wake wa nyanjani <strong>hawatatakiwa kamwe kuwajibika kwa hasara yoyote ya moja kwa moja au isiyo ya moja kwa moja</strong>. 
-                    Hii inajumuisha, lakini si tu: upotevu wa faida ya duka au hoteli, makosa ya hesabu za bidhaa, marekebisho yasiyo sahihi ya kodi, wizi wa ndani unaofanywa na keshia wako, 
-                    au kushindwa kwa cloud kusawazisha data zote. Dhima yetu kuu ya kifedha haitazidi kiasi cha usajili ulichotulipa katika kipindi cha miezi sita (6) iliyopita kabla ya kutokea kwa mgogoro husika.
+                    Hii inajumuisha, lakini si tu: upotevu wa faida ya duka au hoteli, makosa ya hesabu za bidhaa, mipangilio isiyo sahihi ya viwango vya kisheria, wizi wa ndani unaofanywa na keshia wako,
+                    au kushindwa kwa encrypted database kusawazisha data zote. Dhima yetu kuu ya kifedha haitazidi kiasi cha usajili ulichotulipa katika kipindi cha miezi sita (6) iliyopita kabla ya kutokea kwa mgogoro husika.
                   </p>
                 </div>
 
@@ -601,7 +597,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">11. Matumizi Yanayokubalika na Usalama</h4>
                   <p className="text-xs font-light">
-                    Huruhusiwi kushambulia, kuchunguza kwa nia mbaya, kupita ulinzi, kulemea, kunakili, kuuza upya au kutumia vibaya huduma za Jasper. Huruhusiwi kuingiza malware, kugawa credentials, kutengeneza akaunti bandia, kuchezea controls za subscription, au kutumia mfumo kwa ufuatiliaji haramu, unyanyasaji, utakatishaji fedha, ukwepaji kodi au shughuli zilizo na leseni bila leseni sahihi.
+                    Huruhusiwi kushambulia, kuchunguza kwa nia mbaya, kupita ulinzi, kulemea, kunakili, kuuza upya au kutumia vibaya huduma za Jasper. Huruhusiwi kuingiza malware, kugawa credentials, kutengeneza akaunti bandia, kuchezea controls za subscription, au kutumia mfumo kwa ufuatiliaji haramu, unyanyasaji, utakatishaji fedha, vitendo haramu au shughuli zilizo na leseni bila leseni sahihi.
                   </p>
                 </div>
 
@@ -615,14 +611,14 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">13. Huduma za Watu wa Tatu na Muunganisho</h4>
                   <p className="text-xs font-light">
-                    Jasper inaweza kutegemea watoa intaneti, cloud hosts, mitandao ya malipo, watoa AI, mobile-money, app stores, ad networks, SMS/WhatsApp channels na vifaa vya hardware. Hatutawajibika kwa kukatika kwa huduma, mabadiliko ya sera, ada, kukataliwa, throttling, hitilafu za vifaa au data isiyo sahihi kutoka kwa wahusika walio nje ya udhibiti wetu.
+                    Jasper inaweza kutegemea watoa intaneti, secure infrastructure providers, mitandao ya malipo, watoa AI, mobile-money, app stores, ad networks, SMS/WhatsApp channels na vifaa vya hardware. Hatutawajibika kwa kukatika kwa huduma, mabadiliko ya sera, ada, kukataliwa, throttling, hitilafu za vifaa au data isiyo sahihi kutoka kwa wahusika walio nje ya udhibiti wetu.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">14. Kufidia Hasara na Madai</h4>
                   <p className="text-xs font-light">
-                    Unakubali kumlinda na kumfidia Jasper, mmiliki wake, wakurugenzi, wafanyakazi, mawakala na watoa huduma dhidi ya madai, adhabu, hasara, gharama au uharibifu unaotokana na matumizi yako haramu, data uliyopakia, migogoro ya wateja, makosa ya kodi, matumizi mabaya ya staff, kuvunja wajibu wa faragha, kuvunja Masharti haya au kukiuka haki za wengine.
+                    Unakubali kumlinda na kumfidia Jasper, mmiliki wake, wakurugenzi, wafanyakazi, mawakala na watoa huduma dhidi ya madai, adhabu, hasara, gharama au uharibifu unaotokana na matumizi yako haramu, data uliyopakia, migogoro ya wateja, makosa ya hesabu za kisheria, matumizi mabaya ya staff, kuvunja wajibu wa faragha, kuvunja Masharti haya au kukiuka haki za wengine.
                   </p>
                 </div>
 

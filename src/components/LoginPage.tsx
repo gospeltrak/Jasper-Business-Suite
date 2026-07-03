@@ -616,7 +616,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
 
     // Do not query a public account directory before authentication. It leaks
-    // account existence and blocks real Supabase-only users such as Super Admin.
+    // account existence and blocks real database-only users such as Super Admin.
     setEmailChecked(true);
   };
 
@@ -856,13 +856,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     try {
       const client: any = await getDynamicSupabaseClient();
       if (isPlaceholderSupabaseClient(client)) {
-        setError('Supabase is not configured for this app build. Add SUPABASE_URL and SUPABASE_ANON_KEY in the deployed environment, then redeploy.');
+        setError('Secure encrypted database is not configured for this app build. Add the required protected database environment keys, then redeploy.');
         setIsLoading(false);
         return;
       }
       const authEmail = cleanIdentifier.includes('@') ? cleanIdentifier.toLowerCase() : makeInternalEmailFromPhone(cleanIdentifier);
       
-      // Perform authentic authentication via Supabase Auth securely
+      // Perform authentic database-backed authentication securely
       let { data: authData, error: authError } = await client.auth.signInWithPassword({
         email: authEmail,
         password: cleanPassword
@@ -879,7 +879,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       }
 
       if (!authError && authData?.user) {
-        // Authenticated successfully via Supabase Auth! Fetch matching public users row
+        // Authenticated successfully. Fetch matching public users row
         const { data: userProfile, error: profileError } = await client
           .from('users')
           .select('*')
@@ -943,7 +943,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         return;
       }
     } catch (e) {
-      console.warn('Real Supabase signin request failed or bypassed. Executing simulated/demo fallback.', e);
+      console.warn('Secure signin request failed or bypassed. Executing simulated/demo fallback.', e);
     }
 
     // Default Fallback
@@ -1034,11 +1034,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       window.dispatchEvent(new Event('saas_logs_updated'));
     }
 
-    // ── 2. Save to Supabase — referred_customers + commission_ledger ──
+    // ── 2. Save to encrypted database — referred_customers + commission_ledger ──
     try {
       const client: any = await getDynamicSupabaseClient();
 
-      // Find sub-affiliate record in Supabase
+      // Find sub-affiliate record in encrypted database
       const { data: subAff } = await client
         .from('affiliates')
         .select('id, display_name, parent_super_agent_id, account_type')
@@ -1127,7 +1127,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       }
 
     } catch (dbErr) {
-      console.warn('[referral] Supabase tracking failed — localStorage tracking active:', dbErr);
+      console.warn('[referral] secure database tracking failed — localStorage tracking active:', dbErr);
     }
   };
 
@@ -1196,7 +1196,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       const authUserId = registration.userId as string;
 
       // Establish the browser auth session immediately. Dashboard persistence and
-      // realtime tenant updates use this authenticated Supabase session.
+      // realtime tenant updates use this authenticated database session.
       const client: any = await getDynamicSupabaseClient();
       const { error: signInError } = await client.auth.signInWithPassword({
         email: ownerAuthEmail,
@@ -1266,8 +1266,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       triggerOnLoginWithSplash(registeredUser);
 
     } catch (err: any) {
-      console.warn('[Supabase Registration Flow Error]:', err);
-      setError(err?.message || 'Cloud registration failed. Please reconnect internet and try again so this account is saved to the database.');
+      console.warn('[Secure Registration Flow Error]:', err);
+      setError(err?.message || 'Secure registration failed. Please reconnect internet and try again so this account is saved to the encrypted database.');
       setIsLoading(false);
     }
   };
@@ -1343,7 +1343,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   const handleGoogleRegisterSubmit = (e: FormEvent) => {
     e.preventDefault();
-    setError('Google cloud account registration is not enabled yet. Please use WhatsApp/password registration so the account is saved to Supabase and works on every device.');
+    setError('Google account registration is not enabled yet. Please use WhatsApp/password registration so the account is saved to the encrypted database and works on every device.');
     setIsLoading(false);
     return;
     if (!selectedGoogleEmail || !selectedGoogleName || !googleOrgName || !googlePhone) {

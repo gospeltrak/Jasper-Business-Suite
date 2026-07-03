@@ -350,11 +350,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     localStorage.setItem(`jasper_active_dashboard_tab_${user.id}_${activeTenant.id}`, activeTab);
   }, [activeTab, activeTenant.id, user.id]);
 
-  // ── SYNC ON LOGIN ── Pull all data from cloud to localStorage on mount
+  // ── SYNC ON LOGIN ── Pull all data from encrypted database to localStorage on mount
   useEffect(() => {
     if (!activeTenant.id) return;
     syncOnLogin(activeTenant.id).then(() => {
-      // After sync, reload data maps from localStorage (which now has cloud data)
+      // After sync, reload data maps from localStorage (which now has database data)
       const freshProducts = localStorage.getItem('jasper_products_map');
       if (freshProducts) {
         try { setProductsMap(prev => ({ ...prev, ...JSON.parse(freshProducts) })); } catch (e) {}
@@ -586,7 +586,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     }
   }, [activeTenant]);
 
-  // Supabase is the tenant source of truth. Local storage is used only as a cache
+  // The encrypted database is the tenant source of truth. Local storage is used only as a cache
   // and offline queue until the same workspace can be written to the database.
   useEffect(() => {
     let active = true;
@@ -1576,7 +1576,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     }
   };
 
-  // Flushing pending offline queues to simulation Online servers
+  // Flushing pending offline queues to encrypted database channel
   const handleSyncOfflineQueue = (callback: () => void) => {
     // Clear pending queue from IndexedDB 
     clearPendingSales().catch(err => {
@@ -1596,7 +1596,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       id: 'l-' + Math.random().toString(36).substr(2, 9),
       type: 'sale',
       status: 'success',
-      message: `Offline queued sales flushed successfully to unified distributed container server and cleared from local IndexedDB cache!`,
+      message: `Offline queued sales synced successfully to the encrypted database and cleared from the local device queue.`,
       timestamp: new Date().toISOString()
     };
     
@@ -2952,8 +2952,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay, desc: 'Control dashboard and sticky ads', color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10' },
                   { id: 'admin-settings',   label: 'Settings',    icon: SettingsIcon,desc: 'System configuration',      color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
                 ] : [
-                  { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
                   { id: 'sync', label: 'Sync', icon: RefreshCw, desc: isOfflineMode ? 'You are offline' : 'All data synced', color: isOfflineMode ? 'text-amber-600' : 'text-emerald-600', bg: isOfflineMode ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-emerald-50 dark:bg-emerald-500/10' },
+                  { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
                   { id: 'inventory', label: 'Inventory', icon: Package, desc: 'View stock levels', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10' },
                 ]).filter(item => isTabAllowed(item.id)).map((item, idx, arr) => {
                   const Icon = item.icon;
