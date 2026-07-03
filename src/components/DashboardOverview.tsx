@@ -565,7 +565,7 @@ export default function DashboardOverview({
     <div id="overview-component" className="space-y-6 font-sans">
 
       {/* ══════════ MOBILE-ONLY HERO SECTION ══════════ */}
-      <div className="lg:hidden space-y-4">
+      <div className="xl:hidden space-y-4">
 
         {/* Stat cards 2x2 grid */}
         <div className="grid grid-cols-2 gap-3">
@@ -624,7 +624,7 @@ export default function DashboardOverview({
       {/* ══════════ END MOBILE HERO ══════════ */}
 
       {/* 2. OVERVIEW HEADER WITH DYNAMIC DAY SELECTOR */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 rounded-2xl shadow-xs text-left select-none animate-fade-in hidden lg:flex">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 rounded-2xl shadow-xs text-left select-none animate-fade-in hidden xl:flex">
         <div className="flex items-center space-x-4">
           {/* Circular logo or Initials Avatar */}
           {(() => {
@@ -703,7 +703,7 @@ export default function DashboardOverview({
 
         {/* Day Selector: Today, 1 Week, 1 Month, 3 Month, 1 Year */}
         {/* DESKTOP LAYOUT (completely untouched) */}
-        <div className="hidden lg:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-wrap gap-y-1 md:flex-nowrap border border-slate-200 shadow-inner">
+        <div className="hidden xl:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-wrap gap-y-1 md:flex-nowrap border border-slate-200 shadow-inner">
           {[
             { id: 'today', label: t('Today') },
             { id: 'week', label: t('1 Week') },
@@ -730,7 +730,7 @@ export default function DashboardOverview({
         </div>
 
         {/* MOBILE LAYOUT (clean compact single horizontal row without any horizontal scrolling) */}
-        <div className="flex lg:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner select-none">
+        <div className="flex xl:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner select-none">
           {[
             { id: 'today', label: t('Today') },
             { id: 'week', label: t('1 Week') },
@@ -758,7 +758,7 @@ export default function DashboardOverview({
       </div>
 
       {/* 3. KPI CARDS ROW - desktop only, mobile uses hero above */}
-      <div className="hidden lg:grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 select-none animate-fade-in">
+      <div className="hidden xl:grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6 select-none animate-fade-in">
         
         {/* Card 1: Total Orders */}
         <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
@@ -917,7 +917,7 @@ export default function DashboardOverview({
         const adEnabled = adSettings.dashboardAdEnabled;
         if (adCode && adEnabled) {
           return (
-            <div className="hidden min-h-[90px] w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm lg:flex">
+            <div className="hidden min-h-[90px] w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm xl:flex">
               <div
                 className="min-h-[90px] w-full max-w-[728px] overflow-hidden [&>*]:max-w-full"
                 dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }}
@@ -927,7 +927,7 @@ export default function DashboardOverview({
         }
         return (
           <div
-            className="hidden lg:flex items-center justify-between rounded-2xl px-6 py-4 cursor-pointer select-none"
+            className="hidden xl:flex items-center justify-between rounded-2xl px-6 py-4 cursor-pointer select-none"
             style={{background: 'linear-gradient(135deg, #059669 0%, #10b981 60%, #34d399 100%)', boxShadow: '0 4px 24px rgba(16,185,129,0.20)' }}
             onClick={() => {
               const el = document.querySelector('[data-tab="pos"]') as HTMLElement;
@@ -955,7 +955,7 @@ export default function DashboardOverview({
         {/* Left Column (Spans 2 grids, i.e., 65% width representation, collapses responsively) */}
         <div className="bg-white rounded-[16px] p-6 border border-slate-100 shadow-sm xl:col-span-2">
           
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-50 pb-4 mb-5 gap-3">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between border-b border-slate-50 pb-4 mb-5 gap-3">
             <div className="text-left">
               <h3 className="text-[15px] font-extrabold text-[#1a1a2e] tracking-tight font-sans">{t('Sales & Purchases Status')}</h3>
               <p className="text-[11px] text-slate-400">
@@ -967,7 +967,7 @@ export default function DashboardOverview({
               </p>
             </div>
             {/* DESKTOP TIMEFRAME SELECTOR */}
-            <div className="hidden lg:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-nowrap border border-slate-200">
+            <div className="hidden xl:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-nowrap border border-slate-200">
               <button
                 id="btn-timeframe-today"
                 onClick={() => setStatusTimeframe('today')}
@@ -1031,7 +1031,7 @@ export default function DashboardOverview({
             </div>
 
             {/* MOBILE TIMEFRAME SELECTOR */}
-            <div className="flex lg:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner select-none">
+            <div className="flex xl:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner select-none">
               {[
                 { id: 'today', label: t('Today') },
                 { id: 'week', label: t('1 Week') },
@@ -1240,7 +1240,7 @@ export default function DashboardOverview({
             ) : (
               <div className="w-full">
                 {/* Desktop Table View */}
-              <table className="hidden lg:table w-full text-slate-800 text-xs select-none">
+              <table className="hidden xl:table w-full text-slate-800 text-xs select-none">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider text-[10px] font-semibold text-left">
                     <th className="pb-3 pt-1 pl-1">Sale ID</th>
@@ -1419,7 +1419,7 @@ export default function DashboardOverview({
               </table>
 
               {/* Mobile Cards View */}
-              <div className="lg:hidden flex flex-col space-y-3 pb-2 w-full">
+              <div className="xl:hidden flex flex-col space-y-3 pb-2 w-full">
                 {posFilteredSalesList.slice(0, 5).map((sale) => {
                   const status = getSalesStatus(sale.id);
                   const isExpanded = expandedInvoiceId === sale.id;

@@ -102,7 +102,7 @@ body {
     max-height: -webkit-fill-available;
   }
 }
-@media (max-width: 1023px) {
+@media (max-width: 1279px) {
   #workspace-content {
     padding-left: max(0.75rem, env(safe-area-inset-left));
     padding-right: max(0.75rem, env(safe-area-inset-right));
@@ -117,7 +117,7 @@ body {
     border-radius: 1.5rem;
   }
 }
-@media (min-width: 768px) and (max-width: 1023px) {
+@media (min-width: 768px) and (max-width: 1279px) {
   #workspace-content {
     padding-left: max(1.25rem, env(safe-area-inset-left));
     padding-right: max(1.25rem, env(safe-area-inset-right));
@@ -963,5 +963,4 @@ button:active:not(:disabled),
 .dark ::-webkit-scrollbar-thumb {
   background: #4b5563;
 }
-
 

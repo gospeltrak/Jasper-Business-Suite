@@ -1209,7 +1209,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               : 'Your paid subscription is close to renewal. Choose a package and submit your receipt to avoid interruption.'
           });
         }}
-        className={`hidden lg:flex items-center space-x-2 text-[11px] font-medium tracking-tight px-3 py-1.5 rounded-xl border transition-all font-sans ${
+        className={`hidden xl:flex items-center space-x-2 text-[11px] font-medium tracking-tight px-3 py-1.5 rounded-xl border transition-all font-sans ${
         isWarning
           ? 'border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100'
           : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 cursor-default'
@@ -1960,7 +1960,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
       
       {/* 1. Left Sidebar (Fixed, Dark #1a1f2e with smooth transition) */}
-      <aside className={`hidden lg:flex flex-col ${sidebarCollapsed ? 'w-20' : 'w-64'} bg-[#1a1f2e] border-r border-[#262c3f]/50 text-white h-full shrink-0 sticky top-0 overflow-y-auto overflow-x-hidden select-none z-45 transition-all duration-300 ease-in-out`}>
+      <aside className={`hidden xl:flex flex-col ${sidebarCollapsed ? 'w-20' : 'w-64'} bg-[#1a1f2e] border-r border-[#262c3f]/50 text-white h-full shrink-0 sticky top-0 overflow-y-auto overflow-x-hidden select-none z-45 transition-all duration-300 ease-in-out`}>
         
         {/* Fixed Header Section with Logo top left */}
         <div className="p-5 border-b border-[#262c3f]/50 shrink-0 select-none flex flex-col items-center justify-center">
@@ -2101,7 +2101,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
         
           {/* 2. Top Bar Desktop */}
-          <header className={`hidden lg:flex sticky top-0 z-35 shrink-0 ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950 border-slate-800' : 'bg-white dark:bg-slate-905 border-slate-100/80 dark:border-slate-800/80 shadow-xs'} border-b px-6 py-4.5 select-none items-center justify-between transition-colors duration-300`}>
+          <header className={`hidden xl:flex sticky top-0 z-35 shrink-0 ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950 border-slate-800' : 'bg-white dark:bg-slate-905 border-slate-100/80 dark:border-slate-800/80 shadow-xs'} border-b px-6 py-4.5 select-none items-center justify-between transition-colors duration-300`}>
             <div className="flex items-center space-x-3.5 flex-1 animate-fade-in">
               {/* Business Logo / Avatar and Name */}
               <div className="flex items-center space-x-3 shrink-0">
@@ -2289,7 +2289,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </header>
 
           {/* 2b. Top Bar Mobile - Exact 60px height sticky glassmorphic header */}
-          <header className="lg:hidden shrink-0 z-50 h-[calc(60px+env(safe-area-inset-top))] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 px-4 pt-[env(safe-area-inset-top)] select-none flex items-center justify-between" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)', transform:'translateZ(0)', willChange:'transform'}}>
+          <header className="xl:hidden shrink-0 z-50 h-[calc(60px+env(safe-area-inset-top))] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 px-4 pt-[env(safe-area-inset-top)] select-none flex items-center justify-between" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)', transform:'translateZ(0)', willChange:'transform'}}>
             {/* Left: business logo or initials avatar on mobile top bar */}
             <div className="flex items-center space-x-3 animate-fade-in">
               <div 
@@ -2415,7 +2415,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </header>
 
           {/* Core workspace content viewports */}
-          <main id="workspace-content" className={`flex-1 overflow-y-auto scrollbar-none overscroll-none touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-3 sm:p-4 lg:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-5 lg:space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] lg:pb-6 min-h-0`}>
+          <main id="workspace-content" className={`flex-1 overflow-y-auto scrollbar-none overscroll-none touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-3 sm:p-4 xl:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-5 xl:space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] xl:pb-6 min-h-0`}>
 
             {isTrialAccessLocked ? (
               <div className="min-h-[calc(100dvh-120px)]">
@@ -2458,7 +2458,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                     </div>
                   </div>
 
-                  <div className="grid gap-4 lg:grid-cols-3">
+                  <div className="grid gap-4 xl:grid-cols-3">
                     {([
                       { id: 'ruby' as const, tag: 'Lower cost', tone: 'border-rose-200 bg-white', cta: 'Choose Ruby', notes: ['TZS 20,000 / month', '1,000 products', '1 store', '2 staff users'] },
                       { id: 'diamond' as const, tag: 'Same as trial', tone: 'border-emerald-300 bg-emerald-50', cta: 'Keep Diamond', notes: ['TZS 35,000 / month', '5,000 products', 'Diamond Lucy AI', '6 staff users'] },
@@ -2511,7 +2511,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
                   <div className="rounded-3xl border border-cyan-200 bg-cyan-50 p-5">
                     <h3 className="text-sm font-black uppercase tracking-wider text-cyan-900">If you choose Tanzanite you gain</h3>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                       {tanzaniteUpgradeNotes.map((note) => (
                         <div key={note} className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-cyan-950 shadow-sm">{note}</div>
                       ))}
@@ -2906,7 +2906,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </main>
 
           {/* Mobile Bottom Navigation Component */}
-          <nav className="lg:hidden shrink-0 z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800" style={{height:'calc(56px + env(safe-area-inset-bottom))', paddingBottom:'env(safe-area-inset-bottom)', boxShadow:'0 -1px 0 rgba(0,0,0,0.05)', transform:'translateZ(0)', willChange:'transform', isolation:'isolate'}}>
+          <nav className="xl:hidden shrink-0 z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800" style={{height:'calc(56px + env(safe-area-inset-bottom))', paddingBottom:'env(safe-area-inset-bottom)', boxShadow:'0 -1px 0 rgba(0,0,0,0.05)', transform:'translateZ(0)', willChange:'transform', isolation:'isolate'}}>
             <div className="flex items-stretch h-14">
               {(user.role === 'SuperAdmin' ? [
                 // ── Super SaaS Admin bottom nav ──────────────────────────
@@ -2967,7 +2967,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         {/* Universal sub-modal anchors & floating elements */}
         {/* Native App Full-Screen More Menu */}
         <div
-          className={`lg:hidden fixed inset-0 z-[70] flex flex-col bg-slate-50 dark:bg-slate-950 select-none transition-all duration-300 ease-out ${moreMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none translate-y-4'}`}
+          className={`xl:hidden fixed inset-0 z-[70] flex flex-col bg-slate-50 dark:bg-slate-950 select-none transition-all duration-300 ease-out ${moreMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none translate-y-4'}`}
           style={{paddingBottom: 'env(safe-area-inset-bottom)', paddingTop: 'env(safe-area-inset-top)'}}
         >
           {/* Top Bar */}
@@ -3101,8 +3101,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       />
       {user.role !== 'SuperAdmin' && (
         <GlobalStickyAd
-          bottomOffsetClass="bottom-[calc(5.25rem+env(safe-area-inset-bottom))] lg:bottom-4"
-          leftOffsetClass="left-3 lg:left-1/2 lg:-translate-x-1/2"
+          bottomOffsetClass="bottom-[calc(5.25rem+env(safe-area-inset-bottom))] xl:bottom-4"
+          leftOffsetClass="left-3 xl:left-1/2 xl:-translate-x-1/2"
           maxWidthClass="max-w-[640px]"
         />
       )}
