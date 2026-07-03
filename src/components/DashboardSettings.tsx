@@ -540,6 +540,42 @@ interface DashboardSettingsProps {
   deliveries?: Delivery[];
 }
 
+const DEFAULT_BUSINESS_SETTINGS: BusinessSettings = {
+  businessName: '',
+  businessAddress: '',
+  businessPhone: '',
+  businessEmail: '',
+  allowNegativeStock: false,
+  defaultUnit: 'pcs',
+  requireStockCheck: true,
+  autoGenerateBarcode: false,
+  paymentModes: [],
+  deliveryPaymentModes: [],
+  registeredStores: []
+} as unknown as BusinessSettings;
+
+const DEFAULT_PRODUCT_STORE_SETTINGS: ProductStoreSettings = {
+  showImages: true,
+  compactView: false,
+  categories: [],
+  units: []
+} as unknown as ProductStoreSettings;
+
+const normalizeBusinessSettings = (settings?: Partial<BusinessSettings>): BusinessSettings => ({
+  ...DEFAULT_BUSINESS_SETTINGS,
+  ...(settings || {}),
+  paymentModes: Array.isArray(settings?.paymentModes) ? settings.paymentModes : [],
+  deliveryPaymentModes: Array.isArray(settings?.deliveryPaymentModes) ? settings.deliveryPaymentModes : [],
+  registeredStores: Array.isArray(settings?.registeredStores) ? settings.registeredStores : []
+} as BusinessSettings);
+
+const normalizeProductStoreSettings = (settings?: Partial<ProductStoreSettings>): ProductStoreSettings => ({
+  ...DEFAULT_PRODUCT_STORE_SETTINGS,
+  ...(settings || {}),
+  categories: Array.isArray(settings?.categories) ? settings.categories : [],
+  units: Array.isArray(settings?.units) ? settings.units : []
+} as ProductStoreSettings);
+
 export default function DashboardSettings({ 
   activeTenant, 
   systemSettings, 
@@ -560,13 +596,8 @@ export default function DashboardSettings({
     companyName: '', businessType: '', currency: 'TZS', currencySymbol: 'TSh',
     country: 'Tanzania', city: '', taxRate: 18, logoUrl: ''
   } as unknown as CompanySettings);
-  const [businessForm, setBusinessForm] = useState<BusinessSettings>(systemSettings?.business || {
-    allowNegativeStock: false, defaultUnit: 'pcs', requireStockCheck: true,
-    autoGenerateBarcode: false, paymentModes: [], registeredStores: []
-  } as unknown as BusinessSettings);
-  const [productForm, setProductForm] = useState<ProductStoreSettings>(systemSettings?.productStore || {
-    showImages: true, compactView: false
-  } as unknown as ProductStoreSettings);
+  const [businessForm, setBusinessForm] = useState<BusinessSettings>(() => normalizeBusinessSettings(systemSettings?.business));
+  const [productForm, setProductForm] = useState<ProductStoreSettings>(() => normalizeProductStoreSettings(systemSettings?.productStore));
   const [invoiceSettingsForm, setInvoiceSettingsForm] = useState<InvoiceSettings>(() => {
     return systemSettings?.invoiceSettings || {
       invoiceColor: '#0284c7', // Sky Blue fallback matching PDF
@@ -780,8 +811,8 @@ export default function DashboardSettings({
   // Synchronize when the active props update
   useEffect(() => {
     setCompanyForm(systemSettings?.company || companyForm);
-    setBusinessForm(systemSettings?.business || businessForm);
-    setProductForm(systemSettings?.productStore || productForm);
+    setBusinessForm(normalizeBusinessSettings(systemSettings?.business));
+    setProductForm(normalizeProductStoreSettings(systemSettings?.productStore));
     setStaffsList(systemSettings?.staffs || []);
     setCustomRolesList(systemSettings?.customRoles && systemSettings.customRoles.length > 0
       ? systemSettings?.customRoles
@@ -859,10 +890,11 @@ export default function DashboardSettings({
   const [newPaymentMode, setNewPaymentMode] = useState('');
   const handleAddPaymentMode = () => {
     if (newPaymentMode.trim()) {
-      if (!businessForm.paymentModes.includes(newPaymentMode.trim())) {
+      const currentPaymentModes = businessForm.paymentModes || [];
+      if (!currentPaymentModes.includes(newPaymentMode.trim())) {
         setBusinessForm(prev => ({
           ...prev,
-          paymentModes: [...prev.paymentModes, newPaymentMode.trim()]
+          paymentModes: [...(prev.paymentModes || []), newPaymentMode.trim()]
         }));
       }
       setNewPaymentMode('');
@@ -871,7 +903,7 @@ export default function DashboardSettings({
   const handleRemovePaymentMode = (mode: string) => {
     setBusinessForm(prev => ({
       ...prev,
-      paymentModes: prev.paymentModes.filter(m => m !== mode)
+      paymentModes: (prev.paymentModes || []).filter(m => m !== mode)
     }));
   };
 
@@ -891,19 +923,20 @@ export default function DashboardSettings({
         }
         const planId = String(subscriptionStatus.state?.planId || subscriptionStatus.plan?.packageId || subscriptionStatus.plan?.name || '').toLowerCase();
         const isRubyPlan = planId === 'ruby' || planId === 'essential' || subscriptionStatus.plan?.name === 'Ruby';
-        if (isRubyPlan && businessForm.registeredStores.length >= 1) {
+        const registeredStores = businessForm.registeredStores || [];
+        if (isRubyPlan && registeredStores.length >= 1) {
           setStoreLimitMessage('ruby-multiple-stores');
           return;
         }
-        if (businessForm.registeredStores.length >= subscriptionStatus.plan.maxStores) {
+        if (registeredStores.length >= subscriptionStatus.plan.maxStores) {
           onTriggerUpgrade?.('stores');
           return;
         }
       }
-      if (!businessForm.registeredStores.includes(newStoreName.trim())) {
+      if (!(businessForm.registeredStores || []).includes(newStoreName.trim())) {
         setBusinessForm(prev => ({
           ...prev,
-          registeredStores: [...prev.registeredStores, newStoreName.trim()]
+          registeredStores: [...(prev.registeredStores || []), newStoreName.trim()]
         }));
       }
       setStoreLimitMessage(null);
@@ -913,7 +946,7 @@ export default function DashboardSettings({
   const handleRemoveStore = (store: string) => {
     setBusinessForm(prev => ({
       ...prev,
-      registeredStores: prev.registeredStores.filter(s => s !== store)
+      registeredStores: (prev.registeredStores || []).filter(s => s !== store)
     }));
   };
 
@@ -1687,7 +1720,7 @@ export default function DashboardSettings({
 
                 <div className="space-y-3 font-sans">
                   <div className="flex flex-wrap gap-2">
-                    {businessForm.paymentModes.map(mode => (
+                    {(businessForm.paymentModes || []).map(mode => (
                       <span 
                         key={mode} 
                         className="inline-flex items-center space-x-1 px-3 py-1.5 bg-white border border-slate-220 rounded-xl text-xs font-bold text-slate-700 select-none shadow-xs"
@@ -1794,7 +1827,7 @@ export default function DashboardSettings({
 
                 <div className="space-y-3 font-sans">
                   <div className="flex flex-wrap gap-2">
-                    {businessForm.registeredStores.map(store => (
+                    {(businessForm.registeredStores || []).map(store => (
                       <span 
                         key={store} 
                         className="inline-flex items-center space-x-1 px-3 py-1.5 bg-white border border-slate-220 rounded-xl text-xs font-bold text-slate-700 select-none shadow-xs"
