@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { DEMO_USERS, DEFAULT_TENANTS } from '../data';
 import { User, Tenant } from '../types';
-import { getDynamicSupabaseClient, isPlaceholderSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../secureDataBridge';
 import { initializeCleanTenantWorkspace } from '../utils/tenantIsolation';
 import { startCloudSession } from '../utils/sessionControl';
 import { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
@@ -632,7 +632,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setError(null);
 
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
 
       // Create a brand new tenant row in the public table
       const { data: newTenant, error: tenantError } = await client
@@ -854,8 +854,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     const cleanPassword = String(targetPass || '').trim();
 
     try {
-      const client: any = await getDynamicSupabaseClient();
-      if (isPlaceholderSupabaseClient(client)) {
+      const client: any = await getSecureDataBridgeClient();
+      if (isPlaceholderSecureDataBridgeClient(client)) {
         setError('Secure encrypted database is not configured for this app build. Add the required protected database environment keys, then redeploy.');
         setIsLoading(false);
         return;
@@ -1036,7 +1036,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
     // ── 2. Save to encrypted database — referred_customers + commission_ledger ──
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
 
       // Find sub-affiliate record in encrypted database
       const { data: subAff } = await client
@@ -1197,7 +1197,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
       // Establish the browser auth session immediately. Dashboard persistence and
       // realtime tenant updates use this authenticated database session.
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
       const { error: signInError } = await client.auth.signInWithPassword({
         email: ownerAuthEmail,
         password: regPassword

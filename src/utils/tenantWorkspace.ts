@@ -1,6 +1,6 @@
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { Branch, BranchStaffAssignment, BranchStock, Delivery, Expense, Product, Purchase, SystemSettings } from '../types';
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ const normalizeWorkspace = (workspace: Partial<TenantWorkspace> | null | undefin
 
 async function getConfiguredClient(): Promise<any | null> {
   try {
-    const client: any = await getDynamicSupabaseClient();
+    const client: any = await getSecureDataBridgeClient();
     // If URL is placeholder, Supabase isn't configured — return null
     const url = (client as any).supabaseUrl || '';
     if (!url || url.includes('placeholder-url')) return null;

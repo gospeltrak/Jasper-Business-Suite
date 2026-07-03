@@ -1,4 +1,4 @@
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 const deviceStorageKey = 'jasper_device_id';
 const sessionStorageKey = 'jasper_cloud_session_id';
@@ -18,7 +18,7 @@ const getDeviceLabel = () => {
 };
 
 export async function startCloudSession(): Promise<{ allowed: boolean; reason?: string }> {
-  const client: any = await getDynamicSupabaseClient();
+  const client: any = await getSecureDataBridgeClient();
   const previousSessionId = sessionStorage.getItem(sessionStorageKey);
   if (previousSessionId) {
     await client.rpc('end_user_session', { p_session_id: previousSessionId }).catch(() => null);
@@ -40,7 +40,7 @@ export async function touchCloudSession() {
   const sessionId = sessionStorage.getItem(sessionStorageKey);
   if (!sessionId) return;
   try {
-    const client: any = await getDynamicSupabaseClient();
+    const client: any = await getSecureDataBridgeClient();
     await client.rpc('touch_user_session', { p_session_id: sessionId });
   } catch {
     // A later heartbeat or reconnect will retry without blocking the user.
@@ -51,7 +51,7 @@ export async function endCloudSession() {
   const sessionId = sessionStorage.getItem(sessionStorageKey);
   if (!sessionId) return;
   try {
-    const client: any = await getDynamicSupabaseClient();
+    const client: any = await getSecureDataBridgeClient();
     await client.rpc('end_user_session', { p_session_id: sessionId });
   } finally {
     sessionStorage.removeItem(sessionStorageKey);

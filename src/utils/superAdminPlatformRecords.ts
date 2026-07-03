@@ -6,7 +6,7 @@
  * Falls back to localStorage when offline and syncs when back online.
  */
 
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 const GLOBAL_SCOPE = 'saas-global';
 
@@ -19,7 +19,7 @@ const safeRecordToken = (value: string) => /^[a-zA-Z0-9_-]{1,80}$/.test(value);
 
 async function getAccessToken(): Promise<string | null> {
   try {
-    const client: any = await getDynamicSupabaseClient();
+    const client: any = await getSecureDataBridgeClient();
     const { data: { session } } = await client.auth.getSession();
     return session?.access_token || null;
   } catch {
@@ -82,7 +82,7 @@ export async function loadPlatformRecord<T>(
   // Legacy fallback for older deployments/data before platform records moved
   // behind protected server APIs.
   try {
-    const client: any = await getDynamicSupabaseClient();
+    const client: any = await getSecureDataBridgeClient();
     const { data, error } = await client
       .from('tenant_data')
       .select('payload')

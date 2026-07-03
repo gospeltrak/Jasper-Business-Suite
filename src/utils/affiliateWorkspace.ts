@@ -1,4 +1,4 @@
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { loadPlatformRecord } from './superAdminPlatformRecords';
 
 export type AffiliateTaskStatus = 'new' | 'pending' | 'completed' | 'reviewed';
@@ -160,7 +160,7 @@ const mapSspBannerToCampaign = (banner: any): AffiliateCampaign | null => {
 };
 
 export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData | null> {
-  const client: any = await getDynamicSupabaseClient();
+  const client: any = await getSecureDataBridgeClient();
   const { data: authData, error: authError } = await client.auth.getUser();
   if (authError || !authData?.user) return null;
 
@@ -250,7 +250,7 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
 }
 
 export async function completeAffiliateTask(taskId: string) {
-  const client: any = await getDynamicSupabaseClient();
+  const client: any = await getSecureDataBridgeClient();
   const { data, error } = await client.rpc('complete_affiliate_task', { p_task_id: taskId });
   if (error) throw error;
   return data as AffiliateTask;
@@ -261,7 +261,7 @@ export async function recordAffiliateActivity(
   resourceType: string,
   resourceId: string,
 ) {
-  const client: any = await getDynamicSupabaseClient();
+  const client: any = await getSecureDataBridgeClient();
   const { error } = await client.rpc('record_affiliate_activity', {
     p_event_type: eventType,
     p_resource_type: resourceType,
@@ -271,7 +271,7 @@ export async function recordAffiliateActivity(
 }
 
 export async function loadAffiliateAgentWorkspace(): Promise<AffiliateAgentWorkspace | null> {
-  const client: any = await getDynamicSupabaseClient();
+  const client: any = await getSecureDataBridgeClient();
   const { data: authData, error: authError } = await client.auth.getUser();
   if (authError || !authData?.user) return null;
 
@@ -297,7 +297,7 @@ export async function createAffiliateTask(input: {
   attachmentUrl?: string;
   attachmentName?: string;
 }) {
-  const client: any = await getDynamicSupabaseClient();
+  const client: any = await getSecureDataBridgeClient();
   const { data: authData, error: authError } = await client.auth.getUser();
   if (authError || !authData?.user) throw new Error('Sign in is required.');
   const { data, error } = await client.from('affiliate_tasks').insert({
@@ -323,7 +323,7 @@ export async function createAffiliateMeeting(input: {
   meetingUrl: string;
   startsAt: string;
 }) {
-  const client: any = await getDynamicSupabaseClient();
+  const client: any = await getSecureDataBridgeClient();
   const { data: authData, error: authError } = await client.auth.getUser();
   if (authError || !authData?.user) throw new Error('Sign in is required.');
   const { data, error } = await client.from('affiliate_meetings').insert({

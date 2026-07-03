@@ -9,7 +9,7 @@
  * On conflict:   Supabase wins (server-side timestamp comparison)
  */
 
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -37,7 +37,7 @@ function localKey(tenantId: string, dataKey: string): string {
  */
 export async function pushToCloud(tenantId: string, dataKey: string, payload: any): Promise<void> {
   try {
-    const client: any = await getDynamicSupabaseClient();
+    const client: any = await getSecureDataBridgeClient();
     const { error } = await client
       .from('tenant_data')
       .upsert({
@@ -60,7 +60,7 @@ export async function pushToCloud(tenantId: string, dataKey: string, payload: an
  */
 export async function pullFromCloud(tenantId: string, dataKey: string): Promise<any | null> {
   try {
-    const client: any = await getDynamicSupabaseClient();
+    const client: any = await getSecureDataBridgeClient();
     const { data, error } = await client
       .from('tenant_data')
       .select('payload, updated_at')
@@ -81,7 +81,7 @@ export async function pullFromCloud(tenantId: string, dataKey: string): Promise<
  */
 export async function pullAllFromCloud(tenantId: string): Promise<Record<string, any>> {
   try {
-    const client: any = await getDynamicSupabaseClient();
+    const client: any = await getSecureDataBridgeClient();
     const { data, error } = await client
       .from('tenant_data')
       .select('data_key, payload')

@@ -1,4 +1,4 @@
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 export interface SuperAdminOverview {
   tenants: any[];
@@ -81,7 +81,7 @@ const normalizeOverview = (overview?: Partial<SuperAdminOverview> | null): Super
 });
 
 const apiRequest = async (path: string, init: RequestInit = {}) => {
-  const client = await getDynamicSupabaseClient();
+  const client = await getSecureDataBridgeClient();
   const { data: { session } } = await client.auth.getSession();
   if (!session?.access_token) throw new Error('Super Admin login is required.');
 

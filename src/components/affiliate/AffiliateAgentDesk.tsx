@@ -206,8 +206,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
     if (supabaseUserId || supabaseRowId) {
       try {
-        const { getDynamicSupabaseClient } = await import('../../supabaseClient');
-        const client: any = await getDynamicSupabaseClient();
+        const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+        const client: any = await getSecureDataBridgeClient();
         const filter = supabaseUserId
           ? { column: 'user_id', value: supabaseUserId }
           : { column: 'id',      value: supabaseRowId };
@@ -318,8 +318,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   useEffect(() => {
     const loadFreshProfile = async () => {
       try {
-        const { getDynamicSupabaseClient } = await import('../../supabaseClient');
-        const client: any = await getDynamicSupabaseClient();
+        const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+        const client: any = await getSecureDataBridgeClient();
 
         let profile: any = null;
         const cols = 'id, user_id, display_name, promo_code, promo_code_locked, phone_whatsapp, payout_account, payout_method, tin_number, tin_status';
@@ -424,8 +424,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     // ── Try Supabase first — query affiliates WHERE parent_super_agent_id = partnerId ──
     if (partnerId && partnerId !== 'partner-local') {
       try {
-        const { getDynamicSupabaseClient } = await import('../../supabaseClient');
-        const client: any = await getDynamicSupabaseClient();
+        const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+        const client: any = await getSecureDataBridgeClient();
         const { data } = await client.from('affiliates')
           .select('id, user_id, display_name, promo_code, referral_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, total_revenue, gross_commission, withholding_tax, net_payout, customers_count, is_disabled, status, created_at')
           .eq('parent_super_agent_id', partnerId)
@@ -516,8 +516,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       setCustomers([]);
     } else {
       try {
-        const { getDynamicSupabaseClient } = await import('../../supabaseClient');
-        const client: any = await getDynamicSupabaseClient();
+        const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+        const client: any = await getSecureDataBridgeClient();
         const subIds = mapped.map((aff) => aff.id).filter(Boolean);
         const { data: referredRows } = await client.from('referred_customers')
           .select('id, tenant_id, customer_id, customer_name, phone_number, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, sub_affiliate_id, created_at')
@@ -597,8 +597,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
     // Update Supabase affiliates table
     try {
-      const { getDynamicSupabaseClient } = await import('../../supabaseClient');
-      const client: any = await getDynamicSupabaseClient();
+      const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+      const client: any = await getSecureDataBridgeClient();
       await client.from('affiliates')
         .update({ is_disabled: newIsDisabled, status: newStatus })
         .eq('id', aff.id);

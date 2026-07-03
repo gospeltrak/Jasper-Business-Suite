@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Search, Plus, Trash, CheckCircle, User } from 'lucide-react';
 import { defaultHardwareInventory, loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 async function loadAffiliatesForPOS(): Promise<any[]> {
   const results: any[] = [];
   try {
-    const client: any = await getDynamicSupabaseClient();
+    const client: any = await getSecureDataBridgeClient();
     const { data } = await client.from('affiliates')
       .select('id, display_name, promo_code, referral_code, account_type, phone_whatsapp')
       .order('created_at', { ascending: false });
@@ -35,7 +35,7 @@ async function loadAffiliatesForPOS(): Promise<any[]> {
 
 async function loadSubscribersForPOS(): Promise<any[]> {
   try {
-    const client: any = await getDynamicSupabaseClient();
+    const client: any = await getSecureDataBridgeClient();
     const { data } = await client.from('tenants')
       .select('id, name')
       .order('created_at', { ascending: false })

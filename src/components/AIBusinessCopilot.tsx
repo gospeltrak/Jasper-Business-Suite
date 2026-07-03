@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, ReactNode } from 'react';
 import { Tenant } from '../types';
 import { createLucyResponse, detectLucyLanguage, getLucyGreeting } from '../utils/lucyBrain';
 import { normalizeSubscriptionPlanId } from '../utils/subscription';
-import { getDynamicSupabaseClient, isPlaceholderSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../secureDataBridge';
 import { 
   Sparkles, 
   Send, 
@@ -248,8 +248,8 @@ export default function AIBusinessCopilot({
 
     const intent = inferLucyIntent(textToSend);
     try {
-      const client: any = await getDynamicSupabaseClient();
-      const { data: { session } = { session: null } } = !isPlaceholderSupabaseClient(client) && client.auth
+      const client: any = await getSecureDataBridgeClient();
+      const { data: { session } = { session: null } } = !isPlaceholderSecureDataBridgeClient(client) && client.auth
         ? await client.auth.getSession()
         : { data: { session: null } };
       const response = await fetch('/api/copilot', {

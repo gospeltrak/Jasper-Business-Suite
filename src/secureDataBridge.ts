@@ -1,15 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-let supabaseClientInstance: ReturnType<typeof createClient> | null = null;
-const PLACEHOLDER_SUPABASE_URL = 'https://placeholder-url.supabase.co';
-const PLACEHOLDER_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy';
+let secureDataBridgeInstance: ReturnType<typeof createClient> | null = null;
+const PLACEHOLDER_DATA_URL = 'https://placeholder-url.supabase.co';
+const PLACEHOLDER_DATA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy';
 
-export const isPlaceholderSupabaseClient = (client: any) =>
-  Boolean(client?.__isPlaceholderSupabaseClient);
+export const isPlaceholderSecureDataBridgeClient = (client: any) =>
+  Boolean(client?.__isPlaceholderSecureDataBridgeClient);
 
-export async function getDynamicSupabaseClient() {
-  if (supabaseClientInstance && supabaseClientInstance.auth) {
-    return supabaseClientInstance;
+export async function getSecureDataBridgeClient() {
+  if (secureDataBridgeInstance && secureDataBridgeInstance.auth) {
+    return secureDataBridgeInstance;
   }
 
   const metaEnv = (import.meta as any).env || {};
@@ -35,13 +35,13 @@ export async function getDynamicSupabaseClient() {
 
   if (!url || !key) {
     // Graceful fallback to prevent compilation/load failure
-    url = PLACEHOLDER_SUPABASE_URL;
-    key = PLACEHOLDER_SUPABASE_KEY;
+    url = PLACEHOLDER_DATA_URL;
+    key = PLACEHOLDER_DATA_KEY;
   }
 
-  const isPlaceholder = url === PLACEHOLDER_SUPABASE_URL;
+  const isPlaceholder = url === PLACEHOLDER_DATA_URL;
 
-  supabaseClientInstance = createClient(url, key, {
+  secureDataBridgeInstance = createClient(url, key, {
     auth: {
       persistSession: !isPlaceholder,
       autoRefreshToken: !isPlaceholder,
@@ -51,18 +51,18 @@ export async function getDynamicSupabaseClient() {
       fetch: isPlaceholder ? (async () => new Response('{}', { status: 200 })) as any : undefined
     }
   });
-  (supabaseClientInstance as any).__isPlaceholderSupabaseClient = isPlaceholder;
+  (secureDataBridgeInstance as any).__isPlaceholderSecureDataBridgeClient = isPlaceholder;
 
-  return supabaseClientInstance;
+  return secureDataBridgeInstance;
 }
 
 // Keep a default client as well for direct/immediate static imports
 const metaEnvStatic = (import.meta as any).env || {};
-const supabaseUrl = metaEnvStatic.VITE_SUPABASE_URL || PLACEHOLDER_SUPABASE_URL;
-const supabaseAnonKey = metaEnvStatic.VITE_SUPABASE_ANON_KEY || PLACEHOLDER_SUPABASE_KEY;
-const isStaticPlaceholder = supabaseUrl === PLACEHOLDER_SUPABASE_URL;
+const secureDataUrl = metaEnvStatic.VITE_SUPABASE_URL || PLACEHOLDER_DATA_URL;
+const secureDataAnonKey = metaEnvStatic.VITE_SUPABASE_ANON_KEY || PLACEHOLDER_DATA_KEY;
+const isStaticPlaceholder = secureDataUrl === PLACEHOLDER_DATA_URL;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const secureDataBridge = createClient(secureDataUrl, secureDataAnonKey, {
   auth: {
     persistSession: !isStaticPlaceholder,
     autoRefreshToken: !isStaticPlaceholder,

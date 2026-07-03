@@ -52,7 +52,7 @@ import AffiliateAgentDesk from "./affiliate/AffiliateAgentDesk";
 // imported here — the dashboards themselves (AffiliateAgentDesk.tsx,
 // AffiliateWorkspace.tsx) load their own workspace data after an explicit
 // login, so this portal-level component never auto-loads a dashboard.
-import { getDynamicSupabaseClient } from "../supabaseClient";
+import { getSecureDataBridgeClient } from "../secureDataBridge";
 import {
   requireOnline,
   isOnline,
@@ -878,7 +878,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     // cannot create a second Partner account once one already exists.
     if (portalRole === 'partner') {
       try {
-        const client: any = await getDynamicSupabaseClient();
+        const client: any = await getSecureDataBridgeClient();
         const { count } = await client
           .from('affiliate_partners')
           .select('id', { count: 'exact', head: true });
@@ -968,7 +968,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
     // Auto-resolve uniqueness — check both tables and append digits if taken
     try {
-      const clientCheck: any = await getDynamicSupabaseClient();
+      const clientCheck: any = await getSecureDataBridgeClient();
       const [{ data: apRow }, { data: afRow }] = await Promise.all([
         clientCheck.from('affiliate_partners').select('id').eq('promo_code', cleanCode).maybeSingle(),
         clientCheck.from('affiliates').select('id').eq('promo_code', cleanCode).maybeSingle(),
@@ -1015,7 +1015,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       // Also check Supabase in case the partner isn't cached in this browser's localStorage
       if (!parentMatch) {
         try {
-          const client: any = await getDynamicSupabaseClient();
+          const client: any = await getSecureDataBridgeClient();
           const { data: dbPartner } = await client
             .from('affiliate_partners')
             .select('id, display_name, promo_code, is_disabled')
@@ -1087,7 +1087,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
     // ── Save to Supabase affiliates table (source of truth) ───
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
       const authEmail = `affiliate-${phone.replace(/\D/g, "")}@jasper.local`;
       const { data: authData, error: authError } = await client.auth.signUp({
         email: authEmail,
@@ -1230,7 +1230,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     }
 
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
       const normalizedLogin = loginEmail.trim();
       const authEmail = normalizedLogin.includes('@')
         ? normalizedLogin
@@ -1325,7 +1325,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
   const handleLogoutAffiliate = async () => {
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
       await client.auth.signOut();
     } catch { /* Local cleanup still runs if the network is unavailable. */ }
     // Belt-and-suspenders: forcibly remove any Supabase-persisted session

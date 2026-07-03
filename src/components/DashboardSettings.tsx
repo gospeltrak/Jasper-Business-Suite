@@ -38,7 +38,7 @@ import {
   Truck
 } from 'lucide-react';
 import { DashboardNotificationsSettings } from './DashboardNotificationsSettings';
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
   {
@@ -617,7 +617,7 @@ export default function DashboardSettings({
     setIsLogoSaving(true);
     setLogoSaveStatus(null);
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
       const { data: { session } } = await client.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Please sign in again before saving the logo.');
