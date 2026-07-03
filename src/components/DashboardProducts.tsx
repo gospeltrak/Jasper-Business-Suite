@@ -1515,7 +1515,7 @@ export default function DashboardProducts({
       ──────────────────────────────────────────────────────────────── */}
 
       {/* MOBILE: 2×2 grid */}
-      <div className="md:hidden grid grid-cols-2 gap-3 px-0">
+      <div className="xl:hidden grid grid-cols-2 gap-3 px-0">
         {[
           { id: 'catalog',  icon: '📦', label: 'Product List',     sub: 'View all products' },
           { id: 'category', icon: '📁', label: 'Categories',        sub: 'Browse by type' },
@@ -1550,7 +1550,7 @@ export default function DashboardProducts({
       </div>
 
       {/* DESKTOP: horizontal pill tabs */}
-      <div className="hidden md:flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1.5 gap-1 shadow-xs">
+      <div className="hidden xl:flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1.5 gap-1 shadow-xs">
         {[
           { id: 'catalog',  icon: '📦', label: 'Product List' },
           { id: 'category', icon: '📁', label: 'Product Category' },
@@ -1584,7 +1584,7 @@ export default function DashboardProducts({
           <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-xs overflow-hidden">
 
             {/* ── MOBILE: stacked native app style ── */}
-            <div className="md:hidden">
+            <div className="xl:hidden">
               {/* Hero strip */}
               <div className="px-5 pt-5 pb-4 flex items-center gap-4"
                 style={{ background: 'linear-gradient(135deg,#059669 0%,#047857 100%)' }}>
@@ -1637,7 +1637,7 @@ export default function DashboardProducts({
             </div>
 
             {/* ── DESKTOP / TABLET: horizontal command bar ── */}
-            <div className="hidden md:flex items-center justify-between gap-4 px-6 py-4">
+            <div className="hidden xl:flex items-center justify-between gap-4 px-6 py-4">
               {/* Left: title */}
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-slate-700 flex items-center justify-center shrink-0">
@@ -2317,7 +2317,7 @@ export default function DashboardProducts({
             <div className="overflow-x-auto bg-white dark:bg-slate-900">
 
             {/* ── MOBILE STOCK CARDS ── */}
-            <div className="md:hidden bg-slate-50 dark:bg-slate-950 px-3 pt-3 pb-[calc(80px+env(safe-area-inset-bottom))] space-y-3">
+            <div className="xl:hidden bg-slate-50 dark:bg-slate-950 px-3 pt-3 pb-[calc(80px+env(safe-area-inset-bottom))] space-y-3">
               {filteredProducts.map((prod) => {
                   const shopQty = prod.shopStockQty ?? 0;
                   const storeQty = prod.storeStockQty ?? 0;
@@ -2437,7 +2437,7 @@ export default function DashboardProducts({
             </div>{/* end inner wrapper */}
 
             </div>{/* end catalog card */}
-              <div className="hidden md:block overflow-x-auto">
+              <div className="hidden xl:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/75 text-[10px] text-slate-455 font-bold uppercase tracking-wider border-b border-slate-200 font-mono">
@@ -4795,7 +4795,7 @@ export default function DashboardProducts({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="md:hidden fixed inset-0 z-[200] flex flex-col"
+            className="xl:hidden fixed inset-0 z-[200] flex flex-col"
             style={{
               paddingTop: 'env(safe-area-inset-top)',
               paddingBottom: 'env(safe-area-inset-bottom)',

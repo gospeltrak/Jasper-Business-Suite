@@ -1127,7 +1127,7 @@ export default function DashboardPOS({
                   title="Scan Barcode / QR EAN code with reader"
                 >
                   <Scan className="w-4 h-4 text-emerald-600 animate-pulse" />
-                  <span className="hidden md:inline text-[9px] font-bold font-mono text-slate-500 tracking-wider">SCAN CODE</span>
+                  <span className="hidden xl:inline text-[9px] font-bold font-mono text-slate-500 tracking-wider">SCAN CODE</span>
                 </button>
               </div>
 
@@ -1210,7 +1210,7 @@ export default function DashboardPOS({
           )}
 
           {/* Desktop Categories Pill List */}
-          <div className="hidden md:flex flex-wrap items-center gap-2 pt-0.5">
+          <div className="hidden xl:flex flex-wrap items-center gap-2 pt-0.5">
             {categories.map(cat => (
               <button
                 key={cat}
@@ -1227,7 +1227,7 @@ export default function DashboardPOS({
           </div>
 
           {/* Mobile Categories Dropdown */}
-          <div className="md:hidden px-2 pt-0.5">
+          <div className="xl:hidden px-2 pt-0.5">
             <div className="relative">
               <select
                 value={selectedCategory || 'All'}
@@ -1271,7 +1271,7 @@ export default function DashboardPOS({
                   }}
                   className={`bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${
                     showProductImages
-                      ? 'p-0 md:p-5 flex flex-col justify-between overflow-hidden md:overflow-visible md:rounded-3xl'
+                      ? 'p-0 md:p-5 flex flex-col justify-between overflow-hidden xl:overflow-visible md:rounded-3xl'
                       : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'
                   } ${
                     isOut 
@@ -1307,7 +1307,7 @@ export default function DashboardPOS({
                   <div className={`${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-2 px-3 pb-3 md:px-0 md:pb-0' : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'}`}>
                     {/* Product Metadata & Text layout */}
                     <div className="space-y-1 min-w-0">
-                      <div className={`${showProductImages ? 'hidden md:flex' : 'flex'} items-center justify-between gap-2`}>
+                      <div className={`${showProductImages ? 'hidden xl:flex' : 'flex'} items-center justify-between gap-2`}>
                         <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded-xs leading-none">
                           {prod.category}
                         </span>
@@ -1318,16 +1318,16 @@ export default function DashboardPOS({
                       <h5 className={`font-extrabold text-xs text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 md:min-h-[2.25rem]' : 'truncate md:text-sm'}`} title={prod.name}>
                         {prod.name}
                       </h5>
-                      <p className={`${showProductImages ? 'hidden md:block' : 'block'} text-[9.5px] text-slate-400 font-mono font-medium truncate`}>SKU: {prod.sku || prod.barcode || 'N/A'}</p>
+                      <p className={`${showProductImages ? 'hidden xl:block' : 'block'} text-[9.5px] text-slate-400 font-mono font-medium truncate`}>SKU: {prod.sku || prod.barcode || 'N/A'}</p>
                     </div>
 
                     {/* Pricing and Select CTA trigger */}
                     <div className={`${showProductImages ? 'flex items-center justify-between pt-2 border-t border-slate-100 mt-2' : 'contents md:flex md:items-center md:gap-3 md:justify-end'} shrink-0`}>
                       <div className="space-y-0.5">
-                        <p className="hidden md:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
+                        <p className="hidden xl:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
                         <span className="text-sm md:text-[14px] font-black text-emerald-700 md:text-slate-900 leading-none whitespace-nowrap">{currency}{Math.round(displayPrice).toLocaleString()}</span>
                         {prod.batches && prod.batches.some(batch => batch.status === 'active') && (
-                          <span className={`${showProductImages ? 'block' : 'hidden md:block'} text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5`}>
+                          <span className={`${showProductImages ? 'block' : 'hidden xl:block'} text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5`}>
                             {getProductCostingMethod(prod).replace('_', ' ')}
                           </span>
                         )}
@@ -1709,7 +1709,7 @@ export default function DashboardPOS({
             id="pos-checkout-btn"
             disabled={cart.length === 0}
             onClick={triggerCheckout}
-            className="hidden md:flex w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-45 text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer items-center justify-center space-x-2 shadow-lg shadow-emerald-500/15 active:scale-98"
+            className="hidden xl:flex w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-45 text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer items-center justify-center space-x-2 shadow-lg shadow-emerald-500/15 active:scale-98"
           >
             <span>Proceed to Payment</span>
           </button>
@@ -1717,7 +1717,7 @@ export default function DashboardPOS({
       </div>
 
       {/* Mobile Sticky Cart Summary */}
-      <div className="md:hidden fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]">
+      <div className="xl:hidden fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]">
         <div className="flex flex-col space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -1750,7 +1750,7 @@ export default function DashboardPOS({
         <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/70" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
           <div className="relative bg-white border border-slate-200 md:rounded-3xl rounded-t-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col" style={{maxHeight: 'calc(100dvh - 60px - env(safe-area-inset-bottom) - env(safe-area-inset-top))' }}>
             {/* Mobile Drag Handle */}
-            <div className="w-full flex justify-center pt-3 pb-2 md:hidden bg-slate-50">
+            <div className="w-full flex justify-center pt-3 pb-2 xl:hidden bg-slate-50">
               <div className="w-12 h-1.5 bg-slate-300/50 rounded-full" />
             </div>
 

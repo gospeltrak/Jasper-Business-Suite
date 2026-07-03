@@ -1344,7 +1344,7 @@ export default function DashboardSettings({
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 lg:gap-6 items-start">
         
         {/* Navigation Sidebar Drawer */}
-        <div className="hidden lg:block bg-white rounded-3xl border border-slate-200 p-4 space-y-2 lg:col-span-1 shadow-sm sticky top-[4.5rem] z-10">
+        <div className="hidden xl:block bg-white rounded-3xl border border-slate-200 p-4 space-y-2 lg:col-span-1 shadow-sm sticky top-[4.5rem] z-10">
           <div className="px-3 py-2 text-[10px] font-mono font-black uppercase tracking-wider text-slate-400">
             Configuration Modules
           </div>
@@ -1369,7 +1369,7 @@ export default function DashboardSettings({
           })}
         </div>
 
-        <div className="lg:hidden bg-white border border-slate-200 rounded-2xl shadow-sm p-3 overflow-hidden">
+        <div className="xl:hidden bg-white border border-slate-200 rounded-2xl shadow-sm p-3 overflow-hidden">
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             {settingsTabs.map(tab => {
               const Icon = tab.icon;
@@ -2489,7 +2489,7 @@ export default function DashboardSettings({
               <div className="space-y-3.5">
                 <span className="block text-[10px] uppercase font-black text-slate-400 font-mono tracking-wider">Registered Staff Accounts ({staffsList.length})</span>
                 
-                <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <div className="hidden xl:block overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-mono font-black text-slate-500 uppercase tracking-widest">
@@ -2626,7 +2626,7 @@ export default function DashboardSettings({
                     </tbody>
                   </table>
                 </div>
-                <div className="md:hidden space-y-3">
+                <div className="xl:hidden space-y-3">
                   {staffsList.length === 0 ? (
                     <div className="p-8 text-center text-slate-400 text-xs font-sans rounded-2xl border border-slate-200 bg-slate-50">
                       No staffs registered under this branch's core hrm configurations yet.
@@ -2913,7 +2913,7 @@ export default function DashboardSettings({
                         )}
                       </div>
 
-                      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-200">
+                      <div className="hidden xl:block overflow-x-auto rounded-xl border border-slate-200">
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-mono font-black text-slate-500 uppercase tracking-widest">
@@ -2982,7 +2982,7 @@ export default function DashboardSettings({
                           </tbody>
                         </table>
                       </div>
-                      <div className="md:hidden space-y-3">
+                      <div className="xl:hidden space-y-3">
                         {(() => {
                           let lastCategory = '';
                           return modulesList.map(mod => {

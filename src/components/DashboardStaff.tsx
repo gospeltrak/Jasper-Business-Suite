@@ -836,7 +836,7 @@ export default function DashboardStaff({
             <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">{staffList.length} accounts</div>
           </div>
 
-          <div className="hidden lg:block overflow-hidden rounded-2xl border border-slate-200">
+          <div className="hidden xl:block overflow-hidden rounded-2xl border border-slate-200">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-[11px] font-black uppercase tracking-wider text-slate-500">
                 <tr>
@@ -917,7 +917,7 @@ export default function DashboardStaff({
             </table>
           </div>
 
-          <div className="lg:hidden space-y-3">
+          <div className="xl:hidden space-y-3">
             {staffList.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm font-semibold text-slate-400">No staff registered.</div>
             ) : (

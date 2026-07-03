@@ -1138,13 +1138,13 @@ export default function DashboardReports({
     <div className="space-y-8 animate-fade-in pb-[calc(80px+env(safe-area-inset-bottom))]" id="reports-view-root">
       
       {/* DESKTOP-ONLY INTERFACE CONTAINER */}
-      <div className="hidden md:block space-y-8">
+      <div className="hidden xl:block space-y-8">
       
       {/* ------------------------------------------------------------- */}
       {/* DESKTOP-ONLY HEADER CONTROLS SECTION */}
       {/* ------------------------------------------------------------- */}
       {/* ── DESKTOP HEADER — redesigned ── */}
-      <div className="hidden md:flex items-center justify-between gap-4">
+      <div className="hidden xl:flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Reports</h1>
           <p className="text-sm text-slate-400 mt-0.5">Analytics & Accounts</p>
@@ -1176,7 +1176,7 @@ export default function DashboardReports({
 
       {/* ============================================================= */}
       {/* ── MOBILE HEADER — premium native hero ── */}
-      <div className="md:hidden space-y-3">
+      <div className="xl:hidden space-y-3">
         {/* Dark hero banner */}
         <div className="rounded-2xl overflow-hidden relative" style={{background:'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)',boxShadow:'0 4px 20px rgba(15,23,42,0.2)'}}>
           <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full opacity-5" style={{background:'white'}}/>
@@ -1246,7 +1246,7 @@ export default function DashboardReports({
 
       {/* ------------------------------------------------------------- */}
       {/* ── DESKTOP KPI CARDS — clean premium without accent bar ── */}
-      <div className="hidden md:grid grid-cols-4 gap-3">
+      <div className="hidden xl:grid grid-cols-4 gap-3">
         {[
           {label:'Total Sales', value:`${currency}${Math.round(totalSalesRevenue).toLocaleString()}`, sub:`${filteredSales.length} sales`, icon:<TrendingUp className="w-4 h-4"/>, color:'#059669', iconBg:'#f0fdf4'},
           {label:'Cost of Goods', value:`${currency}${Math.round(totalCOGS).toLocaleString()}`, sub:`Margin ${totalSalesRevenue>0?Math.round(((totalSalesRevenue-totalCOGS)/totalSalesRevenue)*100):0}%`, icon:<Package className="w-4 h-4"/>, color:'#0891b2', iconBg:'#f0f9ff'},
@@ -1364,7 +1364,7 @@ export default function DashboardReports({
       {/* ------------------------------------------------------------- */}
       {/* ── DESKTOP TAB NAV — pill style ── */}
       {(!defaultTab || defaultTab !== 'expenses') && (
-        <div className="hidden md:flex bg-white border border-slate-200 p-1 rounded-2xl gap-1 flex-wrap shadow-xs">
+        <div className="hidden xl:flex bg-white border border-slate-200 p-1 rounded-2xl gap-1 flex-wrap shadow-xs">
           {[
             {id:'p&l',              label:'Profit & Loss',  icon:FileText,    color:'#059669', reqPerm:'reportsProfitCogs'},
             {id:'sales-report',     label:'Sales',          icon:TrendingUp,  color:'#2563eb', reqPerm:'reportsSalesExpenses'},
@@ -1396,7 +1396,7 @@ export default function DashboardReports({
       {/* ============================================================= */}
       {/* ── MOBILE REPORT TILES — 4-col icon grid ── */}
       {(!defaultTab || defaultTab !== 'expenses') && (
-        <div className="md:hidden grid grid-cols-4 gap-2 pb-1">
+        <div className="xl:hidden grid grid-cols-4 gap-2 pb-1">
           {[
             {id:'p&l',               label:'P&L',       icon:FileText,    color:'#059669', bg:'#f0fdf4'},
             {id:'sales-report',      label:'Sales',     icon:TrendingUp,  color:'#2563eb', bg:'#eff6ff'},
@@ -3585,9 +3585,9 @@ export default function DashboardReports({
       </div>
 
       {/* ============================================================= */}
-      {/* MOBILE-ONLY BRAND REDESIGNED REPORTS LAYOUT (md:hidden) */}
+      {/* MOBILE-ONLY BRAND REDESIGNED REPORTS LAYOUT (xl:hidden) */}
       {/* ============================================================= */}
-      <div className="block md:hidden pb-20 select-none">
+      <div className="block xl:hidden pb-20 select-none">
         {mobileView === 'menu' ? (
           <div className="space-y-5">
             {/* Mobile Header for Selector */}

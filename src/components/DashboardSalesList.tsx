@@ -778,7 +778,7 @@ export default function DashboardSalesList({
     <div className="space-y-0 md:space-y-6 animate-fade-in" id="sales-list-view-root">
 
       {/* ── MOBILE HERO BANNER — replaces old "Sales History" card ────────── */}
-      <div className="md:hidden">
+      <div className="xl:hidden">
         {/* Gradient hero strip */}
         <div className="relative overflow-hidden rounded-3xl mx-0 mb-4"
           style={{background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #6d28d9 100%)'}}>
@@ -818,7 +818,7 @@ export default function DashboardSalesList({
       </div>
 
       {/* ── DESKTOP HEADER — title + date filter + KPI cards + tabs ── */}
-      <div className="hidden md:block space-y-4">
+      <div className="hidden xl:block space-y-4">
 
         {/* 1. Title bar */}
         <div className="flex items-center justify-between">
@@ -913,7 +913,7 @@ export default function DashboardSalesList({
 
       </div>
       {/* MOBILE ONLY TAB NAVIGATION — visible pill tabs */}
-      <div className="md:hidden pb-3 select-none">
+      <div className="xl:hidden pb-3 select-none">
         <div className="flex bg-slate-200/70 dark:bg-slate-800 p-1 rounded-2xl gap-1">
           {mobileSalesSubTabs.map(tab => {
             const active = activeSubTab === tab.id;
@@ -943,7 +943,7 @@ export default function DashboardSalesList({
         <>
           {/* DATE RANGE SELECTOR — desktop only, now shown above in header */}
       {/* FILTER & CONTROL PANEL BAR (DESKTOP) */}
-      <div className="hidden md:flex bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="hidden xl:flex bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex-col md:flex-row md:items-center justify-between gap-4">
         
         {/* Search */}
         <div className="flex items-center bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs max-w-sm flex-grow">
@@ -995,7 +995,7 @@ export default function DashboardSalesList({
       </div>
 
       {/* FILTER & CONTROL PANEL BAR (MOBILE) */}
-      <div className="md:hidden space-y-2">
+      <div className="xl:hidden space-y-2">
         {/* Quick date chips */}
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5 flex-1">
@@ -1059,7 +1059,7 @@ export default function DashboardSalesList({
       <div className="bg-transparent md:bg-white md:rounded-2xl md:border md:border-slate-200 shadow-none md:shadow-xs md:overflow-hidden">
         
         {/* Mobile View: Cards */}
-        <div className="md:hidden flex flex-col space-y-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
+        <div className="xl:hidden flex flex-col space-y-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
           {filteredSales.map((sale) => {
             const totalVal = sale.total;
             const isCredit = sale.paymentMethod === 'Credit';
@@ -1152,7 +1152,7 @@ export default function DashboardSalesList({
         </div>
 
         {/* Desktop View: Redesigned Table */}
-        <div className="hidden md:block">
+        <div className="hidden xl:block">
           <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden" style={{boxShadow: '0 1px 8px rgba(0,0,0,0.06)'}}>
             {/* Table toolbar */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">

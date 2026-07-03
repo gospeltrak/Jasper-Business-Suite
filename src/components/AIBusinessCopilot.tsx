@@ -349,7 +349,7 @@ export default function AIBusinessCopilot({
       <button
         id="jasper-ai-floating-trigger"
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-24 right-6 md:bottom-6 md:right-6 w-[58px] h-[58px] rounded-2xl flex items-center justify-center text-white shadow-2xl transition-transform active:scale-95 cursor-pointer z-50 border group ${
+        className={`fixed bottom-[calc(var(--dashboard-bottom-nav-height)+1rem)] right-4 xl:bottom-6 xl:right-6 w-[58px] h-[58px] rounded-2xl flex items-center justify-center text-white shadow-2xl transition-transform active:scale-95 cursor-pointer z-[65] border group ${
           isLucyEnabled
             ? 'bg-slate-950 hover:bg-slate-900 border-emerald-400/30'
             : 'bg-slate-700 hover:bg-slate-800 border-slate-500/40'
@@ -367,7 +367,7 @@ export default function AIBusinessCopilot({
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
             id="jasper-ai-chat-drawer"
-            className="fixed bottom-24 right-4 md:right-6 w-[calc(100vw-2rem)] max-w-[420px] h-[min(680px,calc(100dvh-7rem))] bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col z-50 overflow-hidden font-sans antialiased"
+            className="fixed bottom-[calc(var(--dashboard-bottom-nav-height)+1rem)] right-4 xl:bottom-24 xl:right-6 w-[calc(100vw-2rem)] max-w-[420px] h-[min(680px,calc(var(--app-height,100dvh)-var(--dashboard-bottom-nav-height)-2rem))] xl:h-[min(680px,calc(100dvh-7rem))] bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col z-[65] overflow-hidden font-sans antialiased"
           >
             {/* Header */}
             <div 

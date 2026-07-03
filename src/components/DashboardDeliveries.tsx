@@ -647,7 +647,7 @@ Vehicle Plate Number: ${plateNumber}
         </div>
 
         {/* Desktop sub-tab navigation */}
-        <div className="hidden md:flex bg-slate-50 border-t border-slate-200 p-2 gap-2 overflow-x-auto">
+        <div className="hidden xl:flex bg-slate-50 border-t border-slate-200 p-2 gap-2 overflow-x-auto">
           <button
             onClick={() => handleSubTabChange('queue')}
             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all select-none cursor-pointer flex items-center space-x-1.5 whitespace-nowrap ${
@@ -695,7 +695,7 @@ Vehicle Plate Number: ${plateNumber}
         </div>
 
         {/* Mobile native-style section switcher */}
-        <div className="md:hidden border-t border-slate-200 bg-slate-50 px-3 py-3">
+        <div className="xl:hidden border-t border-slate-200 bg-slate-50 px-3 py-3">
           <div className="grid grid-cols-4 gap-2">
             {[
               { id: 'queue' as const, label: 'Jobs', icon: Clipboard },
@@ -1053,7 +1053,7 @@ Vehicle Plate Number: ${plateNumber}
               </div>
             ) : (
               <>
-                <div className="hidden md:block overflow-x-auto mt-4">
+                <div className="hidden xl:block overflow-x-auto mt-4">
                   <table className="w-full text-left text-xs text-slate-700">
                   <thead>
                     <tr className="bg-slate-50 text-[10px] font-black text-slate-400 tracking-widest font-mono border-b border-slate-200">
@@ -1090,7 +1090,7 @@ Vehicle Plate Number: ${plateNumber}
                   </tbody>
                   </table>
                 </div>
-                <div className="md:hidden mt-4 space-y-3">
+                <div className="xl:hidden mt-4 space-y-3">
                 {activeRiders.map((crew) => (
                   <div key={crew.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <div className="flex items-start justify-between gap-3">
@@ -1178,7 +1178,7 @@ Vehicle Plate Number: ${plateNumber}
                 </span>
               </div>
 
-              <div className="hidden md:block overflow-x-auto rounded-2xl border border-amber-200/60 bg-white">
+              <div className="hidden xl:block overflow-x-auto rounded-2xl border border-amber-200/60 bg-white">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-55 text-slate-500 border-b border-amber-150 text-[10px] tracking-wider uppercase font-extrabold font-mono">
@@ -1258,7 +1258,7 @@ Vehicle Plate Number: ${plateNumber}
                   </tbody>
                 </table>
               </div>
-              <div className="md:hidden space-y-3">
+              <div className="xl:hidden space-y-3">
                 {pendingNotes.map((note) => (
                   <div
                     key={note.id}
@@ -2092,7 +2092,7 @@ Vehicle Plate Number: ${plateNumber}
                     <span>Detailed Deliveries Record</span>
                     <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-mono">{deliveries.length} Records</span>
                   </div>
-                  <div className="hidden md:block overflow-x-auto">
+                  <div className="hidden xl:block overflow-x-auto">
                     <table className="w-full text-left text-xs whitespace-nowrap">
                       <thead>
                         <tr className="bg-slate-100/50 text-slate-500 font-mono text-[10px] uppercase tracking-wider">
@@ -2205,7 +2205,7 @@ Vehicle Plate Number: ${plateNumber}
                       </tbody>
                     </table>
                   </div>
-                  <div className="md:hidden p-3 space-y-3">
+                  <div className="xl:hidden p-3 space-y-3">
                     {deliveries.length === 0 ? (
                       <div className="px-4 py-8 text-center text-slate-400 text-sm">No deliveries recorded yet.</div>
                     ) : (
