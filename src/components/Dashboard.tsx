@@ -2415,7 +2415,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </header>
 
           {/* Core workspace content viewports */}
-          <main id="workspace-content" className={`flex-1 overflow-y-auto scrollbar-none overscroll-none touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-3 sm:p-4 xl:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-5 xl:space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] xl:pb-6 min-h-0`}>
+          <main id="workspace-content" className={`flex-1 overflow-y-auto scrollbar-none overscroll-contain touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-3 sm:p-4 xl:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-5 xl:space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] xl:pb-6 min-h-0`}>
 
             {isTrialAccessLocked ? (
               <div className="min-h-[calc(100dvh-120px)]">
@@ -2906,7 +2906,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </main>
 
           {/* Mobile Bottom Navigation Component */}
-          <nav className="xl:hidden shrink-0 z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800" style={{height:'calc(56px + env(safe-area-inset-bottom) + var(--browser-bottom-inset, 0px))', paddingBottom:'calc(env(safe-area-inset-bottom) + var(--browser-bottom-inset, 0px))', boxShadow:'0 -1px 0 rgba(0,0,0,0.05)', transform:'translateZ(0)', willChange:'transform', isolation:'isolate'}}>
+          <nav id="dashboard-mobile-nav" className="xl:hidden shrink-0 z-[60] bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800" style={{height:'var(--dashboard-bottom-nav-height)', paddingBottom:'calc(env(safe-area-inset-bottom) + var(--browser-bottom-inset, 0px))', boxShadow:'0 -1px 0 rgba(0,0,0,0.05)', transform:'translateZ(0)', willChange:'transform', isolation:'isolate'}}>
             <div className="flex items-stretch h-14">
               {(user.role === 'SuperAdmin' ? [
                 // ── Super SaaS Admin bottom nav ──────────────────────────
@@ -3101,7 +3101,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       />
       {user.role !== 'SuperAdmin' && (
         <GlobalStickyAd
-          bottomOffsetClass="bottom-[calc(5.25rem+env(safe-area-inset-bottom)+var(--browser-bottom-inset,0px))] xl:bottom-4"
+          bottomOffsetClass="bottom-[var(--dashboard-sticky-ad-clearance)] xl:bottom-4"
           leftOffsetClass="left-3 xl:left-1/2 xl:-translate-x-1/2"
           maxWidthClass="max-w-[640px]"
         />

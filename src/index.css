@@ -3,6 +3,11 @@
 @import "tailwindcss";
 @variant dark (&:where(.dark, .dark *));
 
+:root {
+  --dashboard-bottom-nav-height: calc(64px + env(safe-area-inset-bottom) + var(--browser-bottom-inset, 0px));
+  --dashboard-sticky-ad-clearance: calc(var(--dashboard-bottom-nav-height) + 0.75rem);
+}
+
 /* Lock to portrait in PWA / installed mode */
 @media (display-mode: standalone) {
   html {
@@ -105,15 +110,38 @@ body {
 }
 @supports (-webkit-touch-callout: none) {
   #dashboard-scaffold {
-    height: -webkit-fill-available;
-    max-height: -webkit-fill-available;
+    height: var(--app-height, 100dvh);
+    max-height: var(--app-height, 100dvh);
   }
 }
 @media (max-width: 1279px) {
+  #dashboard-scaffold {
+    position: fixed;
+    inset: 0;
+    height: var(--app-height, 100dvh);
+    max-height: var(--app-height, 100dvh);
+    width: var(--app-width, 100vw);
+    max-width: var(--app-width, 100vw);
+  }
   #workspace-content {
     padding-left: max(0.75rem, env(safe-area-inset-left));
     padding-right: max(0.75rem, env(safe-area-inset-right));
-    scroll-padding-bottom: calc(6.75rem + env(safe-area-inset-bottom) + var(--browser-bottom-inset, 0px));
+    padding-bottom: calc(var(--dashboard-bottom-nav-height) + 6.5rem) !important;
+    scroll-padding-bottom: calc(var(--dashboard-bottom-nav-height) + 6.5rem);
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  #dashboard-mobile-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--browser-bottom-inset, 0px);
+    height: var(--dashboard-bottom-nav-height);
+    padding-bottom: calc(env(safe-area-inset-bottom) + var(--browser-bottom-inset, 0px));
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
   }
   #dashboard-scaffold input,
   #dashboard-scaffold textarea,
@@ -132,7 +160,7 @@ body {
   }
   #overview-component {
     width: 100%;
-    max-width: 560px;
+    max-width: min(100%, 820px);
     margin-left: auto;
     margin-right: auto;
   }
@@ -442,6 +470,20 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   min-width: 0;
 }
 
+.landing-page-shell {
+  min-width: 0;
+}
+
+.landing-page-shell h1,
+.landing-page-shell h2,
+.landing-page-shell h3,
+.landing-page-shell p,
+.landing-page-shell span,
+.landing-page-shell a,
+.landing-page-shell button {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 430px) {
   #landing-header {
     max-width: 100vw;
@@ -473,6 +515,23 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
     font-size: clamp(2.4rem, 11vw, 3rem) !important;
     line-height: 1.08 !important;
     overflow-wrap: anywhere;
+  }
+  #landing-hero {
+    overflow-x: clip !important;
+  }
+  #landing-hero > div:not(.absolute) {
+    max-width: 100%;
+  }
+  #landing-hero .flex-wrap {
+    width: 100%;
+    max-width: 100%;
+  }
+  #landing-hero .flex-wrap > div {
+    max-width: calc(100vw - 2rem);
+    flex-shrink: 1;
+    font-size: 10px;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
   }
 }
 
