@@ -82,6 +82,28 @@ export interface AffiliateCommission {
   paid_at: string | null;
 }
 
+export interface AffiliateSubscriber {
+  id: string;
+  tenant_id: string | null;
+  customer_name: string;
+  phone_number: string | null;
+  location: string | null;
+  region: string | null;
+  package_id: string | null;
+  package_name: string;
+  amount_paid: number;
+  payment_status: string;
+  subscription_start_date: string | null;
+  subscription_end_date: string | null;
+  promo_code_used: string | null;
+  referral_code_used: string | null;
+  commission_amount: number;
+  commission_status: string;
+  status: 'active' | 'inactive';
+  days_remaining: number;
+  created_at: string;
+}
+
 export interface AffiliatePayout {
   id: string;
   amount: number;
@@ -110,6 +132,7 @@ export interface AffiliateWorkspaceData {
   meetings: AffiliateMeeting[];
   campaigns: AffiliateCampaign[];
   referrals: AffiliateReferral[];
+  subscribers: AffiliateSubscriber[];
   commissions: AffiliateCommission[];
   payouts: AffiliatePayout[];
   activities: AffiliateActivityEvent[];
@@ -128,6 +151,55 @@ export interface AffiliateAgentWorkspace {
 }
 
 const asArray = <T,>(value: T[] | null | undefined): T[] => value || [];
+
+const daysUntil = (value?: string | null) => {
+  if (!value) return 0;
+  const end = new Date(value).getTime();
+  if (!Number.isFinite(end)) return 0;
+  return Math.max(0, Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24)));
+};
+
+const readablePackage = (value?: string | null) => {
+  const plan = String(value || 'free').trim();
+  if (!plan) return 'Free';
+  const normalized = plan.toLowerCase();
+  if (normalized === 'trial' || normalized === 'free_trial') return 'Free Trial';
+  if (normalized === 'ruby') return 'Ruby';
+  if (normalized === 'diamond') return 'Diamond';
+  if (normalized === 'tanzanite') return 'Tanzanite';
+  return plan;
+};
+
+const mapSubscriberRow = (row: any): AffiliateSubscriber => {
+  const endDate = row.subscription_end_date || row.subscriptionEndDate || row.trial_ends_at || null;
+  const amountPaid = Number(row.amount_paid ?? row.amountPaid ?? row.package_price ?? 0);
+  const commission = Number(row.commission_amount ?? row.commissionAmount ?? amountPaid * 0.15);
+  const daysRemaining = daysUntil(endDate);
+  const paymentStatus = String(row.payment_status || row.paymentStatus || (amountPaid > 0 ? 'paid' : 'free')).toLowerCase();
+  const isActive = daysRemaining > 0 && !['failed', 'cancelled', 'inactive', 'expired'].includes(paymentStatus);
+
+  return {
+    id: String(row.id || row.tenant_id || row.tenantId || `sub-${Date.now()}`),
+    tenant_id: row.tenant_id || row.tenantId || null,
+    customer_name: row.customer_name || row.customerName || row.tenant_name || row.tenantName || row.business_name || row.name || 'Unnamed subscriber',
+    phone_number: row.phone_number || row.phoneNumber || row.phone || null,
+    location: row.location || row.city || row.region || row.country || null,
+    region: row.region || row.city || row.location || null,
+    package_id: row.package_id || row.packageId || row.active_package_id || null,
+    package_name: readablePackage(row.package_name || row.packageName || row.package_id || row.packageId || row.active_package_id),
+    amount_paid: amountPaid,
+    payment_status: paymentStatus,
+    subscription_start_date: row.subscription_start_date || row.subscriptionStartDate || row.created_at || row.createdAt || null,
+    subscription_end_date: endDate,
+    promo_code_used: row.promo_code_used || row.promoCodeUsed || null,
+    referral_code_used: row.referral_code_used || row.referralCodeUsed || null,
+    commission_amount: commission,
+    commission_status: row.commission_status || row.commissionStatus || 'pending',
+    status: isActive ? 'active' : 'inactive',
+    days_remaining: daysRemaining,
+    created_at: row.created_at || row.createdAt || new Date().toISOString(),
+  };
+};
 
 const mapSspBannerToCampaign = (banner: any): AffiliateCampaign | null => {
   if (!banner) return null;
@@ -195,6 +267,7 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
           referrals: [],
           commissions: [],
           payouts: [],
+          subscribers: [],
           activities: [],
         };
       }
@@ -206,12 +279,16 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
     try { const r = await fn(); return r.error ? { data: [] } : r; } catch { return { data: [] }; }
   };
 
-  const [tasksResult, meetingsResult, assignmentsResult, sspBanners, referralsResult, commissionsResult, payoutsResult, activitiesResult] = await Promise.all([
+  const promoCode = profile.promo_code || profile.referral_code || '';
+
+  const [tasksResult, meetingsResult, assignmentsResult, sspBanners, referralsResult, subscribersResult, tenantPromoResult, commissionsResult, payoutsResult, activitiesResult] = await Promise.all([
     safeQuery(() => client.from('affiliate_tasks').select('*').order('created_at', { ascending: false }).limit(50)),
     safeQuery(() => client.from('affiliate_meetings').select('*').order('starts_at', { ascending: true }).limit(50)),
     safeQuery(() => client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(*)').order('created_at', { ascending: false }).limit(50)),
     loadPlatformRecord<any[]>('promotional_banners', 'global', []),
     safeQuery(() => client.from('affiliate_referrals').select('id, status, created_at').order('created_at', { ascending: false }).limit(500)),
+    safeQuery(() => client.from('referred_customers').select('id, tenant_id, customer_id, customer_name, phone_number, location, region, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, affiliate_id, sub_affiliate_id, commission_amount, commission_status, created_at').or(`affiliate_id.eq.${profile.id},sub_affiliate_id.eq.${profile.id},promo_code_used.eq.${promoCode},referral_code_used.eq.${promoCode}`).order('created_at', { ascending: false }).limit(1000)),
+    safeQuery(() => client.from('tenants').select('id, name, business_name, phone, city, region, country, active_package_id, selected_package_id, package_id, package_name, subscription_end_date, trial_ends_at, promo_code_used, referral_code_used, created_at, status').or(`promo_code_used.eq.${promoCode},referral_code_used.eq.${promoCode}`).order('created_at', { ascending: false }).limit(1000)),
     safeQuery(() => client.from('affiliate_commissions').select('id, amount, gross_revenue, gross_commission, withholding_tax, net_payout, currency, status, created_at, available_at, paid_at').order('created_at', { ascending: false }).limit(500)),
     safeQuery(() => client.from('affiliate_payouts').select('id, amount, currency, payout_method, payout_reference, status, requested_at, processed_at, notes').order('requested_at', { ascending: false }).limit(100)),
     safeQuery(() => client.from('affiliate_activity_events').select('*').order('created_at', { ascending: false }).limit(200)),
@@ -226,6 +303,24 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
     .filter(Boolean) as AffiliateCampaign[];
   const campaigns = [...assignedCampaigns, ...sspCampaigns]
     .filter((campaign, index, all) => all.findIndex((candidate) => candidate.id === campaign.id) === index);
+  const subscribers = [
+    ...asArray<any>(subscribersResult.data).map(mapSubscriberRow),
+    ...asArray<any>(tenantPromoResult.data).map((tenant) => mapSubscriberRow({
+      ...tenant,
+      tenant_id: tenant.id,
+      customer_name: tenant.name || tenant.business_name,
+      location: tenant.city || tenant.region || tenant.country,
+      region: tenant.region || tenant.city,
+      package_name: tenant.package_name || tenant.active_package_id || tenant.selected_package_id || tenant.package_id,
+      amount_paid: 0,
+      payment_status: tenant.status || 'registered',
+    })),
+  ].filter((subscriber, index, all) => (
+    all.findIndex((candidate) => (
+      (candidate.tenant_id && candidate.tenant_id === subscriber.tenant_id) ||
+      candidate.id === subscriber.id
+    )) === index
+  ));
 
   return {
     profile: profile as AffiliateWorkspaceProfile,
@@ -233,6 +328,7 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
     meetings: asArray<AffiliateMeeting>(meetingsResult.data),
     campaigns,
     referrals: asArray<AffiliateReferral>(referralsResult.data),
+    subscribers,
     commissions: asArray<AffiliateCommission>(commissionsResult.data).map((commission) => ({
       ...commission,
       amount: Number(commission.amount),
