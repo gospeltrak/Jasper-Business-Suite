@@ -405,10 +405,21 @@ export default function DashboardPOS({
     }
   }, [posWarning]);
   
-  // Custom categories list loaded dynamic from branch store settings
-  const configuredCategories = systemSettings?.productStore?.categories && systemSettings.productStore.categories.length > 0
-    ? systemSettings.productStore.categories
-    : Array.from(new Set(products.map(p => p.category?.trim()).filter(Boolean)));
+  // Custom categories list loaded dynamic from branch store settings.
+  // Deduplicate case-insensitively — "Groceries" and "groceries" are the same.
+  const configuredCategories = (() => {
+    const raw: string[] = systemSettings?.productStore?.categories && systemSettings.productStore.categories.length > 0
+      ? systemSettings.productStore.categories
+      : products.map(p => p.category?.trim()).filter(Boolean) as string[];
+    // Deduplicate: keep first occurrence of each case-insensitive value
+    const seen = new Set<string>();
+    return raw.filter(c => {
+      const key = c.trim().toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
   const categories = ['All', ...configuredCategories];
 
   const getPharmacyDoseConfig = (product: Product) => {

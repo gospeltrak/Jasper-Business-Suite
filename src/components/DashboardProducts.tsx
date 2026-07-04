@@ -1209,6 +1209,30 @@ export default function DashboardProducts({
 
         // Add imports directly to the system
         importedItems.forEach(item => onAddProduct(item));
+
+        // Auto-register any new categories from the spreadsheet into settings
+        // so they appear in the POS category filter immediately after import.
+        const importedCategories = Array.from(
+          new Set(importedItems.map(p => p.category?.trim()).filter(Boolean))
+        ) as string[];
+        if (importedCategories.length > 0) {
+          const existingCategories: string[] = systemSettings?.productStore?.categories || [];
+          const existingNormalized = existingCategories.map(c => c.trim().toLowerCase());
+          const newCategories = importedCategories.filter(
+            c => !existingNormalized.includes(c.toLowerCase())
+          );
+          if (newCategories.length > 0) {
+            const mergedCategories = [...existingCategories, ...newCategories];
+            onUpdateSettings({
+              ...systemSettings,
+              productStore: {
+                ...systemSettings.productStore,
+                categories: mergedCategories,
+              },
+            } as any);
+          }
+        }
+
         setCsvUploadSuccess(`Spreadsheet uploaded successfully! Imported ${importedItems.length} products. (Skipped ${skippedRows} rows).`);
         
         if (csvInputRef.current) {

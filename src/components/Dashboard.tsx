@@ -612,9 +612,36 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
       setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
       if (workspace.settings) {
-        setSystemSettings(workspace.settings);
+        // Prefer localStorage settings over cloud workspace settings.
+        // localStorage is written synchronously on every save, while the
+        // cloud workspace is written async — if the user saves categories,
+        // then refreshes quickly, the cloud may return old data before the
+        // async write completes. localStorage is always the most current.
+        const localSettingsRaw = localStorage.getItem(`jasper_settings_${activeTenant.id}`);
+        let settingsToApply = workspace.settings;
+        if (localSettingsRaw) {
+          try {
+            const localSettings = JSON.parse(localSettingsRaw);
+            // Merge: use local productStore.categories if they exist locally,
+            // since that's what the user explicitly saved via the Settings panel.
+            settingsToApply = {
+              ...workspace.settings,
+              ...localSettings,
+              productStore: {
+                ...(workspace.settings.productStore || {}),
+                ...(localSettings.productStore || {}),
+                categories: Array.isArray(localSettings.productStore?.categories)
+                  ? localSettings.productStore.categories
+                  : (workspace.settings.productStore?.categories || []),
+              },
+            };
+          } catch {
+            settingsToApply = workspace.settings;
+          }
+        }
+        setSystemSettings(settingsToApply);
         try {
-          localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(workspace.settings));
+          localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(settingsToApply));
         } catch (e) {
           // Cache write failure should not block live DB state.
         }
