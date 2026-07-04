@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { DashboardNotificationsSettings } from './DashboardNotificationsSettings';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
+import { compressImageFile } from '../utils/imageCompression';
 
 export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
   {
@@ -909,12 +910,11 @@ export default function DashboardSettings({
   };
 
   // Drag and drop logo processors
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'company' | 'business' | 'business_light' | 'business_dark') => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'company' | 'business' | 'business_light' | 'business_dark') => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
+      try {
+        const base64String = await compressImageFile(file, { maxWidth: 512, maxHeight: 512, quality: 0.72 });
         if (target === 'company') {
           const nextCompanyForm = { ...companyForm, logo: base64String };
           setCompanyForm(nextCompanyForm);
@@ -941,8 +941,9 @@ export default function DashboardSettings({
           setBusinessForm(nextBusinessForm);
           persistBusinessSettings(nextBusinessForm);
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        console.warn('Unable to compress uploaded logo', error);
+      }
     }
   };
 
@@ -1163,14 +1164,11 @@ export default function DashboardSettings({
     setTimeout(() => setSaveSuccess(null), 3500);
   };
 
-  const handleStaffImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'profileImage' | 'signatureImage') => {
+  const handleStaffImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'profileImage' | 'signatureImage') => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setStaffForm(prev => ({ ...prev, [field]: reader.result as string }));
-    };
-    reader.readAsDataURL(file);
+    const compressed = await compressImageFile(file, { maxWidth: 512, maxHeight: 512, quality: 0.72 });
+    setStaffForm(prev => ({ ...prev, [field]: compressed }));
   };
 
   const handleRegisterStaff = (e: React.FormEvent) => {

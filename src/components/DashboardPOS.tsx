@@ -526,6 +526,8 @@ export default function DashboardPOS({
 
   // Filtering products for current tenant active list
   const filteredProducts = useMemo(() => products.filter(p => {
+    const shopQty = Number(p.shopStockQty ?? p.stockQty ?? 0);
+    if (shopQty <= 0) return false;
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           p.barcode.toLowerCase().includes(searchTerm.toLowerCase());

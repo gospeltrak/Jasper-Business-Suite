@@ -42,6 +42,7 @@ import {
   mapCostingMethodToLegacy,
 } from '../utils/inventoryCosting';
 import { formatProductQuantity } from '../utils/unitFormatter';
+import { compressImageFile } from '../utils/imageCompression';
 
 interface DashboardProductsProps {
   activeTenant: Tenant;
@@ -497,14 +498,11 @@ export default function DashboardProducts({
     setAdjustShowSearch(false);
   };
 
-  const handleBrandLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBrandLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setNewBrandLogo(event.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    const compressed = await compressImageFile(file, { maxWidth: 512, maxHeight: 512, quality: 0.72 });
+    setNewBrandLogo(compressed);
   };
 
   // Search filter
@@ -809,8 +807,8 @@ export default function DashboardProducts({
                 console.error('Background removal filter failure', bgErr);
               }
               
-              // Export as transparent PNG base64 representation to preserve "no background"
-              const transparentBase64 = canvas.toDataURL('image/png');
+              // Export as compressed transparent WebP to preserve "no background" with less storage.
+              const transparentBase64 = canvas.toDataURL('image/webp', 0.72);
               setProductImage(transparentBase64);
               setProcessingStatus('Transparent 500x500 asset generated!');
             }
@@ -4218,29 +4216,11 @@ export default function DashboardProducts({
                         <input 
                           type="file" 
                           accept="image/*"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (event) => {
-                                const raw = event.target?.result as string;
-                                // Compress image to max 400x400px before storing
-                                const img = new Image();
-                                img.onload = () => {
-                                  const canvas = document.createElement('canvas');
-                                  const max = 400;
-                                  const ratio = Math.min(max / img.width, max / img.height, 1);
-                                  canvas.width = Math.round(img.width * ratio);
-                                  canvas.height = Math.round(img.height * ratio);
-                                  const ctx = canvas.getContext('2d');
-                                  ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-                                  const compressed = canvas.toDataURL('image/jpeg', 0.75);
-                                  setEditForm(prev => ({ ...prev, image: compressed }));
-                                };
-                                img.onerror = () => setEditForm(prev => ({ ...prev, image: raw }));
-                                img.src = raw;
-                              };
-                              reader.readAsDataURL(file);
+                              const compressed = await compressImageFile(file, { maxWidth: 700, maxHeight: 700, quality: 0.72 });
+                              setEditForm(prev => ({ ...prev, image: compressed }));
                             }
                           }}
                           className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
