@@ -993,12 +993,12 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
   }, []);
 
   // Handle conversational Lucy responses on home page
-  const handleLucySend = (e: any) => {
-    e.preventDefault();
-    if (!lucyInput.trim()) return;
+  const sendLucyMessage = (messageOverride?: string) => {
+    const userMsg = (messageOverride ?? lucyInput).trim();
+    if (!userMsg || isLucyThinking) return;
 
-    const userMsg = lucyInput.trim();
     const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    setIsLucyOpen(true);
     setLucyMessages(prev => [...prev, { sender: 'user', text: userMsg, time: timestamp }]);
     setLucyInput('');
     setIsLucyThinking(true);
@@ -1044,6 +1044,11 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       localStorage.setItem('jasper_lucy_self_learnings', JSON.stringify(selfLearnings));
 
     }, 1100);
+  };
+
+  const handleLucySend = (e: any) => {
+    e.preventDefault();
+    sendLucyMessage();
   };
 
   const faqDataByLang: Record<string, Array<{ q: string, a: string }>> = {
@@ -1455,7 +1460,18 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               </div>
 
               {/* Box 2: Lucy Spotlight */}
-              <div className={`p-6 rounded-3xl space-y-3 relative overflow-hidden border-2 ${isDark ? 'bg-slate-900/20 border-emerald-500/15' : 'bg-[#e6faf4]/20 border-emerald-500/20 shadow-xs'}`}>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setIsLucyOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setIsLucyOpen(true);
+                  }
+                }}
+                className={`p-6 rounded-3xl space-y-3 relative overflow-hidden border-2 cursor-pointer transition-all hover:-translate-y-0.5 ${isDark ? 'bg-slate-900/20 border-emerald-500/15 hover:border-emerald-400/40' : 'bg-[#e6faf4]/20 border-emerald-500/20 shadow-xs hover:border-emerald-500/40 hover:shadow-md'}`}
+              >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl" />
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -1467,6 +1483,9 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
                 <p className={`text-xs font-light leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                   {t.featLucyDesc || t.lucyDesc || "Your friendly assistant to answer questions and help you grow daily."}
                 </p>
+                <span className={`inline-flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-wider ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                  {t.callLucy || "Ask Lucy"} <ArrowRight className="w-3 h-3" />
+                </span>
               </div>
 
             </div>
@@ -1817,9 +1836,9 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       </div>
 
       {/* FLOATING LUCY CHAT BUBBLE ASSISTANT (Requested) */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+      <div className="fixed right-4 z-50 flex flex-col items-end sm:right-6 bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-6">
         {isLucyOpen ? (
-          <div className={`w-[340px] h-[460px] border rounded-3xl overflow-hidden shadow-2xl flex flex-col animate-fade-in font-sans text-left transition-colors duration-300 ${isDark ? 'bg-slate-900 border-emerald-500/60' : 'bg-white border-slate-200'}`}>
+          <div className={`w-[min(340px,calc(100vw-2rem))] h-[min(460px,calc(100vh-7rem))] border rounded-3xl overflow-hidden shadow-2xl flex flex-col animate-fade-in font-sans text-left transition-colors duration-300 ${isDark ? 'bg-slate-900 border-emerald-500/60' : 'bg-white border-slate-200'}`}>
             {/* Header */}
             <div className={`px-4 py-3 flex items-center justify-between border-b ${isDark ? 'bg-slate-950 border-slate-800/80' : 'bg-slate-50 border-slate-200'}`}>
               <div className="flex items-center space-x-2">
@@ -1857,7 +1876,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               {isLucyThinking && (
                 <div className={`flex items-center space-x-1.5 p-2 border rounded-lg text-[10.5px] font-mono w-40 ${isDark ? 'bg-slate-900 border-slate-850 text-slate-400' : 'bg-white border-slate-200 text-slate-600'}`}>
                   <RefreshCw className={`w-3 h-3 animate-spin ${isDark ? 'text-emerald-400' : 'text-[#00b87a]'}`} />
-                  <span>Lucy in Swahili context...</span>
+                  <span>Lucy is thinking with you...</span>
                 </div>
               )}
             </div>
@@ -1865,22 +1884,32 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             {/* Quick Suggestions buttons inside Lucy Floating widget */}
             <div className={`p-2 border-t flex flex-wrap gap-1 ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'}`}>
               <button 
-                onClick={() => { setLucyInput("Nahitaji kujua vifurushi na bei zao"); }}
+                type="button"
+                onClick={() => sendLucyMessage("Nahitaji kujua vifurushi na bei zao")}
                 className={`px-2 py-1 border text-[9px] rounded font-mono cursor-pointer transition-colors ${isDark ? 'bg-slate-900 hover:bg-slate-850 border-slate-800 text-slate-300' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
               >
                 💵 Vifurushi & Bei
               </button>
               <button 
-                onClick={() => { setLucyInput("Je, inafanya kazi hotelini?"); }}
+                type="button"
+                onClick={() => sendLucyMessage("Je, inafanya kazi hotelini?")}
                 className={`px-2 py-1 border text-[9px] rounded font-mono cursor-pointer transition-colors ${isDark ? 'bg-slate-900 hover:bg-slate-850 border-slate-800 text-slate-300' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
               >
                 🏨 Hotel & PMS
               </button>
               <button 
-                onClick={() => { setLucyInput("Ni kwa jinsi gani inasaidia pharmacy?"); }}
+                type="button"
+                onClick={() => sendLucyMessage("Ni kwa jinsi gani inasaidia pharmacy?")}
                 className={`px-2 py-1 border text-[9px] rounded font-mono cursor-pointer transition-colors ${isDark ? 'bg-slate-900 hover:bg-slate-850 border-slate-800 text-slate-300' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
               >
                 💊 Duka la Dawa
+              </button>
+              <button
+                type="button"
+                onClick={() => sendLucyMessage("Nianzishe free trial na hatua za kwanza")}
+                className={`px-2 py-1 border text-[9px] rounded font-mono cursor-pointer transition-colors ${isDark ? 'bg-slate-900 hover:bg-slate-850 border-slate-800 text-slate-300' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
+              >
+                Start Free Trial
               </button>
             </div>
 
@@ -1895,6 +1924,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               />
               <button 
                 type="submit"
+                disabled={isLucyThinking}
                 className={`p-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0 ${isDark ? 'bg-emerald-500 hover:bg-emerald-450 text-slate-950' : 'bg-[#00b87a] hover:bg-[#009966] text-white'}`}
               >
                 <SendHorizontal className="w-4 h-4" />
