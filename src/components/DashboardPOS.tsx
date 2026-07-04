@@ -408,7 +408,7 @@ export default function DashboardPOS({
   // Custom categories list loaded dynamic from branch store settings
   const configuredCategories = systemSettings?.productStore?.categories && systemSettings.productStore.categories.length > 0
     ? systemSettings.productStore.categories
-    : Array.from(new Set(products.map(p => p.category)));
+    : Array.from(new Set(products.map(p => p.category?.trim()).filter(Boolean)));
   const categories = ['All', ...configuredCategories];
 
   const getPharmacyDoseConfig = (product: Product) => {
@@ -518,7 +518,8 @@ export default function DashboardPOS({
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           p.barcode.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !selectedCategory || selectedCategory === 'All' || p.category === selectedCategory;
+    const matchesCategory = !selectedCategory || selectedCategory === 'All' || 
+      p.category?.trim().toLowerCase() === selectedCategory.trim().toLowerCase();
     const inStock = (p.shopStockQty ?? p.stockQty ?? 0) > 0;
     return matchesSearch && matchesCategory && inStock;
   }), [products, searchTerm, selectedCategory]);
