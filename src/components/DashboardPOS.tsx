@@ -519,7 +519,8 @@ export default function DashboardPOS({
                           p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           p.barcode.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = !selectedCategory || selectedCategory === 'All' || p.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const inStock = (p.shopStockQty ?? p.stockQty ?? 0) > 0;
+    return matchesSearch && matchesCategory && inStock;
   }), [products, searchTerm, selectedCategory]);
 
   const addToCart = useCallback((prod: Product) => {
