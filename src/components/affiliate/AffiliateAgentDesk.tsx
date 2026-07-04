@@ -334,14 +334,34 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const loadSubAffiliates = useCallback(async () => {
     let mapped: SubAffiliateProfile[] = [];
 
-    // ── Try Supabase first — query affiliates WHERE parent_super_agent_id = partnerId ──
-    if (partnerId && partnerId !== 'partner-local') {
-      try {
-        const { getDynamicSupabaseClient } = await import('../../supabaseClient');
-        const client: any = await getDynamicSupabaseClient();
+    // ── Try Supabase first — query affiliates WHERE parent_super_agent_id = partner's row ID ──
+    // Use the auth session to find the partner's affiliate_partners.id reliably,
+    // since partnerId (from partnerInfo.id) may not be set yet on first load
+    // due to a race condition between loadFreshProfile and loadSubAffiliates.
+    try {
+      const { getDynamicSupabaseClient } = await import('../../supabaseClient');
+      const client: any = await getDynamicSupabaseClient();
+
+      // Get the real partner row ID from the database directly
+      let resolvedPartnerId = partnerId !== 'partner-local' ? partnerId : null;
+
+      if (!resolvedPartnerId) {
+        // partnerId not set yet — look it up from the active session
+        const { data: authUser } = await client.auth.getUser();
+        if (authUser?.user) {
+          const { data: partnerRow } = await client
+            .from('affiliate_partners')
+            .select('id')
+            .eq('user_id', authUser.user.id)
+            .maybeSingle();
+          resolvedPartnerId = partnerRow?.id || null;
+        }
+      }
+
+      if (resolvedPartnerId) {
         const { data } = await client.from('affiliates')
           .select('id, user_id, display_name, promo_code, referral_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, total_revenue, gross_commission, withholding_tax, net_payout, customers_count, is_disabled, status, created_at')
-          .eq('parent_super_agent_id', partnerId)
+          .eq('parent_super_agent_id', resolvedPartnerId)
           .order('created_at', { ascending: false });
 
         if (data?.length) {
@@ -351,7 +371,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             return {
               id: a.id,
               userId: a.user_id,
-              parentSuperAgentId: partnerId,
+              parentSuperAgentId: resolvedPartnerId,
               name: a.display_name || 'Unnamed',
               phone: a.phone_whatsapp || '',
               email: '',
@@ -373,8 +393,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             };
           });
         }
-      } catch { /* offline — fall through to localStorage */ }
-    }
+      }
+    } catch { /* offline — fall through to localStorage */ }
 
     // ── Fallback / supplement: localStorage (offline-safe) ──────────────
     if (!mapped.length) {
@@ -445,6 +465,12 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => { loadSubAffiliates(); }, [reconMonth, loadSubAffiliates]);
+  // Re-run when partnerInfo.id becomes available (after loadFreshProfile resolves)
+  useEffect(() => {
+    if (partnerInfo?.id && partnerInfo.id !== 'partner-local') {
+      loadSubAffiliates();
+    }
+  }, [partnerInfo?.id, loadSubAffiliates]);
 
   // ── Network totals ──────────────────────────────────────────
 
