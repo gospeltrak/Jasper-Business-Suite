@@ -361,19 +361,27 @@ export default function DashboardPOS({
   const sharePosReceiptPdf = async () => {
     if (!receiptResult) return;
     try {
-      setReceiptPdfStatus('Preparing PDF...');
-      await shareElementPdfToWhatsApp({
+      setReceiptPdfStatus('Preparing receipt PDF...');
+      const result = await shareElementPdfToWhatsApp({
         elementId: 'pos-receipt-pdf-template',
-        fileName: `pos-receipt-${receiptResult.reference || receiptResult.id}.pdf`,
+        fileName: `receipt-${receiptResult.reference || receiptResult.id}.pdf`,
         phone: recipientWhatsApp,
-        message: `Hello ${receiptResult.customerName || 'customer'}, please find attached your POS receipt PDF from ${activeTenant.name}. Thank you.`,
+        message: `Hello ${receiptResult.customerName || 'valued customer'}, please find your receipt attached from ${activeTenant.name}. Thank you for your business!`,
         format: 'receipt'
       });
-      setReceiptPdfStatus('PDF ready for WhatsApp.');
+      if (result.method === 'native-share') {
+        setReceiptPdfStatus('✅ Receipt shared successfully.');
+      } else {
+        setReceiptPdfStatus('📥 PDF downloaded. Open WhatsApp → attach the file → send.');
+      }
     } catch (err: any) {
+      if (err?.message === 'Share cancelled') {
+        setReceiptPdfStatus(null);
+        return;
+      }
       setReceiptPdfStatus(err?.message || 'Could not prepare PDF.');
     } finally {
-      setTimeout(() => setReceiptPdfStatus(null), 4000);
+      setTimeout(() => setReceiptPdfStatus(null), 6000);
     }
   };
 
@@ -2157,8 +2165,8 @@ export default function DashboardPOS({
                   )}
 
                   <div className="text-center font-normal text-[9.5px] text-slate-500 border-t border-dashed border-slate-200 pt-3 space-y-1">
-                    <p className="font-sans font-medium">{systemSettings?.business?.tagline || "Thank you for shopping at our outlet."}</p>
-                    <p className="uppercase tracking-wider text-[8px] text-slate-400 font-mono">Cloud synchronized ledger node</p>
+                    <p className="font-sans font-medium">Thank you for shopping with us!</p>
+                    <p className="text-[8px] text-slate-400 font-mono">Powered by: jasper.africa</p>
                   </div>
                 </div>
 
@@ -2192,7 +2200,8 @@ export default function DashboardPOS({
                       <p className="text-[10px] font-bold text-emerald-700">{receiptPdfStatus}</p>
                     )}
                     <p className="text-[9.5px] text-slate-500 leading-relaxed">
-                      Creates receipt PDF first, then opens WhatsApp.
+                      On mobile: tap Send PDF → select WhatsApp → PDF attaches automatically.<br/>
+                      On desktop: PDF downloads, then WhatsApp opens — attach manually.
                     </p>
                   </div>
 
