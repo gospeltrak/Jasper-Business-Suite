@@ -1,4 +1,4 @@
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 export interface SuperAdminOverview {
   tenants: any[];
@@ -7,6 +7,7 @@ export interface SuperAdminOverview {
   sessions: any[];
   affiliates: any[];
   referrals: any[];
+  sourceTracking: any[];
   commissions: any[];
   payouts: any[];
   auditLogs: any[];
@@ -22,6 +23,10 @@ export interface SuperAdminUserRow {
   phone: string;
   referralSource: 'direct' | 'affiliate';
   referringAffiliate?: string;
+  subscriberSourceType?: 'organic' | 'organic_affiliate' | 'sub_affiliate' | 'unknown' | 'untracked';
+  promoCodeUsed?: string;
+  referralCodeUsed?: string;
+  subAffiliateId?: string | null;
   subscriptionPlan: string;
   paymentStatus: 'Paid' | 'Unpaid' | 'Grace Period' | 'Overdue';
   paymentMethod: string;
@@ -56,6 +61,7 @@ const EMPTY_SUPER_ADMIN_OVERVIEW: SuperAdminOverview = {
   sessions: [],
   affiliates: [],
   referrals: [],
+  sourceTracking: [],
   commissions: [],
   payouts: [],
   auditLogs: []
@@ -68,13 +74,14 @@ const normalizeOverview = (overview?: Partial<SuperAdminOverview> | null): Super
   sessions: Array.isArray(overview?.sessions) ? overview.sessions : [],
   affiliates: Array.isArray(overview?.affiliates) ? overview.affiliates : [],
   referrals: Array.isArray(overview?.referrals) ? overview.referrals : [],
+  sourceTracking: Array.isArray(overview?.sourceTracking) ? overview.sourceTracking : [],
   commissions: Array.isArray(overview?.commissions) ? overview.commissions : [],
   payouts: Array.isArray(overview?.payouts) ? overview.payouts : [],
   auditLogs: Array.isArray(overview?.auditLogs) ? overview.auditLogs : []
 });
 
 const apiRequest = async (path: string, init: RequestInit = {}) => {
-  const client = await getDynamicSupabaseClient();
+  const client = await getSecureDataBridgeClient();
   const { data: { session } } = await client.auth.getSession();
   if (!session?.access_token) throw new Error('Super Admin login is required.');
 
@@ -92,7 +99,54 @@ const apiRequest = async (path: string, init: RequestInit = {}) => {
 };
 
 export async function loadSuperAdminOverview(): Promise<SuperAdminOverview> {
-  return normalizeOverview(await apiRequest('/api/super-admin/overview'));
+  const overview = normalizeOverview(await apiRequest('/api/super-admin/overview'));
+
+  try {
+    const localTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
+    const localUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
+    const tenantIds = new Set(overview.tenants.map((tenant) => String(tenant.id)));
+    const userIds = new Set(overview.users.map((user) => String(user.id)));
+    const mergedTenants = [
+      ...overview.tenants,
+      ...localTenants
+        .filter((tenant: any) => tenant?.id && !tenantIds.has(String(tenant.id)))
+        .map((tenant: any) => ({
+          id: tenant.id,
+          name: tenant.name,
+          country: tenant.country,
+          city: tenant.city,
+          currency: tenant.currency,
+          currency_code: tenant.currencyCode || tenant.currency_code,
+          tax_rate: tenant.taxRate ?? tenant.tax_rate,
+          business_type: tenant.businessType || tenant.business_type,
+          subscription_plan: tenant.activePackageId || tenant.selectedPackageId || 'trial',
+          subscription_status: tenant.subscriptionStatus || 'trial',
+          created_at: tenant.subscriptionStartDate || new Date().toISOString(),
+        }))
+    ];
+    const mergedUsers = [
+      ...overview.users,
+      ...localUsers
+        .filter((user: any) => user?.id && !userIds.has(String(user.id)))
+        .map((user: any) => ({
+          id: user.id,
+          tenant_id: user.tenantId || user.tenant_id || user.activeTenant,
+          active_tenant: user.activeTenant || user.tenantId,
+          email: user.email,
+          name: user.name,
+          phone: user.phone,
+          role: user.role || 'Admin',
+          role_key: String(user.role || 'Admin').toLowerCase(),
+          account_type: user.is_affiliate_lead ? 'subscriber' : 'tenant_owner',
+          is_active: true,
+          created_at: user.trial_start_date || new Date().toISOString(),
+          referral_code_used: user.referral_code_used,
+        }))
+    ];
+    return { ...overview, tenants: mergedTenants, users: mergedUsers };
+  } catch {
+    return overview;
+  }
 }
 
 export async function updateSuperAdminUser(userId: string, payload: Record<string, unknown>) {
@@ -182,6 +236,8 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
     sessionsByUser.set(key, [...(sessionsByUser.get(key) || []), session]);
   });
   const referralsByUser = new Map(safeOverview.referrals.map((referral) => [String(referral.registered_user_id), referral]));
+  const trackingByUser = new Map(safeOverview.sourceTracking.map((row) => [String(row.subscriber_user_id), row]));
+  const trackingByTenant = new Map(safeOverview.sourceTracking.map((row) => [String(row.tenant_id), row]));
   const usersByTenant = new Map<string, any[]>();
   safeOverview.users.forEach((user) => {
     if (!user.tenant_id) return;
@@ -200,6 +256,9 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
       const products = Array.isArray(workspace.products) ? workspace.products : [];
       const tenantUsers = tenantId ? usersByTenant.get(tenantId) || [] : [];
       const referral = referralsByUser.get(String(user.id));
+      const sourceTrack = trackingByUser.get(String(user.id)) || (tenantId ? trackingByTenant.get(tenantId) : null);
+      const promoCodeUsed = sourceTrack?.promo_code_used || sourceTrack?.referral_code_used || referral?.promo_code_used || referral?.referral_code || user.referral_code_used || '';
+      const sourceType = (sourceTrack?.source_type || (promoCodeUsed ? 'sub_affiliate' : 'organic')) as SuperAdminUserRow['subscriberSourceType'];
       const sessions = (sessionsByUser.get(String(user.id)) || []).map((session) => {
         const loginAt = session.login_at ? new Date(session.login_at) : null;
         const logoutAt = session.logout_at ? new Date(session.logout_at) : null;
@@ -242,8 +301,12 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
         username: user.username_phone || user.phone || user.email || '',
         email: user.email || '',
         phone: user.phone || user.username_phone || '',
-        referralSource: referral ? 'affiliate' : 'direct',
-        referringAffiliate: referral?.referral_code || user.referral_code_used || undefined,
+        referralSource: promoCodeUsed ? 'affiliate' : 'direct',
+        referringAffiliate: promoCodeUsed || undefined,
+        subscriberSourceType: sourceType,
+        promoCodeUsed: promoCodeUsed || undefined,
+        referralCodeUsed: sourceTrack?.referral_code_used || referral?.referral_code || user.referral_code_used || undefined,
+        subAffiliateId: sourceTrack?.sub_affiliate_id || referral?.sub_affiliate_id || null,
         subscriptionPlan: getTenantPlan(tenant),
         paymentStatus: getPaymentStatus(tenant, user),
         paymentMethod: readTenantSettings(tenant)?.paymentMethod || 'Not recorded',

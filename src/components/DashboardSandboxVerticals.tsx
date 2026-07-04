@@ -127,7 +127,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
     { id: 'PT-8021', name: 'Amina Bello', phone: '255712345678', insurer: 'NHIS Public Health', allergies: 'Penicillin class molecules', registeredDate: '2025-01-10' },
     { id: 'PT-8022', name: 'Chidi Nwesu', phone: '255711223344', insurer: 'Self Pay', allergies: 'None recorded', registeredDate: '2024-11-05' },
     { id: 'PT-8023', name: 'Grace Kiptoo', phone: '254722334455', insurer: 'Aetna International Group', allergies: 'Sulfa Drugs / Sulfonamides', registeredDate: '2025-02-18' },
-    { id: 'PT-8024', name: 'Baraka Mwinyi', phone: '255655443322', insurer: 'Jubilee Health Insurance', allergies: 'Aspirin & NSAIDs', registeredDate: '2025-03-01' }
+    { id: 'PT-8024', name: 'John Doe', phone: '255655443322', insurer: 'Doe Insurance', allergies: 'Aspirin & NSAIDs', registeredDate: '2025-03-01' }
   ]);
 
   // --- ACTIVE ELECTRONIC E-PRESCRIPTIONS CLAIMS PORTAL ---
@@ -220,7 +220,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
       setActivePharmaTab('bestpos');
       addRegLog(`Simulator: Loaded Grace Kiptoo's Insulin Glargine Cold-Chain tracking and 90% reimbursement coverage scenario.`);
     } else if (scenario === 'cardio') {
-      // Setup Baraka Mwinyi (Jubilee health, Aspirin & NSAIDs allergy)
+      // Setup John Doe (Doe Insurance, Aspirin & NSAIDs allergy)
       setSelectedPatientId('PT-8024');
       setInsurerOverride('Jubilee Health Insurance');
       
@@ -240,7 +240,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
       ]);
       setAllergyAlert(null);
       setActivePharmaTab('bestpos');
-      addRegLog(`Simulator: Loaded Baraka Mwinyi's dual cardiovascular/metabolic therapy prefilled claim portfolio.`);
+      addRegLog(`Simulator: Loaded John Doe's dual cardiovascular/metabolic therapy prefilled claim portfolio.`);
     }
   };
 
@@ -658,7 +658,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
             </div>
             <h4 className="text-xs font-extrabold text-slate-800 mt-2">3. Geriatric Cardio-Metabolic</h4>
             <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
-              Loads <b>Baraka Mwinyi</b>. Adds <b>Atorvastatin 20mg</b> + <b>Metformin 850mg</b>. Displays combined ledger VAT & Jubilee copay calculations.
+              Loads <b>John Doe</b>. Adds <b>Atorvastatin 20mg</b> + <b>Metformin 850mg</b>. Displays combined ledger VAT & Doe Insurance copay calculations.
             </p>
             <div className="mt-2.5 border-t border-slate-100 pt-2 flex items-center justify-between text-[10px] font-mono">
               <span className="text-slate-400">Insure: Jubilee (75% split)</span>

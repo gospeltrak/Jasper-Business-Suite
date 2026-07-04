@@ -78,8 +78,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<'all' | 'organic_subscribers' | 'organic_affiliate' | 'sub_affiliate'>('all');
-  const [affiliates, setAffiliates] = useState<any[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'organic' | 'sub_affiliate'>('all');
   const [loadError, setLoadError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -150,7 +149,6 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       const overview = await loadSuperAdminOverview();
       const liveUsers = mapSuperAdminUsers(overview);
       setUsers(liveUsers);
-      setAffiliates(overview.affiliates || []);
       setSelectedUser((current) => current ? liveUsers.find((user) => user.id === current.id) || null : null);
       setLoadError('');
     } catch (error: any) {
@@ -306,8 +304,12 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
     .filter(u => u.referralSource === 'direct')
     .reduce((val, curr) => val + (curr.paymentStatus === 'Paid' ? curr.transactions.reduce((s, t) => s + t.amount, 0) : 0), 0);
 
+  const hasPromoCode = (user: UserAccount) => Boolean((user.promoCodeUsed || user.referringAffiliate || user.referralCodeUsed || '').trim());
+  const isOrganicSubscriber = (user: UserAccount) => !hasPromoCode(user);
+  const isSubAffiliateSubscriber = (user: UserAccount) => hasPromoCode(user);
+
   const totalAffiliateRevenue = users
-    .filter(u => u.referralSource === 'affiliate')
+    .filter(isSubAffiliateSubscriber)
     .reduce((val, curr) => val + (curr.paymentStatus === 'Paid' ? curr.transactions.reduce((s, t) => s + t.amount, 0) : 0), 0);
 
   const filteredUsers = users.filter(u => {
@@ -317,26 +319,8 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                           u.phone.includes(searchQuery);
     
     let matchesCategory = true;
-    if (categoryFilter === 'organic_subscribers') {
-      matchesCategory = u.referralSource === 'direct';
-    } else if (categoryFilter === 'organic_affiliate' || categoryFilter === 'sub_affiliate') {
-      if (u.referralSource !== 'affiliate' || !u.referringAffiliate) {
-        matchesCategory = false;
-      } else {
-        const referringAff = affiliates.find(a => a.promoCode === u.referringAffiliate);
-        if (!referringAff) {
-          // If affiliate not found, fallback based on some logic or assume organic
-          matchesCategory = categoryFilter === 'organic_affiliate';
-        } else {
-          const isSuperOrSub = referringAff.isSuper || !!referringAff.parentSuperId;
-          if (categoryFilter === 'organic_affiliate') {
-             matchesCategory = !isSuperOrSub;
-          } else if (categoryFilter === 'sub_affiliate') {
-             matchesCategory = isSuperOrSub;
-          }
-        }
-      }
-    }
+    if (categoryFilter === 'organic') matchesCategory = isOrganicSubscriber(u);
+    if (categoryFilter === 'sub_affiliate') matchesCategory = isSubAffiliateSubscriber(u);
     
     return matchesSearch && matchesCategory;
   });
@@ -366,10 +350,10 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
         </div>
 
         <div className="bg-slate-950 p-4 rounded-xl border border-slate-850">
-          <div className="text-amber-400 font-mono text-[10px] uppercase font-bold tracking-wider">Affiliate Users Revenue</div>
+          <div className="text-amber-400 font-mono text-[10px] uppercase font-bold tracking-wider">Sub-Affiliate Users Revenue</div>
           <div className="text-2xl font-black text-amber-400 font-mono mt-1">TSh {totalAffiliateRevenue.toLocaleString()}</div>
           <div className="text-[10px] text-slate-500 mt-1">
-            {users.filter(u => u.referralSource === 'affiliate').length} affiliate-acquired nodes
+            {users.filter(isSubAffiliateSubscriber).length} sub-affiliate promo-code registrations
           </div>
         </div>
 
@@ -409,17 +393,11 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
               >
                 All
               </button>
-              <button 
-                onClick={() => setCategoryFilter('organic_subscribers')}
-                className={`flex-1 min-w-[20%] text-center py-1.5 px-1 text-[9px] font-mono rounded font-bold uppercase ${categoryFilter === 'organic_subscribers' ? 'bg-slate-800 text-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}
+              <button
+                onClick={() => setCategoryFilter('organic')}
+                className={`flex-1 min-w-[20%] text-center py-1.5 px-1 text-[9px] font-mono rounded font-bold uppercase ${categoryFilter === 'organic' ? 'bg-slate-800 text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
               >
                 Organic Subscribers
-              </button>
-              <button 
-                onClick={() => setCategoryFilter('organic_affiliate')}
-                className={`flex-1 min-w-[20%] text-center py-1.5 px-1 text-[9px] font-mono rounded font-bold uppercase ${categoryFilter === 'organic_affiliate' ? 'bg-slate-800 text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
-              >
-                Organic Affiliates Subscriber
               </button>
               <button 
                 onClick={() => setCategoryFilter('sub_affiliate')}

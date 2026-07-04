@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CompanySettings, BusinessSettings, ProductStoreSettings, StaffSettings, SystemSettings, Tenant, CustomRole, RolePermission, InvoiceSettings, Sale, Expense, Delivery } from '../types';
 import { useTheme } from '../ThemeContext';
 import { useTenantLogo } from '../TenantLogoContext';
@@ -38,6 +38,7 @@ import {
   Truck
 } from 'lucide-react';
 import { DashboardNotificationsSettings } from './DashboardNotificationsSettings';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
   {
@@ -539,6 +540,44 @@ interface DashboardSettingsProps {
   deliveries?: Delivery[];
 }
 
+const DEFAULT_BUSINESS_SETTINGS: BusinessSettings = {
+  businessName: '',
+  businessAddress: '',
+  businessPhone: '',
+  businessEmail: '',
+  allowNegativeStock: false,
+  defaultUnit: 'pcs',
+  requireStockCheck: true,
+  autoGenerateBarcode: false,
+  paymentModes: [],
+  deliveryPaymentModes: [],
+  registeredStores: []
+} as unknown as BusinessSettings;
+
+const DEFAULT_PRODUCT_STORE_SETTINGS: ProductStoreSettings = {
+  showImages: true,
+  compactView: false,
+  categories: [],
+  units: []
+} as unknown as ProductStoreSettings;
+
+const normalizeBusinessSettings = (settings?: Partial<BusinessSettings>): BusinessSettings => ({
+  ...DEFAULT_BUSINESS_SETTINGS,
+  ...(settings || {}),
+  paymentModes: Array.isArray(settings?.paymentModes) ? settings.paymentModes : [],
+  deliveryPaymentModes: Array.isArray(settings?.deliveryPaymentModes) ? settings.deliveryPaymentModes : [],
+  registeredStores: Array.isArray(settings?.registeredStores) ? settings.registeredStores : []
+} as BusinessSettings);
+
+const normalizeProductStoreSettings = (settings?: Partial<ProductStoreSettings>): ProductStoreSettings => ({
+  ...DEFAULT_PRODUCT_STORE_SETTINGS,
+  ...(settings || {}),
+  categories: Array.isArray(settings?.categories) ? settings.categories : [],
+  units: Array.isArray(settings?.units) ? settings.units : []
+} as ProductStoreSettings);
+
+const SETTINGS_DRAFT_PROTECTION_MS = 15000;
+
 export default function DashboardSettings({ 
   activeTenant, 
   systemSettings, 
@@ -551,6 +590,9 @@ export default function DashboardSettings({
 }: DashboardSettingsProps) {
   const { isDark, toggleTheme } = useTheme();
   const { setLogoUrl } = useTenantLogo();
+  const incomingSettingsSyncRef = useRef(false);
+  const settingsDraftReadyRef = useRef(false);
+  const settingsDraftTouchedAtRef = useRef(0);
   // Navigation tabs for Settings
   const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'hrm' | 'roles' | 'notifications'>('company');
   
@@ -559,21 +601,16 @@ export default function DashboardSettings({
     companyName: '', businessType: '', currency: 'TZS', currencySymbol: 'TSh',
     country: 'Tanzania', city: '', taxRate: 18, logoUrl: ''
   } as unknown as CompanySettings);
-  const [businessForm, setBusinessForm] = useState<BusinessSettings>(systemSettings?.business || {
-    allowNegativeStock: false, defaultUnit: 'pcs', requireStockCheck: true,
-    autoGenerateBarcode: false, paymentModes: [], registeredStores: []
-  } as unknown as BusinessSettings);
-  const [productForm, setProductForm] = useState<ProductStoreSettings>(systemSettings?.productStore || {
-    showImages: true, compactView: false
-  } as unknown as ProductStoreSettings);
+  const [businessForm, setBusinessForm] = useState<BusinessSettings>(() => normalizeBusinessSettings(systemSettings?.business));
+  const [productForm, setProductForm] = useState<ProductStoreSettings>(() => normalizeProductStoreSettings(systemSettings?.productStore));
   const [invoiceSettingsForm, setInvoiceSettingsForm] = useState<InvoiceSettings>(() => {
     return systemSettings?.invoiceSettings || {
       invoiceColor: '#0284c7', // Sky Blue fallback matching PDF
       tin: systemSettings?.company?.tin || '',
       bankName: 'NMB Bank',
       accountNumber: '23710039969',
-      accountName: systemSettings?.company?.companyName || 'Lim Company Ltd',
-      authorisedPerson: 'Lilian Mbawala',
+      accountName: systemSettings?.company?.companyName || 'Doe Company',
+      authorisedPerson: 'Jane Doe',
       termsAndConditions: [
         'Goods once sold will not be taken back or exchanged.',
         'The buyer is responsible for all delivery costs.'
@@ -616,9 +653,17 @@ export default function DashboardSettings({
     setIsLogoSaving(true);
     setLogoSaveStatus(null);
     try {
+      const client: any = await getSecureDataBridgeClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Please sign in again before saving the logo.');
+      }
       const response = await fetch(`/api/tenant/logo`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           tenantId: activeTenant.id,
           logoBase64: companyForm.logo
@@ -662,6 +707,9 @@ export default function DashboardSettings({
   // Dynamic Roles & Permissions States
   const [selectedRoleId, setSelectedRoleId] = useState<string>('role-seller');
   const [newRoleName, setNewRoleName] = useState<string>('');
+  const markSettingsDraftChanged = () => {
+    settingsDraftTouchedAtRef.current = Date.now();
+  };
 
   const handleTogglePermission = (roleId: string, module: string, permissionType: 'read' | 'write' | 'edit') => {
     setCustomRolesList(prev => prev.map(r => {
@@ -770,14 +818,52 @@ export default function DashboardSettings({
 
   // Synchronize when the active props update
   useEffect(() => {
+    if (Date.now() - settingsDraftTouchedAtRef.current < SETTINGS_DRAFT_PROTECTION_MS) {
+      return;
+    }
+    incomingSettingsSyncRef.current = true;
     setCompanyForm(systemSettings?.company || companyForm);
-    setBusinessForm(systemSettings?.business || businessForm);
-    setProductForm(systemSettings?.productStore || productForm);
+    setBusinessForm(normalizeBusinessSettings(systemSettings?.business));
+    setProductForm(normalizeProductStoreSettings(systemSettings?.productStore));
     setStaffsList(systemSettings?.staffs || []);
     setCustomRolesList(systemSettings?.customRoles && systemSettings.customRoles.length > 0
       ? systemSettings?.customRoles
       : DEFAULT_CUSTOM_ROLES);
+    window.setTimeout(() => {
+      incomingSettingsSyncRef.current = false;
+    }, 0);
   }, [systemSettings]);
+
+  useEffect(() => {
+    if (incomingSettingsSyncRef.current) return;
+    if (!settingsDraftReadyRef.current) {
+      settingsDraftReadyRef.current = true;
+      return;
+    }
+
+    settingsDraftTouchedAtRef.current = Date.now();
+    const timer = window.setTimeout(() => {
+      onSaveSettings({
+        company: companyForm,
+        business: businessForm,
+        productStore: productForm,
+        staffs: staffsList,
+        customRoles: customRolesList,
+        invoiceSettings: invoiceSettingsForm,
+        posSettings: posSettingsForm
+      });
+    }, 650);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    companyForm,
+    businessForm,
+    productForm,
+    staffsList,
+    customRolesList,
+    invoiceSettingsForm,
+    posSettingsForm
+  ]);
 
   // Handle Company Name change to system auto-generate usernameKey
   const handleCompanyNameChange = (val: string) => {
@@ -796,6 +882,32 @@ export default function DashboardSettings({
     }));
   };
 
+  const persistCompanySettings = (nextCompanyForm: CompanySettings) => {
+    markSettingsDraftChanged();
+    onSaveSettings({
+      company: nextCompanyForm,
+      business: businessForm,
+      productStore: productForm,
+      staffs: staffsList,
+      customRoles: customRolesList,
+      invoiceSettings: invoiceSettingsForm,
+      posSettings: posSettingsForm
+    });
+  };
+
+  const persistBusinessSettings = (nextBusinessForm: BusinessSettings) => {
+    markSettingsDraftChanged();
+    onSaveSettings({
+      company: companyForm,
+      business: nextBusinessForm,
+      productStore: productForm,
+      staffs: staffsList,
+      customRoles: customRolesList,
+      invoiceSettings: invoiceSettingsForm,
+      posSettings: posSettingsForm
+    });
+  };
+
   // Drag and drop logo processors
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'company' | 'business' | 'business_light' | 'business_dark') => {
     const file = e.target.files?.[0];
@@ -804,22 +916,30 @@ export default function DashboardSettings({
       reader.onloadend = () => {
         const base64String = reader.result as string;
         if (target === 'company') {
-          setCompanyForm(prev => ({ ...prev, logo: base64String }));
+          const nextCompanyForm = { ...companyForm, logo: base64String };
+          setCompanyForm(nextCompanyForm);
           setHasNewLogoToSave(true);
+          persistCompanySettings(nextCompanyForm);
         } else if (target === 'business_light') {
-          setBusinessForm(prev => ({ 
-            ...prev, 
+          const nextBusinessForm = { 
+            ...businessForm, 
             businessLogoLight: base64String, 
-            businessLogo: prev.businessLogo || base64String // set as general if empty
-          }));
+            businessLogo: businessForm.businessLogo || base64String
+          };
+          setBusinessForm(nextBusinessForm);
+          persistBusinessSettings(nextBusinessForm);
         } else if (target === 'business_dark') {
-          setBusinessForm(prev => ({ 
-            ...prev, 
+          const nextBusinessForm = { 
+            ...businessForm, 
             businessLogoDark: base64String,
-            businessLogo: prev.businessLogo || base64String // set as general if empty
-          }));
+            businessLogo: businessForm.businessLogo || base64String
+          };
+          setBusinessForm(nextBusinessForm);
+          persistBusinessSettings(nextBusinessForm);
         } else {
-          setBusinessForm(prev => ({ ...prev, businessLogo: base64String }));
+          const nextBusinessForm = { ...businessForm, businessLogo: base64String };
+          setBusinessForm(nextBusinessForm);
+          persistBusinessSettings(nextBusinessForm);
         }
       };
       reader.readAsDataURL(file);
@@ -829,45 +949,60 @@ export default function DashboardSettings({
   // Delivery Payment Mode management states
   const [newDeliveryPaymentMode, setNewDeliveryPaymentMode] = useState('');
   const handleAddDeliveryPaymentMode = () => {
-    if (newDeliveryPaymentMode.trim()) {
-      if (!businessForm.deliveryPaymentModes?.includes(newDeliveryPaymentMode.trim())) {
-        setBusinessForm(prev => ({
-          ...prev,
-          deliveryPaymentModes: [...(prev.deliveryPaymentModes || []), newDeliveryPaymentMode.trim()]
-        }));
-      }
-      setNewDeliveryPaymentMode('');
+    const deliveryMode = newDeliveryPaymentMode.trim();
+    if (!deliveryMode) return;
+    const currentDeliveryPaymentModes = businessForm.deliveryPaymentModes || [];
+    if (!currentDeliveryPaymentModes.includes(deliveryMode)) {
+      const nextBusinessForm = {
+        ...businessForm,
+        deliveryPaymentModes: [...currentDeliveryPaymentModes, deliveryMode]
+      };
+      setBusinessForm(nextBusinessForm);
+      persistBusinessSettings(nextBusinessForm);
     }
+    setNewDeliveryPaymentMode('');
   };
   const handleRemoveDeliveryPaymentMode = (mode: string) => {
-    setBusinessForm(prev => ({
-      ...prev,
-      deliveryPaymentModes: (prev.deliveryPaymentModes || []).filter(m => m !== mode)
-    }));
+    const nextBusinessForm = {
+      ...businessForm,
+      deliveryPaymentModes: (businessForm.deliveryPaymentModes || []).filter(m => m !== mode)
+    };
+    setBusinessForm(nextBusinessForm);
+    persistBusinessSettings(nextBusinessForm);
   };
 
   // Payment Mode management states
   const [newPaymentMode, setNewPaymentMode] = useState('');
   const handleAddPaymentMode = () => {
-    if (newPaymentMode.trim()) {
-      if (!businessForm.paymentModes.includes(newPaymentMode.trim())) {
-        setBusinessForm(prev => ({
-          ...prev,
-          paymentModes: [...prev.paymentModes, newPaymentMode.trim()]
-        }));
-      }
-      setNewPaymentMode('');
+    const paymentMode = newPaymentMode.trim();
+    if (!paymentMode) return;
+    const currentPaymentModes = businessForm.paymentModes || [];
+    if (!currentPaymentModes.includes(paymentMode)) {
+      const nextBusinessForm = {
+        ...businessForm,
+        paymentModes: [...currentPaymentModes, paymentMode]
+      };
+      setBusinessForm(nextBusinessForm);
+      persistBusinessSettings(nextBusinessForm);
     }
+    setNewPaymentMode('');
   };
   const handleRemovePaymentMode = (mode: string) => {
-    setBusinessForm(prev => ({
-      ...prev,
-      paymentModes: prev.paymentModes.filter(m => m !== mode)
-    }));
+    const nextBusinessForm = {
+      ...businessForm,
+      paymentModes: (businessForm.paymentModes || []).filter(m => m !== mode)
+    };
+    setBusinessForm(nextBusinessForm);
+    persistBusinessSettings(nextBusinessForm);
   };
 
   // Store management states
   const [newStoreName, setNewStoreName] = useState('');
+  const [storeLimitMessage, setStoreLimitMessage] = useState<string | null>(null);
+  const openStoreUpgrade = (planId: 'diamond' | 'tanzanite') => {
+    setStoreLimitMessage(null);
+    onTriggerUpgrade?.('stores');
+  };
   const handleAddStore = () => {
     if (newStoreName.trim()) {
       if (subscriptionStatus) {
@@ -875,66 +1010,102 @@ export default function DashboardSettings({
           onTriggerUpgrade?.('expired');
           return;
         }
-        if (businessForm.registeredStores.length >= subscriptionStatus.plan.maxStores) {
+        const planId = String(subscriptionStatus.state?.planId || subscriptionStatus.plan?.packageId || subscriptionStatus.plan?.name || '').toLowerCase();
+        const isRubyPlan = planId === 'ruby' || planId === 'essential' || subscriptionStatus.plan?.name === 'Ruby';
+        const registeredStores = businessForm.registeredStores || [];
+        if (isRubyPlan && registeredStores.length >= 1) {
+          setStoreLimitMessage('ruby-multiple-stores');
+          return;
+        }
+        if (registeredStores.length >= subscriptionStatus.plan.maxStores) {
           onTriggerUpgrade?.('stores');
           return;
         }
       }
-      if (!businessForm.registeredStores.includes(newStoreName.trim())) {
-        setBusinessForm(prev => ({
-          ...prev,
-          registeredStores: [...prev.registeredStores, newStoreName.trim()]
-        }));
+      if (!(businessForm.registeredStores || []).includes(newStoreName.trim())) {
+        const nextBusinessForm = {
+          ...businessForm,
+          registeredStores: [...(businessForm.registeredStores || []), newStoreName.trim()]
+        };
+        setBusinessForm(nextBusinessForm);
+        persistBusinessSettings(nextBusinessForm);
       }
+      setStoreLimitMessage(null);
       setNewStoreName('');
     }
   };
   const handleRemoveStore = (store: string) => {
-    setBusinessForm(prev => ({
-      ...prev,
-      registeredStores: prev.registeredStores.filter(s => s !== store)
-    }));
+    const nextBusinessForm = {
+      ...businessForm,
+      registeredStores: (businessForm.registeredStores || []).filter(s => s !== store)
+    };
+    setBusinessForm(nextBusinessForm);
+    persistBusinessSettings(nextBusinessForm);
+  };
+
+  const persistProductStoreSettings = (nextProductForm: ProductStoreSettings) => {
+    markSettingsDraftChanged();
+    onSaveSettings({
+      company: companyForm,
+      business: businessForm,
+      productStore: nextProductForm,
+      staffs: staffsList,
+      customRoles: customRolesList,
+      invoiceSettings: invoiceSettingsForm,
+      posSettings: posSettingsForm
+    });
   };
 
   // Product Categories management states
   const [newCategory, setNewCategory] = useState('');
   const handleAddCategory = () => {
-    if (newCategory.trim()) {
-      if (!productForm.categories.includes(newCategory.trim())) {
-        setProductForm(prev => ({
-          ...prev,
-          categories: [...prev.categories, newCategory.trim()]
-        }));
-      }
-      setNewCategory('');
+    const category = newCategory.trim();
+    if (!category) return;
+
+    const currentCategories = productForm.categories || [];
+    if (!currentCategories.includes(category)) {
+      const nextProductForm = {
+        ...productForm,
+        categories: [...currentCategories, category]
+      };
+      setProductForm(nextProductForm);
+      persistProductStoreSettings(nextProductForm);
     }
+    setNewCategory('');
   };
   const handleRemoveCategory = (cat: string) => {
-    setProductForm(prev => ({
-      ...prev,
-      categories: prev.categories.filter(c => c !== cat)
-    }));
+    const nextProductForm = {
+      ...productForm,
+      categories: (productForm.categories || []).filter(c => c !== cat)
+    };
+    setProductForm(nextProductForm);
+    persistProductStoreSettings(nextProductForm);
   };
 
   // Product Units management states
   const [newUnit, setNewUnit] = useState('');
   const handleAddUnit = () => {
-    if (newUnit.trim()) {
-      const formatted = newUnit.trim().toLowerCase();
-      if (!productForm.units.includes(formatted)) {
-        setProductForm(prev => ({
-          ...prev,
-          units: [...prev.units, formatted]
-        }));
-      }
-      setNewUnit('');
+    const formatted = newUnit.trim().toLowerCase();
+    if (!formatted) return;
+
+    const currentUnits = productForm.units || [];
+    if (!currentUnits.includes(formatted)) {
+      const nextProductForm = {
+        ...productForm,
+        units: [...currentUnits, formatted]
+      };
+      setProductForm(nextProductForm);
+      persistProductStoreSettings(nextProductForm);
     }
+    setNewUnit('');
   };
   const handleRemoveUnit = (unit: string) => {
-    setProductForm(prev => ({
-      ...prev,
-      units: prev.units.filter(u => u !== unit)
-    }));
+    const nextProductForm = {
+      ...productForm,
+      units: (productForm.units || []).filter(u => u !== unit)
+    };
+    setProductForm(nextProductForm);
+    persistProductStoreSettings(nextProductForm);
   };
 
   // HRM states for registering staffs
@@ -958,9 +1129,22 @@ export default function DashboardSettings({
     setCredentialEditPassword('');
   };
 
+  const persistStaffsList = (updatedStaffs: StaffSettings[]) => {
+    setStaffsList(updatedStaffs);
+    onSaveSettings({
+      company: companyForm,
+      business: businessForm,
+      productStore: productForm,
+      staffs: updatedStaffs,
+      customRoles: customRolesList,
+      invoiceSettings: invoiceSettingsForm,
+      posSettings: posSettingsForm
+    });
+  };
+
   const handleSaveStaffCredentials = (staffId: string) => {
     if (!credentialEditPhone.trim() || !credentialEditPassword.trim()) return;
-    setStaffsList(prev => prev.map(staff =>
+    const updatedStaffs = staffsList.map(staff =>
       staff.id === staffId
         ? {
             ...staff,
@@ -970,11 +1154,12 @@ export default function DashboardSettings({
             temporaryPasswordIssuedAt: new Date().toISOString()
           }
         : staff
-    ));
+    );
+    persistStaffsList(updatedStaffs);
     setCredentialEditStaffId('');
     setCredentialEditPhone('');
     setCredentialEditPassword('');
-    setSaveSuccess('Staff login credentials updated. Remember to save settings to keep this change.');
+    setSaveSuccess('Staff login credentials updated and saved.');
     setTimeout(() => setSaveSuccess(null), 3500);
   };
 
@@ -1014,7 +1199,7 @@ export default function DashboardSettings({
       signatureImage: staffForm.signatureImage
     };
 
-    setStaffsList(prev => [...prev, newStaff]);
+    persistStaffsList([...staffsList, newStaff]);
     setStaffForm({
       name: '',
       phone: '',
@@ -1027,7 +1212,7 @@ export default function DashboardSettings({
   };
 
   const handleRemoveStaff = (id: string) => {
-    setStaffsList(prev => prev.filter(s => s.id !== id));
+    persistStaffsList(staffsList.filter(s => s.id !== id));
   };
 
   // Global Save triggers
@@ -1084,7 +1269,11 @@ export default function DashboardSettings({
   ].filter(Boolean).length;
 
   return (
-    <div className="space-y-5 pb-24 md:pb-8">
+    <div
+      className="space-y-5 pb-24 md:pb-8"
+      onInputCapture={markSettingsDraftChanged}
+      onChangeCapture={markSettingsDraftChanged}
+    >
       
       {/* Title Header with descriptive details */}
       <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
@@ -1155,7 +1344,7 @@ export default function DashboardSettings({
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 lg:gap-6 items-start">
         
         {/* Navigation Sidebar Drawer */}
-        <div className="hidden lg:block bg-white rounded-3xl border border-slate-200 p-4 space-y-2 lg:col-span-1 shadow-sm sticky top-[4.5rem] z-10">
+        <div className="hidden xl:block bg-white rounded-3xl border border-slate-200 p-4 space-y-2 lg:col-span-1 shadow-sm sticky top-[4.5rem] z-10">
           <div className="px-3 py-2 text-[10px] font-mono font-black uppercase tracking-wider text-slate-400">
             Configuration Modules
           </div>
@@ -1180,7 +1369,7 @@ export default function DashboardSettings({
           })}
         </div>
 
-        <div className="lg:hidden bg-white border border-slate-200 rounded-2xl shadow-sm p-3 overflow-hidden">
+        <div className="xl:hidden bg-white border border-slate-200 rounded-2xl shadow-sm p-3 overflow-hidden">
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             {settingsTabs.map(tab => {
               const Icon = tab.icon;
@@ -1652,7 +1841,7 @@ export default function DashboardSettings({
 
                 <div className="space-y-3 font-sans">
                   <div className="flex flex-wrap gap-2">
-                    {businessForm.paymentModes.map(mode => (
+                    {(businessForm.paymentModes || []).map(mode => (
                       <span 
                         key={mode} 
                         className="inline-flex items-center space-x-1 px-3 py-1.5 bg-white border border-slate-220 rounded-xl text-xs font-bold text-slate-700 select-none shadow-xs"
@@ -1759,7 +1948,7 @@ export default function DashboardSettings({
 
                 <div className="space-y-3 font-sans">
                   <div className="flex flex-wrap gap-2">
-                    {businessForm.registeredStores.map(store => (
+                    {(businessForm.registeredStores || []).map(store => (
                       <span 
                         key={store} 
                         className="inline-flex items-center space-x-1 px-3 py-1.5 bg-white border border-slate-220 rounded-xl text-xs font-bold text-slate-700 select-none shadow-xs"
@@ -1782,7 +1971,10 @@ export default function DashboardSettings({
                     <input
                       type="text"
                       value={newStoreName}
-                      onChange={(e) => setNewStoreName(e.target.value)}
+                      onChange={(e) => {
+                        setNewStoreName(e.target.value);
+                        if (storeLimitMessage) setStoreLimitMessage(null);
+                      }}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddStore()}
                       placeholder="e.g. Backroom Freezer, Main Store..."
                       className="flex-1 px-3.5 py-1.5 text-xs outline-none bg-transparent"
@@ -1795,6 +1987,27 @@ export default function DashboardSettings({
                       Add
                     </button>
                   </div>
+                  {storeLimitMessage === 'ruby-multiple-stores' && (
+                    <p className="max-w-sm text-[11px] leading-relaxed text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                      Sorry, this feature is not available in your current package. Upgrade to{' '}
+                      <button
+                        type="button"
+                        onClick={() => openStoreUpgrade('diamond')}
+                        className="font-bold underline underline-offset-2 hover:text-amber-900"
+                      >
+                        Diamond
+                      </button>
+                      {' '}or{' '}
+                      <button
+                        type="button"
+                        onClick={() => openStoreUpgrade('tanzanite')}
+                        className="font-bold underline underline-offset-2 hover:text-amber-900"
+                      >
+                        Tanzanite
+                      </button>
+                      {' '}to unlock multiple store locations.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -2006,7 +2219,7 @@ export default function DashboardSettings({
                     <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">Authorized Person Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. Lilian Mbawala"
+                      placeholder="e.g. Jane Doe"
                       value={invoiceSettingsForm.authorisedPerson || ''}
                       onChange={(e) => setInvoiceSettingsForm(prev => ({ ...prev, authorisedPerson: e.target.value }))}
                       className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-700 focus:ring-1 focus:ring-slate-500 font-medium outline-none"
@@ -2039,7 +2252,7 @@ export default function DashboardSettings({
                     <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">Bank Account Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. Lim Company Ltd"
+                      placeholder="e.g. Doe Company"
                       value={invoiceSettingsForm.accountName || ''}
                       onChange={(e) => setInvoiceSettingsForm(prev => ({ ...prev, accountName: e.target.value }))}
                       className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-700 focus:ring-1 focus:ring-slate-500 font-medium outline-none"
@@ -2276,7 +2489,7 @@ export default function DashboardSettings({
               <div className="space-y-3.5">
                 <span className="block text-[10px] uppercase font-black text-slate-400 font-mono tracking-wider">Registered Staff Accounts ({staffsList.length})</span>
                 
-                <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <div className="hidden xl:block overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-mono font-black text-slate-500 uppercase tracking-widest">
@@ -2413,7 +2626,7 @@ export default function DashboardSettings({
                     </tbody>
                   </table>
                 </div>
-                <div className="md:hidden space-y-3">
+                <div className="xl:hidden space-y-3">
                   {staffsList.length === 0 ? (
                     <div className="p-8 text-center text-slate-400 text-xs font-sans rounded-2xl border border-slate-200 bg-slate-50">
                       No staffs registered under this branch's core hrm configurations yet.
@@ -2700,7 +2913,7 @@ export default function DashboardSettings({
                         )}
                       </div>
 
-                      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-200">
+                      <div className="hidden xl:block overflow-x-auto rounded-xl border border-slate-200">
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-mono font-black text-slate-500 uppercase tracking-widest">
@@ -2769,7 +2982,7 @@ export default function DashboardSettings({
                           </tbody>
                         </table>
                       </div>
-                      <div className="md:hidden space-y-3">
+                      <div className="xl:hidden space-y-3">
                         {(() => {
                           let lastCategory = '';
                           return modulesList.map(mod => {

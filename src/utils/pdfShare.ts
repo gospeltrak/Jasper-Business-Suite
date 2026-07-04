@@ -13,6 +13,50 @@ type PdfShareOptions = {
 const sanitizeFileName = (name: string) =>
   name.replace(/[^\w.-]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
 
+const UNSUPPORTED_COLOR_FN = /\b(?:oklch|oklab|lch|lab|color)\(/i;
+const COLOR_STYLE_PROPS = [
+  'color',
+  'backgroundColor',
+  'borderTopColor',
+  'borderRightColor',
+  'borderBottomColor',
+  'borderLeftColor',
+  'outlineColor',
+  'textDecorationColor',
+  'columnRuleColor',
+] as const;
+
+const safeCssColor = (value: string, fallback: string) => {
+  if (!value || value === 'initial' || value === 'inherit') return fallback;
+  if (UNSUPPORTED_COLOR_FN.test(value)) return fallback;
+  return value;
+};
+
+const sanitizePdfCloneStyles = (root: HTMLElement) => {
+  const nodes = [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))];
+
+  nodes.forEach((node) => {
+    const computed = window.getComputedStyle(node);
+    COLOR_STYLE_PROPS.forEach((prop) => {
+      const fallback = prop === 'backgroundColor'
+        ? 'transparent'
+        : prop.startsWith('border')
+          ? '#e2e8f0'
+          : '#0f172a';
+      node.style[prop] = safeCssColor(computed[prop], fallback);
+    });
+
+    if (UNSUPPORTED_COLOR_FN.test(computed.boxShadow)) node.style.boxShadow = 'none';
+    if (UNSUPPORTED_COLOR_FN.test(computed.textShadow)) node.style.textShadow = 'none';
+
+    const svgNode = node as HTMLElement & { style: CSSStyleDeclaration };
+    const fill = computed.getPropertyValue('fill');
+    const stroke = computed.getPropertyValue('stroke');
+    if (UNSUPPORTED_COLOR_FN.test(fill)) svgNode.style.setProperty('fill', 'currentColor');
+    if (UNSUPPORTED_COLOR_FN.test(stroke)) svgNode.style.setProperty('stroke', 'currentColor');
+  });
+};
+
 const downloadBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -56,6 +100,7 @@ export async function createPdfFromElement({
   `;
   container.appendChild(clone);
   document.body.appendChild(container);
+  sanitizePdfCloneStyles(clone);
 
   try {
     // Short wait for fonts/images to settle

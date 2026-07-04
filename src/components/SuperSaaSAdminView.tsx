@@ -49,9 +49,10 @@ import SaaSHardwareSales from './SaaSHardwareSales';
 import SaaSStaffManager from './SaaSStaffManager';
 import { initPlatformSync } from '../utils/superAdminPlatformRecords';
 import SaaSWebEditor from './SaaSWebEditor';
+import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 
-export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-organic' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'web-editor' | 'settings';
+export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
 
 export interface SuperSaaSAdminViewProps {
   activeAdminSubTab?: SuperAdminWorkspaceTab;
@@ -128,6 +129,7 @@ export default function SuperSaaSAdminView({
   const [newBannerAdType, setNewBannerAdType] = useState<'image' | 'video' | 'motion' | 'message'>('image');
   const [newBannerMessage, setNewBannerMessage] = useState('');
   const [tutorials, setTutorials] = useState<any[]>([]);
+  const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
   const [newTutorialTitle, setNewTutorialTitle] = useState('');
   const [newTutorialType, setNewTutorialType] = useState<'guide' | 'video' | 'lesson' | 'message'>('guide');
   const [newTutorialDescription, setNewTutorialDescription] = useState('');
@@ -328,10 +330,50 @@ export default function SuperSaaSAdminView({
   };
 
   // Promotional Banner Setup 
+  const resetBannerForm = () => {
+    setEditingBannerId(null);
+    setNewBannerTitle('');
+    setNewBannerDestination('');
+    setNewBannerCreative(null);
+    setNewBannerMessage('');
+    setNewBannerStatus('Active');
+    setNewBannerSize('728x90');
+    setNewBannerAdType('image');
+  };
+
+  const handleEditBanner = (banner: any) => {
+    setEditingBannerId(banner.id);
+    setNewBannerTitle(banner.title || '');
+    setNewBannerSize(banner.size || '728x90');
+    setNewBannerDestination(banner.url || '');
+    setNewBannerStatus(banner.status || 'Active');
+    setNewBannerAdType((banner.adType || 'image') as any);
+    setNewBannerMessage(banner.message || '');
+    setNewBannerCreative(null);
+  };
+
+  const handleDeleteBanner = (bannerId: string) => {
+    const target = banners.find((banner) => banner.id === bannerId);
+    if (!target) return;
+    if (!confirm(`Delete SSP ad "${target.title}"? Affiliates will no longer see this material.`)) return;
+
+    const updatedBanners = banners.filter((banner) => banner.id !== bannerId);
+    const updatedPlacements = adPlacements.map((placement) => {
+      if (placement.size !== target.size) return placement;
+      return { ...placement, activeBannersCount: Math.max(0, Number(placement.activeBannersCount || 0) - 1) };
+    });
+    setBanners(updatedBanners);
+    setAdPlacements(updatedPlacements);
+    saveData(updatedPlacements, updatedBanners, messages);
+    if (editingBannerId === bannerId) resetBannerForm();
+    handleAuditLog(`Deleted SSP ad unit: ${target.title}`, 'Banner engine');
+  };
+
   const handleCreateBanner = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBannerTitle.trim()) return;
-    if (newBannerAdType !== 'message' && !newBannerCreative) {
+    const existingBanner = editingBannerId ? banners.find((banner) => banner.id === editingBannerId) : null;
+    if (newBannerAdType !== 'message' && !newBannerCreative && !existingBanner?.assetData) {
       alert('Upload a creative file or choose Message Ad.');
       return;
     }
@@ -341,39 +383,46 @@ export default function SuperSaaSAdminView({
     }
 
     const persistAd = (assetData: string | null = null) => {
-      const newAd = {
-      id: 'ban-' + Math.floor(Math.random() * 10000),
-      title: newBannerTitle,
-      size: newBannerSize,
-      url: newBannerDestination || 'https://dukaplus.co.tz/upgrade',
-      clicks: 0,
-      status: newBannerStatus,
+      const finalAssetData = assetData ?? (editingBannerId ? existingBanner?.assetData || null : null);
+      const finalCreativeName = newBannerCreative ? newBannerCreative.name : existingBanner?.creativeName || null;
+      const finalCreativeMime = newBannerCreative ? newBannerCreative.type : existingBanner?.creativeMime || null;
+      const nextAd = {
+        id: editingBannerId || 'ban-' + Math.floor(Math.random() * 10000),
+        title: newBannerTitle,
+        size: newBannerSize,
+        url: newBannerDestination || 'https://dukaplus.co.tz/upgrade',
+        clicks: existingBanner?.clicks || 0,
+        status: newBannerStatus,
         category: newBannerAdType === 'message' ? 'Message Ad' : 'Media Campaign',
         adType: newBannerAdType,
         message: newBannerMessage.trim(),
-        creativeName: newBannerCreative ? newBannerCreative.name : null,
-        creativeMime: newBannerCreative ? newBannerCreative.type : null,
-        assetData,
+        creativeName: newBannerAdType === 'message' ? null : finalCreativeName,
+        creativeMime: newBannerAdType === 'message' ? null : finalCreativeMime,
+        assetData: newBannerAdType === 'message' ? null : finalAssetData,
       };
 
-      const updatedBanners = [...banners, newAd];
+      const updatedBanners = editingBannerId
+        ? banners.map((banner) => banner.id === editingBannerId ? nextAd : banner)
+        : [...banners, nextAd];
       setBanners(updatedBanners);
 
       const updatedPlacements = adPlacements.map(p => {
-        if (p.size === newBannerSize) {
-          return { ...p, activeBannersCount: p.activeBannersCount + 1 };
+        const count = Number(p.activeBannersCount || 0);
+        if (!editingBannerId && p.size === newBannerSize) {
+          return { ...p, activeBannersCount: count + 1 };
+        }
+        if (editingBannerId && existingBanner?.size !== newBannerSize) {
+          if (p.size === existingBanner?.size) return { ...p, activeBannersCount: Math.max(0, count - 1) };
+          if (p.size === newBannerSize) return { ...p, activeBannersCount: count + 1 };
         }
         return p;
       });
       setAdPlacements(updatedPlacements);
 
       saveData(updatedPlacements, updatedBanners, messages);
-      setNewBannerTitle('');
-      setNewBannerDestination('');
-      setNewBannerCreative(null);
-      setNewBannerMessage('');
-      handleAuditLog(`Created SSP ad unit: ${newBannerTitle}`, 'Banner engine');
-      alert('SSP ad stored and active.');
+      resetBannerForm();
+      handleAuditLog(`${editingBannerId ? 'Updated' : 'Created'} SSP ad unit: ${newBannerTitle}`, 'Banner engine');
+      alert(`SSP ad ${editingBannerId ? 'updated' : 'stored'} and active.`);
     };
 
     if (!newBannerCreative) {
@@ -644,7 +693,7 @@ export default function SuperSaaSAdminView({
         )}
 
         {/* ======================= TAB 2: AFFILIATE DESK ======================= */}
-        {(activeTab === 'affiliates' || activeTab === 'affiliate-organic' || activeTab === 'affiliate-agents' || activeTab === 'sub-affiliates') && (
+        {(activeTab === 'affiliates' || activeTab === 'affiliate-agents' || activeTab === 'sub-affiliates') && (
           <div className="space-y-6 animate-fade-in text-left">
             <SuperAffiliateControlCenter
               initialTab={
@@ -652,7 +701,7 @@ export default function SuperSaaSAdminView({
                   ? 'agents'
                   : activeTab === 'sub-affiliates'
                     ? 'subAffiliates'
-                    : 'organic'
+                    : 'agents'
               }
             />
           </div>
@@ -683,6 +732,13 @@ export default function SuperSaaSAdminView({
         {activeTab === 'web-editor' && (
           <div className="space-y-6 animate-fade-in text-left">
             <SaaSWebEditor />
+          </div>
+        )}
+
+        {/* ======================= TAB: AD PLACEMENTS ======================= */}
+        {activeTab === 'ad-placements' && (
+          <div className="animate-fade-in text-left">
+            <SaaSAdPlacementsPanel />
           </div>
         )}
 
@@ -914,7 +970,9 @@ export default function SuperSaaSAdminView({
               <div className="w-full bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
                 <div className="flex items-center space-x-2">
                   <ImageIcon className="w-4 h-4 text-emerald-400" />
-                  <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider">Ad Exchange (SSP) Manager</h3>
+                  <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+                    {editingBannerId ? 'Edit Ad Exchange (SSP) Material' : 'Ad Exchange (SSP) Manager'}
+                  </h3>
                 </div>
                 <p className="text-[10.5px] text-slate-400 leading-normal">Manage ad units.</p>
 
@@ -1040,39 +1098,73 @@ export default function SuperSaaSAdminView({
                     />
                   </div>
 
-                  <button 
-                    type="submit"
-                    className="w-full py-2 bg-emerald-500 hover:bg-emerald-450 text-slate-950 font-mono font-bold text-xs uppercase tracking-wider rounded-lg transition-transform"
-                  >
-                    Deploy Ad Unit to Exchange
-                  </button>
+                  <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <button 
+                      type="submit"
+                      className="w-full py-2 bg-emerald-500 hover:bg-emerald-450 text-slate-950 font-mono font-bold text-xs uppercase tracking-wider rounded-lg transition-transform"
+                    >
+                      {editingBannerId ? 'Update SSP Ad Unit' : 'Deploy Ad Unit to Exchange'}
+                    </button>
+                    {editingBannerId && (
+                      <button
+                        type="button"
+                        onClick={resetBannerForm}
+                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono font-bold text-xs uppercase tracking-wider rounded-lg"
+                      >
+                        Cancel Edit
+                      </button>
+                    )}
+                  </div>
                 </form>
               </div>
 
               {/* SSP Banners display */}
               <div className="w-full bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
                 <span className="text-[10px] uppercase font-mono text-slate-500 font-bold block">Active Ad Exchange Inventory (SSP)</span>
-                <div className="space-y-3">
+                <div className="grid gap-2">
                   {banners.map((ban, idx) => (
-                    <div key={idx} className="bg-slate-950 border border-slate-850 p-4 rounded-xl space-y-2 relative text-left text-xs font-mono">
-                      <div className="flex justify-between border-b border-slate-900 pb-1.5 text-[9px] text-slate-500">
-                        <span>FORMAT TYPE: {ban.size} / {(ban.adType || ban.category || 'image').toString().toUpperCase()}</span>
-                        <span className="text-emerald-400 font-bold uppercase">{ban.status}</span>
-                      </div>
-                      <p className="font-bold text-white text-[11px] font-sans truncate">{ban.title}</p>
-                      {ban.message && (
-                        <p className="text-[10px] text-slate-300 leading-snug line-clamp-2">{ban.message}</p>
-                      )}
-                      {ban.creativeName && (
-                        <p className="text-[10px] text-cyan-300 leading-none truncate break-all">CREATIVE: {ban.creativeName}</p>
-                      )}
-                      <p className="text-[10px] text-slate-400 leading-none truncate break-all">DESTINATION: {ban.url}</p>
-                      <div className="flex justify-between pt-1.5 items-center text-[10px] text-slate-500">
-                        <span>SSP Network: AdSense Compatible</span>
-                        <span className="text-emerald-400 font-bold">Impressions / Clicks: {ban.clicks * 42} / {ban.clicks}</span>
+                    <div key={idx} className="rounded-xl border border-slate-850 bg-slate-950 p-3 text-left">
+                      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                        <div className="min-w-0 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="min-w-0 truncate text-sm font-black text-white">{ban.title}</p>
+                            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-300">{ban.status}</span>
+                            <span className="rounded-full border border-slate-800 bg-slate-900 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400">{ban.size}</span>
+                            <span className="rounded-full border border-slate-800 bg-slate-900 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400">{(ban.adType || ban.category || 'image').toString()}</span>
+                          </div>
+                          <div className="grid gap-1 text-[10px] font-mono text-slate-500 sm:grid-cols-2 xl:grid-cols-3">
+                            <p className="truncate">Creative: <span className="text-cyan-300">{ban.creativeName || (ban.message ? 'Message ad' : 'Stored asset')}</span></p>
+                            <p className="truncate">Destination: <span className="text-slate-300">{ban.url}</span></p>
+                            <p className="truncate">Impressions / Clicks: <span className="text-emerald-300">{ban.clicks * 42} / {ban.clicks}</span></p>
+                          </div>
+                          {ban.message && (
+                            <p className="line-clamp-1 text-[10px] text-slate-400">{ban.message}</p>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleEditBanner(ban)}
+                            className="rounded-lg bg-slate-800 px-4 py-2 text-[10px] font-bold uppercase text-cyan-300 hover:bg-slate-700"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBanner(ban.id)}
+                            className="rounded-lg bg-slate-800 px-4 py-2 text-[10px] font-bold uppercase text-rose-400 hover:bg-slate-700"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
+                  {banners.length === 0 && (
+                    <div className="rounded-xl border border-dashed border-slate-800 bg-slate-950 p-5 text-center text-xs text-slate-500">
+                      No SSP materials uploaded yet.
+                    </div>
+                  )}
                 </div>
               </div>
 

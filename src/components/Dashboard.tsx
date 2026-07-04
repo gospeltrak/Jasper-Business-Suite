@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../LanguageContext';
 import { useTenantLogo } from '../TenantLogoContext';
 import { useJasperNotifications } from '../JasperNotificationContext';
@@ -33,13 +33,14 @@ import DashboardWhiteLabel from './DashboardWhiteLabel';
 import DashboardSettings, { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
 import DashboardStaff from './DashboardStaff';
 import AIBusinessCopilot from './AIBusinessCopilot';
+import GlobalStickyAd from './GlobalStickyAd';
 import SuperSaaSAdminView from './SuperSaaSAdminView';
 import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
 import { savePendingSaleOffline, clearPendingSales } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
 import { flushPendingTenantWorkspace, loadTenantWorkspace, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace } from '../utils/tenantWorkspace';
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
 import { 
   getSubscriptionState, 
@@ -78,6 +79,7 @@ import {
   Pill,
   Utensils,
   Globe,
+  Clock,
   Settings as SettingsIcon,
   Coins,
   Wallet,
@@ -297,7 +299,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     'admin-hw-inventory',
     'admin-hw-sales',
     'admin-affiliates',
-    'admin-affiliates-organic',
     'admin-affiliate-agents',
     'admin-sub-affiliates',
     'admin-status',
@@ -306,6 +307,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     'admin-chats',
     'admin-inbox',
     'admin-promotions',
+    'admin-ad-placements',
     'admin-web-editor',
     'admin-settings',
     'hotel-pms',
@@ -348,11 +350,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     localStorage.setItem(`jasper_active_dashboard_tab_${user.id}_${activeTenant.id}`, activeTab);
   }, [activeTab, activeTenant.id, user.id]);
 
-  // ── SYNC ON LOGIN ── Pull all data from cloud to localStorage on mount
+  // ── SYNC ON LOGIN ── Pull all data from encrypted database to localStorage on mount
   useEffect(() => {
     if (!activeTenant.id) return;
     syncOnLogin(activeTenant.id).then(() => {
-      // After sync, reload data maps from localStorage (which now has cloud data)
+      // After sync, reload data maps from localStorage (which now has database data)
       const freshProducts = localStorage.getItem('jasper_products_map');
       if (freshProducts) {
         try { setProductsMap(prev => ({ ...prev, ...JSON.parse(freshProducts) })); } catch (e) {}
@@ -391,7 +393,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       {
         id: 'DL-MOCKNG1',
         saleId: 'SL-MOCK1',
-        customerName: 'Kunle Adebayo',
+        customerName: 'John Doe',
         customerPhone: '+234 803 444 5555',
         items: [
           { productId: 'p-lag-01', productName: 'Dangote Refined Sugar (50kg)', qty: 1, price: 45000, discount: 0 }
@@ -407,7 +409,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       {
         id: 'DL-MOCKKE1',
         saleId: 'SL-MOCK2',
-        customerName: 'Mary Atieno',
+        customerName: 'Jane Doe',
         customerPhone: '+254 722 000 111',
         items: [
           { productId: 'p-nai-05', productName: 'Menengai Bar Soap White (800g x 10)', qty: 2, price: 1500, discount: 0 }
@@ -559,6 +561,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     hasVat?: boolean;
   } | null>(null);
   const [workspaceReady, setWorkspaceReady] = useState(false);
+  const localWorkspaceChangedAtRef = useRef(0);
+  const skipNextWorkspaceSaveRef = useRef(false);
+  const LOCAL_WORKSPACE_PROTECTION_MS = 12000;
 
   // Automatically refresh settings when pivot branch (activeTenant) updates
   useEffect(() => {
@@ -582,15 +587,21 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     }
   }, [activeTenant]);
 
-  // Supabase is the tenant source of truth. Local storage is used only as a cache
+  // The encrypted database is the tenant source of truth. Local storage is used only as a cache
   // and offline queue until the same workspace can be written to the database.
   useEffect(() => {
     let active = true;
     let unsubscribe = () => undefined;
+    let refreshInFlight = false;
+    localWorkspaceChangedAtRef.current = 0;
     setWorkspaceReady(false);
 
     const applyWorkspace = (workspace: TenantWorkspace) => {
       if (!active) return;
+      if (Date.now() - localWorkspaceChangedAtRef.current < LOCAL_WORKSPACE_PROTECTION_MS) {
+        return;
+      }
+      skipNextWorkspaceSaveRef.current = true;
       setProductsMap(prev => ({ ...prev, [activeTenant.id]: workspace.products || [] }));
       setBranchesMap(prev => ({ ...prev, [activeTenant.id]: workspace.branches || [] }));
       setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStocks || [] }));
@@ -600,7 +611,27 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: workspace.deliveries || [] }));
       setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
       setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
-      if (workspace.settings) setSystemSettings(workspace.settings);
+      if (workspace.settings) {
+        setSystemSettings(workspace.settings);
+        try {
+          localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(workspace.settings));
+        } catch (e) {
+          // Cache write failure should not block live DB state.
+        }
+      }
+    };
+
+    const refreshWorkspaceFromDatabase = async (force = false) => {
+      if (!active || !navigator.onLine || refreshInFlight) return;
+      if (Date.now() - localWorkspaceChangedAtRef.current < LOCAL_WORKSPACE_PROTECTION_MS) return;
+      refreshInFlight = true;
+      try {
+        await flushPendingTenantWorkspace(activeTenant.id);
+        const workspace = await loadTenantWorkspace(activeTenant.id);
+        if (workspace) applyWorkspace(workspace);
+      } finally {
+        refreshInFlight = false;
+      }
     };
 
     loadTenantWorkspace(activeTenant.id).then((workspace) => {
@@ -613,14 +644,33 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       unsubscribe = cleanup;
     });
 
+    const handleOnline = () => {
+      refreshWorkspaceFromDatabase(true);
+    };
+    const handleFocus = () => {
+      refreshWorkspaceFromDatabase(true);
+    };
+    const liveRefreshTimer = window.setInterval(refreshWorkspaceFromDatabase, 1000);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('focus', handleFocus);
+
     return () => {
       active = false;
+      window.clearInterval(liveRefreshTimer);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('focus', handleFocus);
       unsubscribe();
     };
   }, [activeTenant.id]);
 
   useEffect(() => {
     if (!workspaceReady) return;
+    if (skipNextWorkspaceSaveRef.current) {
+      skipNextWorkspaceSaveRef.current = false;
+      return;
+    }
+    localWorkspaceChangedAtRef.current = Date.now();
     const workspace: TenantWorkspace = {
       branches:             branchesMap[activeTenant.id]             || [],
       branchStocks:         branchStocksMap[activeTenant.id]         || [],
@@ -636,12 +686,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     const timer = window.setTimeout(() => saveTenantWorkspace(activeTenant.id, workspace), 450);
     return () => window.clearTimeout(timer);
   }, [workspaceReady, activeTenant.id, branchesMap, branchStocksMap, branchStaffAssignmentsMap, productsMap, salesMap, expensesMap, systemSettings, deliveriesMap, pendingDeliveryNotesMap, purchasesMap]);
-
-  useEffect(() => {
-    const syncWorkspace = () => flushPendingTenantWorkspace(activeTenant.id);
-    window.addEventListener('online', syncWorkspace);
-    return () => window.removeEventListener('online', syncWorkspace);
-  }, [activeTenant.id]);
 
   // Service Worker and Offline background synchronizer listener
   useEffect(() => {
@@ -799,6 +843,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   })();
 
   const getSimulatedPermissions = () => {
+    if (actingStaffId === 'logged-in-user' && user.rolePermissions) return user.rolePermissions;
+
     const customRoles = systemSettings.customRoles || [];
     const matched = customRoles.find(r => r.name.toLowerCase() === activeRoleName.toLowerCase());
     if (matched) return matched.permissions;
@@ -832,7 +878,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       'admin-hw-inventory': 'hw-inventory',
       'admin-hw-sales': 'hw-sales',
       'admin-affiliates': 'affiliates',
-      'admin-affiliates-organic': 'affiliates',
       'admin-affiliate-agents': 'affiliates',
       'admin-sub-affiliates': 'affiliates',
       'admin-status': 'status',
@@ -841,6 +886,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       'admin-chats': 'chats',
       'admin-inbox': 'inbox',
       'admin-promotions': 'promotions',
+      'admin-ad-placements': 'web-editor',
       'admin-tutorials': 'tutorials',
       'admin-web-editor': 'web-editor',
       'admin-settings': 'settings'
@@ -953,6 +999,20 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     limitType: 'products' | 'stores' | 'staff' | 'expired';
   } | null>(null);
 
+  useEffect(() => {
+    const openPackages = () => {
+      setManualActivationPackage('diamond');
+      setSubModal({
+        show: true,
+        title: 'Choose Subscription Package',
+        limitType: 'expired',
+        description: 'Choose a package and submit your payment receipt for activation.'
+      });
+    };
+    window.addEventListener('jasper_open_subscription_packages', openPackages);
+    return () => window.removeEventListener('jasper_open_subscription_packages', openPackages);
+  }, []);
+
   // Sync state with localstorage on change of tenant
   useEffect(() => {
     setSubState(getSubscriptionState());
@@ -1018,7 +1078,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     };
 
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
       const { error } = await client
         .from('tenant_payment_proofs')
         .insert(requestRecord);
@@ -1094,14 +1154,86 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     currentStoreCount,
     currentStaffCount
   );
+  const isTrialAccount = normalizeSubscriptionPlanId(subStatus.state.planId) === 'trial' && !subStatus.state.isSubscribedPaid;
+  const isTrialAccessLocked = user.role !== 'SuperAdmin' && isTrialAccount && subStatus.isExpired;
+  const trialDurationDays = subStatus.state.promoCodeUsed ? 20 : 10;
+  const rubyDowngradeNotes = [
+    'Lucy AI online assistant is not included',
+    'Product limit drops from 5,000 to 1,000',
+    'Branch limit drops from Diamond multi-branch to 1 store',
+    'Staff limit drops from 6 users to 2 users',
+    'Custom role security and advanced branch stock controls are reduced',
+    'Advanced consolidated reports and delivery/branch workflows are limited'
+  ];
+  const tanzaniteUpgradeNotes = [
+    'Unlimited product catalog capacity',
+    'Up to 5 active branches',
+    'Up to 15 staff accounts',
+    'Lucy AI Tanzanite limits: 500 chats, 6 reports, 3 forecasts per day',
+    'Full white-label branding tools',
+    'Staff payroll, allowances, and richer executive reporting'
+  ];
 
-  // Render Subscription Action Banner & Pay Simulator
-  const renderSubscriptionStatusBlock = () => {
-    return null;
+  const getSubscriptionCountdown = () => {
+    if (subStatus.daysRemaining <= 0 && !isTrialAccessLocked) return null;
+
+    const isWarning = subStatus.daysRemaining <= 3;
+    const message = isWarning
+      ? isTrialAccount
+        ? `Your free trial expires in ${subStatus.daysRemaining} days - subscribe now to keep access.`
+        : `Your subscription expires in ${subStatus.daysRemaining} days - renew now to avoid interruption.`
+      : isTrialAccount
+        ? `Free trial: ${subStatus.daysRemaining} days remaining`
+        : '';
+
+    return message ? { message, isWarning } : null;
+  };
+
+  // Compact header countdown between search and online status.
+  const renderSubscriptionCountdownBadge = () => {
+    const countdown = getSubscriptionCountdown();
+    if (!countdown || user.role === 'SuperAdmin') return null;
+    const { message, isWarning } = countdown;
+
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          if (!isWarning) return;
+          setSubModal({
+            show: true,
+            title: isTrialAccount ? 'Subscribe to keep access' : 'Renew Subscription',
+            limitType: 'expired',
+            description: isTrialAccount
+              ? 'Your trial is ending soon. Choose a package to keep using Jasper without interruption.'
+              : 'Your paid subscription is close to renewal. Choose a package and submit your receipt to avoid interruption.'
+          });
+        }}
+        className={`hidden xl:flex items-center space-x-2 text-[11px] font-medium tracking-tight px-3 py-1.5 rounded-xl border transition-all font-sans ${
+        isWarning
+          ? 'border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100'
+          : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 cursor-default'
+      }`}>
+        <Clock className={`w-3.5 h-3.5 ${isWarning ? 'text-amber-500' : 'text-emerald-500'}`} />
+        <span className="font-semibold whitespace-nowrap">{message}</span>
+      </button>
+    );
   };
 
   // Mutators passed down
   const handleAddExpense = (expense: Expense) => {
+    const hasValidExpensePayload = Boolean(
+      expense?.id &&
+      expense?.category?.trim() &&
+      expense?.description?.trim() &&
+      Number.isFinite(Number(expense?.amount)) &&
+      Number(expense?.amount) > 0
+    );
+    if (!hasValidExpensePayload) {
+      console.warn('Blocked invalid automatic expense payload', expense);
+      return;
+    }
+
     setExpensesMap(prev => {
       const currentTenantExpenses = prev[activeTenant.id] || [];
       return {
@@ -1466,7 +1598,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     }
   };
 
-  // Flushing pending offline queues to simulation Online servers
+  // Flushing pending offline queues to encrypted database channel
   const handleSyncOfflineQueue = (callback: () => void) => {
     // Clear pending queue from IndexedDB 
     clearPendingSales().catch(err => {
@@ -1486,7 +1618,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       id: 'l-' + Math.random().toString(36).substr(2, 9),
       type: 'sale',
       status: 'success',
-      message: `Offline queued sales flushed successfully to unified distributed container server and cleared from local IndexedDB cache!`,
+      message: `Offline queued sales synced successfully to the encrypted database and cleared from the local device queue.`,
       timestamp: new Date().toISOString()
     };
     
@@ -1581,6 +1713,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         { id: 'admin-expenses', label: 'Expenses', icon: Receipt },
         { id: 'admin-chats', label: 'Chats / Broadcasts', icon: MessageSquare },
         { id: 'admin-inbox', label: 'User Inbox', icon: Inbox },
+        { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay },
         { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
         { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
         { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
@@ -1638,6 +1771,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         { id: 'admin-expenses', label: 'Expenses', icon: Receipt },
         { id: 'admin-chats', label: 'Chats', icon: MessageSquare },
         { id: 'admin-inbox', label: 'Inbox', icon: Inbox },
+        { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay },
         { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
         { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
         { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
@@ -1706,6 +1840,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     { id: 'admin-expenses', label: 'Expenses', icon: Receipt, tabId: 'admin-expenses' },
     { id: 'admin-chats', label: 'Chats', icon: MessageSquare, tabId: 'admin-chats' },
     { id: 'admin-inbox', label: 'Inbox', icon: Inbox, tabId: 'admin-inbox' },
+    { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay, tabId: 'admin-ad-placements' },
     { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay, tabId: 'admin-promotions' },
     { id: 'admin-web-editor', label: 'Web Editor', icon: Globe, tabId: 'admin-web-editor' },
     { id: 'admin-settings', label: 'Settings', icon: SettingsIcon, tabId: 'admin-settings' }
@@ -1749,12 +1884,13 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       .filter(item => item.plans.includes(currentPlanKey))
       .map(({ plans, ...rest }) => rest);
   })();
+  const visibleSidebarItems = customSidebarItems.filter(item => isTabAllowed(item.tabId || item.id));
 
   useEffect(() => {
-    if (activeRoleName !== 'SuperAdmin' || !user.isSaaSStaff || isTabAllowed(activeTab)) return;
-    const firstAllowed = customSidebarItems.find((item) => isTabAllowed(item.tabId || item.id));
+    if (isTabAllowed(activeTab)) return;
+    const firstAllowed = visibleSidebarItems.find((item) => isTabAllowed(item.tabId || item.id));
     if (firstAllowed?.tabId) setActiveTab(firstAllowed.tabId);
-  }, [activeRoleName, activeTab, customSidebarItems, user.isSaaSStaff]);
+  }, [activeRoleName, activeTab, user.isSaaSStaff]);
 
   if (user.isDuress) {
     return <DuressDashboard onLogout={onLogout} onNavigate={onNavigate} />;
@@ -1824,7 +1960,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
       
       {/* 1. Left Sidebar (Fixed, Dark #1a1f2e with smooth transition) */}
-      <aside className={`hidden md:flex flex-col ${sidebarCollapsed ? 'w-20' : 'w-64'} bg-[#1a1f2e] border-r border-[#262c3f]/50 text-white h-full shrink-0 sticky top-0 overflow-y-auto overflow-x-hidden select-none z-45 transition-all duration-300 ease-in-out`}>
+      <aside className={`hidden xl:flex flex-col ${sidebarCollapsed ? 'w-20' : 'w-64'} bg-[#1a1f2e] border-r border-[#262c3f]/50 text-white h-full shrink-0 sticky top-0 overflow-y-auto overflow-x-hidden select-none z-45 transition-all duration-300 ease-in-out`}>
         
         {/* Fixed Header Section with Logo top left */}
         <div className="p-5 border-b border-[#262c3f]/50 shrink-0 select-none flex flex-col items-center justify-center">
@@ -1841,7 +1977,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               </div>
               <button 
                 onClick={() => setSidebarCollapsed(false)} 
-                className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer hidden md:block"
+                className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer hidden lg:block"
                 title="Expand Sidebar"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -1866,7 +2002,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               </div>
               <button 
                 onClick={() => setSidebarCollapsed(true)} 
-                className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer hidden md:block"
+                className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer hidden lg:block"
                 title="Collapse Sidebar"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -1877,7 +2013,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
         {/* Scrollable list of sidebar items */}
         <div className={`flex-grow overflow-y-auto ${sidebarCollapsed ? 'px-2' : 'px-3'} py-4 space-y-1 scrollbar-none flex flex-col items-center ${sidebarCollapsed ? 'items-center' : 'items-stretch'}`}>
-          {customSidebarItems.map(item => {
+          {visibleSidebarItems.map(item => {
             const IconComponent = item.icon;
             const isActive = activeTab === item.tabId;
 
@@ -1965,7 +2101,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
         
           {/* 2. Top Bar Desktop */}
-          <header className={`hidden md:flex sticky top-0 z-35 shrink-0 ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950 border-slate-800' : 'bg-white dark:bg-slate-905 border-slate-100/80 dark:border-slate-800/80 shadow-xs'} border-b px-6 py-4.5 select-none items-center justify-between transition-colors duration-300`}>
+          <header className={`hidden xl:flex sticky top-0 z-35 shrink-0 ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-950 border-slate-800' : 'bg-white dark:bg-slate-905 border-slate-100/80 dark:border-slate-800/80 shadow-xs'} border-b px-6 py-4.5 select-none items-center justify-between transition-colors duration-300`}>
             <div className="flex items-center space-x-3.5 flex-1 animate-fade-in">
               {/* Business Logo / Avatar and Name */}
               <div className="flex items-center space-x-3 shrink-0">
@@ -2002,7 +2138,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                     {activeTenant.name}
                   </span>
                   <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mt-0.5">
-                    {t(customSidebarItems.find((m: any) => m.id === activeTab || m.tabId === activeTab)?.label || activeTab.replace(/-/g, ' '))}
+                    {t(visibleSidebarItems.find((m: any) => m.id === activeTab || m.tabId === activeTab)?.label || activeTab.replace(/-/g, ' '))}
                   </span>
                 </div>
               </div>
@@ -2018,6 +2154,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             </div>
 
             <div className="flex items-center space-x-4">
+              {renderSubscriptionCountdownBadge()}
+
               {/* Online / offline state tag indicators with globe icon */}
               <div 
                 title={isOfflineMode ? 'Device is offline' : 'Device is online'}
@@ -2151,7 +2289,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </header>
 
           {/* 2b. Top Bar Mobile - Exact 60px height sticky glassmorphic header */}
-          <header className="md:hidden shrink-0 z-50 h-[60px] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 px-4 select-none flex items-center justify-between" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)', transform:'translateZ(0)', willChange:'transform'}}>
+          <header className="xl:hidden shrink-0 z-50 h-[calc(60px+env(safe-area-inset-top))] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 px-4 pt-[env(safe-area-inset-top)] select-none flex items-center justify-between" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)', transform:'translateZ(0)', willChange:'transform'}}>
             {/* Left: business logo or initials avatar on mobile top bar */}
             <div className="flex items-center space-x-3 animate-fade-in">
               <div 
@@ -2193,7 +2331,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   {activeTenant.name}
                 </span>
                 <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  {t(customSidebarItems.find((m: any) => m.id === activeTab || m.tabId === activeTab)?.label || activeTab.replace(/-/g, ' '))}
+                  {t(visibleSidebarItems.find((m: any) => m.id === activeTab || m.tabId === activeTab)?.label || activeTab.replace(/-/g, ' '))}
                 </span>
               </div>
             </div>
@@ -2277,9 +2415,112 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </header>
 
           {/* Core workspace content viewports */}
-          <main id="workspace-content" className={`flex-1 overflow-y-auto scrollbar-none overscroll-none touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-4 md:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-6 min-h-0`}>
-            
-            {user.role !== 'SuperAdmin' && renderSubscriptionStatusBlock()}
+          <main id="workspace-content" className={`flex-1 overflow-y-auto scrollbar-none overscroll-contain touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-3 sm:p-4 xl:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-5 xl:space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] xl:pb-6 min-h-0`}>
+
+            {isTrialAccessLocked ? (
+              <div className="min-h-[calc(100dvh-120px)]">
+                <section className="mx-auto flex w-full max-w-6xl flex-col gap-5">
+                  <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-xl dark:border-slate-800">
+                    <div className="grid gap-6 p-6 md:grid-cols-[1.15fr_0.85fr] md:p-8">
+                      <div className="space-y-5">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-300">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          Trial expired
+                        </div>
+                        <div className="space-y-2">
+                          <h2 className="text-3xl font-black tracking-tight md:text-4xl">Your Diamond free trial has ended</h2>
+                          <p className="max-w-2xl text-sm leading-6 text-slate-300">
+                            During your free trial you were using the Diamond package experience for {trialDurationDays} days. Your business data is still preserved. Choose Ruby, Diamond, or Tanzanite below, submit payment proof, and continue with the package limits you select.
+                          </p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Trial package</p>
+                            <p className="mt-1 text-lg font-black text-emerald-300">Diamond</p>
+                          </div>
+                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Trial length</p>
+                            <p className="mt-1 text-lg font-black text-white">{trialDurationDays} days</p>
+                          </div>
+                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Data status</p>
+                            <p className="mt-1 text-lg font-black text-white">Preserved</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="rounded-3xl border border-amber-300/20 bg-amber-300/10 p-5">
+                        <h3 className="text-sm font-black uppercase tracking-wider text-amber-200">Before choosing Ruby</h3>
+                        <p className="mt-2 text-xs leading-5 text-amber-50/85">Ruby is cheaper, but because your trial was Diamond, these Diamond features will no longer be available on Ruby:</p>
+                        <ul className="mt-3 space-y-2 text-xs text-amber-50/90">
+                          {rubyDowngradeNotes.map((note) => <li key={note} className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />{note}</li>)}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 xl:grid-cols-3">
+                    {([
+                      { id: 'ruby' as const, tag: 'Lower cost', tone: 'border-rose-200 bg-white', cta: 'Choose Ruby', notes: ['TZS 20,000 / month', '1,000 products', '1 store', '2 staff users'] },
+                      { id: 'diamond' as const, tag: 'Same as trial', tone: 'border-emerald-300 bg-emerald-50', cta: 'Keep Diamond', notes: ['TZS 35,000 / month', '5,000 products', 'Diamond Lucy AI', '6 staff users'] },
+                      { id: 'tanzanite' as const, tag: 'Full upgrade', tone: 'border-cyan-300 bg-white', cta: 'Upgrade Tanzanite', notes: ['TZS 50,000 / month', 'Unlimited products', 'Forecasting + higher Lucy limits', '15 staff users'] },
+                    ]).map((pkg) => {
+                      const plan = SUBSCRIPTION_PLANS[pkg.id];
+                      const isDiamond = pkg.id === 'diamond';
+                      return (
+                        <article key={pkg.id} className={`rounded-3xl border p-5 shadow-sm ${pkg.tone}`}>
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest ${isDiamond ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{pkg.tag}</span>
+                              <h3 className="mt-3 text-2xl font-black text-slate-950">{plan.name}</h3>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Monthly</p>
+                              <p className="text-lg font-black text-slate-950">{activeTenant.currency}{plan.price.toLocaleString()}</p>
+                            </div>
+                          </div>
+                          <ul className="mt-5 space-y-2 text-sm text-slate-600">
+                            {pkg.notes.map((note) => <li key={note} className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />{note}</li>)}
+                          </ul>
+                          {pkg.id === 'tanzanite' && (
+                            <div className="mt-4 rounded-2xl bg-cyan-50 p-3">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-cyan-700">Extra vs Diamond</p>
+                              <ul className="mt-2 space-y-1.5 text-xs text-cyan-900">
+                                {tanzaniteUpgradeNotes.slice(0, 4).map((note) => <li key={note}>+ {note}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setManualActivationPackage(pkg.id);
+                              setSubModal({
+                                show: true,
+                                title: `${pkg.cta}`,
+                                limitType: 'expired',
+                                description: `Select ${plan.name}, pay, and upload your receipt for activation.`
+                              });
+                            }}
+                            className={`mt-5 w-full rounded-2xl px-4 py-3 text-sm font-black transition-colors ${isDiamond ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
+                          >
+                            {pkg.cta}
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+
+                  <div className="rounded-3xl border border-cyan-200 bg-cyan-50 p-5">
+                    <h3 className="text-sm font-black uppercase tracking-wider text-cyan-900">If you choose Tanzanite you gain</h3>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                      {tanzaniteUpgradeNotes.map((note) => (
+                        <div key={note} className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-cyan-950 shadow-sm">{note}</div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              </div>
+            ) : (
+            <>
 
           {/* TAB ROOT: Hotel Property Management Room Matrix (PMS) */}
           {activeTab === 'hotel-pms' && (
@@ -2359,6 +2600,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               products={activeProducts}
               systemSettings={systemSettings}
               onUpdateSettings={(updated) => {
+                localWorkspaceChangedAtRef.current = Date.now();
                 setSystemSettings(updated);
                 localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
                 saveData(activeTenant.id, 'settings', updated);
@@ -2523,6 +2765,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               user={user}
               systemSettings={systemSettings}
               onUpdateSystemSettings={(updated) => {
+                localWorkspaceChangedAtRef.current = Date.now();
                 setSystemSettings(updated);
                 localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
                 saveData(activeTenant.id, 'settings', updated);
@@ -2542,6 +2785,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             <DashboardStaff 
               systemSettings={systemSettings}
               onUpdateSettings={(updated) => {
+                localWorkspaceChangedAtRef.current = Date.now();
                 setSystemSettings(updated);
                 localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
                 saveData(activeTenant.id, 'settings', updated);
@@ -2559,9 +2803,22 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               activeTenant={activeTenant}
               systemSettings={systemSettings}
               onSaveSettings={(updated) => {
+                localWorkspaceChangedAtRef.current = Date.now();
                 setSystemSettings(updated);
                 localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
                 saveData(activeTenant.id, 'settings', updated);
+                saveTenantWorkspace(activeTenant.id, {
+                  branches: branchesMap[activeTenant.id] || [],
+                  branchStocks: branchStocksMap[activeTenant.id] || [],
+                  branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+                  products: productsMap[activeTenant.id] || [],
+                  sales: salesMap[activeTenant.id] || [],
+                  expenses: expensesMap[activeTenant.id] || [],
+                  settings: updated,
+                  deliveries: deliveriesMap[activeTenant.id] || [],
+                  pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+                  purchases: purchasesMap[activeTenant.id] || [],
+                });
                 let logoToSave = '';
                 if (updated.company?.logo) {
                   logoToSave = updated.company.logo;
@@ -2606,7 +2863,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                  activeTab === 'admin-hw-inventory' ? 'hw-inventory' :
                  activeTab === 'admin-hw-sales' ? 'hw-sales' :
                  activeTab === 'admin-affiliates' ? 'affiliates' :
-                 activeTab === 'admin-affiliates-organic' ? 'affiliate-organic' :
                  activeTab === 'admin-affiliate-agents' ? 'affiliate-agents' :
                  activeTab === 'admin-sub-affiliates' ? 'sub-affiliates' :
                  activeTab === 'admin-status' ? 'status' :
@@ -2615,6 +2871,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                  activeTab === 'admin-chats' ? 'chats' :
                  activeTab === 'admin-inbox' ? 'inbox' :
                  activeTab === 'admin-promotions' ? 'promotions' :
+                 activeTab === 'admin-ad-placements' ? 'ad-placements' :
                  activeTab === 'admin-web-editor' ? 'web-editor' :
                  activeTab === 'admin-settings' ? 'settings' : 'dashboard'
                }
@@ -2626,7 +2883,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                    subTab === 'hw-inventory' ? 'admin-hw-inventory' :
                    subTab === 'hw-sales' ? 'admin-hw-sales' :
                    subTab === 'affiliates' ? 'admin-affiliates' :
-                   subTab === 'affiliate-organic' ? 'admin-affiliates-organic' :
                    subTab === 'affiliate-agents' ? 'admin-affiliate-agents' :
                    subTab === 'sub-affiliates' ? 'admin-sub-affiliates' :
                    subTab === 'status' ? 'admin-status' :
@@ -2635,6 +2891,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                    subTab === 'chats' ? 'admin-chats' :
                    subTab === 'inbox' ? 'admin-inbox' :
                    subTab === 'promotions' ? 'admin-promotions' :
+                   subTab === 'ad-placements' ? 'admin-ad-placements' :
                    subTab === 'web-editor' ? 'admin-web-editor' :
                    subTab === 'settings' ? 'admin-settings' : 'admin-dashboard';
                  setActiveTab(mappedTab);
@@ -2643,17 +2900,19 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             />
           )}
 
+            </>
+            )}
+
           </main>
 
           {/* Mobile Bottom Navigation Component */}
-          <nav className="md:hidden shrink-0 z-50 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800" style={{height:'calc(56px + env(safe-area-inset-bottom))', paddingBottom:'env(safe-area-inset-bottom)', boxShadow:'0 -1px 0 rgba(0,0,0,0.05)', transform:'translateZ(0)', willChange:'transform', isolation:'isolate'}}>
+          <nav id="dashboard-mobile-nav" className="xl:hidden shrink-0 z-[60] bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800" style={{height:'var(--dashboard-bottom-nav-height)', paddingBottom:'calc(env(safe-area-inset-bottom) + var(--browser-bottom-inset, 0px))', boxShadow:'0 -1px 0 rgba(0,0,0,0.05)', transform:'translateZ(0)', willChange:'transform', isolation:'isolate'}}>
             <div className="flex items-stretch h-14">
               {(user.role === 'SuperAdmin' ? [
                 // ── Super SaaS Admin bottom nav ──────────────────────────
                 { id: 'admin-dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
                 { id: 'admin-subscribers',  label: 'Subscribers',  icon: Users },
                 { id: 'admin-affiliates',   label: 'Affiliates',   icon: Award },
-                { id: 'admin-status',       label: 'Approvals',    icon: Activity },
                 { id: '__more__',           label: 'More',         icon: Menu },
               ] : [
                 // ── Tenant / business user bottom nav (UNCHANGED) ────────
@@ -2662,7 +2921,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 { id: 'pos',         label: 'Sell',  icon: ShoppingCart, isPOS: true },
                 { id: 'products',    label: 'Stock', icon: Database },
                 { id: '__more__',    label: 'More',  icon: Menu },
-              ]) .map((tab: any) => {
+              ]).filter(tab => tab.id === '__more__' || isTabAllowed(tab.id)).map((tab: any) => {
                 const isMore = tab.id === '__more__';
                 const isActive = (!isMore && activeTab === tab.id) || (isMore && moreMenuOpen);
                 const Icon = tab.icon;
@@ -2708,7 +2967,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         {/* Universal sub-modal anchors & floating elements */}
         {/* Native App Full-Screen More Menu */}
         <div
-          className={`md:hidden fixed inset-0 z-[70] flex flex-col bg-slate-50 dark:bg-slate-950 select-none transition-all duration-300 ease-out ${moreMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none translate-y-4'}`}
+          className={`xl:hidden fixed inset-0 z-[70] flex flex-col bg-slate-50 dark:bg-slate-950 select-none transition-all duration-300 ease-out ${moreMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none translate-y-4'}`}
           style={{paddingBottom: 'env(safe-area-inset-bottom)', paddingTop: 'env(safe-area-inset-top)'}}
         >
           {/* Top Bar */}
@@ -2741,6 +3000,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   { id: 'admin-reports',     label: 'Reports',    icon: PieChart,        bg: 'bg-indigo-600' },
                   { id: 'admin-expenses',    label: 'Expenses',   icon: MinusCircle,     bg: 'bg-rose-600' },
                   { id: 'admin-chats',       label: 'Chats',      icon: MessageSquare,   bg: 'bg-cyan-600' },
+                  { id: 'admin-ad-placements', label: 'Placements', icon: MonitorPlay,   bg: 'bg-purple-600' },
                   { id: 'admin-promotions',  label: 'Ads',        icon: MonitorPlay,     bg: 'bg-pink-600' },
                   { id: 'admin-settings',    label: 'Settings',   icon: SettingsIcon,    bg: 'bg-slate-700' },
                 ] : [
@@ -2757,7 +3017,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   { id: 'cash-bank-matrix',  label: 'Money',      icon: Wallet,          bg: 'bg-amber-500' },
                   { id: 'forecasting',       label: 'Planning',   icon: TrendingUp,      bg: 'bg-cyan-500' },
                   { id: 'staff-members',     label: 'Staff',      icon: Shield,          bg: 'bg-slate-700' },
-                ]).map((item) => {
+                ]).filter(item => isTabAllowed(item.id)).map((item) => {
                   const Icon = item.icon;
                   return (
                     <button key={item.id} type="button"
@@ -2781,12 +3041,13 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
                 {(user.role === 'SuperAdmin' ? [
                   { id: 'admin-web-editor', label: 'Web Editor',  icon: Globe,       desc: 'Edit landing page content', color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-500/10' },
+                  { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay, desc: 'Control dashboard and sticky ads', color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10' },
                   { id: 'admin-settings',   label: 'Settings',    icon: SettingsIcon,desc: 'System configuration',      color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
                 ] : [
+                  { id: 'sync', label: 'Sync', icon: RefreshCw, desc: isOfflineMode ? 'You are offline' : 'All data synced', color: isOfflineMode ? 'text-amber-600' : 'text-emerald-600', bg: isOfflineMode ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-emerald-50 dark:bg-emerald-500/10' },
                   { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
-                  { id: 'sync',     label: 'Sync',     icon: RefreshCw,    desc: isOfflineMode ? 'You are offline' : 'All data synced', color: isOfflineMode ? 'text-amber-600' : 'text-emerald-600', bg: isOfflineMode ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-emerald-50 dark:bg-emerald-500/10' },
-                  { id: 'inventory',label: 'Inventory',icon: Package,      desc: 'View stock levels',             color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-500/10' },
-                ]).map((item, idx, arr) => {
+                  { id: 'inventory', label: 'Inventory', icon: Package, desc: 'View stock levels', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+                ]).filter(item => isTabAllowed(item.id)).map((item, idx, arr) => {
                   const Icon = item.icon;
                   return (
                     <button key={item.id} type="button"
@@ -2836,7 +3097,15 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         products={activeProducts}
         sales={activeSales}
         expenses={activeExpenses}
+        subscriptionStatus={subStatus}
       />
+      {user.role !== 'SuperAdmin' && (
+        <GlobalStickyAd
+          bottomOffsetClass="bottom-[var(--dashboard-sticky-ad-clearance)] xl:bottom-4"
+          leftOffsetClass="left-3 xl:left-1/2 xl:-translate-x-1/2"
+          maxWidthClass="max-w-[640px]"
+        />
+      )}
 
       {/* Live Premium Subscription upgrade popups */}
       {subModal && subModal.show && (

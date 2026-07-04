@@ -13,12 +13,12 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowLeft, Award, BarChart3,
-  CalendarPlus, CheckCircle, ChevronRight, ClipboardPlus,
+  CalendarPlus, CheckCircle, ClipboardPlus,
   Coins, Copy, Edit2, ExternalLink, Eye, FileText,
   HardDrive, Info, LoaderCircle, Lock, Menu, MessageSquare, Monitor,
-  RefreshCw, Send, ShieldAlert, ShieldCheck, TrendingUp,
+  RefreshCw, Send, Settings, ShieldAlert, ShieldCheck, TrendingUp,
   Users, Video, Wallet, XCircle, Zap, AlertCircle,
-  Download, PhoneCall,
+  Download, LogOut, PhoneCall,
 } from 'lucide-react';
 import {
   AffiliateAgentWorkspace,
@@ -34,11 +34,13 @@ import {
   flushSyncQueue,
   enqueueSyncItem,
 } from '../../utils/offlineSync';
+import { useGlobalAdSettings } from '../../utils/adPlacement';
+import { sanitizeTrustedHtml } from '../../utils/safeHtml';
+import GlobalStickyAd from '../GlobalStickyAd';
 import SaaSHardwarePOS from '../SaaSHardwarePOS';
 import SaaSHardwareInventory from '../SaaSHardwareInventory';
 import {
   SubAffiliateProfile,
-  ReferredCustomer,
   MonthlyReconciliationRow,
   calculateCommissionBreakdown,
   calculateSuperAgentNetworkTotals,
@@ -53,8 +55,22 @@ function numberValue(value: unknown): number {
   return Number(value || 0);
 }
 
-type DashTab = 'overview' | 'reconciliation' | 'affiliates' | 'customers' | 'code-link' | 'tutorials' | 'conferencing' | 'hw-pos' | 'hw-inventory';
+type DashTab = 'overview' | 'reconciliation' | 'affiliates' | 'customers' | 'code-link' | 'tutorials' | 'conferencing' | 'hw-pos' | 'hw-inventory' | 'settings';
 type StatusAction = 'deactivate' | 'suspend' | 'review' | 'activate';
+type ReferredTenantRow = {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  phoneNumber: string;
+  packageName: string;
+  paymentStatus: string;
+  amountPaid: number;
+  promoCodeUsed: string;
+  subscriptionEndDate: string;
+  daysRemaining: number;
+  registeredAt: string;
+  subAffiliateId: string;
+};
 
 const NAV_TABS: { id: DashTab; label: string; icon: any; desc: string }[] = [
   { id: 'overview',       label: 'Network Overview',       icon: BarChart3,     desc: 'Team performance & earnings' },
@@ -66,6 +82,7 @@ const NAV_TABS: { id: DashTab; label: string; icon: any; desc: string }[] = [
   { id: 'conferencing',   label: 'Video Conferencing',     icon: Video,         desc: 'Schedule team calls' },
   { id: 'hw-pos',         label: 'Hardware POS',           icon: Monitor,       desc: 'POS orders in network' },
   { id: 'hw-inventory',   label: 'Hardware Inventory',     icon: HardDrive,     desc: 'Devices in network' },
+  { id: 'settings',       label: 'Settings',               icon: Settings,      desc: 'Profile & preferences' },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -110,17 +127,39 @@ function WhtNotice({ tinStatus }: { tinStatus?: TinStatus }) {
   );
 }
 
+function normalizeTinStatus(tinNumber?: string | null, status?: string | null): TinStatus {
+  const cleanTin = String(tinNumber || '').trim();
+  if (!cleanTin || cleanTin.toUpperCase() === 'N/A') return 'not_submitted';
+  return (status || 'submitted') as TinStatus;
+}
+
+function readablePlan(value?: string | null): string {
+  const plan = String(value || 'free').toLowerCase();
+  if (plan === 'trial' || plan === 'free') return 'Free';
+  if (plan === 'ruby') return 'Ruby';
+  if (plan === 'diamond') return 'Diamond';
+  if (plan === 'tanzanite') return 'Tanzanite';
+  return value || 'Free';
+}
+
+function daysUntil(dateValue?: string | null): number {
+  if (!dateValue) return 0;
+  const end = new Date(dateValue).getTime();
+  if (!Number.isFinite(end)) return 0;
+  return Math.max(0, Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24)));
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void }) {
   const [workspace, setWorkspace] = useState<AffiliateAgentWorkspace | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [notice, setNotice] = useState<string | null>(null);
-  const [bottomAdDismissed, setBottomAdDismissed] = useState(false);
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [isNetworkOnline, setIsNetworkOnline] = useState(isOnline());
+  const adSettings = useGlobalAdSettings();
 
   useEffect(() => {
     initOfflineSync((result) => {
@@ -167,8 +206,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
     if (supabaseUserId || supabaseRowId) {
       try {
-        const { getDynamicSupabaseClient } = await import('../../supabaseClient');
-        const client: any = await getDynamicSupabaseClient();
+        const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+        const client: any = await getSecureDataBridgeClient();
         const filter = supabaseUserId
           ? { column: 'user_id', value: supabaseUserId }
           : { column: 'id',      value: supabaseRowId };
@@ -217,7 +256,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   // Sub-affiliates from localStorage (real data)
   const [subAffiliates, setSubAffiliates] = useState<SubAffiliateProfile[]>([]);
-  const [customers, setCustomers] = useState<ReferredCustomer[]>([]);
+  const [customers, setCustomers] = useState<ReferredTenantRow[]>([]);
   const [recon, setRecon] = useState<MonthlyReconciliationRow[]>([]);
 
   // Task/meeting form
@@ -256,13 +295,31 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     } catch {}
     return {};
   });
+  const [partnerProfileDraft, setPartnerProfileDraft] = useState({ name: '', phone: '', payoutMethod: '', payoutPhone: '' });
+  const [partnerPrefs, setPartnerPrefs] = useState({ emailUpdates: true, compactView: false });
+
+  useEffect(() => {
+    const prefsKey = `jasper_partner_preferences_${partnerInfo?.id || 'local'}`;
+    let savedPrefs = partnerPrefs;
+    try {
+      savedPrefs = { ...partnerPrefs, ...JSON.parse(localStorage.getItem(prefsKey) || '{}') };
+    } catch {}
+    setPartnerProfileDraft({
+      name: partnerInfo?.name || '',
+      phone: partnerInfo?.phone || '',
+      payoutMethod: partnerInfo?.paymentMethod || '',
+      payoutPhone: partnerInfo?.payoutPhone || '',
+    });
+    setPartnerPrefs(savedPrefs);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partnerInfo?.id]);
 
   // Load latest profile from Supabase on mount to get fresh promo code
   useEffect(() => {
     const loadFreshProfile = async () => {
       try {
-        const { getDynamicSupabaseClient } = await import('../../supabaseClient');
-        const client: any = await getDynamicSupabaseClient();
+        const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+        const client: any = await getSecureDataBridgeClient();
 
         let profile: any = null;
         const cols = 'id, user_id, display_name, promo_code, promo_code_locked, phone_whatsapp, payout_account, payout_method, tin_number, tin_status';
@@ -329,6 +386,36 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   // Live referral link — updates as user types in the edit field
   const liveCode = editingCode && newCode ? newCode : partnerCode;
 
+  const savePartnerSettings = async () => {
+    const updated = {
+      ...partnerInfo,
+      name: partnerProfileDraft.name.trim() || partnerName,
+      phone: partnerProfileDraft.phone.trim(),
+      paymentMethod: partnerProfileDraft.payoutMethod.trim(),
+      payoutPhone: partnerProfileDraft.payoutPhone.trim(),
+    };
+    setPartnerInfo(updated);
+    localStorage.setItem('jasper_logged_affiliate', JSON.stringify(updated));
+    localStorage.setItem(`jasper_partner_preferences_${partnerId}`, JSON.stringify(partnerPrefs));
+    if (partnerId && partnerId !== 'partner-local') {
+      const result = await dbWrite(
+        'affiliate_partners',
+        'update',
+        {
+          display_name: updated.name,
+          phone_whatsapp: updated.phone || null,
+          payout_method: updated.paymentMethod || null,
+          payout_account: updated.payoutPhone || null,
+        },
+        { column: 'id', value: partnerId },
+        partnerId,
+      );
+      setNotice(result.queued ? 'Profile saved locally and will sync when online.' : 'Profile settings saved.');
+      return;
+    }
+    setNotice('Profile settings saved on this device.');
+  };
+
   // ── Load data ───────────────────────────────────────────────
 
   const loadSubAffiliates = useCallback(async () => {
@@ -368,6 +455,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           mapped = data.map((a: any) => {
             const revenue = numberValue(a.total_revenue);
             const gross = a.gross_commission ? numberValue(a.gross_commission) : revenue * 0.15;
+            const tinNumber = a.tin_number || '';
             return {
               id: a.id,
               userId: a.user_id,
@@ -382,8 +470,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
               grossCommission15: gross,
               withholdingTax5: gross * 0.05,
               netPayout: a.net_payout ? numberValue(a.net_payout) : gross,
-              tinNumber: a.tin_number || '',
-              tinStatus: (a.tin_status || 'not_submitted') as TinStatus,
+              tinNumber,
+              tinStatus: normalizeTinStatus(tinNumber, a.tin_status),
               pendingCommission: gross,
               paidCommission: 0,
               payoutMethod: a.payout_method || 'M-Pesa',
@@ -412,6 +500,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         mapped = mine.map((a: any) => {
           const revenue = a.revenueDate || a.totalEarnings || 0;
           const gross = revenue * 0.15;
+          const tinNumber = a.tinNumber && a.tinNumber !== 'N/A' ? a.tinNumber : '';
           return {
             id: a.id,
             userId: a.id,
@@ -426,8 +515,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             grossCommission15: gross,
             withholdingTax5: gross * 0.05,
             netPayout: gross,
-            tinNumber: a.tinNumber || '',
-            tinStatus: (a.tinNumber ? 'submitted' : 'not_submitted') as TinStatus,
+            tinNumber,
+            tinStatus: normalizeTinStatus(tinNumber, a.tinStatus),
             pendingCommission: gross,
             paidCommission: a.paidAmount || 0,
             payoutMethod: a.paymentMethod || 'M-Pesa',
@@ -442,6 +531,52 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     }
 
     setSubAffiliates(mapped);
+
+    if (!mapped.length) {
+      setCustomers([]);
+    } else {
+      try {
+        const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+        const client: any = await getSecureDataBridgeClient();
+        const subIds = mapped.map((aff) => aff.id).filter(Boolean);
+        const { data: referredRows } = await client.from('referred_customers')
+          .select('id, tenant_id, customer_id, customer_name, phone_number, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, sub_affiliate_id, created_at')
+          .in('sub_affiliate_id', subIds)
+          .order('created_at', { ascending: false });
+
+        const tenantIds = Array.from(new Set((referredRows || []).map((row: any) => row.tenant_id || row.customer_id).filter(Boolean)));
+        let tenantById = new Map<string, any>();
+        if (tenantIds.length) {
+          const { data: tenants } = await client.from('tenants')
+            .select('id, name, subscription_plan, selected_package_id, active_package_id, subscription_status, subscription_start_date, subscription_end_date, created_at')
+            .in('id', tenantIds);
+          tenantById = new Map((tenants || []).map((tenant: any) => [String(tenant.id), tenant]));
+        }
+
+        setCustomers((referredRows || []).map((row: any) => {
+          const tenantId = String(row.tenant_id || row.customer_id || '');
+          const tenant = tenantById.get(tenantId);
+          const packageName = readablePlan(tenant?.active_package_id || tenant?.selected_package_id || tenant?.subscription_plan || row.package_id || row.package_name);
+          const subscriptionEndDate = tenant?.subscription_end_date || row.subscription_end_date || '';
+          return {
+            id: row.id,
+            tenantId,
+            tenantName: tenant?.name || row.customer_name || 'Unnamed tenant',
+            phoneNumber: row.phone_number || '',
+            packageName,
+            paymentStatus: tenant?.subscription_status || row.payment_status || 'pending',
+            amountPaid: numberValue(row.amount_paid),
+            promoCodeUsed: row.promo_code_used || row.referral_code_used || '',
+            subscriptionEndDate,
+            daysRemaining: daysUntil(subscriptionEndDate),
+            registeredAt: row.created_at || tenant?.created_at || '',
+            subAffiliateId: row.sub_affiliate_id,
+          };
+        }));
+      } catch {
+        setCustomers([]);
+      }
+    }
 
     // Build reconciliation rows
     const rows = mapped.map(aff =>
@@ -488,8 +623,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
     // Update Supabase affiliates table
     try {
-      const { getDynamicSupabaseClient } = await import('../../supabaseClient');
-      const client: any = await getDynamicSupabaseClient();
+      const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+      const client: any = await getSecureDataBridgeClient();
       await client.from('affiliates')
         .update({ is_disabled: newIsDisabled, status: newStatus })
         .eq('id', aff.id);
@@ -626,6 +761,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   if (mirrorTarget) {
     const bd = calculateCommissionBreakdown(mirrorTarget.revenueGenerated);
+    const mirrorTenants = customers.filter((customer) => customer.subAffiliateId === mirrorTarget.id);
     return (
       <div className="min-h-screen bg-slate-950 text-white">
         {/* Mirror banner */}
@@ -675,6 +811,58 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
           <WhtNotice tinStatus={mirrorTarget.tinStatus} />
 
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black text-white">Registered Tenants</h3>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  Tenants registered with {mirrorTarget.name}'s promo code
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-black">
+                {mirrorTenants.length} tenants
+              </span>
+            </div>
+            {mirrorTenants.length === 0 ? (
+              <div className="py-10 text-center">
+                <ShieldCheck className="w-8 h-8 text-slate-700 mx-auto" />
+                <p className="text-sm text-slate-500 mt-2">No tenants registered with this promo code yet.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-800/50 text-slate-500 uppercase tracking-wider text-[9px]">
+                    <tr>
+                      <th className="py-3 px-4 text-left">Tenant</th>
+                      <th className="py-3 px-4 text-left">Package</th>
+                      <th className="py-3 px-4 text-left">Status</th>
+                      <th className="py-3 px-4 text-left">Days Left</th>
+                      <th className="py-3 px-4 text-left">Registered</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {mirrorTenants.map((tenant) => (
+                      <tr key={tenant.id} className="hover:bg-slate-800/25">
+                        <td className="py-3 px-4">
+                          <p className="font-bold text-white">{tenant.tenantName}</p>
+                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">{tenant.promoCodeUsed || mirrorTarget.promoCode}</p>
+                        </td>
+                        <td className="py-3 px-4 text-slate-200 font-semibold">{tenant.packageName}</td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[9px] font-bold text-slate-300">
+                            {tenant.paymentStatus}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-black text-amber-400">{tenant.daysRemaining} days</td>
+                        <td className="py-3 px-4 text-slate-400">{tenant.registeredAt ? tenant.registeredAt.split('T')[0] : 'Not recorded'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
           {/* Profile details */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
             <h3 className="text-sm font-black text-white border-b border-slate-800 pb-3">Profile Details</h3>
@@ -683,7 +871,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
               { label: 'Payout Account',  value: mirrorTarget.payoutAccount },
               { label: 'Payout Method',   value: mirrorTarget.payoutMethod },
               { label: 'TIN Number',      value: mirrorTarget.tinNumber ? maskTIN(mirrorTarget.tinNumber) : 'Not submitted' },
-              { label: 'Customers',       value: String(mirrorTarget.customersGenerated) },
+              { label: 'Tenants registered', value: String(mirrorTenants.length) },
               { label: 'Joined',          value: mirrorTarget.createdAt.split('T')[0] },
             ].map(f => (
               <div key={f.label} className="flex items-center justify-between text-sm border-b border-slate-800/50 pb-2">
@@ -801,12 +989,12 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
               {/* ── DASHBOARD AD PLACEMENT ── same slot as tenant dashboard ── */}
               {(() => {
-                const adCode = localStorage.getItem('jasper_dashboard_ad_code');
-                const adEnabled = localStorage.getItem('jasper_dashboard_ad_enabled') !== 'false';
+                const adCode = adSettings.dashboardAdCode;
+                const adEnabled = adSettings.dashboardAdEnabled;
                 if (!adCode || !adEnabled) return null;
                 return (
                   <div className="w-full overflow-hidden rounded-2xl"
-                    dangerouslySetInnerHTML={{ __html: adCode }} />
+                    dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }} />
                 );
               })()}
 
@@ -860,48 +1048,6 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                   Example: TZS 100,000 revenue → Pool TZS 20,000 → You get TZS 5,000 · Sub-affiliate gets TZS 15,000
                   {WITHHOLDING_TAX_ACTIVE && ' → WHT TZS 750 → Net TZS 14,250'}
                 </div>
-              </div>
-
-              {/* Quick affiliate preview */}
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
-                  <h3 className="font-black text-white text-sm">Sub-Affiliates</h3>
-                  <button onClick={() => setActiveTab('affiliates')} className="text-[10px] text-amber-400 flex items-center gap-1 cursor-pointer border-none bg-transparent font-bold">
-                    Manage all <ChevronRight className="w-3 h-3" />
-                  </button>
-                </div>
-                {subAffiliates.length === 0 ? (
-                  <div className="py-12 text-center space-y-2">
-                    <Users className="w-8 h-8 text-slate-700 mx-auto" />
-                    <p className="text-slate-500 text-sm">No sub-affiliates yet</p>
-                    <p className="text-slate-600 text-xs">Share partner code <strong className="text-amber-400">{partnerCode}</strong></p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-slate-800">
-                    {subAffiliates.slice(0, 5).map(aff => {
-                      const bd = calculateCommissionBreakdown(aff.revenueGenerated);
-                      return (
-                        <div key={aff.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-white truncate">{aff.name}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[9px] text-slate-500 font-mono">{aff.promoCode}</span>
-                              <TinBadge status={aff.tinStatus} />
-                              {aff.isDisabled && <span className="text-[9px] bg-rose-500/10 text-rose-400 px-1.5 py-0.5 rounded font-bold">Disabled</span>}
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-xs font-black text-amber-400">{formatTZS(bd.managerCommission5)}</p>
-                            <p className="text-[9px] text-slate-500">your 5%</p>
-                          </div>
-                          <button onClick={() => enterMirror(aff)} className="p-2 bg-slate-800 hover:bg-slate-700 text-teal-400 rounded-lg cursor-pointer border-none">
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -1122,14 +1268,53 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                 <h2 className="text-lg font-black text-white">Network Customers</h2>
                 <p className="text-xs text-slate-400 mt-0.5">Customers generated by all sub-affiliates under your network</p>
               </div>
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl py-16 text-center space-y-3">
-                <ShieldCheck className="w-12 h-12 text-slate-700 mx-auto" />
-                <p className="text-white font-black">Customer tracking active</p>
-                <p className="text-slate-400 text-sm max-w-md mx-auto">
-                  When sub-affiliates refer customers who pay for Jasper subscriptions, those customers appear here
-                  with package details, revenue, and your commission breakdown.
-                </p>
-                <p className="text-slate-500 text-xs">Connect sub-affiliate promo codes to tenant registrations to see customer data here</p>
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                {customers.length === 0 ? (
+                  <div className="py-16 text-center space-y-3">
+                    <ShieldCheck className="w-12 h-12 text-slate-700 mx-auto" />
+                    <p className="text-white font-black">No referred tenants yet</p>
+                    <p className="text-slate-400 text-sm max-w-md mx-auto">
+                      Tenants registered through sub-affiliate promo codes will appear here with package and subscription remaining days.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-800/50 text-slate-500 uppercase tracking-wider text-[9px]">
+                        <tr>
+                          <th className="py-3 px-4 text-left">Tenant</th>
+                          <th className="py-3 px-4 text-left">Sub-Affiliate</th>
+                          <th className="py-3 px-4 text-left">Package</th>
+                          <th className="py-3 px-4 text-left">Status</th>
+                          <th className="py-3 px-4 text-left">Days Left</th>
+                          <th className="py-3 px-4 text-left">Registered</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        {customers.map((tenant) => {
+                          const owner = subAffiliates.find((aff) => aff.id === tenant.subAffiliateId);
+                          return (
+                            <tr key={tenant.id} className="hover:bg-slate-800/25">
+                              <td className="py-3 px-4">
+                                <p className="font-bold text-white">{tenant.tenantName}</p>
+                                <p className="text-[10px] text-slate-500 font-mono mt-0.5">{tenant.promoCodeUsed || owner?.promoCode || 'No promo code'}</p>
+                              </td>
+                              <td className="py-3 px-4 text-slate-300">{owner?.name || 'Unknown'}</td>
+                              <td className="py-3 px-4 text-slate-200 font-semibold">{tenant.packageName}</td>
+                              <td className="py-3 px-4">
+                                <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[9px] font-bold text-slate-300">
+                                  {tenant.paymentStatus}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 font-black text-amber-400">{tenant.daysRemaining} days</td>
+                              <td className="py-3 px-4 text-slate-400">{tenant.registeredAt ? tenant.registeredAt.split('T')[0] : 'Not recorded'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1253,6 +1438,49 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                   Affiliates who register using your partner code or referral link will be added to your network.
                   You earn <strong className="text-amber-400">5% override commission</strong> on all their referrals, on top of your own <strong className="text-amber-400">15% direct commission</strong>.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <div className="max-w-3xl space-y-6">
+              <div>
+                <h2 className="text-lg font-black text-white">Profile Settings</h2>
+                <p className="mt-0.5 text-xs text-slate-400">Manage your partner profile, payout details, and dashboard preferences.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="space-y-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Display name
+                    <input value={partnerProfileDraft.name} onChange={event => setPartnerProfileDraft({ ...partnerProfileDraft, name: event.target.value })} className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-none focus:border-amber-500" />
+                  </label>
+                  <label className="space-y-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Phone
+                    <input value={partnerProfileDraft.phone} onChange={event => setPartnerProfileDraft({ ...partnerProfileDraft, phone: event.target.value })} placeholder="+255..." className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-none focus:border-amber-500" />
+                  </label>
+                  <label className="space-y-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Payout provider
+                    <input value={partnerProfileDraft.payoutMethod} onChange={event => setPartnerProfileDraft({ ...partnerProfileDraft, payoutMethod: event.target.value })} placeholder="M-Pesa, Airtel Money..." className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-none focus:border-amber-500" />
+                  </label>
+                  <label className="space-y-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Payout phone
+                    <input value={partnerProfileDraft.payoutPhone} onChange={event => setPartnerProfileDraft({ ...partnerProfileDraft, payoutPhone: event.target.value })} placeholder="+255..." className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-none focus:border-amber-500" />
+                  </label>
+                </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <label className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm font-bold text-slate-300">
+                    Email updates
+                    <input type="checkbox" checked={partnerPrefs.emailUpdates} onChange={event => setPartnerPrefs({ ...partnerPrefs, emailUpdates: event.target.checked })} className="h-4 w-4 accent-amber-500" />
+                  </label>
+                  <label className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm font-bold text-slate-300">
+                    Compact dashboard
+                    <input type="checkbox" checked={partnerPrefs.compactView} onChange={event => setPartnerPrefs({ ...partnerPrefs, compactView: event.target.checked })} className="h-4 w-4 accent-amber-500" />
+                  </label>
+                </div>
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                  <button type="button" onClick={savePartnerSettings} className="flex-1 rounded-xl bg-amber-500 px-4 py-3 text-sm font-black text-slate-950 hover:bg-amber-400">Save Settings</button>
+                  <button type="button" onClick={onLogout} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-black text-rose-400 hover:bg-rose-500/20"><LogOut className="h-4 w-4" /> Sign out</button>
+                </div>
               </div>
             </div>
           )}
@@ -1442,7 +1670,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       <nav className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-slate-900/95 backdrop-blur border-t border-slate-800"
         style={{ height: 'calc(60px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-stretch h-[60px]">
-          {NAV_TABS.slice(0, 5).map(tab => {
+          {NAV_TABS.slice(0, 3).map(tab => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
             return (
@@ -1458,10 +1686,10 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
               </button>
             );
           })}
-          {/* More button for tabs 6-8 */}
+          {/* More button for the remaining partner tools */}
           <button onClick={() => setMoreOpen(true)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 cursor-pointer border-none bg-transparent transition-all ${['hw-pos','hw-inventory','conferencing'].includes(activeTab) ? 'text-amber-400' : 'text-slate-500'}`}>
-            <div className={`flex items-center justify-center w-7 h-6 rounded-lg ${['hw-pos','hw-inventory','conferencing'].includes(activeTab) ? 'bg-amber-500/15' : ''}`}>
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 cursor-pointer border-none bg-transparent transition-all ${NAV_TABS.slice(3).some(tab => tab.id === activeTab) || moreOpen ? 'text-amber-400' : 'text-slate-500'}`}>
+            <div className={`flex items-center justify-center w-7 h-6 rounded-lg ${NAV_TABS.slice(3).some(tab => tab.id === activeTab) || moreOpen ? 'bg-amber-500/15' : ''}`}>
               <Menu className="w-5 h-5" strokeWidth={1.8} />
             </div>
             <span className="text-[8px] font-bold leading-none">More</span>
@@ -1478,53 +1706,36 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-5" />
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">More Options</p>
             <div className="grid grid-cols-3 gap-4">
-              {[
-                { id: 'conferencing', label: 'Video', icon: Video,     bg: 'bg-blue-600' },
-                { id: 'hw-pos',       label: 'HW POS', icon: Monitor,  bg: 'bg-violet-600' },
-                { id: 'hw-inventory', label: 'HW Stock',icon: HardDrive,bg: 'bg-orange-500' },
-              ].map(item => {
+              {NAV_TABS.slice(3).map((item, index) => {
                 const Icon = item.icon;
+                const colors = ['bg-blue-600', 'bg-emerald-600', 'bg-cyan-600', 'bg-violet-600', 'bg-orange-500', 'bg-slate-700'];
                 return (
                   <button key={item.id} onClick={() => { setActiveTab(item.id as DashTab); setMoreOpen(false); }}
                     className="flex flex-col items-center gap-2 cursor-pointer bg-transparent border-none">
-                    <div className={`w-14 h-14 rounded-2xl ${item.bg} flex items-center justify-center shadow`}>
+                    <div className={`w-14 h-14 rounded-2xl ${colors[index] || 'bg-slate-700'} flex items-center justify-center shadow`}>
                       <Icon className="w-6 h-6 text-white" strokeWidth={2} />
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-400 text-center">{item.label}</span>
+                    <span className="text-[11px] font-semibold text-slate-400 text-center">{item.label.split(' ')[0]}</span>
                   </button>
                 );
               })}
+              <button onClick={() => { setMoreOpen(false); onLogout(); }}
+                className="flex flex-col items-center gap-2 cursor-pointer bg-transparent border-none">
+                <div className="w-14 h-14 rounded-2xl bg-rose-600 flex items-center justify-center shadow">
+                  <LogOut className="w-6 h-6 text-white" strokeWidth={2} />
+                </div>
+                <span className="text-[11px] font-semibold text-rose-400 text-center">Sign out</span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── STICKY BOTTOM AD ── */}
-      {(() => {
-        const bottomAdCode = localStorage.getItem('jasper_bottom_ad_code');
-        const bottomAdEnabled = localStorage.getItem('jasper_bottom_ad_enabled') !== 'false';
-        if (!bottomAdCode || !bottomAdEnabled || bottomAdDismissed) return null;
-        return (
-          <div className="fixed bottom-0 left-0 right-0 z-40 w-full"
-            style={{ animation: 'slideUpAd 0.4s ease-out' }}>
-            <style>{`
-              @keyframes slideUpAd {
-                from { transform: translateY(100%); opacity: 0; }
-                to   { transform: translateY(0); opacity: 1; }
-              }
-              .partner-bottom-ad img,.partner-bottom-ad iframe,.partner-bottom-ad ins,.partner-bottom-ad>*{
-                max-width:100%!important;width:100%!important;display:block!important;
-              }
-            `}</style>
-            <div className="relative w-full bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.15)] border-t border-slate-200">
-              <button onClick={() => setBottomAdDismissed(true)}
-                className="absolute top-1.5 right-2 z-10 w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-xs font-black cursor-pointer border-none">×</button>
-              <div className="partner-bottom-ad w-full overflow-hidden"
-                dangerouslySetInnerHTML={{ __html: bottomAdCode }} />
-            </div>
-          </div>
-        );
-      })()}
+      <GlobalStickyAd
+        bottomOffsetClass="bottom-[calc(4.75rem+env(safe-area-inset-bottom))] lg:bottom-4"
+        leftOffsetClass="left-3 lg:left-1/2 lg:-translate-x-1/2"
+        maxWidthClass="max-w-[640px]"
+      />
 
     </div>
   );

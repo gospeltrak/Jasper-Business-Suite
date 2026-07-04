@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Activity, ShieldAlert, CheckCircle, XCircle, Gift, Search, RefreshCw, FileText, Clock, Package, User, AlertCircle } from 'lucide-react';
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { normalizeSubscriptionPlanId, SUBSCRIPTION_PLANS } from '../utils/subscription';
 
 interface PaymentProof {
@@ -44,7 +44,7 @@ export default function SaaSStatusAndRequests() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
 
       // Load payment proofs
       const { data: proofsData, error: proofsError } = await client
@@ -77,7 +77,7 @@ export default function SaaSStatusAndRequests() {
     setProcessingId(proof.id);
     setMessage(null);
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
       const normalizedPlan = normalizeSubscriptionPlanId(proof.requested_package_id);
       const now = new Date().toISOString();
 
@@ -123,7 +123,7 @@ export default function SaaSStatusAndRequests() {
     setProcessingId(proof.id);
     setMessage(null);
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
       const now = new Date().toISOString();
       const { error } = await client
         .from('tenant_payment_proofs')
@@ -146,7 +146,7 @@ export default function SaaSStatusAndRequests() {
   const handleEmergencyOverride = async () => {
     if (!emergencyTenantId) { setMessage({ text: 'Select a tenant first.', type: 'error' }); return; }
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
       const normalizedPlan = normalizeSubscriptionPlanId(emergencyPlan);
       const now = new Date().toISOString();
       const { error } = await client
@@ -342,7 +342,7 @@ export default function SaaSStatusAndRequests() {
           </select>
           <select value={emergencyPlan} onChange={e => setEmergencyPlan(e.target.value)}
             className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-amber-500 cursor-pointer">
-            <option value="trial">Trial (14 days)</option>
+            <option value="trial">Trial (10 days / 20 with promo)</option>
             <option value="ruby">Ruby – TZS 20,000</option>
             <option value="diamond">Diamond – TZS 35,000</option>
             <option value="tanzanite">Tanzanite – TZS 50,000</option>

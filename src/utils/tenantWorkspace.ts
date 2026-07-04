@@ -1,6 +1,6 @@
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { Branch, BranchStaffAssignment, BranchStock, Delivery, Expense, Product, Purchase, SystemSettings } from '../types';
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -22,6 +22,8 @@ export interface TenantWorkspace {
 const cacheKey   = (tid: string) => `jasper_workspace_cache_${tid}`;
 const pendingKey = (tid: string) => `jasper_workspace_pending_sync_${tid}`;
 
+const browserOnline = () => typeof navigator === 'undefined' || navigator.onLine;
+
 export const readCachedWorkspace = (tenantId: string): TenantWorkspace | null => {
   try {
     const stored = localStorage.getItem(cacheKey(tenantId));
@@ -37,11 +39,27 @@ const cacheWorkspace = (tenantId: string, workspace: TenantWorkspace) => {
   } catch { /* storage full — ignore */ }
 };
 
+const normalizeWorkspace = (workspace: Partial<TenantWorkspace> | null | undefined): TenantWorkspace | null => {
+  if (!workspace) return null;
+  return {
+    branches:            workspace.branches            || [],
+    branchStocks:        workspace.branchStocks        || [],
+    branchStaffAssignments: workspace.branchStaffAssignments || [],
+    products:            workspace.products            || [],
+    sales:               workspace.sales               || [],
+    expenses:            workspace.expenses            || [],
+    settings:            workspace.settings            || ({} as SystemSettings),
+    deliveries:          workspace.deliveries          || [],
+    pendingDeliveryNotes:workspace.pendingDeliveryNotes|| [],
+    purchases:           workspace.purchases           || [],
+  };
+};
+
 // ─── Check if Supabase is configured ───────────────────────────────────────
 
 async function getConfiguredClient(): Promise<any | null> {
   try {
-    const client: any = await getDynamicSupabaseClient();
+    const client: any = await getSecureDataBridgeClient();
     // If URL is placeholder, Supabase isn't configured — return null
     const url = (client as any).supabaseUrl || '';
     if (!url || url.includes('placeholder-url')) return null;
@@ -56,6 +74,8 @@ async function getConfiguredClient(): Promise<any | null> {
 export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorkspace | null> {
   if (!tenantId) return null;
   const fallback = readCachedWorkspace(tenantId);
+
+  if (!browserOnline()) return fallback;
 
   const client = await getConfiguredClient();
   if (!client) return fallback;
@@ -74,20 +94,8 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 
     if (!data?.payload) return fallback;
 
-    const workspace = data.payload as TenantWorkspace;
-    // Ensure all keys exist (backward compat)
-    const safe: TenantWorkspace = {
-      branches:            workspace.branches            || [],
-      branchStocks:        workspace.branchStocks        || [],
-      branchStaffAssignments: workspace.branchStaffAssignments || [],
-      products:            workspace.products            || [],
-      sales:               workspace.sales               || [],
-      expenses:            workspace.expenses            || [],
-      settings:            workspace.settings            || ({} as SystemSettings),
-      deliveries:          workspace.deliveries          || [],
-      pendingDeliveryNotes:workspace.pendingDeliveryNotes|| [],
-      purchases:           workspace.purchases           || [],
-    };
+    const safe = normalizeWorkspace(data.payload as TenantWorkspace);
+    if (!safe) return fallback;
     cacheWorkspace(tenantId, safe);
     return safe;
   } catch (e) {
@@ -103,6 +111,11 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
 
   // Always write to local cache immediately
   cacheWorkspace(tenantId, workspace);
+
+  if (!browserOnline()) {
+    localStorage.setItem(pendingKey(tenantId), JSON.stringify(workspace));
+    return;
+  }
 
   const client = await getConfiguredClient();
   if (!client) {
@@ -135,6 +148,7 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
 
 export async function flushPendingTenantWorkspace(tenantId: string): Promise<void> {
   if (!tenantId) return;
+  if (!browserOnline()) return;
   const pendingRaw = localStorage.getItem(pendingKey(tenantId));
   if (!pendingRaw) return;
   try {
@@ -157,22 +171,12 @@ export async function subscribeToTenantWorkspace(
       .channel(`tenant-workspace:${tenantId}`)
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'tenant_workspaces', filter: `tenant_id=eq.${tenantId}` },
+        { event: '*', schema: 'public', table: 'tenant_workspaces', filter: `tenant_id=eq.${tenantId}` },
         (event: any) => {
           const workspace = event.new?.payload as TenantWorkspace | undefined;
           if (workspace) {
-            const safe: TenantWorkspace = {
-              branches:            workspace.branches            || [],
-              branchStocks:        workspace.branchStocks        || [],
-              branchStaffAssignments: workspace.branchStaffAssignments || [],
-              products:            workspace.products            || [],
-              sales:               workspace.sales               || [],
-              expenses:            workspace.expenses            || [],
-              settings:            workspace.settings            || ({} as SystemSettings),
-              deliveries:          workspace.deliveries          || [],
-              pendingDeliveryNotes:workspace.pendingDeliveryNotes|| [],
-              purchases:           workspace.purchases           || [],
-            };
+            const safe = normalizeWorkspace(workspace);
+            if (!safe) return;
             cacheWorkspace(tenantId, safe);
             onWorkspace(safe);
           }
@@ -201,8 +205,16 @@ export function emptyWorkspace(settings?: Partial<SystemSettings>): TenantWorksp
     expenses: [],
     settings: {
       company: { businessName: '', businessType: '', currency: 'TZS', currencySymbol: 'TSh', country: 'Tanzania', city: '', taxRate: 18, logoUrl: '' },
-      business: { allowNegativeStock: false, defaultUnit: 'pcs', requireStockCheck: true, autoGenerateBarcode: false },
-      productStore: { showImages: true, compactView: false },
+      business: {
+        allowNegativeStock: false,
+        defaultUnit: 'pcs',
+        requireStockCheck: true,
+        autoGenerateBarcode: false,
+        paymentModes: [],
+        deliveryPaymentModes: [],
+        registeredStores: []
+      },
+      productStore: { showImages: true, compactView: false, categories: [], units: [] },
       staffs: [],
       ...(settings || {}),
     } as SystemSettings,

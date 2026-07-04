@@ -25,6 +25,7 @@ export default function SaaSDashboardMetrics() {
           sessions: [],
           affiliates: [],
           referrals: [],
+          sourceTracking: [],
           commissions: [],
           payouts: [],
           auditLogs: []
@@ -171,11 +172,11 @@ export default function SaaSDashboardMetrics() {
           </div>
         </div>
 
-        {/* GRAPH 3: Line graph: organic subscribers vs affiliate subscribers */}
+        {/* GRAPH 3: Line graph: organic subscribers vs promo-code subscribers */}
         <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl lg:col-span-2">
           <h3 className="text-xs font-mono font-black text-white uppercase tracking-wider mb-4 flex items-center space-x-2">
             <TrendingUp className="w-4 h-4 text-amber-400" />
-            <span>Organic vs Affiliate Subscriber Growth</span>
+            <span>Organic vs Sub-Affiliate Subscriber Growth</span>
           </h3>
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -188,7 +189,7 @@ export default function SaaSDashboardMetrics() {
                 />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
                 <Line type="monotone" dataKey="Organic" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6', strokeWidth: 0 }} />
-                <Line type="monotone" dataKey="Affiliate" stroke="#f59e0b" strokeWidth={3} dot={{ r: 4, fill: '#f59e0b', strokeWidth: 0 }} />
+                <Line type="monotone" dataKey="Affiliate" name="Sub-Affiliate" stroke="#f59e0b" strokeWidth={3} dot={{ r: 4, fill: '#f59e0b', strokeWidth: 0 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>

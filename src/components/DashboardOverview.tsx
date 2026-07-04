@@ -3,6 +3,8 @@ import { useTenantLogo } from '../TenantLogoContext';
 import { useTranslation } from '../LanguageContext';
 import { Tenant, Product, Sale } from '../types';
 import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitFormatter';
+import { useGlobalAdSettings } from '../utils/adPlacement';
+import { sanitizeTrustedHtml } from '../utils/safeHtml';
 import { 
   ResponsiveContainer, 
   ComposedChart, 
@@ -67,6 +69,7 @@ export default function DashboardOverview({
 }: DashboardOverviewProps) {
   const { logoUrl } = useTenantLogo();
   const { t, lang } = useTranslation();
+  const adSettings = useGlobalAdSettings();
   const currency = activeTenant.currencyCode || 'TSh';
   
   // Date timeframe filtering state: 'today' | 'week' | 'month' | '3month' | 'year'
@@ -165,10 +168,30 @@ export default function DashboardOverview({
     return creditSalesTotal > 0 ? creditSalesTotal : (sales.length === 0 ? 0 : Math.round(totalRevenue * 0.125));
   }, [sales, totalRevenue]);
 
+  const isActualExpense = (expense: any) => {
+    const markers = [
+      expense?.type,
+      expense?.category,
+      expense?.source,
+      expense?.entryType,
+      expense?.ledgerType,
+      expense?.module,
+    ].map(value => String(value || '').toLowerCase());
+
+    return !markers.some(marker =>
+      marker.includes('cogs') ||
+      marker.includes('cost of goods') ||
+      marker.includes('inventory_cost') ||
+      marker.includes('product_cost') ||
+      marker.includes('sale_cost')
+    );
+  };
+
   // Filter expenses based on selected timeframe
   const filteredExpenses = useMemo(() => {
     const now = new Date();
     return expenses.filter(exp => {
+      if (!isActualExpense(exp)) return false;
       const expDate = new Date(exp.timestamp);
       const diffTime = Math.abs(now.getTime() - expDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -211,9 +234,8 @@ export default function DashboardOverview({
 
   // Aggregate expenses
   const totalExpensesAmt = useMemo(() => {
-    const sum = filteredExpenses.reduce((acc, curr) => acc + curr.amount, 0);
-    return sum > 0 ? sum : Math.round(totalCost * 0.45);
-  }, [filteredExpenses, totalCost]);
+    return filteredExpenses.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  }, [filteredExpenses]);
 
   // Aggregate purchases
   const totalPurchasesAmt = useMemo(() => {
@@ -251,7 +273,6 @@ export default function DashboardOverview({
   const [posFilterMethod, setPosFilterMethod] = useState<'All' | 'Cash' | 'Card' | 'M-Pesa' | 'Credit'>('All');
   const [methodFilterOpen, setMethodFilterOpen] = useState(false);
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
-  const [bottomAdDismissed, setBottomAdDismissed] = useState(false);
 
   // Auto dismiss toast
   useEffect(() => {
@@ -544,14 +565,14 @@ export default function DashboardOverview({
     <div id="overview-component" className="space-y-6 font-sans">
 
       {/* ══════════ MOBILE-ONLY HERO SECTION ══════════ */}
-      <div className="md:hidden space-y-4">
+      <div className="xl:hidden space-y-4">
 
         {/* Stat cards 2x2 grid */}
         <div className="grid grid-cols-2 gap-3">
           {[
             { label: 'Total Orders', value: sales.filter((s:any) => new Date(s.timestamp).toDateString() === new Date().toDateString()).length, sub: `${filteredSales.reduce((sum:number,s:any)=>sum+(s.items?.reduce((a:number,i:any)=>a+(i.qty||0),0)||0),0)} items sold`, color: '#2196F3', up: true },
             { label: "Today's Sales", value: `${currency} ${Math.round(todayTotalRevenue).toLocaleString()}`, sub: todayTotalRevenue > 0 ? '↑ Today' : 'No sales yet', color: '#10B981', up: todayTotalRevenue > 0 },
-            { label: 'Expenses', value: `${currency} ${Math.round(expenses.reduce((s:number,e:any)=>s+(e.amount||0),0)).toLocaleString()}`, sub: 'Total spending', color: '#ef4444', up: false },
+            { label: 'Expenses', value: `${currency} ${Math.round(totalExpensesAmt).toLocaleString()}`, sub: 'Total spending', color: '#ef4444', up: false },
             { label: 'Profit', value: `${currency} ${Math.round(netProfit).toLocaleString()}`, sub: `${avgProfitMargin.toFixed(1)}% margin`, color: netProfit >= 0 ? '#00C853' : '#ef4444', up: netProfit >= 0 },
             { label: 'Purchases', value: `${currency} ${Math.round(purchases.reduce((s:number,p:any)=>s+(p.total||p.amount||0),0)).toLocaleString()}`, sub: `${purchases.length} orders`, color: '#7c3aed', up: false },
             { label: 'Dues Owed', value: `${currency} ${Math.round(filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').reduce((sum:number,s:any)=>sum+(s.dueAmount||s.amountDue||0),0)).toLocaleString()}`, sub: `${filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').length} unpaid`, color: '#f59e0b', up: false },
@@ -566,14 +587,16 @@ export default function DashboardOverview({
 
         {/* POS Hero Banner / Ad Placement */}
         {(() => {
-          const adCode = localStorage.getItem('jasper_dashboard_ad_code');
-          const adEnabled = localStorage.getItem('jasper_dashboard_ad_enabled') !== 'false';
+          const adCode = adSettings.dashboardAdCode;
+          const adEnabled = adSettings.dashboardAdEnabled;
           if (adCode && adEnabled) {
             return (
-              <div
-                className="w-full overflow-hidden rounded-2xl"
-                dangerouslySetInnerHTML={{ __html: adCode }}
-              />
+              <div className="flex min-h-[90px] w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+                <div
+                  className="min-h-[90px] w-full max-w-[728px] overflow-hidden [&>*]:max-w-full"
+                  dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }}
+                />
+              </div>
             );
           }
           return (
@@ -601,7 +624,7 @@ export default function DashboardOverview({
       {/* ══════════ END MOBILE HERO ══════════ */}
 
       {/* 2. OVERVIEW HEADER WITH DYNAMIC DAY SELECTOR */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 rounded-2xl shadow-xs text-left select-none animate-fade-in hidden md:flex">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 rounded-2xl shadow-xs text-left select-none animate-fade-in hidden xl:flex">
         <div className="flex items-center space-x-4">
           {/* Circular logo or Initials Avatar */}
           {(() => {
@@ -680,7 +703,7 @@ export default function DashboardOverview({
 
         {/* Day Selector: Today, 1 Week, 1 Month, 3 Month, 1 Year */}
         {/* DESKTOP LAYOUT (completely untouched) */}
-        <div className="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-wrap gap-y-1 md:flex-nowrap border border-slate-200 shadow-inner">
+        <div className="hidden xl:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-wrap gap-y-1 md:flex-nowrap border border-slate-200 shadow-inner">
           {[
             { id: 'today', label: t('Today') },
             { id: 'week', label: t('1 Week') },
@@ -707,7 +730,7 @@ export default function DashboardOverview({
         </div>
 
         {/* MOBILE LAYOUT (clean compact single horizontal row without any horizontal scrolling) */}
-        <div className="flex md:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner select-none">
+        <div className="flex xl:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner select-none">
           {[
             { id: 'today', label: t('Today') },
             { id: 'week', label: t('1 Week') },
@@ -735,7 +758,7 @@ export default function DashboardOverview({
       </div>
 
       {/* 3. KPI CARDS ROW - desktop only, mobile uses hero above */}
-      <div className="hidden md:grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 select-none animate-fade-in">
+      <div className="hidden xl:grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6 select-none animate-fade-in">
         
         {/* Card 1: Total Orders */}
         <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
@@ -890,19 +913,21 @@ export default function DashboardOverview({
       {/* 4. MIDDLE ROW (two columns) */}
       {/* ── QUICK ACTION / AD PLACEMENT — reads ad code from Web Editor if set ── */}
       {(() => {
-        const adCode = localStorage.getItem('jasper_dashboard_ad_code');
-        const adEnabled = localStorage.getItem('jasper_dashboard_ad_enabled') !== 'false';
+        const adCode = adSettings.dashboardAdCode;
+        const adEnabled = adSettings.dashboardAdEnabled;
         if (adCode && adEnabled) {
           return (
-            <div
-              className="w-full overflow-hidden rounded-2xl"
-              dangerouslySetInnerHTML={{ __html: adCode }}
-            />
+            <div className="hidden min-h-[90px] w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm xl:flex">
+              <div
+                className="min-h-[90px] w-full max-w-[728px] overflow-hidden [&>*]:max-w-full"
+                dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }}
+              />
+            </div>
           );
         }
         return (
           <div
-            className="hidden md:flex items-center justify-between rounded-2xl px-6 py-4 cursor-pointer select-none"
+            className="hidden xl:flex items-center justify-between rounded-2xl px-6 py-4 cursor-pointer select-none"
             style={{background: 'linear-gradient(135deg, #059669 0%, #10b981 60%, #34d399 100%)', boxShadow: '0 4px 24px rgba(16,185,129,0.20)' }}
             onClick={() => {
               const el = document.querySelector('[data-tab="pos"]') as HTMLElement;
@@ -930,7 +955,7 @@ export default function DashboardOverview({
         {/* Left Column (Spans 2 grids, i.e., 65% width representation, collapses responsively) */}
         <div className="bg-white rounded-[16px] p-6 border border-slate-100 shadow-sm xl:col-span-2">
           
-          <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-50 pb-4 mb-5 gap-3">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between border-b border-slate-50 pb-4 mb-5 gap-3">
             <div className="text-left">
               <h3 className="text-[15px] font-extrabold text-[#1a1a2e] tracking-tight font-sans">{t('Sales & Purchases Status')}</h3>
               <p className="text-[11px] text-slate-400">
@@ -942,7 +967,7 @@ export default function DashboardOverview({
               </p>
             </div>
             {/* DESKTOP TIMEFRAME SELECTOR */}
-            <div className="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-nowrap border border-slate-200">
+            <div className="hidden xl:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-nowrap border border-slate-200">
               <button
                 id="btn-timeframe-today"
                 onClick={() => setStatusTimeframe('today')}
@@ -1006,7 +1031,7 @@ export default function DashboardOverview({
             </div>
 
             {/* MOBILE TIMEFRAME SELECTOR */}
-            <div className="flex md:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner select-none">
+            <div className="flex xl:hidden flex-row gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner select-none">
               {[
                 { id: 'today', label: t('Today') },
                 { id: 'week', label: t('1 Week') },
@@ -1156,7 +1181,7 @@ export default function DashboardOverview({
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start pb-6">
         
         {/* Left Column (Spans 2 grids, i.e., 65% width representation, Recent Sales table with menu actions) */}
-        <div className="bg-white rounded-[16px] p-6 border border-slate-100 shadow-sm xl:col-span-2 text-left relative overflow-visible">
+        <div className="hidden xl:block bg-white rounded-[16px] p-6 border border-slate-100 shadow-sm xl:col-span-2 text-left relative overflow-visible">
           
           <div className="flex items-center justify-between border-b border-slate-50 pb-4 mb-4">
             <div className="text-left">
@@ -1215,7 +1240,7 @@ export default function DashboardOverview({
             ) : (
               <div className="w-full">
                 {/* Desktop Table View */}
-              <table className="hidden md:table w-full text-slate-800 text-xs select-none">
+              <table className="hidden xl:table w-full text-slate-800 text-xs select-none">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider text-[10px] font-semibold text-left">
                     <th className="pb-3 pt-1 pl-1">Sale ID</th>
@@ -1394,7 +1419,7 @@ export default function DashboardOverview({
               </table>
 
               {/* Mobile Cards View */}
-              <div className="md:hidden flex flex-col space-y-3 pb-2 w-full">
+              <div className="xl:hidden flex flex-col space-y-3 pb-2 w-full">
                 {posFilteredSalesList.slice(0, 5).map((sale) => {
                   const status = getSalesStatus(sale.id);
                   const isExpanded = expandedInvoiceId === sale.id;
@@ -1607,51 +1632,6 @@ export default function DashboardOverview({
           <button onClick={() => setFeedbackToast(null)} className="text-slate-400 hover:text-white ml-2 text-xs font-bold font-mono">×</button>
         </div>
       )}
-
-      {/* ── STICKY BOTTOM AD BANNER ─────────────────────────────────────── */}
-      {(() => {
-        const bottomAdCode = localStorage.getItem('jasper_bottom_ad_code');
-        const bottomAdEnabled = localStorage.getItem('jasper_bottom_ad_enabled') !== 'false';
-        if (!bottomAdCode || !bottomAdEnabled || bottomAdDismissed) return null;
-        return (
-          <div
-            className="fixed bottom-0 left-0 right-0 z-40 w-full"
-            style={{ animation: 'slideUpAd 0.4s ease-out' }}
-          >
-            <style>{`
-              @keyframes slideUpAd {
-                from { transform: translateY(100%); opacity: 0; }
-                to   { transform: translateY(0);    opacity: 1; }
-              }
-              .bottom-ad-container { width: 100%; overflow: hidden; }
-              .bottom-ad-container img,
-              .bottom-ad-container iframe,
-              .bottom-ad-container ins,
-              .bottom-ad-container > * {
-                max-width: 100% !important;
-                width: 100% !important;
-                display: block !important;
-              }
-            `}</style>
-            <div className="relative w-full bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.15)] border-t border-slate-200">
-              {/* Dismiss button */}
-              <button
-                onClick={() => setBottomAdDismissed(true)}
-                className="absolute top-1.5 right-2 z-10 w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-xs font-black cursor-pointer border-none transition-colors"
-                title="Close"
-              >
-                ×
-              </button>
-              {/* Ad content — responsive container */}
-              <div
-                className="bottom-ad-container px-0 mx-auto"
-                dangerouslySetInnerHTML={{ __html: bottomAdCode }}
-              />
-            </div>
-          </div>
-        );
-      })()}
-
     </div>
   );
 }

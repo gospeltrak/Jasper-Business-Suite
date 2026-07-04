@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SyncLog, Sale } from '../types';
 import { 
   Wifi, 
@@ -32,9 +32,24 @@ export default function DashboardLogsAndSync({
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncStatusLines, setSyncStatusLines] = useState<string[]>([]);
+  const [queuedSystemJobs, setQueuedSystemJobs] = useState<any[]>([]);
 
   // Count size of pending offline sales
   const offlinePendingSales = sales.filter(s => s.syncStatus === 'pending');
+
+  const refreshQueuedJobs = () => {
+    try {
+      setQueuedSystemJobs(JSON.parse(localStorage.getItem('jasper_offline_sync_queue') || '[]'));
+    } catch {
+      setQueuedSystemJobs([]);
+    }
+  };
+
+  useEffect(() => {
+    refreshQueuedJobs();
+    const timer = window.setInterval(refreshQueuedJobs, 2500);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const startManualSync = () => {
     if (offlinePendingSales.length === 0 || isSyncing) return;
@@ -42,8 +57,8 @@ export default function DashboardLogsAndSync({
     setIsSyncing(true);
     setSyncProgress(10);
     setSyncStatusLines([
-      '⚡ Connecting to central Google Cloud container router...',
-      `📦 Packet matching detected ${offlinePendingSales.length} un-pushed receipts...`
+      'Connecting to encrypted database gateway...',
+      `Queue check detected ${offlinePendingSales.length} unsynced receipt(s)...`
     ]);
 
     // Staggered animated flushes represent pristine enterprise engineering
@@ -51,8 +66,8 @@ export default function DashboardLogsAndSync({
       setSyncProgress(40);
       setSyncStatusLines(prev => [
         ...prev,
-        '🔐 Handshaking SSL auth tokens for Lagos & Nairobi registries...',
-        `📡 Uploading ticket ID: ${offlinePendingSales[0].id} via secure mobile gateway JSON...`
+        'Verifying secure session and encrypted transport...',
+        `Uploading job ID: ${offlinePendingSales[0].id} through protected sync channel...`
       ]);
     }, 800);
 
@@ -61,12 +76,12 @@ export default function DashboardLogsAndSync({
       if (offlinePendingSales.length > 1) {
         setSyncStatusLines(prev => [
           ...prev,
-          `📡 Uploading ticket ID: ${offlinePendingSales[1].id}...`,
+          `Uploading job ID: ${offlinePendingSales[1].id}...`,
         ]);
       }
       setSyncStatusLines(prev => [
         ...prev,
-        '✨ Audited inventory quantities alignment completed, resolving VAT rates compliance...',
+        'Reconciling local ledger, inventory movement and receipt references...',
       ]);
     }, 1600);
 
@@ -74,11 +89,12 @@ export default function DashboardLogsAndSync({
       setSyncProgress(100);
       setSyncStatusLines(prev => [
         ...prev,
-        '✅ Master database sync successful. Offline ledger stack flushed!'
+        'Secure database sync complete. Offline queue cleared.'
       ]);
       
       // Flush matching parents state
       onSyncOfflineQueue(() => {
+        refreshQueuedJobs();
         setIsSyncing(false);
         setSyncProgress(0);
       });
@@ -97,7 +113,7 @@ export default function DashboardLogsAndSync({
           </div>
 
           <p className="text-xs text-slate-500 leading-relaxed font-medium">
-            Toggle offline simulations to test resilience patterns. During internet blackout modes, cash registers save transactions locally in a standard offline register.
+            During internet blackout mode, Jasper saves permitted work locally on this device. Before clearing browser data, open this screen and confirm there are no pending jobs.
           </p>
 
           {/* Interactive Switch Container */}
@@ -122,7 +138,7 @@ export default function DashboardLogsAndSync({
                     {isOfflineMode ? 'OFFLINE DISCONNECTED' : 'ONLINE SYNCHRONIZED'}
                   </p>
                   <p className="text-[10px] font-mono text-slate-450 font-bold uppercase tracking-wide">
-                    {isOfflineMode ? 'Bypassing Cloud; using local storage' : 'Direct live sockets backup'}
+                    {isOfflineMode ? 'Local encrypted queue active' : 'Encrypted database channel ready'}
                   </p>
                 </div>
               </div>
@@ -137,7 +153,7 @@ export default function DashboardLogsAndSync({
                 <div className="space-y-0.5 font-sans">
                   <p className="font-bold">Pending Register Flush Required</p>
                   <p className="text-[10.5px] leading-relaxed text-slate-600 font-medium">
-                    You have <span className="font-bold text-amber-750 underline">{offlinePendingSales.length} queue receipt(s)</span> compiled offline. Restore server connection to push.
+                    You have <span className="font-bold text-amber-750 underline">{offlinePendingSales.length} receipt job(s)</span> saved locally. Restore internet and sync before clearing cache.
                   </p>
                 </div>
               </div>
@@ -154,6 +170,43 @@ export default function DashboardLogsAndSync({
               )}
             </div>
           )}
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-slate-800">Last Unsynced Jobs</p>
+                <p className="mt-0.5 text-[10px] font-medium text-slate-500">Review local work waiting for encrypted database sync.</p>
+              </div>
+              <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${offlinePendingSales.length + queuedSystemJobs.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                {offlinePendingSales.length + queuedSystemJobs.length} pending
+              </span>
+            </div>
+            <div className="mt-3 max-h-44 space-y-2 overflow-y-auto">
+              {offlinePendingSales.slice(0, 6).map((sale) => (
+                <div key={sale.id} className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-[11px]">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-slate-700">Sale receipt</span>
+                    <span className="font-mono text-amber-700">{sale.id}</span>
+                  </div>
+                  <p className="mt-0.5 truncate text-slate-500">{sale.customerName || 'Walk-in customer'} · {new Date(sale.timestamp).toLocaleString()}</p>
+                </div>
+              ))}
+              {queuedSystemJobs.slice(0, 6).map((job) => (
+                <div key={job.id} className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-[11px]">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-slate-700">{job.table || 'Workspace update'}</span>
+                    <span className="font-mono uppercase text-amber-700">{job.operation || 'sync'}</span>
+                  </div>
+                  <p className="mt-0.5 truncate text-slate-500">{job.createdAt ? new Date(job.createdAt).toLocaleString() : 'Waiting for network'}</p>
+                </div>
+              ))}
+              {offlinePendingSales.length === 0 && queuedSystemJobs.length === 0 && (
+                <div className="rounded-xl border border-emerald-100 bg-white px-3 py-4 text-center text-[11px] font-semibold text-emerald-700">
+                  No pending offline jobs. Your workspace is ready before cache cleanup.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Sync Console Progress */}

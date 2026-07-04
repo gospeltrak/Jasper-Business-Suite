@@ -239,38 +239,53 @@ export default function DashboardCashBank({
       });
     });
 
-    // Link incoming sales to correct payment methods automatically
-    sales.forEach(sale => {
+    const getPaymentChannel = (methodName: string, reference: string) => {
       let targetChannelId = 'counter-01';
-      let desc = `Received sale payment from customer: Receipt ${sale.reference}`;
-      const method = sale.paymentMethod?.toLowerCase() || '';
-      
+      let desc = `Received sale payment from customer: Receipt ${reference}`;
+      const method = methodName.toLowerCase();
+
       if (method.includes('mpesa')) {
         targetChannelId = 'mpesa-till';
-        desc = `M-Pesa payment received: Receipt ${sale.reference}`;
+        desc = `M-Pesa payment received: Receipt ${reference}`;
       } else if (method.includes('momo') || method.includes('money') || method.includes('tigo') || method.includes('yas') || method.includes('mixx') || method.includes('airtel')) {
         targetChannelId = 'yas-merchant';
-        desc = `Mobile money payment received: Receipt ${sale.reference}`;
+        desc = `Mobile money payment received: Receipt ${reference}`;
       } else if (method.includes('card') || method.includes('paystack')) {
         targetChannelId = 'pos-card-terminal';
-        desc = `Card machine payment received: Receipt ${sale.reference}`;
-      } else if (method.includes('bank')) {
+        desc = `Card machine payment received: Receipt ${reference}`;
+      } else if (method.includes('bank') || method.includes('transfer')) {
         targetChannelId = 'crdb-corporate';
-        desc = `Direct bank transfer received: Receipt ${sale.reference}`;
+        desc = `Direct bank transfer received: Receipt ${reference}`;
       } else {
         targetChannelId = 'counter-01';
-        desc = `Cash received in register drawer: Receipt ${sale.reference}`;
+        desc = `Cash received in register drawer: Receipt ${reference}`;
       }
 
-      generated.push({
-        id: `POS-RECON-${sale.id}`,
-        tenantId: activeTenant.id,
-        channelId: targetChannelId,
-        amount: Math.max(0, sale.total - (sale.deliveryCost || 0)),
-        entryType: 'credit',
-        sourceType: 'POS_CHECKOUT',
-        description: desc,
-        timestamp: sale.timestamp
+      return { targetChannelId, desc };
+    };
+
+    // Link incoming sales to correct payment methods automatically
+    sales.forEach(sale => {
+      const saleAmount = Math.max(0, sale.total - (sale.deliveryCost || 0));
+      const breakdown = Array.isArray(sale.paymentBreakdown) && sale.paymentBreakdown.length > 0
+        ? sale.paymentBreakdown
+        : [{ method: sale.paymentMethod || 'Cash', amount: saleAmount }];
+
+      breakdown.forEach((part, index) => {
+        const amount = Math.max(0, Number(part.amount || 0));
+        if (amount <= 0) return;
+        const { targetChannelId, desc } = getPaymentChannel(part.method || sale.paymentMethod || 'Cash', sale.reference);
+
+        generated.push({
+          id: `POS-RECON-${sale.id}-${index}`,
+          tenantId: activeTenant.id,
+          channelId: targetChannelId,
+          amount,
+          entryType: 'credit',
+          sourceType: 'POS_CHECKOUT',
+          description: desc,
+          timestamp: sale.timestamp
+        });
       });
     });
 
@@ -675,9 +690,9 @@ export default function DashboardCashBank({
     <div className="w-full pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-8 select-text">
 
       {/* ══════════════════════════════════════════════════════════════
-          MOBILE REDESIGN — native premium app experience (md:hidden)
+          MOBILE REDESIGN — native premium app experience (xl:hidden)
       ══════════════════════════════════════════════════════════════ */}
-      <div className="md:hidden space-y-3">
+      <div className="xl:hidden space-y-3">
 
         {/* HERO HEADER */}
         <div className="rounded-3xl overflow-hidden relative"
@@ -1114,7 +1129,7 @@ export default function DashboardCashBank({
       {/* ══════════════════════════════════════════════════════════════
           DESKTOP LAYOUT — unchanged (hidden on mobile)
       ══════════════════════════════════════════════════════════════ */}
-      <div className="hidden md:block space-y-5">
+      <div className="hidden xl:block space-y-5">
       <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 sm:p-5 lg:p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.45fr_repeat(3,minmax(0,1fr))] gap-3">
@@ -1886,7 +1901,7 @@ export default function DashboardCashBank({
         </div>
 
         {/* Audit Table List rendering */}
-        <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200">
+        <div className="hidden xl:block overflow-x-auto rounded-2xl border border-slate-200">
           <table className="w-full text-left border-collapse text-xs font-sans">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 font-bold font-mono text-slate-500 text-[10px] uppercase select-none">
@@ -1992,7 +2007,7 @@ export default function DashboardCashBank({
             </tbody>
           </table>
         </div>
-        <div className="md:hidden space-y-3">
+        <div className="xl:hidden space-y-3">
           {searchedAuditTrail.length > 0 ? (
             searchedAuditTrail.map((entry) => {
               const chan = channels.find(c => c.id === entry.channelId);

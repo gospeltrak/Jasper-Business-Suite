@@ -10,7 +10,7 @@
  *    same browser never see each other's data
  */
 
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 // ─── Network status ────────────────────────────────────────────────────────
 
@@ -97,7 +97,7 @@ export async function flushSyncQueue(): Promise<{ synced: number; failed: number
   const remaining: SyncQueueItem[] = [];
 
   try {
-    const client: any = await getDynamicSupabaseClient();
+    const client: any = await getSecureDataBridgeClient();
 
     for (const item of queue) {
       try {
@@ -138,7 +138,7 @@ export async function dbWrite(
 ): Promise<{ success: boolean; queued: boolean; error?: string }> {
   if (isOnline()) {
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
       if (operation === 'insert') {
         await client.from(table).insert(data);
       } else if (operation === 'update' && filter) {

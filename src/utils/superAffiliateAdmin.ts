@@ -1,4 +1,4 @@
-import { getDynamicSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 export type SourceType = 'organic' | 'organic_affiliate' | 'sub_affiliate' | 'unknown' | 'untracked';
 
@@ -105,7 +105,7 @@ const packageName = (tenant: any) => {
 };
 
 export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoringData> {
-  const client: any = await getDynamicSupabaseClient();
+  const client: any = await getSecureDataBridgeClient();
   const { data: user } = await client.auth.getUser();
   if (!user?.user) throw new Error('A Supabase-authenticated Super Admin account is required for live affiliate data.');
 
@@ -259,8 +259,43 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
       createdAt: t.created_at,
     }));
 
-  return mergeLocalStorageAffiliates({ affiliates: affiliateRows, organicSubscribers, agents, subAffiliates });
+  return collapseToSingleAgent(mergeLocalStorageAffiliates({ affiliates: affiliateRows, organicSubscribers, agents, subAffiliates }));
 }
+
+function collapseToSingleAgent(data: AffiliateMonitoringData): AffiliateMonitoringData {
+  if (data.agents.length <= 1) return data;
+
+  const canonical = data.agents.find((agent) => agent.status === 'active') || data.agents[0];
+  const subAffiliates = data.subAffiliates.map((sub) => ({
+    ...sub,
+    parentAgentId: canonical.agentId,
+    parentAgentName: canonical.agentName,
+    parentAgentCode: canonical.agentCode,
+  }));
+
+  const subRevenue = subAffiliates.reduce((sum, sub) => sum + sub.revenue, 0);
+  const agentRevenue = data.agents.reduce((sum, agent) => sum + agent.revenue, 0);
+  const revenue = subRevenue || agentRevenue;
+  const agentCut = data.agents.reduce((sum, agent) => sum + agent.agentCut, 0) || revenue * 0.05;
+  const withholdingTax = data.agents.reduce((sum, agent) => sum + agent.withholdingTax, 0) || agentCut * 0.05;
+
+  return {
+    ...data,
+    subAffiliates,
+    agents: [{
+      ...canonical,
+      subAffiliates: subAffiliates.length,
+      subscribers: subAffiliates.reduce((sum, sub) => sum + sub.subscribers, 0) || data.agents.reduce((sum, agent) => sum + agent.subscribers, 0),
+      revenue,
+      poolTotal: revenue * 0.20,
+      agentCut,
+      subAffiliatePool: revenue * 0.15,
+      withholdingTax,
+      netPayout: agentCut,
+    }],
+  };
+}
+
 /** Merge localStorage immersive affiliates into monitoring data when DB is empty */
 function mergeLocalStorageAffiliates(data: AffiliateMonitoringData): AffiliateMonitoringData {
   try {
@@ -350,7 +385,7 @@ export async function loadSuperAffiliateRows(): Promise<SuperAffiliateRow[]> {
 }
 
 export async function updateSuperAffiliate(id: string, updates: Record<string, unknown>) {
-  const client: any = await getDynamicSupabaseClient();
+  const client: any = await getSecureDataBridgeClient();
   const { error } = await client.from('affiliates').update(updates).eq('id', id);
   if (error) throw error;
 }
@@ -368,7 +403,7 @@ export function verifyAdminOverridePassword(entered: string): boolean {
 
 async function logAccountDeletion(accountId: string, reason: string) {
   try {
-    const client: any = await getDynamicSupabaseClient();
+    const client: any = await getSecureDataBridgeClient();
     await client.from('account_status_logs').insert({
       account_id: accountId,
       changed_by: 'super_admin',
@@ -387,7 +422,7 @@ async function logAccountDeletion(accountId: string, reason: string) {
  * verification in the UI before this function is ever invoked.
  */
 export async function deleteSubAffiliate(id: string, name: string): Promise<void> {
-  const client: any = await getDynamicSupabaseClient();
+  const client: any = await getSecureDataBridgeClient();
   const { error } = await client.from('affiliates').delete().eq('id', id);
   if (error) throw error;
   await logAccountDeletion(id, `Sub-affiliate "${name}" permanently deleted by Super Admin.`);
@@ -401,7 +436,7 @@ export async function deleteSubAffiliate(id: string, name: string): Promise<void
  * and an orphaned reference would silently corrupt commission tracking.
  */
 export async function deletePartner(id: string, name: string): Promise<void> {
-  const client: any = await getDynamicSupabaseClient();
+  const client: any = await getSecureDataBridgeClient();
 
   const { data: dependents, error: checkError } = await client
     .from('affiliates')

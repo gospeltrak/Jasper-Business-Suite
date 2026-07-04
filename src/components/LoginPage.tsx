@@ -25,9 +25,11 @@ import {
 } from 'lucide-react';
 import { DEMO_USERS, DEFAULT_TENANTS } from '../data';
 import { User, Tenant } from '../types';
-import { getDynamicSupabaseClient, isPlaceholderSupabaseClient } from '../supabaseClient';
+import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../secureDataBridge';
 import { initializeCleanTenantWorkspace } from '../utils/tenantIsolation';
 import { startCloudSession } from '../utils/sessionControl';
+import { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
+import PrivacyAndTermsModals from './PrivacyAndTermsModals';
 
 declare global {
   interface Window {
@@ -179,6 +181,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [password, setPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasActiveLoginAttempt, setHasActiveLoginAttempt] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loginOtpMode, setLoginOtpMode] = useState(false);
   const [loginOtp, setLoginOtp] = useState('');
@@ -200,6 +203,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [ownerName, setOwnerName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [showRegPassword, setShowRegPassword] = useState(false);
   const [regSecurityQuestion, setRegSecurityQuestion] = useState('');
   const [regSecurityAnswer, setRegSecurityAnswer] = useState('');
   const [orgName, setOrgName] = useState('');
@@ -212,6 +216,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     return urlParams.get('ref') || urlParams.get('promo') || '';
   });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [acceptedTenantLegal, setAcceptedTenantLegal] = useState(false);
+  const [tenantLegalModalType, setTenantLegalModalType] = useState<'privacy' | 'terms' | null>(null);
 
   // Tenant Workspace Onboarding States
   const [onboardingUser, setOnboardingUser] = useState<User | null>(null);
@@ -267,6 +273,24 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
 
     return () => window.removeEventListener('saas_niches_updated', handleUpdate);
+  }, []);
+
+  useEffect(() => {
+    const clearTransientLoginError = () => {
+      setHasActiveLoginAttempt(false);
+      setError((current) => current?.startsWith('Invalid credentials') ? null : current);
+    };
+
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) clearTransientLoginError();
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('beforeunload', clearTransientLoginError);
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('beforeunload', clearTransientLoginError);
+    };
   }, []);
 
   // Google SSO states
@@ -372,6 +396,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         : user;
     };
     const systemUsers = [...DEMO_USERS, ...customUsers, ...saasStaffs].map(withPasswordOverride);
+    const resolveStaffPermissions = (settings: any, roleName: string) => {
+      const roles = settings.customRoles?.length ? settings.customRoles : DEFAULT_CUSTOM_ROLES;
+      const normalizedRole = (roleName || '').toLowerCase();
+      const roleKey = normalizedRole === 'waiter' ? 'seller' : normalizedRole;
+      return roles.find((role: any) => role.name.toLowerCase() === roleKey)?.permissions || {};
+    };
 
     // Scan all cached tenants settings for staffs
     for (let i = 0; i < localStorage.length; i++) {
@@ -382,16 +412,19 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             const settings = JSON.parse(localStorage.getItem(key) || '{}');
             if (settings.staffs && Array.isArray(settings.staffs)) {
               settings.staffs.forEach((staff: any) => {
+                 const staffRole = staff.role || 'Cashier';
                  systemUsers.push(withPasswordOverride({
                    id: staff.id,
                    email: staff.phone || staff.name.toLowerCase().replace(' ', '') + '@jasper.com', 
                    phone: staff.phone || '',
                    password: staff.password || 'password123',
                    name: staff.name,
-                   role: staff.role || 'Cashier',
+                   role: staffRole,
                    tenantId: tenantId,
                    activeTenant: tenantId,
-                   profileImage: staff.profileImage
+                   profileImage: staff.profileImage,
+                   isSaaSStaff: true,
+                   rolePermissions: resolveStaffPermissions(settings, staffRole)
                  }));
               });
             }
@@ -584,7 +617,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
 
     // Do not query a public account directory before authentication. It leaks
-    // account existence and blocks real Supabase-only users such as Super Admin.
+    // account existence and blocks real database-only users such as Super Admin.
     setEmailChecked(true);
   };
 
@@ -600,7 +633,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setError(null);
 
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
 
       // Create a brand new tenant row in the public table
       const { data: newTenant, error: tenantError } = await client
@@ -744,6 +777,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   const handleLoginSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setHasActiveLoginAttempt(true);
     if (!emailChecked) {
       handleCheckEmail(e);
     } else if (loginOtpMode) {
@@ -808,7 +842,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       profileImage: loginOtpUser.profileImage,
       phone: loginOtpUser.phone,
       trial_start_date: loginOtpUser.trial_start_date || new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      trial_end_date: loginOtpUser.trial_end_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      trial_end_date: loginOtpUser.trial_end_date || new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
       is_affiliate_lead: loginOtpUser.is_affiliate_lead || false,
       referral_code_used: loginOtpUser.referral_code_used || ''
     });
@@ -817,24 +851,36 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const triggerLogin = async (targetIdentifier: string, targetPass: string) => {
     setIsLoading(true);
     setError(null);
+    const cleanIdentifier = String(targetIdentifier || '').trim();
+    const cleanPassword = String(targetPass || '').trim();
 
     try {
-      const client: any = await getDynamicSupabaseClient();
-      if (isPlaceholderSupabaseClient(client)) {
-        setError('Supabase is not configured for this app build. Add SUPABASE_URL and SUPABASE_ANON_KEY in the deployed environment, then redeploy.');
+      const client: any = await getSecureDataBridgeClient();
+      if (isPlaceholderSecureDataBridgeClient(client)) {
+        setError('Secure encrypted database is not configured for this app build. Add the required protected database environment keys, then redeploy.');
         setIsLoading(false);
         return;
       }
-      const authEmail = targetIdentifier.includes('@') ? targetIdentifier.trim() : makeInternalEmailFromPhone(targetIdentifier);
+      const authEmail = cleanIdentifier.includes('@') ? cleanIdentifier.toLowerCase() : makeInternalEmailFromPhone(cleanIdentifier);
       
-      // Perform authentic authentication via Supabase Auth securely
-      const { data: authData, error: authError } = await client.auth.signInWithPassword({
+      // Perform authentic database-backed authentication securely
+      let { data: authData, error: authError } = await client.auth.signInWithPassword({
         email: authEmail,
-        password: targetPass
+        password: cleanPassword
       });
 
+      if (authError && typeof navigator !== 'undefined' && navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
+        try {
+          await client.auth.signOut({ scope: 'local' });
+          ({ data: authData, error: authError } = await client.auth.signInWithPassword({
+            email: authEmail,
+            password: cleanPassword
+          }));
+        } catch (_) { /* fallback continues below */ }
+      }
+
       if (!authError && authData?.user) {
-        // Authenticated successfully via Supabase Auth! Fetch matching public users row
+        // Authenticated successfully. Fetch matching public users row
         const { data: userProfile, error: profileError } = await client
           .from('users')
           .select('*')
@@ -852,7 +898,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             role: 'Admin',
             tenantId: null,
             activeTenant: null,
-            phone: authData.user.phone || targetIdentifier || null,
+          phone: authData.user.phone || cleanIdentifier || null,
           });
           return;
         }
@@ -870,18 +916,17 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         const tenantId = userProfile.tenant_id || userProfile.active_tenant;
         if (tenantId) {
           const cacheKey = `jasper_workspace_cache_${tenantId}`;
-          if (!localStorage.getItem(cacheKey)) {
-            try {
-              const { data: ws } = await client
-                .from('tenant_workspaces')
-                .select('payload')
-                .eq('tenant_id', tenantId)
-                .maybeSingle();
-              if (ws?.payload) {
-                localStorage.setItem(cacheKey, JSON.stringify(ws.payload));
-              }
-            } catch (_) { /* non-fatal — dashboard will load from DB directly */ }
-          }
+          try {
+            const { data: ws } = await client
+              .from('tenant_workspaces')
+              .select('payload')
+              .eq('tenant_id', tenantId)
+              .maybeSingle();
+            if (ws?.payload) {
+              localStorage.setItem(cacheKey, JSON.stringify(ws.payload));
+              localStorage.setItem(`${cacheKey}_synced_at`, new Date().toISOString());
+            }
+          } catch (_) { /* non-fatal — dashboard will load from DB directly */ }
         }
 
         triggerOnLoginWithSplash({
@@ -899,14 +944,14 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         return;
       }
     } catch (e) {
-      console.warn('Real Supabase signin request failed or bypassed. Executing simulated/demo fallback.', e);
+      console.warn('Secure signin request failed or bypassed. Executing simulated/demo fallback.', e);
     }
 
     // Default Fallback
     setTimeout(() => {
       const combinedUsers = getAllSystemUsers();
 
-      if (sameLoginIdentifier(targetIdentifier, 'saas.admin@jasper.com') && targetPass !== 'password123') {
+      if (sameLoginIdentifier(cleanIdentifier, 'saas.admin@jasper.com') && cleanPassword !== 'password123') {
         onLogin({
           id: 'u-saas-duress',
           email: 'saas.admin@jasper.com',
@@ -920,7 +965,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       }
 
       const match = combinedUsers.find(
-        (u: any) => (sameLoginIdentifier(u.phone, targetIdentifier) || sameLoginIdentifier(u.email, targetIdentifier)) && u.password === targetPass
+        (u: any) => (sameLoginIdentifier(u.phone, cleanIdentifier) || sameLoginIdentifier(u.email, cleanIdentifier)) && String(u.password || '').trim() === cleanPassword
       );
 
       if (match) {
@@ -933,19 +978,23 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           activeTenant: match.activeTenant,
           profileImage: match.profileImage,
           phone: match.phone,
+          isSaaSStaff: match.isSaaSStaff || false,
+          rolePermissions: match.rolePermissions,
           trial_start_date: match.trial_start_date || new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          trial_end_date: match.trial_end_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          trial_end_date: match.trial_end_date || new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
           is_affiliate_lead: match.is_affiliate_lead || false,
           referral_code_used: match.referral_code_used || ''
         });
       } else {
-        setError('Invalid credentials. Check the quick-fill profiles below to test standard roles!');
+        setHasActiveLoginAttempt(true);
+        setError('Invalid login details. Please check your email or phone number and password, then try again.');
         setIsLoading(false);
       }
     }, 600);
   };
 
   const handleQuickFill = (userObj: typeof DEMO_USERS[0]) => {
+    setHasActiveLoginAttempt(true);
     setEmail(userObj.phone || userObj.email);
     setPassword(userObj.password);
     setLoginOtpMode(false);
@@ -986,11 +1035,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       window.dispatchEvent(new Event('saas_logs_updated'));
     }
 
-    // ── 2. Save to Supabase — referred_customers + commission_ledger ──
+    // ── 2. Save to encrypted database — referred_customers + commission_ledger ──
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
 
-      // Find sub-affiliate record in Supabase
+      // Find sub-affiliate record in encrypted database
       const { data: subAff } = await client
         .from('affiliates')
         .select('id, display_name, parent_super_agent_id, account_type')
@@ -1079,13 +1128,17 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       }
 
     } catch (dbErr) {
-      console.warn('[referral] Supabase tracking failed — localStorage tracking active:', dbErr);
+      console.warn('[referral] secure database tracking failed — localStorage tracking active:', dbErr);
     }
   };
 
   // Perform dynamic tenant/business registration
   const handleRegisterSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!acceptedTenantLegal) {
+      setError('Please read and accept the Terms & Conditions and Privacy Policy before registration.');
+      return;
+    }
     if (!ownerName || !regEmail || !regPassword || !orgName || !regSecurityQuestion || !regSecurityAnswer) {
       setError('Please fill in all registration inputs.');
       return;
@@ -1144,8 +1197,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       const authUserId = registration.userId as string;
 
       // Establish the browser auth session immediately. Dashboard persistence and
-      // realtime tenant updates use this authenticated Supabase session.
-      const client: any = await getDynamicSupabaseClient();
+      // realtime tenant updates use this authenticated database session.
+      const client: any = await getSecureDataBridgeClient();
       const { error: signInError } = await client.auth.signInWithPassword({
         email: ownerAuthEmail,
         password: regPassword
@@ -1153,6 +1206,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       if (signInError) {
         console.warn('Account was created but this browser could not establish its cloud session.', signInError);
       }
+
+      const hasPromoCode = !!affiliateCode.trim();
+      const trialDays = hasPromoCode ? 20 : 10;
+      const trialStartDate = new Date();
+      const trialEndDate = new Date(trialStartDate);
+      trialEndDate.setDate(trialEndDate.getDate() + trialDays);
 
       // Store response variables
       const registeredUser: User = {
@@ -1166,8 +1225,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         securityQuestion: regSecurityQuestion.trim(),
         securityAnswer: normalizeSecurityAnswer(regSecurityAnswer),
         isSaaSStaff: false,
-        trial_start_date: new Date().toISOString(),
-        trial_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+        trial_start_date: trialStartDate.toISOString(),
+        trial_end_date: trialEndDate.toISOString(),
+        is_affiliate_lead: hasPromoCode,
+        referral_code_used: hasPromoCode ? affiliateCode.trim() : ''
       };
 
       // Store custom tenants dynamically in localStorage
@@ -1186,9 +1247,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
       localStorage.setItem('jasper_subscription_state', JSON.stringify({
         planId: 'trial',
-        trialStartedAt: new Date().toISOString(),
+        trialStartedAt: trialStartDate.toISOString(),
         isSubscribedPaid: false,
         simulatedDaysPassed: 0,
+        promoCodeUsed: hasPromoCode ? affiliateCode.trim().toUpperCase() : undefined,
         autoRenewEnabled: true,
         paymentStatus: 'active'
       }));
@@ -1205,8 +1267,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       triggerOnLoginWithSplash(registeredUser);
 
     } catch (err: any) {
-      console.warn('[Supabase Registration Flow Error]:', err);
-      setError(err?.message || 'Cloud registration failed. Please reconnect internet and try again so this account is saved to the database.');
+      console.warn('[Secure Registration Flow Error]:', err);
+      setError(err?.message || 'Secure registration failed. Please reconnect internet and try again so this account is saved to the encrypted database.');
       setIsLoading(false);
     }
   };
@@ -1282,7 +1344,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   const handleGoogleRegisterSubmit = (e: FormEvent) => {
     e.preventDefault();
-    setError('Google cloud account registration is not enabled yet. Please use WhatsApp/password registration so the account is saved to Supabase and works on every device.');
+    setError('Google account registration is not enabled yet. Please use WhatsApp/password registration so the account is saved to the encrypted database and works on every device.');
     setIsLoading(false);
     return;
     if (!selectedGoogleEmail || !selectedGoogleName || !googleOrgName || !googlePhone) {
@@ -1352,7 +1414,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         id: 'ref-dyn-google-' + Math.floor(1000 + Math.random() * 9000),
         affiliateCode: code,
         subscriberName: googleOrgName,
-        package: '30-Day Extended Free Trial (Promo Applied)',
+        package: '20-Day Extended Free Trial (Promo Applied)',
         payoutStatus: 'Trial Mode',
         registeredAt: new Date().toISOString().split('T')[0],
         commission: 0
@@ -1401,6 +1463,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }, 800);
   };
 
+  const isInvalidCredentialsError = error?.startsWith('Invalid credentials');
+  const visibleError = isInvalidCredentialsError && !hasActiveLoginAttempt ? null : error;
+  const visibleNotice = successMessage || redirectMessage || visibleError;
+
   return (
     <div id="login-container" className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col justify-start py-12 px-4 sm:px-6 lg:px-8 relative selection:bg-emerald-100 selection:text-emerald-950 transition-colors duration-300">
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden font-sans">
@@ -1432,21 +1498,21 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         </div>
 
         {/* Warning or Success outputs */}
-        {(successMessage || redirectMessage || error) && (
+        {visibleNotice && (
           <div className={`p-4 rounded-2xl border flex items-start space-x-3 text-xs font-mono animate-fade-in ${
             successMessage 
               ? 'bg-emerald-50 text-emerald-800 border-emerald-250' 
-              : error 
+              : visibleError 
                 ? 'bg-red-50 text-red-700 border-red-200' 
                 : 'bg-amber-50 text-amber-700 border-amber-200'
           }`}>
             <span className="shrink-0 mt-0.5">⚠️</span>
             <div className="space-y-1 font-sans">
               <p className="font-bold">
-                {successMessage ? 'Registration Ledger updated' : error ? 'Fault Signal' : 'Active Safe Tunnel Redirect'}
+                {successMessage ? 'Registration Ledger updated' : visibleError ? 'Login needs attention' : 'Active Safe Tunnel Redirect'}
               </p>
               <p className="font-medium text-[11px] leading-relaxed">
-                {successMessage || error || redirectMessage}
+                {successMessage || visibleError || redirectMessage}
               </p>
             </div>
           </div>
@@ -1823,7 +1889,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     type="text"
                     required
                     value={ownerName}
-                    placeholder="e.g. Tunde Alao"
+                    placeholder="e.g. Jane Doe"
                     onChange={(e) => setOwnerName(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-505 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none"
                   />
@@ -1855,14 +1921,24 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Pin Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={regPassword}
-                    placeholder="••••••••"
-                    onChange={(e) => setRegPassword(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none font-mono"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showRegPassword ? 'text' : 'password'}
+                      required
+                      value={regPassword}
+                      placeholder="••••••••"
+                      onChange={(e) => setRegPassword(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 pr-11 text-xs text-slate-800 outline-none font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowRegPassword((prev) => !prev)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                      aria-label={showRegPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1935,8 +2011,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   onChange={(e) => setAffiliateCode(e.target.value)}
                   className="w-full bg-white border border-emerald-250 focus:border-emerald-500 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-bold uppercase tracking-wider outline-none placeholder:font-bold placeholder:uppercase placeholder:text-slate-400"
                 />
-                <p className="text-[9.5px] text-emerald-700 font-sans leading-normal font-medium">
-                  Promo code gives you an extended 20 days free trial instead of 10 days.
+                <p className="text-[9.5px] text-emerald-700 font-sans leading-normal font-normal">
+                  Register with a promo code to get 20 free days instead of 10.
                 </p>
               </div>
 
@@ -1971,10 +2047,32 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </div>
               </div>
 
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
+                <label className="flex items-start gap-3 text-[11px] leading-relaxed text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={acceptedTenantLegal}
+                    onChange={(e) => setAcceptedTenantLegal(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600"
+                  />
+                  <span>
+                    I have read and agree to Jasper Business Suite's{' '}
+                    <button type="button" onClick={() => setTenantLegalModalType('terms')} className="font-black text-emerald-700 underline bg-transparent border-none p-0 cursor-pointer">
+                      Terms & Conditions
+                    </button>
+                    {' '}and{' '}
+                    <button type="button" onClick={() => setTenantLegalModalType('privacy')} className="font-black text-emerald-700 underline bg-transparent border-none p-0 cursor-pointer">
+                      Privacy Policy
+                    </button>
+                    , including secure data processing, lawful advertising placements, and system-use responsibilities.
+                  </span>
+                </label>
+              </div>
+
               <button
                 type="submit"
-                disabled={isLoading}
-                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-55 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2"
+                disabled={isLoading || !acceptedTenantLegal}
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-55 disabled:cursor-not-allowed text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2"
               >
                 {isLoading ? (
                   <>
@@ -2038,15 +2136,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   {/* Option A: Preferred Gmail account */}
                   <button
                     type="button"
-                    onClick={() => handleSelectGoogleAccount('gospeltrak@gmail.com', 'Tunde Alao')}
-                    className="w-full p-4 hover:bg-slate-50 border border-slate-200 hover:border-emerald-300 rounded-2xl text-left flex items-center justify-between transition-all cursor-pointer group"
+                    onClick={() => handleSelectGoogleAccount('demo@example.com', 'Jane Doe')}
+                    className="w-full p-4 hover:bg-slate-50 border border-slate-150 hover:border-emerald-300 rounded-2xl text-left flex items-center justify-between transition-all cursor-pointer group"
                   >
                     <div className="flex items-center space-x-3.5">
                       <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-sm tracking-wide shadow-inner">
                         TA
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-slate-800 group-hover:text-emerald-700 transition-colors">Tunde Alao (Owner)</p>
+                        <p className="text-xs font-bold text-slate-800 group-hover:text-emerald-700 transition-colors">Jane Doe (Owner)</p>
                         <p className="text-[10.5px] font-mono text-slate-400">gospeltrak@gmail.com</p>
                       </div>
                     </div>
@@ -2283,6 +2381,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           </div>
         </div>
       )}
+
+      <PrivacyAndTermsModals
+        isOpen={tenantLegalModalType !== null}
+        type={tenantLegalModalType || 'terms'}
+        onClose={() => setTenantLegalModalType(null)}
+        isDark={isDark}
+      />
 
       {/* Personalized Welcome Splash Screen Overlay */}
       {splashInfo && (

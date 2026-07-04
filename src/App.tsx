@@ -342,7 +342,7 @@ export default function App() {
       document.body.style.height = '100%';
       if (root) {
         root.style.overflow = 'hidden';
-        root.style.height = '100dvh';
+        root.style.height = 'var(--app-height, 100dvh)';
         root.removeAttribute('data-page');
       }
     } else if (isScrollablePage) {

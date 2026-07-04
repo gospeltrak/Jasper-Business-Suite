@@ -4,7 +4,6 @@ import {
   AffiliateMonitoringData,
   AgentMonitoringRow,
   loadAffiliateMonitoringData,
-  OrganicSubscriberRow,
   SubAffiliateMonitoringRow,
   SuperAffiliateRow,
   updateSuperAffiliate,
@@ -17,9 +16,9 @@ const money = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS
 const csvValue = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 const emptyData: AffiliateMonitoringData = { affiliates: [], organicSubscribers: [], agents: [], subAffiliates: [] };
 
-type AffiliateCenterTab = 'organic' | 'agents' | 'subAffiliates';
+type AffiliateCenterTab = 'agents' | 'subAffiliates';
 
-export default function SuperAffiliateControlCenter({ initialTab = 'organic' }: { initialTab?: AffiliateCenterTab }) {
+export default function SuperAffiliateControlCenter({ initialTab = 'agents' }: { initialTab?: AffiliateCenterTab }) {
   const [data, setData] = useState<AffiliateMonitoringData>(emptyData);
   const [activeTab, setActiveTab] = useState<AffiliateCenterTab>(initialTab);
   const [query, setQuery] = useState('');
@@ -50,10 +49,6 @@ export default function SuperAffiliateControlCenter({ initialTab = 'organic' }: 
   useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
 
   const q = query.trim().toLowerCase();
-  const organicRows = useMemo(() => data.organicSubscribers.filter((row) =>
-    (!q || `${row.subscriberName} ${row.phone} ${row.tenantName} ${row.subscriptionPackage}`.toLowerCase().includes(q)) &&
-    (status === 'all' || row.status === status)
-  ), [data.organicSubscribers, q, status]);
   const agentRows = useMemo(() => data.agents.filter((row) =>
     (!q || `${row.agentName} ${row.phone} ${row.agentCode}`.toLowerCase().includes(q)) &&
     (status === 'all' || row.status === status)
@@ -64,10 +59,6 @@ export default function SuperAffiliateControlCenter({ initialTab = 'organic' }: 
     (agentFilter === 'all' || row.parentAgentId === agentFilter)
   ), [data.subAffiliates, q, status, agentFilter]);
 
-  const organicTotals = useMemo(() => organicRows.reduce((acc, row) => ({
-    revenue: acc.revenue + row.revenue,
-    active: acc.active + (row.status === 'active' ? 1 : 0),
-  }), { revenue: 0, active: 0 }), [organicRows]);
   const agentTotals = useMemo(() => agentRows.reduce((acc, row) => ({
     revenue: acc.revenue + row.revenue,
     pool: acc.pool + row.poolTotal,
@@ -150,15 +141,14 @@ export default function SuperAffiliateControlCenter({ initialTab = 'organic' }: 
         <div>
           <p className="text-xs text-emerald-400 font-semibold">Live Supabase source tracking</p>
           <h1 className="mt-1 text-xl font-bold text-white">Super Admin Affiliates Menu</h1>
-          <p className="mt-1 text-xs text-slate-400">Every affiliate is recruited by a Partner — there are no standalone affiliates. Organic subscribers, partner networks, and their sub-affiliates are tracked separately below.</p>
+          <p className="mt-1 text-xs text-slate-400">Every affiliate is recruited by a Partner. Partner networks and their sub-affiliates are tracked below.</p>
         </div>
         <button onClick={refresh} className="px-3 py-2 rounded-md border border-slate-700 text-sm shrink-0"><RefreshCw className="inline w-4 h-4 mr-2" />Refresh</button>
       </header>
 
       <div className="flex flex-wrap gap-2.5">
-        <TabButton active={activeTab === 'organic'} onClick={() => setActiveTab('organic')} label="1. Organic Subscribers" />
-        <TabButton active={activeTab === 'agents'} onClick={() => setActiveTab('agents')} label="2. Affiliate Agents (Partners)" />
-        <TabButton active={activeTab === 'subAffiliates'} onClick={() => setActiveTab('subAffiliates')} label="3. Sub-Affiliates" />
+        <TabButton active={activeTab === 'agents'} onClick={() => setActiveTab('agents')} label="1. Affiliate Agents (Partners)" />
+        <TabButton active={activeTab === 'subAffiliates'} onClick={() => setActiveTab('subAffiliates')} label="2. Sub-Affiliates" />
       </div>
 
       <div className="grid gap-3 md:grid-cols-[1fr_160px_180px]">
@@ -183,7 +173,6 @@ export default function SuperAffiliateControlCenter({ initialTab = 'organic' }: 
         ) : <div />}
       </div>
 
-      {activeTab === 'organic' && <OrganicTrafficSection rows={organicRows} totals={organicTotals} />}
       {activeTab === 'agents' && <AgentMonitoringSection rows={agentRows} totals={agentTotals} onExport={exportAgentPayouts} onDelete={(row) => setDeleteTarget({ id: row.agentId, name: row.agentName, kind: 'partner' })} />}
       {activeTab === 'subAffiliates' && <SubAffiliateSection rows={subAffiliateRows} totals={subTotals} onExport={exportSubPayouts} onEdit={(row) => setSelected(data.affiliates.find((affiliate) => affiliate.id === row.id) || null)} onDelete={(row) => setDeleteTarget({ id: row.id, name: row.name, kind: 'subAffiliate' })} />}
 
@@ -244,10 +233,6 @@ export default function SuperAffiliateControlCenter({ initialTab = 'organic' }: 
       )}
     </section>
   );
-}
-
-function OrganicTrafficSection({ rows, totals }: { rows: OrganicSubscriberRow[]; totals: { revenue: number; active: number } }) {
-  return <div className="space-y-4"><div className="grid gap-3 md:grid-cols-4"><Metric label="Total organic subscribers" value={rows.length.toLocaleString()} /><Metric label="Active organic subscribers" value={totals.active.toLocaleString()} /><Metric label="New organic subscribers" value={rows.length.toLocaleString()} /><Metric label="Organic revenue" value={money.format(totals.revenue)} /></div><div className="hidden lg:block overflow-x-auto border border-slate-800 rounded-lg"><table className="w-full text-sm"><thead className="bg-slate-900 text-slate-400 text-xs"><tr><th className="p-3 text-left">Subscriber</th><th className="p-3 text-left">Business</th><th className="p-3 text-left">Package</th><th className="p-3 text-left">Registration</th><th className="p-3 text-right">Revenue</th><th className="p-3 text-left">Source</th></tr></thead><tbody className="divide-y divide-slate-800">{rows.map((row) => <tr key={row.id}><td className="p-3"><b>{row.subscriberName}</b><span className="block text-xs text-slate-500">{row.phone || 'No phone'}</span></td><td className="p-3">{row.tenantName}</td><td className="p-3">{row.subscriptionPackage}</td><td className="p-3">{row.registrationDate}</td><td className="p-3 text-right">{money.format(row.revenue)}</td><td className="p-3 text-emerald-300">No referral — signed up directly</td></tr>)}{!rows.length && <tr><td colSpan={6} className="p-8 text-center text-slate-500">No direct organic subscribers found yet.</td></tr>}</tbody></table></div><div className="lg:hidden space-y-3">{rows.map((row) => <Card key={row.id} title={row.subscriberName} meta={`${row.tenantName} · ${row.status}`} stats={[['Package', row.subscriptionPackage], ['Revenue', money.format(row.revenue)], ['Registered', row.registrationDate], ['Source', 'No referral']]} />)}{!rows.length && <EmptyCard text="No direct organic subscribers found yet." />}</div></div>;
 }
 
 function AgentMonitoringSection({ rows, totals, onExport, onDelete }: { rows: AgentMonitoringRow[]; totals: { revenue: number; pool: number; agentCut: number; subPool: number }; onExport: () => void; onDelete: (row: AgentMonitoringRow) => void }) {

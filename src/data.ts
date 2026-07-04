@@ -82,7 +82,7 @@ export const DEMO_USERS = [
   {
     email: 'admin@jasper.com',
     password: 'password123',
-    name: 'Tunde Jasper',
+    name: 'Jane Doe',
     role: 'Admin' as const,
     tenantId: 't-lagos-01',
     activeTenant: 't-lagos-01',
@@ -91,7 +91,7 @@ export const DEMO_USERS = [
   {
     email: 'nairobi_cashier@jasper.com',
     password: 'password123',
-    name: 'Wanjiku Kamau',
+    name: 'John Doe',
     role: 'Cashier' as const,
     tenantId: 't-nairobi-02',
     activeTenant: 't-nairobi-02',
@@ -100,7 +100,7 @@ export const DEMO_USERS = [
   {
     email: 'accra_mgr@jasper.com',
     password: 'password123',
-    name: 'Kwame Mensah',
+    name: 'John Doe',
     role: 'Manager' as const,
     tenantId: 't-accra-03',
     activeTenant: 't-accra-03',
@@ -460,10 +460,10 @@ export const MOCK_SALES_HISTORY: Record<string, Sale[]> = {
       tenantId: 't-lagos-01',
       timestamp: '2026-05-20T09:30:00Z',
       syncStatus: 'synced',
-      cashierName: 'Tunde Jasper',
-      customerName: 'Kunle Adebayo',
+      cashierName: 'Jane Doe',
+      customerName: 'John Doe',
       customerPhone: '+234 803 444 5555',
-      staffName: 'Tunde Jasper'
+      staffName: 'Jane Doe'
     },
     {
       id: 'sl-lag-02',
@@ -478,10 +478,10 @@ export const MOCK_SALES_HISTORY: Record<string, Sale[]> = {
       tenantId: 't-lagos-01',
       timestamp: '2026-05-20T11:45:00Z',
       syncStatus: 'synced',
-      cashierName: 'Tunde Jasper',
-      customerName: 'Grace Eze',
+      cashierName: 'Jane Doe',
+      customerName: 'Jane Doe',
       customerPhone: '+234 812 777 8888',
-      staffName: 'Tunde Jasper'
+      staffName: 'Jane Doe'
     },
     {
       id: 'sl-lag-03',
@@ -496,10 +496,10 @@ export const MOCK_SALES_HISTORY: Record<string, Sale[]> = {
       tenantId: 't-lagos-01',
       timestamp: '2026-05-19T14:20:00Z',
       syncStatus: 'synced',
-      cashierName: 'Tunde Jasper',
-      customerName: 'Alhaji Musa Ibrahim',
+      cashierName: 'Jane Doe',
+      customerName: 'John Doe',
       customerPhone: '+234 806 111 2222',
-      staffName: 'Tunde Jasper'
+      staffName: 'Jane Doe'
     },
     {
       id: 'sl-lag-04',
@@ -513,10 +513,10 @@ export const MOCK_SALES_HISTORY: Record<string, Sale[]> = {
       tenantId: 't-lagos-01',
       timestamp: '2026-04-10T10:15:00Z',
       syncStatus: 'synced',
-      cashierName: 'Tunde Jasper',
-      customerName: 'Kunle Adebayo',
+      cashierName: 'Jane Doe',
+      customerName: 'John Doe',
       customerPhone: '+234 803 444 5555',
-      staffName: 'Tunde Jasper'
+      staffName: 'Jane Doe'
     },
     {
       id: 'sl-lag-05',
@@ -530,10 +530,10 @@ export const MOCK_SALES_HISTORY: Record<string, Sale[]> = {
       tenantId: 't-lagos-01',
       timestamp: '2025-12-15T16:40:00Z',
       syncStatus: 'synced',
-      cashierName: 'Tunde Jasper',
-      customerName: 'Grace Eze',
+      cashierName: 'Jane Doe',
+      customerName: 'Jane Doe',
       customerPhone: '+234 812 777 8888',
-      staffName: 'Tunde Jasper'
+      staffName: 'Jane Doe'
     }
   ],
   't-nairobi-02': [
@@ -550,10 +550,10 @@ export const MOCK_SALES_HISTORY: Record<string, Sale[]> = {
       tenantId: 't-nairobi-02',
       timestamp: '2026-05-20T10:15:00Z',
       syncStatus: 'synced',
-      cashierName: 'Wanjiku Kamau',
-      customerName: 'Josphat Njoroge',
+      cashierName: 'Jane Doe',
+      customerName: 'John Doe',
       customerPhone: '+254 711 222 333',
-      staffName: 'Wanjiku Kamau'
+      staffName: 'Jane Doe'
     },
     {
       id: 'sl-nai-02',
@@ -568,10 +568,10 @@ export const MOCK_SALES_HISTORY: Record<string, Sale[]> = {
       tenantId: 't-nairobi-02',
       timestamp: '2026-05-18T16:30:00Z',
       syncStatus: 'synced',
-      cashierName: 'Wanjiku Kamau',
-      customerName: 'Mary Atieno',
+      cashierName: 'Jane Doe',
+      customerName: 'Jane Doe',
       customerPhone: '+254 722 000 111',
-      staffName: 'Wanjiku Kamau'
+      staffName: 'Jane Doe'
     },
     {
       id: 'sl-nai-03',
@@ -585,10 +585,10 @@ export const MOCK_SALES_HISTORY: Record<string, Sale[]> = {
       tenantId: 't-nairobi-02',
       timestamp: '2026-04-25T11:00:00Z',
       syncStatus: 'synced',
-      cashierName: 'Wanjiku Kamau',
-      customerName: 'Josphat Njoroge',
+      cashierName: 'Jane Doe',
+      customerName: 'John Doe',
       customerPhone: '+254 711 222 333',
-      staffName: 'Wanjiku Kamau'
+      staffName: 'Jane Doe'
     },
     {
       id: 'sl-nai-04',
@@ -602,10 +602,10 @@ export const MOCK_SALES_HISTORY: Record<string, Sale[]> = {
       tenantId: 't-nairobi-02',
       timestamp: '2025-11-05T14:15:00Z',
       syncStatus: 'synced',
-      cashierName: 'Wanjiku Kamau',
-      customerName: 'Mary Atieno',
+      cashierName: 'Jane Doe',
+      customerName: 'Jane Doe',
       customerPhone: '+254 722 000 111',
-      staffName: 'Wanjiku Kamau'
+      staffName: 'Jane Doe'
     }
   ],
   't-accra-03': [
@@ -622,10 +622,10 @@ export const MOCK_SALES_HISTORY: Record<string, Sale[]> = {
       tenantId: 't-accra-03',
       timestamp: '2026-05-20T11:22:00Z',
       syncStatus: 'synced',
-      cashierName: 'Kwame Mensah',
-      customerName: 'Emmanuel Osei',
+      cashierName: 'John Doe',
+      customerName: 'John Doe',
       customerPhone: '+233 244 111 222',
-      staffName: 'Kwame Mensah'
+      staffName: 'Jane Doe'
     },
     {
       id: 'sl-acc-02',
@@ -639,10 +639,10 @@ export const MOCK_SALES_HISTORY: Record<string, Sale[]> = {
       tenantId: 't-accra-03',
       timestamp: '2026-05-19T10:00:00Z',
       syncStatus: 'synced',
-      cashierName: 'Kwame Mensah',
-      customerName: 'Kofi Boateng',
+      cashierName: 'John Doe',
+      customerName: 'John Doe',
       customerPhone: '+233 200 999 000',
-      staffName: 'Kwame Mensah'
+      staffName: 'John Doe'
     },
     {
       id: 'sl-acc-03',
@@ -656,10 +656,10 @@ export const MOCK_SALES_HISTORY: Record<string, Sale[]> = {
       tenantId: 't-accra-03',
       timestamp: '2026-03-12T15:30:00Z',
       syncStatus: 'synced',
-      cashierName: 'Kwame Mensah',
-      customerName: 'Emmanuel Osei',
+      cashierName: 'John Doe',
+      customerName: 'Jane Doe',
       customerPhone: '+233 244 111 222',
-      staffName: 'Kwame Mensah'
+      staffName: 'John Doe'
     }
   ]
 };
@@ -672,7 +672,7 @@ export const MOCK_EXPENSES_HISTORY: Record<string, any[]> = {
       amount: 120000,
       timestamp: '2026-05-18T10:00:00Z',
       description: 'Part-time shelf restocker contractor payment',
-      staffName: 'Tunde Jasper',
+      staffName: 'Jane Doe',
       receiptRef: 'RCPT-N-88219',
       tenantId: 't-lagos-01'
     },
@@ -682,7 +682,7 @@ export const MOCK_EXPENSES_HISTORY: Record<string, any[]> = {
       amount: 45000,
       timestamp: '2026-05-15T15:30:00Z',
       description: 'Diesel purchase for standby backroom power generator',
-      staffName: 'Tunde Jasper',
+      staffName: 'Jane Doe',
       receiptRef: 'RCPT-N-88220',
       tenantId: 't-lagos-01'
     },
@@ -692,7 +692,7 @@ export const MOCK_EXPENSES_HISTORY: Record<string, any[]> = {
       amount: 18000,
       timestamp: '2026-05-10T11:45:00Z',
       description: 'Bulk branded carrier shopping bag order',
-      staffName: 'Tunde Jasper',
+      staffName: 'Jane Doe',
       receiptRef: 'RCPT-N-88221',
       tenantId: 't-lagos-01'
     },
@@ -702,7 +702,7 @@ export const MOCK_EXPENSES_HISTORY: Record<string, any[]> = {
       amount: 250000,
       timestamp: '2026-04-15T09:00:00Z',
       description: 'Monthly warehouse overflow rental allocation',
-      staffName: 'Tunde Jasper',
+      staffName: 'Jane Doe',
       receiptRef: 'RCPT-N-88102',
       tenantId: 't-lagos-01'
     }
@@ -714,7 +714,7 @@ export const MOCK_EXPENSES_HISTORY: Record<string, any[]> = {
       amount: 15000,
       timestamp: '2026-05-19T11:00:00Z',
       description: 'Staff transport subsidy and lunch stipend',
-      staffName: 'Wanjiku Kamau',
+      staffName: 'Jane Doe',
       receiptRef: 'RCPT-K-9901',
       tenantId: 't-nairobi-02'
     },
@@ -724,7 +724,7 @@ export const MOCK_EXPENSES_HISTORY: Record<string, any[]> = {
       amount: 8500,
       timestamp: '2026-05-14T09:15:00Z',
       description: 'Boda boda delivery of emergency stock box from depot',
-      staffName: 'Wanjiku Kamau',
+      staffName: 'Jane Doe',
       receiptRef: 'RCPT-K-9902',
       tenantId: 't-nairobi-02'
     }
@@ -736,7 +736,7 @@ export const MOCK_EXPENSES_HISTORY: Record<string, any[]> = {
       amount: 350,
       timestamp: '2026-05-19T14:00:00Z',
       description: 'Prepaid smart meter electricity recharge token',
-      staffName: 'Kwame Mensah',
+      staffName: 'John Doe',
       receiptRef: 'RCPT-G-1102',
       tenantId: 't-accra-03'
     },
@@ -746,7 +746,7 @@ export const MOCK_EXPENSES_HISTORY: Record<string, any[]> = {
       amount: 120,
       timestamp: '2026-05-12T16:20:00Z',
       description: 'Office supply notebooks and permanent visual markers',
-      staffName: 'Kwame Mensah',
+      staffName: 'John Doe',
       receiptRef: 'RCPT-G-1103',
       tenantId: 't-accra-03'
     }

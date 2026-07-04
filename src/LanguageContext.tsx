@@ -561,7 +561,262 @@ const BUSINESS_DICTIONARY: Record<LanguageType, Record<string, string>> = {
     "select an audited branch segment to inspect": "Chagua sehemu ya tawi ya kukagua",
     "no sales transactions found in selected period": "Hakuna mauzo katika kipindi ulichochagua",
     "no operating expenses recorded within selected range": "Hakuna matumizi ndani ya kipindi ulichochagua",
-    "no logistics delivery transactions logged yet": "Hakuna miamala ya delivari iliyorekodiwa bado"
+    "no logistics delivery transactions logged yet": "Hakuna miamala ya delivari iliyorekodiwa bado",
+
+    "open workspace menu": "Fungua menyu ya mfumo",
+    "collapse sidebar": "Funga menyu ya pembeni",
+    "cloud network connected": "Mtandao umeunganishwa",
+    "local mode (offline)": "Hali ya kifaa bila mtandao",
+    "device is online": "Kifaa kiko mtandaoni",
+    "device is offline": "Kifaa hakiko mtandaoni",
+    "switch to day mode": "Badili kwenda mwanga",
+    "switch to dark mode": "Badili kwenda giza",
+    "switch to light mode": "Badili kwenda mwanga",
+    "select language": "Chagua lugha",
+    "select language / badili lugha": "Chagua lugha",
+    "select language / velg pris / badili lugha": "Chagua lugha",
+    "talk to lucy": "Ongea na Lucy",
+    "english": "Kiingereza",
+    "swahili": "Kiswahili",
+    "sign out failed, please try again": "Kutoka kumeshindikana, jaribu tena",
+    "system subscription options": "Chaguo za vifurushi vya mfumo",
+    "manage active subscriptions and premium account plans easily to expand store limits.": "Simamia vifurushi na mipango ya akaunti ili kuongeza uwezo wa duka.",
+    "no tenant suite available": "Hakuna akaunti ya biashara iliyopo",
+    "my jasper suite": "Jasper Suite yangu",
+    "profile settings": "Mipangilio ya wasifu",
+    "preferences": "Mapendeleo",
+    "system settings": "Mipangilio ya mfumo",
+    "business setup": "Mpangilio wa biashara",
+    "business settings": "Mipangilio ya biashara",
+    "company level settings": "Mipangilio ya kampuni",
+    "configure core business metadata, localized compliance tin/vat numbers, legal currency markers, and system color mode preferences.": "Sanidi taarifa kuu za biashara, namba za TIN/VAT, sarafu na mapendeleo ya muonekano.",
+    "company legal name": "Jina rasmi la kampuni",
+    "company code": "Msimbo wa kampuni",
+    "email address": "Barua pepe",
+    "direct phone line": "Namba ya simu",
+    "company address": "Anwani ya kampuni",
+    "vat number": "Namba ya VAT",
+    "auto-generated-key": "msimbo wa moja kwa moja",
+    "auto-created from your company name.": "Hutengenezwa kutokana na jina la kampuni.",
+    "enter company legal registry name...": "Weka jina rasmi la kampuni...",
+    "business profile": "Wasifu wa biashara",
+    "business phone": "Simu ya biashara",
+    "business email": "Barua pepe ya biashara",
+    "business address": "Anwani ya biashara",
+    "tagline": "Kauli mbiu",
+    "payment methods": "Njia za malipo",
+    "delivery payment methods": "Njia za malipo ya delivari",
+    "store locations": "Maeneo ya stoo",
+    "store location": "Eneo la stoo",
+    "add payment method": "Ongeza njia ya malipo",
+    "add delivery payment method": "Ongeza njia ya malipo ya delivari",
+    "add store location": "Ongeza eneo la stoo",
+    "add category": "Ongeza kundi",
+    "add unit": "Ongeza kipimo",
+    "new category": "Kundi jipya",
+    "new unit": "Kipimo kipya",
+    "categories": "Makundi",
+    "units": "Vipimo",
+    "registered categories": "Makundi yaliyosajiliwa",
+    "registered units": "Vipimo vilivyosajiliwa",
+    "save settings": "Hifadhi mipangilio",
+    "save changes": "Hifadhi mabadiliko",
+    "update settings": "Sasisha mipangilio",
+    "saving": "Inahifadhi",
+    "saving...": "Inahifadhi...",
+    "saved": "Imehifadhiwa",
+    "registered": "Imesajiliwa",
+    "enabled": "Imewashwa",
+    "disabled": "Imezimwa",
+    "on": "Washa",
+    "off": "Zima",
+    "onboarding": "Usajili wa mwanzo",
+    "overview": "Muhtasari",
+    "sales list": "Orodha ya mauzo",
+    "purchases list": "Orodha ya manunuzi",
+    "cash bank matrix": "Fedha na benki",
+    "forecasting": "Utabiri",
+    "lucy ai": "Lucy AI",
+    "lucy assistant": "Msaidizi Lucy",
+    "quick sale": "Uuzaji wa haraka",
+    "quick actions": "Vitendo vya haraka",
+    "today's sales": "Mauzo ya leo",
+    "todays sales": "Mauzo ya leo",
+    "today's sale": "Uuzaji wa leo",
+    "items sold": "Bidhaa zilizouzwa",
+    "total spending": "Jumla ya matumizi",
+    "profit margin": "Asilimia ya faida",
+    "dues owed": "Madeni yanayodaiwa",
+    "orders": "Oda",
+    "order": "Oda",
+    "buying": "Ununuzi",
+    "profit": "Faida",
+    "recent sales": "Mauzo ya karibuni",
+    "sales trend": "Mwenendo wa mauzo",
+    "purchase trend": "Mwenendo wa manunuzi",
+    "hali ya mauzo na manunuzi": "Hali ya mauzo na manunuzi",
+    "sales & purchase status": "Hali ya mauzo na manunuzi",
+    "top products": "Bidhaa zinazoongoza",
+    "best sellers": "Bidhaa zinazouza zaidi",
+    "stock alerts": "Tahadhari za stoki",
+    "low stock alerts": "Tahadhari za stoki ndogo",
+    "register new product": "Sajili bidhaa mpya",
+    "new product": "Bidhaa mpya",
+    "bulk upload": "Pakia kwa wingi",
+    "bulk template": "Template ya kupakia kwa wingi",
+    "download template": "Pakua template",
+    "upload spreadsheet": "Pakia spreadsheet",
+    "descriptor & visual assets": "Maelezo na picha",
+    "product name / title": "Jina la bidhaa",
+    "select category": "Chagua kundi",
+    "product brand": "Chapa ya bidhaa",
+    "product image": "Picha ya bidhaa",
+    "no image": "Hakuna picha",
+    "upload product image": "Pakia picha ya bidhaa",
+    "removes image background.": "Huondoa background ya picha.",
+    "canvas processing": "Inachakata picha",
+    "barcode controls & stock": "Barcode na stoki",
+    "low stock alert level": "Kiwango cha tahadhari ya stoki",
+    "set low-stock alert.": "Weka tahadhari ya stoki ndogo.",
+    "channel rules & costs": "Kanuni za mauzo na gharama",
+    "active selling channels": "Njia za mauzo zinazotumika",
+    "sell retail": "Uza rejareja",
+    "sell wholesale": "Uza jumla",
+    "retail price": "Bei ya rejareja",
+    "min wholesale qty": "Kiasi cha chini cha jumla",
+    "locked": "Imefungwa",
+    "product markup": "Ongezeko la bei",
+    "margin gain per unit": "Faida kwa kipimo",
+    "smart batch costing": "Gharama za batch kwa akili",
+    "fifo, average, and batch price control.": "Udhibiti wa FIFO, wastani na bei ya batch.",
+    "cashier override": "Ruhusu cashier kubadilisha",
+    "package name": "Jina la pakiti",
+    "sell / count unit": "Kipimo cha kuuza/kuhesabu",
+    "1 package contains": "Pakiti moja ina",
+    "pharmacy unit hierarchy": "Mpangilio wa vipimo vya pharmacy",
+    "choose the product type, starting level, and how many units each level contains.": "Chagua aina ya bidhaa, ngazi ya kuanzia na vipimo vilivyomo kwenye kila ngazi.",
+    "product type": "Aina ya bidhaa",
+    "pharmaceutical": "Dawa",
+    "non-pharmaceutical": "Siyo dawa",
+    "starting level": "Ngazi ya kuanzia",
+    "lowest unit": "Kipimo cha chini",
+    "strips per box": "Strip kwa box",
+    "cartons per master box": "Carton kwa box kubwa",
+    "dose / middle price": "Bei ya dozi/ngazi ya kati",
+    "auto if empty": "Itajazwa moja kwa moja ukiacha wazi",
+    "retail package selling": "Uuzaji wa pakiti rejareja",
+    "sell mode": "Njia ya kuuza",
+    "base unit": "Kipimo cha msingi",
+    "quick sale portions": "Sehemu za uuzaji wa haraka",
+    "default portion qty": "Kiasi cha kawaida cha sehemu",
+    "whole package sale value": "Thamani ya kuuza pakiti nzima",
+    "cost of purchase": "Gharama ya ununuzi",
+    "search products...": "Tafuta bidhaa...",
+    "shop": "Duka",
+    "store": "Stoo",
+    "alert": "Tahadhari",
+    "ledger actions": "Vitendo",
+    "view details": "Angalia maelezo",
+    "edit item": "Hariri bidhaa",
+    "replenish stock": "Ongeza stoki",
+    "delete item": "Futa bidhaa",
+    "view product": "Angalia bidhaa",
+    "stock replenishment": "Kuongeza stoki",
+    "quantity added": "Kiasi kilichoongezwa",
+    "supplier": "Msambazaji",
+    "staff control center": "Kituo cha wafanyakazi",
+    "staff & hr": "Wafanyakazi na HR",
+    "register staff": "Sajili mfanyakazi",
+    "registered staff": "Wafanyakazi waliosajiliwa",
+    "registered staff accounts": "Akaunti za wafanyakazi zilizosajiliwa",
+    "staff member": "Mfanyakazi",
+    "staff type": "Aina ya mfanyakazi",
+    "standard staff": "Mfanyakazi wa kawaida",
+    "staff onboarding": "Usajili wa mfanyakazi",
+    "save registration": "Hifadhi usajili",
+    "edit login": "Hariri login",
+    "save login": "Hifadhi login",
+    "staff payroll, sessions and performance": "Mishahara, session na utendaji wa wafanyakazi",
+    "overall report": "Ripoti ya jumla",
+    "total staff": "Jumla ya wafanyakazi",
+    "online now": "Waliopo mtandaoni",
+    "active staff": "Wafanyakazi hai",
+    "temporary staff": "Wafanyakazi wa muda",
+    "total allowances": "Jumla ya posho",
+    "total payroll": "Jumla ya mishahara",
+    "total staff cost": "Gharama yote ya mfanyakazi",
+    "orders / tx": "Oda / miamala",
+    "username": "Jina la kuingia",
+    "phone number": "Namba ya simu",
+    "department": "Idara",
+    "salary": "Mshahara",
+    "salary type": "Aina ya mshahara",
+    "allowance": "Posho",
+    "allowances": "Posho",
+    "permanent": "Wa kudumu",
+    "temporary": "Wa muda",
+    "monthly": "Kila mwezi",
+    "weekly": "Kila wiki",
+    "daily": "Kila siku",
+    "waiter": "Mhudumu",
+    "analytics": "Uchambuzi",
+    "export pdf": "Pakua PDF",
+    "export csv": "Pakua CSV",
+    "download pdf": "Pakua PDF",
+    "download csv": "Pakua CSV",
+    "print report": "Chapisha ripoti",
+    "filter report": "Chuja ripoti",
+    "create": "Tengeneza",
+    "import": "Ingiza",
+    "retry": "Jaribu tena",
+    "loading...": "Inapakia...",
+    "all": "Zote",
+    "none": "Hakuna",
+    "pending sync": "Inasubiri sync",
+    "last sync": "Sync ya mwisho",
+    "sync now": "Sync sasa",
+    "dashboard ads": "Matangazo ya dashboard",
+    "dashboard ad placement": "Sehemu ya tangazo la dashboard",
+    "sticky bottom ad banner": "Tangazo la chini linalobaki",
+    "save / edit ad code": "Hifadhi / hariri code ya tangazo",
+    "save ad code": "Hifadhi code ya tangazo",
+    "save / edit bottom ad": "Hifadhi / hariri tangazo la chini",
+    "save bottom ad": "Hifadhi tangazo la chini",
+    "dashboard ad code published.": "Code ya tangazo la dashboard imechapishwa.",
+    "dashboard ad deleted and turned off.": "Tangazo la dashboard limefutwa na kuzimwa.",
+    "sticky bottom ad published.": "Tangazo la chini limechapishwa.",
+    "sticky bottom ad deleted and turned off.": "Tangazo la chini limefutwa na kuzimwa.",
+    "ad exchange ssp": "Ad Exchange SSP",
+    "ad placement": "Sehemu za matangazo",
+    "ad placements": "Sehemu za matangazo",
+    "ads by jb": "Matangazo ya JB",
+    "promotional materials": "Vifaa vya matangazo",
+    "copy": "Nakili",
+    "copied": "Imenakiliwa",
+    "preview": "Muonekano",
+    "materials": "Vifaa",
+    "video": "Video",
+    "flyer": "Flyer",
+    "image": "Picha",
+    "open": "Fungua",
+    "manage": "Simamia",
+    "tasks": "Majukumu",
+    "meetings": "Mikutano",
+    "payouts": "Malipo",
+    "code & link": "Code na link",
+    "affiliate": "Affiliate",
+    "partner": "Partner",
+    "sub affiliates": "Sub affiliates",
+    "organic subscribers": "Organic subscribers",
+    "sub affiliate subscribers": "Sub affiliate subscribers",
+    "tenant": "Tenant",
+    "tenants": "Tenants",
+    "package": "Kifurushi",
+    "packages": "Vifurushi",
+    "days remaining": "Siku zimebaki",
+    "trial expired": "Majaribio yameisha",
+    "subscribe": "Lipia kifurushi",
+    "choose package": "Chagua kifurushi"
   },
   ar: {
     "bulkProduct": "Bidhaa ya Jumla / Bulk Product",
@@ -1411,6 +1666,29 @@ function translateNode(node: Node, language: LanguageType) {
     // Skip interactive editor code areas
     if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.tagName === 'TEXTAREA' && el.className?.includes('monaco')) return;
 
+    ['title', 'aria-label'].forEach((attr) => {
+      const originalAttr = (el as any)[`__original_${attr}`] !== undefined
+        ? (el as any)[`__original_${attr}`]
+        : el.getAttribute(attr);
+
+      if ((el as any)[`__original_${attr}`] === undefined && originalAttr) {
+        (el as any)[`__original_${attr}`] = originalAttr;
+      }
+
+      if (!originalAttr) return;
+
+      if (language === 'en') {
+        if (el.getAttribute(attr) !== originalAttr) {
+          el.setAttribute(attr, originalAttr);
+        }
+      } else {
+        const translated = translateString(originalAttr, language);
+        if (el.getAttribute(attr) !== translated) {
+          el.setAttribute(attr, translated);
+        }
+      }
+    });
+
     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
       const inputEl = el as HTMLInputElement;
       const originalPlaceholder = (inputEl as any).__originalPlaceholder !== undefined
@@ -1502,13 +1780,15 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
             shouldTranslate = true;
           }
         }
-        if (mutation.type === 'attributes' && mutation.attributeName === 'placeholder') {
+        if (mutation.type === 'attributes' && ['placeholder', 'title', 'aria-label'].includes(mutation.attributeName || '')) {
           const el = mutation.target as HTMLInputElement;
-          const originalVal = (el as any).__originalPlaceholder;
-          const currentVal = el.placeholder;
+          const isPlaceholder = mutation.attributeName === 'placeholder';
+          const originalKey = isPlaceholder ? '__originalPlaceholder' : `__original_${mutation.attributeName}`;
+          const originalVal = (el as any)[originalKey];
+          const currentVal = isPlaceholder ? el.placeholder : el.getAttribute(mutation.attributeName || '');
           const expectedTranslated = originalVal !== undefined ? translateString(originalVal, lang) : undefined;
           if (originalVal === undefined || currentVal !== expectedTranslated) {
-            (el as any).__originalPlaceholder = currentVal;
+            (el as any)[originalKey] = currentVal;
             shouldTranslate = true;
           }
         }
@@ -1522,7 +1802,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
           subtree: true,
           characterData: true,
           attributes: true,
-          attributeFilter: ['placeholder']
+          attributeFilter: ['placeholder', 'title', 'aria-label']
         });
       }
     });
@@ -1532,7 +1812,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       subtree: true,
       characterData: true,
       attributes: true,
-      attributeFilter: ['placeholder']
+      attributeFilter: ['placeholder', 'title', 'aria-label']
     });
 
     return () => {
@@ -1562,4 +1842,3 @@ export function useTranslation() {
   }
   return context;
 }
-

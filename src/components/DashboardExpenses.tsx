@@ -38,7 +38,8 @@ import {
   CartesianGrid 
 } from 'recharts';
 import { Tenant, Expense, Product, Sale } from '../types';
-import { isDemoTenant } from '../utils/tenantIsolation';
+
+const DEFAULT_EXPENSE_CATEGORIES = ['Utilities & Power', 'Wages & Salary', 'Logistics & Transport', 'Packaging Materials', 'Rent & Logistics', 'Marketing & Ads', 'Miscellaneous'];
 
 interface DashboardExpensesProps {
   activeTenant: Tenant;
@@ -85,9 +86,7 @@ export default function DashboardExpenses({
         console.warn("Failed loading custom expense categories:", err);
       }
     }
-    return isDemoTenant(activeTenant.id)
-      ? ['Utilities & Power', 'Wages & Salary', 'Logistics & Transport', 'Packaging Materials', 'Rent & Logistics', 'Marketing & Ads', 'Miscellaneous']
-      : [];
+    return DEFAULT_EXPENSE_CATEGORIES;
   });
 
   // State for adding a new category
@@ -128,7 +127,10 @@ export default function DashboardExpenses({
 
   // Handle setting default category when categories load/change
   useEffect(() => {
-    if (categories.length > 0 && !formCategory) {
+    if (categories.length === 0) {
+      saveCategories(DEFAULT_EXPENSE_CATEGORIES);
+      setFormCategory(DEFAULT_EXPENSE_CATEGORIES[0]);
+    } else if (!formCategory) {
       setFormCategory(categories[0]);
     }
   }, [categories, formCategory]);
@@ -518,7 +520,7 @@ export default function DashboardExpenses({
 
             {/* Mini stat pills — desktop only */}
             {totalExpensesAmt > 0 && (
-              <div className="hidden md:flex items-center gap-2 mt-3">
+              <div className="hidden xl:flex items-center gap-2 mt-3">
                 <div className="px-2.5 py-1 rounded-xl" style={{background: 'rgba(255,255,255,0.12)'}}>
                   <p className="text-[9px] font-bold text-emerald-200 uppercase tracking-wide">Avg/Entry</p>
                   <p className="text-[12px] font-black text-white">{currency} {filteredExpenses.length > 0 ? Math.round(totalExpensesAmt / filteredExpenses.length).toLocaleString() : 0}</p>
@@ -661,7 +663,7 @@ export default function DashboardExpenses({
           </div>
 
           {/* ── MOBILE EXPENSE CARDS ── */}
-          <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-800">
+          <div className="xl:hidden divide-y divide-slate-50 dark:divide-slate-800">
             {filteredExpenses.length === 0 ? (
               <div className="p-10 text-center text-slate-400 text-sm">
                 <Receipt className="w-8 h-8 mx-auto mb-3 text-slate-200" />
@@ -696,7 +698,7 @@ export default function DashboardExpenses({
           </div>
 
           {/* ── DESKTOP TABLE ── */}
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden xl:block overflow-x-auto">
             <table className="w-full text-left font-sans text-xs">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-950 font-bold border-b border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">

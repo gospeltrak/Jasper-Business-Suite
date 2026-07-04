@@ -9,6 +9,7 @@ export interface User {
   isDuress?: boolean;
   isSaaSStaff?: boolean;
   saasPermissions?: Record<string, boolean>;
+  rolePermissions?: CustomRole['permissions'];
   phone?: string;
   password?: string;
   securityQuestion?: string;
@@ -105,6 +106,16 @@ export interface PharmacyUnitBreakdown {
   tabletsPerStrip: number;
 }
 
+export type PharmacyProductType = 'pharmaceutical' | 'non_pharmaceutical';
+export type PharmacyHierarchyStart = 'box' | 'packet' | 'master_box' | 'carton';
+
+export interface PharmacyHierarchyLevel {
+  id: string;
+  label: string;
+  unit: string;
+  quantityToBaseUnit: number;
+}
+
 export interface ProductInventorySettings {
   costingMethod: InventoryCostingMethod;
   allowPosMethodOverride: boolean;
@@ -147,6 +158,10 @@ export interface Product {
   // Pharmacy dosage configs
   tabsPerPack?: number;
   allowsDosageDividing?: boolean;
+  pharmacyProductType?: PharmacyProductType;
+  pharmacyHierarchyStart?: PharmacyHierarchyStart;
+  pharmacyBaseUnit?: string;
+  pharmacyUnitLevels?: PharmacyHierarchyLevel[];
   dosesPerPacket?: number;
   tabsPerDose?: number;
   packetPrice?: number;
@@ -260,7 +275,7 @@ export interface SaleItem {
   sellMode?: 'scale' | 'pcs';
   
   // Pharmacy dosage options
-  dosageType?: 'packet' | 'full' | 'half' | 'tabs';
+  dosageType?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
   tabsSelected?: number;
   tabsPerPack?: number;
   channel?: 'retail' | 'wholesale';
@@ -297,6 +312,7 @@ export interface Sale {
   vfdSignature?: string;
   multiCashAmount?: number;
   multiBankAmount?: number;
+  paymentBreakdown?: Array<{ method: string; amount: number }>;
   channel?: 'retail' | 'wholesale';
   approvals?: any[];
   actualTimestamp?: string; // actual entry date/time for security
@@ -573,6 +589,7 @@ export interface SalesDocument {
   tenantId: string;
   status: 'pending' | 'converted' | 'cancelled';
   convertedSaleId?: string;
+  convertedAt?: string;
   tagline?: string;
 }
 

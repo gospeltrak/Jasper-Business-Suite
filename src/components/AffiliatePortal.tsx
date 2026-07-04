@@ -52,7 +52,7 @@ import AffiliateAgentDesk from "./affiliate/AffiliateAgentDesk";
 // imported here — the dashboards themselves (AffiliateAgentDesk.tsx,
 // AffiliateWorkspace.tsx) load their own workspace data after an explicit
 // login, so this portal-level component never auto-loads a dashboard.
-import { getDynamicSupabaseClient } from "../supabaseClient";
+import { getSecureDataBridgeClient } from "../secureDataBridge";
 import {
   requireOnline,
   isOnline,
@@ -86,6 +86,7 @@ interface Affiliate {
   isSuper?: boolean;
   targetReferrals?: number;
   parentSuperId?: string;
+  supabaseUserId?: string;
   nidaNumber?: string;
   tinNumber?: string;
   payoutPhone?: string;
@@ -548,8 +549,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       revenueDate: 0,
       targetReferrals: Number(addAffTarget) || 150,
       parentSuperId: activeAffiliate?.id || "LANGA",
-      nidaNumber: addAffNida.trim() || "N/A",
-      tinNumber: addAffTin.trim() || "N/A",
+      nidaNumber: addAffNida.trim() || "",
+      tinNumber: addAffTin.trim(),
     };
 
     const updatedList = [...list, newAff];
@@ -595,8 +596,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           promoCode: editAffPromo.trim().toUpperCase(),
           paymentMethod: editAffPhoneMethod,
           targetReferrals: Number(editAffTarget) || 150,
-          nidaNumber: editAffNida.trim() || "N/A",
-          tinNumber: editAffTin.trim() || "N/A",
+          nidaNumber: editAffNida.trim() || "",
+          tinNumber: editAffTin.trim(),
         };
       }
       return a;
@@ -877,7 +878,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     // cannot create a second Partner account once one already exists.
     if (portalRole === 'partner') {
       try {
-        const client: any = await getDynamicSupabaseClient();
+        const client: any = await getSecureDataBridgeClient();
         const { count } = await client
           .from('affiliate_partners')
           .select('id', { count: 'exact', head: true });
@@ -900,34 +901,63 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
     const registeredName = `${firstName.trim()} ${secondName.trim()}`;
     const generatedReferralCode = `${firstName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_${secondName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_JAR_${Math.floor(100 + Math.random() * 900)}`;
-    void (async () => {
-      try {
-        const response = await fetch('/api/affiliate/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: registeredName,
-            phone,
-            password,
-            payoutMethod: paymentMethod,
-            referralCode: generatedReferralCode,
-            isPartner: portalRole === 'partner',
-          }),
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Registration failed.');
-        // API succeeded — go to login so they sign in properly
-        setLoginEmail(phone);
-        setLoginPassword('');
-        setAuthMode('login');
-        alert(`Your ${portalRole === 'partner' ? 'partner' : 'affiliate'} account is ready. Sign in with your phone number and password.`);
-      } catch (registrationError: any) {
-        // API failed — fall through to localStorage registration below
-        console.warn('API registration failed, using localStorage:', registrationError?.message);
+    try {
+      const response = await fetch('/api/affiliate/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: registeredName,
+          phone,
+          password,
+          payoutMethod: paymentMethod,
+          payoutProvider: paymentMethod,
+          mobileMoneyNumber: payoutPhone || phone,
+          payoutPhone: payoutPhone || phone,
+          referralCode: generatedReferralCode,
+          parentSuperCode: parentSuperCode.trim(),
+          isPartner: portalRole === 'partner',
+          nidaNumber,
+          tinNumber,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result?.affiliate?.id) {
+        throw new Error(result?.error || 'Registration failed before the affiliate profile was connected.');
       }
-    })();
-    // NOTE: we do NOT return here anymore — we fall through to localStorage registration
-    // so that registration works even when the API is unavailable
+
+      const mappedAffiliate: Affiliate = {
+        id: result.affiliate.id,
+        name: registeredName,
+        email: result.authEmail || '',
+        phone,
+        paymentMethod,
+        promoCode: result.affiliate.promo_code || result.affiliate.referral_code || generatedReferralCode,
+        parentSuperId: result.affiliate.parent_super_agent_id,
+        isSuper: portalRole === 'partner',
+        nidaNumber: nidaNumber || '',
+        tinNumber: tinNumber || '',
+        payoutPhone: payoutPhone || phone,
+      };
+      const existing = JSON.parse(localStorage.getItem("jasper_affiliates") || "[]").filter((item: any) => item.id !== mappedAffiliate.id);
+      localStorage.setItem("jasper_affiliates", JSON.stringify([mappedAffiliate, ...existing]));
+      const immersive = JSON.parse(localStorage.getItem("saas_immersive_affiliates") || "[]").filter((item: any) => item.id !== mappedAffiliate.id);
+      localStorage.setItem("saas_immersive_affiliates", JSON.stringify([{
+        ...mappedAffiliate,
+        status: 'Active',
+        joinedDate: new Date().toISOString().split('T')[0],
+        affiliateLink: `https://dukaplus.co.tz/ref/${mappedAffiliate.promoCode.toLowerCase()}`,
+      }, ...immersive]));
+
+      setLoginEmail(phone);
+      setLoginPassword('');
+      setAuthMode('login');
+      alert(`Your ${portalRole === 'partner' ? 'partner' : 'affiliate'} account is ready. Sign in with your phone number and password.`);
+      return;
+    } catch (registrationError: any) {
+      console.error('[affiliate registration] API registration failed:', registrationError);
+      alert(`❌ Registration failed: ${registrationError?.message || 'Could not connect your affiliate profile. Please try again.'}`);
+      return;
+    }
 
     const name = `${firstName.trim()} ${secondName.trim()}`;
     const email = `${firstName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}.${secondName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}${Math.floor(100 + Math.random() * 900)}@jasper-affiliate.com`;
@@ -938,7 +968,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
     // Auto-resolve uniqueness — check both tables and append digits if taken
     try {
-      const clientCheck: any = await getDynamicSupabaseClient();
+      const clientCheck: any = await getSecureDataBridgeClient();
       const [{ data: apRow }, { data: afRow }] = await Promise.all([
         clientCheck.from('affiliate_partners').select('id').eq('promo_code', cleanCode).maybeSingle(),
         clientCheck.from('affiliates').select('id').eq('promo_code', cleanCode).maybeSingle(),
@@ -985,7 +1015,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       // Also check Supabase in case the partner isn't cached in this browser's localStorage
       if (!parentMatch) {
         try {
-          const client: any = await getDynamicSupabaseClient();
+          const client: any = await getSecureDataBridgeClient();
           const { data: dbPartner } = await client
             .from('affiliate_partners')
             .select('id, display_name, promo_code, is_disabled')
@@ -1018,8 +1048,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       promoCode: cleanCode,
       parentSuperId,
       isSuper: isRegisterSuper,
-      nidaNumber: nidaNumber || "N/A",
-      tinNumber: tinNumber || "N/A",
+      nidaNumber: nidaNumber || "",
+      tinNumber: tinNumber || "",
       payoutPhone: payoutPhone || phone,
     };
 
@@ -1044,8 +1074,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       sessions: [],
       recentPayouts: [],
       paymentMethod,
-      nidaNumber: nidaNumber || "N/A",
-      tinNumber: tinNumber || "N/A",
+      nidaNumber: nidaNumber || "",
+      tinNumber: tinNumber || "",
     };
 
     // ── Save to localStorage (offline cache) ──────────────────
@@ -1057,7 +1087,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
     // ── Save to Supabase affiliates table (source of truth) ───
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
       const authEmail = `affiliate-${phone.replace(/\D/g, "")}@jasper.local`;
       const { data: authData, error: authError } = await client.auth.signUp({
         email: authEmail,
@@ -1200,7 +1230,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     }
 
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
       const normalizedLogin = loginEmail.trim();
       const authEmail = normalizedLogin.includes('@')
         ? normalizedLogin
@@ -1259,8 +1289,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
             paymentMethod: profile.payout_method || 'm-pesa',
             promoCode: profile.promo_code || profile.referral_code,
             isSuper: isPartnerAccount,
-            nidaNumber: profile.nida_number || 'N/A',
-            tinNumber: profile.tin_number || 'N/A',
+            nidaNumber: profile.nida_number || '',
+            tinNumber: profile.tin_number || '',
             payoutPhone: profile.payout_account || '',
           };
           // Sync to localStorage for offline use
@@ -1295,7 +1325,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
   const handleLogoutAffiliate = async () => {
     try {
-      const client: any = await getDynamicSupabaseClient();
+      const client: any = await getSecureDataBridgeClient();
       await client.auth.signOut();
     } catch { /* Local cleanup still runs if the network is unavailable. */ }
     // Belt-and-suspenders: forcibly remove any Supabase-persisted session
@@ -1859,7 +1889,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-3 py-3 text-xs font-mono focus:border-amber-500" />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TIN (Optional)</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TIN</label>
                         <input type="text" placeholder="124-954-122" value={tinNumber} onChange={e => setTinNumber(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-3 py-3 text-xs font-mono focus:border-emerald-500" />
                       </div>
@@ -2489,7 +2519,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 const subAffiliatesCut = totalRevenue * 0.15;
                 const hasTIN =
                   !!activeAffiliate?.tinNumber &&
-                  activeAffiliate?.tinNumber.trim() !== "";
+                  activeAffiliate?.tinNumber.trim() !== "" &&
+                  activeAffiliate?.tinNumber.trim().toUpperCase() !== "N/A";
                 const taxRate = hasTIN ? 0.05 : 0.15;
                 const superAgentWithholdingTax = superCommissionTotal * taxRate;
 
@@ -2776,7 +2807,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                 <span>
                                   TIN:{" "}
                                   <strong className="text-slate-400">
-                                    {aff.tinNumber || "N/A"}
+                                    {aff.tinNumber && aff.tinNumber.toUpperCase() !== "N/A" ? aff.tinNumber : "Not submitted"}
                                   </strong>
                                 </span>
                               </div>
@@ -4318,6 +4349,95 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       ))}
                     </div>
 
+                    {sspInventory.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-[9.5px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                            Jasper Ads Materials
+                          </span>
+                          <span className="text-[9px] text-slate-500 font-mono">
+                            Preview before download
+                          </span>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                          {sspInventory.map((sspAd) => {
+                            const isVideo = sspAd.adType === "video" || (sspAd.creativeMime || "").startsWith("video/");
+                            const isVisual = !!sspAd.assetData && (sspAd.adType === "image" || sspAd.adType === "motion" || isVideo);
+                            const [rawWidth, rawHeight] = (sspAd.size || "300x250").split("x").map((value: string) => Number(value));
+                            const previewRatio = Number.isFinite(rawWidth) && Number.isFinite(rawHeight) && rawWidth > 0 && rawHeight > 0
+                              ? `${rawWidth} / ${rawHeight}`
+                              : "16 / 9";
+                            const adTag = `<iframe src="${sspAd.url}?ref=${activeAffiliate?.promoCode}" width="${Number.isFinite(rawWidth) ? rawWidth : 300}" height="${Number.isFinite(rawHeight) ? rawHeight : 250}" style="border:none;overflow:hidden"></iframe>`;
+
+                            return (
+                              <div key={sspAd.id} className="rounded-xl border border-slate-800 bg-slate-950 p-3 space-y-3">
+                                <div className="relative overflow-hidden rounded-lg border border-slate-800 bg-slate-900" style={{ aspectRatio: previewRatio }}>
+                                  {isVisual && isVideo && (
+                                    <>
+                                      <video src={sspAd.assetData} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                                      <div className="absolute inset-0 grid place-items-center bg-slate-950/25">
+                                        <span className="grid h-10 w-10 place-items-center rounded-full bg-white/90 text-slate-950">
+                                          <Play className="h-4 w-4 fill-current" />
+                                        </span>
+                                      </div>
+                                    </>
+                                  )}
+                                  {isVisual && !isVideo && (
+                                    <img src={sspAd.assetData} alt={sspAd.title || "Jasper ad material"} className="h-full w-full object-cover" />
+                                  )}
+                                  {!isVisual && (
+                                    <div className="flex h-full w-full items-center justify-center p-4 text-center">
+                                      <p className="text-xs font-bold leading-snug text-white line-clamp-4">{sspAd.message || sspAd.title}</p>
+                                    </div>
+                                  )}
+                                  <span className="absolute left-2 top-2 rounded bg-slate-950/80 px-2 py-1 text-[8px] font-bold uppercase tracking-wider text-emerald-300">
+                                    {sspAd.size}
+                                  </span>
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="truncate text-xs font-black text-white">{sspAd.title}</h4>
+                                  <p className="mt-1 truncate text-[10px] text-slate-500">{sspAd.creativeName || sspAd.message || "SSP promotional material"}</p>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveCreativeTab(sspAd.id)}
+                                    className="rounded-lg bg-emerald-500 px-2 py-2 text-[10px] font-black text-slate-950 hover:bg-emerald-400"
+                                  >
+                                    View
+                                  </button>
+                                  {sspAd.assetData ? (
+                                    <a
+                                      href={sspAd.assetData}
+                                      download={sspAd.creativeName || `${sspAd.title}.asset`}
+                                      className="rounded-lg bg-slate-900 px-2 py-2 text-center text-[10px] font-black text-slate-200 hover:text-white"
+                                    >
+                                      Download
+                                    </a>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => downloadCreative(`Jasper SSP ${sspAd.title} Ad banner`, sspAd.size, activeAffiliate?.promoCode || "")}
+                                      className="rounded-lg bg-slate-900 px-2 py-2 text-[10px] font-black text-slate-200 hover:text-white"
+                                    >
+                                      Download
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(adTag, setCopiedBanner)}
+                                    className="rounded-lg bg-slate-900 px-2 py-2 text-[10px] font-black text-emerald-300 hover:text-white"
+                                  >
+                                    Copy
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Active creative interactive preview box */}
                     <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-850 space-y-3">
                       <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 uppercase">
@@ -5113,8 +5233,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           ...managedKids.map((k: any) => [
                             k.name,
                             k.phone,
-                            k.nidaNumber || "19951204-45129",
-                            k.tinNumber || "124-954-122",
+                            k.nidaNumber || "Not submitted",
+                            k.tinNumber || "Not submitted",
                             k.revenueGenerated || 0,
                             Math.round((k.revenueGenerated || 0) * 0.15 * 0.1),
                           ]),
@@ -5146,7 +5266,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         const text = managedKids
                           .map(
                             (k: any) =>
-                              `Name: ${k.name} | Phone: ${k.phone} | NIDA: ${k.nidaNumber || "N/A"} | TIN: ${k.tinNumber || "N/A"}`,
+                              `Name: ${k.name} | Phone: ${k.phone} | NIDA: ${k.nidaNumber || "Not submitted"} | TIN: ${k.tinNumber || "Not submitted"}`,
                           )
                           .join("\n");
                         navigator.clipboard.writeText(text);
@@ -5190,10 +5310,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                               {k.phone}
                             </td>
                             <td className="p-4 font-mono text-slate-400">
-                              {k.nidaNumber || "19951204-45129-00001-44"}
+                              {k.nidaNumber || "Not submitted"}
                             </td>
                             <td className="p-4 font-mono text-amber-500 font-bold">
-                              {k.tinNumber || "124-954-122"}
+                              {k.tinNumber || "Not submitted"}
                             </td>
                             <td className="p-4 text-right font-mono text-emerald-400 font-bold">
                               TSh {(k.revenueGenerated || 0).toLocaleString()}

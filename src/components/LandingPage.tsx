@@ -104,8 +104,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     stockDesc: "Track your product levels and get simple notifications when low.",
     offlineTitle: "Works Without Internet",
     offlineDesc: "Runs 100% offline. Accepts mobile money instantly with no slowdowns.",
-    meetLucy: "Meet Lucy, Your AI",
-    lucyDesc: "Your friendly AI assistant to answer questions and help you grow daily.",
+    meetLucy: "Lucy AI Business Assistant",
+    lucyDesc: "Lucy guides users through Jasper, answers business questions in any language, creates reports, and helps owners grow with safer AI support.",
+    featLucyTitle: "Lucy AI Business Assistant",
+    featLucyDesc: "Ask Lucy how to use Jasper, understand sales, stock, expenses, and generate guided business reports from Diamond plan and above.",
     creed: "Jasper helps your business grow higher!",
     getStarted: "Get Started — It's Free",
     offlineMetric: "Works Offline",
@@ -136,7 +138,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     fatumaRole: "Managing Director • Arusha",
     pricingHeader: "Simple Prices",
     pricingSub: "Choose a plan that fits your shop scale",
-    pricingDesc: "Start with a 14-day free trial. Choose a plan to continue. Switch plans anytime.",
+    pricingDesc: "Start with a 10-day free trial, or 20 days with a valid promo code. Choose a plan to continue. Switch plans anytime.",
     trialName: "Free Trial",
     trialDesc: "Test all options and load your products free today.",
     essentialName: "Essential",
@@ -151,7 +153,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     limitPremium: "Unlimited Products • 10 Stores • Unlimited Users",
     featureReport: "Standard POS transaction reports",
     featureNoExpiry: "Expiry date tracker & alerts",
-    featureAiHelp: "Direct Lucy assistance",
+    featureAiHelp: "Lucy AI guidance for business growth",
     featureVip: "VIP priority assistance support",
     choosePlan: "Choose Plan",
     startFree: "Start Trial Free",
@@ -199,8 +201,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     stockDesc: "Fuatilia idadi ya bidhaa zako na upate taarifa zikiisha.",
     offlineTitle: "Inafanya Kazi Bure Bila Internet",
     offlineDesc: "Inafanya kazi 100% bila internet. Pokea malipo ya simu haraka.",
-    meetLucy: "Kutana na Lucy",
-    lucyDesc: "msaidizi na rafiki yako wa karibu atakayekusaidia kutumia mfumo na kukuza biashara yako",
+    meetLucy: "Msaidizi wa Biashara Lucy AI",
+    lucyDesc: "Lucy humuelekeza mtumiaji kutumia Jasper, hujibu maswali ya biashara kwa lugha yoyote, hutengeneza ripoti, na husaidia biashara kukua kwa usalama.",
+    featLucyTitle: "Msaidizi wa Biashara Lucy AI",
+    featLucyDesc: "Muulize Lucy jinsi ya kutumia Jasper, kuelewa mauzo, stoki, gharama, na kutengeneza ripoti za biashara kuanzia kifurushi cha Diamond na kuendelea.",
     creed: "Jasper inasaidia biashara yako kukua zaidi!",
     getStarted: "Anza Sasa - Ni Bure",
     offlineMetric: "Bila Mtandao",
@@ -231,7 +235,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     fatumaRole: "Meneja wa Hoteli • Arusha",
     pricingHeader: "Bei Rahisi",
     pricingSub: "Chagua kifurushi kinachofaa duka lako",
-    pricingDesc: "Anza na siku 14 bure. Chagua kifurushi ili uendelee. Badilisha kifurushi wakati wowote.",
+    pricingDesc: "Anza na siku 10 bure, au siku 20 kwa promo code halali. Chagua kifurushi ili uendelee. Badilisha kifurushi wakati wowote.",
     trialName: "Majaribio Bure",
     trialDesc: "Kagua vipengele na uandae orodha ya bidhaa zako bure kabisa.",
     essentialName: "Msingi",
@@ -246,7 +250,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     limitPremium: "Idadi ya Bidhaa Bila Kikomo • Maduka 10",
     featureReport: "Ripoti za Mauzo za Kawaida",
     featureNoExpiry: "Kufuatilia tarehe ya mwisho wa bidhaa",
-    featureAiHelp: "Usaidizi wa Lucy",
+    featureAiHelp: "Mwongozo wa Lucy AI kukuza biashara",
     featureVip: "Msaada maalum kwanza",
     choosePlan: "Chagua Kifurushi",
     startFree: "Anza Majaribio Bure",
@@ -989,12 +993,12 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
   }, []);
 
   // Handle conversational Lucy responses on home page
-  const handleLucySend = (e: any) => {
-    e.preventDefault();
-    if (!lucyInput.trim()) return;
+  const sendLucyMessage = (messageOverride?: string) => {
+    const userMsg = (messageOverride ?? lucyInput).trim();
+    if (!userMsg || isLucyThinking) return;
 
-    const userMsg = lucyInput.trim();
     const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    setIsLucyOpen(true);
     setLucyMessages(prev => [...prev, { sender: 'user', text: userMsg, time: timestamp }]);
     setLucyInput('');
     setIsLucyThinking(true);
@@ -1042,6 +1046,11 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
     }, 1100);
   };
 
+  const handleLucySend = (e: any) => {
+    e.preventDefault();
+    sendLucyMessage();
+  };
+
   const faqDataByLang: Record<string, Array<{ q: string, a: string }>> = {
     en: [
       {
@@ -1049,8 +1058,8 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
         a: "Yes, absolutely! If your internet connection or power goes down, Jasper keeps checking out customers and tracking stock locally on your device. Once the internet is restored, it automatically synchronizes and updates your cloud dashboard."
       },
       {
-        q: "How do I pay after my 14-day free trial?",
-        a: "At the end of your 14 days, you will receive a friendly notification in your dashboard to choose a suitable package. You can pay easily using standard local methods like M-Pesa, Airtel Money, Tigo Mixx by Yas, or Visa/Mastercard."
+        q: "How do I pay after my free trial?",
+        a: "At the end of your 10-day trial, or 20 days when registered with a valid promo code, you will receive a friendly notification in your dashboard to choose a suitable package. You can pay easily using standard local methods like M-Pesa, Airtel Money, Tigo Mixx by Yas, or Visa/Mastercard."
       },
       {
         q: "How does the multi-store consolidated bookkeeping work?",
@@ -1067,8 +1076,8 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
         a: "Ndiyo, kabisa! Internet au umeme ukikatika, Jasper itaendelea kufanya kazi ya mauzo na kupunguza stoki kama kawaida. Internet ikirudi, mfumo unajisawazisha wenyewe kwenye mtandao wako."
       },
       {
-        q: "Ninalipia vipi baada ya majaribio ya siku 14 kupita?",
-        a: "Baada ya majaribio ya bure kuisha, utapata ujumbe kwenye skrini yako ukikuongoza kuchagua kifurushi chako. Unaweza kulipa kwa M-Pesa, Airtel Money, Tigo Mixx au kadi ya benki."
+        q: "Ninalipia vipi baada ya majaribio ya bure kuisha?",
+        a: "Baada ya siku 10 za majaribio, au siku 20 kama ulijisajili kwa promo code halali, utapata ujumbe kwenye skrini yako ukikuongoza kuchagua kifurushi chako. Unaweza kulipa kwa M-Pesa, Airtel Money, Tigo Mixx au kadi ya benki."
       },
       {
         q: "Inasaidiaje kuunganisha maduka mengi pamoja?",
@@ -1451,18 +1460,32 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               </div>
 
               {/* Box 2: Lucy Spotlight */}
-              <div className={`p-6 rounded-3xl space-y-3 relative overflow-hidden border-2 ${isDark ? 'bg-slate-900/20 border-emerald-500/15' : 'bg-[#e6faf4]/20 border-emerald-500/20 shadow-xs'}`}>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setIsLucyOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setIsLucyOpen(true);
+                  }
+                }}
+                className={`p-6 rounded-3xl space-y-3 relative overflow-hidden border-2 cursor-pointer transition-all hover:-translate-y-0.5 ${isDark ? 'bg-slate-900/20 border-emerald-500/15 hover:border-emerald-400/40' : 'bg-[#e6faf4]/20 border-emerald-500/20 shadow-xs hover:border-emerald-500/40 hover:shadow-md'}`}
+              >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl" />
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Lucy Core Assistant
+                  {t.featLucyTitle || t.meetLucy || "Lucy AI Business Assistant"}
                 </span>
                 <h4 className={`text-base font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   {t.meetLucy || "Meet Lucy"}
                 </h4>
                 <p className={`text-xs font-light leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                  {t.lucyDesc || "Your friendly assistant to answer questions and help you grow daily."}
+                  {t.featLucyDesc || t.lucyDesc || "Your friendly assistant to answer questions and help you grow daily."}
                 </p>
+                <span className={`inline-flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-wider ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                  {t.callLucy || "Ask Lucy"} <ArrowRight className="w-3 h-3" />
+                </span>
               </div>
 
             </div>
@@ -1584,7 +1607,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               Simple, transparent pricing
             </h2>
             <p className={`text-sm leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Start with a 14-day free trial. No credit card required. Upgrade or cancel anytime.
+              Start with a 10-day free trial. Promo-code registrations can get 20 days. No credit card required. Upgrade or cancel anytime.
             </p>
           </div>
 
@@ -1766,7 +1789,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
 
           {/* Footer note */}
           <p className={`text-center text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            All packages include a <strong>14-day free trial</strong>. Cancel anytime. Prices in Tanzanian Shillings (TZS).
+            All packages include a <strong>10-day free trial</strong>. Valid promo-code registrations can get <strong>20 days</strong>. Cancel anytime. Prices in Tanzanian Shillings (TZS).
           </p>
 
         </div>
@@ -1813,9 +1836,9 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       </div>
 
       {/* FLOATING LUCY CHAT BUBBLE ASSISTANT (Requested) */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+      <div className="fixed right-4 z-50 flex flex-col items-end sm:right-6 bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-6">
         {isLucyOpen ? (
-          <div className={`w-[340px] h-[460px] border rounded-3xl overflow-hidden shadow-2xl flex flex-col animate-fade-in font-sans text-left transition-colors duration-300 ${isDark ? 'bg-slate-900 border-emerald-500/60' : 'bg-white border-slate-200'}`}>
+          <div className={`w-[min(340px,calc(100vw-2rem))] h-[min(460px,calc(100vh-7rem))] border rounded-3xl overflow-hidden shadow-2xl flex flex-col animate-fade-in font-sans text-left transition-colors duration-300 ${isDark ? 'bg-slate-900 border-emerald-500/60' : 'bg-white border-slate-200'}`}>
             {/* Header */}
             <div className={`px-4 py-3 flex items-center justify-between border-b ${isDark ? 'bg-slate-950 border-slate-800/80' : 'bg-slate-50 border-slate-200'}`}>
               <div className="flex items-center space-x-2">
@@ -1853,7 +1876,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               {isLucyThinking && (
                 <div className={`flex items-center space-x-1.5 p-2 border rounded-lg text-[10.5px] font-mono w-40 ${isDark ? 'bg-slate-900 border-slate-850 text-slate-400' : 'bg-white border-slate-200 text-slate-600'}`}>
                   <RefreshCw className={`w-3 h-3 animate-spin ${isDark ? 'text-emerald-400' : 'text-[#00b87a]'}`} />
-                  <span>Lucy in Swahili context...</span>
+                  <span>Lucy is thinking with you...</span>
                 </div>
               )}
             </div>
@@ -1861,22 +1884,32 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             {/* Quick Suggestions buttons inside Lucy Floating widget */}
             <div className={`p-2 border-t flex flex-wrap gap-1 ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'}`}>
               <button 
-                onClick={() => { setLucyInput("Nahitaji kujua vifurushi na bei zao"); }}
+                type="button"
+                onClick={() => sendLucyMessage("Nahitaji kujua vifurushi na bei zao")}
                 className={`px-2 py-1 border text-[9px] rounded font-mono cursor-pointer transition-colors ${isDark ? 'bg-slate-900 hover:bg-slate-850 border-slate-800 text-slate-300' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
               >
                 💵 Vifurushi & Bei
               </button>
               <button 
-                onClick={() => { setLucyInput("Je, inafanya kazi hotelini?"); }}
+                type="button"
+                onClick={() => sendLucyMessage("Je, inafanya kazi hotelini?")}
                 className={`px-2 py-1 border text-[9px] rounded font-mono cursor-pointer transition-colors ${isDark ? 'bg-slate-900 hover:bg-slate-850 border-slate-800 text-slate-300' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
               >
                 🏨 Hotel & PMS
               </button>
               <button 
-                onClick={() => { setLucyInput("Ni kwa jinsi gani inasaidia pharmacy?"); }}
+                type="button"
+                onClick={() => sendLucyMessage("Ni kwa jinsi gani inasaidia pharmacy?")}
                 className={`px-2 py-1 border text-[9px] rounded font-mono cursor-pointer transition-colors ${isDark ? 'bg-slate-900 hover:bg-slate-850 border-slate-800 text-slate-300' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
               >
                 💊 Duka la Dawa
+              </button>
+              <button
+                type="button"
+                onClick={() => sendLucyMessage("Nianzishe free trial na hatua za kwanza")}
+                className={`px-2 py-1 border text-[9px] rounded font-mono cursor-pointer transition-colors ${isDark ? 'bg-slate-900 hover:bg-slate-850 border-slate-800 text-slate-300' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
+              >
+                Start Free Trial
               </button>
             </div>
 
@@ -1891,6 +1924,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               />
               <button 
                 type="submit"
+                disabled={isLucyThinking}
                 className={`p-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0 ${isDark ? 'bg-emerald-500 hover:bg-emerald-450 text-slate-950' : 'bg-[#00b87a] hover:bg-[#009966] text-white'}`}
               >
                 <SendHorizontal className="w-4 h-4" />

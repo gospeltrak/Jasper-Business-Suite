@@ -24,7 +24,8 @@ const swahiliSignals = [
   'habari', 'naomba', 'nisaidie', 'tafadhali', 'mauzo', 'stoki', 'bidhaa', 'ripoti',
   'faida', 'hasara', 'fedha', 'duka', 'mfumo', 'bei', 'nunua', 'uza', 'muuzaji',
   'mteja', 'wateja', 'gharama', 'matumizi', 'malipo', 'akaunti', 'risiti', 'tuma',
-  'fungua', 'nenda', 'onyesha', 'nipatie', 'nifanye', 'kiasi', 'mzigo'
+  'fungua', 'nenda', 'onyesha', 'nipatie', 'nifanye', 'kiasi', 'mzigo', 'nahitaji',
+  'kujua', 'kifurushi', 'vifurushi', 'jaribio', 'hoteli', 'mgahawa'
 ];
 
 const systemRiskSignals = [
@@ -39,9 +40,12 @@ const businessSignals = [
   'profit', 'loss', 'expense', 'cash', 'bank', 'supplier', 'customer', 'report',
   'invoice', 'quotation', 'receipt', 'delivery', 'purchase', 'pharmacy', 'medicine',
   'batch', 'fifo', 'average', 'dashboard', 'setting', 'staff', 'password', 'login',
+  'package', 'packages', 'subscription', 'trial', 'free trial', 'pricing', 'hotel',
+  'restaurant', 'wholesale', 'retail', 'affiliate', 'tenant', 'business suite',
   'mauzo', 'uza', 'stoki', 'bidhaa', 'bei', 'faida', 'hasara', 'matumizi', 'fedha',
   'benki', 'msambazaji', 'mteja', 'ripoti', 'ankara', 'risiti', 'delivery',
-  'manunuzi', 'dawa', 'mfumo', 'watumishi', 'ingia'
+  'manunuzi', 'dawa', 'mfumo', 'watumishi', 'ingia', 'kifurushi', 'vifurushi',
+  'gharama', 'jaribio', 'hoteli', 'mgahawa', 'jumla', 'rejareja'
 ];
 
 const generalKnowledgeSignals = [
@@ -74,9 +78,9 @@ export const detectLucyLanguage = (input: string): LucyLanguage => {
 
 export const getLucyGreeting = (language: LucyLanguage = 'en', tenantName?: string): string => {
   if (language === 'sw') {
-    return `Habari, mimi ni Lucy. Niko hapa kukusaidia kutumia ${tenantName || 'Jasper'}, kuelewa mauzo, stoki, ripoti, POS, settings na hatua za kazi. Unaweza kuniuliza kwa Kiswahili.`;
+    return `Karibu, mimi ni Lucy. Niambie biashara yako ni retail, pharmacy, hotel, restaurant au wholesale? Nitakuonyesha kwa lugha rahisi jinsi ${tenantName || 'Jasper'} itakavyokusaidia kuanza, kuuza, kusimamia stoki na kusoma ripoti.`;
   }
-  return `Hi, I am Lucy. I can help you use ${tenantName || 'Jasper'}, understand sales, stock, reports, POS, settings, and daily business actions. You can ask me in English or Swahili.`;
+  return `Hi, I am Lucy. Tell me what you run - retail, pharmacy, hotel, restaurant, or wholesale - and I will guide you through ${tenantName || 'Jasper'} like a calm business coach, step by step.`;
 };
 
 const money = (amount: number, tenant?: Tenant) => {
@@ -165,6 +169,72 @@ const buildHelpAnswer = (ctx: LucyContext, language: LucyLanguage, lower: string
   return null;
 };
 
+const includesAny = (lower: string, keys: string[]) => keys.some(key => lower.includes(key));
+const isShortGreeting = (lower: string) => {
+  if (lower.length >= 45) return false;
+  return /(^|\s)(hi|hello|hey|habari|mambo|hujambo|salama)(\s|$|[.!?])/.test(lower);
+};
+
+const buildLandingAnswer = (message: string, language: LucyLanguage, lower: string) => {
+  if (isShortGreeting(lower)) {
+    return language === 'sw'
+      ? 'Karibu sana. Nipo hapa kukuongoza taratibu: unaweza kuniambia aina ya biashara yako, au uniulize kuhusu bei, free trial, POS, stoki, reports, offline mode, pharmacy, hotel au restaurant.'
+      : 'Welcome. I am here with you step by step: tell me your business type, or ask about pricing, free trial, POS, stock, reports, offline mode, pharmacy, hotel, or restaurant.';
+  }
+
+  if (includesAny(lower, ['price', 'cost', 'package', 'packages', 'subscription', 'pricing', 'free trial', 'trial', 'bei', 'gharama', 'kifurushi', 'vifurushi', 'malipo', 'jaribio'])) {
+    return language === 'sw'
+      ? 'Ndiyo, nikupe picha rahisi. Jasper huanza na free trial ili uone mfumo kwanza. Ruby ni kwa matumizi ya msingi, Diamond inaanza Lucy AI na ripoti nzuri zaidi, na Tanzanite ni kwa biashara inayotaka uwezo mkubwa zaidi kama forecasting. Kama unatumia promo code, trial inaweza kuwa ndefu zaidi kulingana na offer iliyopo. Una duka moja au matawi mengi? Nikijua hilo nitakushauri kifurushi kinachofaa.'
+      : 'Yes, here is the simple picture. Jasper starts with a free trial so you can feel the system first. Ruby is for essential operations, Diamond unlocks Lucy AI and stronger reports, and Tanzanite is for businesses that want higher power such as forecasting. If you use a promo code, the trial may be longer depending on the active offer. Do you run one shop or multiple branches? That helps me recommend the right package.';
+  }
+
+  if (includesAny(lower, ['pharmacy', 'medicine', 'drug', 'rx', 'dawa', 'duka la dawa'])) {
+    return language === 'sw'
+      ? 'Pharmacy inaingia vizuri kwenye Jasper. Unaweza kupanga dawa kwa categories na units, kuuza kupitia POS, kufuatilia stoki, manunuzi, expenses, faida, na reports. Hatua nzuri ya kwanza ni kuweka units zako kama box, strip, tablet au bottle, kisha kupanga categories za dawa. Unataka nikueleze pharmacy setup hatua kwa hatua?'
+      : 'Pharmacy fits Jasper very well. You can organize medicine categories and units, sell through POS, track stock, purchases, expenses, profit, and reports. A good first step is setting units like box, strip, tablet, or bottle, then adding medicine categories. Would you like a step-by-step pharmacy setup flow?';
+  }
+
+  if (includesAny(lower, ['hotel', 'room', 'pms', 'booking', 'hoteli', 'chumba', 'vyumba'])) {
+    return language === 'sw'
+      ? 'Kwa hotel, Jasper inaweza kusaidia kuona biashara kwa upande wa mauzo, gharama, stoki, reports, na usimamizi wa huduma. PMS/hotel tools zinalenga kurahisisha vyumba, bookings na mapato, huku owner akiona picha ya biashara kwa urahisi. Ni hotel ndogo ya vyumba vichache au una departments nyingi?'
+      : 'For hotels, Jasper helps with sales, expenses, stock, reports, and service management. The PMS/hotel tools are meant to simplify rooms, bookings, and revenue while the owner sees the business clearly. Is it a small hotel with a few rooms, or do you run multiple departments?';
+  }
+
+  if (includesAny(lower, ['restaurant', 'food', 'table', 'kds', 'mgahawa', 'chakula', 'meza'])) {
+    return language === 'sw'
+      ? 'Kwa restaurant, Jasper inalenga kufanya order, mauzo, stoki ya ingredients, expenses na reports ziwe rahisi kufuatilia. Unaweza kuanza na menu items, bei, staff wanaouza, kisha reports za mauzo ya siku. Unataka mfumo ukuongoze zaidi kwenye quick sale au restaurant setup?'
+      : 'For restaurants, Jasper helps you keep orders, sales, ingredient stock, expenses, and reports under control. You can start with menu items, prices, staff sales, then daily sales reports. Do you want a quick-sale setup or a fuller restaurant workflow?';
+  }
+
+  if (includesAny(lower, ['offline', 'internet', 'network', 'sync', 'mtandao', 'bila internet'])) {
+    return language === 'sw'
+      ? 'Ndiyo, Jasper imeundwa kusaidia biashara isisimame internet ikikatika. Unafanya kazi kwenye kifaa, kisha mtandao ukirudi mfumo unasync taarifa muhimu. Kabla ya kufuta cache au kubadilisha kifaa, ni vizuri kuhakikisha sync iko updated. Unataka nikueleze jinsi sync inavyofanya kazi kwa mfano wa duka?'
+      : 'Yes, Jasper is designed so business should not stop when internet goes down. You keep working on the device, then once the network returns the important changes sync back online. Before clearing cache or changing devices, make sure sync is updated. Would you like me to explain sync with a shop example?';
+  }
+
+  if (includesAny(lower, ['pos', 'sell', 'sales', 'cashier', 'receipt', 'uza', 'mauzo', 'risiti'])) {
+    return language === 'sw'
+      ? 'POS ndiyo sehemu ya kuuza haraka. Unaweka bidhaa, bei na stoki, halafu cashier anauza na mfumo unaandaa risiti, kupunguza stoki na kusaidia owner kuona mauzo. Ukianza leo, hatua tatu ni: sajili bidhaa, weka bei, fanya sale ya majaribio. Unauza bidhaa za rejareja, jumla, au huduma?'
+      : 'POS is the fast selling area. You add products, prices, and stock, then the cashier sells while Jasper prepares receipts, reduces stock, and helps the owner see sales. If you start today, the first three steps are: add products, set prices, make a test sale. Do you sell retail, wholesale, or services?';
+  }
+
+  if (includesAny(lower, ['stock', 'inventory', 'product', 'products', 'stoki', 'bidhaa', 'ghala'])) {
+    return language === 'sw'
+      ? 'Stoki ni moyo wa biashara. Jasper hukusaidia kujua kilichopo, kinachouza, kilichokaribia kuisha, na faida inayotoka kwenye bidhaa. Ukiweka categories na units vizuri mwanzo, reports zako zinakuwa safi zaidi. Unataka nikupe mfano wa kupanga categories na units?'
+      : 'Stock is the heartbeat of the business. Jasper helps you know what you have, what is moving, what is nearly finished, and which products create profit. If categories and units are clean from the start, reports become much clearer. Would you like an example category and unit structure?';
+  }
+
+  if (includesAny(lower, ['report', 'reports', 'profit', 'forecast', 'forecasting', 'ripoti', 'faida', 'utabiri'])) {
+    return language === 'sw'
+      ? 'Reports ndizo zinakuonyesha ukweli wa biashara: mauzo, matumizi, faida, bidhaa zinazoenda haraka na sehemu zinazohitaji uamuzi. Diamond inakupa Lucy kwa msaada wa maswali na reports, Tanzanite inaenda zaidi kwenye forecasting. Unauliza kuhusu report ya kila siku, mwezi, au kutabiri mauzo?'
+      : 'Reports show the truth of the business: sales, expenses, profit, fast-moving products, and decisions that need attention. Diamond gives Lucy for guided questions and reports, while Tanzanite goes further with forecasting. Are you asking about daily reports, monthly reports, or sales forecasting?';
+  }
+
+  return language === 'sw'
+    ? `Nimekupata. Jasper ni mfumo wa kuendesha biashara kwa POS, stoki, manunuzi, expenses, reports, staff na Lucy AI. Ili nikujibu vizuri zaidi, niambie biashara yako ni ipi na changamoto yako kubwa ni nini leo: mauzo, stoki, ripoti, staff, au kufungua account?`
+    : `I hear you. Jasper helps run a business through POS, stock, purchases, expenses, reports, staff, and Lucy AI. To guide you well, tell me your business type and the biggest thing you want solved today: sales, stock, reports, staff, or getting started?`;
+};
+
 export const createLucyResponse = (message: string, ctx: LucyContext = {}): LucyResponse => {
   const language = detectLucyLanguage(message);
   const lower = normalize(message);
@@ -222,6 +292,13 @@ export const createLucyResponse = (message: string, ctx: LucyContext = {}): Lucy
     return { language, text: helpAnswer };
   }
 
+  if (ctx.surface === 'landing') {
+    return {
+      language,
+      text: buildLandingAnswer(message, language, lower)
+    };
+  }
+
   if (!isBusinessRelated && ctx.surface !== 'landing') {
     return {
       language,
@@ -229,15 +306,6 @@ export const createLucyResponse = (message: string, ctx: LucyContext = {}): Lucy
       text: language === 'sw'
         ? 'Samahani, sijaelewa kama hili linahusu biashara yako au matumizi ya Jasper. Niulize kuhusu mauzo, stoki, POS, ripoti, settings, WhatsApp documents, staff, manunuzi, au fedha.'
         : 'I am sorry, I could not tell if this is about your business or Jasper. Ask me about sales, stock, POS, reports, settings, WhatsApp documents, staff, purchases, or cash.'
-    };
-  }
-
-  if (ctx.surface === 'landing') {
-    return {
-      language,
-      text: language === 'sw'
-        ? 'Jasper inasaidia biashara kufanya mauzo, stoki, reports, POS, offline mode, WhatsApp documents na usimamizi wa staff. Niambie aina ya biashara yako, halafu nitakuonyesha sehemu muhimu.'
-        : 'Jasper helps businesses run sales, stock, reports, POS, offline work, WhatsApp documents, and staff management. Tell me your business type and I will point you to the right features.'
     };
   }
 

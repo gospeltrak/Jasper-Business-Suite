@@ -452,8 +452,8 @@ export default function DashboardPurchases({
 
       <div id="purchases-view-container" className="space-y-6 pb-8">
         
-      {/* ── MOBILE HERO + TABS ── md:hidden */}
-      <div className="md:hidden space-y-3">
+      {/* ── MOBILE HERO + TABS ── xl:hidden */}
+      <div className="xl:hidden space-y-3">
         {/* Hero banner */}
         <div className="rounded-3xl overflow-hidden relative"
           style={{background: 'linear-gradient(135deg, #059669 0%, #047857 60%, #065f46 100%)'}}>
@@ -516,7 +516,7 @@ export default function DashboardPurchases({
       </div>
 
       {/* ── DESKTOP HEADER — premium professional PC layout ── */}
-      <div className="hidden md:block space-y-5">
+      <div className="hidden xl:block space-y-5">
 
         {/* Top command bar */}
         <div className="flex items-center justify-between">
@@ -710,7 +710,7 @@ export default function DashboardPurchases({
             ) : (
               <>
                 {/* Desktop Table */}
-                <div className="hidden md:block overflow-x-auto">
+                <div className="hidden xl:block overflow-x-auto">
                   <table className="w-full text-left" id="purchases-table">
                     <thead>
                       <tr className="border-b border-slate-100">
@@ -804,7 +804,7 @@ export default function DashboardPurchases({
                                 {openMenuId === pc.id && (
                                   <>
                                     <div className="fixed inset-0 z-[60]" onClick={() => setOpenMenuId(null)} />
-                                    <div className="absolute right-0 top-full mt-1 z-[70] bg-white border border-slate-100 rounded-2xl shadow-2xl w-44 py-1.5 overflow-hidden"
+                                    <div className="absolute right-0 top-full mt-1 z-[70] bg-white border border-slate-100 rounded-2xl shadow-2xl w-44 max-w-[calc(100vw-2rem)] py-1.5 overflow-hidden"
                                       style={{boxShadow:'0 8px 32px rgba(0,0,0,0.12),0 0 0 1px rgba(0,0,0,0.04)'}}>
                                       <button onClick={() => { setOpenMenuId(null); setViewPurchase(pc); }}
                                         className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
@@ -842,7 +842,7 @@ export default function DashboardPurchases({
                 </div>
 
                 {/* ── MOBILE CARDS — premium redesign ── */}
-                <div className="md:hidden space-y-3 p-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
+                <div className="xl:hidden space-y-3 p-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
                   {filteredAndSortedPurchases.map((pc) => {
                     const diff = pc.totalAmount - pc.amountPaid;
                     const isPaid = diff <= 0;
@@ -926,13 +926,13 @@ export default function DashboardPurchases({
                     <>
                       <motion.div
                         initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}}
-                        className="md:hidden fixed inset-0 z-[200] bg-slate-900/40"
+                        className="xl:hidden fixed inset-0 z-[200] bg-slate-900/40"
                         onClick={() => setMobilePurchaseMenu(null)}
                       />
                       <motion.div
                         initial={{y: '100%'}} animate={{y: 0}} exit={{y: '100%'}}
                         transition={{type: 'tween', duration: 0.22, ease: [0.32, 0.72, 0, 1]}}
-                        className="md:hidden fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-[28px] z-[210] overflow-hidden"
+                        className="xl:hidden fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-[28px] z-[210] overflow-hidden"
                         style={{bottom: 'calc(56px + env(safe-area-inset-bottom))', maxHeight: '75dvh', boxShadow: 'none'}}
                         onClick={e => e.stopPropagation()}
                       >

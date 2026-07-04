@@ -40,9 +40,9 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
   // Message Form states
   const [broadcastSubText, setBroadcastSubText] = useState('');
   const [broadcastAffText, setBroadcastAffText] = useState('');
-  const [directSubName, setDirectSubName] = useState('Juma Rashid');
+  const [directSubName, setDirectSubName] = useState('John Doe');
   const [directSubText, setDirectSubText] = useState('');
-  const [directAffName, setDirectAffName] = useState('Peter Otieno');
+  const [directAffName, setDirectAffName] = useState('John Doe');
   const [directAffText, setDirectAffText] = useState('');
   const [sentHistory, setSentHistory] = useState(duressData.historyMessages);
 
@@ -1096,10 +1096,10 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
                           value={directAffName}
                           onChange={(e) => setDirectAffName(e.target.value)}
                         >
-                          <option value="Peter Otieno">Peter Otieno</option>
-                          <option value="Hamisi Juma">Hamisi Juma</option>
-                          <option value="Grace Wanjiku">Grace Wanjiku</option>
-                          <option value="Zuhura Salim">Zuhura Salim</option>
+                          <option value="John Doe">John Doe</option>
+                          <option value="Jane Doe">Jane Doe</option>
+                          <option value="Jane Doe">Jane Doe</option>
+                          <option value="John Doe">John Doe</option>
                         </select>
                       </div>
 
