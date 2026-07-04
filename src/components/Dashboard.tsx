@@ -1115,7 +1115,33 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const currentStaffCount = systemSettings.staffs?.length || 0;
 
   useEffect(() => {
-    localStorage.setItem('jasper_products_map', JSON.stringify(productsMap));
+    try {
+      localStorage.setItem('jasper_products_map', JSON.stringify(productsMap));
+    } catch (e: any) {
+      // localStorage quota exceeded — strip base64 images from the saved data
+      // to reduce size, keeping all other product data intact.
+      // Images will need to be re-uploaded next session.
+      if (e?.name === 'QuotaExceededError' || e?.code === 22) {
+        try {
+          const stripped = Object.fromEntries(
+            Object.entries(productsMap).map(([tid, prods]) => [
+              tid,
+              (prods as any[]).map((p: any) => {
+                if (p.image && p.image.startsWith('data:')) {
+                  const { image: _img, ...rest } = p;
+                  return rest;
+                }
+                return p;
+              }),
+            ])
+          );
+          localStorage.setItem('jasper_products_map', JSON.stringify(stripped));
+          console.warn('[Jasper] localStorage quota exceeded — product images were not saved. Consider using smaller images.');
+        } catch {
+          // If still fails, skip saving this update silently
+        }
+      }
+    }
     // Sync each tenant's products to cloud
     Object.entries(productsMap).forEach(([tid, data]) => {
       saveData(tid, 'products_map', { [tid]: data });

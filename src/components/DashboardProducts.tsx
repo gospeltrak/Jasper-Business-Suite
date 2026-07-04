@@ -104,6 +104,14 @@ export default function DashboardProducts({
   const [replenishPriceAction, setReplenishPriceAction] = useState<'suggested' | 'keep' | 'custom'>('suggested');
   const [replenishCustomPrice, setReplenishCustomPrice] = useState<number | ''>('');
   const [replenishCostingMethod, setReplenishCostingMethod] = useState<'fifo' | 'average_price' | 'batch_price'>('fifo');
+
+  // Stock Adjustment
+  const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
+  const [adjustQty, setAdjustQty] = useState<number | ''>('');
+  const [adjustReason, setAdjustReason] = useState<string>('');
+  const [adjustSearch, setAdjustSearch] = useState<string>('');
+  const [adjustSearchResults, setAdjustSearchResults] = useState<Product[]>([]);
+  const [adjustShowSearch, setAdjustShowSearch] = useState(false);
   
   const [brand, setBrand] = useState(''); // New Brand input field for manual product creation
   const [customCategories, setCustomCategories] = useState<string[]>([]);
@@ -435,6 +443,58 @@ export default function DashboardProducts({
     setReplenishPriceAction('suggested');
     setReplenishCostingMethod('fifo');
     setReplenishCustomPrice('');
+  };
+
+  const adjustSearchProducts = (query: string) => {
+    setAdjustSearch(query);
+    if (!query.trim()) { setAdjustSearchResults([]); return; }
+    const q = query.toLowerCase();
+    const results = products.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.barcode && p.barcode.toLowerCase().includes(q)) ||
+      (p.sku && p.sku.toLowerCase().includes(q))
+    ).slice(0, 8);
+    setAdjustSearchResults(results);
+  };
+
+  const handleAdjustStock = (type: 'add' | 'deduct') => {
+    if (!adjustProduct || !adjustQty || Number(adjustQty) <= 0) return;
+    const qty = Number(adjustQty);
+    const currentStock = adjustProduct.shopStockQty ?? adjustProduct.stockQty ?? 0;
+    const newStock = type === 'add' ? currentStock + qty : Math.max(0, currentStock - qty);
+
+    const updatedProduct: Product = {
+      ...adjustProduct,
+      stockQty: newStock,
+      shopStockQty: newStock,
+    };
+    onUpdateProducts(products.map(p => p.id === adjustProduct.id ? updatedProduct : p));
+
+    // Log the adjustment for reporting
+    const log = {
+      id: `adj-${Date.now()}`,
+      productId: adjustProduct.id,
+      productName: adjustProduct.name,
+      sku: adjustProduct.sku || '',
+      type,
+      qty,
+      previousStock: currentStock,
+      newStock,
+      reason: adjustReason || (type === 'add' ? 'Manual addition' : 'Manual deduction'),
+      adjustedAt: new Date().toISOString(),
+      tenantId: (activeTenant as any)?.id || '',
+    };
+    const existing = JSON.parse(localStorage.getItem('jasper_stock_adjustments') || '[]');
+    existing.unshift(log);
+    localStorage.setItem('jasper_stock_adjustments', JSON.stringify(existing.slice(0, 1000)));
+
+    // Reset
+    setAdjustProduct(null);
+    setAdjustQty('');
+    setAdjustReason('');
+    setAdjustSearch('');
+    setAdjustSearchResults([]);
+    setAdjustShowSearch(false);
   };
 
   const handleBrandLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2603,6 +2663,7 @@ export default function DashboardProducts({
                                       { label: 'View Details',   icon: Eye,     color: 'text-slate-700',   action: () => { setViewingProduct(prod); setDesktopMenuId(null); } },
                                       { label: 'Edit Item',      icon: Edit,    color: 'text-slate-700',   action: () => { handleBeginEdit(prod); setDesktopMenuId(null); } },
                                       { label: 'Replenish Stock',icon: Package, color: 'text-emerald-700', action: () => { setReplenishProduct(prod); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo'); setDesktopMenuId(null); } },
+                                      { label: 'Adjust Stock', icon: ArrowLeftRight, color: 'text-blue-600', action: () => { setAdjustProduct(prod); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(prod.name); setAdjustShowSearch(false); setDesktopMenuId(null); } },
                                     ].map(item => {
                                       const Icon = item.icon;
                                       return (
@@ -4138,7 +4199,22 @@ export default function DashboardProducts({
                             if (file) {
                               const reader = new FileReader();
                               reader.onload = (event) => {
-                                setEditForm(prev => ({ ...prev, image: event.target?.result as string }));
+                                const raw = event.target?.result as string;
+                                // Compress image to max 400x400px before storing
+                                const img = new Image();
+                                img.onload = () => {
+                                  const canvas = document.createElement('canvas');
+                                  const max = 400;
+                                  const ratio = Math.min(max / img.width, max / img.height, 1);
+                                  canvas.width = Math.round(img.width * ratio);
+                                  canvas.height = Math.round(img.height * ratio);
+                                  const ctx = canvas.getContext('2d');
+                                  ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                  const compressed = canvas.toDataURL('image/jpeg', 0.75);
+                                  setEditForm(prev => ({ ...prev, image: compressed }));
+                                };
+                                img.onerror = () => setEditForm(prev => ({ ...prev, image: raw }));
+                                img.src = raw;
                               };
                               reader.readAsDataURL(file);
                             }
@@ -4876,6 +4952,14 @@ export default function DashboardProducts({
                   <div className="flex-1"><p className="text-[14px] font-bold text-slate-800">Replenish Stock</p><p className="text-[11px] text-slate-400 mt-0.5">Add new stock from supplier</p></div>
                   <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                 </button>
+                <button type="button" aria-label="Adjust stock"
+                  onClick={() => { setAdjustProduct(mobileProductMenu); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(mobileProductMenu.name); setAdjustShowSearch(false); setMobileProductMenu(null); }}
+                  className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-slate-50 text-left border border-slate-100"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center shrink-0"><ArrowLeftRight className="w-5 h-5 text-blue-600" /></div>
+                  <div className="flex-1"><p className="text-[14px] font-bold text-slate-800">Adjust Stock</p><p className="text-[11px] text-slate-400 mt-0.5">Manually add or deduct quantity</p></div>
+                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                </button>
                 <div className="h-px bg-slate-100 my-1" />
                 <button type="button" aria-label="Delete product"
                   onClick={() => { onDeleteProduct(mobileProductMenu.id); setMobileProductMenu(null); }}
@@ -4890,6 +4974,157 @@ export default function DashboardProducts({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── STOCK ADJUSTMENT MODAL ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {adjustProduct !== null && (
+          <motion.div
+            key="adjust-modal-backdrop"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) { setAdjustProduct(null); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(''); setAdjustSearchResults([]); setAdjustShowSearch(false); } }}
+          >
+            <motion.div
+              key="adjust-modal"
+              initial={{ y: 60, opacity: 0, scale: 0.97 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 60, opacity: 0, scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
+                    <ArrowLeftRight className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-[15px] font-black text-slate-900">Adjust Stock</h2>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Manually add or deduct inventory</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setAdjustProduct(null); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(''); setAdjustSearchResults([]); setAdjustShowSearch(false); }}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center cursor-pointer border-none transition-colors"
+                >
+                  <X className="w-4 h-4 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="px-5 py-4 space-y-4">
+                {/* Product selector */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Product</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={adjustShowSearch ? adjustSearch : (adjustProduct?.name || '')}
+                      onFocus={() => { setAdjustShowSearch(true); setAdjustSearch(adjustProduct?.name || ''); adjustSearchProducts(adjustProduct?.name || ''); }}
+                      onChange={(e) => adjustSearchProducts(e.target.value)}
+                      placeholder="Search by name or barcode…"
+                      className="w-full pl-9 pr-4 py-3 rounded-2xl border border-slate-200 focus:border-blue-400 outline-none text-sm font-semibold text-slate-800 bg-slate-50 focus:bg-white transition-colors"
+                    />
+                    {adjustShowSearch && adjustSearchResults.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-lg z-10 overflow-hidden max-h-48 overflow-y-auto">
+                        {adjustSearchResults.map(p => (
+                          <button
+                            key={p.id} type="button"
+                            onClick={() => { setAdjustProduct(p); setAdjustSearch(p.name); setAdjustShowSearch(false); setAdjustSearchResults([]); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left cursor-pointer border-none bg-transparent transition-colors"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-slate-800 truncate">{p.name}</p>
+                              <p className="text-[10px] text-slate-400">{p.barcode || p.sku || 'No barcode'} · Stock: {p.shopStockQty ?? p.stockQty ?? 0}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Current stock display */}
+                {adjustProduct && (
+                  <div className="bg-slate-50 rounded-2xl px-4 py-3 flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-500">Current Stock</span>
+                    <span className="text-[15px] font-black text-slate-900">
+                      {adjustProduct.shopStockQty ?? adjustProduct.stockQty ?? 0}
+                      <span className="text-[11px] font-medium text-slate-400 ml-1">{adjustProduct.unit || 'units'}</span>
+                    </span>
+                  </div>
+                )}
+
+                {/* Quantity */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Quantity to Add / Deduct</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={adjustQty}
+                    onChange={(e) => setAdjustQty(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="Enter quantity…"
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:border-blue-400 outline-none text-sm font-semibold text-slate-800 bg-slate-50 focus:bg-white transition-colors"
+                  />
+                </div>
+
+                {/* Reason (optional) */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Reason <span className="font-normal text-slate-400">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={adjustReason}
+                    onChange={(e) => setAdjustReason(e.target.value)}
+                    placeholder="e.g. Damaged goods, counting correction…"
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:border-blue-400 outline-none text-sm text-slate-700 bg-slate-50 focus:bg-white transition-colors"
+                  />
+                </div>
+
+                {/* Preview */}
+                {adjustProduct && adjustQty && Number(adjustQty) > 0 && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-emerald-50 rounded-2xl px-3 py-2.5 text-center border border-emerald-100">
+                      <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">After Add</p>
+                      <p className="text-[17px] font-black text-emerald-700 mt-0.5">
+                        {(adjustProduct.shopStockQty ?? adjustProduct.stockQty ?? 0) + Number(adjustQty)}
+                      </p>
+                    </div>
+                    <div className="bg-rose-50 rounded-2xl px-3 py-2.5 text-center border border-rose-100">
+                      <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">After Deduct</p>
+                      <p className="text-[17px] font-black text-rose-600 mt-0.5">
+                        {Math.max(0, (adjustProduct.shopStockQty ?? adjustProduct.stockQty ?? 0) - Number(adjustQty))}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="grid grid-cols-2 gap-3 pt-1 pb-2">
+                  <button
+                    type="button"
+                    disabled={!adjustProduct || !adjustQty || Number(adjustQty) <= 0}
+                    onClick={() => handleAdjustStock('add')}
+                    className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 disabled:opacity-40 text-white font-black text-sm transition-colors cursor-pointer border-none"
+                  >
+                    <Plus className="w-4 h-4" /> Add
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!adjustProduct || !adjustQty || Number(adjustQty) <= 0}
+                    onClick={() => handleAdjustStock('deduct')}
+                    className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-rose-500 hover:bg-rose-400 active:bg-rose-600 disabled:opacity-40 text-white font-black text-sm transition-colors cursor-pointer border-none"
+                  >
+                    <X className="w-4 h-4" /> Deduct
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 

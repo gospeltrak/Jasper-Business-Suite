@@ -85,7 +85,7 @@ export default function DashboardReports({
   const currency = activeTenant.currency;
   
   // Tab within reports
-  const [reportTab, setReportTab] = useState<'p&l' | 'sales-report' | 'payments' | 'inventory' | 'velocity' | 'users' | 'expenses' | 'product-monitoring' | 'dual-channel' | 'deliveries' | 'bulk-products'>(
+  const [reportTab, setReportTab] = useState<'p&l' | 'sales-report' | 'payments' | 'inventory' | 'velocity' | 'users' | 'expenses' | 'product-monitoring' | 'dual-channel' | 'deliveries' | 'bulk-products' | 'stock-adjustment'>(
     (defaultTab as any) || (rolePermissions?.reportsProfitCogs?.read !== false ? 'p&l' : 'sales-report')
   );
 
@@ -1373,6 +1373,7 @@ export default function DashboardReports({
             {id:'product-monitoring',label:'Products',      icon:BarChart3,   color:'#7c3aed', reqPerm:'reportsSalesExpenses'},
             {id:'dual-channel',     label:'Dual Channel',   icon:ShieldAlert, color:'#4f46e5', reqPerm:'reportsSalesExpenses'},
             {id:'bulk-products',    label:'Bulk',           icon:Scale,       color:'#0369a1', reqPerm:'reportsSalesExpenses'},
+            {id:'stock-adjustment', label:'Stock Adj.',     icon:ArrowUpDown, color:'#7c3aed', reqPerm:'reportsSalesExpenses'},
             {id:'users',            label:'Customers',      icon:Users,       color:'#dc2626', reqPerm:'reportsSalesExpenses'},
           ].filter(tab=>{
             if(!rolePermissions)return true;
@@ -1484,6 +1485,8 @@ export default function DashboardReports({
                   { id: 'product-monitoring', label: 'Product Profitability', icon: Tag, reqPerm: 'reportsSalesExpenses' },
                 { id: 'bulk-products', label: 'Bulk Products Report', icon: Scale, desc: 'Performance and stock conversion matrices for bulk purchasing logic.', colorClass: 'bg-blue-50 text-blue-605 border border-blue-100', reqPerm: 'reportsSalesExpenses' },
                   { id: 'bulk-products', label: 'Bulk Products Report', icon: Scale, reqPerm: 'reportsSalesExpenses' },
+                  { id: 'stock-adjustment', label: 'Stock Adjustment Report', icon: ArrowUpDown, desc: 'View all manual stock additions and deductions by date range.', colorClass: 'bg-purple-50 text-purple-600 border border-purple-100', reqPerm: 'reportsSalesExpenses' },
+                  { id: 'stock-adjustment', label: 'Stock Adjustment Report', icon: ArrowUpDown, reqPerm: 'reportsSalesExpenses' },
                   { id: 'users', label: 'Partners & Customers', icon: Users, reqPerm: 'reportsSalesExpenses' }
                 ].filter(tab => {
                   if (!rolePermissions) return true;
@@ -2496,6 +2499,138 @@ export default function DashboardReports({
                   </div>
                 </div>
               )}
+
+              {reportTab === 'stock-adjustment' && (() => {
+                const allAdjustments: any[] = JSON.parse(localStorage.getItem('jasper_stock_adjustments') || '[]');
+                const startTs = new Date(startDate).setHours(0,0,0,0);
+                const endTs = new Date(endDate).setHours(23,59,59,999);
+                const adjustments = allAdjustments.filter((a: any) => {
+                  const t = new Date(a.adjustedAt).getTime();
+                  return t >= startTs && t <= endTs;
+                });
+                const totalAdded = adjustments.filter((a:any) => a.type === 'add').reduce((s:number,a:any) => s + a.qty, 0);
+                const totalDeducted = adjustments.filter((a:any) => a.type === 'deduct').reduce((s:number,a:any) => s + a.qty, 0);
+                return (
+                  <div className="space-y-5 animate-fade-in">
+                    {/* Header */}
+                    <div className="border-b border-slate-100 pb-3">
+                      <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+                        <ArrowUpDown className="w-5 h-5 text-purple-600" />
+                        Stock Adjustment Report
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">Manual stock additions and deductions</p>
+                    </div>
+
+                    {/* Summary cards */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-center">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Events</p>
+                        <p className="text-2xl font-black text-slate-800 mt-1">{adjustments.length}</p>
+                      </div>
+                      <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center">
+                        <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Units Added</p>
+                        <p className="text-2xl font-black text-emerald-700 mt-1">+{totalAdded}</p>
+                      </div>
+                      <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-center">
+                        <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Units Deducted</p>
+                        <p className="text-2xl font-black text-rose-700 mt-1">-{totalDeducted}</p>
+                      </div>
+                    </div>
+
+                    {adjustments.length === 0 ? (
+                      <div className="text-center py-16 text-slate-400">
+                        <ArrowUpDown className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                        <p className="font-semibold text-sm">No stock adjustments in this date range</p>
+                        <p className="text-xs mt-1">Use Products → Adjust Stock to record manual changes</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Desktop table */}
+                        <div className="hidden md:block bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-slate-50 border-b border-slate-100">
+                                <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-wider">Date & Time</th>
+                                <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-wider">Product</th>
+                                <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-wider">SKU</th>
+                                <th className="text-center px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-wider">Type</th>
+                                <th className="text-right px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-wider">Qty</th>
+                                <th className="text-right px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-wider">Before</th>
+                                <th className="text-right px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-wider">After</th>
+                                <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-wider">Reason</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {adjustments.map((a: any, i: number) => (
+                                <tr key={a.id || i} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                                    {new Date(a.adjustedAt).toLocaleDateString()}<br/>
+                                    <span className="text-[10px] text-slate-400">{new Date(a.adjustedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <p className="text-sm font-bold text-slate-800 leading-tight">{a.productName}</p>
+                                  </td>
+                                  <td className="px-4 py-3 text-xs text-slate-400 font-mono">{a.sku || '—'}</td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${a.type === 'add' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                      {a.type === 'add' ? '+ ADD' : '− DEDUCT'}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    <span className={`text-sm font-black ${a.type === 'add' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                      {a.type === 'add' ? '+' : '-'}{a.qty}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-sm text-slate-500">{a.previousStock}</td>
+                                  <td className="px-4 py-3 text-right text-sm font-bold text-slate-800">{a.newStock}</td>
+                                  <td className="px-4 py-3 text-xs text-slate-400 max-w-[140px] truncate">{a.reason || '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Mobile / tablet cards */}
+                        <div className="md:hidden space-y-2.5">
+                          {adjustments.map((a: any, i: number) => (
+                            <div key={a.id || i} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                              <div className="flex items-start justify-between gap-3 mb-3">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-black text-slate-800 text-[15px] leading-tight truncate">{a.productName}</p>
+                                  {a.sku && <p className="text-[10px] text-slate-400 font-mono mt-0.5">{a.sku}</p>}
+                                </div>
+                                <span className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${a.type === 'add' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                  {a.type === 'add' ? '+ ADD' : '− DEDUCT'}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2 mb-3">
+                                <div className="bg-slate-50 rounded-xl p-2 text-center">
+                                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Qty</p>
+                                  <p className={`text-[15px] font-black mt-0.5 ${a.type === 'add' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                    {a.type === 'add' ? '+' : '-'}{a.qty}
+                                  </p>
+                                </div>
+                                <div className="bg-slate-50 rounded-xl p-2 text-center">
+                                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Before</p>
+                                  <p className="text-[15px] font-black text-slate-600 mt-0.5">{a.previousStock}</p>
+                                </div>
+                                <div className="bg-slate-50 rounded-xl p-2 text-center">
+                                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">After</p>
+                                  <p className="text-[15px] font-black text-slate-800 mt-0.5">{a.newStock}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between text-[11px] text-slate-400">
+                                <span>{new Date(a.adjustedAt).toLocaleDateString()} {new Date(a.adjustedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
+                                {a.reason && <span className="text-slate-500 font-medium truncate ml-2 max-w-[150px]">{a.reason}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
 
               {reportTab === 'product-monitoring' && (() => {
           const isAll = selectedMonitoredProductId === 'all';
