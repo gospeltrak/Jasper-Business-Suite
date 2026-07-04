@@ -29,6 +29,7 @@ import {
   Lock
 } from 'lucide-react';
 import { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
+import { compressImageFile } from '../utils/imageCompression';
 
 const currency = 'TSh';
 
@@ -372,12 +373,11 @@ export default function DashboardStaff({
     };
   }, [staffList, staffSummaries]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<string>>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<string>>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = event => setter(event.target?.result as string);
-    reader.readAsDataURL(file);
+    const compressed = await compressImageFile(file, { maxWidth: 512, maxHeight: 512, quality: 0.72 });
+    setter(compressed);
   };
 
   const persistStaffList = (updatedStaffs: StaffSettings[]) => {

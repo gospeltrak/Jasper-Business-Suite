@@ -8,6 +8,7 @@ import {
   mapSuperAdminStaff,
   updateSuperAdminStaff
 } from '../utils/superAdminData';
+import { compressImageFile } from '../utils/imageCompression';
 
 export default function SaaSStaffManager() {
   const [staffs, setStaffs] = useState<User[]>([]);
@@ -146,14 +147,11 @@ export default function SaaSStaffManager() {
     setPermissions(initial);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      const compressed = await compressImageFile(file, { maxWidth: 512, maxHeight: 512, quality: 0.72 });
+      setProfileImage(compressed);
     }
   };
 

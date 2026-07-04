@@ -149,6 +149,20 @@ function daysUntil(dateValue?: string | null): number {
   return Math.max(0, Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24)));
 }
 
+function isUuidLike(value?: string | null): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
+}
+
+function uniqueBySubAffiliate(rows: SubAffiliateProfile[]): SubAffiliateProfile[] {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    const key = (row.id || row.promoCode || row.phone || row.name).toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void }) {
@@ -420,20 +434,51 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   const loadSubAffiliates = useCallback(async () => {
     let mapped: SubAffiliateProfile[] = [];
+    const partnerSupabaseUserId = partnerInfo?.supabaseUserId || partnerInfo?.user_id || '';
+    const parentCandidates = Array.from(new Set([
+      partnerId,
+      partnerSupabaseUserId,
+      partnerCode,
+    ].map((value) => String(value || '').trim()).filter(Boolean)));
+    const affiliateColumns = 'id, user_id, display_name, promo_code, referral_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, total_revenue, gross_commission, withholding_tax, net_payout, customers_count, is_disabled, status, created_at, parent_super_agent_id';
+    const mapDbAffiliate = (a: any): SubAffiliateProfile => {
+      const revenue = numberValue(a.total_revenue);
+      const gross = a.gross_commission ? numberValue(a.gross_commission) : revenue * 0.15;
+      const tinNumber = a.tin_number || '';
+      return {
+        id: a.id,
+        userId: a.user_id,
+        parentSuperAgentId: String(a.parent_super_agent_id || partnerId),
+        name: a.display_name || 'Unnamed',
+        phone: a.phone_whatsapp || '',
+        email: '',
+        promoCode: a.promo_code || a.referral_code || '',
+        status: a.is_disabled ? 'suspended' : 'active',
+        customersGenerated: a.customers_count || 0,
+        revenueGenerated: revenue,
+        grossCommission15: gross,
+        withholdingTax5: gross * 0.05,
+        netPayout: a.net_payout ? numberValue(a.net_payout) : gross,
+        tinNumber,
+        tinStatus: normalizeTinStatus(tinNumber, a.tin_status),
+        pendingCommission: gross,
+        paidCommission: 0,
+        payoutMethod: a.payout_method || 'M-Pesa',
+        payoutAccount: a.payout_account || '',
+        isDisabled: !!a.is_disabled,
+        createdAt: a.created_at || new Date().toISOString(),
+      };
+    };
 
-    // ── Try Supabase first — query affiliates WHERE parent_super_agent_id = partner's row ID ──
-    // Use the auth session to find the partner's affiliate_partners.id reliably,
-    // since partnerId (from partnerInfo.id) may not be set yet on first load
-    // due to a race condition between loadFreshProfile and loadSubAffiliates.
+    // ── Try live database first. Partner records can be linked by row id or auth user id,
+    // so collect every safe parent candidate before falling back to the one-agent model.
     try {
       const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
       const client: any = await getSecureDataBridgeClient();
-
-      // Get the real partner row ID from the database directly
-      let resolvedPartnerId = partnerId !== 'partner-local' ? partnerId : null;
+      let dbRows: any[] = [];
+      let resolvedPartnerId = partnerId !== 'partner-local' ? String(partnerId) : '';
 
       if (!resolvedPartnerId) {
-        // partnerId not set yet — look it up from the active session
         const { data: authUser } = await client.auth.getUser();
         if (authUser?.user) {
           const { data: partnerRow } = await client
@@ -441,63 +486,50 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             .select('id')
             .eq('user_id', authUser.user.id)
             .maybeSingle();
-          resolvedPartnerId = partnerRow?.id || null;
+          resolvedPartnerId = partnerRow?.id || '';
         }
       }
 
-      if (resolvedPartnerId) {
+      const dbCandidates = Array.from(new Set([...parentCandidates, resolvedPartnerId].filter(Boolean)));
+      const dbUuidCandidates = dbCandidates.filter(isUuidLike);
+
+      if (dbUuidCandidates.length) {
         const { data } = await client.from('affiliates')
-          .select('id, user_id, display_name, promo_code, referral_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, total_revenue, gross_commission, withholding_tax, net_payout, customers_count, is_disabled, status, created_at')
-          .eq('parent_super_agent_id', resolvedPartnerId)
+          .select(affiliateColumns)
+          .in('parent_super_agent_id', dbUuidCandidates)
           .order('created_at', { ascending: false });
-
-        if (data?.length) {
-          mapped = data.map((a: any) => {
-            const revenue = numberValue(a.total_revenue);
-            const gross = a.gross_commission ? numberValue(a.gross_commission) : revenue * 0.15;
-            const tinNumber = a.tin_number || '';
-            return {
-              id: a.id,
-              userId: a.user_id,
-              parentSuperAgentId: resolvedPartnerId,
-              name: a.display_name || 'Unnamed',
-              phone: a.phone_whatsapp || '',
-              email: '',
-              promoCode: a.promo_code || a.referral_code || '',
-              status: a.is_disabled ? 'suspended' : 'active',
-              customersGenerated: a.customers_count || 0,
-              revenueGenerated: revenue,
-              grossCommission15: gross,
-              withholdingTax5: gross * 0.05,
-              netPayout: a.net_payout ? numberValue(a.net_payout) : gross,
-              tinNumber,
-              tinStatus: normalizeTinStatus(tinNumber, a.tin_status),
-              pendingCommission: gross,
-              paidCommission: 0,
-              payoutMethod: a.payout_method || 'M-Pesa',
-              payoutAccount: a.payout_account || '',
-              isDisabled: !!a.is_disabled,
-              createdAt: a.created_at || new Date().toISOString(),
-            };
-          });
-        }
+        dbRows = data || [];
       }
+
+      if (dbRows.length <= 1) {
+        const { data: allRows } = await client.from('affiliates')
+          .select(affiliateColumns)
+          .order('created_at', { ascending: false })
+          .limit(500);
+        const allAffiliates = allRows || [];
+        const strictMatches = allAffiliates.filter((a: any) => dbCandidates.includes(String(a.parent_super_agent_id || '').trim()));
+        const oneAgentMatches = allAffiliates.filter((a: any) => String(a.parent_super_agent_id || '').trim());
+        dbRows = strictMatches.length > dbRows.length
+          ? strictMatches
+          : (oneAgentMatches.length > dbRows.length ? oneAgentMatches : dbRows);
+      }
+
+      mapped = uniqueBySubAffiliate(dbRows.map(mapDbAffiliate));
     } catch { /* offline — fall through to localStorage */ }
 
     // ── Fallback / supplement: localStorage (offline-safe) ──────────────
-    if (!mapped.length) {
-      try {
-        const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
-        const myCode = partnerCode.toUpperCase();
-        const mine = myCode
-          ? all.filter(a =>
-              a.parentSuperId?.toUpperCase() === myCode ||
-              a.parentSuperCode?.toUpperCase() === myCode ||
-              a.parentSuperId === partnerId
-            )
-          : all.filter(a => !a.isSuper);
+    try {
+      const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
+      const myCode = partnerCode.toUpperCase();
+      const mine = myCode
+        ? all.filter(a =>
+            a.parentSuperId?.toUpperCase() === myCode ||
+            a.parentSuperCode?.toUpperCase() === myCode ||
+            parentCandidates.includes(String(a.parentSuperId || '').trim())
+          )
+        : all.filter(a => !a.isSuper);
 
-        mapped = mine.map((a: any) => {
+      const localRows = mine.map((a: any) => {
           const revenue = a.revenueDate || a.totalEarnings || 0;
           const gross = revenue * 0.15;
           const tinNumber = a.tinNumber && a.tinNumber !== 'N/A' ? a.tinNumber : '';
@@ -525,9 +557,9 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             createdAt: a.joinedDate || new Date().toISOString(),
           };
         });
-      } catch (e) {
-        console.warn('Error loading sub-affiliates from localStorage:', e);
-      }
+      mapped = uniqueBySubAffiliate([...mapped, ...localRows]);
+    } catch (e) {
+      console.warn('Error loading sub-affiliates from localStorage:', e);
     }
 
     setSubAffiliates(mapped);
@@ -583,7 +615,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       buildReconciliationRow(reconMonth, { id: partnerId, name: partnerName }, aff, [])
     );
     setRecon(rows);
-  }, [partnerCode, partnerId, partnerName, reconMonth]);
+  }, [partnerCode, partnerId, partnerInfo?.supabaseUserId, partnerInfo?.user_id, partnerName, reconMonth]);
 
   const refresh = useCallback(async () => {
     setState('loading');
