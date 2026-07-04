@@ -4953,7 +4953,11 @@ export default function DashboardProducts({
                   <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                 </button>
                 <button type="button" aria-label="Adjust stock"
-                  onClick={() => { setAdjustProduct(mobileProductMenu); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(mobileProductMenu.name); setAdjustShowSearch(false); setMobileProductMenu(null); }}
+                  onClick={() => {
+                    const prod = mobileProductMenu;
+                    setMobileProductMenu(null);
+                    if (prod) { setAdjustProduct(prod); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(prod.name); setAdjustShowSearch(false); }
+                  }}
                   className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-slate-50 text-left border border-slate-100"
                 >
                   <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center shrink-0"><ArrowLeftRight className="w-5 h-5 text-blue-600" /></div>
@@ -4977,7 +4981,11 @@ export default function DashboardProducts({
 
       {/* ── STOCK ADJUSTMENT MODAL ─────────────────────────────────────────── */}
       <AnimatePresence>
-        {adjustProduct !== null && (
+        {adjustProduct !== null && (() => {
+          try {
+            const currentStock = (adjustProduct as any)?.shopStockQty ?? (adjustProduct as any)?.stockQty ?? 0;
+            const qty = Number(adjustQty) || 0;
+            return (
           <motion.div
             key="adjust-modal-backdrop"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -5020,8 +5028,8 @@ export default function DashboardProducts({
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                       type="text"
-                      value={adjustShowSearch ? adjustSearch : (adjustProduct?.name || '')}
-                      onFocus={() => { setAdjustShowSearch(true); setAdjustSearch(adjustProduct?.name || ''); adjustSearchProducts(adjustProduct?.name || ''); }}
+                      value={adjustShowSearch ? adjustSearch : ((adjustProduct as any)?.name || '')}
+                      onFocus={() => { setAdjustShowSearch(true); setAdjustSearch((adjustProduct as any)?.name || ''); adjustSearchProducts((adjustProduct as any)?.name || ''); }}
                       onChange={(e) => adjustSearchProducts(e.target.value)}
                       placeholder="Search by name or barcode…"
                       className="w-full pl-9 pr-4 py-3 rounded-2xl border border-slate-200 focus:border-blue-400 outline-none text-sm font-semibold text-slate-800 bg-slate-50 focus:bg-white transition-colors"
@@ -5036,7 +5044,7 @@ export default function DashboardProducts({
                           >
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-bold text-slate-800 truncate">{p.name}</p>
-                              <p className="text-[10px] text-slate-400">{p.barcode || p.sku || 'No barcode'} · Stock: {p.shopStockQty ?? p.stockQty ?? 0}</p>
+                              <p className="text-[10px] text-slate-400">{p.barcode || p.sku || 'No barcode'} · Stock: {(p as any).shopStockQty ?? (p as any).stockQty ?? 0}</p>
                             </div>
                           </button>
                         ))}
@@ -5046,15 +5054,13 @@ export default function DashboardProducts({
                 </div>
 
                 {/* Current stock display */}
-                {adjustProduct && (
-                  <div className="bg-slate-50 rounded-2xl px-4 py-3 flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-slate-500">Current Stock</span>
-                    <span className="text-[15px] font-black text-slate-900">
-                      {adjustProduct.shopStockQty ?? adjustProduct.stockQty ?? 0}
-                      <span className="text-[11px] font-medium text-slate-400 ml-1">{adjustProduct.unit || 'units'}</span>
-                    </span>
-                  </div>
-                )}
+                <div className="bg-slate-50 rounded-2xl px-4 py-3 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-slate-500">Current Stock</span>
+                  <span className="text-[15px] font-black text-slate-900">
+                    {currentStock}
+                    <span className="text-[11px] font-medium text-slate-400 ml-1">{(adjustProduct as any)?.unit || 'units'}</span>
+                  </span>
+                </div>
 
                 {/* Quantity */}
                 <div className="space-y-1.5">
@@ -5070,7 +5076,7 @@ export default function DashboardProducts({
                   />
                 </div>
 
-                {/* Reason (optional) */}
+                {/* Reason */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Reason <span className="font-normal text-slate-400">(optional)</span></label>
                   <input
@@ -5083,19 +5089,15 @@ export default function DashboardProducts({
                 </div>
 
                 {/* Preview */}
-                {adjustProduct && adjustQty && Number(adjustQty) > 0 && (
+                {qty > 0 && (
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-emerald-50 rounded-2xl px-3 py-2.5 text-center border border-emerald-100">
                       <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">After Add</p>
-                      <p className="text-[17px] font-black text-emerald-700 mt-0.5">
-                        {(adjustProduct.shopStockQty ?? adjustProduct.stockQty ?? 0) + Number(adjustQty)}
-                      </p>
+                      <p className="text-[17px] font-black text-emerald-700 mt-0.5">{currentStock + qty}</p>
                     </div>
                     <div className="bg-rose-50 rounded-2xl px-3 py-2.5 text-center border border-rose-100">
                       <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">After Deduct</p>
-                      <p className="text-[17px] font-black text-rose-600 mt-0.5">
-                        {Math.max(0, (adjustProduct.shopStockQty ?? adjustProduct.stockQty ?? 0) - Number(adjustQty))}
-                      </p>
+                      <p className="text-[17px] font-black text-rose-600 mt-0.5">{Math.max(0, currentStock - qty)}</p>
                     </div>
                   </div>
                 )}
@@ -5104,7 +5106,7 @@ export default function DashboardProducts({
                 <div className="grid grid-cols-2 gap-3 pt-1 pb-2">
                   <button
                     type="button"
-                    disabled={!adjustProduct || !adjustQty || Number(adjustQty) <= 0}
+                    disabled={qty <= 0}
                     onClick={() => handleAdjustStock('add')}
                     className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 disabled:opacity-40 text-white font-black text-sm transition-colors cursor-pointer border-none"
                   >
@@ -5112,7 +5114,7 @@ export default function DashboardProducts({
                   </button>
                   <button
                     type="button"
-                    disabled={!adjustProduct || !adjustQty || Number(adjustQty) <= 0}
+                    disabled={qty <= 0}
                     onClick={() => handleAdjustStock('deduct')}
                     className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-rose-500 hover:bg-rose-400 active:bg-rose-600 disabled:opacity-40 text-white font-black text-sm transition-colors cursor-pointer border-none"
                   >
@@ -5122,7 +5124,12 @@ export default function DashboardProducts({
               </div>
             </motion.div>
           </motion.div>
-        )}
+        );
+          } catch (err) {
+            console.error('[AdjustStock modal render error]', err);
+            return null;
+          }
+        })()}
       </AnimatePresence>
 
     </div>
