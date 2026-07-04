@@ -915,32 +915,53 @@ export default function DashboardSettings({
     if (file) {
       try {
         const base64String = await compressImageFile(file, { maxWidth: 512, maxHeight: 512, quality: 0.72 });
-        if (target === 'company') {
-          const nextCompanyForm = { ...companyForm, logo: base64String };
-          setCompanyForm(nextCompanyForm);
-          setHasNewLogoToSave(true);
-          persistCompanySettings(nextCompanyForm);
-        } else if (target === 'business_light') {
-          const nextBusinessForm = { 
-            ...businessForm, 
-            businessLogoLight: base64String, 
-            businessLogo: businessForm.businessLogo || base64String
-          };
-          setBusinessForm(nextBusinessForm);
-          persistBusinessSettings(nextBusinessForm);
-        } else if (target === 'business_dark') {
-          const nextBusinessForm = { 
-            ...businessForm, 
-            businessLogoDark: base64String,
-            businessLogo: businessForm.businessLogo || base64String
-          };
-          setBusinessForm(nextBusinessForm);
-          persistBusinessSettings(nextBusinessForm);
-        } else {
-          const nextBusinessForm = { ...businessForm, businessLogo: base64String };
-          setBusinessForm(nextBusinessForm);
-          persistBusinessSettings(nextBusinessForm);
-        }
+
+        // Upload to Supabase Storage in background — get a permanent URL
+        // that replaces the base64 string everywhere once upload completes.
+        const applyLogoUrl = (url: string) => {
+          const urlToUse = url || base64String;
+          if (target === 'company') {
+            const nextCompanyForm = { ...companyForm, logo: urlToUse };
+            setCompanyForm(nextCompanyForm);
+            setHasNewLogoToSave(true);
+            localStorage.setItem(`jasper_tenant_logo_${activeTenant.id}`, urlToUse);
+            setLogoUrl(urlToUse);
+            persistCompanySettings(nextCompanyForm);
+          } else if (target === 'business_light') {
+            const nextBusinessForm = {
+              ...businessForm,
+              businessLogoLight: urlToUse,
+              businessLogo: businessForm.businessLogo || urlToUse
+            };
+            setBusinessForm(nextBusinessForm);
+            persistBusinessSettings(nextBusinessForm);
+          } else if (target === 'business_dark') {
+            const nextBusinessForm = {
+              ...businessForm,
+              businessLogoDark: urlToUse,
+              businessLogo: businessForm.businessLogo || urlToUse
+            };
+            setBusinessForm(nextBusinessForm);
+            persistBusinessSettings(nextBusinessForm);
+          } else {
+            const nextBusinessForm = { ...businessForm, businessLogo: urlToUse };
+            setBusinessForm(nextBusinessForm);
+            persistBusinessSettings(nextBusinessForm);
+          }
+        };
+
+        // Apply base64 immediately for instant preview
+        applyLogoUrl(base64String);
+
+        // Then upload to Storage and replace with permanent URL
+        import('../utils/imageStorage').then(({ uploadTenantLogo }) =>
+          uploadTenantLogo(file, activeTenant.id)
+        ).then((storageUrl) => {
+          if (storageUrl) applyLogoUrl(storageUrl);
+        }).catch((err) => {
+          console.warn('[DashboardSettings] Logo Storage upload failed, base64 kept:', err);
+        });
+
       } catch (error) {
         console.warn('Unable to compress uploaded logo', error);
       }

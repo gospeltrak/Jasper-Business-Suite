@@ -94,6 +94,7 @@ export default function DashboardProducts({
   }, [mobileProductMenu]);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const getTotalStockQty = (shopQty: number, storeQty: number) => Number((Number(shopQty || 0) + Number(storeQty || 0)).toFixed(3));
   
@@ -199,9 +200,26 @@ export default function DashboardProducts({
     return { productType, hierarchyStart, base, topQty, middleQty, doseQty, hierarchy };
   };
 
-  const handleSaveProductEdit = (e: React.FormEvent) => {
+  const handleSaveProductEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editForm.name) return;
+
+    // Upload new image to Supabase Storage if a new file was selected
+    let resolvedImageUrl = editForm.image;
+    if (editImageFile && editingProduct?.id) {
+      try {
+        const { uploadProductImage } = await import('../utils/imageStorage');
+        const storageUrl = await uploadProductImage(
+          editImageFile,
+          activeTenant.id,
+          editingProduct.id
+        );
+        if (storageUrl) resolvedImageUrl = storageUrl;
+      } catch (err) {
+        console.warn('[DashboardProducts] Edit image upload failed, keeping preview:', err);
+      }
+      setEditImageFile(null);
+    }
     
     // Find product in products
     const updated = products.map(p => {
@@ -243,7 +261,7 @@ export default function DashboardProducts({
           shopStockQty: editForm.shopStockQty ?? 0,
           storeStockQty: editForm.storeStockQty ?? 0,
           alertQty: editForm.alertQty ?? 5,
-          image: editForm.image,
+          image: resolvedImageUrl,
           sellInRetail: editForm.sellInRetail !== false,
           sellInWholesale: !!editForm.sellInWholesale,
           wholesalePrice: editForm.sellInWholesale ? (editForm.wholesalePrice ?? 0) : undefined,
@@ -520,6 +538,7 @@ export default function DashboardProducts({
   const [storeStockQty, setStoreStockQty] = useState(10);
   const [alertQty, setAlertQty] = useState(5);
   const [productImage, setProductImage] = useState<string>('');
+  const [productImageFile, setProductImageFile] = useState<File | null>(null); // raw file for Supabase Storage upload
 
   // Image Processing state
   const [isProcessingImage, setIsProcessingImage] = useState(false);
@@ -718,6 +737,8 @@ export default function DashboardProducts({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setProductImageFile(file); // store raw file for Supabase Storage upload
+
     setIsProcessingImage(true);
     setProcessingStatus('Reading image asset...');
 
@@ -834,7 +855,7 @@ export default function DashboardProducts({
   };
 
   // Handle Create Product
-  const handleCreateProduct = (e: FormEvent) => {
+  const handleCreateProduct = async (e: FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
@@ -1007,7 +1028,37 @@ export default function DashboardProducts({
       })
     };
 
-    onAddProduct(newProd);
+    // ── Upload image to Supabase Storage if a file was selected ──────────────
+    // The canvas-processed preview (productImage) is shown instantly in the UI.
+    // The raw file (productImageFile) is what we compress and upload to Storage.
+    // We update the product's image field with the permanent Storage URL after
+    // upload succeeds, replacing the temporary base64 preview.
+    let finalImageUrl: string | undefined = productImage || undefined;
+
+    if (productImageFile) {
+      try {
+        setProcessingStatus('Uploading image to cloud storage...');
+        const { uploadProductImage } = await import('../utils/imageStorage');
+        const storageUrl = await uploadProductImage(
+          productImageFile,
+          activeTenant.id,
+          newProd.id
+        );
+        if (storageUrl) {
+          finalImageUrl = storageUrl;
+        }
+      } catch (uploadErr) {
+        console.warn('[DashboardProducts] Storage upload failed, keeping base64 preview:', uploadErr);
+        // Non-fatal — product saves with base64 preview as fallback
+      }
+      setProcessingStatus('');
+    }
+
+    const finalProd = finalImageUrl !== productImage
+      ? { ...newProd, image: finalImageUrl }
+      : newProd;
+
+    onAddProduct(finalProd);
     setFormSuccess(true);
     
     setTimeout(() => {
@@ -1022,6 +1073,7 @@ export default function DashboardProducts({
       setStoreStockQty(10);
       setAlertQty(5);
       setProductImage('');
+      setProductImageFile(null);
       setSellInRetail(true);
       setSellInWholesale(false);
       setWholesalePrice(0);
@@ -4219,6 +4271,7 @@ export default function DashboardProducts({
                           onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
+                              setEditImageFile(file); // store for Storage upload on save
                               const compressed = await compressImageFile(file, { maxWidth: 700, maxHeight: 700, quality: 0.72 });
                               setEditForm(prev => ({ ...prev, image: compressed }));
                             }

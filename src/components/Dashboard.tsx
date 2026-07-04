@@ -1147,29 +1147,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     try {
       localStorage.setItem('jasper_products_map', JSON.stringify(productsMap));
     } catch (e: any) {
-      // localStorage quota exceeded — strip base64 images from the saved data
-      // to reduce size, keeping all other product data intact.
-      // Images will need to be re-uploaded next session.
-      if (e?.name === 'QuotaExceededError' || e?.code === 22) {
-        try {
-          const stripped = Object.fromEntries(
-            Object.entries(productsMap).map(([tid, prods]) => [
-              tid,
-              (prods as any[]).map((p: any) => {
-                if (p.image && p.image.startsWith('data:')) {
-                  const { image: _img, ...rest } = p;
-                  return rest;
-                }
-                return p;
-              }),
-            ])
-          );
-          localStorage.setItem('jasper_products_map', JSON.stringify(stripped));
-          console.warn('[Jasper] localStorage quota exceeded — product images were not saved. Consider using smaller images.');
-        } catch {
-          // If still fails, skip saving this update silently
-        }
-      }
+      // localStorage quota exceeded — this should be rare now that product images
+      // are stored in Supabase Storage (URLs) rather than base64 in localStorage.
+      // If it still happens, log a warning but do NOT strip any data.
+      console.warn('[Jasper] localStorage quota exceeded saving products map. Consider clearing old data.', e);
     }
     // Sync each tenant's products to cloud
     Object.entries(productsMap).forEach(([tid, data]) => {
