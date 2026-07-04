@@ -1307,6 +1307,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           } else {
             setDatabaseWorkspaceEnabled(true);
           }
+          // Start presence tracking
+          import('../utils/userPresence').then(({ startPresenceTracking }) => {
+            startPresenceTracking(
+              profile.id,
+              isPartnerAccount ? 'partner' : 'affiliate',
+              profile.display_name || 'Affiliate'
+            );
+          });
           setAuthMode('dashboard');
           return;
         }
@@ -1324,6 +1332,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   };
 
   const handleLogoutAffiliate = async () => {
+    // Stop presence tracking immediately on logout
+    import('../utils/userPresence').then(({ stopPresenceTracking }) => {
+      stopPresenceTracking();
+    });
     try {
       const client: any = await getSecureDataBridgeClient();
       await client.auth.signOut();

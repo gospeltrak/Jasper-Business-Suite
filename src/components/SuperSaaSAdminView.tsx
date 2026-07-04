@@ -40,6 +40,7 @@ import Dashboard from './Dashboard';
 import { User } from '../types';
 import SaaSStatusAndRequests from './SaaSStatusAndRequests';
 import SaaSReportsView from './SaaSReportsView';
+import SaaSUserActivityView from './SaaSUserActivityView';
 import SaaSDashboardMetrics from './SaaSDashboardMetrics';
 import SaaSExpensesView from './SaaSExpensesView';
 import SaaSInbox from './SaaSInbox';
@@ -52,7 +53,7 @@ import SaaSWebEditor from './SaaSWebEditor';
 import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 
-export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
+export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'user-activity' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
 
 export interface SuperSaaSAdminViewProps {
   activeAdminSubTab?: SuperAdminWorkspaceTab;
@@ -725,6 +726,13 @@ export default function SuperSaaSAdminView({
         {activeTab === 'reports' && (
           <div className="space-y-6 animate-fade-in text-left">
             <SaaSReportsView />
+          </div>
+        )}
+
+        {/* ======================= TAB: USER ACTIVITY & ONLINE ======================= */}
+        {activeTab === 'user-activity' && (
+          <div className="space-y-6 animate-fade-in text-left">
+            <SaaSUserActivityView />
           </div>
         )}
 

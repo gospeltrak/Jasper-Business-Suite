@@ -303,6 +303,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     'admin-sub-affiliates',
     'admin-status',
     'admin-reports',
+    'admin-user-activity',
     'admin-expenses',
     'admin-chats',
     'admin-inbox',
@@ -909,6 +910,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       'admin-sub-affiliates': 'affiliates',
       'admin-status': 'status',
       'admin-reports': 'reports',
+      'admin-user-activity': 'user-activity',
       'admin-expenses': 'expenses',
       'admin-chats': 'chats',
       'admin-inbox': 'inbox',
@@ -1821,6 +1823,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
         { id: 'admin-status', label: 'Status and Request', icon: Activity },
         { id: 'admin-reports', label: 'Reports', icon: Database },
+        { id: 'admin-user-activity', label: 'User Activity', icon: Users },
         { id: 'admin-expenses', label: 'Expenses', icon: Receipt },
         { id: 'admin-chats', label: 'Chats', icon: MessageSquare },
         { id: 'admin-inbox', label: 'Inbox', icon: Inbox },
@@ -1890,6 +1893,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
     { id: 'admin-status', label: 'Status & Requests', icon: Activity, tabId: 'admin-status' },
     { id: 'admin-reports', label: 'Reports', icon: Database, tabId: 'admin-reports' },
+    { id: 'admin-user-activity', label: 'User Activity', icon: Users, tabId: 'admin-user-activity' },
     { id: 'admin-expenses', label: 'Expenses', icon: Receipt, tabId: 'admin-expenses' },
     { id: 'admin-chats', label: 'Chats', icon: MessageSquare, tabId: 'admin-chats' },
     { id: 'admin-inbox', label: 'Inbox', icon: Inbox, tabId: 'admin-inbox' },
@@ -2920,6 +2924,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                  activeTab === 'admin-sub-affiliates' ? 'sub-affiliates' :
                  activeTab === 'admin-status' ? 'status' :
                  activeTab === 'admin-reports' ? 'reports' :
+                 activeTab === 'admin-user-activity' ? 'user-activity' :
                   activeTab === 'admin-expenses' ? 'expenses' :
                  activeTab === 'admin-chats' ? 'chats' :
                  activeTab === 'admin-inbox' ? 'inbox' :
@@ -2940,6 +2945,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                    subTab === 'sub-affiliates' ? 'admin-sub-affiliates' :
                    subTab === 'status' ? 'admin-status' :
                    subTab === 'reports' ? 'admin-reports' :
+                   subTab === 'user-activity' ? 'admin-user-activity' :
                     subTab === 'expenses' ? 'admin-expenses' :
                    subTab === 'chats' ? 'admin-chats' :
                    subTab === 'inbox' ? 'admin-inbox' :
@@ -3051,6 +3057,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   { id: 'admin-hw-inventory',label: 'HW Stock',   icon: Database,        bg: 'bg-orange-500' },
                   { id: 'admin-hw-sales',    label: 'HW Sales',   icon: TrendingUp,      bg: 'bg-rose-500' },
                   { id: 'admin-reports',     label: 'Reports',    icon: PieChart,        bg: 'bg-indigo-600' },
+                  { id: 'admin-user-activity', label: 'Activity', icon: Users,           bg: 'bg-sky-600' },
                   { id: 'admin-expenses',    label: 'Expenses',   icon: MinusCircle,     bg: 'bg-rose-600' },
                   { id: 'admin-chats',       label: 'Chats',      icon: MessageSquare,   bg: 'bg-cyan-600' },
                   { id: 'admin-ad-placements', label: 'Placements', icon: MonitorPlay,   bg: 'bg-purple-600' },
