@@ -426,8 +426,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     // since partnerId (from partnerInfo.id) may not be set yet on first load
     // due to a race condition between loadFreshProfile and loadSubAffiliates.
     try {
-      const { getDynamicSupabaseClient } = await import('../../supabaseClient');
-      const client: any = await getDynamicSupabaseClient();
+      const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+      const client: any = await getSecureDataBridgeClient();
 
       // Get the real partner row ID from the database directly
       let resolvedPartnerId = partnerId !== 'partner-local' ? partnerId : null;
