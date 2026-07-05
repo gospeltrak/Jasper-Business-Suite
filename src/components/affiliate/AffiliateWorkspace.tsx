@@ -19,6 +19,15 @@ import {
   ShieldCheck,
   TrendingUp,
   Wallet,
+  X,
+  AlertCircle,
+  ArrowDownToLine,
+  Phone,
+  User,
+  Lock,
+  ChevronRight,
+  Clock,
+  CheckCheck,
 } from 'lucide-react';
 import {
   AffiliateCampaign,
@@ -75,6 +84,11 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const [profileDraft, setProfileDraft] = useState({ displayName: '', payoutMethod: '', payoutAccount: '' });
   const [profilePrefs, setProfilePrefs] = useState({ emailUpdates: true, compactView: false });
   const [reportMonth, setReportMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawForm, setWithdrawForm] = useState({ name: '', phone: '', amount: '', password: '' });
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const TRANSACTION_FEE_PERCENT = 0.02; // 2% transaction fee
   const adSettings = useGlobalAdSettings();
 
   useEffect(() => {
@@ -333,33 +347,51 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
     setNotice(result.queued ? 'Profile saved locally and will sync when online.' : 'Profile settings saved.');
   };
 
-  const requestWithdrawal = async () => {
+  const handleWithdrawSubmit = async () => {
     if (!workspace?.profile) return;
-    if (!isAgentApprovedForWithdrawals) {
-      setNotice('Your affiliate agent must approve withdrawals before you can withdraw.');
-      return;
-    }
-    if (monthStats.payout < 5000) {
-      setNotice('Minimum withdrawal threshold is TZS 5,000.');
-      return;
-    }
+    const { name, phone, amount, password } = withdrawForm;
+    if (!name.trim()) { setWithdrawError('Please enter the account holder name.'); return; }
+    if (!phone.trim()) { setWithdrawError('Please enter the phone number.'); return; }
+    if (!amount || Number(amount) <= 0) { setWithdrawError('Please enter a valid amount.'); return; }
+    if (Number(amount) > monthStats.payout) { setWithdrawError(`Amount cannot exceed your available balance of ${currency.format(monthStats.payout)}.`); return; }
+    if (Number(amount) < 5000) { setWithdrawError('Minimum withdrawal is TZS 5,000.'); return; }
+    if (!password.trim()) { setWithdrawError('Please enter your password to confirm.'); return; }
+
+    setWithdrawing(true);
+    setWithdrawError(null);
+
+    const fee = Math.round(Number(amount) * TRANSACTION_FEE_PERCENT);
+    const netAmount = Math.round(Number(amount)) - fee;
+
     const result = await dbWrite(
       'affiliate_payouts',
       'insert',
       {
         affiliate_id: workspace.profile.id,
-        amount: Math.round(monthStats.payout),
+        amount: Math.round(Number(amount)),
+        net_amount: netAmount,
+        transaction_fee: fee,
         currency: 'TZS',
-        payout_method: workspace.profile.payout_method,
-        payout_reference: null,
+        payout_method: workspace.profile.payout_method || 'Mobile Money',
+        payout_reference: phone.trim(),
+        recipient_name: name.trim(),
+        recipient_phone: phone.trim(),
         status: 'requested',
         requested_at: new Date().toISOString(),
-        notes: `ZamPay disbursement request for ${reportMonth}. Gross 15% commission: ${Math.round(monthStats.grossCommission).toLocaleString()}; WHT 5% of commission: ${Math.round(monthStats.withholding).toLocaleString()}.`,
+        notes: `Withdrawal request. Gross: ${Math.round(Number(amount)).toLocaleString()}, Fee (2%): ${fee.toLocaleString()}, Net: ${netAmount.toLocaleString()}.`,
       },
       workspace.profile.id,
     );
-    setNotice(result.queued ? 'Withdrawal request saved locally and will sync when online.' : 'Withdrawal request submitted for ZamPay disbursement review.');
-    await refresh();
+
+    setWithdrawing(false);
+    if (result.queued || result.id) {
+      setShowWithdrawModal(false);
+      setWithdrawForm({ name: '', phone: '', amount: '', password: '' });
+      setNotice(`✅ Withdrawal of ${currency.format(netAmount)} submitted successfully (after ${currency.format(fee)} fee).`);
+      await refresh();
+    } else {
+      setWithdrawError('Failed to submit withdrawal. Please try again.');
+    }
   };
 
   const downloadUrl = (url: string, fileName?: string | null) => {
@@ -799,34 +831,259 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
             </section>
           )}
           {activeTab === 'payouts' && (
-            <section className="space-y-5">
-              <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <section className="space-y-4 pb-4">
+
+              {/* Header */}
+              <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-black text-slate-950">Payout</h2>
-                  <p className="mt-0.5 text-sm text-slate-500">Monthly earned commission, withholding tax, and ZamPay withdrawal eligibility.</p>
+                  <h2 className="text-lg font-black text-slate-900">Payouts</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Your commission & withdrawal history</p>
                 </div>
-                <input type="month" value={reportMonth} onChange={(event) => setReportMonth(event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-emerald-500" />
+                <input
+                  type="month"
+                  value={reportMonth}
+                  onChange={(e) => setReportMonth(e.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-emerald-500 shadow-sm"
+                />
               </div>
-              <div className="grid gap-3 sm:grid-cols-4">
-                <Metric label="Earned commission" value={currency.format(monthStats.grossCommission)} sub="15% for selected month" />
-                <Metric label="Withholding tax" value={currency.format(monthStats.withholding)} sub="5% of commission" />
-                <Metric label="Total payout amount" value={currency.format(monthStats.payout)} sub="Can withdraw after approval" />
-                <Metric label="Threshold" value="TZS 5,000" sub={monthStats.payout >= 5000 ? 'Reached' : 'Not reached'} />
+
+              {/* Balance card */}
+              <div className="rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-600 p-5 text-white shadow-xl shadow-emerald-500/20 relative overflow-hidden">
+                <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/10" />
+                <div className="absolute -bottom-8 -left-4 w-24 h-24 rounded-full bg-white/5" />
+                <div className="relative">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-100">Available to Withdraw</p>
+                  <p className="text-3xl font-black mt-1 tracking-tight">{currency.format(monthStats.payout)}</p>
+                  <div className="flex items-center gap-4 mt-3">
+                    <div>
+                      <p className="text-[10px] text-emerald-200">Gross (15%)</p>
+                      <p className="text-sm font-black">{currency.format(monthStats.grossCommission)}</p>
+                    </div>
+                    <div className="w-px h-8 bg-white/20" />
+                    <div>
+                      <p className="text-[10px] text-emerald-200">Tax (5%)</p>
+                      <p className="text-sm font-black text-rose-200">-{currency.format(monthStats.withholding)}</p>
+                    </div>
+                    <div className="w-px h-8 bg-white/20" />
+                    <div>
+                      <p className="text-[10px] text-emerald-200">Min. withdrawal</p>
+                      <p className="text-sm font-black">TZS 5,000</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+
+              {/* Withdraw button */}
+              {canWithdraw ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWithdrawForm({
+                      name: workspace?.profile?.display_name || '',
+                      phone: workspace?.profile?.phone_whatsapp || '',
+                      amount: String(Math.round(monthStats.payout)),
+                      password: '',
+                    });
+                    setWithdrawError(null);
+                    setShowWithdrawModal(true);
+                  }}
+                  className="w-full flex items-center justify-between bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-2xl px-5 py-4 shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                      <ArrowDownToLine className="w-5 h-5" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-black">Withdraw Funds</p>
+                      <p className="text-[11px] text-emerald-200">2% transaction fee applies</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-white/70" />
+                </button>
+              ) : (
+                <div className="w-full flex items-center gap-3 bg-slate-100 rounded-2xl px-5 py-4">
+                  <AlertCircle className="w-5 h-5 text-slate-400 shrink-0" />
                   <div>
-                    <p className="text-sm font-black text-slate-950">ZamPay disbursement withdrawal</p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Status: {isAgentApprovedForWithdrawals ? 'Agent approved for withdrawals' : 'Waiting for affiliate agent approval'} · Minimum withdrawal TZS 5,000.
+                    <p className="text-sm font-bold text-slate-500">Withdrawal not available</p>
+                    <p className="text-[11px] text-slate-400">
+                      {!isAgentApprovedForWithdrawals
+                        ? 'Waiting for affiliate agent approval'
+                        : `Need at least TZS 5,000 (current: ${currency.format(monthStats.payout)})`}
                     </p>
                   </div>
-                  <button type="button" disabled={!canWithdraw} onClick={requestWithdrawal} className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500">
-                    Withdraw {currency.format(monthStats.payout)}
-                  </button>
                 </div>
+              )}
+
+              {/* Payout history */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider px-1">Payout History</p>
+                {workspace!.payouts.length === 0 ? (
+                  <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-8 text-center">
+                    <Wallet className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+                    <p className="text-sm font-bold text-slate-400">No withdrawals yet</p>
+                    <p className="text-xs text-slate-400 mt-1">Your payout history will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {workspace!.payouts.map((payout) => {
+                      const statusColor = payout.status === 'paid'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                        : payout.status === 'rejected'
+                        ? 'bg-rose-50 text-rose-600 border-rose-100'
+                        : 'bg-amber-50 text-amber-700 border-amber-100';
+                      const StatusIcon = payout.status === 'paid' ? CheckCheck : payout.status === 'rejected' ? X : Clock;
+                      return (
+                        <div key={payout.id} className="bg-white rounded-2xl border border-slate-100 px-4 py-3.5 shadow-sm flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${statusColor}`}>
+                            <StatusIcon className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-black text-slate-900">{currency.format(payout.amount)}</p>
+                            <p className="text-[11px] text-slate-400 truncate">
+                              {payout.payout_method || 'Mobile Money'} · {formatDateTime(payout.requested_at)}
+                            </p>
+                          </div>
+                          <span className={`shrink-0 rounded-xl px-2.5 py-1 text-[10px] font-black uppercase tracking-wider border ${statusColor}`}>
+                            {payout.status}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.payouts.map((payout) => <div key={payout.id} className="flex items-center justify-between gap-3 border-b border-slate-100 p-4 last:border-0"><div><p className="text-sm font-bold">{currency.format(payout.amount)}</p><p className="text-xs text-slate-500">{payout.payout_method || 'Payout method pending'} · {formatDateTime(payout.requested_at)}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold capitalize text-slate-700">{payout.status}</span></div>)}{workspace!.payouts.length === 0 && <Empty text="No payout requests yet. Confirmed payouts will appear here." />}</div>
+
+              {/* Withdraw Modal */}
+              {showWithdrawModal && (
+                <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+                  onClick={(e) => { if (e.target === e.currentTarget) setShowWithdrawModal(false); }}>
+                  <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
+
+                    {/* Modal header */}
+                    <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center">
+                          <ArrowDownToLine className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-[15px] font-black text-slate-900">Withdraw Funds</h3>
+                          <p className="text-[11px] text-slate-400">2% transaction fee will be deducted</p>
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => setShowWithdrawModal(false)}
+                        className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center cursor-pointer border-none">
+                        <X className="w-4 h-4 text-slate-500" />
+                      </button>
+                    </div>
+
+                    <div className="px-5 py-4 space-y-4">
+
+                      {/* Fee notice */}
+                      <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-[11px] font-black text-amber-700">Transaction Fee Notice</p>
+                          <p className="text-[11px] text-amber-600 mt-0.5">
+                            A 2% processing fee will be charged on your withdrawal amount.
+                            {withdrawForm.amount && Number(withdrawForm.amount) > 0 && (
+                              <span className="font-black"> You will receive {currency.format(Math.round(Number(withdrawForm.amount) * (1 - TRANSACTION_FEE_PERCENT)))} after fee of {currency.format(Math.round(Number(withdrawForm.amount) * TRANSACTION_FEE_PERCENT))}.</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Name */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Account Holder Name</label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input
+                            type="text"
+                            value={withdrawForm.name}
+                            onChange={(e) => setWithdrawForm(f => ({ ...f, name: e.target.value }))}
+                            placeholder="Full name on account…"
+                            className="w-full pl-9 pr-4 py-3 rounded-2xl border border-slate-200 focus:border-emerald-400 outline-none text-sm font-semibold text-slate-800 bg-slate-50 focus:bg-white transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Phone */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Phone Number (Money will be sent here)</label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input
+                            type="tel"
+                            value={withdrawForm.phone}
+                            onChange={(e) => setWithdrawForm(f => ({ ...f, phone: e.target.value }))}
+                            placeholder="+255 7XX XXX XXX…"
+                            className="w-full pl-9 pr-4 py-3 rounded-2xl border border-slate-200 focus:border-emerald-400 outline-none text-sm font-semibold text-slate-800 bg-slate-50 focus:bg-white transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Amount */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
+                          Amount (TZS) <span className="font-normal text-slate-400">— Available: {currency.format(monthStats.payout)}</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="5000"
+                          max={monthStats.payout}
+                          value={withdrawForm.amount}
+                          onChange={(e) => setWithdrawForm(f => ({ ...f, amount: e.target.value }))}
+                          placeholder="Minimum TZS 5,000…"
+                          className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:border-emerald-400 outline-none text-sm font-semibold text-slate-800 bg-slate-50 focus:bg-white transition-colors"
+                        />
+                        {withdrawForm.amount && Number(withdrawForm.amount) >= 5000 && (
+                          <div className="bg-emerald-50 rounded-xl px-3 py-2 flex justify-between text-[11px]">
+                            <span className="text-slate-500">You receive (after 2% fee)</span>
+                            <span className="font-black text-emerald-700">{currency.format(Math.round(Number(withdrawForm.amount) * 0.98))}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Password */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Your Password (to confirm)</label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input
+                            type="password"
+                            value={withdrawForm.password}
+                            onChange={(e) => setWithdrawForm(f => ({ ...f, password: e.target.value }))}
+                            placeholder="Enter your login password…"
+                            className="w-full pl-9 pr-4 py-3 rounded-2xl border border-slate-200 focus:border-emerald-400 outline-none text-sm font-semibold text-slate-800 bg-slate-50 focus:bg-white transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Error */}
+                      {withdrawError && (
+                        <div className="bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3 flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                          <p className="text-[12px] font-semibold text-rose-600">{withdrawError}</p>
+                        </div>
+                      )}
+
+                      {/* Submit */}
+                      <button
+                        type="button"
+                        disabled={withdrawing}
+                        onClick={handleWithdrawSubmit}
+                        className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 text-white font-black text-sm transition-colors cursor-pointer border-none flex items-center justify-center gap-2 mb-2"
+                      >
+                        {withdrawing ? (
+                          <><LoaderCircle className="w-4 h-4 animate-spin" /> Processing…</>
+                        ) : (
+                          <><ArrowDownToLine className="w-4 h-4" /> Withdraw Funds</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </section>
           )}
           {activeTab === 'settings' && (
