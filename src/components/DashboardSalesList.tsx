@@ -461,8 +461,11 @@ export default function DashboardSalesList({
   const [newDocHasVat, setNewDocHasVat] = useState(() => !!systemSettings?.invoiceSettings?.hasVatByDefault);
 
   // Sync VAT toggle default state when modal opens
+  const prevShowNewDocModal = React.useRef(false);
   useEffect(() => {
-    if (showNewDocModal) {
+    const justOpened = showNewDocModal && !prevShowNewDocModal.current;
+    prevShowNewDocModal.current = showNewDocModal;
+    if (justOpened) {
       setNewDocHasVat(!!systemSettings?.invoiceSettings?.hasVatByDefault);
       setNewDocDeliveryCost(0);
       setNewDocPaymentMethod(systemSettings?.business?.paymentModes?.[0] || 'Cash');
@@ -4077,23 +4080,12 @@ export default function DashboardSalesList({
                     <label className="block text-xs font-bold text-slate-600 mb-1">Customer Phone</label>
                     <input
                       type="text"
-                      placeholder="e.g. +254 755 123 456"
+                      placeholder="e.g. +255 755 123 456"
                       value={newDocCustomerPhone}
                       onChange={(e) => setNewDocCustomerPhone(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500"
                     />
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Billing & Delivery Address</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 123 Main Street, City"
-                    value={newDocCustomerAddress}
-                    onChange={(e) => setNewDocCustomerAddress(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500"
-                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -4789,17 +4781,12 @@ export default function DashboardSalesList({
                       </div>
                     )}
 
-                    {/* Signature line */}
-                    <div className="border-t border-slate-100 pt-6 grid grid-cols-2 gap-8 text-xs text-slate-500">
-                      <div>
+                    {/* Signature line — seller only */}
+                    <div className="border-t border-slate-100 pt-6 text-xs text-slate-500">
+                      <div className="inline-block min-w-[200px]">
                         <div className="h-10 border-b border-slate-300 mb-1" />
                         <p className="font-semibold text-slate-700">{preparerName}</p>
                         <p className="text-slate-400">{preparerRole}</p>
-                      </div>
-                      <div>
-                        <div className="h-10 border-b border-slate-300 mb-1" />
-                        <p className="font-semibold text-slate-700">Customer Signature</p>
-                        <p className="text-slate-400">{viewingDocument.customerName || '—'}</p>
                       </div>
                     </div>
 
