@@ -592,8 +592,8 @@ export default function SuperSaaSAdminView({
             </button>
           ) : (
             <button onClick={handleShieldClick}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded-xl text-[10px] font-bold cursor-pointer">
-              <Lock className="w-3 h-3" /> Unlock
+              className="p-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded-xl cursor-pointer hover:bg-amber-500/25 transition-colors">
+              <Shield className="w-4 h-4 text-amber-400" />
             </button>
           )}
         </div>
