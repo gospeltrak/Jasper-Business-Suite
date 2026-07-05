@@ -4813,95 +4813,73 @@ export default function DashboardReports({
                 </div>
               )}
 
-              {reportTab === 'velocity' && (
-                <div className="space-y-4">
-                  {(() => {
+              {reportTab === 'velocity' && (() => {
                     const prodSells: Record<string, { name: string; sku: string; barcode: string; cat: string; qty: number }> = {};
                     products.forEach(p => {
                       prodSells[p.id] = { name: p.name, sku: p.sku || '', barcode: p.barcode || '', cat: p.category || '', qty: 0 };
                     });
                     filteredSales.forEach(s => {
                       s.items.forEach(it => {
-                        if (prodSells[it.productId]) {
-                          prodSells[it.productId].qty += it.qty;
-                        }
+                        if (prodSells[it.productId]) prodSells[it.productId].qty += it.qty;
                       });
                     });
-                    const sorted = Object.values(prodSells).sort((a,b) => b.qty - a.qty);
-                    const midpoint = Math.floor(sorted.length / 2);
-                    const fastMovers = sorted.slice(0, midpoint || 1);
-                    const slowMovers = sorted.slice(midpoint || 1);
+                    const allSorted = Object.values(prodSells).sort((a, b) => b.qty - a.qty);
+                    const mid = Math.ceil(allSorted.length / 2);
+                    const fastMovers = allSorted.slice(0, mid);
+                    const slowMovers = [...allSorted].slice(mid).sort((a, b) => a.qty - b.qty);
+                    const isFastMode = velocitySortOrder === 'desc';
+                    const displayList = isFastMode ? fastMovers : slowMovers;
+                    const topItem = isFastMode ? fastMovers[0] : slowMovers[0];
 
                     return (
                       <div className="space-y-4 text-left">
                         {/* Fast/Slow toggle */}
                         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-1">
-                          <button
-                            type="button"
-                            onClick={() => setVelocitySortOrder('desc')}
-                            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border-none ${velocitySortOrder === 'desc' ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 bg-transparent'}`}
-                          >
+                          <button type="button" onClick={() => setVelocitySortOrder('desc')}
+                            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer border-none ${isFastMode ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 bg-transparent hover:bg-slate-100'}`}>
                             <TrendingUp className="w-3.5 h-3.5" /> Fast Movers
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setVelocitySortOrder('asc')}
-                            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border-none ${velocitySortOrder === 'asc' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500 bg-transparent'}`}
-                          >
+                          <button type="button" onClick={() => setVelocitySortOrder('asc')}
+                            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer border-none ${!isFastMode ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500 bg-transparent hover:bg-slate-100'}`}>
                             <MinusCircle className="w-3.5 h-3.5" /> Slow Movers
                           </button>
                         </div>
 
-                        {/* Top SKU card */}
-                        {velocitySortOrder === 'desc' ? (
-                          <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex flex-col justify-between min-h-[84px]">
-                            <div className="flex items-center gap-1.5 text-emerald-600">
-                              <TrendingUp className="w-4 h-4" />
-                              <span className="text-[10px] font-bold uppercase tracking-wider font-mono">Top Fast Mover</span>
-                            </div>
-                            <span className="text-sm font-black text-emerald-900 mt-2">{fastMovers[0]?.name || 'N/A'}</span>
-                            <span className="text-[10px] text-emerald-600 font-mono mt-0.5">{fastMovers[0]?.qty || 0} units sold · {((fastMovers[0]?.qty || 0) / 30).toFixed(2)}/day</span>
+                        {/* Top card */}
+                        <div className={`p-4 rounded-2xl border ${isFastMode ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                          <div className={`flex items-center gap-1.5 mb-2 ${isFastMode ? 'text-emerald-600' : 'text-rose-500'}`}>
+                            {isFastMode ? <TrendingUp className="w-4 h-4" /> : <MinusCircle className="w-4 h-4" />}
+                            <span className="text-[10px] font-black uppercase tracking-wider">{isFastMode ? 'Top Fast Mover' : 'Slowest Mover'}</span>
                           </div>
-                        ) : (
-                          <div className="bg-rose-50 border border-rose-200 p-3 rounded-xl flex flex-col justify-between min-h-[84px]">
-                            <div className="flex items-center gap-1.5 text-rose-500">
-                              <MinusCircle className="w-4 h-4" />
-                              <span className="text-[10px] font-bold uppercase tracking-wider font-mono">Slowest Mover</span>
-                            </div>
-                            <span className="text-sm font-black text-rose-900 mt-2">{slowMovers[slowMovers.length - 1]?.name || 'N/A'}</span>
-                            <span className="text-[10px] text-rose-500 font-mono mt-0.5">{slowMovers[slowMovers.length - 1]?.qty || 0} units sold · {((slowMovers[slowMovers.length - 1]?.qty || 0) / 30).toFixed(2)}/day</span>
-                          </div>
-                        )}
+                          <p className={`text-sm font-black ${isFastMode ? 'text-emerald-900' : 'text-rose-900'}`}>{topItem?.name || 'No data'}</p>
+                          <p className={`text-[11px] font-mono mt-1 ${isFastMode ? 'text-emerald-600' : 'text-rose-500'}`}>
+                            {topItem?.qty || 0} units sold · {((topItem?.qty || 0) / 30).toFixed(2)}/day
+                          </p>
+                        </div>
 
                         {/* Product list */}
-                        <div className="space-y-2 animate-fade-in">
-                          {(velocitySortOrder === 'desc' ? fastMovers : slowMovers).map((item, idx) => {
-                            const isFast = velocitySortOrder === 'desc';
-                            return (
-                              <div key={idx} className={`px-4 py-3 border rounded-xl shadow-xs flex justify-between items-center ${isFast ? 'bg-white border-emerald-100' : 'bg-white border-rose-100'}`}>
-                                <div className="min-w-0 flex-1">
-                                  <span className="text-sm font-bold text-slate-800 block truncate">{item.name}</span>
-                                  <span className="text-xs text-slate-400 block mt-0.5">{item.barcode ? `${item.barcode} · ` : ''}{item.cat || 'Uncategorized'}</span>
-                                </div>
-                                <div className="text-right shrink-0 ml-3">
-                                  <span className="text-sm font-extrabold text-slate-900 block">{formatProductQuantity(item.qty, products.find(p => p.name === item.name))}</span>
-                                  <span className={`text-[11px] font-extrabold block mt-0.5 ${isFast ? 'text-emerald-600' : 'text-rose-500'}`}>{(item.qty / 30).toFixed(2)} / day</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {(velocitySortOrder === 'desc' ? fastMovers : slowMovers).length === 0 && (
+                        <div className="space-y-2">
+                          {displayList.length === 0 ? (
                             <div className="text-center py-8 text-slate-400">
                               <p className="text-sm font-semibold">No data available</p>
-                              <p className="text-xs mt-1">Record some sales to see velocity data</p>
+                              <p className="text-xs mt-1">Record sales to see velocity data</p>
                             </div>
-                          )}
+                          ) : displayList.map((item, idx) => (
+                            <div key={idx} className={`px-4 py-3 border rounded-xl flex justify-between items-center bg-white ${isFastMode ? 'border-emerald-100' : 'border-rose-100'}`}>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-bold text-slate-800 truncate">{item.name}</p>
+                                <p className="text-xs text-slate-400 mt-0.5">{item.cat || 'Uncategorized'}{item.barcode ? ` · ${item.barcode}` : ''}</p>
+                              </div>
+                              <div className="text-right shrink-0 ml-3">
+                                <p className="text-sm font-extrabold text-slate-900">{formatProductQuantity(item.qty, products.find(p => p.name === item.name))}</p>
+                                <p className={`text-[11px] font-extrabold mt-0.5 ${isFastMode ? 'text-emerald-600' : 'text-rose-500'}`}>{(item.qty / 30).toFixed(2)}/day</p>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     );
                   })()}
-                </div>
-              )}
             </div>
           </div>
         )}

@@ -3070,11 +3070,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 { id: 'admin-affiliates',   label: 'Affiliates',   icon: Award },
                 { id: '__more__',           label: 'More',         icon: Menu },
               ] : [
-                // ── Tenant / business user bottom nav (UNCHANGED) ────────
-                { id: 'overview',    label: 'Home',  icon: LayoutDashboard },
-                { id: 'sales-list',  label: 'Sales', icon: FileText, alwaysShow: true },
-                { id: 'pos',         label: 'Sell',  icon: ShoppingCart, isPOS: true },
-                { id: 'products',    label: 'Stock', icon: Database },
+                // ── Tenant / business user bottom nav ────────
+                { id: 'overview',    label: 'Home',  icon: LayoutDashboard, alwaysShow: true },
+                { id: 'sales-list',  label: 'Sales', icon: FileText,        alwaysShow: true },
+                { id: 'pos',         label: 'Sell',  icon: ShoppingCart,    isPOS: true, alwaysShow: true },
+                { id: 'products',    label: 'Stock', icon: Database,        alwaysShow: true },
                 { id: '__more__',    label: 'More',  icon: Menu },
               ]).filter(tab => tab.id === '__more__' || (tab as any).alwaysShow || isTabAllowed(tab.id)).map((tab: any) => {
                 const isMore = tab.id === '__more__';
