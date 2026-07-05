@@ -129,7 +129,7 @@ export default function DashboardOverview({
   }, [filteredSales, products]);
 
   const grossProfit = totalRevenue - totalCost;
-  const avgProfitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : (sales.length === 0 ? 0 : 34.5);
+  const avgProfitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
   // Calculation of Money Earned Summary Metrics
   const todayTotalRevenue = useMemo(() => {
@@ -163,7 +163,7 @@ export default function DashboardOverview({
       })
       .reduce((sum, s) => sum + saleProductRevenue(s), 0);
 
-    if (lastMonthSalesNum <= 0) return sales.length === 0 ? 0 : 18.2; // premium static realistic growth fallback
+    if (lastMonthSalesNum <= 0) return 0; // no previous month data — show 0 not fake number
     return ((thisMonthSalesNum - lastMonthSalesNum) / lastMonthSalesNum) * 100;
   }, [sales]);
 
@@ -337,9 +337,9 @@ export default function DashboardOverview({
           }, 0);
         }, 0);
 
-        const salesVal = actualSum > 0 ? actualSum : (isNewTenant ? 0 : seg.fallbackSale);
-        const purchasesVal = actualCost > 0 ? actualCost : (isNewTenant ? 0 : seg.fallbackPurchase);
-        const targetVal = isNewTenant ? 0 : seg.target;
+        const salesVal = actualSum; // real data only
+        const purchasesVal = actualCost; // real data only
+        const targetVal = 0; // targets removed — show real data only
 
         return {
           month: seg.name,
@@ -384,9 +384,9 @@ export default function DashboardOverview({
           }, 0);
         }, 0);
 
-        const salesVal = actualSum > 0 ? actualSum : (isNewTenant ? 0 : day.fallbackSale);
-        const purchasesVal = actualCost > 0 ? actualCost : (isNewTenant ? 0 : day.fallbackPurchase);
-        const targetVal = isNewTenant ? 0 : day.target;
+        const salesVal = actualSum; // real data only
+        const purchasesVal = actualCost; // real data only
+        const targetVal = 0; // targets removed — show real data only
 
         return {
           month: day.name,
@@ -402,7 +402,7 @@ export default function DashboardOverview({
         { name: 'Week 1', daysRange: [22, 30], target: 220000, fallbackSale: 185000, fallbackPurchase: 110000 },
         { name: 'Week 2', daysRange: [15, 21], target: 240000, fallbackSale: 195000, fallbackPurchase: 125000 },
         { name: 'Week 3', daysRange: [8, 14], target: 250000, fallbackSale: 210000, fallbackPurchase: 135000 },
-        { name: 'Week 4', daysRange: [0, 7], target: 280000, fallbackSale: totalRevenue > 0 ? totalRevenue : 235000, fallbackPurchase: simulatedPurchases > 0 ? simulatedPurchases : 155000 }
+        { name: 'Week 4', daysRange: [0, 7], target: 0, fallbackSale: 0, fallbackPurchase: 0 }
       ];
 
       return weeks.map(wk => {
@@ -421,9 +421,9 @@ export default function DashboardOverview({
           }, 0);
         }, 0);
 
-        const salesVal = actualSum > 0 ? actualSum : (isNewTenant ? 0 : wk.fallbackSale);
-        const purchasesVal = actualCost > 0 ? actualCost : (isNewTenant ? 0 : wk.fallbackPurchase);
-        const targetVal = isNewTenant ? 0 : wk.target;
+        const salesVal = actualSum; // real data only
+        const purchasesVal = actualCost; // real data only
+        const targetVal = 0; // targets removed — show real data only
 
         return {
           month: wk.name,
@@ -463,9 +463,9 @@ export default function DashboardOverview({
         }, 0);
       }, 0);
 
-      const salesVal = actualSum > 0 ? actualSum : (isNewTenant ? 0 : m.fallbackSale);
-      const purchasesVal = actualCost > 0 ? actualCost : (isNewTenant ? 0 : m.fallbackPurchase);
-      const targetVal = isNewTenant ? 0 : m.target;
+      const salesVal = actualSum; // real data only
+      const purchasesVal = actualCost; // real data only
+      const targetVal = 0; // targets removed — show real data only
 
       return {
         month: m.name,
