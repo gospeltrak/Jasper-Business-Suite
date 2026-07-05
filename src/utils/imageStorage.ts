@@ -166,6 +166,49 @@ export async function uploadTenantLogo(
 }
 
 /**
+ * Upload a product image from a base64 data URL (already processed by canvas).
+ * Used when the image was processed client-side (background removal, resize etc.)
+ * and we have the result as base64, not as a raw File object.
+ */
+export async function uploadProductImageFromBase64(
+  base64DataUrl: string,
+  tenantId: string,
+  productId: string
+): Promise<string | null> {
+  if (!base64DataUrl || !base64DataUrl.startsWith('data:image')) return null;
+  try {
+    // Convert base64 to Blob
+    const [header, data] = base64DataUrl.split(',');
+    const mimeMatch = header.match(/data:(image\/\w+);base64/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const binary = atob(data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mimeType });
+
+    const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
+    const path = `${tenantId}/${productId}.${ext}`;
+
+    const client: any = await getSecureDataBridgeClient();
+    const { error } = await client.storage
+      .from('product-images')
+      .upload(path, blob, { contentType: mimeType, upsert: true });
+
+    if (error) {
+      console.error('[imageStorage] uploadProductImageFromBase64 failed:', error.message);
+      return null;
+    }
+
+    const { data: urlData } = client.storage.from('product-images').getPublicUrl(path);
+    return urlData?.publicUrl || null;
+  } catch (err) {
+    console.error('[imageStorage] uploadProductImageFromBase64 exception:', err);
+    return null;
+  }
+}
+
+
+/**
  * Delete a product image from Supabase Storage.
  * Called when a product is deleted.
  */

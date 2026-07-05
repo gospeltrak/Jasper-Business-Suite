@@ -204,13 +204,15 @@ export default function DashboardProducts({
     e.preventDefault();
     if (!editForm.name) return;
 
-    // Upload new image to Supabase Storage if a new file was selected
+    // Upload new image to Supabase Storage if a new image was selected.
+    // editForm.image = compressed base64 preview from the canvas.
+    // We upload this base64 directly — same pattern as new product creation.
     let resolvedImageUrl = editForm.image;
-    if (editImageFile && editingProduct?.id) {
+    if (editForm.image && editForm.image.startsWith('data:image') && editingProduct?.id) {
       try {
-        const { uploadProductImage } = await import('../utils/imageStorage');
-        const storageUrl = await uploadProductImage(
-          editImageFile,
+        const { uploadProductImageFromBase64 } = await import('../utils/imageStorage');
+        const storageUrl = await uploadProductImageFromBase64(
+          editForm.image,
           activeTenant.id,
           editingProduct.id
         );
@@ -1030,34 +1032,33 @@ export default function DashboardProducts({
 
     // ── Upload image to Supabase Storage if a file was selected ──────────────
     // The canvas-processed preview (productImage) is shown instantly in the UI.
-    // The raw file (productImageFile) is what we compress and upload to Storage.
-    // We update the product's image field with the permanent Storage URL after
-    // upload succeeds, replacing the temporary base64 preview.
+    // Upload the processed product image to Supabase Storage.
+    // productImage = canvas-processed base64 (background removed, 500x500px)
+    // We upload this processed result directly — NOT the raw file —
+    // because the canvas pipeline may have transformed it significantly.
     let finalImageUrl: string | undefined = productImage || undefined;
 
-    if (productImageFile) {
+    if (productImage && productImage.startsWith('data:image')) {
       try {
         setProcessingStatus('Uploading image to cloud storage...');
-        const { uploadProductImage } = await import('../utils/imageStorage');
-        const storageUrl = await uploadProductImage(
-          productImageFile,
+        const { uploadProductImageFromBase64 } = await import('../utils/imageStorage');
+        const storageUrl = await uploadProductImageFromBase64(
+          productImage,
           activeTenant.id,
           newProd.id
         );
         if (storageUrl) {
           finalImageUrl = storageUrl;
+        } else {
+          console.warn('[DashboardProducts] Storage upload returned null, keeping base64');
         }
       } catch (uploadErr) {
         console.warn('[DashboardProducts] Storage upload failed, keeping base64 preview:', uploadErr);
-        // Non-fatal — product saves with base64 preview as fallback
       }
       setProcessingStatus('');
     }
 
-    const finalProd = finalImageUrl !== productImage
-      ? { ...newProd, image: finalImageUrl }
-      : newProd;
-
+    const finalProd = { ...newProd, image: finalImageUrl };
     onAddProduct(finalProd);
     setFormSuccess(true);
     
