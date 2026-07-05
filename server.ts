@@ -1609,6 +1609,51 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   });
 
   // Bulk Sales Synchronization Endpoint (Background Sync Target)
+  
+  // ── IMAGE MIGRATION: base64 → Supabase Storage (server-side, bypasses RLS) ──
+  app.post('/api/images/migrate-product', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    if (!supabaseAdmin) return res.status(503).json({ error: 'Storage service unavailable.' });
+
+    const { tenantId, productId, base64DataUrl } = req.body;
+    if (!tenantId || !productId || !base64DataUrl) {
+      return res.status(400).json({ error: 'tenantId, productId and base64DataUrl are required.' });
+    }
+    if (!base64DataUrl.startsWith('data:image')) {
+      return res.status(400).json({ error: 'Invalid image data URL.' });
+    }
+
+    try {
+      // Parse base64
+      const [header, data] = base64DataUrl.split(',');
+      if (!data) return res.status(400).json({ error: 'Malformed base64 data URL.' });
+      const mimeMatch = header.match(/data:(image\/\w+);base64/);
+      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
+      const buffer = Buffer.from(data, 'base64');
+      const path = `${tenantId}/${productId}.${ext}`;
+
+      const { error } = await supabaseAdmin.storage
+        .from('product-images')
+        .upload(path, buffer, { contentType: mimeType, upsert: true });
+
+      if (error) {
+        console.error('[ImageMigration] Upload error:', error.message);
+        return res.status(500).json({ error: error.message });
+      }
+
+      const { data: urlData } = supabaseAdmin.storage
+        .from('product-images')
+        .getPublicUrl(path);
+
+      return res.json({ success: true, url: urlData.publicUrl });
+    } catch (err: any) {
+      console.error('[ImageMigration] Exception:', err);
+      return res.status(500).json({ error: err?.message || 'Migration failed.' });
+    }
+  });
+
+
   app.post('/api/sales/sync', (req, res) => {
     try {
       const { sales } = req.body;

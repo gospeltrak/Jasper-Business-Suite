@@ -210,13 +210,14 @@ export default function DashboardProducts({
     let resolvedImageUrl = editForm.image;
     if (editForm.image && editForm.image.startsWith('data:image') && editingProduct?.id) {
       try {
-        const { uploadProductImageFromBase64 } = await import('../utils/imageStorage');
-        const storageUrl = await uploadProductImageFromBase64(
-          editForm.image,
-          activeTenant.id,
-          editingProduct.id
-        );
-        if (storageUrl) resolvedImageUrl = storageUrl;
+        const migrateResp = await fetch('/api/images/migrate-product', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantId: activeTenant.id, productId: editingProduct.id, base64DataUrl: editForm.image }),
+        });
+        const migrateResult = await migrateResp.json();
+        if (migrateResult.success && migrateResult.url) resolvedImageUrl = migrateResult.url;
+        else console.warn('[DashboardProducts] Edit upload failed:', migrateResult.error);
       } catch (err) {
         console.warn('[DashboardProducts] Edit image upload failed, keeping preview:', err);
       }
@@ -1041,16 +1042,16 @@ export default function DashboardProducts({
     if (productImage && productImage.startsWith('data:image')) {
       try {
         setProcessingStatus('Uploading image to cloud storage...');
-        const { uploadProductImageFromBase64 } = await import('../utils/imageStorage');
-        const storageUrl = await uploadProductImageFromBase64(
-          productImage,
-          activeTenant.id,
-          newProd.id
-        );
-        if (storageUrl) {
-          finalImageUrl = storageUrl;
+        const migrateResp = await fetch('/api/images/migrate-product', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantId: activeTenant.id, productId: newProd.id, base64DataUrl: productImage }),
+        });
+        const migrateResult = await migrateResp.json();
+        if (migrateResult.success && migrateResult.url) {
+          finalImageUrl = migrateResult.url;
         } else {
-          console.warn('[DashboardProducts] Storage upload returned null, keeping base64');
+          console.warn('[DashboardProducts] Server upload failed:', migrateResult.error);
         }
       } catch (uploadErr) {
         console.warn('[DashboardProducts] Storage upload failed, keeping base64 preview:', uploadErr);
