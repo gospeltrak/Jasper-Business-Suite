@@ -88,29 +88,39 @@ export default function DashboardOverview({
   // Sales & Purchases status graph timeframe: 'today' | 'week' | 'month' | '3month' | 'year'
   const [statusTimeframe, setStatusTimeframe] = useState<'today' | 'week' | 'month' | '3month' | 'year'>('month');
 
-  // Filter sales based on selected timeframe
+  // Filter sales based on selected timeframe — exact date boundaries
   const filteredSales = useMemo(() => {
     const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
     return sales.filter(sale => {
-      const saleDate = new Date(sale.timestamp);
-      const diffTime = Math.abs(now.getTime() - saleDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+      if (!sale.timestamp) return false;
+      const saleDateStr = new Date(sale.timestamp).toISOString().split('T')[0];
+
       if (timeframe === 'today') {
-        return diffDays <= 1;
-      } else if (timeframe === 'week') {
-        return diffDays <= 7;
-      } else if (timeframe === 'month') {
-        return diffDays <= 30;
-      } else if (timeframe === '3month') {
-        return diffDays <= 90;
-      } else if (timeframe === 'year') {
-        return diffDays <= 365;
-      } else {
-        return true;
+        // Exact today only — same calendar date
+        return saleDateStr === todayStr;
       }
+
+      const saleDate = new Date(sale.timestamp);
+      const startOf = (days: number) => {
+        const d = new Date(now);
+        d.setDate(d.getDate() - days);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      };
+
+      if (timeframe === 'week')   return saleDate >= startOf(6);   // last 7 days including today
+      if (timeframe === 'month')  return saleDate >= startOf(29);  // last 30 days
+      if (timeframe === '3month') return saleDate >= startOf(89);  // last 90 days
+      if (timeframe === 'year')   return saleDate >= startOf(364); // last 365 days
+      return true;
     });
   }, [sales, timeframe]);
+
+  // Human-readable label for the selected timeframe
+  const timeframeLabel = timeframe === 'today' ? 'Today' : timeframe === 'week' ? 'This Week' : timeframe === 'month' ? 'This Month' : timeframe === '3month' ? 'Last 3 Months' : 'This Year';
+
 
   // Derived financial indicators
   const totalRevenue = useMemo(() => {
@@ -132,12 +142,10 @@ export default function DashboardOverview({
   const avgProfitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
   // Calculation of Money Earned Summary Metrics
+  // Period revenue — uses filteredSales so it respects the selected timeframe
   const todayTotalRevenue = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    return sales
-      .filter(s => s.timestamp && s.timestamp.startsWith(todayStr))
-      .reduce((sum, s) => sum + saleProductRevenue(s), 0);
-  }, [sales]);
+    return filteredSales.reduce((sum, s) => sum + saleProductRevenue(s), 0);
+  }, [filteredSales]);
 
   const monthlyGrowthValue = useMemo(() => {
     const now = new Date();
@@ -581,7 +589,7 @@ export default function DashboardOverview({
         <div className="grid grid-cols-2 gap-3">
           {[
             { label: 'Total Orders', value: sales.filter((s:any) => new Date(s.timestamp).toDateString() === new Date().toDateString()).length, sub: `${filteredSales.reduce((sum:number,s:any)=>sum+(s.items?.reduce((a:number,i:any)=>a+(i.qty||0),0)||0),0)} items sold`, color: '#2196F3', up: true },
-            { label: "Today's Sales", value: `${currency} ${Math.round(todayTotalRevenue).toLocaleString()}`, sub: todayTotalRevenue > 0 ? '↑ Today' : 'No sales yet', color: '#10B981', up: todayTotalRevenue > 0 },
+            { label: `${timeframeLabel} Sales`, value: `${currency} ${Math.round(todayTotalRevenue).toLocaleString()}`, sub: todayTotalRevenue > 0 ? `↑ ${timeframeLabel}` : 'No sales yet', color: '#10B981', up: todayTotalRevenue > 0 },
             { label: 'Expenses', value: `${currency} ${Math.round(totalExpensesAmt).toLocaleString()}`, sub: 'Total spending', color: '#ef4444', up: false },
             { label: 'Profit', value: `${currency} ${Math.round(netProfit).toLocaleString()}`, sub: `${avgProfitMargin.toFixed(1)}% margin`, color: netProfit >= 0 ? '#00C853' : '#ef4444', up: netProfit >= 0 },
             { label: 'Purchases', value: `${currency} ${Math.round(purchases.reduce((s:number,p:any)=>s+(p.total||p.amount||0),0)).toLocaleString()}`, sub: `${purchases.length} orders`, color: '#7c3aed', up: false },
@@ -804,7 +812,7 @@ export default function DashboardOverview({
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-              {totalQtySold} items sold today
+              {totalQtySold} items sold {timeframeLabel.toLowerCase()}
             </p>
             <div className="mt-2 flex gap-0.5 items-end h-6">
               {[40,65,45,80,55,90,70].map((h,i) => (
@@ -845,7 +853,7 @@ export default function DashboardOverview({
               <Coins className="w-5 h-5 text-white" />
             </div>
             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full flex items-center gap-0.5 border border-emerald-100/40">
-              <ArrowUp className="w-2.5 h-2.5 text-emerald-500" /> +8.4%
+              <ArrowUp className="w-2.5 h-2.5 text-emerald-500" /> {timeframeLabel}
             </span>
           </div>
           <div className="mt-4 text-left">
