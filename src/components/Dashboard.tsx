@@ -2848,6 +2848,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               suppliers={activeSuppliers}
               purchases={purchasesMap[activeTenant.id] || []}
               deliveries={deliveriesMap[activeTenant.id] || []}
+              systemSettings={systemSettings}
             />
           )}
 
@@ -2896,6 +2897,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               rolePermissions={currentPermissions}
               suppliers={activeSuppliers}
               purchases={purchasesMap[activeTenant.id] || []}
+              systemSettings={systemSettings}
             />
           )}
 

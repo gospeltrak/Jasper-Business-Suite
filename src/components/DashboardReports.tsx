@@ -71,6 +71,7 @@ interface DashboardReportsProps {
   suppliers?: Supplier[];
   purchases?: any[];
   deliveries?: any[];
+  systemSettings?: any;
 }
 
 export default function DashboardReports({
@@ -84,7 +85,8 @@ export default function DashboardReports({
   rolePermissions,
   suppliers = [],
   purchases = [],
-  deliveries = []
+  deliveries = [],
+  systemSettings,
 }: DashboardReportsProps) {
   const currency = activeTenant.currency;
   
@@ -195,7 +197,7 @@ export default function DashboardReports({
       const itemsCount = s.items.length;
       const originalSub = s.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
       const discountVal = s.discountType === 'percent' ? (originalSub * (s.discount || 0)) / 100 : (s.discount || 0);
-      const totalPaid = s.total;
+      const totalPaid = saleProductRevenue(s);
       const unpaidDue = s.amountDue || 0;
       csv += `"${s.id}","${s.customerName || 'Walk-in customer'}",${itemsCount},${originalSub.toFixed(2)},${s.tax.toFixed(2)},${discountVal.toFixed(2)},${totalPaid.toFixed(2)},${unpaidDue.toFixed(2)},"${s.paymentMethod}","${new Date(s.timestamp).toLocaleString()}"\r\n`;
     });
@@ -698,12 +700,39 @@ export default function DashboardReports({
 
   const paymentsSalesFiltered = filteredSales.filter(s => matchesSelectedPaymentMode(s.paymentMethod));
   
+  // Payment breakdown: use configured paymentChannels if available, else fallback to generic categories
+  const configuredChannels: any[] = systemSettings?.paymentChannels || [];
+
+  // Build per-method totals using actual sale.paymentMethod string matching
+  const paymentMethodTotals = useMemo(() => {
+    const totals: Record<string, { amount: number; count: number; label: string; category: string }> = {};
+
+    filteredSales.forEach(s => {
+      const method = s.paymentMethod || 'Cash';
+      const rev = saleProductRevenue(s);
+      // Try to match to a configured channel
+      const matched = configuredChannels.find(ch =>
+        ch.name?.toLowerCase() === method.toLowerCase() ||
+        ch.provider?.toLowerCase() === method.toLowerCase() ||
+        method.toLowerCase().includes(ch.name?.toLowerCase()) ||
+        ch.name?.toLowerCase().includes(method.toLowerCase())
+      );
+      const key = matched ? matched.id : method;
+      const label = matched ? matched.name : method;
+      const category = matched ? matched.category : classifyPaymentMethod(method);
+      if (!totals[key]) totals[key] = { amount: 0, count: 0, label, category };
+      totals[key].amount += rev;
+      totals[key].count += 1;
+    });
+    return totals;
+  }, [filteredSales, configuredChannels]);
+
   const paymentBreakdown = {
-    Cash: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Cash').reduce((a, s) => a + Math.max(0, s.total - (s.deliveryCost || 0)), 0),
-    CardAndOnline: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Card').reduce((a, s) => a + Math.max(0, s.total - (s.deliveryCost || 0)), 0),
-    MobileMoney: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Mobile Money').reduce((a, s) => a + Math.max(0, s.total - (s.deliveryCost || 0)), 0),
-    BankTransfer: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Bank').reduce((a, s) => a + Math.max(0, s.total - (s.deliveryCost || 0)), 0),
-    Credit: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Credit').reduce((a, s) => a + Math.max(0, s.total - (s.deliveryCost || 0)), 0)
+    Cash: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Cash').reduce((a, s) => a + saleProductRevenue(s), 0),
+    CardAndOnline: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Card').reduce((a, s) => a + saleProductRevenue(s), 0),
+    MobileMoney: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Mobile Money').reduce((a, s) => a + saleProductRevenue(s), 0),
+    BankTransfer: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Bank').reduce((a, s) => a + saleProductRevenue(s), 0),
+    Credit: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Credit').reduce((a, s) => a + saleProductRevenue(s), 0)
   };
 
   // Group Payments by Date/Time Range Frequency (Daily, Monthly, Yearly)
@@ -733,7 +762,7 @@ export default function DashboardReports({
       else if (paymentClass === 'Card') groups[key].card += saleProductRevenue(sale);
       else if (paymentClass === 'Mobile Money') groups[key].momo += saleProductRevenue(sale);
       else if (paymentClass === 'Bank') groups[key].bank += saleProductRevenue(sale);
-      else if (paymentClass === 'Credit') groups[key].credit += sale.total;
+      else if (paymentClass === 'Credit') groups[key].credit += saleProductRevenue(sale);
     });
 
     return Object.entries(groups).map(([date, vals]) => ({ date, ...vals }));
@@ -902,7 +931,7 @@ export default function DashboardReports({
 
       const cl = clients[key];
       cl.salesCount += 1;
-      cl.totalSpend += s.total;
+      cl.totalSpend += saleProductRevenue(s);
       
       // Calculate profit generated on client
       const cogs = s.items.reduce((acc, item) => {
@@ -911,7 +940,7 @@ export default function DashboardReports({
         return acc + (unitCost * item.qty);
       }, 0);
       
-      cl.profitGenerated += (s.total - cogs);
+      cl.profitGenerated += (saleProductRevenue(s) - cogs);
 
       // Preferred item logic (Heuristic: item with highest total qty)
       const itemCounts: Record<string, number> = {};
@@ -946,7 +975,7 @@ export default function DashboardReports({
         staffRecs[key] = { cashierName: name, totalSalesProcessed: 0, salesSumAmt: 0, expensesLoggedCount: 0, expensesChargedAmt: 0, profitContribution: 0 };
       }
       staffRecs[key].totalSalesProcessed += 1;
-      staffRecs[key].salesSumAmt += s.total;
+      staffRecs[key].salesSumAmt += saleProductRevenue(s);
 
       // Extract sales margin contribution
       const cogs = s.items.reduce((acc, item) => {
@@ -954,7 +983,7 @@ export default function DashboardReports({
         const unitCost = item.costPriceAtSale ?? (prod ? prod.costPrice : (item.price * 0.6));
         return acc + (unitCost * item.qty);
       }, 0);
-      staffRecs[key].profitContribution += (s.total - cogs);
+      staffRecs[key].profitContribution += (saleProductRevenue(s) - cogs);
     });
 
     filteredExpenses.forEach(e => {
@@ -2032,24 +2061,47 @@ export default function DashboardReports({
               </div>
             </div>
 
-            {/* High level counters */}
+            {/* High level counters — uses configured payment channels if available */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-2">
-              <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Register Cash</p>
-                <h5 className="text-lg font-black text-slate-800 mt-1.5">{currency}{paymentBreakdown.Cash.toLocaleString()}</h5>
-              </div>
-              <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Card & Online Tills</p>
-                <h5 className="text-lg font-black text-slate-800 mt-1.5">{currency}{paymentBreakdown.CardAndOnline.toLocaleString()}</h5>
-              </div>
-              <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Smart MOMO Express</p>
-                <h5 className="text-lg font-black text-slate-800 mt-1.5">{currency}{paymentBreakdown.MobileMoney.toLocaleString()}</h5>
-              </div>
-              <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl bg-amber-500/5 border-amber-200">
-                <p className="text-[10px] font-mono font-bold text-slate-405 uppercase tracking-widest leading-none text-amber-700">Issued Store Credit</p>
-                <h5 className="text-lg font-black text-amber-750 mt-1.5">{currency}{paymentBreakdown.Credit.toLocaleString()}</h5>
-              </div>
+              {Object.keys(paymentMethodTotals).length > 0 ? (
+                // Show per-configured-channel breakdown
+                Object.entries(paymentMethodTotals)
+                  .sort((a, b) => b[1].amount - a[1].amount)
+                  .map(([key, { amount, count, label, category }]) => {
+                    const isCredit = category === 'Credit' || label.toLowerCase().includes('credit');
+                    const isMobile = category === 'telco' || typeof category === 'string' && category.includes('Mobile Money');
+                    const isBank = category === 'bank';
+                    const bg = isCredit ? 'bg-amber-50 border-amber-200' : isMobile ? 'bg-emerald-50 border-emerald-100' : isBank ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-slate-100';
+                    const textColor = isCredit ? 'text-amber-700' : isMobile ? 'text-emerald-700' : isBank ? 'text-blue-700' : 'text-slate-800';
+                    return (
+                      <div key={key} className={`border p-3.5 rounded-2xl ${bg}`}>
+                        <p className={`text-[10px] font-mono font-bold uppercase tracking-widest leading-none truncate ${textColor} opacity-70`}>{label}</p>
+                        <h5 className={`text-lg font-black mt-1.5 ${textColor}`}>{currency}{Math.round(amount).toLocaleString()}</h5>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{count} transaction{count !== 1 ? 's' : ''}</p>
+                      </div>
+                    );
+                  })
+              ) : (
+                // Fallback to generic breakdown
+                <>
+                  <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
+                    <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Cash</p>
+                    <h5 className="text-lg font-black text-slate-800 mt-1.5">{currency}{paymentBreakdown.Cash.toLocaleString()}</h5>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
+                    <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Card & Online</p>
+                    <h5 className="text-lg font-black text-slate-800 mt-1.5">{currency}{paymentBreakdown.CardAndOnline.toLocaleString()}</h5>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
+                    <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Mobile Money</p>
+                    <h5 className="text-lg font-black text-slate-800 mt-1.5">{currency}{paymentBreakdown.MobileMoney.toLocaleString()}</h5>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl">
+                    <p className="text-[10px] font-mono font-bold text-amber-700 uppercase tracking-widest leading-none">Store Credit</p>
+                    <h5 className="text-lg font-black text-amber-700 mt-1.5">{currency}{paymentBreakdown.Credit.toLocaleString()}</h5>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Daily, Monthly, Yearly table views */}
@@ -4077,39 +4129,60 @@ export default function DashboardReports({
 
               {reportTab === 'payments' && (
                 <div className="space-y-4">
-                  {/* Summary Metrics Grid */}
+                  {/* Summary Metrics Grid — configured payment channels */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
-                      <div className="flex items-center space-x-1.5 text-emerald-600">
-                        <DollarSign className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Cash Vault</span>
-                      </div>
-                      <span className="text-sm font-black text-emerald-600 mt-2">{currency}{paymentBreakdown.Cash.toLocaleString()}</span>
-                    </div>
-
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
-                      <div className="flex items-center space-x-1.5 text-indigo-500">
-                        <CheckCircle className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Cards & Paystack</span>
-                      </div>
-                      <span className="text-sm font-black text-slate-800 mt-2">{currency}{paymentBreakdown.CardAndOnline.toLocaleString()}</span>
-                    </div>
-
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
-                      <div className="flex items-center space-x-1.5 text-amber-500">
-                        <Smartphone className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Mobile Money</span>
-                      </div>
-                      <span className="text-sm font-black text-slate-800 mt-2">{currency}{paymentBreakdown.MobileMoney.toLocaleString()}</span>
-                    </div>
-
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
-                      <div className="flex items-center space-x-1.5 text-rose-500">
-                        <AlertTriangle className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Acquired Credit</span>
-                      </div>
-                      <span className="text-sm font-black text-rose-600 mt-2">{currency}{paymentBreakdown.Credit.toLocaleString()}</span>
-                    </div>
+                    {Object.keys(paymentMethodTotals).length > 0 ? (
+                      Object.entries(paymentMethodTotals)
+                        .sort((a, b) => b[1].amount - a[1].amount)
+                        .map(([key, { amount, count, label, category }]) => {
+                          const isCredit = category === 'Credit' || label.toLowerCase().includes('credit');
+                          const isMobile = category === 'telco';
+                          const isBank = category === 'bank';
+                          const iconColor = isCredit ? 'text-rose-500' : isMobile ? 'text-amber-500' : isBank ? 'text-blue-500' : 'text-emerald-600';
+                          const valColor = isCredit ? 'text-rose-600' : isMobile ? 'text-amber-700' : isBank ? 'text-blue-700' : 'text-emerald-600';
+                          return (
+                            <div key={key} className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                              <div className={`flex items-center space-x-1.5 ${iconColor}`}>
+                                <DollarSign className="w-4 h-4" />
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono truncate">{label}</span>
+                              </div>
+                              <span className={`text-sm font-black mt-2 ${valColor}`}>{currency}{Math.round(amount).toLocaleString()}</span>
+                              <span className="text-[10px] text-slate-400">{count} txn{count !== 1 ? 's' : ''}</span>
+                            </div>
+                          );
+                        })
+                    ) : (
+                      <>
+                        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="flex items-center space-x-1.5 text-emerald-600">
+                            <DollarSign className="w-4 h-4" />
+                            <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Cash</span>
+                          </div>
+                          <span className="text-sm font-black text-emerald-600 mt-2">{currency}{paymentBreakdown.Cash.toLocaleString()}</span>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="flex items-center space-x-1.5 text-indigo-500">
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Card & Online</span>
+                          </div>
+                          <span className="text-sm font-black text-slate-800 mt-2">{currency}{paymentBreakdown.CardAndOnline.toLocaleString()}</span>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="flex items-center space-x-1.5 text-amber-500">
+                            <Smartphone className="w-4 h-4" />
+                            <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Mobile Money</span>
+                          </div>
+                          <span className="text-sm font-black text-slate-800 mt-2">{currency}{paymentBreakdown.MobileMoney.toLocaleString()}</span>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className="flex items-center space-x-1.5 text-rose-500">
+                            <AlertTriangle className="w-4 h-4" />
+                            <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Store Credit</span>
+                          </div>
+                          <span className="text-sm font-black text-rose-600 mt-2">{currency}{paymentBreakdown.Credit.toLocaleString()}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Channel weights summary cards */}
