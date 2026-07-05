@@ -3061,7 +3061,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </main>
 
           {/* Mobile Bottom Navigation Component */}
-          <nav id="dashboard-mobile-nav" className="xl:hidden shrink-0 z-[60] bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800" style={{height:'var(--dashboard-bottom-nav-height)', paddingBottom:'calc(env(safe-area-inset-bottom) + var(--browser-bottom-inset, 0px))', boxShadow:'0 -1px 0 rgba(0,0,0,0.05)', transform:'translateZ(0)', willChange:'transform', isolation:'isolate'}}>
+          <nav id="dashboard-mobile-nav" className="xl:hidden shrink-0 z-[80] bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800" style={{height:'var(--dashboard-bottom-nav-height)', paddingBottom:'calc(env(safe-area-inset-bottom) + var(--browser-bottom-inset, 0px))', boxShadow:'0 -1px 0 rgba(0,0,0,0.05)', transform:'translateZ(0)', willChange:'transform', isolation:'isolate'}}>
             <div className="flex items-stretch h-14">
               {(user.role === 'SuperAdmin' ? [
                 // ── Super SaaS Admin bottom nav ──────────────────────────
@@ -3122,8 +3122,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         {/* Universal sub-modal anchors & floating elements */}
         {/* Native App Full-Screen More Menu */}
         <div
-          className={`xl:hidden fixed inset-0 z-[70] flex flex-col bg-slate-50 dark:bg-slate-950 select-none transition-all duration-300 ease-out ${moreMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none translate-y-4'}`}
-          style={{paddingBottom: 'env(safe-area-inset-bottom)', paddingTop: 'env(safe-area-inset-top)'}}
+          className={`xl:hidden fixed inset-x-0 top-0 z-[70] flex flex-col bg-slate-50 dark:bg-slate-950 select-none transition-all duration-300 ease-out ${moreMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none translate-y-4'}`}
+          style={{
+            bottom: 'var(--dashboard-bottom-nav-height)',
+            paddingTop: 'env(safe-area-inset-top)'
+          }}
         >
           {/* Top Bar */}
           <div className="flex items-center justify-between px-5 h-[60px] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 shrink-0" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)'}}>
