@@ -3072,11 +3072,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               ] : [
                 // ── Tenant / business user bottom nav (UNCHANGED) ────────
                 { id: 'overview',    label: 'Home',  icon: LayoutDashboard },
-                { id: 'sales-list',  label: 'Sales', icon: FileText },
+                { id: 'sales-list',  label: 'Sales', icon: FileText, alwaysShow: true },
                 { id: 'pos',         label: 'Sell',  icon: ShoppingCart, isPOS: true },
                 { id: 'products',    label: 'Stock', icon: Database },
                 { id: '__more__',    label: 'More',  icon: Menu },
-              ]).filter(tab => tab.id === '__more__' || isTabAllowed(tab.id)).map((tab: any) => {
+              ]).filter(tab => tab.id === '__more__' || (tab as any).alwaysShow || isTabAllowed(tab.id)).map((tab: any) => {
                 const isMore = tab.id === '__more__';
                 const isActive = (!isMore && activeTab === tab.id) || (isMore && moreMenuOpen);
                 const Icon = tab.icon;
@@ -3161,19 +3161,19 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   { id: 'admin-settings',    label: 'Settings',   icon: SettingsIcon,    bg: 'bg-slate-700' },
                 ] : [
                   // ── Tenant / business user more menu (UNCHANGED) ──
-                  { id: 'overview',          label: 'Home',       icon: LayoutDashboard, bg: 'bg-blue-500' },
-                  { id: 'sales-list',        label: 'Sales',      icon: FileText,        bg: 'bg-emerald-500' },
+                  { id: 'overview',          label: 'Home',       icon: LayoutDashboard, bg: 'bg-blue-500',    alwaysShow: true },
+                  { id: 'sales-list',        label: 'Sales',      icon: FileText,        bg: 'bg-emerald-500', alwaysShow: true },
                   { id: 'pos',               label: 'Sell',       icon: ShoppingCart,    bg: 'bg-gradient-to-r from-emerald-400 to-teal-400' },
                   { id: 'purchases-list',    label: 'Buying',     icon: Package,         bg: 'bg-violet-500' },
-                  { id: 'products',          label: 'Stock',      icon: Database,        bg: 'bg-orange-500' },
+                  { id: 'products',          label: 'Stock',      icon: Database,        bg: 'bg-orange-500',  alwaysShow: true },
                   { id: 'expenses',          label: 'Expenses',   icon: MinusCircle,     bg: 'bg-rose-500' },
-                  { id: 'reports',           label: 'Reports',    icon: PieChart,        bg: 'bg-indigo-500' },
+                  { id: 'reports',           label: 'Reports',    icon: PieChart,        bg: 'bg-indigo-500',  alwaysShow: true },
                   { id: 'deliveries',        label: 'Delivery',   icon: MapPin,          bg: 'bg-teal-500' },
                   { id: 'suppliers',         label: 'Partners',   icon: Handshake,       bg: 'bg-purple-500' },
                   { id: 'cash-bank-matrix',  label: 'Money',      icon: Wallet,          bg: 'bg-amber-500' },
                   { id: 'forecasting',       label: 'Planning',   icon: TrendingUp,      bg: 'bg-cyan-500' },
                   { id: 'staff-members',     label: 'Staff',      icon: Shield,          bg: 'bg-slate-700' },
-                ]).filter(item => isTabAllowed(item.id)).map((item) => {
+                ]).filter(item => (item as any).alwaysShow || isTabAllowed(item.id)).map((item) => {
                   const Icon = item.icon;
                   return (
                     <button key={item.id} type="button"

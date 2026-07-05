@@ -4828,33 +4828,74 @@ export default function DashboardReports({
                       });
                     });
                     const sorted = Object.values(prodSells).sort((a,b) => b.qty - a.qty);
+                    const midpoint = Math.floor(sorted.length / 2);
+                    const fastMovers = sorted.slice(0, midpoint || 1);
+                    const slowMovers = sorted.slice(midpoint || 1);
+
                     return (
                       <div className="space-y-4 text-left">
-                        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
-                          <div className="flex items-center space-x-1.5 text-indigo-500">
-                            <TrendingUp className="w-4 h-4" />
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Top Velocity SKU</span>
-                          </div>
-                          <span className="text-sm font-black text-slate-800 mt-2">{sorted[0]?.name || 'N/A'}</span>
-                          <span className="text-[10px] text-slate-400 font-mono mt-0.5">{sorted[0]?.qty || 0} unit sales recently</span>
+                        {/* Fast/Slow toggle */}
+                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-1">
+                          <button
+                            type="button"
+                            onClick={() => setVelocitySortOrder('desc')}
+                            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border-none ${velocitySortOrder === 'desc' ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 bg-transparent'}`}
+                          >
+                            <TrendingUp className="w-3.5 h-3.5" /> Fast Movers
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setVelocitySortOrder('asc')}
+                            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border-none ${velocitySortOrder === 'asc' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500 bg-transparent'}`}
+                          >
+                            <MinusCircle className="w-3.5 h-3.5" /> Slow Movers
+                          </button>
                         </div>
 
-                        <div className="space-y-2.5 text-left">
-                          <h4 className="text-xs font-semibold text-slate-800 px-1 font-sans text-left">Relative Unit Sales Speed (30 Days)</h4>
-                          <div className="space-y-2 animate-fade-in">
-                            {sorted.map((item, idx) => (
-                              <div key={idx} className="bg-white px-4 py-3 border border-slate-200 rounded-xl shadow-xs text-left flex justify-between items-center">
-                                <div>
-                                  <span className="text-sm font-bold text-slate-800 block truncate max-w-[170px]">{item.name}</span>
-                                  <span className="text-xs text-slate-400 block mt-1">Barcode: {item.barcode || 'N/A'} • Doc: {item.sku || 'N/A'}</span>
+                        {/* Top SKU card */}
+                        {velocitySortOrder === 'desc' ? (
+                          <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex flex-col justify-between min-h-[84px]">
+                            <div className="flex items-center gap-1.5 text-emerald-600">
+                              <TrendingUp className="w-4 h-4" />
+                              <span className="text-[10px] font-bold uppercase tracking-wider font-mono">Top Fast Mover</span>
+                            </div>
+                            <span className="text-sm font-black text-emerald-900 mt-2">{fastMovers[0]?.name || 'N/A'}</span>
+                            <span className="text-[10px] text-emerald-600 font-mono mt-0.5">{fastMovers[0]?.qty || 0} units sold · {((fastMovers[0]?.qty || 0) / 30).toFixed(2)}/day</span>
+                          </div>
+                        ) : (
+                          <div className="bg-rose-50 border border-rose-200 p-3 rounded-xl flex flex-col justify-between min-h-[84px]">
+                            <div className="flex items-center gap-1.5 text-rose-500">
+                              <MinusCircle className="w-4 h-4" />
+                              <span className="text-[10px] font-bold uppercase tracking-wider font-mono">Slowest Mover</span>
+                            </div>
+                            <span className="text-sm font-black text-rose-900 mt-2">{slowMovers[slowMovers.length - 1]?.name || 'N/A'}</span>
+                            <span className="text-[10px] text-rose-500 font-mono mt-0.5">{slowMovers[slowMovers.length - 1]?.qty || 0} units sold · {((slowMovers[slowMovers.length - 1]?.qty || 0) / 30).toFixed(2)}/day</span>
+                          </div>
+                        )}
+
+                        {/* Product list */}
+                        <div className="space-y-2 animate-fade-in">
+                          {(velocitySortOrder === 'desc' ? fastMovers : slowMovers).map((item, idx) => {
+                            const isFast = velocitySortOrder === 'desc';
+                            return (
+                              <div key={idx} className={`px-4 py-3 border rounded-xl shadow-xs flex justify-between items-center ${isFast ? 'bg-white border-emerald-100' : 'bg-white border-rose-100'}`}>
+                                <div className="min-w-0 flex-1">
+                                  <span className="text-sm font-bold text-slate-800 block truncate">{item.name}</span>
+                                  <span className="text-xs text-slate-400 block mt-0.5">{item.barcode ? `${item.barcode} · ` : ''}{item.cat || 'Uncategorized'}</span>
                                 </div>
-                                <div className="text-right shrink-0">
-                                  <span className="text-sm font-extrabold text-slate-900 block">{formatProductQuantity(item.qty, products.find(p => p.sku === item.sku || p.barcode === item.barcode || p.name === item.name))}</span>
-                                  <span className="text-[11px] text-emerald-600 font-extrabold block mt-0.5">{(item.qty / 30).toFixed(2)} / day</span>
+                                <div className="text-right shrink-0 ml-3">
+                                  <span className="text-sm font-extrabold text-slate-900 block">{formatProductQuantity(item.qty, products.find(p => p.name === item.name))}</span>
+                                  <span className={`text-[11px] font-extrabold block mt-0.5 ${isFast ? 'text-emerald-600' : 'text-rose-500'}`}>{(item.qty / 30).toFixed(2)} / day</span>
                                 </div>
                               </div>
-                            ))}
-                          </div>
+                            );
+                          })}
+                          {(velocitySortOrder === 'desc' ? fastMovers : slowMovers).length === 0 && (
+                            <div className="text-center py-8 text-slate-400">
+                              <p className="text-sm font-semibold">No data available</p>
+                              <p className="text-xs mt-1">Record some sales to see velocity data</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );

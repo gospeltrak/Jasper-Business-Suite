@@ -1303,7 +1303,15 @@ export default function DashboardProducts({
     p.barcode.toLowerCase().includes(searchTerm.toLowerCase()) || 
     p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  ).sort((a, b) => {
+    // Zero/negative stock goes to bottom, in-stock stays on top
+    const stockA = a.shopStockQty ?? a.stockQty ?? 0;
+    const stockB = b.shopStockQty ?? b.stockQty ?? 0;
+    const aOut = stockA <= 0 ? 1 : 0;
+    const bOut = stockB <= 0 ? 1 : 0;
+    if (aOut !== bOut) return aOut - bOut; // out-of-stock sinks
+    return 0; // preserve original order within each group
+  });
 
   // Connection trigger simulator
   const handleConnectHardware = () => {
