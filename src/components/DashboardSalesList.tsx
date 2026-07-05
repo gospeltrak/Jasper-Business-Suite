@@ -470,7 +470,7 @@ export default function DashboardSalesList({
       setNewDocDeliveryCost(0);
       setNewDocPaymentMethod(systemSettings?.business?.paymentModes?.[0] || 'Cash');
     }
-  }, [showNewDocModal, systemSettings]);
+  }, [showNewDocModal]); // intentionally exclude systemSettings — we only want to reset on open
 
   useEffect(() => {
     if (viewingDocument) {

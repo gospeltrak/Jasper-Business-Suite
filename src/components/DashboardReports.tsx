@@ -727,6 +727,20 @@ export default function DashboardReports({
     return totals;
   }, [filteredSales, configuredChannels]);
 
+  // Build dynamic payment breakdown using actual payment method names from sales
+  // Groups by exact method name recorded on each sale — respects user-configured methods
+  const paymentBreakdownDynamic = useMemo(() => {
+    const map: Record<string, { revenue: number; count: number }> = {};
+    filteredSales.forEach(s => {
+      const method = s.paymentMethod || 'Cash';
+      if (!map[method]) map[method] = { revenue: 0, count: 0 };
+      map[method].revenue += saleProductRevenue(s);
+      map[method].count += 1;
+    });
+    return map;
+  }, [filteredSales]);
+
+  // Legacy breakdown (used by existing chart components — kept for backward compat)
   const paymentBreakdown = {
     Cash: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Cash').reduce((a, s) => a + saleProductRevenue(s), 0),
     CardAndOnline: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Card').reduce((a, s) => a + saleProductRevenue(s), 0),
@@ -2082,8 +2096,27 @@ export default function DashboardReports({
                     );
                   })
               ) : (
-                // Fallback to generic breakdown
-                <>
+                // No configured channels — show breakdown by actual payment method names used in sales
+                Object.keys(paymentBreakdownDynamic).length > 0 ? (
+                  Object.entries(paymentBreakdownDynamic)
+                    .sort((a, b) => b[1].revenue - a[1].revenue)
+                    .map(([method, { revenue, count }]) => {
+                      const cat = classifyPaymentMethod(method);
+                      const isCredit = cat === 'Credit';
+                      const isMobile = cat === 'Mobile Money';
+                      const isBank = cat === 'Bank';
+                      const bg = isCredit ? 'bg-amber-50 border-amber-200' : isMobile ? 'bg-emerald-50 border-emerald-100' : isBank ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-slate-100';
+                      const textColor = isCredit ? 'text-amber-700' : isMobile ? 'text-emerald-700' : isBank ? 'text-blue-700' : 'text-slate-800';
+                      return (
+                        <div key={method} className={`border p-3.5 rounded-2xl ${bg}`}>
+                          <p className={`text-[10px] font-mono font-bold uppercase tracking-widest leading-none truncate ${textColor} opacity-70`}>{method}</p>
+                          <h5 className={`text-lg font-black mt-1.5 ${textColor}`}>{currency}{Math.round(revenue).toLocaleString()}</h5>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{count} transaction{count !== 1 ? 's' : ''}</p>
+                        </div>
+                      );
+                    })
+                ) : (
+                  <>
                   <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
                     <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Cash</p>
                     <h5 className="text-lg font-black text-slate-800 mt-1.5">{currency}{paymentBreakdown.Cash.toLocaleString()}</h5>
@@ -2100,7 +2133,8 @@ export default function DashboardReports({
                     <p className="text-[10px] font-mono font-bold text-amber-700 uppercase tracking-widest leading-none">Store Credit</p>
                     <h5 className="text-lg font-black text-amber-700 mt-1.5">{currency}{paymentBreakdown.Credit.toLocaleString()}</h5>
                   </div>
-                </>
+                  </>
+                )
               )}
             </div>
 
