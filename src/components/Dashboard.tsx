@@ -749,7 +749,50 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     } catch { /* quota */ }
   }, [workspaceReady, activeTenant.id]);
 
-  // Service Worker and Offline background synchronizer listener
+  // AUTO-MIGRATE: Upload any remaining base64 product images to Supabase Storage.
+  // Runs silently in the background after workspace is ready.
+  // Only processes products whose image starts with 'data:image' (base64).
+  // On success, replaces base64 with permanent Storage URL in state + DB.
+  useEffect(() => {
+    if (!workspaceReady || user.role === 'SuperAdmin') return;
+    const products = productsMap[activeTenant.id] || [];
+    const needsMigration = products.filter(
+      (p: any) => p.image && typeof p.image === 'string' && p.image.startsWith('data:image')
+    );
+    if (needsMigration.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const { uploadProductImageFromBase64 } = await import('../utils/imageStorage').catch(() => ({ uploadProductImageFromBase64: null as any }));
+      if (!uploadProductImageFromBase64 || cancelled) return;
+
+      let migrated = 0;
+      const updatedProducts = [...products];
+
+      for (const prod of needsMigration) {
+        if (cancelled) break;
+        try {
+          const url = await uploadProductImageFromBase64(prod.image, activeTenant.id, prod.id);
+          if (url) {
+            const idx = updatedProducts.findIndex((p: any) => p.id === prod.id);
+            if (idx !== -1) updatedProducts[idx] = { ...updatedProducts[idx], image: url };
+            migrated++;
+          }
+        } catch { /* skip this product, try next */ }
+        // Small delay between uploads to avoid rate limiting
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      if (migrated > 0 && !cancelled) {
+        setProductsMap(prev => ({ ...prev, [activeTenant.id]: updatedProducts }));
+        console.log(`[Jasper] Migrated ${migrated} product image(s) to Supabase Storage.`);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [workspaceReady, activeTenant.id]);
+
+
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       const handleServiceWorkerMessage = (event: MessageEvent) => {
