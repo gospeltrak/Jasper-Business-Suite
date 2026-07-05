@@ -762,36 +762,51 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     if (needsMigration.length === 0) return;
 
     let cancelled = false;
+    const tid = activeTenant.id;
+
     (async () => {
-      const { uploadProductImageFromBase64 } = await import('../utils/imageStorage').catch(() => ({ uploadProductImageFromBase64: null as any }));
-      if (!uploadProductImageFromBase64 || cancelled) return;
+      try {
+        const { uploadProductImageFromBase64 } = await import('../utils/imageStorage');
+        if (cancelled) return;
 
-      let migrated = 0;
-      const updatedProducts = [...products];
+        let migrated = 0;
+        const updatedProducts = [...products];
 
-      for (const prod of needsMigration) {
-        if (cancelled) break;
-        try {
-          const url = await uploadProductImageFromBase64(prod.image, activeTenant.id, prod.id);
-          if (url) {
-            const idx = updatedProducts.findIndex((p: any) => p.id === prod.id);
-            if (idx !== -1) updatedProducts[idx] = { ...updatedProducts[idx], image: url };
-            migrated++;
-          }
-        } catch { /* skip this product, try next */ }
-        // Small delay between uploads to avoid rate limiting
-        await new Promise(r => setTimeout(r, 300));
-      }
+        for (const prod of needsMigration) {
+          if (cancelled) break;
+          try {
+            const url = await uploadProductImageFromBase64(prod.image, tid, prod.id);
+            if (url) {
+              const idx = updatedProducts.findIndex((p: any) => p.id === prod.id);
+              if (idx !== -1) {
+                updatedProducts[idx] = { ...updatedProducts[idx], image: url };
+                migrated++;
+              }
+            }
+          } catch { /* skip this product, try next */ }
+          await new Promise(r => setTimeout(r, 400));
+        }
 
-      if (migrated > 0 && !cancelled) {
-        setProductsMap(prev => ({ ...prev, [activeTenant.id]: updatedProducts }));
-        console.log(`[Jasper] Migrated ${migrated} product image(s) to Supabase Storage.`);
+        if (migrated > 0 && !cancelled) {
+          // Update React state
+          setProductsMap(prev => ({ ...prev, [tid]: updatedProducts }));
+          // Explicitly persist to localStorage immediately
+          try {
+            const currentMap = JSON.parse(localStorage.getItem('jasper_products_map') || '{}');
+            currentMap[tid] = updatedProducts;
+            localStorage.setItem('jasper_products_map', JSON.stringify(currentMap));
+          } catch { /* quota — ignore */ }
+          // Push to Supabase
+          saveData(tid, 'products_map', { [tid]: updatedProducts });
+          console.log(`[Jasper] Migrated ${migrated}/${needsMigration.length} product image(s) to Supabase Storage.`);
+        }
+      } catch (err) {
+        console.warn('[Jasper] Image migration failed:', err);
       }
     })();
 
     return () => { cancelled = true; };
-  }, [workspaceReady, activeTenant.id]);
-
+  }, [workspaceReady, activeTenant.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
