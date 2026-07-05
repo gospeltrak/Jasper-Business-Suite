@@ -2200,7 +2200,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                     return (
                       <img 
                         src={logo} 
-                        alt={`${activeTenant.name} Logo`} 
+                        alt={`${systemSettings?.business?.businessName || activeTenant.name} Logo`} 
                         className="w-10 h-10 rounded-full object-cover border-2 border-emerald-400 shrink-0 shadow-xs" 
                         referrerPolicy="no-referrer"
                       />
@@ -2208,14 +2208,14 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   } else {
                     return (
                       <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-400 text-white flex items-center justify-center font-black text-xs tracking-wider shrink-0 shadow-xs">
-                        {getFallbackInitials(activeTenant.name)}
+                        {getFallbackInitials(systemSettings?.business?.businessName || activeTenant.name)}
                       </div>
                     );
                   }
                 })()}
                 <div className="flex flex-col text-left">
                   <span className="text-sm font-extrabold text-slate-900 dark:text-white capitalize leading-tight">
-                    {activeTenant.name}
+                    {systemSettings?.business?.businessName || activeTenant.name}
                   </span>
                   <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mt-0.5">
                     {t(visibleSidebarItems.find((m: any) => m.id === activeTab || m.tabId === activeTab)?.label || activeTab.replace(/-/g, ' '))}
@@ -2398,7 +2398,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                     return (
                       <img 
                         src={logo} 
-                        alt={`${activeTenant.name} Logo`} 
+                        alt={`${systemSettings?.business?.businessName || activeTenant.name} Logo`} 
                         className="w-10 h-10 rounded-full object-cover border-2 border-emerald-400 shadow-sm shrink-0" 
                         referrerPolicy="no-referrer"
                       />
@@ -2406,7 +2406,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   } else {
                     return (
                       <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-400 text-white flex items-center justify-center font-black text-xs tracking-wider shrink-0 shadow-sm">
-                        {getFallbackInitials(activeTenant.name)}
+                        {getFallbackInitials(systemSettings?.business?.businessName || activeTenant.name)}
                       </div>
                     );
                   }
@@ -2414,7 +2414,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               </div>
               <div className="flex flex-col items-start leading-none text-left">
                 <span className="text-xs font-extrabold text-slate-900 dark:text-white capitalize tracking-tight mb-0.5">
-                  {activeTenant.name}
+                  {systemSettings?.business?.businessName || activeTenant.name}
                 </span>
                 <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   {t(visibleSidebarItems.find((m: any) => m.id === activeTab || m.tabId === activeTab)?.label || activeTab.replace(/-/g, ' '))}
@@ -3064,7 +3064,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             <div>
               <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-0.5">All Features</p>
               <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
-                {user.role === 'SuperAdmin' ? 'SaaS Admin Portal' : activeTenant.name}
+                {user.role === 'SuperAdmin' ? 'SaaS Admin Portal' : (systemSettings?.business?.businessName || activeTenant.name)}
               </h2>
             </div>
             <button onClick={() => setMoreMenuOpen(false)} className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 active:scale-90 transition-all border-none cursor-pointer" type="button">

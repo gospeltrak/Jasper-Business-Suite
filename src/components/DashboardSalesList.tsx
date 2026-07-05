@@ -696,7 +696,7 @@ export default function DashboardSalesList({
   const buildDocumentWhatsAppMessage = (doc: SalesDocument) => {
     const documentLabel = getDocumentLabel(doc.type).toLowerCase();
     const customer = doc.customerName?.trim() || 'valued customer';
-    return `Hello ${customer}, please find attached your ${documentLabel} PDF ${doc.documentNumber} from ${activeTenant.name}. Thank you.`;
+    return `Hello ${customer}, please find attached your ${documentLabel} PDF ${doc.documentNumber} from ${(systemSettings?.business?.businessName || activeTenant.name)}. Thank you.`;
   };
 
   const sharePdfDocument = async (doc: SalesDocument, phone?: string) => {
@@ -724,7 +724,7 @@ export default function DashboardSalesList({
         elementId: format === 'a4' ? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template',
         fileName: `${format === 'a4' ? 'sales-invoice' : 'pos-receipt'}-${sale.reference || sale.id}.pdf`,
         phone: phone || sale.customerPhone,
-        message: `Hello ${sale.customerName || 'customer'}, please find attached your ${format === 'a4' ? 'sales invoice' : 'POS receipt'} PDF from ${activeTenant.name}. Thank you.`,
+        message: `Hello ${sale.customerName || 'customer'}, please find attached your ${format === 'a4' ? 'sales invoice' : 'POS receipt'} PDF from ${(systemSettings?.business?.businessName || activeTenant.name)}. Thank you.`,
         format
       });
       setPdfShareStatus('PDF ready for WhatsApp.');
@@ -2729,7 +2729,7 @@ export default function DashboardSalesList({
                         <div className="p-2 bg-indigo-600 text-white rounded-xl">
                           <Building className="w-6 h-6" />
                         </div>
-                        <h2 className="text-2xl font-black tracking-tight text-slate-800">{activeTenant.name}</h2>
+                        <h2 className="text-2xl font-black tracking-tight text-slate-800">{systemSettings?.business?.businessName || activeTenant.name}</h2>
                       </div>
                       <p className="text-xs text-slate-500 max-w-sm uppercase leading-relaxed font-semibold">
                         {activeTenant.businessType === 'pharmacy' ? 'Clinical Pharmacy Dispensary' : 'Retail Branch'} — {activeTenant.city}, West Africa Operations • Smart POS Ledger Verified
@@ -2954,7 +2954,7 @@ export default function DashboardSalesList({
                       className="max-h-12 max-w-[140px] object-contain rounded-lg mb-2 select-none"
                     />
                   )}
-                  <h4 className="text-sm font-black tracking-tight text-slate-800 text-uppercase">{activeTenant.name}</h4>
+                  <h4 className="text-sm font-black tracking-tight text-slate-800 text-uppercase">{systemSettings?.business?.businessName || activeTenant.name}</h4>
                   <p className="text-[10px] text-slate-500 uppercase">{activeTenant.city}</p>
                   <p className="text-[10px] text-slate-400 leading-normal mt-1.5 font-bold text-slate-500">TAX REGISTER INVOICE DEBT VOUCHER</p>
                 </div>
@@ -4641,10 +4641,10 @@ export default function DashboardSalesList({
                           />
                         ) : (
                           <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl mb-3">
-                            {activeTenant.name.charAt(0)}
+                            {(systemSettings?.business?.businessName || activeTenant.name).charAt(0)}
                           </div>
                         )}
-                        <h2 className="text-xl font-black text-slate-900 tracking-tight">{activeTenant.name}</h2>
+                        <h2 className="text-xl font-black text-slate-900 tracking-tight">{systemSettings?.business?.businessName || activeTenant.name}</h2>
                         <p className="text-[11px] text-slate-400 mt-0.5 uppercase tracking-wide font-semibold">{activeTenant.city || ''}</p>
                         {systemSettings?.company?.phone && <p className="text-[11px] text-slate-500 mt-0.5">Tel: {systemSettings.company.phone}</p>}
                         {systemSettings?.company?.email && <p className="text-[11px] text-slate-500">Email: {systemSettings.company.email}</p>}
@@ -4681,7 +4681,7 @@ export default function DashboardSalesList({
                       </div>
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">From</p>
-                        <p className="font-black text-slate-800 text-sm">{activeTenant.name}</p>
+                        <p className="font-black text-slate-800 text-sm">{systemSettings?.business?.businessName || activeTenant.name}</p>
                         <p className="text-xs text-slate-500 mt-0.5">{preparerRole}</p>
                       </div>
                     </div>
