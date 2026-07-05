@@ -441,6 +441,11 @@ export default function DashboardStaff({
   };
 
   const handleDeleteStaff = (staffId: string) => {
+    const target = staffList.find(s => s.id === staffId);
+    if (target?.isOwner) {
+      alert('⚠️ The business owner account cannot be removed from the staff list.');
+      return;
+    }
     if (!confirm('Are you sure you want to remove this staff member?')) return;
     persistStaffList(staffList.filter(s => s.id !== staffId));
   };
@@ -898,6 +903,7 @@ export default function DashboardStaff({
                               <KeyRound className="w-3.5 h-3.5" />
                               Edit Login
                             </button>
+                            {!staff.isOwner ? (
                             <button
                               type="button"
                               onClick={() => handleDeleteStaff(staff.id)}
@@ -906,6 +912,11 @@ export default function DashboardStaff({
                               <Trash2 className="w-3.5 h-3.5" />
                               Remove
                             </button>
+                          ) : (
+                            <span className="min-h-[38px] rounded-xl bg-amber-50 px-3 text-xs font-black text-amber-700 inline-flex items-center gap-1.5 border border-amber-200">
+                              👑 Owner
+                            </span>
+                          )}
                           </div>
                           {renderCredentialEditor(staff)}
                         </td>
@@ -958,6 +969,7 @@ export default function DashboardStaff({
                         <KeyRound className="w-4 h-4" />
                         Edit Login
                       </button>
+                      {!staff.isOwner ? (
                       <button
                         type="button"
                         onClick={() => handleDeleteStaff(staff.id)}
@@ -966,6 +978,11 @@ export default function DashboardStaff({
                         <Trash2 className="w-4 h-4" />
                         Remove
                       </button>
+                      ) : (
+                      <span className="min-h-[46px] rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-black inline-flex items-center justify-center gap-1">
+                        👑 Owner
+                      </span>
+                      )}
                     </div>
                     {renderCredentialEditor(staff, true)}
                   </article>

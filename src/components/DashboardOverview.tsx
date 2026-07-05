@@ -52,6 +52,7 @@ interface DashboardOverviewProps {
   onToggleOffline?: () => void;
   userName?: string;
   userRole?: string;
+  userProfileImage?: string;
 }
 
 // Revenue helper: use productTotal if available, else subtract deliveryCost from total
@@ -69,6 +70,7 @@ export default function DashboardOverview({
   purchases = [],
   userName,
   userRole,
+  userProfileImage,
   isOfflineMode = false,
   offlinePendingCount = 0,
   onToggleOffline
@@ -632,9 +634,21 @@ export default function DashboardOverview({
       {/* 2. OVERVIEW HEADER WITH DYNAMIC DAY SELECTOR */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 rounded-2xl shadow-xs text-left select-none animate-fade-in hidden xl:flex">
         <div className="flex items-center space-x-4">
-          {/* Circular logo or Initials Avatar */}
+          {/* Circular avatar: user profile → company logo → initials */}
           {(() => {
             const tenantId = activeTenant.id;
+            // Priority 1: user's own profile image
+            if (userProfileImage) {
+              return (
+                <img
+                  src={userProfileImage}
+                  alt={userName || activeTenant.name}
+                  className="w-14 h-14 rounded-full object-cover border-2 border-emerald-400 shrink-0 shadow-xs"
+                  referrerPolicy="no-referrer"
+                />
+              );
+            }
+            // Priority 2: business/company logo
             let logo = logoUrl || systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${tenantId}`) || activeTenant.company_settings?.logo_url || null;
             if (!logo) {
               const cachedSet = localStorage.getItem(`jasper_settings_${tenantId}`);
@@ -647,20 +661,20 @@ export default function DashboardOverview({
             }
             if (logo) {
               return (
-                <img 
-                  src={logo} 
-                  alt={`${activeTenant.name} Logo`} 
-                  className="w-14 h-14 rounded-full object-cover border-2 border-emerald-400 shrink-0 shadow-xs" 
+                <img
+                  src={logo}
+                  alt={`${activeTenant.name} Logo`}
+                  className="w-14 h-14 rounded-full object-cover border-2 border-emerald-400 shrink-0 shadow-xs"
                   referrerPolicy="no-referrer"
                 />
               );
-            } else {
-              return (
-                <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-300 text-white flex items-center justify-center font-black text-lg tracking-wide shrink-0 shadow-xs">
-                  {activeTenant.name ? activeTenant.name.substring(0, 2).toUpperCase() : 'JA'}
+            }
+            // Priority 3: initials
+            return (
+              <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-300 text-white flex items-center justify-center font-black text-lg tracking-wide shrink-0 shadow-xs">
+                {activeTenant.name ? activeTenant.name.substring(0, 2).toUpperCase() : 'JA'}
                 </div>
               );
-            }
           })()}
           
           <div className="leading-tight">

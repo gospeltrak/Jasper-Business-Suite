@@ -715,6 +715,40 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     return () => window.clearTimeout(timer);
   }, [workspaceReady, activeTenant.id, branchesMap, branchStocksMap, branchStaffAssignmentsMap, productsMap, salesMap, expensesMap, systemSettings, deliveriesMap, pendingDeliveryNotesMap, purchasesMap]);
 
+  // PHASE 3 — Auto-create the business owner as a staff record on first login.
+  // This ensures the admin appears in the HR/staff list with full permissions
+  // and is protected from deletion. Only runs once when settings are ready
+  // and no owner record exists yet.
+  useEffect(() => {
+    if (!workspaceReady || user.role === 'SuperAdmin') return;
+    const staffs: any[] = systemSettings?.staffs || [];
+    const ownerExists = staffs.some((s: any) => s.isOwner);
+    if (ownerExists) return;
+
+    // Create an owner staff record from the logged-in admin's details
+    const ownerRecord = {
+      id: `owner-${activeTenant.id}`,
+      name: user.name || activeTenant.name,
+      phone: user.phone || '',
+      role: 'Admin',
+      salary: 0,
+      salaryType: 'monthly' as const,
+      status: 'active' as const,
+      staffType: 'permanent' as const,
+      dateJoined: new Date().toISOString().split('T')[0],
+      isOwner: true,
+      profileImage: user.profileImage || undefined,
+      notes: 'Business owner account — auto-created on first login',
+    };
+
+    const updatedStaffs = [ownerRecord, ...staffs];
+    const updatedSettings = { ...systemSettings, staffs: updatedStaffs };
+    setSystemSettings(updatedSettings);
+    try {
+      localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updatedSettings));
+    } catch { /* quota */ }
+  }, [workspaceReady, activeTenant.id]);
+
   // Service Worker and Offline background synchronizer listener
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -2627,6 +2661,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onToggleOffline={handleToggleOnlineAndSync}
               userName={user.name}
               userRole={user.role}
+              userProfileImage={user.profileImage}
             />
           )}
 

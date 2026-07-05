@@ -451,7 +451,7 @@ export interface StaffSettings {
   name: string;
   phone: string;
   password?: string;
-  role: string; // Dynamic role string supporting both custom created roles and built-in presets
+  role: string;
   salary: number;
   salaryType?: 'monthly' | 'weekly' | 'daily' | 'commission' | 'custom';
   salaryStartDate?: string;
@@ -464,9 +464,9 @@ export interface StaffSettings {
   passwordUpdatedAt?: string;
   temporaryPasswordIssuedAt?: string;
   allowances?: StaffAllowance[];
-  profileImage?: string; // profile photo recommended 500x500 pixels
-  signatureImage?: string; // signature PNG recommended 500x500 pixels
-  // Delivery rider specific fields attached to staff profile
+  profileImage?: string;
+  signatureImage?: string;
+  isOwner?: boolean; // true for the system owner/admin — cannot be deleted
   classification?: 'rider' | 'driver';
   vehicleType?: 'motorcycle' | 'tuktuk' | 'car';
   vehicleColor?: string;
