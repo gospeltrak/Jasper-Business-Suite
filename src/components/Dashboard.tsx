@@ -2180,21 +2180,22 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               {/* Business Logo / Avatar and Name */}
               <div className="flex items-center space-x-3 shrink-0">
                 {(() => {
-                  let logo = (() => {
-                    const biz = systemSettings?.business;
-                    const themeAwareLogo = isDark
-                      ? (biz?.businessLogoDark || biz?.businessLogoLight || biz?.businessLogo)
-                      : (biz?.businessLogoLight || biz?.businessLogoDark || biz?.businessLogo);
-                    return logoUrl || themeAwareLogo || systemSettings?.company?.logo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant.company_settings?.logo_url || null;
-                  })();
+                  // Header logo: ONLY Business Setup logos (businessLogoLight / businessLogoDark)
+                  // Company Account logo is NEVER used here — only in staff/HR profile fallback
+                  const biz = systemSettings?.business;
+                  let logo = isDark
+                    ? (biz?.businessLogoDark || biz?.businessLogoLight || biz?.businessLogo || null)
+                    : (biz?.businessLogoLight || biz?.businessLogoDark || biz?.businessLogo || null);
                   if (!logo) {
-                    const cachedSet = localStorage.getItem(`jasper_settings_${activeTenant.id}`);
-                    if (cachedSet) {
-                      try {
-                        const pSet = JSON.parse(cachedSet);
-                        logo = (isDark ? (pSet?.business?.businessLogoDark || pSet?.business?.businessLogoLight) : (pSet?.business?.businessLogoLight || pSet?.business?.businessLogoDark)) || pSet?.business?.businessLogo || pSet?.company?.logo || null;
-                      } catch (err) {}
-                    }
+                    // Check cached settings for business logo (offline fallback)
+                    try {
+                      const pSet = JSON.parse(localStorage.getItem(`jasper_settings_${activeTenant.id}`) || 'null');
+                      if (pSet) {
+                        logo = isDark
+                          ? (pSet?.business?.businessLogoDark || pSet?.business?.businessLogoLight || pSet?.business?.businessLogo || null)
+                          : (pSet?.business?.businessLogoLight || pSet?.business?.businessLogoDark || pSet?.business?.businessLogo || null);
+                      }
+                    } catch { /* use initials fallback */ }
                   }
                   if (logo) {
                     return (
@@ -2378,21 +2379,22 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 title="Open Workspace Menu"
               >
                 {(() => {
-                  let logo = (() => {
-                    const biz = systemSettings?.business;
-                    const themeAwareLogo = isDark
-                      ? (biz?.businessLogoDark || biz?.businessLogoLight || biz?.businessLogo)
-                      : (biz?.businessLogoLight || biz?.businessLogoDark || biz?.businessLogo);
-                    return logoUrl || themeAwareLogo || systemSettings?.company?.logo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant.company_settings?.logo_url || null;
-                  })();
+                  // Header logo: ONLY Business Setup logos (businessLogoLight / businessLogoDark)
+                  // Company Account logo is NEVER used here — only in staff/HR profile fallback
+                  const biz = systemSettings?.business;
+                  let logo = isDark
+                    ? (biz?.businessLogoDark || biz?.businessLogoLight || biz?.businessLogo || null)
+                    : (biz?.businessLogoLight || biz?.businessLogoDark || biz?.businessLogo || null);
                   if (!logo) {
-                    const cachedSet = localStorage.getItem(`jasper_settings_${activeTenant.id}`);
-                    if (cachedSet) {
-                      try {
-                        const pSet = JSON.parse(cachedSet);
-                        logo = (isDark ? (pSet?.business?.businessLogoDark || pSet?.business?.businessLogoLight) : (pSet?.business?.businessLogoLight || pSet?.business?.businessLogoDark)) || pSet?.business?.businessLogo || pSet?.company?.logo || null;
-                      } catch (err) {}
-                    }
+                    // Check cached settings for business logo (offline fallback)
+                    try {
+                      const pSet = JSON.parse(localStorage.getItem(`jasper_settings_${activeTenant.id}`) || 'null');
+                      if (pSet) {
+                        logo = isDark
+                          ? (pSet?.business?.businessLogoDark || pSet?.business?.businessLogoLight || pSet?.business?.businessLogo || null)
+                          : (pSet?.business?.businessLogoLight || pSet?.business?.businessLogoDark || pSet?.business?.businessLogo || null);
+                      }
+                    } catch { /* use initials fallback */ }
                   }
                   if (logo) {
                     return (

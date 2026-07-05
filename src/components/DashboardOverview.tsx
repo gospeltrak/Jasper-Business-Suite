@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, Fragment } from 'react';
 import { useTenantLogo } from '../TenantLogoContext';
+import { useTheme } from '../ThemeContext';
 import { useTranslation } from '../LanguageContext';
 import { Tenant, Product, Sale } from '../types';
 import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitFormatter';
@@ -76,6 +77,7 @@ export default function DashboardOverview({
   onToggleOffline
 }: DashboardOverviewProps) {
   const { logoUrl } = useTenantLogo();
+  const { isDark } = useTheme();
   const { t, lang } = useTranslation();
   const adSettings = useGlobalAdSettings();
   const currency = activeTenant.currencyCode || 'TSh';
@@ -648,31 +650,36 @@ export default function DashboardOverview({
                 />
               );
             }
-            // Priority 2: business/company logo
-            let logo = logoUrl || systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${tenantId}`) || activeTenant.company_settings?.logo_url || null;
+            // Priority 2: Business Setup logo only (theme-aware) — NOT company account logo
+            const biz = systemSettings?.business;
+            let logo = isDark
+              ? (biz?.businessLogoDark || biz?.businessLogoLight || biz?.businessLogo || null)
+              : (biz?.businessLogoLight || biz?.businessLogoDark || biz?.businessLogo || null);
             if (!logo) {
-              const cachedSet = localStorage.getItem(`jasper_settings_${tenantId}`);
-              if (cachedSet) {
-                try {
-                  const pSet = JSON.parse(cachedSet);
-                  logo = pSet?.company?.logo || pSet?.business?.businessLogoLight || pSet?.business?.businessLogo || null;
-                } catch (err) {}
-              }
+              try {
+                const pSet = JSON.parse(localStorage.getItem(`jasper_settings_${tenantId}`) || 'null');
+                if (pSet) {
+                  logo = isDark
+                    ? (pSet?.business?.businessLogoDark || pSet?.business?.businessLogoLight || pSet?.business?.businessLogo || null)
+                    : (pSet?.business?.businessLogoLight || pSet?.business?.businessLogoDark || pSet?.business?.businessLogo || null);
+                }
+              } catch { /* use initials */ }
             }
             if (logo) {
               return (
                 <img
                   src={logo}
-                  alt={`${activeTenant.name} Logo`}
+                  alt={`${systemSettings?.business?.businessName || activeTenant.name} Logo`}
                   className="w-14 h-14 rounded-full object-cover border-2 border-emerald-400 shrink-0 shadow-xs"
                   referrerPolicy="no-referrer"
                 />
               );
             }
-            // Priority 3: initials
+            // Priority 3: initials from business brand name
+            const brandName = systemSettings?.business?.businessName || activeTenant.name || 'JA';
             return (
               <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-300 text-white flex items-center justify-center font-black text-lg tracking-wide shrink-0 shadow-xs">
-                {activeTenant.name ? activeTenant.name.substring(0, 2).toUpperCase() : 'JA'}
+                {brandName.substring(0, 2).toUpperCase()}
                 </div>
               );
           })()}
