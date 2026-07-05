@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, FormEvent } from 'react';
+import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { Sale, Tenant, SaleItem, Product, SystemSettings, SalesDocument, User as AppUser } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatSaleItemQuantity } from '../utils/unitFormatter';
