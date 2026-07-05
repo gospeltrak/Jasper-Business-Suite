@@ -55,6 +55,10 @@ import {
 } from 'lucide-react';
 import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } from '../utils/unitFormatter';
 
+// Revenue helper: exclude delivery fees from product revenue calculations
+const saleProductRevenue = (s: any): number =>
+  s.productTotal !== undefined ? s.productTotal : (s.total - (s.deliveryCost || 0));
+
 interface DashboardReportsProps {
   activeTenant: Tenant;
   products: Product[];
@@ -250,7 +254,7 @@ export default function DashboardReports({
   };
 
   const handleDownloadPnLSpreadsheet = () => {
-    const totalSalesRev = filteredSales.reduce((sum, s) => sum + s.total, 0);
+    const totalSalesRev = filteredSales.reduce((sum, s) => sum + saleProductRevenue(s), 0);
     const totalExp = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
     
     let estimatedCOGS = 0;
@@ -386,14 +390,14 @@ export default function DashboardReports({
             custMap[cName] = { name: cName, phone: cp, count: 0, spend: 0 };
           }
           custMap[cName].count++;
-          custMap[cName].spend += s.total;
+          custMap[cName].spend += saleProductRevenue(s);
 
           const stF = s.cashierName || "System Operator";
           if (!staffMap[stF]) {
             staffMap[stF] = { count: 0, sales: 0 };
           }
           staffMap[stF].count++;
-          staffMap[stF].sales += s.total;
+          staffMap[stF].sales += saleProductRevenue(s);
         });
 
         csv += "--- PART ONE: CUSTOMER DIRECTORY AUDIT ---\r\n";
@@ -514,7 +518,7 @@ export default function DashboardReports({
   // 1. Profit & Loss Computation
   // -------------------------------------------------------------
   // Gross sales receipts
-  const totalSalesRevenue = filteredSales.reduce((acc, s) => acc + s.total, 0);
+  const totalSalesRevenue = filteredSales.reduce((acc, s) => acc + saleProductRevenue(s), 0);
 
   // Compute total gross sales before discounts or VAT
   const totalGrossSales = filteredSales.reduce((sum, s) => {
@@ -576,7 +580,7 @@ export default function DashboardReports({
       const dStr = sale.timestamp.split('T')[0];
       if (dateMap[dStr]) {
         dateMap[dStr].salesCount += 1;
-        dateMap[dStr].salesRevenue += sale.total;
+        dateMap[dStr].salesRevenue += saleProductRevenue(sale);
         
         const saleCogs = sale.items.reduce((sAcc, item) => {
           const matchProd = products.find(p => p.id === item.productId);
@@ -638,17 +642,17 @@ export default function DashboardReports({
 
   const salesReportMetrics = useMemo(() => {
     const totalOrders = recordsFilteredSales.length;
-    const totalRevenue = recordsFilteredSales.reduce((sum, s) => sum + s.total, 0);
+    const totalRevenue = recordsFilteredSales.reduce((sum, s) => sum + saleProductRevenue(s), 0);
     const totalTax = recordsFilteredSales.reduce((sum, s) => sum + s.tax, 0);
     const avgTicket = totalOrders > 0 ? (totalRevenue / totalOrders) : 0;
 
     const paidRecords = recordsFilteredSales.filter(s => s.paymentMethod !== 'Credit');
     const paidCount = paidRecords.length;
-    const paidRevenue = paidRecords.reduce((sum, s) => sum + s.total, 0);
+    const paidRevenue = paidRecords.reduce((sum, s) => sum + saleProductRevenue(s), 0);
 
     const unpaidRecords = recordsFilteredSales.filter(s => s.paymentMethod === 'Credit');
     const unpaidCount = unpaidRecords.length;
-    const unpaidRevenue = unpaidRecords.reduce((sum, s) => sum + s.total, 0);
+    const unpaidRevenue = unpaidRecords.reduce((sum, s) => sum + saleProductRevenue(s), 0);
 
     const totalProfit = recordsFilteredSales.reduce((sum, s) => {
       const cogs = s.items.reduce((acc, item) => {
@@ -656,7 +660,7 @@ export default function DashboardReports({
         const cost = item.costPriceAtSale ?? (prod ? (prod.costPrice ?? 0) : 0);
         return acc + (cost * item.qty);
       }, 0);
-      return sum + (s.total - cogs);
+      return sum + (saleProductRevenue(s) - cogs);
     }, 0);
 
     return {
@@ -721,14 +725,14 @@ export default function DashboardReports({
         groups[key] = { total: 0, cash: 0, card: 0, momo: 0, bank: 0, credit: 0, count: 0 };
       }
 
-      groups[key].total += sale.total;
+      groups[key].total += saleProductRevenue(sale);
       groups[key].count += 1;
       
       const paymentClass = classifyPaymentMethod(sale.paymentMethod);
-      if (paymentClass === 'Cash') groups[key].cash += sale.total;
-      else if (paymentClass === 'Card') groups[key].card += sale.total;
-      else if (paymentClass === 'Mobile Money') groups[key].momo += sale.total;
-      else if (paymentClass === 'Bank') groups[key].bank += sale.total;
+      if (paymentClass === 'Cash') groups[key].cash += saleProductRevenue(sale);
+      else if (paymentClass === 'Card') groups[key].card += saleProductRevenue(sale);
+      else if (paymentClass === 'Mobile Money') groups[key].momo += saleProductRevenue(sale);
+      else if (paymentClass === 'Bank') groups[key].bank += saleProductRevenue(sale);
       else if (paymentClass === 'Credit') groups[key].credit += sale.total;
     });
 
@@ -4227,14 +4231,14 @@ export default function DashboardReports({
                         custMap[cName] = { count: 0, spend: 0 };
                       }
                       custMap[cName].count++;
-                      custMap[cName].spend += s.total;
+                      custMap[cName].spend += saleProductRevenue(s);
 
                       const stF = s.cashierName || "System Operator";
                       if (!staffMap[stF]) {
                         staffMap[stF] = { count: 0, sales: 0 };
                       }
                       staffMap[stF].count++;
-                      staffMap[stF].sales += s.total;
+                      staffMap[stF].sales += saleProductRevenue(s);
                     });
 
                     return (
@@ -5352,14 +5356,14 @@ export default function DashboardReports({
                 custMap[cName] = { count: 0, spend: 0 };
               }
               custMap[cName].count++;
-              custMap[cName].spend += s.total;
+              custMap[cName].spend += saleProductRevenue(s);
 
               const stF = s.cashierName || "System Operator";
               if (!staffMap[stF]) {
                 staffMap[stF] = { count: 0, sales: 0 };
               }
               staffMap[stF].count++;
-              staffMap[stF].sales += s.total;
+              staffMap[stF].sales += saleProductRevenue(s);
             });
 
             return (

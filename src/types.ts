@@ -284,7 +284,8 @@ export interface SaleItem {
 export interface Sale {
   id: string;
   items: SaleItem[];
-  total: number;
+  total: number;           // grandTotal including delivery (kept for backward compat)
+  productTotal?: number;   // total excluding delivery — use this for revenue/profit reports
   tax: number;
   deliveryCost?: number;
   deliveryPaymentMethod?: string;

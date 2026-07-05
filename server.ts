@@ -1485,6 +1485,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
   // API Route: Upload and persist company logo to Supabase storage + tenants table JSONB field
   app.post('/api/tenant/logo', async (req, res) => {
+    // Ensure response is always JSON — never HTML error pages
+    res.setHeader('Content-Type', 'application/json');
     const { tenantId, logoBase64 } = req.body;
 
     if (!tenantId || !logoBase64 || !isUuid(tenantId)) {
@@ -1529,15 +1531,15 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (buffer.length > 3_000_000) {
         return res.status(413).json({ error: 'Logo file is too large. Please upload an image below 3 MB.' });
       }
-      const fileName = `tenant-${tenantId}-${Date.now()}.${extension}`;
+      const fileName = `${tenantId}/logo.${extension}`;
 
       // Ensure the "logos" bucket exists
       try {
         const { data: buckets, error: getBucketsError } = await supabaseAdmin.storage.listBuckets();
         if (!getBucketsError) {
-          const hasLogos = buckets.some((b: any) => b.name === 'logos');
+          const hasLogos = buckets.some((b: any) => b.name === 'tenant-logos');
           if (!hasLogos) {
-            await supabaseAdmin.storage.createBucket('logos', { public: true });
+            await supabaseAdmin.storage.createBucket('tenant-logos', { public: true });
           }
         }
       } catch (bucketErr) {
@@ -1546,7 +1548,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
       // Upload file to storage
       const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
-        .from('logos')
+        .from('tenant-logos')
         .upload(fileName, buffer, {
           contentType: mimeType,
           upsert: true
@@ -1558,7 +1560,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
       // Get public URL
       const { data: publicUrlData } = supabaseAdmin.storage
-        .from('logos')
+        .from('tenant-logos')
         .getPublicUrl(fileName);
 
       const publicUrl = publicUrlData?.publicUrl || '';

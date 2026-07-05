@@ -260,7 +260,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     // Dynamically fallback to a clean empty tenant matching the user's activeTenant ID
     return {
       id: targetTenantId,
-      name: user.name ? `${user.name} Suite` : 'My Jasper Suite',
+      name: user.name ? `${user.name}'s Business` : 'My Business',
       country: 'Tanzania',
       city: 'Dar es Salaam',
       currency: 'TSh',
@@ -2007,9 +2007,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shrink-0 shadow-md overflow-hidden">
                 {user.profileImage ? (
                   <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
+                ) : systemSettings?.company?.logo ? (
+                  <img src={systemSettings.company.logo} alt={user.name} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-[#1a1f2e] font-bold text-lg uppercase tracking-wider">
-                    {user.name.substring(0, 2)}
+                    {getFallbackInitials(user.name)}
                   </span>
                 )}
               </div>
@@ -2144,13 +2146,19 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               {/* Business Logo / Avatar and Name */}
               <div className="flex items-center space-x-3 shrink-0">
                 {(() => {
-                  let logo = logoUrl || systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant.company_settings?.logo_url || null;
+                  let logo = (() => {
+                    const biz = systemSettings?.business;
+                    const themeAwareLogo = isDark
+                      ? (biz?.businessLogoDark || biz?.businessLogoLight || biz?.businessLogo)
+                      : (biz?.businessLogoLight || biz?.businessLogoDark || biz?.businessLogo);
+                    return logoUrl || themeAwareLogo || systemSettings?.company?.logo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant.company_settings?.logo_url || null;
+                  })();
                   if (!logo) {
                     const cachedSet = localStorage.getItem(`jasper_settings_${activeTenant.id}`);
                     if (cachedSet) {
                       try {
                         const pSet = JSON.parse(cachedSet);
-                        logo = pSet?.company?.logo || pSet?.business?.businessLogoLight || pSet?.business?.businessLogo || null;
+                        logo = (isDark ? (pSet?.business?.businessLogoDark || pSet?.business?.businessLogoLight) : (pSet?.business?.businessLogoLight || pSet?.business?.businessLogoDark)) || pSet?.business?.businessLogo || pSet?.company?.logo || null;
                       } catch (err) {}
                     }
                   }
@@ -2336,13 +2344,19 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 title="Open Workspace Menu"
               >
                 {(() => {
-                  let logo = logoUrl || systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant.company_settings?.logo_url || null;
+                  let logo = (() => {
+                    const biz = systemSettings?.business;
+                    const themeAwareLogo = isDark
+                      ? (biz?.businessLogoDark || biz?.businessLogoLight || biz?.businessLogo)
+                      : (biz?.businessLogoLight || biz?.businessLogoDark || biz?.businessLogo);
+                    return logoUrl || themeAwareLogo || systemSettings?.company?.logo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant.company_settings?.logo_url || null;
+                  })();
                   if (!logo) {
                     const cachedSet = localStorage.getItem(`jasper_settings_${activeTenant.id}`);
                     if (cachedSet) {
                       try {
                         const pSet = JSON.parse(cachedSet);
-                        logo = pSet?.company?.logo || pSet?.business?.businessLogoLight || pSet?.business?.businessLogo || null;
+                        logo = (isDark ? (pSet?.business?.businessLogoDark || pSet?.business?.businessLogoLight) : (pSet?.business?.businessLogoLight || pSet?.business?.businessLogoDark)) || pSet?.business?.businessLogo || pSet?.company?.logo || null;
                       } catch (err) {}
                     }
                   }

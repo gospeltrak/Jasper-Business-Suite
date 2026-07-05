@@ -4020,8 +4020,8 @@ export default function DashboardSalesList({
 
       {/* DIALOG: NEW DOCUMENT CREATOR MODAL */}
       {showNewDocModal && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
-          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] font-sans">
+        <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+          <div className="relative bg-white border border-slate-200 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-5xl overflow-hidden flex flex-col h-[95vh] sm:max-h-[calc(100vh-2rem)] font-sans">
             
             <div className="p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -4172,48 +4172,87 @@ export default function DashboardSalesList({
                     <span className="block text-[9px] uppercase tracking-wider font-bold text-slate-500 font-mono">Product Search & Picker Tool</span>
                     <div className="space-y-2">
                       
-                      {/* Search box for product code or barcode */}
+                      {/* Search box — also accepts barcode scanner input (scanner fires Enter after code) */}
                       <div className="relative">
                         <input
                           type="text"
-                          placeholder="Search product by name or barcode..."
+                          placeholder="Search by name or scan barcode…"
                           value={docWizardProductSearchQuery}
                           onChange={(e) => setDocWizardProductSearchQuery(e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-8 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              // Barcode scanner presses Enter — auto-select if exactly one match
+                              const query = docWizardProductSearchQuery.toLowerCase().trim();
+                              const matches = products.filter(p => {
+                                return (p.barcode && p.barcode.toLowerCase() === query) ||
+                                  (p.sku && p.sku.toLowerCase() === query) ||
+                                  (p.name && p.name.toLowerCase().includes(query));
+                              });
+                              if (matches.length === 1) {
+                                setDocWizardSelectedProductId(matches[0].id);
+                                setDocWizardProductSearchQuery(matches[0].name);
+                              }
+                              e.preventDefault();
+                            }
+                          }}
+                          className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-8 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
                         />
-                        <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                         {docWizardProductSearchQuery && (
                           <button
                             type="button"
-                            onClick={() => setDocWizardProductSearchQuery('')}
-                            className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-slate-600 font-bold"
+                            onClick={() => { setDocWizardProductSearchQuery(''); setDocWizardSelectedProductId(''); }}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
                           >
                             ✕
                           </button>
                         )}
                       </div>
 
-                      <select
-                        value={docWizardSelectedProductId}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setDocWizardSelectedProductId(val);
-                        }}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 outline-none cursor-pointer"
-                      >
-                        <option value="">-- Choose Product Item --</option>
-                        {products
-                          .filter(p => {
-                            const query = docWizardProductSearchQuery.toLowerCase().trim();
-                            if (!query) return true;
-                            const matchName = p.name ? p.name.toLowerCase().includes(query) : false;
-                            const matchBarcode = p.barcode ? p.barcode.toLowerCase().includes(query) : false;
-                            return matchName || matchBarcode;
-                          })
-                          .map(p => (
-                            <option key={p.id} value={p.id}>{p.name} {p.barcode ? `[${p.barcode}]` : ''} ({currency}{p.sellingPrice.toLocaleString()})</option>
-                          ))}
-                      </select>
+                      {/* Product results list — replaces <select> for better UX */}
+                      {(() => {
+                        const query = docWizardProductSearchQuery.toLowerCase().trim();
+                        const filtered = products.filter(p => {
+                          if (!query) return true;
+                          return (p.name && p.name.toLowerCase().includes(query)) ||
+                            (p.barcode && p.barcode.toLowerCase().includes(query)) ||
+                            (p.sku && p.sku.toLowerCase().includes(query));
+                        });
+                        const selected = products.find(p => p.id === docWizardSelectedProductId);
+
+                        // Show selected product chip when one is chosen and search is cleared/matches
+                        if (selected && (!query || selected.name.toLowerCase().includes(query) || (selected.barcode || '').includes(query))) {
+                          return (
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 flex items-center justify-between">
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-emerald-800 truncate">{selected.name}</p>
+                                <p className="text-[10px] text-emerald-600">{selected.barcode ? `${selected.barcode} · ` : ''}{currency}{selected.sellingPrice.toLocaleString()} · Stock: {selected.shopStockQty ?? selected.stockQty ?? 0}</p>
+                              </div>
+                              <button type="button" onClick={() => { setDocWizardSelectedProductId(''); setDocWizardProductSearchQuery(''); }} className="text-emerald-400 hover:text-emerald-700 font-bold ml-2 shrink-0 cursor-pointer text-xs">✕</button>
+                            </div>
+                          );
+                        }
+
+                        if (!query) return null;
+
+                        return (
+                          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto shadow-lg">
+                            {filtered.length === 0 ? (
+                              <div className="px-3 py-3 text-xs text-slate-400 text-center">No products found</div>
+                            ) : filtered.slice(0, 20).map(p => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => { setDocWizardSelectedProductId(p.id); setDocWizardProductSearchQuery(p.name); }}
+                                className={`w-full text-left px-3 py-2 hover:bg-emerald-50 border-b border-slate-50 last:border-0 cursor-pointer transition-colors ${docWizardSelectedProductId === p.id ? 'bg-emerald-50' : ''}`}
+                              >
+                                <p className="text-xs font-semibold text-slate-800 truncate">{p.name}</p>
+                                <p className="text-[10px] text-slate-400">{p.barcode ? `${p.barcode} · ` : ''}{currency}{p.sellingPrice.toLocaleString()} · Stock: {p.shopStockQty ?? p.stockQty ?? 0}</p>
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })()}
 
                       <div className="flex gap-2 font-sans">
                         <div className="w-1/2">

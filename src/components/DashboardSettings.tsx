@@ -598,10 +598,14 @@ export default function DashboardSettings({
   const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'hrm' | 'roles' | 'notifications'>('company');
   
   // Temporary states for local forms to avoid writing directly to parent state until saved
-  const [companyForm, setCompanyForm] = useState<CompanySettings>(systemSettings?.company || {
-    companyName: '', businessType: '', currency: 'TZS', currencySymbol: 'TSh',
-    country: 'Tanzania', city: '', taxRate: 18, logoUrl: ''
-  } as unknown as CompanySettings);
+  const [companyForm, setCompanyForm] = useState<CompanySettings>(() => {
+    const base = systemSettings?.company || {
+      companyName: '', businessType: '', currency: 'TZS', currencySymbol: 'TSh',
+      country: 'Tanzania', city: '', taxRate: 18, logoUrl: ''
+    } as unknown as CompanySettings;
+    // Sync themeMode with the actual current theme so saving doesn't reset it
+    return { ...base, themeMode: (base as any).themeMode || (isDark ? 'dark' : 'light') };
+  });
   const [businessForm, setBusinessForm] = useState<BusinessSettings>(() => normalizeBusinessSettings(systemSettings?.business));
   const [productForm, setProductForm] = useState<ProductStoreSettings>(() => normalizeProductStoreSettings(systemSettings?.productStore));
   const [invoiceSettingsForm, setInvoiceSettingsForm] = useState<InvoiceSettings>(() => {
@@ -1247,11 +1251,11 @@ export default function DashboardSettings({
     };
     onSaveSettings(fullyUpdatedSettings);
     
-    // Apply Light/Dark mode changes immediately if requested
-    if (companyForm.themeMode === 'dark') {
-      if (!isDark) toggleTheme();
-    } else {
-      if (isDark) toggleTheme();
+    // Apply Light/Dark mode changes immediately if the user explicitly changed it
+    if (companyForm.themeMode === 'dark' && !isDark) {
+      toggleTheme();
+    } else if (companyForm.themeMode === 'light' && isDark) {
+      toggleTheme();
     }
 
     setSaveSuccess('System configurations and business guidelines updated successfully!');

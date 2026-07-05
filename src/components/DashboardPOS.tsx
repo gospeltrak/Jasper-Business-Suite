@@ -990,6 +990,7 @@ export default function DashboardPOS({
       id: 'sl-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
       items: saleItems,
       total: grandTotal,
+      productTotal: grandTotal - deliveryCost, // revenue excluding delivery fee
       tax: tax,
       deliveryCost: deliveryCost,
       deliveryPaymentMethod: deliveryCost > 0 ? deliveryPaymentMethod : undefined,

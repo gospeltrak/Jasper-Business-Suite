@@ -54,6 +54,12 @@ interface DashboardOverviewProps {
   userRole?: string;
 }
 
+// Revenue helper: use productTotal if available, else subtract deliveryCost from total
+// This ensures delivery fees are never counted as product revenue
+const saleProductRevenue = (s: any): number =>
+  s.productTotal !== undefined ? s.productTotal : (s.total - (s.deliveryCost || 0));
+
+
 export default function DashboardOverview({ 
   activeTenant, 
   systemSettings,
@@ -104,7 +110,7 @@ export default function DashboardOverview({
 
   // Derived financial indicators
   const totalRevenue = useMemo(() => {
-    return filteredSales.reduce((sum, s) => sum + s.total, 0);
+    return filteredSales.reduce((sum, s) => sum + saleProductRevenue(s), 0);
   }, [filteredSales]);
 
   // Calculate cost of items sold, gross profit
@@ -126,7 +132,7 @@ export default function DashboardOverview({
     const todayStr = new Date().toISOString().split('T')[0];
     return sales
       .filter(s => s.timestamp && s.timestamp.startsWith(todayStr))
-      .reduce((sum, s) => sum + s.total, 0);
+      .reduce((sum, s) => sum + saleProductRevenue(s), 0);
   }, [sales]);
 
   const monthlyGrowthValue = useMemo(() => {
@@ -140,7 +146,7 @@ export default function DashboardOverview({
         const d = new Date(s.timestamp);
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
       })
-      .reduce((sum, s) => sum + s.total, 0);
+      .reduce((sum, s) => sum + saleProductRevenue(s), 0);
 
     const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
@@ -151,7 +157,7 @@ export default function DashboardOverview({
         const d = new Date(s.timestamp);
         return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
       })
-      .reduce((sum, s) => sum + s.total, 0);
+      .reduce((sum, s) => sum + saleProductRevenue(s), 0);
 
     if (lastMonthSalesNum <= 0) return sales.length === 0 ? 0 : 18.2; // premium static realistic growth fallback
     return ((thisMonthSalesNum - lastMonthSalesNum) / lastMonthSalesNum) * 100;
@@ -164,7 +170,7 @@ export default function DashboardOverview({
         const method = (s.paymentMethod || '').toLowerCase();
         return method === 'credit' || method === 'unpaid' || method === 'pending';
       })
-      .reduce((sum, s) => sum + s.total, 0);
+      .reduce((sum, s) => sum + saleProductRevenue(s), 0);
     return creditSalesTotal > 0 ? creditSalesTotal : (sales.length === 0 ? 0 : Math.round(totalRevenue * 0.125));
   }, [sales, totalRevenue]);
 
@@ -318,7 +324,7 @@ export default function DashboardOverview({
           return hour >= seg.hours[0] && hour < seg.hours[1];
         });
 
-        const actualSum = segSales.reduce((acc, s) => acc + s.total, 0);
+        const actualSum = segSales.reduce((acc, s) => acc + saleProductRevenue(s), 0);
         const actualCost = segSales.reduce((sum, s) => {
           return sum + s.items.reduce((itemSum, item) => {
             const prod = products.find(p => p.id === item.productId);
@@ -365,7 +371,7 @@ export default function DashboardOverview({
                  sd.getFullYear() === day.date.getFullYear();
         });
 
-        const actualSum = daySales.reduce((acc, s) => acc + s.total, 0);
+        const actualSum = daySales.reduce((acc, s) => acc + saleProductRevenue(s), 0);
         const actualCost = daySales.reduce((sum, s) => {
           return sum + s.items.reduce((itemSum, item) => {
             const prod = products.find(p => p.id === item.productId);
@@ -402,7 +408,7 @@ export default function DashboardOverview({
           return diffDays >= wk.daysRange[0] && diffDays <= wk.daysRange[1];
         });
 
-        const actualSum = wkSales.reduce((acc, s) => acc + s.total, 0);
+        const actualSum = wkSales.reduce((acc, s) => acc + saleProductRevenue(s), 0);
         const actualCost = wkSales.reduce((sum, s) => {
           return sum + s.items.reduce((itemSum, item) => {
             const prod = products.find(p => p.id === item.productId);
@@ -444,7 +450,7 @@ export default function DashboardOverview({
         return sd.getMonth() === m.monthIndex && sd.getFullYear() === m.year;
       });
 
-      const actualSum = monthSales.reduce((acc, s) => acc + s.total, 0);
+      const actualSum = monthSales.reduce((acc, s) => acc + saleProductRevenue(s), 0);
       const actualCost = monthSales.reduce((sum, s) => {
         return sum + s.items.reduce((itemSum, item) => {
           const prod = products.find(p => p.id === item.productId);
@@ -761,21 +767,21 @@ export default function DashboardOverview({
       <div className="hidden xl:grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6 select-none animate-fade-in">
         
         {/* Card 1: Total Orders */}
-        <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-violet-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-indigo-100">
               <ShoppingCart className="w-5 h-5 text-white" />
             </div>
-            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100/40">
+            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-full border border-indigo-100/40 dark:border-indigo-800/40">
               Active Orders
             </span>
           </div>
           <div className="mt-4 text-left">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Orders</p>
-            <p className="text-xl font-black text-[#1a1a2e] tracking-tight mt-1">
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Orders</p>
+            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {filteredSales.length}
             </p>
-            <p className="text-[10px] text-slate-500 mt-1.5 font-mono tracking-wide flex items-center gap-1">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
               {totalQtySold} items sold today
             </p>
@@ -790,21 +796,21 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 2: Cost of Goods */}
-        <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-gradient-to-tr from-amber-500 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-amber-100">
               <Receipt className="w-5 h-5 text-white" />
             </div>
-            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100/40">
+            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-full border border-amber-100/40 dark:border-amber-800/40">
               Credit Dues
             </span>
           </div>
           <div className="mt-4 text-left">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Dues Owed</p>
-            <p className="text-xl font-black text-[#1a1a2e] tracking-tight mt-1">
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Dues Owed</p>
+            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {currency} {Math.round(filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').reduce((sum:number,s:any)=>sum+(s.dueAmount||s.amountDue||0),0)).toLocaleString()}
             </p>
-            <p className="text-[10px] text-slate-500 mt-1.5 font-mono tracking-wide flex items-center gap-1">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
               {filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').length} unpaid orders
             </p>
@@ -812,7 +818,7 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 3: Total Sales */}
-        <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-gradient-to-tr from-purple-500 to-indigo-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-purple-100">
               <Coins className="w-5 h-5 text-white" />
@@ -822,11 +828,11 @@ export default function DashboardOverview({
             </span>
           </div>
           <div className="mt-4 text-left">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Sales</p>
-            <p className="text-xl font-black text-[#1a1a2e] tracking-tight mt-1">
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Sales</p>
+            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {currency} {Math.round(totalRevenue).toLocaleString()}
             </p>
-            <p className="text-[10px] text-slate-500 mt-1.5 font-mono tracking-wide flex items-center gap-1">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Money earned today
             </p>
@@ -841,7 +847,7 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 4: Purchases */}
-        <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-gradient-to-tr from-teal-500 to-emerald-400 text-white rounded-xl flex items-center justify-center shadow-md shadow-teal-100">
               <Layers className="w-5 h-5 text-white" />
@@ -851,11 +857,11 @@ export default function DashboardOverview({
             </span>
           </div>
           <div className="mt-4 text-left">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Purchases</p>
-            <p className="text-xl font-black text-[#1a1a2e] tracking-tight mt-1">
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Purchases</p>
+            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {currency} {Math.round(simulatedPurchases).toLocaleString()}
             </p>
-            <p className="text-[10px] text-slate-500 mt-1.5 font-mono tracking-wide flex items-center gap-1">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
               Supply stock in
             </p>
@@ -863,7 +869,7 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 5: Expenses */}
-        <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-gradient-to-tr from-blue-500 to-cyan-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-blue-100">
               <TrendingDown className="w-5 h-5 text-white" />
@@ -873,11 +879,11 @@ export default function DashboardOverview({
             </span>
           </div>
           <div className="mt-4 text-left">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Expenses</p>
-            <p className="text-xl font-black text-[#1a1a2e] tracking-tight mt-1">
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Expenses</p>
+            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {currency} {Math.round(totalExpensesAmt).toLocaleString()}
             </p>
-            <p className="text-[10px] text-slate-500 mt-1.5 font-mono tracking-wide flex items-center gap-1">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
               Operating outlays
             </p>
@@ -885,7 +891,7 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 6: Total Profit */}
-        <div className="bg-white rounded-[16px] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-gradient-to-tr from-emerald-500 to-green-400 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-100">
               <TrendingUp className="w-5 h-5 text-white" />
@@ -897,11 +903,11 @@ export default function DashboardOverview({
             </span>
           </div>
           <div className="mt-4 text-left">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Profit</p>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Profit</p>
             <p className={`text-xl font-black tracking-tight mt-1 ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
               {currency} {Math.round(netProfit).toLocaleString()}
             </p>
-            <p className="text-[10px] text-slate-500 mt-1.5 font-mono tracking-wide flex items-center gap-1">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className={`w-1.5 h-1.5 rounded-full ${netProfit >= 0 ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
               Net profit share: {avgProfitMargin.toFixed(1)}%
             </p>
