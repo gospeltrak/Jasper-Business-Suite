@@ -367,8 +367,8 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       {/* Main Body Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
         
-        {/* Users Navigation Sidebar */}
-        <div className="xl:col-span-4 space-y-4 sticky top-[6.5rem] z-10 self-start">
+        {/* Users Navigation Sidebar — sticky on desktop only, normal flow on mobile/tablet */}
+        <div className="xl:col-span-4 space-y-4 xl:sticky xl:top-[6.5rem] xl:z-10 xl:self-start">
           <div className="flex flex-col gap-2.5 bg-slate-950 p-4 rounded-xl border border-slate-850">
             <h3 className="text-xs font-mono uppercase text-slate-400 font-bold flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5 text-emerald-400" />

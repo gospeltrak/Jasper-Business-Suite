@@ -665,7 +665,7 @@ export default function SuperSaaSAdminView({
       </div>
 
       {/* Main interactive subpage container */}
-      <div id="saas-active-subpage-view" className="flex-1 flex flex-col w-full p-3 md:p-6 space-y-4 md:space-y-6">
+      <div id="saas-active-subpage-view" className="flex-1 min-h-0 overflow-y-auto flex flex-col w-full p-3 md:p-6 space-y-4 md:space-y-6">
         
         {/* ======================= TAB 1: USER DESK ======================= */}
         {activeTab === 'subscribers' && (
