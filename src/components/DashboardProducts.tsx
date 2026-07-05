@@ -4273,8 +4273,9 @@ export default function DashboardProducts({
                           onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              setEditImageFile(file); // store for Storage upload on save
-                              const compressed = await compressImageFile(file, { maxWidth: 700, maxHeight: 700, quality: 0.72 });
+                              setEditImageFile(file);
+                              // Compress to 400×400px JPEG 75% before preview and upload
+                              const compressed = await compressImageFile(file, { maxWidth: 400, maxHeight: 400, quality: 0.75 });
                               setEditForm(prev => ({ ...prev, image: compressed }));
                             }
                           }}

@@ -750,22 +750,24 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   }, [workspaceReady, activeTenant.id]);
 
   // AUTO-MIGRATE: Upload any remaining base64 product images to Supabase Storage.
-  // Uses server-side API endpoint (/api/images/migrate-product) which uses the
-  // service role key — bypasses RLS completely so tenant folder permissions
-  // don't block the upload.
+  // Runs once per session, 8 seconds after workspace is ready (avoids race with
+  // active user edits). Uses server-side API with service role key — bypasses RLS.
   useEffect(() => {
     if (!workspaceReady || user.role === 'SuperAdmin') return;
-    const products = productsMap[activeTenant.id] || [];
-    const needsMigration = products.filter(
-      (p: any) => p.image && typeof p.image === 'string' && p.image.startsWith('data:image')
-    );
-    if (needsMigration.length === 0) return;
 
     let cancelled = false;
     const tid = activeTenant.id;
 
-    (async () => {
+    // Delay 8 seconds to avoid interfering with user edits on page load
+    const startTimer = setTimeout(async () => {
       try {
+        // Re-read from latest productsMap at time of execution
+        const products = productsMap[tid] || [];
+        const needsMigration = products.filter(
+          (p: any) => p.image && typeof p.image === 'string' && p.image.startsWith('data:image')
+        );
+        if (needsMigration.length === 0 || cancelled) return;
+
         let migrated = 0;
         const updatedProducts = [...products];
 
@@ -775,11 +777,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             const response = await fetch('/api/images/migrate-product', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                tenantId: tid,
-                productId: prod.id,
-                base64DataUrl: prod.image,
-              }),
+              body: JSON.stringify({ tenantId: tid, productId: prod.id, base64DataUrl: prod.image }),
             });
             const result = await response.json();
             if (result.success && result.url) {
@@ -788,12 +786,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 updatedProducts[idx] = { ...updatedProducts[idx], image: result.url };
                 migrated++;
               }
-            } else {
-              console.warn('[Jasper] Migration failed for', prod.id, result.error);
             }
-          } catch (err) {
-            console.warn('[Jasper] Migration error for product', prod.id, err);
-          }
+          } catch { /* skip */ }
           await new Promise(r => setTimeout(r, 400));
         }
 
@@ -805,14 +799,17 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             localStorage.setItem('jasper_products_map', JSON.stringify(currentMap));
           } catch { /* quota */ }
           saveData(tid, 'products_map', { [tid]: updatedProducts });
-          console.log(`[Jasper] Migrated ${migrated}/${needsMigration.length} product images to Storage.`);
+          console.log(`[Jasper] Migrated ${migrated} product images to Storage.`);
         }
       } catch (err) {
         console.warn('[Jasper] Image migration failed:', err);
       }
-    })();
+    }, 8000);
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      clearTimeout(startTimer);
+    };
   }, [workspaceReady, activeTenant.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
