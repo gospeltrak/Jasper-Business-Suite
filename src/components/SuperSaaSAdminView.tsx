@@ -59,12 +59,14 @@ export interface SuperSaaSAdminViewProps {
   activeAdminSubTab?: SuperAdminWorkspaceTab;
   setActiveAdminSubTab?: (tab: SuperAdminWorkspaceTab) => void;
   hideSidebar?: boolean;
+  user?: { id?: string; name?: string; phone?: string; email?: string; profileImage?: string; role?: string } | null;
 }
 
 export default function SuperSaaSAdminView({
   activeAdminSubTab: externalActiveTab,
   setActiveAdminSubTab: externalSetActiveTab,
-  hideSidebar = false
+  hideSidebar = false,
+  user: adminUser = null,
 }: SuperSaaSAdminViewProps = {}) {
   const [internalActiveTab, setInternalActiveTab] = useState<SuperAdminWorkspaceTab>('dashboard');
 
@@ -576,12 +578,16 @@ export default function SuperSaaSAdminView({
       {/* ── MOBILE HEADER (md:hidden) ─────────────────────────── */}
       <div className="md:hidden sticky top-0 z-30 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-            <Shield className="w-4 h-4 text-emerald-400" />
-          </div>
+          {adminUser?.profileImage ? (
+            <img src={adminUser.profileImage} alt={adminUser.name || 'Admin'} className="w-7 h-7 rounded-full object-cover border border-emerald-500/30" referrerPolicy="no-referrer" />
+          ) : (
+            <div className="w-7 h-7 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+              <Shield className="w-4 h-4 text-emerald-400" />
+            </div>
+          )}
           <div>
             <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider leading-none">Super Admin</p>
-            <p className="text-xs font-black text-white leading-tight">Control Portal</p>
+            <p className="text-xs font-black text-white leading-tight">{adminUser?.name || 'Control Portal'}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -623,6 +629,22 @@ export default function SuperSaaSAdminView({
           <p className="text-xs text-slate-400 mt-1">Manage subscriptions, partners, and devices.</p>
         </div>
         <div className="flex items-center space-x-3 bg-slate-900 border border-slate-800 p-2 rounded-xl">
+          {/* Real admin profile */}
+          {adminUser && (
+            <div className="flex items-center gap-2.5 pl-1 pr-3 border-r border-slate-700 mr-1">
+              {adminUser.profileImage ? (
+                <img src={adminUser.profileImage} alt={adminUser.name || 'Admin'} className="w-8 h-8 rounded-full object-cover border border-emerald-500/30" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-black text-xs">
+                  {(adminUser.name || 'SA').substring(0, 2).toUpperCase()}
+                </div>
+              )}
+              <div className="text-left">
+                <p className="text-[11px] font-black text-white leading-tight">{adminUser.name || 'Super Admin'}</p>
+                <p className="text-[9px] text-slate-400 leading-tight font-mono">{adminUser.phone || adminUser.email || 'Admin'}</p>
+              </div>
+            </div>
+          )}
           {isUnlocked ? (
             <div className="flex items-center space-x-2.5 px-2">
               <div className="p-1.5 bg-emerald-500/10 rounded"><Unlock className="w-4 h-4 text-emerald-400" /></div>

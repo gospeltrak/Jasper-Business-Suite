@@ -1,7 +1,28 @@
 import React, { useState, useEffect } from 'react';
 
-// Memory fallback to ensure high performance even across component re-renders
+// Module-level memory cache — shared across all CachedImage instances
 const memoryCache = new Map<string, string>();
+
+/**
+ * Evict a URL from both memory cache and browser Cache Storage.
+ * Call this whenever a product image is updated so the new image shows immediately.
+ */
+export async function evictImageCache(url: string): Promise<void> {
+  if (!url || url.startsWith('data:')) return;
+  // Remove from memory cache
+  const memoryBlobUrl = memoryCache.get(url);
+  if (memoryBlobUrl && memoryBlobUrl.startsWith('blob:')) {
+    try { URL.revokeObjectURL(memoryBlobUrl); } catch { /* ignore */ }
+  }
+  memoryCache.delete(url);
+  // Remove from browser Cache Storage
+  if ('caches' in window) {
+    try {
+      const cache = await caches.open('jasper-image-cache-v1');
+      await cache.delete(url);
+    } catch { /* ignore */ }
+  }
+}
 
 interface CachedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -40,7 +61,6 @@ export default function CachedImage({ src, alt, className, referrerPolicy, ...pr
 
     let isMounted = true;
 
-    // Cache Storage worker function
     const cacheImage = async () => {
       try {
         if ('caches' in window) {
@@ -51,51 +71,29 @@ export default function CachedImage({ src, alt, className, referrerPolicy, ...pr
             const blob = await cachedResponse.blob();
             const localUrl = URL.createObjectURL(blob);
             memoryCache.set(src, localUrl);
-            if (isMounted) {
-              setCachedSrc(localUrl);
-              setLoaded(true);
-            }
+            if (isMounted) { setCachedSrc(localUrl); setLoaded(true); }
           } else {
-            // Attempt standard fetch with CORS mode
             const response = await fetch(src, { mode: 'cors' });
             if (response.ok) {
               await cache.put(src, response.clone());
               const blob = await response.blob();
               const localUrl = URL.createObjectURL(blob);
               memoryCache.set(src, localUrl);
-              if (isMounted) {
-                setCachedSrc(localUrl);
-                setLoaded(true);
-              }
+              if (isMounted) { setCachedSrc(localUrl); setLoaded(true); }
             } else {
-              // Failed response: fallback to original URL directly
-              if (isMounted) {
-                setCachedSrc(src);
-                setLoaded(true);
-              }
+              if (isMounted) { setCachedSrc(src); setLoaded(true); }
             }
           }
         } else {
-          // No Cache Storage support: fallback to direct URL
-          if (isMounted) {
-            setCachedSrc(src);
-            setLoaded(true);
-          }
+          if (isMounted) { setCachedSrc(src); setLoaded(true); }
         }
-      } catch (err) {
-        // Safe graceful fallback due to CORS or lack of internet
-        if (isMounted) {
-          setCachedSrc(src);
-          setLoaded(true);
-        }
+      } catch {
+        if (isMounted) { setCachedSrc(src); setLoaded(true); }
       }
     };
 
     cacheImage();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [src]);
 
   return (
@@ -103,7 +101,7 @@ export default function CachedImage({ src, alt, className, referrerPolicy, ...pr
       src={cachedSrc || src}
       alt={alt}
       className={`${className || ''} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-      referrerPolicy={referrerPolicy || "no-referrer"}
+      referrerPolicy={referrerPolicy || 'no-referrer'}
       onLoad={() => setLoaded(true)}
       {...props}
     />

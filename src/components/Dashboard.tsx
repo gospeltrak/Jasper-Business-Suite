@@ -3009,6 +3009,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
            {/* TAB ROOT: Super SaaS Admin Control Panel */}
            {(activeTab === 'super-saas' || activeTab.startsWith('admin-')) && (
              <SuperSaaSAdminView 
+               user={user}
                activeAdminSubTab={
                  activeTab === 'admin-dashboard' ? 'dashboard' :
                  activeTab === 'admin-subscribers' ? 'subscribers' :

@@ -33,7 +33,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useTranslation } from '../LanguageContext';
-import CachedImage from './CachedImage';
+import CachedImage, { evictImageCache } from './CachedImage';
 import {
   addBatchToProduct,
   createInventoryBatch,
@@ -223,7 +223,17 @@ export default function DashboardProducts({
       }
       setEditImageFile(null);
     }
-    
+
+    // Evict old image from CachedImage memory + browser cache so new image shows immediately
+    const oldImage = editingProduct?.image;
+    if (oldImage && oldImage !== resolvedImageUrl && oldImage.startsWith('https://')) {
+      evictImageCache(oldImage).catch(() => {});
+    }
+    // Also evict the new URL in case it was previously cached (upsert same path)
+    if (resolvedImageUrl && resolvedImageUrl.startsWith('https://')) {
+      evictImageCache(resolvedImageUrl).catch(() => {});
+    }
+
     // Find product in products
     const updated = products.map(p => {
       if (p.id === editingProduct?.id) {
