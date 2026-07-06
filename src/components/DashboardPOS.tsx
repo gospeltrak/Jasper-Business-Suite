@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import DashboardBarcodeScanner from './DashboardBarcodeScanner';
 import CachedImage from './CachedImage';
-import { shareElementPdfToWhatsApp } from '../utils/pdfShare';
+import { sharePosReceiptPdf, shareElementPdfToWhatsApp, ReceiptData } from '../utils/pdfShare';
 
 // Web Audio API helper for offline-friendly beep sound
 // Shared AudioContext singleton — created once, reused for all beeps (eliminates init lag)
@@ -358,17 +358,50 @@ export default function DashboardPOS({
   const [recipientWhatsApp, setRecipientWhatsApp] = useState('');
   const [receiptPdfStatus, setReceiptPdfStatus] = useState<string | null>(null);
 
-  const sharePosReceiptPdf = async () => {
+  const sharePosReceiptPdfHandler = async () => {
     if (!receiptResult) return;
     try {
       setReceiptPdfStatus('Preparing receipt PDF...');
-      const result = await shareElementPdfToWhatsApp({
-        elementId: 'pos-receipt-pdf-template',
-        fileName: `receipt-${receiptResult.reference || receiptResult.id}.pdf`,
-        phone: recipientWhatsApp,
-        message: `Hello ${receiptResult.customerName || 'valued customer'}, please find your receipt attached from ${activeTenant.name}. Thank you for your business!`,
-        format: 'receipt'
-      });
+
+      // Build receipt data for real PDF generation (no screenshot)
+      const receiptData: ReceiptData = {
+        businessName: systemSettings?.business?.businessName || activeTenant.name,
+        businessAddress: systemSettings?.business?.businessAddress || activeTenant.city || undefined,
+        businessPhone: activeTenant.phone || undefined,
+        receiptId: receiptResult.reference || receiptResult.id,
+        timestamp: receiptResult.timestamp,
+        cashierName: receiptResult.cashierName || user?.name || undefined,
+        customerName: receiptResult.customerName || undefined,
+        paymentMethod: receiptResult.paymentMethod,
+        items: receiptResult.items.map(item => {
+          const prod = activeProducts?.find(p => p.id === item.productId);
+          return {
+            name: item.productName || prod?.name || 'Item',
+            qty: item.qty,
+            price: item.price,
+            total: item.qty * item.price,
+            unit: prod?.unit || undefined,
+          };
+        }),
+        subtotal: receiptResult.items.reduce((s, i) => s + i.qty * i.price, 0),
+        tax: receiptResult.tax || 0,
+        discount: receiptResult.discount || 0,
+        deliveryCost: receiptResult.deliveryCost || 0,
+        productTotal: receiptResult.productTotal ?? (receiptResult.total - (receiptResult.deliveryCost || 0)),
+        grandTotal: receiptResult.total,
+        currency: activeTenant.currency || 'TZS',
+        amountPaid: receiptResult.amountPaid ?? receiptResult.total,
+        change: receiptResult.change ?? 0,
+        vatNumber: systemSettings?.business?.vatNumber || undefined,
+        footer: 'Thank you for shopping with us!',
+      };
+
+      const result = await sharePosReceiptPdf(
+        receiptData,
+        recipientWhatsApp,
+        `Hello ${receiptResult.customerName || 'valued customer'}, please find your receipt attached from ${systemSettings?.business?.businessName || activeTenant.name}. Thank you for your business!`
+      );
+
       if (result.method === 'native-share') {
         setReceiptPdfStatus('✅ Receipt shared successfully.');
       } else {
@@ -2190,7 +2223,7 @@ export default function DashboardPOS({
                       </div>
                       <button
                         type="button"
-                        onClick={sharePosReceiptPdf}
+                        onClick={sharePosReceiptPdfHandler}
                         className="inline-flex items-center space-x-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-sm hover:shadow active:scale-95 text-center justify-center decoration-transparent"
                       >
                         <MessageSquare className="w-3.5 h-3.5 shrink-0" />
