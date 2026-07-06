@@ -2438,7 +2438,7 @@ export default function DashboardProducts({
           )}
 
           {/* Catalog Filter and Table */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xs overflow-visible relative">
             
             <div className="p-5 border-b border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
               <div className="relative w-full sm:max-w-xs">
@@ -2599,7 +2599,7 @@ export default function DashboardProducts({
                     <th className="py-4 px-5 text-center font-mono uppercase">Ledger Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-150/50 text-slate-600 text-xs font-sans">
+                <tbody className="divide-y divide-slate-150/50 text-slate-600 text-xs font-sans pb-32">
                   {filteredProducts.map(prod => {
                     const shopQty = prod.shopStockQty ?? 0;
                     const storeQty = prod.storeStockQty ?? 0;
@@ -2740,7 +2740,7 @@ export default function DashboardProducts({
                               {desktopMenuId === prod.id && (
                                 <>
                                   <div className="fixed inset-0 z-[70]" onClick={() => setDesktopMenuId(null)} />
-                                  <div className="absolute right-0 top-full mt-1.5 z-[80] bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden w-48 py-1"
+                                  <div className="absolute right-0 top-full mt-1.5 z-[90] bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden w-48 py-1"
                                     style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)' }}
                                   >
                                     {[
