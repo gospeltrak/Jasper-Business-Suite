@@ -554,6 +554,7 @@ export interface InvoiceSettings {
   accountNumber?: string;
   accountName?: string;
   authorisedPerson?: string;
+  signatureImage?: string; // authorized person signature image
   termsAndConditions?: string[];
   footerNote?: string;
   hasVatByDefault?: boolean;

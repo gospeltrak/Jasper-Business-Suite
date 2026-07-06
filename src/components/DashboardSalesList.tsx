@@ -4141,17 +4141,6 @@ export default function DashboardSalesList({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Invoice Footer Tagline / Memo</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Footer note..."
-                    value={newDocTagline}
-                    onChange={(e) => setNewDocTagline(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-emerald-500 resize-none font-sans"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1 font-sans">Shown in document footer.</p>
-                </div>
               </div>
 
               {/* Right Column: Adding Items and ledger preview */}
@@ -4763,30 +4752,50 @@ export default function DashboardSalesList({
                       </div>
                     </div>
 
-                    {/* Notes / Terms */}
-                    {(viewingDocument.notes || systemSettings?.invoiceSettings?.footerNote) && (
-                      <div className="border-t border-slate-100 pt-6 space-y-2">
-                        {viewingDocument.notes && (
-                          <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Notes</p>
-                            <p className="text-xs text-slate-600 leading-relaxed">{viewingDocument.notes}</p>
-                          </div>
-                        )}
-                        {systemSettings?.invoiceSettings?.footerNote && (
-                          <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Terms &amp; Conditions</p>
-                            <p className="text-xs text-slate-500 leading-relaxed">{systemSettings.invoiceSettings.footerNote}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    {/* Terms & Conditions — from Settings → Invoice Settings */}
+                    {(() => {
+                      const terms = systemSettings?.invoiceSettings?.termsAndConditions;
+                      const hasTerms = Array.isArray(terms) ? terms.length > 0 : !!terms;
+                      if (!hasTerms) return null;
+                      return (
+                        <div className="border-t border-slate-100 pt-5">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mb-2">Terms &amp; Conditions</p>
+                          {Array.isArray(terms) ? (
+                            <ol className="list-decimal list-inside space-y-1">
+                              {terms.map((term: string, i: number) => (
+                                <li key={i} className="text-[11px] text-slate-500 leading-relaxed">{term}</li>
+                              ))}
+                            </ol>
+                          ) : (
+                            <p className="text-[11px] text-slate-500 leading-relaxed whitespace-pre-line">{terms}</p>
+                          )}
+                        </div>
+                      );
+                    })()}
 
-                    {/* Signature line — seller only */}
-                    <div className="border-t border-slate-100 pt-6 text-xs text-slate-500">
-                      <div className="inline-block min-w-[200px]">
-                        <div className="h-10 border-b border-slate-300 mb-1" />
-                        <p className="font-semibold text-slate-700">{preparerName}</p>
-                        <p className="text-slate-400">{preparerRole}</p>
+                    {/* Signature row — Authorized Person Name (left) | Signature (right) */}
+                    <div className="border-t border-slate-100 pt-6">
+                      <div className="flex items-end justify-between gap-8">
+                        {/* Left: Authorized Person Name */}
+                        <div className="flex-1 min-w-0">
+                          <div className="h-10 border-b border-slate-300 mb-1.5" />
+                          <p className="text-xs font-semibold text-slate-700 truncate">{preparerName}</p>
+                          <p className="text-[10px] text-slate-400">{preparerRole}</p>
+                        </div>
+                        {/* Right: Signature */}
+                        <div className="flex-1 min-w-0 text-right">
+                          {(() => {
+                            const sigImg = activeStaff?.signatureImage || systemSettings?.invoiceSettings?.signatureImage;
+                            return sigImg ? (
+                              <div className="h-10 mb-1.5 flex justify-end items-end">
+                                <img src={sigImg} alt="Signature" className="max-h-10 max-w-[160px] object-contain" referrerPolicy="no-referrer" />
+                              </div>
+                            ) : (
+                              <div className="h-10 border-b border-slate-300 mb-1.5" />
+                            );
+                          })()}
+                          <p className="text-[10px] text-slate-400">Authorized Signature</p>
+                        </div>
                       </div>
                     </div>
 
