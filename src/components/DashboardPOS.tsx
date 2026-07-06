@@ -463,7 +463,7 @@ export default function DashboardPOS({
   })();
   const categories = ['All', ...configuredCategories];
 
-  const getPharmacyDoseConfig = (product: Product) => {
+  const getPharmacyDoseConfig = useCallback((product: Product) => {
     const hierarchyLevels = product.pharmacyUnitLevels && product.pharmacyUnitLevels.length > 0
       ? product.pharmacyUnitLevels
       : null;
@@ -489,7 +489,7 @@ export default function DashboardPOS({
     const halfDosePrice = Number(product.halfDosePrice || (fullDosePrice / 2));
     const tabPrice = Number(product.tabPrice || (packetPrice / tabsPerPacket));
     return { dosesPerPacket, tabsPerDose, tabsPerPacket, halfDoseTabs, packetPrice, fullDosePrice, halfDosePrice, tabPrice, hierarchyLevels: null, baseUnit: product.pharmacyBaseUnit || product.pharmacyUnitBreakdown?.baseUnit || 'Tab' };
-  };
+  }, []); // product fields are stable — no external deps needed
 
   const getPharmacyDoseWeight = (product: Product, dosageType: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit' = 'packet', tabsSelected?: number) => {
     const cfg = getPharmacyDoseConfig(product);
@@ -529,7 +529,7 @@ export default function DashboardPOS({
     return `${fullPackets} packet${fullPackets === 1 ? '' : 's'}, ${fullDoses} dose${fullDoses === 1 ? '' : 's'}, ${tabs} ${cfg.baseUnit}${tabs === 1 ? '' : 's'}`;
   };
 
-  const getRetailPackageConfig = (product: Product) => {
+  const getRetailPackageConfig = useCallback((product: Product) => {
     const isMeasuredProduct = !!product.isBulkProduct || !!product.allowScaleSelling ||
       !!product.inventorySettings?.allowScaleSelling || product.sellingMode === 'scale' || product.sellingMode === 'hybrid';
     const baseUnit = isMeasuredProduct
@@ -546,7 +546,7 @@ export default function DashboardPOS({
       wholePrice: pricePerBaseUnit * conversionToBaseUnit,
       halfPrice: pricePerBaseUnit * (conversionToBaseUnit / 2),
     };
-  };
+  }, []); // product fields are stable
 
   const supportsMeasuredRetail = (product: Product) => (
     !!product.isBulkProduct ||
@@ -859,23 +859,36 @@ export default function DashboardPOS({
     });
   }, [cart, activeTenant.businessType, getCartUnitPrice]);
 
-  // Pricing calculations — memoized for instant basket updates
+  // Pricing calculations — fully memoized for instant updates
+  // Use pre-computed prices from cartDisplayData to avoid double-computing getCartUnitPrice
   const subtotal = useMemo(() => {
-    return cart.reduce((sum, item) => {
-      const unitPrice = getCartUnitPrice(item);
-      const itemType = item.discountType || 'percent';
-      const discountedPrice = itemType === 'cash'
-        ? Math.max(0, unitPrice - item.discount)
-        : unitPrice * (1 - item.discount / 100);
-      return sum + (discountedPrice * item.qty);
+    return cartDisplayData.reduce((sum, { discountPrice, item }) => {
+      return sum + (discountPrice * item.qty);
     }, 0);
-  }, [cart, getCartUnitPrice]);
-  const orderDiscountAmt = orderDiscountType === 'cash'
-    ? Math.max(0, Math.min(subtotal, orderDiscount))
-    : subtotal * (Math.max(0, Math.min(100, orderDiscount)) / 100);
-  const taxableSubtotal = Math.max(0, subtotal - orderDiscountAmt);
-  const tax = vatStatus === 'vat' ? taxableSubtotal * activeTenant.taxRate : 0;
-  const grandTotal = taxableSubtotal + tax + deliveryCost;
+  }, [cartDisplayData]);
+
+  const orderDiscountAmt = useMemo(() =>
+    orderDiscountType === 'cash'
+      ? Math.max(0, Math.min(subtotal, orderDiscount))
+      : subtotal * (Math.max(0, Math.min(100, orderDiscount)) / 100),
+  [subtotal, orderDiscountType, orderDiscount]);
+
+  const taxableSubtotal = useMemo(() =>
+    Math.max(0, subtotal - orderDiscountAmt),
+  [subtotal, orderDiscountAmt]);
+
+  const tax = useMemo(() =>
+    vatStatus === 'vat' ? taxableSubtotal * activeTenant.taxRate : 0,
+  [vatStatus, taxableSubtotal, activeTenant.taxRate]);
+
+  const grandTotal = useMemo(() =>
+    taxableSubtotal + tax + deliveryCost,
+  [taxableSubtotal, tax, deliveryCost]);
+
+  // Memoized total item count — avoids inline cart.reduce in JSX on every render
+  const cartTotalQty = useMemo(() =>
+    cart.reduce((sum, i) => sum + i.qty, 0),
+  [cart]);
 
   // Checkout Execution
   const triggerCheckout = () => {
@@ -1419,7 +1432,7 @@ export default function DashboardPOS({
           </div>
           <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
             <span className="text-xs font-mono font-bold bg-white border border-slate-200 px-3 py-1 rounded-lg text-slate-700 shadow-xs">
-              {cart.reduce((sum, i) => sum + i.qty, 0)} items
+              {cartTotalQty} items
             </span>
             {cart.length > 0 && (
               <button
@@ -1780,9 +1793,9 @@ export default function DashboardPOS({
             <div className="flex items-center space-x-3">
               <div className="relative">
                 <ShoppingCart className="w-5 h-5 text-slate-700" />
-                {cart.reduce((sum, item) => sum + item.qty, 0) > 0 && (
+                {cartTotalQty > 0 && (
                   <span className="absolute -top-1.5 -right-2 bg-emerald-500 text-white text-[9px] font-bold min-w-[16px] h-[16px] px-1 flex items-center justify-center rounded-full border border-white">
-                    {cart.reduce((sum, item) => sum + item.qty, 0)}
+                    {cartTotalQty}
                   </span>
                 )}
               </div>
