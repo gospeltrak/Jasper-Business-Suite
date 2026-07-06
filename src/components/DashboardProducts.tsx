@@ -2494,7 +2494,7 @@ export default function DashboardProducts({
                         {/* Avatar */}
                         <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 font-black text-base overflow-hidden" style={{background: avatarBg, color: avatarColor}}>
                           {prod.image
-                            ? <img src={prod.image} alt={prod.name} className="w-full h-full object-cover" />
+                            ? <img src={prod.image} alt={prod.name} className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
                             : prod.name.charAt(0).toUpperCase()
                           }
                         </div>
@@ -4967,7 +4967,7 @@ export default function DashboardProducts({
                     }}
                   >
                     {mobileProductMenu.image
-                      ? <img src={mobileProductMenu.image} alt="" className="w-full h-full object-cover" />
+                      ? <img src={mobileProductMenu.image} alt="" className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
                       : mobileProductMenu.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">

@@ -1343,7 +1343,7 @@ export default function DashboardPOS({
                         src={getProductImage(prod)} 
                         alt={prod.name} 
                         className={`w-full h-full group-hover:scale-105 select-none pointer-events-none ${
-                          prod.image && prod.image.startsWith('data:') ? 'object-contain p-2.5' : 'object-cover'
+                          'object-contain p-1.5'
                         }`}
                         referrerPolicy="no-referrer"
                       />
