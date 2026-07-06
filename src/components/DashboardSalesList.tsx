@@ -3196,7 +3196,7 @@ export default function DashboardSalesList({
       {/* DIALOG: VIEW AND MANAGE INSTALLMENT PAYMENTS */}
       {/* ------------------------------------------------------------- */}
       {selectedSale && viewPaymentsOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
           <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col font-sans">
             
             {/* Header */}
@@ -3941,7 +3941,7 @@ export default function DashboardSalesList({
       {/* DIALOG: CONFIRM DELETE SALE (TICKET VOIDING) */}
       {/* ------------------------------------------------------------- */}
       {saleToDelete && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
           <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col font-sans">
             
             {/* Header */}
@@ -4023,7 +4023,7 @@ export default function DashboardSalesList({
 
       {/* DIALOG: NEW DOCUMENT CREATOR MODAL */}
       {showNewDocModal && (
-        <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
           <div className="relative bg-white border border-slate-200 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-5xl overflow-hidden flex flex-col h-[95vh] sm:max-h-[calc(100vh-2rem)] font-sans">
             
             <div className="p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
@@ -4836,7 +4836,7 @@ export default function DashboardSalesList({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileActionsSale(null)}
-              className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm"
+              className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm"
             />
 
             {/* Bottom Sheet */}
@@ -4845,7 +4845,7 @@ export default function DashboardSalesList({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 280 }}
-              className="fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl shadow-xl z-[80] overflow-hidden font-sans flex flex-col text-[#0f172a] border border-slate-100" style={{bottom: "calc(56px + env(safe-area-inset-bottom))", maxHeight: "calc(85vh - 56px - env(safe-area-inset-bottom))"}}
+              className="fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl shadow-xl z-[120] overflow-hidden font-sans flex flex-col text-[#0f172a] border border-slate-100" style={{bottom: "calc(var(--dashboard-bottom-nav-height, 56px) + env(safe-area-inset-bottom))", maxHeight: "calc(85vh - var(--dashboard-bottom-nav-height, 56px) - env(safe-area-inset-bottom))"}}
             >
               {/* Close Handle Bar */}
               <div className="w-full flex justify-center py-2 shrink-0">

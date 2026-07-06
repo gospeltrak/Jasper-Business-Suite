@@ -3283,7 +3283,7 @@ export default function DashboardProducts({
 
       {/* MODAL I: CAMERA/SCANNER OVERLAY SIMULATOR MODAL (IN FORM) */}
       {isFormScannerOpen && (
-        <div id="modal-form-scanner" className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+        <div id="modal-form-scanner" className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
           <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
             
             <div className="px-5 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-between">
@@ -3358,7 +3358,7 @@ export default function DashboardProducts({
 
       {/* MODAL II: THERMAL HARDWARE SUCCESS DIAGNOSTIC TEST PAGE */}
       {showTestPrintModal && (
-        <div id="modal-test-print" className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-mono text-[11px] text-slate-900 select-none">
+        <div id="modal-test-print" className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-mono text-[11px] text-slate-900 select-none" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
           <div className="bg-white border border-slate-350 rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden flex flex-col relative">
             
             {/* Header tab */}
@@ -3430,7 +3430,7 @@ export default function DashboardProducts({
 
       {/* METAMODAL: INVENTORY TRANSFER HUB */}
       {transferProduct && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
           <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col uppercase text-xs">
             
             {/* Header */}
@@ -3969,7 +3969,7 @@ export default function DashboardProducts({
 
       {/* VIEW MODAL */}
       {viewingProduct && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
           <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] overflow-y-auto flex flex-col">
             {/* Header */}
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
@@ -4177,7 +4177,7 @@ export default function DashboardProducts({
 
       {/* EDIT PRODUCT MODAL */}
       {editingProduct && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
           <form 
             onSubmit={handleSaveProductEdit}
             className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] overflow-y-auto flex flex-col uppercase text-xs"
@@ -4785,7 +4785,7 @@ export default function DashboardProducts({
       )}
       {/* REPLENISH BATCH MODAL */}
       {replenishProduct && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
           <form onSubmit={handleReplenishSubmit} className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-col space-y-1">
               <div className="flex items-center justify-between">
@@ -4939,7 +4939,7 @@ export default function DashboardProducts({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="xl:hidden fixed inset-0 z-[200] flex flex-col"
+            className="xl:hidden fixed inset-0 z-[220] flex flex-col"
             style={{
               paddingTop: 'env(safe-area-inset-top)',
               paddingBottom: 'env(safe-area-inset-bottom)',
@@ -5057,7 +5057,7 @@ export default function DashboardProducts({
           <motion.div
             key="adjust-modal-backdrop"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+            className="fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
             onClick={(e) => { if (e.target === e.currentTarget) { setAdjustProduct(null); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(''); setAdjustSearchResults([]); setAdjustShowSearch(false); } }}
           >
             <motion.div

@@ -1804,8 +1804,8 @@ export default function DashboardPOS({
 
       {/* CHECKOUT MODAL SYSTEM */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/70" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
-          <div className="relative bg-white border border-slate-200 md:rounded-3xl rounded-t-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col" style={{maxHeight: 'calc(100dvh - 60px - env(safe-area-inset-bottom) - env(safe-area-inset-top))' }}>
+        <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/70" style={{paddingBottom: 'calc(var(--dashboard-bottom-nav-height, 0px) + env(safe-area-inset-bottom))'}}>
+          <div className="relative bg-white border border-slate-200 md:rounded-3xl rounded-t-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col" style={{maxHeight: 'calc(100dvh - var(--dashboard-bottom-nav-height, 60px) - env(safe-area-inset-bottom) - env(safe-area-inset-top))' }}>
             {/* Mobile Drag Handle */}
             <div className="w-full flex justify-center pt-3 pb-2 xl:hidden bg-slate-50">
               <div className="w-12 h-1.5 bg-slate-300/50 rounded-full" />
