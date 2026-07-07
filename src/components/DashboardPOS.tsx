@@ -721,7 +721,7 @@ export default function DashboardPOS({
       }
     });
     return cache;
-  }, [products, sellingChannel, activeTenant.businessType, getRetailPackageConfig]);
+  }, [products, sellingChannel, activeTenant.businessType]);
 
   // Fast price lookup — uses batchPriceCache, falls back to direct calculation
   const getChannelPrice = useCallback((product: Product): number => {
@@ -821,12 +821,24 @@ export default function DashboardPOS({
   }, [cart, activeTenant.businessType, getCartUnitPrice]);
 
   // Pricing calculations — fully memoized for instant updates
-  // Use pre-computed prices from cartDisplayData to avoid double-computing getCartUnitPrice
+  // subtotal reads DIRECTLY from cart state — no dependency on cartDisplayData
+  // or getCartUnitPrice chain. This guarantees instant update on every cart change.
   const subtotal = useMemo(() => {
-    return cartDisplayData.reduce((sum, { discountPrice, item }) => {
+    return cart.reduce((sum, item) => {
+      // Use getChannelPrice if batchPriceCache is ready, else fall back to sellingPrice
+      const cacheKey = `${item.product.id}:${(item.product.batches || []).length}:${item.product.sellingPrice}:${sellingChannel}`;
+      const basePrice = batchPriceCache.get(cacheKey) ?? (
+        sellingChannel === 'wholesale'
+          ? (item.product.wholesalePrice ?? item.product.sellingPrice ?? 0)
+          : (item.product.sellingPrice ?? 0)
+      );
+      const isCash = item.discountType === 'cash';
+      const discountPrice = isCash
+        ? Math.max(0, basePrice - (item.discount || 0))
+        : basePrice * (1 - (item.discount || 0) / 100);
       return sum + (discountPrice * item.qty);
     }, 0);
-  }, [cartDisplayData]);
+  }, [cart, batchPriceCache, sellingChannel]);
 
   const orderDiscountAmt = useMemo(() =>
     orderDiscountType === 'cash'
