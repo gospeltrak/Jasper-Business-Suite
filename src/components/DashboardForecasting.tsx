@@ -128,7 +128,7 @@ const renderFormattedLine = (line: string, index: number): React.ReactNode => {
   if (trimmed.startsWith('>')) {
     const rawContent = trimmed.substring(1).trim();
     return (
-      <blockquote key={index} className="border-l-4 border-indigo-500 bg-indigo-50/50 px-3 py-1.5 my-2 italic text-slate-700 rounded-r-lg text-[11.5px] font-sans">
+      <blockquote key={index} className="border-l-4 border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20 px-3 py-1.5 my-2 italic text-slate-700 dark:text-slate-300 rounded-r-lg text-[11.5px] font-sans">
         {parseBoldTags(rawContent)}
       </blockquote>
     );
@@ -140,7 +140,7 @@ const renderFormattedLine = (line: string, index: number): React.ReactNode => {
     return (
       <div key={index} className="flex items-start gap-1.5 ml-2 my-1 font-sans">
         <span className="text-indigo-500 mt-1 shrink-0 select-none">•</span>
-        <span className="flex-1 text-[11.5px] text-slate-700 leading-relaxed">{parseBoldTags(rawContent)}</span>
+        <span className="flex-1 text-[11.5px] text-slate-700 dark:text-slate-300 leading-relaxed">{parseBoldTags(rawContent)}</span>
       </div>
     );
   }
@@ -152,10 +152,10 @@ const renderFormattedLine = (line: string, index: number): React.ReactNode => {
     const rawContent = numberedMatch[2];
     return (
       <div key={index} className="flex items-start gap-1.5 ml-1 my-1 font-sans">
-        <span className="font-mono font-black text-indigo-600 bg-indigo-50 w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[9px] mt-0.5 select-none">
+        <span className="font-mono font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/40 w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[9px] mt-0.5 select-none">
           {num}
         </span>
-        <span className="flex-1 text-[11.5px] text-slate-700 leading-relaxed">{parseBoldTags(rawContent)}</span>
+        <span className="flex-1 text-[11.5px] text-slate-700 dark:text-slate-300 leading-relaxed">{parseBoldTags(rawContent)}</span>
       </div>
     );
   }
@@ -1129,67 +1129,63 @@ INSTRUCTIONS:
           <div className="space-y-6 flex-1">
 
             {/* CONVERSATIONAL MODERN MESSENGER */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-5 text-slate-800 shadow-md flex flex-col h-[880px] relative overflow-hidden">
+            <div className="bg-white dark:bg-[#0f1623] border border-slate-200 dark:border-slate-700/60 rounded-3xl text-slate-800 dark:text-slate-100 shadow-md flex flex-col h-[880px] relative overflow-hidden">
               
-              {/* Box Top / Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              {/* Header — Messenger style */}
+              <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-slate-800 dark:to-slate-800 border-b border-transparent dark:border-slate-700/60 rounded-t-3xl">
                 <div className="flex items-center space-x-3 text-left">
                   <div className="relative">
-                    <div className="w-10 h-10 bg-emerald-500/10 text-emerald-600 rounded-full flex items-center justify-center border border-emerald-500/20 shadow-xs">
+                    <div className="w-10 h-10 bg-white/20 dark:bg-emerald-500/20 text-white rounded-full flex items-center justify-center border border-white/30 dark:border-emerald-500/30 shadow-xs">
                       <Sparkles className="w-5 h-5 animate-pulse" />
                     </div>
-                    {/* Pulsing online indicator */}
-                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full animate-pulse" />
+                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-emerald-600 dark:border-slate-800 rounded-full animate-pulse" />
                   </div>
                   <div>
                     <div className="flex items-center space-x-1.5">
-                      <h4 className="text-sm font-bold text-slate-900 tracking-tight">Lucy Companion</h4>
-                      <span className="bg-emerald-50 text-emerald-700 text-[8px] font-mono font-black px-1 py-0.5 rounded uppercase tracking-wider scale-95 border border-emerald-100">
-                        ACTIVE
-                      </span>
+                      <h4 className="text-sm font-bold text-white tracking-tight">Lucy</h4>
+                      <span className="bg-white/20 text-white text-[8px] font-mono font-black px-1.5 py-0.5 rounded uppercase tracking-wider">AI</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 font-sans font-medium">Business Smart Forecasting Copilot</p>
+                    <p className="text-[10px] text-white/70 font-sans font-medium">Business Copilot · Online</p>
                   </div>
                 </div>
               </div>
 
               {/* CHATS STREAM */}
-              <div className="flex-1 overflow-y-auto py-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent text-left px-1">
+              <div className="flex-1 overflow-y-auto py-4 space-y-3 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent text-left px-3">
                 {chatMessages.map((m, idx) => {
                   const isAi = m.sender === 'ai';
                   return (
                     <div 
                       key={idx} 
-                      className={`flex items-start gap-2.5 max-w-[88%] ${
+                      className={`flex items-end gap-2 max-w-[85%] ${
                         !isAi ? 'ml-auto flex-row-reverse' : 'mr-auto'
                       }`}
                     >
                       {/* Avatar */}
                       {isAi ? (
-                        <div className="w-7 h-7 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 shadow-xs select-none">
+                        <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-xs select-none mb-0.5">
                           <Sparkles className="w-3.5 h-3.5" />
                         </div>
                       ) : (
-                        <div className="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 text-white flex items-center justify-center shrink-0 shadow-xs select-none text-[10px] font-mono font-extrabold uppercase">
+                        <div className="w-7 h-7 rounded-full bg-indigo-600 border border-indigo-500 text-white flex items-center justify-center shrink-0 shadow-xs select-none text-[10px] font-mono font-extrabold uppercase mb-0.5">
                           {activeTenant.name?.[0] || 'U'}
                         </div>
                       )}
 
-                      {/* Bubble with nicer styling */}
                       <div className={`flex flex-col ${!isAi ? 'items-end' : 'items-start'}`}>
                         <div 
-                          className={`px-4 py-2.5 rounded-2xl text-[12px] leading-relaxed shadow-xs ${
+                          className={`px-3.5 py-2.5 text-[12.5px] leading-relaxed shadow-sm ${
                             !isAi 
-                              ? 'bg-gradient-to-tr from-indigo-600 to-indigo-550 text-white rounded-tr-none' 
-                              : 'bg-slate-50 border border-slate-200/60 text-slate-805 rounded-tl-none font-medium'
+                              ? 'bg-indigo-600 text-white rounded-2xl rounded-br-sm' 
+                              : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-2xl rounded-bl-sm font-medium'
                           }`}
                         >
                           {isAi ? formatLucyMessage(m.text) : m.text}
                         </div>
 
                         {isAi && m.chartData && m.chartData.length > 0 && (
-                          <div className="mt-2.5 w-64 md:w-80 bg-white border border-slate-200 p-3 rounded-2xl shadow-sm space-y-2 animate-fade-in">
-                            <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                          <div className="mt-2 w-64 md:w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3 rounded-2xl shadow-sm space-y-2 animate-fade-in">
+                            <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-slate-200">
                               <span className="truncate">{m.chartTitle || 'Performance Indicators'}</span>
                               <TrendingUp className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                             </div>
@@ -1227,11 +1223,10 @@ INSTRUCTIONS:
                           </div>
                         )}
                         
-                        {/* Timestamp & double status checkmarks */}
-                        <div className="flex items-center space-x-1 mt-1 px-1 select-none font-sans">
-                          <span className="text-[9px] font-mono text-slate-400">{m.timestamp}</span>
+                        <div className="flex items-center space-x-1 mt-0.5 px-1 select-none font-sans">
+                          <span className="text-[9px] font-mono text-slate-400 dark:text-slate-500">{m.timestamp}</span>
                           {!isAi && (
-                            <span className="text-emerald-505 text-[10px] leading-none font-bold" title="Delivered & Read">✓✓</span>
+                            <span className="text-emerald-500 dark:text-emerald-400 text-[10px] leading-none font-bold" title="Delivered & Read">✓✓</span>
                           )}
                         </div>
                       </div>
@@ -1240,18 +1235,18 @@ INSTRUCTIONS:
                 })}
 
                 {chatLoading && (
-                  <div className="flex items-start gap-2.5 mr-auto max-w-[80%]">
-                    <div className="w-7 h-7 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 shadow-xs select-none">
+                  <div className="flex items-end gap-2 mr-auto max-w-[80%]">
+                    <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-xs select-none mb-0.5">
                       <Sparkles className="w-3.5 h-3.5 animate-spin" />
                     </div>
                     <div className="flex flex-col">
-                      <div className="bg-slate-50 border border-slate-200/60 px-4 py-2 rounded-2xl rounded-tl-none flex items-center space-x-2 shadow-xs">
-                        <div className="flex space-x-1.5 py-1">
-                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" />
+                      <div className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2.5 rounded-2xl rounded-bl-sm flex items-center space-x-2 shadow-xs">
+                        <div className="flex space-x-1.5 py-0.5">
+                          <div className="w-1.5 h-1.5 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                          <div className="w-1.5 h-1.5 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                          <div className="w-1.5 h-1.5 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-bounce" />
                         </div>
-                        <span className="text-[10px] font-semibold text-slate-450 italic">Lucy is typing...</span>
+                        <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-400 italic">Lucy is typing...</span>
                       </div>
                     </div>
                   </div>
@@ -1259,55 +1254,40 @@ INSTRUCTIONS:
                 <div ref={chatEndRef} />
               </div>
 
-              {/* QUICK SUGGESTIONS TRIGGER CHIPS */}
-              <div className="py-2.5 border-t border-slate-100 bg-slate-50/50 p-3 rounded-2xl m-1 text-left">
-                <span className="text-[9px] font-mono font-black text-slate-400 uppercase tracking-wider block mb-2">Suggested Enquiries:</span>
+              {/* QUICK SUGGESTION CHIPS */}
+              <div className="py-2 border-t border-slate-100 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-800/60 px-3 text-left">
+                <span className="text-[9px] font-mono font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1.5">Quick Ask:</span>
                 <div className="flex flex-wrap gap-1.5">
-                  <button
-                    onClick={() => {
-                      setChatInput('Which products are best sellers based on history?');
-                    }}
-                    type="button"
-                    className="p-1.5 bg-white border border-slate-200 hover:border-indigo-500 hover:text-indigo-600 rounded-xl text-[10px] font-medium text-slate-600 text-left select-none cursor-pointer transition shadow-xs hover:shadow-sm"
-                  >
-                    📈 Best Sellers History
+                  <button onClick={() => setChatInput('Which products are best sellers based on history?')} type="button"
+                    className="px-2.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-indigo-500 dark:hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 rounded-full text-[10px] font-medium text-slate-600 dark:text-slate-300 select-none cursor-pointer transition shadow-xs">
+                    📈 Best Sellers
                   </button>
-                  <button
-                    onClick={() => {
-                      setChatInput('What new products can I add to my catalog?');
-                    }}
-                    type="button"
-                    className="p-1.5 bg-white border border-slate-200 hover:border-amber-500 hover:text-amber-600 rounded-xl text-[10px] font-medium text-slate-600 text-left select-none cursor-pointer transition shadow-xs hover:shadow-sm"
-                  >
-                    💡 Catalog Additions
+                  <button onClick={() => setChatInput('What new products can I add to my catalog?')} type="button"
+                    className="px-2.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-amber-500 dark:hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-300 rounded-full text-[10px] font-medium text-slate-600 dark:text-slate-300 select-none cursor-pointer transition shadow-xs">
+                    💡 Catalog Ideas
                   </button>
-                  <button
-                    onClick={() => {
-                      setChatInput('Which products should I increase stock of?');
-                    }}
-                    type="button"
-                    className="p-1.5 bg-white border border-slate-200 hover:border-emerald-500 hover:text-emerald-700 rounded-xl text-[10px] font-medium text-slate-600 text-left select-none cursor-pointer transition shadow-xs hover:shadow-sm"
-                  >
-                    📦 Replenishment Advice
+                  <button onClick={() => setChatInput('Which products should I increase stock of?')} type="button"
+                    className="px-2.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-emerald-500 dark:hover:border-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 rounded-full text-[10px] font-medium text-slate-600 dark:text-slate-300 select-none cursor-pointer transition shadow-xs">
+                    📦 Replenish
                   </button>
                 </div>
               </div>
 
-              {/* CONTROLS INPUT CAPSULE */}
-              <form onSubmit={handleSendLucyMessage} className="mt-2 flex items-center bg-slate-50 border border-slate-200 rounded-full px-3 py-1 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all shadow-inner">
+              {/* INPUT — WhatsApp/Messenger style */}
+              <form onSubmit={handleSendLucyMessage} className="mt-2 mx-2 mb-2 flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-full px-3 py-1 focus-within:border-indigo-500 dark:focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-900/40 transition-all shadow-xs">
                 <input
                   type="text"
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   placeholder="Ask Lucy anything about your business..."
-                  className="flex-1 bg-transparent text-slate-800 px-2 py-2 text-xs focus:outline-none placeholder-slate-400 font-sans border-none outline-none"
+                  className="flex-1 bg-transparent text-slate-800 dark:text-slate-100 px-2 py-2 text-xs focus:outline-none placeholder-slate-400 dark:placeholder-slate-500 font-sans border-none outline-none"
                 />
                 <button
                   type="submit"
                   disabled={chatLoading || !chatInput.trim()}
-                  className="p-2 bg-slate-900 text-white hover:bg-slate-800 rounded-full transition cursor-pointer flex items-center justify-center shrink-0 disabled:opacity-45 shadow-xs"
+                  className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition cursor-pointer flex items-center justify-center shrink-0 disabled:opacity-40 shadow-xs"
                 >
-                  <Send className="w-3.5 h-3.5 text-emerald-405" />
+                  <Send className="w-3.5 h-3.5" />
                 </button>
               </form>
 
