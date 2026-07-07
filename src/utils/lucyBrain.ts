@@ -76,11 +76,12 @@ export const detectLucyLanguage = (input: string): LucyLanguage => {
   return swScore > 0 ? 'sw' : 'en';
 };
 
-export const getLucyGreeting = (language: LucyLanguage = 'en', tenantName?: string): string => {
+export const getLucyGreeting = (language: LucyLanguage = 'en', tenantName?: string, businessType?: string): string => {
+  const name = tenantName || 'your business';
   if (language === 'sw') {
-    return `Karibu, mimi ni Lucy. Niambie biashara yako ni retail, pharmacy, hotel, restaurant au wholesale? Nitakuonyesha kwa lugha rahisi jinsi ${tenantName || 'Jasper'} itakavyokusaidia kuanza, kuuza, kusimamia stoki na kusoma ripoti.`;
+    return `Habari 😊 Mimi ni Lucy, msaidizi wako wa biashara ya ${name}. Naweza kukusaidia kuangalia mauzo, stock, ripoti, au madeni. Unataka tuanze na ipi?`;
   }
-  return `Hi, I am Lucy. Tell me what you run - retail, pharmacy, hotel, restaurant, or wholesale - and I will guide you through ${tenantName || 'Jasper'} like a calm business coach, step by step.`;
+  return `Hi 😊 I'm Lucy, your business assistant for ${name}. I can help you check sales, stock, reports, debts, and give business recommendations. What would you like to look at?`;
 };
 
 const money = (amount: number, tenant?: Tenant) => {

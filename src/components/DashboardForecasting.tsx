@@ -259,12 +259,16 @@ export default function DashboardForecasting({
 
   const categories = ['All', ...Array.from(new Set(products.map(p => p.category)))];
 
-  // Initialize Lucy Greeting
+  // Initialize Lucy Greeting — uses existing business profile, never asks "what do you run"
   useEffect(() => {
     setChatMessages([
       {
         sender: 'ai',
-        text: getLucyGreeting('en', activeTenant.name),
+        text: getLucyGreeting(
+          'en',
+          (systemSettings as any)?.business?.businessName || activeTenant.name,
+          activeTenant.businessType
+        ),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
     ]);
@@ -537,8 +541,21 @@ export default function DashboardForecasting({
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Lucy API error');
-      const aiText = data.text || 'I encountered an error. Please try again.';
+      // Backend always returns { success, text, source } — use text field
+      const aiText = (data.text || '').trim();
+
+      // Never render empty AI bubble — use fallback if text is empty
+      if (!aiText) {
+        setChatMessages(prev => [
+          ...prev,
+          {
+            sender: 'ai',
+            text: "Samahani 😊 Lucy ameshindwa kupata majibu kwa sasa. Tafadhali jaribu tena.",
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
+        return;
+      }
 
       const navMatch = aiText.match(/\[NAVIGATE:(\w[\w-]*)\]/);
       const cleanText = aiText.replace(/\[NAVIGATE:\w[\w-]*\]/g, '').trim();
@@ -559,12 +576,15 @@ export default function DashboardForecasting({
       if (navMatch) console.log('[Lucy] Navigation:', navMatch[1]);
 
     } catch (err) {
-      const lucy = createLucyResponse(cleanMsg, {
-        activeTenant, activeTab: 'forecasting', products, sales, expenses, surface: 'forecasting'
-      });
+      // API call itself failed — show smart fallback based on what user asked
+      const fallbackMsg = cleanMsg.toLowerCase().includes('stock') || cleanMsg.toLowerCase().includes('bidhaa')
+        ? "Sijaweza kusoma stock data kwa sasa 😊 Tafadhali jaribu tena."
+        : cleanMsg.toLowerCase().includes('sale') || cleanMsg.toLowerCase().includes('mauzo')
+        ? "Sijaweza kusoma mauzo data kwa sasa 😊 Tafadhali jaribu tena."
+        : "Samahani 😊 Lucy ameshindwa kupata majibu kwa sasa. Tafadhali jaribu tena.";
       setChatMessages(prev => [
         ...prev,
-        { sender: 'ai', text: lucy.text, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+        { sender: 'ai', text: fallbackMsg, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
       ]);
     } finally {
       setChatLoading(false);
