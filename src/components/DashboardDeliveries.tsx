@@ -259,7 +259,7 @@ export default function DashboardDeliveries({
   const computedCompanyAddress = systemSettings?.company?.address || '123 Main Street, City';
   const computedCompanyPhone = systemSettings?.company?.phone || '+255700000000';
   const computedCompanyEmail = systemSettings?.business?.businessEmail || 'hello@example.com';
-  const computedTIN = systemSettings?.invoiceSettings?.tin || '140-763-403';
+  const computedTIN = systemSettings?.invoiceSettings?.tin || systemSettings?.invoiceSettings?.tinNumber || '';
   const computedInvoiceColor = systemSettings?.invoiceSettings?.invoiceColor || '#102d68';
   const selectedRiderForNote = riders.find(r => r.id === selectedRiderForNoteId);
   
@@ -1976,10 +1976,12 @@ Vehicle Plate Number: ${plateNumber}
                     </div>
                   </div>
 
-                  {/* 2. Center TIN Identification Row */}
-                  <div className="text-center py-2 text-[11px] font-extrabold tracking-wider font-mono border-b border-slate-200 relative z-10" style={{ color: computedInvoiceColor }}>
-                    TIN: {computedTIN}
-                  </div>
+                  {/* 2. Center TIN Identification Row — only shown when TIN is set in Company Level Settings */}
+                  {computedTIN && (
+                    <div className="text-center py-2 text-[11px] font-extrabold tracking-wider font-mono border-b border-slate-200 relative z-10" style={{ color: computedInvoiceColor }}>
+                      TIN: {computedTIN}
+                    </div>
+                  )}
 
                   {/* 3. Header Title: "DELIVERY NOTE" */}
                   <div className="text-center py-5 relative z-10">

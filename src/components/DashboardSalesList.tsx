@@ -4629,9 +4629,11 @@ export default function DashboardSalesList({
                         )}
                         <h2 className="text-xl font-black text-slate-900 tracking-tight">{systemSettings?.business?.businessName || activeTenant.name}</h2>
                         <p className="text-[11px] text-slate-400 mt-0.5 uppercase tracking-wide font-semibold">{activeTenant.city || ''}</p>
-                        {systemSettings?.company?.phone && <p className="text-[11px] text-slate-500 mt-0.5">Tel: {systemSettings.company.phone}</p>}
-                        {systemSettings?.company?.email && <p className="text-[11px] text-slate-500">Email: {systemSettings.company.email}</p>}
-                        {systemSettings?.company?.address && <p className="text-[11px] text-slate-500">{systemSettings.company.address}</p>}
+                        {/* Address, phone, email — from Corporate Business Setup */}
+                        {systemSettings?.business?.businessAddress && <p className="text-[11px] text-slate-500 mt-0.5">{systemSettings.business.businessAddress}</p>}
+                        {systemSettings?.business?.businessPhone && <p className="text-[11px] text-slate-500">Tel: {systemSettings.business.businessPhone}</p>}
+                        {systemSettings?.business?.businessEmail && <p className="text-[11px] text-slate-500">Email: {systemSettings.business.businessEmail}</p>}
+                        {/* TIN and VAT — from Company Level Settings (invoiceSettings) */}
                         {systemSettings?.invoiceSettings?.tinNumber && <p className="text-[11px] text-slate-500 font-mono">TIN: {systemSettings.invoiceSettings.tinNumber}</p>}
                         {systemSettings?.invoiceSettings?.vatNumber && <p className="text-[11px] text-slate-500 font-mono">VAT: {systemSettings.invoiceSettings.vatNumber}</p>}
                       </div>
@@ -4754,27 +4756,6 @@ export default function DashboardSalesList({
                       </div>
                     </div>
 
-                    {/* Terms & Conditions — from Settings → Invoice Settings */}
-                    {(() => {
-                      const terms = systemSettings?.invoiceSettings?.termsAndConditions;
-                      const hasTerms = Array.isArray(terms) ? terms.length > 0 : !!terms;
-                      if (!hasTerms) return null;
-                      return (
-                        <div className="border-t border-slate-100 pt-5">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mb-2">Terms &amp; Conditions</p>
-                          {Array.isArray(terms) ? (
-                            <ol className="list-decimal list-inside space-y-1">
-                              {terms.map((term: string, i: number) => (
-                                <li key={i} className="text-[11px] text-slate-500 leading-relaxed">{term}</li>
-                              ))}
-                            </ol>
-                          ) : (
-                            <p className="text-[11px] text-slate-500 leading-relaxed whitespace-pre-line">{terms}</p>
-                          )}
-                        </div>
-                      );
-                    })()}
-
                     {/* Signature row — Authorized Person Name (left) | Signature (right) */}
                     <div className="border-t border-slate-100 pt-6">
                       <div className="flex items-end justify-between gap-8">
@@ -4784,7 +4765,7 @@ export default function DashboardSalesList({
                           <p className="text-xs font-semibold text-slate-700 truncate">{preparerName}</p>
                           <p className="text-[10px] text-slate-400">{preparerRole}</p>
                         </div>
-                        {/* Right: Signature */}
+                        {/* Right: Authorized Signature */}
                         <div className="flex-1 min-w-0 text-right">
                           {(() => {
                             const sigImg = activeStaff?.signatureImage || systemSettings?.invoiceSettings?.signatureImage;
@@ -4801,10 +4782,29 @@ export default function DashboardSalesList({
                       </div>
                     </div>
 
-                    {/* Footer */}
-                    <div className="text-center border-t border-slate-100 pt-4 space-y-1">
-                      <p className="text-xs text-slate-600 font-semibold">{invoiceFooter.mainMessage}</p>
-                      <p className="text-[11px] text-slate-500">Thank you for shopping with {invoiceFooter.businessName}</p>
+                    {/* Terms & Conditions — from Invoice Settings, shown below signature */}
+                    {(() => {
+                      const terms = systemSettings?.invoiceSettings?.termsAndConditions;
+                      const hasTerms = Array.isArray(terms) ? terms.length > 0 : !!terms;
+                      if (!hasTerms) return null;
+                      return (
+                        <div className="border-t border-slate-100 pt-4">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mb-2">Terms &amp; Conditions</p>
+                          {Array.isArray(terms) ? (
+                            <ol className="list-decimal list-inside space-y-1">
+                              {terms.map((term: string, i: number) => (
+                                <li key={i} className="text-[11px] text-slate-500 leading-relaxed">{term}</li>
+                              ))}
+                            </ol>
+                          ) : (
+                            <p className="text-[11px] text-slate-500 leading-relaxed whitespace-pre-line">{terms}</p>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Footer — poweredBy only, no tagline/thank you message */}
+                    <div className="text-center border-t border-slate-100 pt-3">
                       <p className="text-[8px] text-slate-300 font-mono">{invoiceFooter.poweredBy}</p>
                     </div>
                   </div>
