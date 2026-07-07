@@ -264,19 +264,43 @@ export default function DashboardDeliveries({
   const selectedRiderForNote = riders.find(r => r.id === selectedRiderForNoteId);
   
   // Dynamic table items
-  const [noteItems, setNoteItems] = useState([
-    { id: '1', description: 'Toilet Rim Block', unit: 'Boxes', qty: 7 },
-    { id: '2', description: 'Handwash Soap', unit: 'PC', qty: 7 },
-    { id: '3', description: 'Scrub dady Sponge', unit: 'Set', qty: 5 },
-    { id: '4', description: 'Organizer Basket Large', unit: 'PC', qty: 3 },
-    { id: '5', description: 'Organizer Basket small', unit: 'PC', qty: 4 },
-    { id: '6', description: 'Mable Tray', unit: 'PC', qty: 3 },
-    { id: '7', description: 'Pink Cleaning Paste', unit: 'PC', qty: 4 },
-    { id: '8', description: 'Flash Floor Cleaner 1L', unit: 'PC', qty: 3 },
-    { id: '9', description: 'Pink Cream Cleaner', unit: 'PC', qty: 6 },
-    { id: '10', description: 'Face towels', unit: 'PC', qty: 4 },
-    { id: '11', description: 'Various as per Proforma Invoice', unit: 'Lumpsum', qty: 1 }
-  ]);
+  const [noteItems, setNoteItems] = useState<Array<{id:string;description:string;unit:string;qty:number}>>([]);
+  const [invoiceSearchQuery, setInvoiceSearchQuery] = useState('');
+  const [invoiceSearchResults, setInvoiceSearchResults] = useState<any[]>([]);
+  const [linkedInvoiceRef, setLinkedInvoiceRef] = useState('');
+
+  // Search sales/invoices by reference number, customer name, or date
+  const handleInvoiceSearch = (query: string) => {
+    setInvoiceSearchQuery(query);
+    setLinkedInvoiceRef('');
+    if (!query.trim() || !sales?.length) { setInvoiceSearchResults([]); return; }
+    const q = query.toLowerCase().trim();
+    const results = (sales || []).filter(s =>
+      (s.reference && s.reference.toLowerCase().includes(q)) ||
+      (s.id && s.id.toLowerCase().includes(q)) ||
+      (s.customerName && s.customerName.toLowerCase().includes(q)) ||
+      (s.timestamp && s.timestamp.startsWith(q))
+    ).slice(0, 8);
+    setInvoiceSearchResults(results);
+  };
+
+  // Pull products from a selected sale/invoice into the delivery note
+  const handleLoadFromSale = (sale: any) => {
+    const items = (sale.items || []).map((item: any, idx: number) => ({
+      id: (idx + 1).toString(),
+      description: item.productName || item.name || 'Item',
+      unit: item.unit || item.baseUnit || item.sellUnit || 'PC',
+      qty: item.qty || item.quantity || 1,
+    }));
+    setNoteItems(items);
+    setLinkedInvoiceRef(sale.reference || sale.id || '');
+    setInvoiceSearchQuery(sale.reference || sale.id || '');
+    setInvoiceSearchResults([]);
+    // Auto-fill customer info
+    if (sale.customerName) setNoteDeliveryToTitle(sale.customerName);
+    if (sale.customerPhone) setNoteDeliveryToAddress(`Phone: ${sale.customerPhone}`);
+    if (sale.reference || sale.id) setNotePINo((sale.reference || sale.id).replace(/[^0-9A-Za-z-]/g, '').slice(0, 12));
+  };
 
   const [newItemDesc, setNewItemDesc] = useState('');
   const [newItemUnit, setNewItemUnit] = useState('PC');
@@ -1381,19 +1405,10 @@ Vehicle Plate Number: ${plateNumber}
                     setNoteDeliveredBySignature('');
                     setNoteDeliveredDate(getTodayFormatted());
                     setSelectedRiderForNoteId('');
-                    setNoteItems([
-                      { id: '1', description: 'Toilet Rim Block', unit: 'Boxes', qty: 7 },
-                      { id: '2', description: 'Handwash Soap', unit: 'PC', qty: 7 },
-                      { id: '3', description: 'Scrub dady Sponge', unit: 'Set', qty: 5 },
-                      { id: '4', description: 'Organizer Basket Large', unit: 'PC', qty: 3 },
-                      { id: '5', description: 'Organizer Basket small', unit: 'PC', qty: 4 },
-                      { id: '6', description: 'Mable Tray', unit: 'PC', qty: 3 },
-                      { id: '7', description: 'Pink Cleaning Paste', unit: 'PC', qty: 4 },
-                      { id: '8', description: 'Flash Floor Cleaner 1L', unit: 'PC', qty: 3 },
-                      { id: '9', description: 'Pink Cream Cleaner', unit: 'PC', qty: 6 },
-                      { id: '10', description: 'Face towels', unit: 'PC', qty: 4 },
-                      { id: '11', description: 'Various as per Proforma Invoice', unit: 'Lumpsum', qty: 1 }
-                    ]);
+                    setNoteItems([]);
+                    setInvoiceSearchQuery('');
+                    setInvoiceSearchResults([]);
+                    setLinkedInvoiceRef('');
                   }}
                   className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded hover:bg-emerald-100 transition-all cursor-pointer"
                 >
@@ -1494,6 +1509,64 @@ Vehicle Plate Number: ${plateNumber}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none text-xs font-sans text-slate-800 focus:border-emerald-500"
                   />
                 </div>
+              </div>
+
+              {/* 3b. Invoice / Sales Order Lookup */}
+              <div className="space-y-3">
+                <span className="text-[10px] font-black text-slate-400 block tracking-wider uppercase font-mono border-b pb-1">3. Load from Invoice / Sales Order</span>
+                <div className="relative">
+                  <div className="flex gap-2 items-center">
+                    <div className="relative flex-1">
+                      <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                      </svg>
+                      <input
+                        type="text"
+                        placeholder="Search by invoice no, order ref, or customer name…"
+                        value={invoiceSearchQuery}
+                        onChange={(e) => handleInvoiceSearch(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-8 py-2 text-xs font-medium text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                      />
+                      {invoiceSearchQuery && (
+                        <button type="button" onClick={() => { setInvoiceSearchQuery(''); setInvoiceSearchResults([]); setLinkedInvoiceRef(''); }}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs border-none bg-transparent cursor-pointer">✕</button>
+                      )}
+                    </div>
+                    {linkedInvoiceRef && (
+                      <span className="shrink-0 bg-emerald-100 text-emerald-700 text-[10px] font-black px-2.5 py-1.5 rounded-xl border border-emerald-200 whitespace-nowrap">
+                        ✓ {linkedInvoiceRef}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Search results dropdown */}
+                  {invoiceSearchResults.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden max-h-60 overflow-y-auto">
+                      {invoiceSearchResults.map((sale: any) => (
+                        <button key={sale.id} type="button" onClick={() => handleLoadFromSale(sale)}
+                          className="w-full text-left px-4 py-3 hover:bg-emerald-50 border-b border-slate-50 last:border-0 transition-colors cursor-pointer border-none bg-transparent">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-xs font-black text-slate-900 truncate">{sale.reference || sale.id}</p>
+                              <p className="text-[10px] text-slate-500 truncate">{sale.customerName || 'No customer name'} · {new Date(sale.timestamp).toLocaleDateString()}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-[10px] font-bold text-emerald-600">{(sale.items || []).length} items</p>
+                              <p className="text-[9px] text-slate-400 font-mono">{sale.paymentMethod || 'Cash'}</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {invoiceSearchQuery.trim() && invoiceSearchResults.length === 0 && !linkedInvoiceRef && (
+                    <p className="text-[10px] text-slate-400 mt-1.5 ml-1">No matching invoice/order found — add items manually below.</p>
+                  )}
+                </div>
+                {!linkedInvoiceRef && !invoiceSearchQuery && (
+                  <p className="text-[10px] text-slate-400">Search above to auto-fill items, or skip and add manually.</p>
+                )}
               </div>
 
               {/* Table Note Items Builder */}
