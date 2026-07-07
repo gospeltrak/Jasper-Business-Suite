@@ -1029,6 +1029,49 @@ export default function DashboardSettings({
     setStoreLimitMessage(null);
     onTriggerUpgrade?.('stores');
   };
+  const [selectedBranchForLogo, setSelectedBranchForLogo] = useState<string | null>(null);
+
+  const handleBranchLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, storeName: string, mode: 'light' | 'dark') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const logoUrl = reader.result as string;
+        const currentBranding = businessForm.branchBranding || {};
+        const currentEntry = currentBranding[storeName] || {};
+        const updated = {
+          ...businessForm,
+          branchBranding: {
+            ...currentBranding,
+            [storeName]: {
+              ...currentEntry,
+              ...(mode === 'light'
+                ? { businessLogoLight: logoUrl, businessLogo: currentEntry.businessLogo || logoUrl }
+                : { businessLogoDark: logoUrl })
+            }
+          }
+        };
+        setBusinessForm(updated);
+        persistBusinessSettings(updated);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn('[BranchLogo] Upload failed:', err);
+    }
+    e.target.value = '';
+  };
+
+  const handleBranchLogoRemove = (storeName: string, mode: 'light' | 'dark') => {
+    const currentBranding = businessForm.branchBranding || {};
+    const currentEntry = { ...(currentBranding[storeName] || {}) };
+    if (mode === 'light') { delete currentEntry.businessLogoLight; delete currentEntry.businessLogo; }
+    else delete currentEntry.businessLogoDark;
+    const updated = { ...businessForm, branchBranding: { ...currentBranding, [storeName]: currentEntry } };
+    setBusinessForm(updated);
+    persistBusinessSettings(updated);
+  };
+
   const handleAddStore = () => {
     if (newStoreName.trim()) {
       if (subscriptionStatus) {
@@ -2030,6 +2073,75 @@ export default function DashboardSettings({
                       </button>
                       {' '}to unlock multiple store locations.
                     </p>
+                  )}
+
+                  {/* Plan limit badge */}
+                  {subscriptionStatus?.plan && (
+                    <p className="text-[10px] text-slate-400 font-mono">
+                      {(businessForm.registeredStores || []).length} / {subscriptionStatus.plan.maxStores >= 999 ? 'Unlimited' : subscriptionStatus.plan.maxStores} branch{subscriptionStatus.plan.maxStores !== 1 ? 'es' : ''} — {subscriptionStatus.plan.name} plan
+                    </p>
+                  )}
+
+                  {/* Per-branch branding logos — Tanzanite feature */}
+                  {(businessForm.registeredStores || []).length > 0 && (
+                    <div className="space-y-2 pt-1 border-t border-slate-100 mt-3">
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider pt-2">Branch Logos</p>
+                      <p className="text-[10px] text-slate-400">Each branch can have its own logo on invoices, delivery notes, and receipts.</p>
+                      {(businessForm.registeredStores || []).map(store => {
+                        const bb = (businessForm.branchBranding || {})[store] || {};
+                        const isOpen = selectedBranchForLogo === store;
+                        return (
+                          <div key={store} className="border border-slate-200 rounded-xl overflow-hidden">
+                            <button type="button"
+                              onClick={() => setSelectedBranchForLogo(isOpen ? null : store)}
+                              className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer border-none text-left">
+                              <div className="flex items-center gap-2">
+                                {(bb.businessLogoLight || bb.businessLogo) ? (
+                                  <img src={bb.businessLogoLight || bb.businessLogo} alt={store} className="w-5 h-5 rounded object-contain border border-slate-200" />
+                                ) : (
+                                  <div className="w-5 h-5 rounded bg-slate-200 flex items-center justify-center text-[9px] font-black text-slate-500">{store[0]?.toUpperCase()}</div>
+                                )}
+                                <span className="text-xs font-bold text-slate-700">{store}</span>
+                                {(bb.businessLogoLight || bb.businessLogo) && <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-bold">✓ Logo</span>}
+                              </div>
+                              <span className="text-[10px] text-slate-400">{isOpen ? '▲' : '▼'}</span>
+                            </button>
+                            {isOpen && (
+                              <div className="px-3 py-3 border-t border-slate-100 grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                  <p className="text-[10px] font-bold text-slate-500">Light / Document</p>
+                                  <div className="w-16 h-10 rounded-lg border-2 border-dashed border-slate-200 bg-white flex items-center justify-center overflow-hidden">
+                                    {(bb.businessLogoLight || bb.businessLogo)
+                                      ? <img src={bb.businessLogoLight || bb.businessLogo} className="w-full h-full object-contain p-0.5" alt="" />
+                                      : <span className="text-[8px] text-slate-400">None</span>}
+                                  </div>
+                                  <label className="inline-block px-2.5 py-1 bg-indigo-600 text-white text-[10px] font-bold rounded-lg cursor-pointer hover:bg-indigo-700">
+                                    Upload<input type="file" accept="image/*" className="hidden" onChange={(e) => handleBranchLogoUpload(e, store, 'light')} />
+                                  </label>
+                                  {(bb.businessLogoLight || bb.businessLogo) && (
+                                    <button type="button" onClick={() => handleBranchLogoRemove(store, 'light')} className="ml-1 text-[10px] text-rose-500 hover:text-rose-700 cursor-pointer border-none bg-transparent">Remove</button>
+                                  )}
+                                </div>
+                                <div className="space-y-1.5">
+                                  <p className="text-[10px] font-bold text-slate-500">Dark Mode</p>
+                                  <div className="w-16 h-10 rounded-lg border-2 border-dashed border-slate-700 bg-slate-900 flex items-center justify-center overflow-hidden">
+                                    {bb.businessLogoDark
+                                      ? <img src={bb.businessLogoDark} className="w-full h-full object-contain p-0.5" alt="" />
+                                      : <span className="text-[8px] text-slate-500">None</span>}
+                                  </div>
+                                  <label className="inline-block px-2.5 py-1 bg-slate-700 text-white text-[10px] font-bold rounded-lg cursor-pointer hover:bg-slate-600">
+                                    Upload<input type="file" accept="image/*" className="hidden" onChange={(e) => handleBranchLogoUpload(e, store, 'dark')} />
+                                  </label>
+                                  {bb.businessLogoDark && (
+                                    <button type="button" onClick={() => handleBranchLogoRemove(store, 'dark')} className="ml-1 text-[10px] text-rose-500 hover:text-rose-700 cursor-pointer border-none bg-transparent">Remove</button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               </div>

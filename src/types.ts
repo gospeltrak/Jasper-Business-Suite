@@ -58,6 +58,11 @@ export interface Branch {
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
+  // Branch-level branding — used on all customer-facing documents for this branch
+  businessLogo?: string;        // generic branch logo (used as fallback)
+  businessLogoLight?: string;   // light mode / document logo
+  businessLogoDark?: string;    // dark mode logo
+  businessName?: string;        // override branch display name on documents
 }
 
 export interface BranchStock {
@@ -427,6 +432,13 @@ export interface CompanySettings {
   themeMode: 'light' | 'dark';
 }
 
+export interface BranchBranding {
+  businessLogo?: string;
+  businessLogoLight?: string;
+  businessLogoDark?: string;
+  businessName?: string;
+}
+
 export interface BusinessSettings {
   businessName: string;
   businessPhone: string;
@@ -439,6 +451,7 @@ export interface BusinessSettings {
   registeredStores: string[];
   tagline?: string;
   businessEmail?: string;
+  branchBranding?: Record<string, BranchBranding>; // keyed by store name
 }
 
 export interface ProductStoreSettings {

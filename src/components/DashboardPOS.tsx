@@ -2046,9 +2046,9 @@ export default function DashboardPOS({
                 {/* PHYSICAL RECEIPT GRAPHIC CONTAINER */}
                 <div id="pos-receipt-pdf-template" className="bg-white text-slate-900 p-5 rounded-3xl font-mono text-xs space-y-4 shadow-xl border-dashed border-2 border-slate-250">
                   <div className="text-center space-y-2 border-b border-dashed border-slate-200 pb-3 flex flex-col items-center">
-                    {(systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo) && (
+                    {(((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo) && (
                       <CachedImage 
-                        src={systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo || undefined} 
+                        src={((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo || undefined} 
                         alt="Logo" 
                         className="w-12 h-12 object-contain mb-1 rounded-lg border border-slate-200 p-0.5" 
                         referrerPolicy="no-referrer"

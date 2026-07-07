@@ -83,11 +83,11 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     price: 50000,
     durationDays: 30,
     maxProducts: 999999, // Unlimited
-    maxStores: 999999,
+    maxStores: 3,
     maxStaff: 15,
     features: [
       'Unlimited Products catalogued',
-      'Max 5 Active Store branches',
+      'Max 3 Active Branch locations',
       'Max 15 Users / staff accounts',
       'Supplies management tracking',
       'Cashier Till (POS Simulator)',
@@ -144,11 +144,11 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     price: 50000,
     durationDays: 30,
     maxProducts: 999999,
-    maxStores: 999999,
+    maxStores: 3,
     maxStaff: 15,
     features: [
       'Unlimited Products catalogued',
-      'Max 5 Active Store branches',
+      'Max 3 Active Branch locations',
       'Max 15 Users / staff accounts',
       'Supplies management tracking',
       'Cashier Till (POS Simulator)',
