@@ -821,24 +821,21 @@ export default function DashboardPOS({
   }, [cart, activeTenant.businessType, getCartUnitPrice]);
 
   // Pricing calculations — fully memoized for instant updates
-  // subtotal reads DIRECTLY from cart state — no dependency on cartDisplayData
-  // or getCartUnitPrice chain. This guarantees instant update on every cart change.
+  // subtotal depends ONLY on cart + sellingChannel — zero external prop dependencies.
+  // cart items carry item.product.sellingPrice already set at add-to-cart time.
+  // This guarantees subtotal updates in the EXACT same render as any cart change.
   const subtotal = useMemo(() => {
     return cart.reduce((sum, item) => {
-      // Use getChannelPrice if batchPriceCache is ready, else fall back to sellingPrice
-      const cacheKey = `${item.product.id}:${(item.product.batches || []).length}:${item.product.sellingPrice}:${sellingChannel}`;
-      const basePrice = batchPriceCache.get(cacheKey) ?? (
-        sellingChannel === 'wholesale'
-          ? (item.product.wholesalePrice ?? item.product.sellingPrice ?? 0)
-          : (item.product.sellingPrice ?? 0)
-      );
+      const basePrice = sellingChannel === 'wholesale'
+        ? (item.product.wholesalePrice ?? item.product.sellingPrice ?? 0)
+        : (item.product.sellingPrice ?? 0);
       const isCash = item.discountType === 'cash';
       const discountPrice = isCash
         ? Math.max(0, basePrice - (item.discount || 0))
         : basePrice * (1 - (item.discount || 0) / 100);
       return sum + (discountPrice * item.qty);
     }, 0);
-  }, [cart, batchPriceCache, sellingChannel]);
+  }, [cart, sellingChannel]);
 
   const orderDiscountAmt = useMemo(() =>
     orderDiscountType === 'cash'
