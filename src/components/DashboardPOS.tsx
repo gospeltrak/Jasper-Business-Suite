@@ -768,7 +768,37 @@ export default function DashboardPOS({
     }
 
     return getPosSellingPriceForCostingMethod(product, fallbackPrice);
-  }, [sellingChannel, activeTenant.businessType]);
+  }, [sellingChannel, activeTenant.businessType, getRetailPackageConfig]);
+
+  // Price cache keyed by product id + batch count + selling price
+  // Avoids re-running getPosSellingPriceForCostingMethod (which does array spread/filter/sort)
+  // on every render for products whose batches/price haven't changed
+  const batchPriceCache = useMemo(() => {
+    const cache = new Map<string, number>();
+    const allProducts = [...(products || [])];
+    allProducts.forEach(p => {
+      const cacheKey = `${p.id}:${(p.batches || []).length}:${p.sellingPrice}:${sellingChannel}`;
+      if (!cache.has(cacheKey)) {
+        const fallbackPrice = sellingChannel === 'wholesale'
+          ? (p.wholesalePrice ?? p.sellingPrice)
+          : p.sellingPrice;
+        if (activeTenant.businessType !== 'pharmacy' && p.isBulkProduct) {
+          cache.set(cacheKey, getRetailPackageConfig(p).pricePerBaseUnit || fallbackPrice);
+        } else {
+          cache.set(cacheKey, getPosSellingPriceForCostingMethod(p, fallbackPrice));
+        }
+      }
+    });
+    return cache;
+  }, [products, sellingChannel, activeTenant.businessType, getRetailPackageConfig]);
+
+  // Fast price lookup — uses batchPriceCache, falls back to direct calculation
+  const getChannelPrice = useCallback((product: Product): number => {
+    const cacheKey = `${product.id}:${(product.batches || []).length}:${product.sellingPrice}:${sellingChannel}`;
+    const cached = batchPriceCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+    return getBatchAwareChannelPrice(product);
+  }, [batchPriceCache, getBatchAwareChannelPrice, sellingChannel]);
 
   const getCartUnitPrice = useCallback((item: {
     product: Product;
@@ -777,7 +807,7 @@ export default function DashboardPOS({
     tabsSelected?: number;
   }) => {
     const isPharmacy = activeTenant.businessType === 'pharmacy';
-    const channelBasePrice = getBatchAwareChannelPrice(item.product);
+    const channelBasePrice = getChannelPrice(item.product); // uses batchPriceCache — instant
     let unitPrice = channelBasePrice;
 
     if (item.product.isBulkProduct) {
@@ -809,12 +839,12 @@ export default function DashboardPOS({
     }
 
     return unitPrice;
-  }, [activeTenant.businessType, getBatchAwareChannelPrice]);
+  }, [activeTenant.businessType, getChannelPrice, getPharmacyDoseConfig, getRetailPackageConfig]);
 
   // Pre-compute prices for ALL filtered products once — not per card per render
   const productPriceMap = useMemo(() => {
     const map = new Map<string, number>();
-    filteredProducts.forEach(p => map.set(p.id, getBatchAwareChannelPrice(p)));
+    filteredProducts.forEach(p => map.set(p.id, getChannelPrice(p)));
     return map;
   }, [filteredProducts, getBatchAwareChannelPrice]);
 
@@ -920,7 +950,7 @@ export default function DashboardPOS({
       const isPharmacy = activeTenant.businessType === 'pharmacy';
       const dType = i.dosageType || 'packet';
       
-      const channelBasePrice = getBatchAwareChannelPrice(i.product);
+      const channelBasePrice = getChannelPrice(i.product); // cached — no repeated batch sort
 
       const isBulk = i.product.isBulkProduct;
       const bMode = i.bulkSellMode || (isBulk ? (i.product.sellingMode === 'hybrid' ? 'scale' : i.product.sellingMode) : 'standard');
