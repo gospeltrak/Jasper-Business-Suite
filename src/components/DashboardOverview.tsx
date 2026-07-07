@@ -595,7 +595,7 @@ export default function DashboardOverview({
             { label: 'Purchases', value: `${currency} ${Math.round(purchases.reduce((s:number,p:any)=>s+(p.total||p.amount||0),0)).toLocaleString()}`, sub: `${purchases.length} orders`, color: '#7c3aed', up: false },
             { label: 'Dues Owed', value: `${currency} ${Math.round(filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').reduce((sum:number,s:any)=>sum+(s.dueAmount||s.amountDue||0),0)).toLocaleString()}`, sub: `${filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').length} unpaid`, color: '#f59e0b', up: false },
           ].map((card, i) => (
-            <div key={i} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+            <div key={i} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 shadow-sm">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 leading-none">{card.label}</p>
               <p className="text-[17px] font-black text-slate-900 tracking-tight leading-tight">{card.value}</p>
               <p className="text-[10px] font-semibold mt-1 leading-none" style={{color: card.color}}>{card.sub}</p>
@@ -609,7 +609,7 @@ export default function DashboardOverview({
           const adEnabled = adSettings.dashboardAdEnabled;
           if (adCode && adEnabled) {
             return (
-              <div className="flex min-h-[90px] w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+              <div className="flex min-h-[90px] w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
                 <div
                   className="min-h-[90px] w-full max-w-[728px] overflow-hidden [&>*]:max-w-full"
                   dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }}
@@ -952,7 +952,7 @@ export default function DashboardOverview({
         const adEnabled = adSettings.dashboardAdEnabled;
         if (adCode && adEnabled) {
           return (
-            <div className="hidden min-h-[90px] w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm xl:flex">
+            <div className="hidden min-h-[90px] w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm xl:flex">
               <div
                 className="min-h-[90px] w-full max-w-[728px] overflow-hidden [&>*]:max-w-full"
                 dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }}
@@ -988,7 +988,7 @@ export default function DashboardOverview({
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">        
         {/* Left Column (Spans 2 grids, i.e., 65% width representation, collapses responsively) */}
-        <div className="bg-white rounded-[16px] p-6 border border-slate-100 shadow-sm xl:col-span-2">
+        <div className="bg-white dark:bg-slate-800 rounded-[16px] p-6 border border-slate-100 dark:border-slate-700 shadow-sm xl:col-span-2">
           
           <div className="flex flex-col xl:flex-row xl:items-center justify-between border-b border-slate-50 pb-4 mb-5 gap-3">
             <div className="text-left">
@@ -1160,7 +1160,7 @@ export default function DashboardOverview({
         </div>
 
         {/* Right Column (Spans 1 grid, i.e., 35% width, displays top selling products donut distribution) */}
-        <div id="top-selling-products-donut-chart" className="bg-white rounded-[16px] p-6 border border-slate-100 shadow-sm flex flex-col justify-between">
+        <div id="top-selling-products-donut-chart" className="bg-white dark:bg-slate-800 rounded-[16px] p-6 border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-between">
           <div className="text-left border-b border-slate-50 pb-4 mb-2">
             <h3 className="text-[15px] font-extrabold text-[#1a1a2e] tracking-tight font-sans">Top Selling Products</h3>
             <p className="text-[11px] text-slate-400">Inventory sales distribution</p>
@@ -1461,7 +1461,7 @@ export default function DashboardOverview({
                   const paymentMethodName = sale.paymentMethod || 'Cash';
                   
                   return (
-                    <div key={`mobile-${sale.id}`} className="bg-white border text-sm border-slate-100 shadow-sm rounded-2xl p-4 flex flex-col transition-all active:scale-[0.98]">
+                    <div key={`mobile-${sale.id}`} className="bg-white dark:bg-slate-800 border text-sm border-slate-100 dark:border-slate-700 shadow-sm rounded-2xl p-4 flex flex-col transition-all active:scale-[0.98]">
                       <div className="flex items-start justify-between mb-3" onClick={() => setExpandedInvoiceId(isExpanded ? null : sale.id)}>
                         <div className="flex flex-col">
                           <span className="font-bold text-slate-800 tracking-tight">{sale.customerName || 'Walk-in Customer'}</span>
@@ -1557,7 +1557,7 @@ export default function DashboardOverview({
         </div>
 
         {/* Right Column (Spans 1 grid, i.e., 35% representation, Low Stock Alerts) */}
-        <div className="bg-white rounded-[16px] p-6 border border-slate-100 shadow-sm flex flex-col justify-between h-full text-left space-y-4">
+        <div className="bg-white dark:bg-slate-800 rounded-[16px] p-6 border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-between h-full text-left space-y-4">
           <div className="border-b border-slate-50 pb-4 flex items-center justify-between">
             <div className="text-left font-sans">
               <h3 className="text-[15px] font-extrabold text-[#1a1a2e] tracking-tight font-sans flex items-center space-x-2">

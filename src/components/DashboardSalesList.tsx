@@ -840,7 +840,7 @@ export default function DashboardSalesList({
         </div>
 
         {/* 2. Date range filter bar */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+        <div className="bg-white dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
               <Calendar className="w-4 h-4" />
@@ -885,13 +885,12 @@ export default function DashboardSalesList({
             { label: 'Pending Sync', value: `${pendingSyncCount}`, sub: 'offline bills', icon: <Clock className="w-5 h-5" />, color: '#7c3aed', iconBg: '#ede9fe' },
             { label: 'Amount Due', value: `${pendingCount}`, sub: 'outstanding bills', icon: <AlertCircle className="w-5 h-5" />, color: '#dc2626', iconBg: '#fee2e2' },
           ].map((kpi, i) => (
-            <div key={i} className="rounded-2xl p-4 flex items-center gap-4"
-              style={{background:'#ffffff',border:'1px solid #f1f5f9',boxShadow:'0 1px 8px rgba(0,0,0,0.05)'}}>
+            <div key={i} className="rounded-2xl p-4 flex items-center gap-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm">
               <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{background:kpi.iconBg,color:kpi.color}}>{kpi.icon}</div>
               <div className="min-w-0">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{kpi.label}</p>
-                <p className="text-[18px] font-black leading-tight truncate text-slate-900">{kpi.value}</p>
-                <p className="text-[10px] text-slate-400 truncate">{kpi.sub}</p>
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider truncate">{kpi.label}</p>
+                <p className="text-[18px] font-black leading-tight truncate text-slate-900 dark:text-white">{kpi.value}</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{kpi.sub}</p>
               </div>
             </div>
           ))}
@@ -899,7 +898,7 @@ export default function DashboardSalesList({
 
         {/* 4. Tab navigation */}
         <div className="flex items-center justify-between gap-4">
-          <div className="flex bg-white border border-slate-200 p-1 rounded-2xl gap-1 shadow-xs">
+          <div className="flex bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-2xl gap-1 shadow-xs">
             {salesSubTabs.map(tab => {
               const active = activeSubTab === tab.id;
               return (
@@ -948,7 +947,7 @@ export default function DashboardSalesList({
         <>
           {/* DATE RANGE SELECTOR — desktop only, now shown above in header */}
       {/* FILTER & CONTROL PANEL BAR (DESKTOP) */}
-      <div className="hidden xl:flex bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="hidden xl:flex bg-white dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs flex-col md:flex-row md:items-center justify-between gap-4">
         
         {/* Search */}
         <div className="flex items-center bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs max-w-sm flex-grow">
@@ -1043,7 +1042,7 @@ export default function DashboardSalesList({
 
         {/* Search + filter row */}
         <div className="flex gap-2 items-center">
-          <div className="flex-1 flex items-center bg-white border border-slate-200 px-3 py-2.5 rounded-xl shadow-xs">
+          <div className="flex-1 flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2.5 rounded-xl shadow-xs">
             <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
             <input type="text" placeholder="Search sales..."
               value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
@@ -1061,7 +1060,7 @@ export default function DashboardSalesList({
       </div>
 
       {/* SALES MAIN DATA LIST */}
-      <div className="bg-transparent md:bg-white md:rounded-2xl md:border md:border-slate-200 shadow-none md:shadow-xs md:overflow-hidden">
+      <div className="bg-transparent md:bg-white dark:md:bg-slate-800/60 md:rounded-2xl md:border md:border-slate-200 dark:md:border-slate-700 shadow-none md:shadow-xs md:overflow-hidden">
         
         {/* Mobile View: Cards */}
         <div className="xl:hidden flex flex-col space-y-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
@@ -1158,7 +1157,7 @@ export default function DashboardSalesList({
 
         {/* Desktop View: Redesigned Table */}
         <div className="hidden xl:block">
-          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden" style={{boxShadow: '0 1px 8px rgba(0,0,0,0.06)'}}>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden" style={{boxShadow: '0 1px 8px rgba(0,0,0,0.06)'}}>
             {/* Table toolbar */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
               <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{filteredSales.length} Sales</p>
@@ -1393,25 +1392,25 @@ export default function DashboardSalesList({
             
             {/* KPI metrics row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Total Credit Credit-Sales</p>
-                <h4 className="text-xl font-black text-slate-800 mt-2">{currency}{Math.round(totalDebtIssued).toLocaleString()}</h4>
+              <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <p className="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none">Total Credit Credit-Sales</p>
+                <h4 className="text-xl font-black text-slate-800 dark:text-white mt-2">{currency}{Math.round(totalDebtIssued).toLocaleString()}</h4>
                 <p className="text-[10px] text-slate-400 mt-1">Outstanding sales invoices marked as Credit tabs.</p>
               </div>
               <div className="bg-emerald-505 p-5 border border-emerald-250 rounded-2xl">
-                <p className="text-[10px] font-mono font-bold text-emerald-600 uppercase tracking-widest leading-none">Total Payment-Ins Collected</p>
-                <h4 className="text-xl font-black text-emerald-800 mt-2">{currency}{Math.round(totalDebtPaidIn).toLocaleString()}</h4>
+                <p className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest leading-none">Total Payment-Ins Collected</p>
+                <h4 className="text-xl font-black text-emerald-800 dark:text-emerald-300 mt-2">{currency}{Math.round(totalDebtPaidIn).toLocaleString()}</h4>
                 <p className="text-[10px] text-emerald-600 mt-1">Total credit installments & payments-in received.</p>
               </div>
               <div className="bg-amber-505 p-5 border border-amber-250 rounded-2xl">
-                <p className="text-[10px] font-mono font-bold text-amber-600 uppercase tracking-widest leading-none">Outstanding Balance Receivable</p>
-                <h4 className="text-xl font-black text-amber-808 mt-2">{currency}{Math.round(totalDebtOutstanding).toLocaleString()}</h4>
+                <p className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest leading-none">Outstanding Balance Receivable</p>
+                <h4 className="text-xl font-black text-amber-700 dark:text-amber-300 mt-2">{currency}{Math.round(totalDebtOutstanding).toLocaleString()}</h4>
                 <p className="text-[10px] text-amber-652 mt-1">Remaining customer dockets debt pending settlement.</p>
               </div>
             </div>
 
             {/* Debts Search panel */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="bg-white dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs max-w-sm flex-grow">
                 <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
                 <input
@@ -1579,7 +1578,7 @@ export default function DashboardSalesList({
               })}
 
               {filteredDebtSales.length === 0 && (
-                <div className="col-span-full py-12 text-center bg-white border border-slate-200 rounded-2xl text-slate-500 font-sans">
+                <div className="col-span-full py-12 text-center bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-500 dark:text-slate-400 font-sans">
                   No outstanding credit accounts match search keyword or custom criteria.
                 </div>
               )}

@@ -2683,7 +2683,7 @@ export default function DashboardReports({
                         {/* Mobile / tablet cards */}
                         <div className="md:hidden space-y-2.5">
                           {adjustments.map((a: any, i: number) => (
-                            <div key={a.id || i} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                            <div key={a.id || i} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
                               <div className="flex items-start justify-between gap-3 mb-3">
                                 <div className="flex-1 min-w-0">
                                   <p className="font-black text-slate-800 text-[15px] leading-tight truncate">{a.productName}</p>
