@@ -516,17 +516,14 @@ INSTRUCTIONS:
 - Keep responses under 200 words unless a detailed analysis is requested
 - Be warm and professional — you are a trusted business advisor`;
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/lucy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
           system: systemPrompt,
           messages: [
-            // Include recent conversation history for context
             ...chatMessages.slice(-6).map(m => ({
-              role: m.sender === 'user' ? 'user' : 'assistant',
+              role: m.sender === 'user' ? 'user' : 'model',
               content: m.text
             })),
             { role: 'user', content: cleanMsg }
@@ -535,7 +532,8 @@ INSTRUCTIONS:
       });
 
       const data = await response.json();
-      const aiText = data.content?.[0]?.text || 'I encountered an error. Please try again.';
+      if (!response.ok) throw new Error(data.error || 'Lucy API error');
+      const aiText = data.text || 'I encountered an error. Please try again.';
 
       // Check for navigation intent in response
       const navMatch = aiText.match(/\[NAVIGATE:(\w[\w-]*)\]/);
