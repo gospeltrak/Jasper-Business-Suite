@@ -139,87 +139,18 @@ interface DashboardPOSProps {
 }
 
 const getProductImage = (prod: Product): string => {
-  if (prod.image && (prod.image.startsWith('http') || prod.image.startsWith('data:'))) {
+  // Only return an image if the user personally uploaded and saved one.
+  // null / undefined / empty / broken → return '' (blank).
+  // Do NOT assign demo, placeholder, or Unsplash images.
+  if (
+    prod.image &&
+    typeof prod.image === 'string' &&
+    prod.image.trim() !== '' &&
+    (prod.image.startsWith('http') || prod.image.startsWith('data:'))
+  ) {
     return prod.image;
   }
-
-  const name = prod.name.toLowerCase();
-  const category = (prod.category || '').toLowerCase();
-
-  // Medical / Pharmacy matching
-  if (name.includes('amoxicillin') || name.includes('antibiotic')) {
-    return 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=400&q=80';
-  }
-  if (name.includes('paracetamol') || name.includes('panadol') || name.includes('analgesic') || name.includes('pain')) {
-    return 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?auto=format&fit=crop&w=400&q=80';
-  }
-  if (name.includes('metformin') || name.includes('diabetic') || name.includes('insulin')) {
-    return 'https://images.unsplash.com/photo-1628771065518-0d82f1110530?auto=format&fit=crop&w=400&q=80';
-  }
-  if (category.includes('antibiotic') || category.includes('analgesic') || category.includes('pharma') || category.includes('medicine') || category.includes('health') || name.includes('pill') || name.includes('tablet')) {
-    return 'https://images.unsplash.com/photo-1607619056574-7b8d304a2c06?auto=format&fit=crop&w=400&q=80';
-  }
-
-  // Grocery food items matching
-  if (name.includes('sugar')) {
-    return 'https://images.unsplash.com/photo-1581781894086-484b1d9bc490?auto=format&fit=crop&w=400&q=80';
-  }
-  if (name.includes('flour') || name.includes('wheat') || name.includes('baking')) {
-    return 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=400&q=80';
-  }
-  if (name.includes('noodle') || name.includes('indomie') || name.includes('ramen')) {
-    return 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=400&q=80';
-  }
-  if (name.includes('oil') || name.includes('cooking') || name.includes('vegetable')) {
-    return 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=400&q=80';
-  }
-  if (name.includes('milk') || name.includes('dairy') || name.includes('peak')) {
-    return 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=400&q=80';
-  }
-  if (name.includes('pasta') || name.includes('spaghetti')) {
-    return 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=400&q=80';
-  }
-  if (name.includes('maize') || name.includes('pembe') || name.includes('jogoo') || name.includes('corn')) {
-    return 'https://images.unsplash.com/photo-1551754626-7ed702cc07db?auto=format&fit=crop&w=400&q=80';
-  }
-  if (name.includes('tea') || name.includes('ketepa') || name.includes('beverage')) {
-    return 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=400&q=80';
-  }
-  if (name.includes('soap') || name.includes('menengai') || name.includes('cleanser') || name.includes('shampoo')) {
-    return 'https://images.unsplash.com/photo-1607006342411-92df36c53697?auto=format&fit=crop&w=400&q=80';
-  }
-  if (name.includes('water') || name.includes('voltic') || name.includes('moja')) {
-    return 'https://images.unsplash.com/photo-1550096141-7263640ab4ba?auto=format&fit=crop&w=400&q=80';
-  }
-  if (name.includes('rice') || name.includes('gino')) {
-    return 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=400&q=80';
-  }
-  if (name.includes('sardine') || name.includes('canned') || name.includes('enapa') || name.includes('fish')) {
-    return 'https://images.unsplash.com/photo-1534482421-64566f976cfa?auto=format&fit=crop&w=400&q=80';
-  }
-  if (name.includes('milo') || name.includes('chocolate') || name.includes('cocoa')) {
-    return 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=400&q=80';
-  }
-
-  // Categories fallback
-  if (category.includes('beverage') || category.includes('drink')) {
-    return 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=400&q=80';
-  }
-  if (category.includes('grain') || category.includes('cereal')) {
-    return 'https://images.unsplash.com/photo-1574316071802-0d684efa7bf5?auto=format&fit=crop&w=400&q=80';
-  }
-  if (category.includes('grocery') || category.includes('food')) {
-    return 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80';
-  }
-  if (category.includes('household') || category.includes('clean') || category.includes('hygiene')) {
-    return 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?auto=format&fit=crop&w=400&q=80';
-  }
-  if (category.includes('canned') || category.includes('can')) {
-    return 'https://images.unsplash.com/photo-1534482421-64566f976cfa?auto=format&fit=crop&w=400&q=80';
-  }
-
-  // Fallback to neat default retail store shelf image
-  return 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=400&q=80';
+  return '';
 };
 
 export default function DashboardPOS({ 
@@ -1379,15 +1310,13 @@ export default function DashboardPOS({
                       : 'border-slate-200 hover:border-slate-350 cursor-pointer'
                   }`}
                 >
-                  {/* Proportional Product Image Container (cached) */}
-                  {showProductImages && (
+                  {/* Product image — only shown if user uploaded one */}
+                  {showProductImages && getProductImage(prod) !== '' && (
                     <div className="w-full h-[120px] md:h-36 bg-slate-50 border-b md:border border-slate-100 rounded-t-xl md:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
                       <CachedImage 
                         src={getProductImage(prod)} 
                         alt={prod.name} 
-                        className={`w-full h-full group-hover:scale-105 select-none pointer-events-none ${
-                          'object-contain p-1.5'
-                        }`}
+                        className="w-full h-full group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
                         referrerPolicy="no-referrer"
                       />
                       {isLow && !isOut && (
