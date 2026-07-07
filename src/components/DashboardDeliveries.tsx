@@ -253,7 +253,7 @@ export default function DashboardDeliveries({
   const [showSearchResults, setShowSearchResults] = useState(false);
 
   // Dynamically computed supplier details
-  const computedLogo = systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url || '';
+  const computedLogo = systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo || '';
   const computedLogoName = activeTenant?.name || 'Doe Company';
   const computedCompanyTitle = systemSettings?.business?.businessName || activeTenant?.name || 'Doe Company';
   const computedCompanyAddress = systemSettings?.company?.address || '123 Main Street, City';

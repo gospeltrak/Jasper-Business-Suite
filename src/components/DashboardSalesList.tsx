@@ -2951,9 +2951,9 @@ export default function DashboardSalesList({
                 
                 {/* Receipt store branding block */}
                 <div className="text-center space-y-1 pb-4 border-b border-dashed border-slate-200 flex flex-col items-center">
-                  {(systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url) && (
+                  {(systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo) && (
                     <img 
-                      src={systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url || undefined} 
+                      src={systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo || undefined} 
                       alt="Receipt Logo" 
                       referrerPolicy="no-referrer"
                       className="max-h-12 max-w-[140px] object-contain rounded-lg mb-2 select-none"
@@ -4616,9 +4616,9 @@ export default function DashboardSalesList({
                     {/* Header: logo + doc meta */}
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
                       <div className="min-w-0">
-                        {(systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url) ? (
+                        {(systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo) ? (
                           <img
-                            src={systemSettings?.company?.logo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogo || localStorage.getItem(`jasper_tenant_logo_${activeTenant.id}`) || activeTenant?.company_settings?.logo_url || undefined}
+                            src={systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo || undefined}
                             alt="Logo"
                             referrerPolicy="no-referrer"
                             className="max-h-16 max-w-[200px] object-contain rounded-xl select-none mb-3"
