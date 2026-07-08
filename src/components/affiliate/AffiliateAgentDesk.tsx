@@ -500,11 +500,11 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
     // ── Try live database first. Partner records can be linked by row id or auth user id,
     // so collect every safe parent candidate before falling back to the one-agent model.
+    let resolvedPartnerId = partnerId !== 'partner-local' ? String(partnerId) : '';
     try {
       const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
       const client: any = await getSecureDataBridgeClient();
       let dbRows: any[] = [];
-      let resolvedPartnerId = partnerId !== 'partner-local' ? String(partnerId) : '';
 
       if (!resolvedPartnerId) {
         const { data: authUser } = await client.auth.getUser();
