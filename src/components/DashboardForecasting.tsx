@@ -94,6 +94,7 @@ interface DashboardForecastingProps {
   products: Product[];
   sales: Sale[];
   expenses?: any[];
+  systemSettings?: any;
   onUpdateStocks: (updatedProducts: Product[]) => void;
 }
 
@@ -206,6 +207,7 @@ export default function DashboardForecasting({
   products, 
   sales,
   expenses = [],
+  systemSettings,
   onUpdateStocks
 }: DashboardForecastingProps) {
   const currency = activeTenant.currency;

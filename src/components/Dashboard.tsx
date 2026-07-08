@@ -2904,6 +2904,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               activeTenant={activeTenant}
               products={activeProducts}
               sales={activeSales}
+              expenses={activeExpenses}
+              systemSettings={systemSettings}
               onUpdateStocks={handleUpdateActiveStocks}
             />
           )}
