@@ -501,17 +501,21 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         dbRows = data || [];
       }
 
-      if (dbRows.length <= 1) {
+      if (dbRows.length === 0) {
+        // No results from parent_super_agent_id query — try broader search
         const { data: allRows } = await client.from('affiliates')
           .select(affiliateColumns)
           .order('created_at', { ascending: false })
           .limit(500);
         const allAffiliates = allRows || [];
-        const strictMatches = allAffiliates.filter((a: any) => dbCandidates.includes(String(a.parent_super_agent_id || '').trim()));
-        const oneAgentMatches = allAffiliates.filter((a: any) => String(a.parent_super_agent_id || '').trim());
-        dbRows = strictMatches.length > dbRows.length
-          ? strictMatches
-          : (oneAgentMatches.length > dbRows.length ? oneAgentMatches : dbRows);
+        // Only show affiliates strictly matching this partner's candidates — no fallback to all
+        const strictMatches = allAffiliates.filter((a: any) =>
+          dbCandidates.includes(String(a.parent_super_agent_id || '').trim())
+        );
+        if (strictMatches.length > 0) {
+          dbRows = strictMatches;
+        }
+        // If still zero — this partner genuinely has no sub-affiliates yet
       }
 
       mapped = uniqueBySubAffiliate(dbRows.map(mapDbAffiliate));
@@ -521,13 +525,17 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     try {
       const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
       const myCode = partnerCode.toUpperCase();
-      const mine = myCode
-        ? all.filter(a =>
+      // Only include affiliates strictly linked to this partner — never fall back to showing all
+      if (!myCode && parentCandidates.length === 0) {
+        // No identifier — cannot safely determine which affiliates belong here
+      } else {
+        const mine = all.filter(a =>
+          (myCode && (
             a.parentSuperId?.toUpperCase() === myCode ||
-            a.parentSuperCode?.toUpperCase() === myCode ||
-            parentCandidates.includes(String(a.parentSuperId || '').trim())
-          )
-        : all.filter(a => !a.isSuper);
+            a.parentSuperCode?.toUpperCase() === myCode
+          )) ||
+          parentCandidates.includes(String(a.parentSuperId || '').trim())
+        );
 
       const localRows = mine.map((a: any) => {
           const revenue = a.revenueDate || a.totalEarnings || 0;
@@ -557,7 +565,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             createdAt: a.joinedDate || new Date().toISOString(),
           };
         });
-      mapped = uniqueBySubAffiliate([...mapped, ...localRows]);
+        mapped = uniqueBySubAffiliate([...mapped, ...localRows]);
+      } // end if (myCode || parentCandidates)
     } catch (e) {
       console.warn('Error loading sub-affiliates from localStorage:', e);
     }
