@@ -32,6 +32,23 @@ export interface SuperAdminUserRow {
   paymentMethod: string;
   dateCreated: string;
   status: 'Active' | 'Suspended' | 'Expired';
+  // Location — from tenant business setup, GPS, or region fields
+  location: string;            // human-readable label shown in table
+  locationSource: 'gps' | 'business_setup' | 'manual' | 'none';
+  gpsLat?: number;
+  gpsLng?: number;
+  country?: string;
+  city?: string;
+  region?: string;
+  // Activity
+  lastActivity: string;        // ISO string or '' if never
+  lastActivityLabel: string;   // "Today", "Yesterday", "3 days ago", "Never"
+  // Subscription dates
+  trialStartDate?: string;
+  trialEndDate?: string;
+  subscriptionStartDate?: string;
+  subscriptionEndDate?: string;
+  subscriptionStatus: string;  // 'trial' | 'active' | 'expired' | 'cancelled' etc
   sessions: Array<{ loginTime: string; logoutTime: string; durationMinutes: number; device: 'Phone' | 'Tablet' | 'Desktop'; ipAddress: string; location: string }>;
   transactions: Array<{ id: string; date: string; items: string; amount: number; paymentMethod: string }>;
   reports: Array<{ month: string; profit: number; taxCollected: number; expenseTotal: number }>;
@@ -260,6 +277,55 @@ const monthLabel = (value: unknown) => {
   return date.toLocaleString('en', { month: 'short' });
 };
 
+const activityLabel = (iso: string | null | undefined): string => {
+  if (!iso) return 'Never';
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  if (diff < 7) return `${diff} days ago`;
+  if (diff < 30) return `${Math.floor(diff / 7)}w ago`;
+  return `${Math.floor(diff / 30)}mo ago`;
+};
+
+const resolveLocation = (tenant: any, user: any): {
+  location: string; locationSource: 'gps' | 'business_setup' | 'manual' | 'none';
+  gpsLat?: number; gpsLng?: number; country?: string; city?: string; region?: string;
+} => {
+  // GPS first
+  if (tenant?.gps_latitude && tenant?.gps_longitude) {
+    return {
+      location: [tenant.city || tenant.region || tenant.country].filter(Boolean).join(', ') || `${tenant.gps_latitude}, ${tenant.gps_longitude}`,
+      locationSource: 'gps',
+      gpsLat: Number(tenant.gps_latitude),
+      gpsLng: Number(tenant.gps_longitude),
+      country: tenant.country,
+      city: tenant.city,
+      region: tenant.region,
+    };
+  }
+  // Business setup / tenant profile
+  const parts = [tenant?.city, tenant?.region, tenant?.country].filter(Boolean);
+  if (parts.length) {
+    return {
+      location: parts.join(', '),
+      locationSource: 'business_setup',
+      country: tenant?.country,
+      city: tenant?.city,
+      region: tenant?.region,
+    };
+  }
+  // User profile fallback
+  if (user?.city || user?.country) {
+    return {
+      location: [user.city, user.country].filter(Boolean).join(', '),
+      locationSource: 'manual',
+      country: user.country,
+      city: user.city,
+    };
+  }
+  return { location: 'Location not provided', locationSource: 'none' };
+};
+
 export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUserRow[] {
   const safeOverview = normalizeOverview(overview);
   const tenantById = new Map(safeOverview.tenants.map((tenant) => [String(tenant.id), tenant]));
@@ -346,6 +412,26 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
         paymentMethod: readTenantSettings(tenant)?.paymentMethod || 'Not recorded',
         dateCreated: formatDate(user.created_at || tenant?.created_at),
         status: user.is_active === false ? 'Suspended' : 'Active',
+        ...resolveLocation(tenant, user),
+        // Last activity — from sessions, workspace data, or user record
+        lastActivity: (() => {
+          const latestSession = (sessionsByUser.get(String(user.id)) || [])
+            .filter(s => s.login_at)
+            .sort((a, b) => new Date(b.login_at).getTime() - new Date(a.login_at).getTime())[0];
+          return user.last_activity_at || user.last_login_at || latestSession?.login_at || '';
+        })(),
+        lastActivityLabel: activityLabel(
+          user.last_activity_at || user.last_login_at ||
+          (sessionsByUser.get(String(user.id)) || [])
+            .filter((s: any) => s.login_at)
+            .sort((a: any, b: any) => new Date(b.login_at).getTime() - new Date(a.login_at).getTime())[0]?.login_at
+        ),
+        // Subscription dates
+        trialStartDate: user.trial_start_date || tenant?.trial_start_date || undefined,
+        trialEndDate: user.trial_end_date || tenant?.trial_end_date || tenant?.trial_ends_at || undefined,
+        subscriptionStartDate: tenant?.subscription_start_date || undefined,
+        subscriptionEndDate: tenant?.subscription_end_date || undefined,
+        subscriptionStatus: tenant?.subscription_status || readTenantSettings(tenant)?.subscriptionStatus || 'unknown',
         sessions,
         transactions,
         reports: [{

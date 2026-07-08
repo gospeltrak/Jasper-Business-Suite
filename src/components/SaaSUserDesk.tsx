@@ -467,6 +467,14 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
 	                          <span>{u.dateCreated}</span>
 	                        )}
 	                      </div>
+                      <div className="mt-1 flex items-center gap-3 text-[9px] font-mono text-slate-600">
+                        {(u as any).lastActivityLabel && (u as any).lastActivityLabel !== 'Never' && (
+                          <span>Active: {(u as any).lastActivityLabel}</span>
+                        )}
+                        {(u as any).location && (u as any).location !== 'Location not provided' && (
+                          <span className="truncate max-w-[140px]">📍 {(u as any).location}</span>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -489,6 +497,31 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                   </div>
                   <h3 className="text-lg font-black text-white mt-1 uppercase tracking-tight">{selectedUser.name} View</h3>
                   <p className="text-xs text-slate-400 mt-0.5">View user workspace.</p>
+                  {/* Location + last activity line */}
+                  <div className="flex flex-wrap gap-3 mt-1.5 text-[10px] font-mono text-slate-500">
+                    {(selectedUser as any).location && (selectedUser as any).location !== 'Location not provided' && (
+                      <span className="flex items-center gap-1 text-slate-400">
+                        📍 {(selectedUser as any).location}
+                        {(selectedUser as any).gpsLat && (selectedUser as any).gpsLng && (
+                          <a
+                            href={`https://maps.google.com/?q=${(selectedUser as any).gpsLat},${(selectedUser as any).gpsLng}`}
+                            target="_blank" rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="text-indigo-400 hover:text-indigo-300 underline ml-1"
+                          >Open in Map</a>
+                        )}
+                      </span>
+                    )}
+                    {(selectedUser as any).lastActivityLabel && (
+                      <span>Last active: {(selectedUser as any).lastActivityLabel}</span>
+                    )}
+                    {(selectedUser as any).subscriptionEndDate && (
+                      <span>Sub ends: {(selectedUser as any).subscriptionEndDate?.slice(0, 10)}</span>
+                    )}
+                    {(selectedUser as any).promoCodeUsed && (
+                      <span>Code: <span className="text-emerald-400">{(selectedUser as any).promoCodeUsed}</span></span>
+                    )}
+                  </div>
                 </div>
                 {isUnlocked && onLock && (
                   <button 
