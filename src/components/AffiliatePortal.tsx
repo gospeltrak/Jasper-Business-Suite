@@ -1553,15 +1553,19 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     document.body.removeChild(dlLink);
   };
 
-  // Read managed affiliates to calculate dynamic stats at the component scope for modals
+  // Read managed affiliates — real DB-sourced entries only, no demo data
   const rawImmersiveGlobal = localStorage.getItem("saas_immersive_affiliates");
   let managedKids: any[] = [];
   if (rawImmersiveGlobal) {
     try {
       const parsed = JSON.parse(rawImmersiveGlobal);
-      // Fallback is active for mock super partner Langa
+      // Only include entries that have a real user_id (written by Supabase auth)
+      // and filter out known demo surname patterns
       managedKids = parsed.filter(
-        (a: any) => a.parentSuperId === activeAffiliate?.id,
+        (a: any) =>
+          a.parentSuperId === activeAffiliate?.id &&
+          a.user_id &&
+          !(a.name && /tunde/i.test(a.name))
       );
     } catch (e) {}
   }
@@ -2132,7 +2136,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 try {
                   const parsed = JSON.parse(rawImmersive);
                   managedKids = parsed.filter(
-                    (a: any) => a.parentSuperId === activeAffiliate?.id,
+                    (a: any) =>
+                      a.parentSuperId === activeAffiliate?.id &&
+                      a.user_id && // must have been written by real Supabase login
+                      !(a.name && /tunde/i.test(a.name)) // filter known demo entries
                   );
                 } catch (e) {}
               }

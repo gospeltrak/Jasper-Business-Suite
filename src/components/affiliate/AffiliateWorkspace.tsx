@@ -92,6 +92,21 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const adSettings = useGlobalAdSettings();
 
   useEffect(() => {
+    // Purge stale demo entries from localStorage on mount
+    try {
+      const raw = localStorage.getItem('saas_immersive_affiliates');
+      if (raw) {
+        const all: any[] = JSON.parse(raw);
+        const realOnly = all.filter((a: any) =>
+          a.user_id && typeof a.user_id === 'string' && a.user_id.length > 10 &&
+          !(a.name && /tunde/i.test(a.name))
+        );
+        if (realOnly.length !== all.length) {
+          localStorage.setItem('saas_immersive_affiliates', JSON.stringify(realOnly));
+        }
+      }
+    } catch { /* ignore */ }
+
     initOfflineSync((result) => {
       setNotice(`✅ ${result.synced} changes synced.`);
     });

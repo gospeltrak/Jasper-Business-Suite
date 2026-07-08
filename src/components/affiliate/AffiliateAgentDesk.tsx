@@ -176,6 +176,30 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const adSettings = useGlobalAdSettings();
 
   useEffect(() => {
+    // On mount: purge any demo/test entries from saas_immersive_affiliates.
+    // These accumulate from AffiliatePortal admin forms during testing/demo sessions
+    // (e.g. Ema Tunde, John Tunde, Sarah Tunde, Jane Tunde).
+    // The real source of truth is Supabase — localStorage is not used for sub-affiliates.
+    try {
+      const raw = localStorage.getItem('saas_immersive_affiliates');
+      if (raw) {
+        const all: any[] = JSON.parse(raw);
+        // Keep only entries that have a valid Supabase-style UUID id AND
+        // were written by real Supabase login (have a user_id field)
+        const realOnly = all.filter((a: any) =>
+          a.user_id &&                          // written by Supabase auth
+          typeof a.user_id === 'string' &&
+          a.user_id.length > 10 &&
+          !a._isDemoEntry &&                    // explicit demo flag (if ever set)
+          !(a.name && /tunde/i.test(a.name))    // known demo surname pattern
+        );
+        if (realOnly.length !== all.length) {
+          localStorage.setItem('saas_immersive_affiliates', JSON.stringify(realOnly));
+          console.info(`[AffiliateAgentDesk] Cleaned ${all.length - realOnly.length} stale demo entries from localStorage.`);
+        }
+      }
+    } catch { /* ignore */ }
+
     initOfflineSync((result) => {
       setNotice(`✅ ${result.synced} changes synced to database.`);
     });
