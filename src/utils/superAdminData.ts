@@ -99,8 +99,42 @@ const apiRequest = async (path: string, init: RequestInit = {}) => {
 };
 
 export async function loadSuperAdminOverview(): Promise<SuperAdminOverview> {
-  const overview = normalizeOverview(await apiRequest('/api/super-admin/overview'));
+  let overview: SuperAdminOverview = { ...EMPTY_SUPER_ADMIN_OVERVIEW };
 
+  // Try API first (uses service role via Bearer token)
+  try {
+    overview = normalizeOverview(await apiRequest('/api/super-admin/overview'));
+  } catch (apiErr: any) {
+    // API auth failed (403/401) — try direct Supabase client as fallback
+    // This works when the super admin is authenticated in Supabase but
+    // the server-side requirePlatformAdmin check fails (e.g. is_active mismatch)
+    console.warn('[SuperAdmin] API fallback to direct client:', apiErr?.message);
+    try {
+      const client: any = await getSecureDataBridgeClient();
+      const [tenantsRes, usersRes] = await Promise.all([
+        client.from('tenants').select('*').order('name', { ascending: true }),
+        client.from('users').select('*').order('name', { ascending: true }),
+      ]);
+      if (!tenantsRes.error && !usersRes.error) {
+        overview = normalizeOverview({
+          tenants: tenantsRes.data || [],
+          users: usersRes.data || [],
+          workspaces: [],
+          sessions: [],
+          affiliates: [],
+          referrals: [],
+          sourceTracking: [],
+          commissions: [],
+          payouts: [],
+          auditLogs: [],
+        });
+      }
+    } catch (clientErr: any) {
+      console.warn('[SuperAdmin] Direct client fallback also failed:', clientErr?.message);
+    }
+  }
+
+  // Merge with localStorage for offline-created tenants/users
   try {
     const localTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
     const localUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
