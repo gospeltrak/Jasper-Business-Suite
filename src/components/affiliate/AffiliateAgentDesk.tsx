@@ -556,98 +556,81 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
     setSubAffiliates(mapped);
 
-    if (!mapped.length && !partnerCode) {
-      setCustomers([]);
-    } else {
-      try {
-        const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
-        const client: any = await getSecureDataBridgeClient();
-        const subIds = mapped.map((aff) => aff.id).filter(Boolean);
+    // Load tenants referred by sub-affiliates under this agent.
+    // Agent's promo code is only for recruiting sub-affiliates — NOT for tenants.
+    // Tenants are referred by SUB-AFFILIATES using their own promo codes.
+    // referred_customers.parent_super_agent_id = agent's affiliate_partners.id
+    // referred_customers.sub_affiliate_id = the sub-affiliate who brought the tenant
+    try {
+      const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+      const client: any = await getSecureDataBridgeClient();
 
-        // Fetch customers via sub_affiliate_id OR directly via partner promo code
-        let referredRows: any[] = [];
+      const agentRowId = partnerInfo?.id && partnerInfo.id !== 'partner-local'
+        ? partnerInfo.id
+        : resolvedPartnerId || '';
 
-        // Path 1: customers referred by sub-affiliates
-        if (subIds.length) {
-          const { data: bySubId } = await client.from('referred_customers')
-            .select('id, tenant_id, customer_id, customer_name, phone_number, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, sub_affiliate_id, created_at')
-            .in('sub_affiliate_id', subIds)
-            .order('created_at', { ascending: false });
-          referredRows = bySubId || [];
-        }
+      let referredRows: any[] = [];
 
-        // Path 2: customers who signed up directly with the partner's promo code
-        if (partnerCode) {
-          const { data: byPromo } = await client.from('referred_customers')
-            .select('id, tenant_id, customer_id, customer_name, phone_number, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, sub_affiliate_id, created_at')
-            .ilike('promo_code_used', partnerCode)
-            .order('created_at', { ascending: false });
-          // Merge, deduplicate by id
-          const existingIds = new Set(referredRows.map((r: any) => r.id));
-          (byPromo || []).forEach((row: any) => {
-            if (!existingIds.has(row.id)) referredRows.push(row);
-          });
-        }
-
-        // Path 3: also check tenants table directly for promo code match
-        if (partnerCode && referredRows.length === 0) {
-          const { data: directTenants } = await client.from('tenants')
-            .select('id, name, subscription_plan, selected_package_id, active_package_id, subscription_status, subscription_start_date, subscription_end_date, created_at, referral_code_used')
-            .ilike('referral_code_used', partnerCode)
-            .order('created_at', { ascending: false });
-          if (directTenants?.length) {
-            referredRows = directTenants.map((t: any) => ({
-              id: t.id,
-              tenant_id: t.id,
-              customer_id: t.id,
-              customer_name: t.name,
-              phone_number: '',
-              package_id: t.active_package_id || t.selected_package_id || t.subscription_plan,
-              package_name: t.active_package_id || t.selected_package_id || t.subscription_plan,
-              amount_paid: 0,
-              payment_status: t.subscription_status || 'pending',
-              subscription_start_date: t.subscription_start_date,
-              subscription_end_date: t.subscription_end_date,
-              promo_code_used: partnerCode,
-              referral_code_used: partnerCode,
-              sub_affiliate_id: null,
-              created_at: t.created_at,
-            }));
-          }
-        }
-
-        const tenantIds = Array.from(new Set(referredRows.map((row: any) => row.tenant_id || row.customer_id).filter(Boolean)));
-        let tenantById = new Map<string, any>();
-        if (tenantIds.length) {
-          const { data: tenants } = await client.from('tenants')
-            .select('id, name, subscription_plan, selected_package_id, active_package_id, subscription_status, subscription_start_date, subscription_end_date, created_at')
-            .in('id', tenantIds);
-          tenantById = new Map((tenants || []).map((tenant: any) => [String(tenant.id), tenant]));
-        }
-
-        setCustomers(referredRows.map((row: any) => {
-          const tenantId = String(row.tenant_id || row.customer_id || '');
-          const tenant = tenantById.get(tenantId);
-          const packageName = readablePlan(tenant?.active_package_id || tenant?.selected_package_id || tenant?.subscription_plan || row.package_id || row.package_name);
-          const subscriptionEndDate = tenant?.subscription_end_date || row.subscription_end_date || '';
-          return {
-            id: row.id,
-            tenantId,
-            tenantName: tenant?.name || row.customer_name || 'Unnamed tenant',
-            phoneNumber: row.phone_number || '',
-            packageName,
-            paymentStatus: tenant?.subscription_status || row.payment_status || 'pending',
-            amountPaid: numberValue(row.amount_paid),
-            promoCodeUsed: row.promo_code_used || row.referral_code_used || '',
-            subscriptionEndDate,
-            daysRemaining: daysUntil(subscriptionEndDate),
-            registeredAt: row.created_at || tenant?.created_at || '',
-            subAffiliateId: row.sub_affiliate_id,
-          };
-        }));
-      } catch {
-        setCustomers([]);
+      if (agentRowId) {
+        // Primary path: all tenants whose sub-affiliate belongs to this agent
+        const { data } = await client
+          .from('referred_customers')
+          .select('id, tenant_id, customer_id, customer_name, phone_number, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, sub_affiliate_id, created_at')
+          .eq('parent_super_agent_id', agentRowId)
+          .order('created_at', { ascending: false });
+        referredRows = data || [];
       }
+
+      // Fallback path: in case parent_super_agent_id was not set at registration time,
+      // use the list of known sub-affiliate IDs to find their tenants
+      const subIds = mapped.map((aff) => aff.id).filter(Boolean);
+      if (subIds.length && referredRows.length === 0) {
+        const { data } = await client
+          .from('referred_customers')
+          .select('id, tenant_id, customer_id, customer_name, phone_number, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, sub_affiliate_id, created_at')
+          .in('sub_affiliate_id', subIds)
+          .order('created_at', { ascending: false });
+        referredRows = data || [];
+      }
+
+      // Enrich with tenant details
+      const tenantIds = Array.from(new Set(
+        referredRows.map((r: any) => r.tenant_id || r.customer_id).filter(Boolean)
+      ));
+      let tenantById = new Map<string, any>();
+      if (tenantIds.length) {
+        const { data: tenants } = await client
+          .from('tenants')
+          .select('id, name, subscription_plan, selected_package_id, active_package_id, subscription_status, subscription_start_date, subscription_end_date, created_at')
+          .in('id', tenantIds);
+        tenantById = new Map((tenants || []).map((t: any) => [String(t.id), t]));
+      }
+
+      setCustomers(referredRows.map((row: any) => {
+        const tenantId = String(row.tenant_id || row.customer_id || '');
+        const tenant = tenantById.get(tenantId);
+        const packageName = readablePlan(
+          tenant?.active_package_id || tenant?.selected_package_id ||
+          tenant?.subscription_plan || row.package_id || row.package_name
+        );
+        const subscriptionEndDate = tenant?.subscription_end_date || row.subscription_end_date || '';
+        return {
+          id: row.id,
+          tenantId,
+          tenantName: tenant?.name || row.customer_name || 'Unnamed tenant',
+          phoneNumber: row.phone_number || '',
+          packageName,
+          paymentStatus: tenant?.subscription_status || row.payment_status || 'pending',
+          amountPaid: numberValue(row.amount_paid),
+          promoCodeUsed: row.promo_code_used || row.referral_code_used || '',
+          subscriptionEndDate,
+          daysRemaining: daysUntil(subscriptionEndDate),
+          registeredAt: row.created_at || tenant?.created_at || '',
+          subAffiliateId: row.sub_affiliate_id,
+        };
+      }));
+    } catch {
+      setCustomers([]);
     }
 
     // Build reconciliation rows
