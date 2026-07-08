@@ -573,7 +573,7 @@ export default function SuperSaaSAdminView({
   }
 
   return (
-    <div id="super-saas-admin-container" className="flex-1 flex flex-col text-slate-100 font-sans text-left bg-slate-950 animate-fade-in select-text">
+    <div id="super-saas-admin-container" className="flex-1 min-h-0 flex flex-col text-slate-100 font-sans text-left bg-slate-950 animate-fade-in select-text">
 
       {/* ── MOBILE HEADER (md:hidden) ─────────────────────────── */}
       <div className="md:hidden sticky top-0 z-30 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center justify-between">
@@ -687,7 +687,7 @@ export default function SuperSaaSAdminView({
       </div>
 
       {/* Main interactive subpage container */}
-      <div id="saas-active-subpage-view" className="flex-1 min-h-0 overflow-y-auto flex flex-col w-full p-3 md:p-6 space-y-4 md:space-y-6">
+      <div id="saas-active-subpage-view" className="flex-1 min-h-0 overflow-y-auto flex flex-col w-full p-3 md:p-6 space-y-4 md:space-y-6 pb-24 md:pb-8">
         
         {/* ======================= TAB 1: USER DESK ======================= */}
         {activeTab === 'subscribers' && (
