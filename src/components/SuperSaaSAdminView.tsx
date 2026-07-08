@@ -598,7 +598,7 @@ export default function SuperSaaSAdminView({
             </button>
           ) : (
             <button onClick={handleShieldClick}
-              className="p-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded-xl cursor-pointer hover:bg-amber-500/25 transition-colors">
+              className="p-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded-xl cursor-default">
               <Shield className="w-4 h-4 text-amber-400" />
             </button>
           )}
@@ -661,7 +661,7 @@ export default function SuperSaaSAdminView({
             <div className="flex items-center space-x-2.5 px-2">
               {!showPasswordInput ? (
                 <button onClick={handleShieldClick}
-                  className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 rounded cursor-pointer group">
+                  className="p-1.5 bg-amber-500/10 rounded cursor-default">
                   <Shield className="w-4 h-4 text-amber-400" />
                 </button>
               ) : (
