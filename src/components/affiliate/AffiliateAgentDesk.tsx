@@ -445,11 +445,15 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       const revenue = numberValue(a.total_revenue);
       const gross = a.gross_commission ? numberValue(a.gross_commission) : revenue * 0.15;
       const tinNumber = a.tin_number || '';
+      // Use phone as display name if display_name is missing — never show fake names
+      const displayName = a.display_name && a.display_name.trim()
+        ? a.display_name.trim()
+        : (a.phone_whatsapp ? `+${a.phone_whatsapp.replace(/^\+/, '')}` : 'Unknown');
       return {
         id: a.id,
         userId: a.user_id,
         parentSuperAgentId: String(a.parent_super_agent_id || partnerId),
-        name: a.display_name || 'Unnamed',
+        name: displayName,
         phone: a.phone_whatsapp || '',
         email: '',
         promoCode: a.promo_code || a.referral_code || '',
@@ -519,57 +523,12 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       }
 
       mapped = uniqueBySubAffiliate(dbRows.map(mapDbAffiliate));
-    } catch { /* offline — fall through to localStorage */ }
+    } catch { /* offline — DB unavailable, show empty state */ }
 
-    // ── Fallback / supplement: localStorage (offline-safe) ──────────────
-    try {
-      const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
-      const myCode = partnerCode.toUpperCase();
-      // Only include affiliates strictly linked to this partner — never fall back to showing all
-      if (!myCode && parentCandidates.length === 0) {
-        // No identifier — cannot safely determine which affiliates belong here
-      } else {
-        const mine = all.filter(a =>
-          (myCode && (
-            a.parentSuperId?.toUpperCase() === myCode ||
-            a.parentSuperCode?.toUpperCase() === myCode
-          )) ||
-          parentCandidates.includes(String(a.parentSuperId || '').trim())
-        );
-
-      const localRows = mine.map((a: any) => {
-          const revenue = a.revenueDate || a.totalEarnings || 0;
-          const gross = revenue * 0.15;
-          const tinNumber = a.tinNumber && a.tinNumber !== 'N/A' ? a.tinNumber : '';
-          return {
-            id: a.id,
-            userId: a.id,
-            parentSuperAgentId: partnerId,
-            name: a.name || a.display_name || 'Unnamed',
-            phone: a.phone || '',
-            email: a.email || '',
-            promoCode: a.promoCode || a.referral_code || '',
-            status: a.isDisabled ? 'suspended' : 'active',
-            customersGenerated: a.conversionsPromo || a.conversionsLink || 0,
-            revenueGenerated: revenue,
-            grossCommission15: gross,
-            withholdingTax5: gross * 0.05,
-            netPayout: gross,
-            tinNumber,
-            tinStatus: normalizeTinStatus(tinNumber, a.tinStatus),
-            pendingCommission: gross,
-            paidCommission: a.paidAmount || 0,
-            payoutMethod: a.paymentMethod || 'M-Pesa',
-            payoutAccount: a.payoutPhone || a.phone || '',
-            isDisabled: !!a.isDisabled,
-            createdAt: a.joinedDate || new Date().toISOString(),
-          };
-        });
-        mapped = uniqueBySubAffiliate([...mapped, ...localRows]);
-      } // end if (myCode || parentCandidates)
-    } catch (e) {
-      console.warn('Error loading sub-affiliates from localStorage:', e);
-    }
+    // localStorage is intentionally NOT used as a sub-affiliate source.
+    // localStorage may contain old demo/test entries (Ema Tunde, John Tunde,
+    // Sarah Tunde, Jane Tunde, etc.) written by AffiliatePortal during demos.
+    // Only Supabase DB data is trusted. If DB returns zero rows, show empty state.
 
     setSubAffiliates(mapped);
 
@@ -1115,7 +1074,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
               {recon.length === 0 ? (
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl py-16 text-center space-y-3">
                   <Coins className="w-12 h-12 text-slate-700 mx-auto" />
-                  <p className="text-white font-black">No reconciliation data for {reconMonth}</p>
+                  <p className="text-white font-black">No sub-affiliate reconciliation data for {reconMonth}</p>
+                  <p className="text-slate-400 text-xs mt-1">No real sub-affiliates found for this period. Data is loaded from the database only.</p>
                   <p className="text-slate-400 text-sm">Data appears when sub-affiliates generate revenue</p>
                 </div>
               ) : (

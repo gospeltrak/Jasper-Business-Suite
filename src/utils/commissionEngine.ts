@@ -292,6 +292,14 @@ export function buildReconciliationRow(
   const amountPaid = subAffiliate.paidCommission || 0;
   const amountPending = Math.max(0, breakdown.subAffiliateNetPayout - amountPaid);
 
+  // payoutStatus is 'paid' ONLY when there is real revenue AND it has been paid
+  // Never mark as 'paid' when revenue is 0 — that would be misleading
+  const payoutStatus = networkRevenue <= 0
+    ? 'pending'
+    : amountPending <= 0 && amountPaid > 0
+      ? 'paid'
+      : 'pending';
+
   return {
     month,
     superAgentId: superAgent.id,
@@ -308,6 +316,6 @@ export function buildReconciliationRow(
     tinStatus: subAffiliate.tinStatus,
     amountPaid,
     amountPending,
-    payoutStatus: amountPending > 0 ? 'pending' : 'paid',
+    payoutStatus,
   };
 }
