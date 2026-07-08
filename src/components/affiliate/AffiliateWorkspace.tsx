@@ -28,6 +28,12 @@ import {
   ChevronRight,
   Clock,
   CheckCheck,
+  Users,
+  Search,
+  MapPin,
+  Building2,
+  Calendar,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   AffiliateCampaign,
@@ -69,7 +75,7 @@ const isSafeExternalUrl = (value: string) => {
   }
 };
 
-type TabId = 'overview' | 'code-link' | 'tasks' | 'ads' | 'meetings' | 'reports' | 'payouts' | 'settings';
+type TabId = 'overview' | 'tenants' | 'code-link' | 'tasks' | 'ads' | 'meetings' | 'reports' | 'payouts' | 'settings';
 
 export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void }) {
   const [workspace, setWorkspace] = useState<AffiliateWorkspaceData | null>(null);
@@ -88,6 +94,10 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const [withdrawForm, setWithdrawForm] = useState({ name: '', phone: '', amount: '', password: '' });
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  // Tenants tab state
+  const [tenantSearch, setTenantSearch] = useState('');
+  const [tenantStatusFilter, setTenantStatusFilter] = useState<string>('all');
+  const [selectedTenant, setSelectedTenant] = useState<any>(null);
   const TRANSACTION_FEE_PERCENT = 0.02; // 2% transaction fee
   const adSettings = useGlobalAdSettings();
 
@@ -489,6 +499,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const upcomingMeetings = workspace!.meetings.filter((meeting) => ['upcoming', 'live'].includes(meeting.status));
   const navItems = [
     ['overview', 'Overview', BarChart3],
+    ['tenants', 'My Tenants', Users],
     ['code-link', 'Code & Link', LinkIcon],
     ['tasks', 'Tasks', ClipboardList],
     ['ads', 'Ads by JB', Film],
@@ -633,6 +644,212 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
               {upcomingMeetings.length === 0 && <Empty text="No upcoming meetings have been scheduled." />}
             </Panel>
           </div>}
+
+          {activeTab === 'tenants' && (() => {
+            const subs = workspace!.subscribers || [];
+            // Status helper
+            const getStatus = (s: any): { label: string; color: string } => {
+              const st = (s.payment_status || s.status || '').toLowerCase();
+              const plan = (s.package_name || s.package_id || '').toLowerCase();
+              const endDate = s.subscription_end_date;
+              const isExpired = endDate && new Date(endDate) < new Date();
+              if (st === 'active' || st === 'paid') return { label: 'Paid', color: 'bg-emerald-100 text-emerald-700' };
+              if (plan.includes('trial') || st === 'trial') {
+                return isExpired
+                  ? { label: 'Trial Expired', color: 'bg-rose-100 text-rose-700' }
+                  : { label: 'Free Trial', color: 'bg-blue-100 text-blue-700' };
+              }
+              if (st === 'suspended' || st === 'cancelled') return { label: st.charAt(0).toUpperCase() + st.slice(1), color: 'bg-slate-100 text-slate-600' };
+              if (isExpired) return { label: 'Expired', color: 'bg-orange-100 text-orange-700' };
+              return { label: 'Pending', color: 'bg-amber-100 text-amber-700' };
+            };
+            const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString() : '—';
+            const fmtAgo = (d: string | null) => {
+              if (!d) return 'Never';
+              const diff = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+              if (diff === 0) return 'Today';
+              if (diff === 1) return 'Yesterday';
+              if (diff < 7) return `${diff} days ago`;
+              if (diff < 30) return `${Math.floor(diff / 7)}w ago`;
+              return `${Math.floor(diff / 30)}mo ago`;
+            };
+            // Filter
+            const filtered = subs.filter(s => {
+              const q = tenantSearch.toLowerCase();
+              const matchQ = !q || (s.customer_name || '').toLowerCase().includes(q) || (s.phone_number || '').includes(q) || (s.package_name || '').toLowerCase().includes(q) || (s.region || '').toLowerCase().includes(q);
+              const st = getStatus(s).label;
+              const matchSt = tenantStatusFilter === 'all' || st.toLowerCase().includes(tenantStatusFilter);
+              return matchQ && matchSt;
+            });
+            // Summary cards
+            const paid = subs.filter(s => getStatus(s).label === 'Paid').length;
+            const trial = subs.filter(s => getStatus(s).label === 'Free Trial').length;
+            const expired = subs.filter(s => ['Trial Expired','Expired'].includes(getStatus(s).label)).length;
+            const totalComm = subs.reduce((a, s) => a + (s.commission_amount || 0), 0);
+            const paidComm = subs.filter(s => s.commission_status === 'paid').reduce((a, s) => a + (s.commission_amount || 0), 0);
+            const pendComm = totalComm - paidComm;
+            const cur = workspace!.profile.currency || 'TZS';
+            const fmt = (n: number) => `${cur} ${Math.round(n).toLocaleString()}`;
+
+            return (
+              <div className="space-y-4">
+                <h2 className="text-base font-black text-slate-900">My Registered Tenants</h2>
+                {/* Summary cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    ['Total Tenants', subs.length, 'bg-indigo-50 text-indigo-700'],
+                    ['Paid', paid, 'bg-emerald-50 text-emerald-700'],
+                    ['Free Trial', trial, 'bg-blue-50 text-blue-700'],
+                    ['Expired', expired, 'bg-rose-50 text-rose-700'],
+                  ].map(([label, val, cls]) => (
+                    <div key={label as string} className={`rounded-2xl p-4 ${cls}`}>
+                      <p className="text-xs font-bold opacity-70 uppercase tracking-wider">{label}</p>
+                      <p className="text-2xl font-black mt-1">{val}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {[
+                    ['Est. Commission', fmt(totalComm), 'bg-slate-50 text-slate-700'],
+                    ['Pending', fmt(pendComm), 'bg-amber-50 text-amber-700'],
+                    ['Paid Out', fmt(paidComm), 'bg-emerald-50 text-emerald-700'],
+                  ].map(([label, val, cls]) => (
+                    <div key={label as string} className={`rounded-2xl p-4 ${cls}`}>
+                      <p className="text-xs font-bold opacity-70 uppercase tracking-wider">{label}</p>
+                      <p className="text-lg font-black mt-1">{val}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Search + filter */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input value={tenantSearch} onChange={e => setTenantSearch(e.target.value)}
+                      placeholder="Search by name, phone, plan, region…"
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
+                  </div>
+                  <select value={tenantStatusFilter} onChange={e => setTenantStatusFilter(e.target.value)}
+                    className="px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-emerald-500">
+                    <option value="all">All Statuses</option>
+                    <option value="paid">Paid</option>
+                    <option value="trial">Free Trial</option>
+                    <option value="expired">Expired</option>
+                    <option value="pending">Pending</option>
+                    <option value="suspended">Suspended</option>
+                  </select>
+                </div>
+
+                {/* Empty state */}
+                {subs.length === 0 && (
+                  <div className="text-center py-16 rounded-2xl border-2 border-dashed border-slate-200">
+                    <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                    <p className="font-bold text-slate-600">You do not have registered tenants yet.</p>
+                    <p className="text-sm text-slate-400 mt-1">Share your promo code to start earning.</p>
+                  </div>
+                )}
+
+                {/* Desktop table */}
+                {filtered.length > 0 && (
+                  <>
+                    <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                          <tr>
+                            <th className="px-4 py-3 text-left">Business / Name</th>
+                            <th className="px-4 py-3 text-left">Phone</th>
+                            <th className="px-4 py-3 text-left">Plan</th>
+                            <th className="px-4 py-3 text-left">Status</th>
+                            <th className="px-4 py-3 text-left">Joined</th>
+                            <th className="px-4 py-3 text-left">Location</th>
+                            <th className="px-4 py-3 text-left">Promo</th>
+                            <th className="px-4 py-3 text-right">Commission</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filtered.map(s => {
+                            const st = getStatus(s);
+                            return (
+                              <tr key={s.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedTenant(s)}>
+                                <td className="px-4 py-3 font-semibold text-slate-900">{s.customer_name || 'Unnamed'}</td>
+                                <td className="px-4 py-3 text-slate-500 font-mono text-xs">{s.phone_number || '—'}</td>
+                                <td className="px-4 py-3 text-slate-600 text-xs">{s.package_name || '—'}</td>
+                                <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${st.color}`}>{st.label}</span></td>
+                                <td className="px-4 py-3 text-slate-500 text-xs">{fmtDate(s.created_at)}</td>
+                                <td className="px-4 py-3 text-slate-500 text-xs">{s.region || s.location || 'Not provided'}</td>
+                                <td className="px-4 py-3 font-mono text-xs text-emerald-700">{s.promo_code_used || s.referral_code_used || '—'}</td>
+                                <td className="px-4 py-3 text-right font-mono text-xs text-slate-700">{s.commission_amount ? fmt(s.commission_amount) : '—'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile cards */}
+                    <div className="md:hidden space-y-3">
+                      {filtered.map(s => {
+                        const st = getStatus(s);
+                        return (
+                          <button key={s.id} type="button" onClick={() => setSelectedTenant(s)}
+                            className="w-full text-left bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="font-bold text-slate-900 leading-tight">{s.customer_name || 'Unnamed'}</p>
+                              <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${st.color}`}>{st.label}</span>
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                              <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{s.package_name || 'No plan'}</span>
+                              <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{fmtDate(s.created_at)}</span>
+                              {(s.region || s.location) && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{s.region || s.location}</span>}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {/* Tenant detail modal */}
+                {selectedTenant && (() => {
+                  const s = selectedTenant;
+                  const st = getStatus(s);
+                  return (
+                    <div className="fixed inset-0 z-[110] bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setSelectedTenant(null)}>
+                      <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                          <h3 className="font-black text-slate-900">Tenant Details</h3>
+                          <button onClick={() => setSelectedTenant(null)} className="p-1.5 rounded-xl hover:bg-slate-100 cursor-pointer border-none bg-transparent"><X className="w-4 h-4 text-slate-500" /></button>
+                        </div>
+                        <div className="p-5 space-y-3 overflow-y-auto max-h-[70vh]">
+                          <div className="flex items-center justify-between">
+                            <p className="font-black text-lg text-slate-900">{s.customer_name || 'Unnamed'}</p>
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${st.color}`}>{st.label}</span>
+                          </div>
+                          {[
+                            ['Phone', s.phone_number],
+                            ['Plan', s.package_name],
+                            ['Promo Code', s.promo_code_used || s.referral_code_used],
+                            ['Date Joined', fmtDate(s.created_at)],
+                            ['Sub. Start', fmtDate(s.subscription_start_date)],
+                            ['Sub. Ends', fmtDate(s.subscription_end_date)],
+                            ['Location', s.region || s.location || 'Not provided'],
+                            ['Commission', s.commission_amount ? fmt(s.commission_amount) : '—'],
+                            ['Comm. Status', s.commission_status || '—'],
+                          ].map(([label, val]) => val && (
+                            <div key={label} className="flex justify-between text-sm border-b border-slate-50 pb-2">
+                              <span className="text-slate-500">{label}</span>
+                              <span className="font-semibold text-slate-800 text-right max-w-[60%]">{val}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            );
+          })()}
+
 
           {activeTab === 'code-link' && <div className="space-y-5 max-w-2xl">
             <div>
