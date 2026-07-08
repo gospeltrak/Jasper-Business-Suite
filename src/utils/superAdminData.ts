@@ -6,8 +6,10 @@ export interface SuperAdminOverview {
   workspaces: any[];
   sessions: any[];
   affiliates: any[];
+  affiliatePartners: any[];    // affiliate_partners table rows
   referrals: any[];
   sourceTracking: any[];
+  referredCustomers: any[];    // referred_customers — who referred which tenant
   commissions: any[];
   payouts: any[];
   auditLogs: any[];
@@ -22,7 +24,9 @@ export interface SuperAdminUserRow {
   email: string;
   phone: string;
   referralSource: 'direct' | 'affiliate';
-  referringAffiliate?: string;
+  referringAffiliate?: string;          // promo code used
+  referringAffiliateName?: string;      // affiliate display name
+  referringPartnerName?: string;        // parent partner/agent name
   subscriberSourceType?: 'organic' | 'organic_affiliate' | 'sub_affiliate' | 'unknown' | 'untracked';
   promoCodeUsed?: string;
   referralCodeUsed?: string;
@@ -77,8 +81,10 @@ const EMPTY_SUPER_ADMIN_OVERVIEW: SuperAdminOverview = {
   workspaces: [],
   sessions: [],
   affiliates: [],
+  affiliatePartners: [],
   referrals: [],
   sourceTracking: [],
+  referredCustomers: [],
   commissions: [],
   payouts: [],
   auditLogs: []
@@ -90,8 +96,10 @@ const normalizeOverview = (overview?: Partial<SuperAdminOverview> | null): Super
   workspaces: Array.isArray(overview?.workspaces) ? overview.workspaces : [],
   sessions: Array.isArray(overview?.sessions) ? overview.sessions : [],
   affiliates: Array.isArray(overview?.affiliates) ? overview.affiliates : [],
+  affiliatePartners: Array.isArray(overview?.affiliatePartners) ? overview.affiliatePartners : [],
   referrals: Array.isArray(overview?.referrals) ? overview.referrals : [],
   sourceTracking: Array.isArray(overview?.sourceTracking) ? overview.sourceTracking : [],
+  referredCustomers: Array.isArray(overview?.referredCustomers) ? overview.referredCustomers : [],
   commissions: Array.isArray(overview?.commissions) ? overview.commissions : [],
   payouts: Array.isArray(overview?.payouts) ? overview.payouts : [],
   auditLogs: Array.isArray(overview?.auditLogs) ? overview.auditLogs : []
@@ -338,6 +346,16 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
   const referralsByUser = new Map(safeOverview.referrals.map((referral) => [String(referral.registered_user_id), referral]));
   const trackingByUser = new Map(safeOverview.sourceTracking.map((row) => [String(row.subscriber_user_id), row]));
   const trackingByTenant = new Map(safeOverview.sourceTracking.map((row) => [String(row.tenant_id), row]));
+  // Build referred_customers lookup by tenant_id — shows which affiliate referred each tenant
+  const referredByTenant = new Map<string, any>();
+  safeOverview.referredCustomers.forEach((row) => {
+    const tid = String(row.tenant_id || row.customer_id || '');
+    if (tid && !referredByTenant.has(tid)) referredByTenant.set(tid, row);
+  });
+  // Build affiliate lookup by id and promo_code
+  const affiliateById = new Map(safeOverview.affiliates.map((a) => [String(a.id), a]));
+  const affiliateByPromo = new Map(safeOverview.affiliates.map((a) => [String(a.promo_code || '').toUpperCase(), a]));
+  const partnerById = new Map(safeOverview.affiliatePartners.map((p) => [String(p.id), p]));
   const usersByTenant = new Map<string, any[]>();
   safeOverview.users.forEach((user) => {
     if (!user.tenant_id) return;
@@ -357,7 +375,19 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
       const tenantUsers = tenantId ? usersByTenant.get(tenantId) || [] : [];
       const referral = referralsByUser.get(String(user.id));
       const sourceTrack = trackingByUser.get(String(user.id)) || (tenantId ? trackingByTenant.get(tenantId) : null);
-      const promoCodeUsed = sourceTrack?.promo_code_used || sourceTrack?.referral_code_used || referral?.promo_code_used || referral?.referral_code || user.referral_code_used || '';
+      // referred_customers row gives us who actually referred this tenant
+      const referredRow = tenantId ? referredByTenant.get(tenantId) : null;
+      const promoCodeUsed = referredRow?.promo_code_used || referredRow?.referral_code_used ||
+        sourceTrack?.promo_code_used || sourceTrack?.referral_code_used ||
+        referral?.promo_code_used || referral?.referral_code ||
+        user.referral_code_used || tenant?.promo_code_used || tenant?.referral_code_used || '';
+      // Resolve affiliate from referred_customers or by promo code lookup
+      const linkedAffiliate = referredRow?.affiliate_id
+        ? affiliateById.get(String(referredRow.affiliate_id))
+        : promoCodeUsed ? affiliateByPromo.get(promoCodeUsed.toUpperCase()) : null;
+      const linkedPartner = referredRow?.parent_super_agent_id
+        ? partnerById.get(String(referredRow.parent_super_agent_id))
+        : null;
       const sourceType = (sourceTrack?.source_type || (promoCodeUsed ? 'sub_affiliate' : 'organic')) as SuperAdminUserRow['subscriberSourceType'];
       const sessions = (sessionsByUser.get(String(user.id)) || []).map((session) => {
         const loginAt = session.login_at ? new Date(session.login_at) : null;
@@ -403,6 +433,8 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
         phone: user.phone || user.username_phone || '',
         referralSource: promoCodeUsed ? 'affiliate' : 'direct',
         referringAffiliate: promoCodeUsed || undefined,
+        referringAffiliateName: linkedAffiliate?.display_name || linkedAffiliate?.name || undefined,
+        referringPartnerName: linkedPartner?.name || linkedPartner?.display_name || undefined,
         subscriberSourceType: sourceType,
         promoCodeUsed: promoCodeUsed || undefined,
         referralCodeUsed: sourceTrack?.referral_code_used || referral?.referral_code || user.referral_code_used || undefined,

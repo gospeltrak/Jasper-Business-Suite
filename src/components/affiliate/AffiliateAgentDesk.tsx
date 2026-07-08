@@ -593,6 +593,40 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         referredRows = data || [];
       }
 
+      // Second fallback: try by promo codes of sub-affiliates
+      if (referredRows.length === 0 && mapped.length > 0) {
+        const subPromoCodes = mapped.map(a => a.promoCode).filter(Boolean);
+        if (subPromoCodes.length) {
+          const { data: byPromo1 } = await client
+            .from('referred_customers')
+            .select('id, tenant_id, customer_id, customer_name, phone_number, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, sub_affiliate_id, created_at')
+            .in('promo_code_used', subPromoCodes)
+            .order('created_at', { ascending: false });
+          if (byPromo1?.length) referredRows = byPromo1;
+          else {
+            // Also check tenants table directly
+            const { data: byPromo2 } = await client
+              .from('tenants')
+              .select('id, name, phone, city, region, country, active_package_id, subscription_end_date, trial_ends_at, promo_code_used, referral_code_used, subscription_status, created_at')
+              .in('promo_code_used', subPromoCodes)
+              .order('created_at', { ascending: false });
+            if (byPromo2?.length) {
+              referredRows = byPromo2.map((t: any) => ({
+                id: t.id, tenant_id: t.id, customer_id: t.id,
+                customer_name: t.name, phone_number: t.phone,
+                package_id: t.active_package_id, package_name: t.active_package_id,
+                amount_paid: 0, payment_status: t.subscription_status || 'pending',
+                subscription_start_date: null,
+                subscription_end_date: t.subscription_end_date || t.trial_ends_at,
+                promo_code_used: t.promo_code_used || t.referral_code_used,
+                referral_code_used: t.referral_code_used,
+                sub_affiliate_id: null, created_at: t.created_at,
+              }));
+            }
+          }
+        }
+      }
+
       // Enrich with tenant details
       const tenantIds = Array.from(new Set(
         referredRows.map((r: any) => r.tenant_id || r.customer_id).filter(Boolean)
