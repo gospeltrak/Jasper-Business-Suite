@@ -2599,7 +2599,7 @@ export default function DashboardSalesList({
       {/* DIALOG: VIEW AND PRINT RECEIPT RE-PRINT OVERLAY */}
       {/* ------------------------------------------------------------- */}
       {selectedSale && !viewPaymentsOpen && (
-        <div className={viewA4InvoiceOpen ? "fixed inset-0 z-[200] flex flex-col bg-[#404040] font-sans" : "fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm text-slate-800"}
+        <div className={viewA4InvoiceOpen ? "fixed inset-0 z-[200] flex flex-col bg-[#404040] font-sans" : "fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm text-slate-800"}
           style={viewA4InvoiceOpen ? {paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)'} : {}}>
           
           {/* CONDITION A: A4 CORPORATE INVOICE MODE */}
@@ -2921,10 +2921,10 @@ export default function DashboardSalesList({
           ) : (
             
             /* CONDITION B: NARROW THERMAL POS SLIP RECEIPT MODE (ORIGINAL PRISTINE TICKET) */
-            <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div className="detail-shell relative bg-white border border-slate-200 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-sm">
               
               {/* Header branding */}
-              <div className="bg-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800 shrink-0">
+              <div className="detail-header bg-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800">
                 <div className="flex items-center space-x-2">
                   <FileText className="w-4 h-4 text-emerald-400" />
                   <span className="text-xs font-mono font-bold tracking-wider uppercase text-emerald-400">Terminal Docket</span>
@@ -2946,7 +2946,7 @@ export default function DashboardSalesList({
               </div>
 
               {/* Scrollable ticket details */}
-              <div id="sales-receipt-pdf-template" className="p-6 overflow-y-auto max-h-[calc(70dvh-56px-env(safe-area-inset-bottom))] space-y-6 font-mono text-xs select-text">
+              <div id="sales-receipt-pdf-template" className="detail-body p-6 space-y-6 font-mono text-xs select-text">
                 
                 {/* Receipt store branding block */}
                 <div className="text-center space-y-1 pb-4 border-b border-dashed border-slate-200 flex flex-col items-center">
@@ -3135,7 +3135,7 @@ export default function DashboardSalesList({
               </div>
 
               {/* Print action bottom drawer */}
-              <div className="p-4 bg-slate-50 border-t border-slate-200 space-y-3 shrink-0">
+              <div className="detail-footer p-4 bg-slate-50 border-t border-slate-200 space-y-3">
                 {/* WhatsApp Quick Link */}
                 <div className="flex gap-2 items-center">
                   <div className="relative flex-grow">
@@ -3197,11 +3197,11 @@ export default function DashboardSalesList({
       {/* DIALOG: VIEW AND MANAGE INSTALLMENT PAYMENTS */}
       {/* ------------------------------------------------------------- */}
       {selectedSale && viewPaymentsOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
-          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col font-sans">
+        <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom) + 0.5rem)`}}>
+          <div className="detail-shell relative bg-white border border-slate-200 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md font-sans">
             
             {/* Header */}
-            <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between border-b border-slate-800 shrink-0 select-none">
+            <div className="detail-header bg-slate-900 text-white px-5 py-4 flex items-center justify-between border-b border-slate-800 select-none">
               <div className="flex items-center space-x-2">
                 <CreditCard className="w-5 h-5 text-emerald-400" />
                 <div>
@@ -3221,7 +3221,7 @@ export default function DashboardSalesList({
             </div>
 
             {/* Content list of payments history */}
-            <div className="p-6 overflow-y-auto max-h-[65vh] space-y-6">
+            <div className="detail-body p-6 space-y-6">
               
               {/* Metric Overview cards grid */}
               {(() => {
@@ -3498,7 +3498,7 @@ export default function DashboardSalesList({
             </div>
 
             {/* Bottom buttons */}
-            <div className="bg-slate-50 border-t border-slate-200 px-5 py-4 shrink-0 flex justify-end">
+            <div className="detail-footer bg-slate-50 border-t border-slate-200 px-5 py-4 flex justify-end">
               <button
                 onClick={() => {
                   setSelectedSale(null);
@@ -3518,12 +3518,12 @@ export default function DashboardSalesList({
       {/* DIALOG: VIEW SELL RECORD (READ-ONLY DETAILED ARCHIVE SUMMARY) */}
       {/* ------------------------------------------------------------- */}
       {viewingSaleDetail && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm text-slate-800"
-          style={{padding:'calc(env(safe-area-inset-top) + 12px) 12px calc(env(safe-area-inset-bottom) + 12px) 12px'}}>
-          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col font-sans" style={{maxHeight:'calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom))'}}>
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-sm text-slate-800"
+          style={{padding:'max(env(safe-area-inset-top), 12px) 12px max(env(safe-area-inset-bottom), 12px) 12px'}}>
+          <div className="detail-shell relative bg-white border border-slate-200 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-xl font-sans">
             
             {/* Header */}
-            <div className="bg-slate-900 text-white px-4 sm:px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0 select-none">
+            <div className="detail-header bg-slate-900 text-white px-4 sm:px-6 py-4 flex items-center justify-between border-b border-slate-800 select-none">
               <div className="flex items-center space-x-2.5 min-w-0">
                 <div className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded-xl shrink-0">
                   <Eye className="w-5 h-5" />
@@ -3544,7 +3544,7 @@ export default function DashboardSalesList({
             </div>
 
             {/* Read-only ribbon */}
-            <div className="bg-slate-100 border-b border-slate-200 px-4 sm:px-6 py-2 flex items-center justify-between text-[11px] font-bold text-slate-600 select-none shrink-0">
+            <div className="detail-header bg-slate-100 border-b border-slate-200 px-4 sm:px-6 py-2 flex items-center justify-between text-[11px] font-bold text-slate-600 select-none">
               <div className="flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span>Read-Only Sale Record</span>
@@ -3553,7 +3553,7 @@ export default function DashboardSalesList({
             </div>
 
             {/* Body — overflow-x-hidden prevents horizontal bleed */}
-            <div className="px-4 sm:px-6 py-4 overflow-y-auto overflow-x-hidden space-y-4 flex-1">
+            <div className="detail-body px-4 sm:px-6 py-4 space-y-4">
               
               {/* Metadata key values */}
               <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs">
@@ -3687,7 +3687,7 @@ export default function DashboardSalesList({
             </div>
 
             {/* Footer */}
-            <div className="bg-slate-50 border-t border-slate-200 px-4 sm:px-6 py-3.5 shrink-0 flex justify-end">
+            <div className="detail-footer bg-slate-50 border-t border-slate-200 px-4 sm:px-6 py-3.5 flex justify-end">
               <button
                 onClick={() => setViewingSaleDetail(null)}
                 className="px-6 py-2.5 bg-slate-900 text-white text-[11px] tracking-wider uppercase font-extrabold rounded-xl hover:bg-slate-800 transition-colors cursor-pointer select-none border-none"

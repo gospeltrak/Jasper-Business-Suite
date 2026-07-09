@@ -33,7 +33,7 @@ export default function GlobalStickyAd({
 
   return (
     <div
-      className={`fixed ${bottomOffsetClass} ${leftOffsetClass} right-3 z-[45] pointer-events-none ${className}`}
+      className={`jasper-global-sticky-ad fixed ${bottomOffsetClass} ${leftOffsetClass} right-3 z-[45] pointer-events-none ${className}`}
       style={{ animation: 'jasperStickyAdUp 0.35s ease-out' }}
     >
       <style>{`

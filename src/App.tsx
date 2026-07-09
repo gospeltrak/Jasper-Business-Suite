@@ -378,7 +378,7 @@ export default function App() {
   const splashLogo = logoUrl || '/jasper_logo_transparent.png';
 
   return (
-    <div id="jasper-app-root" className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-emerald-100 selection:text-emerald-900 transition-colors duration-300">
+    <div id="jasper-app-root" className="app-shell min-h-[100dvh] bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-emerald-100 selection:text-emerald-900 transition-colors duration-300">
       {/* Premium animated splash — shown only on fresh dashboard login */}
       {showSplash && (
         <JasperSplashScreen
