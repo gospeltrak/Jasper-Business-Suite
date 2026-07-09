@@ -86,6 +86,8 @@ export interface AffiliateSubscriber {
   id: string;
   tenant_id: string | null;
   customer_name: string;
+  owner_name: string | null;
+  email: string | null;
   phone_number: string | null;
   location: string | null;
   region: string | null;
@@ -101,6 +103,8 @@ export interface AffiliateSubscriber {
   commission_status: string;
   status: 'active' | 'inactive';
   days_remaining: number;
+  last_activity_at: string | null;
+  last_login_at: string | null;
   created_at: string;
 }
 
@@ -182,6 +186,8 @@ const mapSubscriberRow = (row: any): AffiliateSubscriber => {
     id: String(row.id || row.tenant_id || row.tenantId || `sub-${Date.now()}`),
     tenant_id: row.tenant_id || row.tenantId || null,
     customer_name: row.customer_name || row.customerName || row.tenant_name || row.tenantName || row.business_name || row.name || 'Unnamed subscriber',
+    owner_name: row.owner_name || row.ownerName || row.contact_name || row.admin_name || null,
+    email: row.email || row.owner_email || row.customer_email || row.admin_email || null,
     phone_number: row.phone_number || row.phoneNumber || row.phone || null,
     location: row.location || row.city || row.region || row.country || null,
     region: row.region || row.city || row.location || null,
@@ -197,6 +203,8 @@ const mapSubscriberRow = (row: any): AffiliateSubscriber => {
     commission_status: row.commission_status || row.commissionStatus || 'pending',
     status: isActive ? 'active' : 'inactive',
     days_remaining: daysRemaining,
+    last_activity_at: row.last_activity_at || row.lastActivityAt || row.updated_at || row.updatedAt || null,
+    last_login_at: row.last_login_at || row.lastLoginAt || null,
     created_at: row.created_at || row.createdAt || new Date().toISOString(),
   };
 };
@@ -280,18 +288,33 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
   };
 
   const promoCode = profile.promo_code || profile.referral_code || '';
+  const affiliateScope = `affiliate_id.eq.${profile.id}`;
+  const ownReferralScope = [
+    `affiliate_id.eq.${profile.id}`,
+    `sub_affiliate_id.eq.${profile.id}`,
+    promoCode ? `promo_code_used.eq.${promoCode}` : '',
+    promoCode ? `referral_code_used.eq.${promoCode}` : '',
+  ].filter(Boolean).join(',');
+  const tenantPromoScope = [
+    promoCode ? `promo_code_used.eq.${promoCode}` : '',
+    promoCode ? `referral_code_used.eq.${promoCode}` : '',
+  ].filter(Boolean).join(',');
 
   const [tasksResult, meetingsResult, assignmentsResult, sspBanners, referralsResult, subscribersResult, tenantPromoResult, commissionsResult, payoutsResult, activitiesResult] = await Promise.all([
-    safeQuery(() => client.from('affiliate_tasks').select('*').order('created_at', { ascending: false }).limit(50)),
-    safeQuery(() => client.from('affiliate_meetings').select('*').order('starts_at', { ascending: true }).limit(50)),
-    safeQuery(() => client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(*)').order('created_at', { ascending: false }).limit(50)),
+    safeQuery(() => client.from('affiliate_tasks').select('*').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
+    safeQuery(() => client.from('affiliate_meetings').select('*').eq('affiliate_id', profile.id).order('starts_at', { ascending: true }).limit(50)),
+    safeQuery(() => client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(*)').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
     loadPlatformRecord<any[]>('promotional_banners', 'global', []),
-    safeQuery(() => client.from('affiliate_referrals').select('id, status, created_at').order('created_at', { ascending: false }).limit(500)),
-    safeQuery(() => client.from('referred_customers').select('id, tenant_id, customer_id, customer_name, phone_number, location, region, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, affiliate_id, sub_affiliate_id, commission_amount, commission_status, created_at').or(`affiliate_id.eq.${profile.id},sub_affiliate_id.eq.${profile.id},promo_code_used.eq.${promoCode},referral_code_used.eq.${promoCode}`).order('created_at', { ascending: false }).limit(1000)),
-    safeQuery(() => client.from('tenants').select('id, name, business_name, phone, city, region, country, active_package_id, selected_package_id, package_id, package_name, subscription_end_date, trial_ends_at, promo_code_used, referral_code_used, created_at, status').or(`promo_code_used.eq.${promoCode},referral_code_used.eq.${promoCode}`).order('created_at', { ascending: false }).limit(1000)),
-    safeQuery(() => client.from('affiliate_commissions').select('id, amount, gross_revenue, gross_commission, withholding_tax, net_payout, currency, status, created_at, available_at, paid_at').order('created_at', { ascending: false }).limit(500)),
-    safeQuery(() => client.from('affiliate_payouts').select('id, amount, currency, payout_method, payout_reference, status, requested_at, processed_at, notes').order('requested_at', { ascending: false }).limit(100)),
-    safeQuery(() => client.from('affiliate_activity_events').select('*').order('created_at', { ascending: false }).limit(200)),
+    safeQuery(() => client.from('affiliate_referrals').select('id, status, created_at').or(affiliateScope).order('created_at', { ascending: false }).limit(500)),
+    ownReferralScope
+      ? safeQuery(() => client.from('referred_customers').select('*').or(ownReferralScope).order('created_at', { ascending: false }).limit(1000))
+      : Promise.resolve({ data: [] }),
+    tenantPromoScope
+      ? safeQuery(() => client.from('tenants').select('*').or(tenantPromoScope).order('created_at', { ascending: false }).limit(1000))
+      : Promise.resolve({ data: [] }),
+    safeQuery(() => client.from('affiliate_commissions').select('id, amount, gross_revenue, gross_commission, withholding_tax, net_payout, currency, status, created_at, available_at, paid_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(500)),
+    safeQuery(() => client.from('affiliate_payouts').select('id, amount, currency, payout_method, payout_reference, status, requested_at, processed_at, notes').eq('affiliate_id', profile.id).order('requested_at', { ascending: false }).limit(100)),
+    safeQuery(() => client.from('affiliate_activity_events').select('*').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(200)),
   ]);
 
   const assignedCampaigns = asArray<any>(assignmentsResult.data)
@@ -309,11 +332,13 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
       ...tenant,
       tenant_id: tenant.id,
       customer_name: tenant.name || tenant.business_name,
+      owner_name: tenant.owner_name || tenant.contact_name,
+      email: tenant.owner_email || tenant.email,
       location: tenant.city || tenant.region || tenant.country,
       region: tenant.region || tenant.city,
       package_name: tenant.package_name || tenant.active_package_id || tenant.selected_package_id || tenant.package_id,
       amount_paid: 0,
-      payment_status: tenant.status || 'registered',
+      payment_status: tenant.payment_status || tenant.subscription_status || tenant.status || 'registered',
     })),
   ].filter((subscriber, index, all) => (
     all.findIndex((candidate) => (

@@ -499,7 +499,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const upcomingMeetings = workspace!.meetings.filter((meeting) => ['upcoming', 'live'].includes(meeting.status));
   const navItems = [
     ['overview', 'Overview', BarChart3],
-    ['tenants', 'My Tenants', Users],
+    ['tenants', 'My Subscribers', Users],
     ['code-link', 'Code & Link', LinkIcon],
     ['tasks', 'Tasks', ClipboardList],
     ['ads', 'Ads by JB', Film],
@@ -676,7 +676,14 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
             // Filter
             const filtered = subs.filter(s => {
               const q = tenantSearch.toLowerCase();
-              const matchQ = !q || (s.customer_name || '').toLowerCase().includes(q) || (s.phone_number || '').includes(q) || (s.package_name || '').toLowerCase().includes(q) || (s.region || '').toLowerCase().includes(q);
+              const matchQ = !q ||
+                (s.customer_name || '').toLowerCase().includes(q) ||
+                (s.owner_name || '').toLowerCase().includes(q) ||
+                (s.email || '').toLowerCase().includes(q) ||
+                (s.phone_number || '').includes(q) ||
+                (s.package_name || '').toLowerCase().includes(q) ||
+                (s.region || '').toLowerCase().includes(q) ||
+                (s.location || '').toLowerCase().includes(q);
               const st = getStatus(s).label;
               const matchSt = tenantStatusFilter === 'all' || st.toLowerCase().includes(tenantStatusFilter);
               return matchQ && matchSt;
@@ -693,11 +700,21 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
 
             return (
               <div className="space-y-4">
-                <h2 className="text-base font-black text-slate-900">My Registered Tenants</h2>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-base font-black text-slate-900">My Subscribers</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Only tenants registered with your promo code or linked to your affiliate ID are shown here.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700">
+                    <ShieldCheck className="h-3.5 w-3.5" /> Scoped to your account
+                  </span>
+                </div>
                 {/* Summary cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
-                    ['Total Tenants', subs.length, 'bg-indigo-50 text-indigo-700'],
+                    ['Total Subscribers', subs.length, 'bg-indigo-50 text-indigo-700'],
                     ['Paid', paid, 'bg-emerald-50 text-emerald-700'],
                     ['Free Trial', trial, 'bg-blue-50 text-blue-700'],
                     ['Expired', expired, 'bg-rose-50 text-rose-700'],
@@ -726,7 +743,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input value={tenantSearch} onChange={e => setTenantSearch(e.target.value)}
-                      placeholder="Search by name, phone, plan, region…"
+                      placeholder="Search by business, owner, phone, email, plan, region..."
                       className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
                   </div>
                   <select value={tenantStatusFilter} onChange={e => setTenantStatusFilter(e.target.value)}
@@ -744,7 +761,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
                 {subs.length === 0 && (
                   <div className="text-center py-16 rounded-2xl border-2 border-dashed border-slate-200">
                     <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <p className="font-bold text-slate-600">You do not have registered tenants yet.</p>
+                    <p className="font-bold text-slate-600">You do not have registered subscribers yet.</p>
                     <p className="text-sm text-slate-400 mt-1">Share your promo code to start earning.</p>
                   </div>
                 )}
@@ -756,8 +773,8 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
                       <table className="w-full text-sm">
                         <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
                           <tr>
-                            <th className="px-4 py-3 text-left">Business / Name</th>
-                            <th className="px-4 py-3 text-left">Phone</th>
+                            <th className="px-4 py-3 text-left">Business / Owner</th>
+                            <th className="px-4 py-3 text-left">Contact</th>
                             <th className="px-4 py-3 text-left">Plan</th>
                             <th className="px-4 py-3 text-left">Status</th>
                             <th className="px-4 py-3 text-left">Joined</th>
@@ -771,8 +788,14 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
                             const st = getStatus(s);
                             return (
                               <tr key={s.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedTenant(s)}>
-                                <td className="px-4 py-3 font-semibold text-slate-900">{s.customer_name || 'Unnamed'}</td>
-                                <td className="px-4 py-3 text-slate-500 font-mono text-xs">{s.phone_number || '—'}</td>
+                                <td className="px-4 py-3">
+                                  <p className="font-semibold text-slate-900">{s.customer_name || 'Unnamed'}</p>
+                                  <p className="text-[11px] text-slate-500">{s.owner_name || 'Owner not recorded'}</p>
+                                </td>
+                                <td className="px-4 py-3 text-slate-500 text-xs">
+                                  <p className="font-mono">{s.phone_number || '—'}</p>
+                                  {s.email && <p className="mt-0.5 max-w-[180px] truncate">{s.email}</p>}
+                                </td>
                                 <td className="px-4 py-3 text-slate-600 text-xs">{s.package_name || '—'}</td>
                                 <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${st.color}`}>{st.label}</span></td>
                                 <td className="px-4 py-3 text-slate-500 text-xs">{fmtDate(s.created_at)}</td>
@@ -799,6 +822,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
                             </div>
                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                               <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{s.package_name || 'No plan'}</span>
+                              {s.owner_name && <span className="flex items-center gap-1"><User className="w-3 h-3" />{s.owner_name}</span>}
                               <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{fmtDate(s.created_at)}</span>
                               {(s.region || s.location) && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{s.region || s.location}</span>}
                             </div>
@@ -827,11 +851,15 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
                           </div>
                           {[
                             ['Phone', s.phone_number],
+                            ['Owner/Admin', s.owner_name],
+                            ['Email', s.email],
                             ['Plan', s.package_name],
                             ['Promo Code', s.promo_code_used || s.referral_code_used],
                             ['Date Joined', fmtDate(s.created_at)],
                             ['Sub. Start', fmtDate(s.subscription_start_date)],
                             ['Sub. Ends', fmtDate(s.subscription_end_date)],
+                            ['Last Login', s.last_login_at ? fmtAgo(s.last_login_at) : 'Never used after registration'],
+                            ['Last Activity', s.last_activity_at ? fmtAgo(s.last_activity_at) : 'Never used after registration'],
                             ['Location', s.region || s.location || 'Not provided'],
                             ['Commission', s.commission_amount ? fmt(s.commission_amount) : '—'],
                             ['Comm. Status', s.commission_status || '—'],
