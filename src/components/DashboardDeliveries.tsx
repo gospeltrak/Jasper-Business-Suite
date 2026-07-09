@@ -26,7 +26,7 @@ import {
   MoreVertical,
   Eye
 } from 'lucide-react';
-import { shareElementPdfToWhatsApp } from '../utils/pdfShare';
+import { printPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import { formatSaleItemQuantity } from '../utils/unitFormatter';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
@@ -341,46 +341,20 @@ export default function DashboardDeliveries({
     setNoteItems(mapped);
   };
 
-  const handlePrintNote = () => {
-    const printContent = document.getElementById('delivery-note-print-area');
-    if (!printContent) return;
-    
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('Pop-up blocked! Please allow pop-ups to print the delivery note.');
-      return;
+  const handlePrintNote = async () => {
+    try {
+      setDeliveryPdfStatus('Generating delivery note PDF...');
+      await printPdfFromElement({
+        elementId: 'delivery-note-print-area',
+        fileName: `delivery-note-${notePINo || Date.now()}.pdf`,
+        format: 'a4'
+      });
+      setDeliveryPdfStatus('PDF opened for printing.');
+    } catch (err: any) {
+      setDeliveryPdfStatus(err?.message || 'Could not prepare delivery note PDF.');
+    } finally {
+      setTimeout(() => setDeliveryPdfStatus(null), 4000);
     }
-    
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Delivery Note - PI ${notePINo}</title>
-          <script src="https://cdn.tailwindcss.com"></script>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;950&family=Playfair+Display:wght@700&display=swap');
-            body {
-              font-family: 'Inter', sans-serif;
-              padding: 40px;
-              display: flex;
-              justify-content: center;
-              background-color: white;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            .print-container {
-              width: 100%;
-              max-width: 800px;
-            }
-          </style>
-        </head>
-        <body onload="setTimeout(function(){ window.print(); window.close(); }, 500)">
-          <div class="print-container">
-            ${printContent.innerHTML}
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
   };
 
   const handleFinishDeliveryNote = () => {

@@ -54,6 +54,7 @@ import {
   Scale
 } from 'lucide-react';
 import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } from '../utils/unitFormatter';
+import { printPdfFromElement } from '../utils/pdfShare';
 
 // Revenue helper: exclude delivery fees from product revenue calculations
 const saleProductRevenue = (s: any): number =>
@@ -89,6 +90,14 @@ export default function DashboardReports({
   systemSettings,
 }: DashboardReportsProps) {
   const currency = activeTenant.currency;
+  const printActiveReportPdf = async () => {
+    await printPdfFromElement({
+      elementId: 'reports-a4-pdf-template',
+      fileName: `${activeTenant.name.replace(/\s+/g, '-')}-${reportTab}-report-${startDateStr}-${endDateStr}.pdf`,
+      format: 'a4',
+      includeHidden: true
+    });
+  };
   
   // Tab within reports
   const [reportTab, setReportTab] = useState<'p&l' | 'sales-report' | 'payments' | 'inventory' | 'velocity' | 'users' | 'expenses' | 'product-monitoring' | 'dual-channel' | 'deliveries' | 'bulk-products' | 'stock-adjustment'>(
@@ -1214,7 +1223,7 @@ export default function DashboardReports({
             <input type="date" value={endDateStr} onChange={e=>setEndDateStr(e.target.value)}
               className="bg-transparent border-none text-slate-700 font-semibold outline-none text-[11px] cursor-pointer w-24" />
           </div>
-          <button onClick={()=>window.print()} type="button"
+          <button onClick={printActiveReportPdf} type="button"
             className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs transition-colors">
             <Printer className="w-3.5 h-3.5" /><span>Export PDF</span>
           </button>
@@ -1236,7 +1245,7 @@ export default function DashboardReports({
                 );})()}
               </div>
               <div className="flex gap-1.5">
-                <button onClick={()=>window.print()} type="button"
+                <button onClick={printActiveReportPdf} type="button"
                   className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:'rgba(255,255,255,0.1)'}}>
                   <Printer className="w-4 h-4 text-white"/>
                 </button>
@@ -3911,7 +3920,7 @@ export default function DashboardReports({
               {/* Print PDF */}
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={printActiveReportPdf}
                 className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer"
                 title="Export PDF"
               >
@@ -5263,7 +5272,7 @@ export default function DashboardReports({
       {/* ------------------------------------------------------------- */}
       {/* PRINT-ONLY A4 SYSTEM PDF AUDIT STATEMENT */}
       {/* ------------------------------------------------------------- */}
-      <div className="hidden print:block printable-area bg-white text-black p-8 max-w-4xl mx-auto font-sans leading-relaxed text-[10px] normal-case">
+      <div id="reports-a4-pdf-template" className="hidden print:block printable-area bg-white text-black p-8 max-w-4xl mx-auto font-sans leading-relaxed text-[10px] normal-case">
         {/* Document Header */}
         <div className="border-b-2 border-slate-905 pb-4 mb-5 flex justify-between items-start">
           <div>

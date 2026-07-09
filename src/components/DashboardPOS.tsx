@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import DashboardBarcodeScanner from './DashboardBarcodeScanner';
 import CachedImage from './CachedImage';
-import { sharePosReceiptPdf, shareElementPdfToWhatsApp, ReceiptData } from '../utils/pdfShare';
+import { createReceiptPdfFromData, printPdfFile, sharePosReceiptPdf, ReceiptData } from '../utils/pdfShare';
 
 // Web Audio API helper for offline-friendly beep sound
 // Shared AudioContext singleton — created once, reused for all beeps (eliminates init lag)
@@ -289,23 +289,19 @@ export default function DashboardPOS({
   const [recipientWhatsApp, setRecipientWhatsApp] = useState('');
   const [receiptPdfStatus, setReceiptPdfStatus] = useState<string | null>(null);
 
-  const sharePosReceiptPdfHandler = async () => {
-    if (!receiptResult) return;
-    try {
-      setReceiptPdfStatus('Preparing receipt PDF...');
-
-      // Build receipt data for real PDF generation (no screenshot)
-      const receiptData: ReceiptData = {
+  const buildReceiptPdfData = (): ReceiptData | null => {
+    if (!receiptResult) return null;
+    return {
         businessName: systemSettings?.business?.businessName || activeTenant.name,
         businessAddress: systemSettings?.business?.businessAddress || activeTenant.city || undefined,
-        businessPhone: activeTenant.phone || undefined,
+        businessPhone: systemSettings?.business?.businessPhone || undefined,
         receiptId: receiptResult.reference || receiptResult.id,
         timestamp: receiptResult.timestamp,
-        cashierName: receiptResult.cashierName || user?.name || undefined,
+        cashierName: receiptResult.cashierName || userName || undefined,
         customerName: receiptResult.customerName || undefined,
         paymentMethod: receiptResult.paymentMethod,
         items: receiptResult.items.map(item => {
-          const prod = activeProducts?.find(p => p.id === item.productId);
+          const prod = products.find(p => p.id === item.productId);
           return {
             name: item.productName || prod?.name || 'Item',
             qty: item.qty,
@@ -323,9 +319,19 @@ export default function DashboardPOS({
         currency: activeTenant.currency || 'TZS',
         amountPaid: receiptResult.amountPaid ?? receiptResult.total,
         change: receiptResult.change ?? 0,
-        vatNumber: systemSettings?.business?.vatNumber || undefined,
+        vatNumber: (systemSettings?.business as any)?.vatNumber || undefined,
         footer: 'Thank you for shopping with us!',
       };
+  };
+
+  const sharePosReceiptPdfHandler = async () => {
+    if (!receiptResult) return;
+    try {
+      setReceiptPdfStatus('Preparing receipt PDF...');
+
+      // Build receipt data for real PDF generation (no screenshot)
+      const receiptData = buildReceiptPdfData();
+      if (!receiptData) return;
 
       const result = await sharePosReceiptPdf(
         receiptData,
@@ -344,6 +350,21 @@ export default function DashboardPOS({
         return;
       }
       setReceiptPdfStatus(err?.message || 'Could not prepare PDF.');
+    } finally {
+      setTimeout(() => setReceiptPdfStatus(null), 6000);
+    }
+  };
+
+  const printPosReceiptPdfHandler = () => {
+    const receiptData = buildReceiptPdfData();
+    if (!receiptData) return;
+    try {
+      setReceiptPdfStatus('Generating printable receipt PDF...');
+      const pdfFile = createReceiptPdfFromData(receiptData);
+      printPdfFile(pdfFile);
+      setReceiptPdfStatus('PDF opened for printing.');
+    } catch (err: any) {
+      setReceiptPdfStatus(err?.message || 'Could not prepare receipt PDF.');
     } finally {
       setTimeout(() => setReceiptPdfStatus(null), 6000);
     }
@@ -2222,7 +2243,7 @@ export default function DashboardPOS({
 
                   <div className="grid grid-cols-2 gap-2.5">
                     <button
-                      onClick={() => window.print()}
+                      onClick={printPosReceiptPdfHandler}
                       className="w-full py-3.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs uppercase cursor-pointer flex items-center justify-center space-x-1.5 transition-colors"
                     >
                       <Printer className="w-4 h-4 text-slate-550" />

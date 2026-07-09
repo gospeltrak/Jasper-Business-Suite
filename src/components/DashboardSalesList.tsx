@@ -46,7 +46,7 @@ import {
   Barcode,
   ScanLine
 } from 'lucide-react';
-import { shareElementPdfToWhatsApp } from '../utils/pdfShare';
+import { printPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
 import { normalizeSubscriptionPlanId } from '../utils/subscription';
 
@@ -722,6 +722,22 @@ export default function DashboardSalesList({
     }
   };
 
+  const printPdfDocument = async (doc: SalesDocument) => {
+    try {
+      setPdfShareStatus('Generating printable PDF...');
+      await printPdfFromElement({
+        elementId: 'sales-document-a4-pdf-template',
+        fileName: `${normalizeDocType(doc.type).replace(/\s+/g, '-')}-${doc.documentNumber}.pdf`,
+        format: 'a4'
+      });
+      setPdfShareStatus('PDF opened for printing.');
+    } catch (err: any) {
+      setPdfShareStatus(err?.message || 'Could not prepare PDF.');
+    } finally {
+      setTimeout(() => setPdfShareStatus(null), 4000);
+    }
+  };
+
   const shareSalePdf = async (sale: Sale, phone?: string, format: 'a4' | 'receipt' = 'a4') => {
     try {
       setPdfShareStatus('Preparing PDF...');
@@ -733,6 +749,22 @@ export default function DashboardSalesList({
         format
       });
       setPdfShareStatus('PDF ready for WhatsApp.');
+    } catch (err: any) {
+      setPdfShareStatus(err?.message || 'Could not prepare PDF.');
+    } finally {
+      setTimeout(() => setPdfShareStatus(null), 4000);
+    }
+  };
+
+  const printSalePdf = async (sale: Sale, format: 'a4' | 'receipt' = 'a4') => {
+    try {
+      setPdfShareStatus('Generating printable PDF...');
+      await printPdfFromElement({
+        elementId: format === 'a4' ? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template',
+        fileName: `${format === 'a4' ? 'sales-invoice' : 'pos-receipt'}-${sale.reference || sale.id}.pdf`,
+        format
+      });
+      setPdfShareStatus('PDF opened for printing.');
     } catch (err: any) {
       setPdfShareStatus(err?.message || 'Could not prepare PDF.');
     } finally {
@@ -2642,7 +2674,7 @@ export default function DashboardSalesList({
                     <MessageSquare className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => window.print()}
+                    onClick={() => printSalePdf(selectedSale, 'a4')}
                     className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer text-white"
                     title="Print"
                   >
@@ -2667,7 +2699,7 @@ export default function DashboardSalesList({
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors">
                   <MessageSquare className="w-3.5 h-3.5" /><span>Send PDF</span>
                 </button>
-                <button onClick={() => window.print()}
+                <button onClick={() => printSalePdf(selectedSale, 'a4')}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
                   <Printer className="w-3.5 h-3.5" /><span>Print</span>
                 </button>
@@ -4522,7 +4554,7 @@ export default function DashboardSalesList({
                 {/* Print */}
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={() => printPdfDocument(viewingDocument)}
                   className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer text-white"
                   title="Print Document"
                 >
@@ -4824,7 +4856,7 @@ export default function DashboardSalesList({
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
                 <MessageSquare className="w-3.5 h-3.5" /><span>Send PDF</span>
               </button>
-              <button type="button" onClick={() => window.print()}
+              <button type="button" onClick={() => printPdfDocument(viewingDocument)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
                 <Printer className="w-3.5 h-3.5" /><span>Print</span>
               </button>

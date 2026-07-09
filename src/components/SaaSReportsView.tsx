@@ -29,6 +29,7 @@ import {
 import { Tenant } from "../types";
 import { loadPlatformRecord } from "../utils/superAdminPlatformRecords";
 import { loadSuperAdminOverview, mapSuperAdminUsers } from "../utils/superAdminData";
+import { printPdfFromElement } from "../utils/pdfShare";
 
 interface ExpenseRecord {
   id: string;
@@ -245,7 +246,7 @@ export default function SaaSReportsView() {
   const trendsData = timeframeMode === "monthly" ? monthlyTrendsData : weeklyTrendsData;
 
   return (
-    <div className={`space-y-8 text-left font-sans animate-fade-in`}>
+    <div id="saas-financial-audit-pdf-template" className={`space-y-8 text-left font-sans animate-fade-in`}>
       {/* Printable page trigger header */}
       <div className="flex justify-between items-center bg-slate-900 border border-slate-850 p-6 rounded-2xl flex-col sm:flex-row gap-4 print:hidden">
         <div>
@@ -259,9 +260,11 @@ export default function SaaSReportsView() {
         </div>
         <button
           type="button"
-          onClick={() => {
-            window.print();
-          }}
+          onClick={() => printPdfFromElement({
+            elementId: "saas-financial-audit-pdf-template",
+            fileName: `jasper-saas-financial-audit-${timeframeMode}.pdf`,
+            format: "a4"
+          })}
           className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-bold font-mono text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow transition-colors"
         >
           <FileText className="w-4 h-4" />

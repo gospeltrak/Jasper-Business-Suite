@@ -15,6 +15,28 @@ const downloadBlob = (blob: Blob, fileName: string) => {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 };
 
+export const printPdfFile = (pdfFile: File) => {
+  if (pdfFile.type !== 'application/pdf' || !pdfFile.name.toLowerCase().endsWith('.pdf')) {
+    throw new Error('Printable document must be a real PDF file.');
+  }
+  const url = URL.createObjectURL(pdfFile);
+  const printWindow = window.open(url, '_blank');
+  if (!printWindow) {
+    downloadBlob(pdfFile, pdfFile.name);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return;
+  }
+  setTimeout(() => {
+    try {
+      printWindow.focus();
+      printWindow.print();
+    } catch {
+      downloadBlob(pdfFile, pdfFile.name);
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }, 900);
+};
+
 // ─── Real PDF receipt generator (no screenshot) ───────────────────────────────
 // Builds the receipt as actual PDF text and lines using jsPDF drawing API.
 // Result is a real searchable PDF, not an image of HTML.
@@ -242,125 +264,189 @@ export async function sharePosReceiptPdf(
   return { method: 'downloaded', phone: cleanPhone };
 }
 
-// ─── Legacy html2canvas approach (kept for invoice/quotation documents) ────────
-// Only used for complex multi-page documents that can't be easily
-// rebuilt as programmatic PDF. Receipt now uses createReceiptPdfFromData.
-
-import html2canvas from 'html2canvas';
-
 type PdfShareOptions = {
   elementId: string;
   fileName: string;
   phone?: string;
   message?: string;
   format?: 'a4' | 'receipt';
+  includeHidden?: boolean;
 };
 
-const UNSUPPORTED_COLOR_FN = /\b(?:oklch|oklab|lch|lab|color)\(/i;
-const COLOR_STYLE_PROPS = [
-  'color', 'backgroundColor', 'borderTopColor', 'borderRightColor',
-  'borderBottomColor', 'borderLeftColor', 'outlineColor',
-  'textDecorationColor', 'columnRuleColor',
-] as const;
-
-const safeCssColor = (value: string, fallback: string) => {
-  if (!value || value === 'initial' || value === 'inherit') return fallback;
-  if (UNSUPPORTED_COLOR_FN.test(value)) return fallback;
-  return value;
+const isElementVisible = (el: Element) => {
+  const style = window.getComputedStyle(el);
+  return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
 };
 
-const sanitizePdfCloneStyles = (root: HTMLElement) => {
-  const nodes = [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))];
-  nodes.forEach((node) => {
-    const computed = window.getComputedStyle(node);
-    COLOR_STYLE_PROPS.forEach((prop) => {
-      const fallback = prop === 'backgroundColor' ? 'transparent'
-        : prop.startsWith('border') ? '#e2e8f0' : '#0f172a';
-      node.style[prop] = safeCssColor(computed[prop], fallback);
+const cleanText = (value: string) =>
+  value.replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+
+const collectDirectText = (el: Element) => {
+  const parts: string[] = [];
+  el.childNodes.forEach((node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = cleanText(node.textContent || '');
+      if (text) parts.push(text);
+    }
+  });
+  return parts.join(' ');
+};
+
+const appendWrappedText = (
+  pdf: jsPDF,
+  textValue: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  options: { fontSize?: number; bold?: boolean; color?: string; lineGap?: number } = {}
+) => {
+  const fontSize = options.fontSize || 9;
+  pdf.setFont('helvetica', options.bold ? 'bold' : 'normal');
+  pdf.setFontSize(fontSize);
+  pdf.setTextColor(options.color || '#0f172a');
+  const lines = pdf.splitTextToSize(cleanText(textValue), maxWidth);
+  pdf.text(lines, x, y);
+  return y + lines.length * (fontSize + (options.lineGap ?? 2));
+};
+
+const ensurePageSpace = (pdf: jsPDF, y: number, needed: number, margin: number) => {
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  if (y + needed <= pageHeight - margin) return y;
+  pdf.addPage();
+  return margin;
+};
+
+const drawTable = (pdf: jsPDF, table: HTMLTableElement, yStart: number, margin: number, includeHidden = false) => {
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - margin * 2;
+  const rows = Array.from(table.querySelectorAll('tr'))
+    .filter(row => includeHidden || isElementVisible(row))
+    .map(row => Array.from(row.children)
+      .filter(cell => includeHidden || isElementVisible(cell))
+      .map(cell => cleanText(cell.textContent || ''))
+    )
+    .filter(cells => cells.some(Boolean));
+
+  if (!rows.length) return yStart;
+
+  const columnCount = Math.max(...rows.map(row => row.length));
+  const colWidth = contentWidth / Math.max(columnCount, 1);
+  let y = ensurePageSpace(pdf, yStart, 24, margin);
+
+  rows.forEach((row, rowIndex) => {
+    const wrappedCells = Array.from({ length: columnCount }, (_, index) => {
+      pdf.setFontSize(7.5);
+      return pdf.splitTextToSize(row[index] || '', colWidth - 6);
     });
-    if (UNSUPPORTED_COLOR_FN.test(computed.boxShadow)) node.style.boxShadow = 'none';
-    if (UNSUPPORTED_COLOR_FN.test(computed.textShadow)) node.style.textShadow = 'none';
-    const fill = computed.getPropertyValue('fill');
-    const stroke = computed.getPropertyValue('stroke');
-    if (UNSUPPORTED_COLOR_FN.test(fill)) node.style.setProperty('fill', 'currentColor');
-    if (UNSUPPORTED_COLOR_FN.test(stroke)) node.style.setProperty('stroke', 'currentColor');
-  });
-  root.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
-    img.style.maxWidth  = '48px';
-    img.style.maxHeight = '48px';
-    img.style.width     = 'auto';
-    img.style.height    = 'auto';
-    img.style.objectFit = 'contain';
-    img.style.display   = 'block';
-    img.style.margin    = '0 auto 4px auto';
-    img.crossOrigin     = 'anonymous';
-  });
-};
+    const rowHeight = Math.max(18, ...wrappedCells.map(lines => lines.length * 9 + 8));
+    y = ensurePageSpace(pdf, y, rowHeight, margin);
 
-const waitForImages = (root: HTMLElement): Promise<void> => {
-  const imgs = Array.from(root.querySelectorAll<HTMLImageElement>('img'));
-  const promises = imgs.map(img => {
-    if (img.complete && img.naturalWidth > 0) return Promise.resolve();
-    return new Promise<void>((resolve) => {
-      const done = () => resolve();
-      img.addEventListener('load', done, { once: true });
-      img.addEventListener('error', done, { once: true });
-      setTimeout(done, 3000);
+    pdf.setFillColor(rowIndex === 0 ? '#f1f5f9' : rowIndex % 2 ? '#ffffff' : '#f8fafc');
+    pdf.rect(margin, y - 10, contentWidth, rowHeight, 'F');
+    pdf.setDrawColor('#e2e8f0');
+    pdf.line(margin, y - 10, margin + contentWidth, y - 10);
+
+    wrappedCells.forEach((lines, colIndex) => {
+      pdf.setFont('helvetica', rowIndex === 0 ? 'bold' : 'normal');
+      pdf.setFontSize(rowIndex === 0 ? 7.5 : 7);
+      pdf.setTextColor(rowIndex === 0 ? '#334155' : '#0f172a');
+      pdf.text(lines, margin + colIndex * colWidth + 3, y);
     });
+    y += rowHeight;
   });
-  return Promise.all(promises).then(() => {});
+
+  return y + 8;
 };
 
 export async function createPdfFromElement({
-  elementId, fileName, format = 'a4'
+  elementId, fileName, format = 'a4', includeHidden = false
 }: Omit<PdfShareOptions, 'phone' | 'message'>): Promise<File> {
   const source = document.getElementById(elementId);
   if (!source) throw new Error('Document not found. Make sure the preview is open.');
 
-  const clone = source.cloneNode(true) as HTMLElement;
-  const container = document.createElement('div');
-  container.style.cssText = `position:fixed;top:-9999px;left:-9999px;width:${format === 'receipt' ? '320px' : '794px'};background:#ffffff;z-index:-1;overflow:visible;pointer-events:none;`;
-  clone.style.cssText = `width:100%;overflow:visible;background:#ffffff;box-shadow:none;border-radius:0;`;
-  container.appendChild(clone);
-  document.body.appendChild(container);
-  sanitizePdfCloneStyles(clone);
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'pt',
+    format: format === 'receipt' ? [226, 800] : 'a4',
+  });
+  const margin = format === 'receipt' ? 12 : 42;
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - margin * 2;
+  let y = margin;
 
-  try {
-    await waitForImages(clone);
-    await new Promise(res => setTimeout(res, 400));
-
-    const canvas = await html2canvas(clone, {
-      backgroundColor: '#ffffff', scale: 2, useCORS: true, allowTaint: false,
-      logging: false, scrollX: 0, scrollY: 0,
-      windowWidth: container.offsetWidth, windowHeight: clone.scrollHeight,
-      width: container.offsetWidth, height: clone.scrollHeight,
+  const nodes = Array.from(source.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,p,span,div,section,li,table,img'))
+    .filter(el => includeHidden || isElementVisible(el))
+    .filter((el) => {
+      if (el.closest('button,[role="button"],input,textarea,select,.print\\:hidden')) return false;
+      if (el.tagName === 'TABLE') return true;
+      if (el.tagName === 'IMG') return true;
+      if (el.querySelector('table')) return false;
+      return !!cleanText(collectDirectText(el));
     });
 
-    const imageData = canvas.toDataURL('image/jpeg', 0.95);
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt',
-      format: format === 'receipt' ? [226, Math.max(400, canvas.height * (226 / canvas.width))] : 'a4' });
+  const seenText = new Set<string>();
 
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pageWidth;
-    const imgHeight = canvas.height * (pageWidth / canvas.width);
-
-    if (format === 'receipt') {
-      pdf.addImage(imageData, 'JPEG', 0, 0, imgWidth, imgHeight);
-    } else {
-      let yOffset = 0, page = 0;
-      while (yOffset < imgHeight) {
-        if (page > 0) pdf.addPage();
-        pdf.addImage(imageData, 'JPEG', 0, -yOffset, imgWidth, imgHeight);
-        yOffset += pageHeight; page++;
-      }
+  nodes.forEach((el) => {
+    if (el.tagName === 'TABLE') {
+      y = drawTable(pdf, el as HTMLTableElement, y + 4, margin, includeHidden);
+      return;
     }
 
-    const cleanName = sanitizeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
-    return new File([pdf.output('blob')], cleanName, { type: 'application/pdf' });
-  } finally {
-    document.body.removeChild(container);
+    if (el.tagName === 'IMG') {
+      const img = el as HTMLImageElement;
+      if (img.complete && img.naturalWidth && /^data:image\/|^https?:|^\//.test(img.src || '')) {
+        try {
+          const maxLogoWidth = format === 'receipt' ? 58 : 82;
+          const width = Math.min(maxLogoWidth, img.naturalWidth);
+          const height = Math.min(54, img.naturalHeight * (width / img.naturalWidth));
+          y = ensurePageSpace(pdf, y, height + 8, margin);
+          pdf.addImage(img, 'PNG', margin, y, width, height, undefined, 'FAST');
+          y += height + 8;
+        } catch {
+          // Keep the PDF text-valid even if a remote logo cannot be embedded.
+        }
+      }
+      return;
+    }
+
+    const textValue = cleanText(collectDirectText(el));
+    if (!textValue || seenText.has(textValue)) return;
+    seenText.add(textValue);
+
+    const tag = el.tagName.toLowerCase();
+    const isHeading = /^h[1-4]$/.test(tag);
+    const isSmall = tag === 'span' || el.className.toString().includes('text-[9');
+    const fontSize = format === 'receipt'
+      ? (isHeading ? 9 : isSmall ? 6.5 : 7.2)
+      : (tag === 'h1' ? 17 : tag === 'h2' ? 14 : isHeading ? 11 : isSmall ? 8 : 9.2);
+    const needed = Math.max(16, Math.ceil(textValue.length / 70) * (fontSize + 3));
+    y = ensurePageSpace(pdf, y, needed, margin);
+    y = appendWrappedText(pdf, textValue, margin, y, contentWidth, {
+      fontSize,
+      bold: isHeading || /total|balance|invoice|receipt|delivery note|quotation|proforma/i.test(textValue),
+      color: isHeading ? '#0f172a' : '#334155',
+      lineGap: format === 'receipt' ? 1 : 2,
+    }) + (isHeading ? 5 : 2);
+  });
+
+  if (y === margin) {
+    throw new Error('Document has no printable data.');
   }
+
+  const cleanName = sanitizeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
+  return new File([pdf.output('blob')], cleanName, { type: 'application/pdf' });
+}
+
+export async function downloadPdfFromElement(options: Omit<PdfShareOptions, 'phone' | 'message'>): Promise<File> {
+  const pdfFile = await createPdfFromElement(options);
+  downloadBlob(pdfFile, pdfFile.name);
+  return pdfFile;
+}
+
+export async function printPdfFromElement(options: Omit<PdfShareOptions, 'phone' | 'message'>): Promise<File> {
+  const pdfFile = await createPdfFromElement(options);
+  printPdfFile(pdfFile);
+  return pdfFile;
 }
 
 export async function shareElementPdfToWhatsApp(options: PdfShareOptions): Promise<ShareResult> {

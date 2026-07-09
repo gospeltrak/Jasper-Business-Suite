@@ -12,6 +12,7 @@ import {
   getOnlineUsers, getVisitsInRange,
   OnlinePresenceEntry, VisitLogEntry,
 } from "../utils/userPresence";
+import jsPDF from "jspdf";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,44 +63,68 @@ function OnlineUserCard({ user }: { user: OnlinePresenceEntry }) {
 // ─── PDF Download ─────────────────────────────────────────────────────────────
 
 function downloadVisitsPdf(visits: VisitLogEntry[], rangeLabel: string) {
-  // Build a plain HTML string, then open in new tab for native print-to-PDF
-  const rows = visits.map((v, i) => {
-    const color = v.userType === "partner" ? "#d97706" : v.userType === "affiliate" ? "#059669" : "#2563eb";
-    return `<tr style="background:${i % 2 === 0 ? '#f8fafc' : '#fff'}">
-      <td style="padding:6px 10px;font-size:12px;font-weight:600;color:#1e293b">${v.userName}</td>
-      <td style="padding:6px 10px"><span style="background:${color}22;color:${color};font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;text-transform:uppercase">${v.userType}</span></td>
-      <td style="padding:6px 10px;font-size:12px;color:#475569">${v.date}</td>
-      <td style="padding:6px 10px;font-size:12px;color:#475569">${formatTime(v.firstSeenAt)}</td>
-      <td style="padding:6px 10px;font-size:12px;color:#475569">${formatTime(v.lastSeenAt)}</td>
-    </tr>`;
-  }).join('');
+  const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+  const margin = 42;
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  let y = margin;
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-  <title>Visit Report — ${rangeLabel}</title>
-  <style>
-    body{font-family:system-ui,sans-serif;margin:0;padding:20px;color:#1e293b;background:#fff}
-    h1{font-size:18px;font-weight:900;margin:0 0 4px}
-    p{font-size:12px;color:#64748b;margin:0 0 16px}
-    table{width:100%;border-collapse:collapse;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
-    thead{background:#0f172a;color:#fff}
-    th{padding:8px 10px;font-size:10px;font-weight:800;text-align:left;letter-spacing:.05em;text-transform:uppercase}
-    @media print{body{padding:0}button{display:none}}
-  </style></head><body>
-  <h1>Visit History Report</h1>
-  <p>Period: ${rangeLabel} &nbsp;·&nbsp; ${visits.length} records &nbsp;·&nbsp; Generated: ${new Date().toLocaleString()}</p>
-  <button onclick="window.print()" style="margin-bottom:16px;padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">🖨️ Print / Save as PDF</button>
-  <table><thead><tr>
-    <th>User</th><th>Type</th><th>Date</th><th>First Seen</th><th>Last Seen</th>
-  </tr></thead><tbody>${rows}</tbody></table>
-  </body></html>`;
+  const ensureSpace = (needed: number) => {
+    if (y + needed <= pageHeight - margin) return;
+    pdf.addPage();
+    y = margin;
+  };
 
-  const blob = new Blob([html], { type: "text/html" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = `visit-report-${rangeLabel.replace(/\s/g, "-")}.html`;
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(18);
+  pdf.text("Visit History Report", margin, y);
+  y += 20;
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.setTextColor("#64748b");
+  pdf.text(`Period: ${rangeLabel} | ${visits.length} records | Generated: ${new Date().toLocaleString()}`, margin, y);
+  y += 24;
+
+  const columns = [
+    { label: "User", width: 170 },
+    { label: "Type", width: 80 },
+    { label: "Date", width: 90 },
+    { label: "First Seen", width: 90 },
+    { label: "Last Seen", width: 90 },
+  ];
+
+  const drawHeader = () => {
+    pdf.setFillColor("#0f172a");
+    pdf.rect(margin, y - 12, pageWidth - margin * 2, 22, "F");
+    pdf.setTextColor("#ffffff");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    let x = margin + 6;
+    columns.forEach(col => {
+      pdf.text(col.label.toUpperCase(), x, y + 2);
+      x += col.width;
+    });
+    y += 18;
+  };
+
+  drawHeader();
+  visits.forEach((v, i) => {
+    ensureSpace(22);
+    if (y < margin + 5) drawHeader();
+    pdf.setFillColor(i % 2 === 0 ? "#f8fafc" : "#ffffff");
+    pdf.rect(margin, y - 10, pageWidth - margin * 2, 20, "F");
+    pdf.setTextColor("#1e293b");
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    let x = margin + 6;
+    [v.userName, v.userType, v.date, formatTime(v.firstSeenAt), formatTime(v.lastSeenAt)].forEach((cell, index) => {
+      pdf.text(String(cell || ""), x, y + 2, { maxWidth: columns[index].width - 8 });
+      x += columns[index].width;
+    });
+    y += 20;
+  });
+
+  pdf.save(`visit-report-${rangeLabel.replace(/\s/g, "-")}.pdf`);
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -244,7 +269,11 @@ export default function SaaSUserActivityView() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto">
-                {onlineUsers.map(u => <OnlineUserCard key={u.userId} user={u} />)}
+                {onlineUsers.map(u => (
+                  <React.Fragment key={u.userId}>
+                    <OnlineUserCard user={u} />
+                  </React.Fragment>
+                ))}
               </div>
             )}
           </div>

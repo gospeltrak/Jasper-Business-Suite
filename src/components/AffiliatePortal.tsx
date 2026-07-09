@@ -74,6 +74,7 @@ import {
   getTermsAcceptBtnText,
   renderTermsContent,
 } from "./TermsTranslations";
+import { downloadPdfFromElement } from "../utils/pdfShare";
 
 interface Affiliate {
   id: string;
@@ -2545,7 +2546,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                 return (
                   <div className="space-y-6 animate-fade-in text-left">
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg">
+                    <div id="affiliate-monthly-payout-pdf-template" className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg">
                       <div className="mb-6 flex flex-col md:flex-row md:justify-between border-b border-slate-800 pb-4">
                         <div>
                           <h3 className="text-sm uppercase font-mono font-bold text-teal-400 tracking-widest flex items-center gap-2">
@@ -2559,7 +2560,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row gap-2">
                           <button
                             type="button"
-                            onClick={() => window.print()}
+                            onClick={() => downloadPdfFromElement({
+                              elementId: "affiliate-monthly-payout-pdf-template",
+                              fileName: `affiliate-monthly-payout-summary-${new Date().toISOString().split("T")[0]}.pdf`,
+                              format: "a4"
+                            })}
                             className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-mono font-bold uppercase tracking-wider cursor-pointer inline-flex items-center justify-center gap-2 print:hidden"
                           >
                             Download Monthly Payout Summary
