@@ -3038,7 +3038,7 @@ export default function DashboardReports({
                 <div className="space-y-6">
                   
                   {/* Grid layout for stock positions & margin insights */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div className="mobile-tablet-kpi-grid gap-5" style={{ ['--desktop-kpi-columns' as any]: 'repeat(3, minmax(0, 1fr))' }}>
                     
                     {/* Live Stock distribution panel */}
                     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
@@ -3600,7 +3600,7 @@ export default function DashboardReports({
               </div>
 
               {/* 1. CHANNEL SUMMARY CARDS */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="mobile-tablet-kpi-grid gap-5" style={{ ['--desktop-kpi-columns' as any]: 'repeat(3, minmax(0, 1fr))' }}>
                 {/* Retail card */}
                 <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs hover:border-emerald-300 transition-all relative overflow-hidden group">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl opacity-40 group-hover:opacity-60 transition-opacity pointer-events-none" />

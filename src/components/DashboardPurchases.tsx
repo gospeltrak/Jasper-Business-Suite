@@ -469,16 +469,16 @@ export default function DashboardPurchases({
                 <Truck className="w-6 h-6 text-white" />
               </div>
             </div>
-            <div className="flex gap-2 mt-4">
-              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
+            <div className="mobile-tablet-kpi-grid gap-2 mt-4">
+              <div className="rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
                 <p className="text-emerald-300 text-[9px] font-bold uppercase tracking-wider">Delivered</p>
                 <p className="text-white font-black text-[13px] mt-0.5">{purchases.filter(p => p.deliveryStatus === 'Full order delivered').length}</p>
               </div>
-              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
+              <div className="rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
                 <p className="text-emerald-300 text-[9px] font-bold uppercase tracking-wider">Pending</p>
                 <p className="text-white font-black text-[13px] mt-0.5">{purchases.filter(p => p.deliveryStatus === 'Pending').length}</p>
               </div>
-              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
+              <div className="rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
                 <p className="text-emerald-300 text-[9px] font-bold uppercase tracking-wider">Unpaid</p>
                 <p className="text-white font-black text-[13px] mt-0.5">{purchases.filter(p => p.totalAmount - p.amountPaid > 0).length}</p>
               </div>
@@ -539,7 +539,7 @@ export default function DashboardPurchases({
         </div>
 
         {/* KPI cards row — compact, horizontal, with accent bar */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="mobile-tablet-kpi-grid gap-3" style={{ ['--desktop-kpi-columns' as any]: 'repeat(4, minmax(0, 1fr))' }}>
           {[
             {
               label: 'Total Purchased',

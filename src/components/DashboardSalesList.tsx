@@ -910,7 +910,7 @@ export default function DashboardSalesList({
         </div>
 
         {/* 3. KPI cards */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="mobile-tablet-kpi-grid gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(4, minmax(0, 1fr))' }}>
           {[
             { label: 'Total Sales', value: `${currency}${Math.round(totalVolume).toLocaleString()}`, sub: `${filteredSales.length} sales`, icon: <TrendingUp className="w-5 h-5" />, color: '#059669', iconBg: '#dcfce7' },
             { label: 'Credit Outstanding', value: `${currency}${Math.round(creditsVolume).toLocaleString()}`, sub: `${sales.filter(s=>s.paymentMethod==='Credit').length} credit sales`, icon: <CreditCard className="w-5 h-5" />, color: '#d97706', iconBg: '#fef3c7' },
@@ -1423,7 +1423,7 @@ export default function DashboardSalesList({
           <div className="space-y-6 animate-fade-in" id="debts-ledger-portal">
             
             {/* KPI metrics row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="mobile-tablet-kpi-grid gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(3, minmax(0, 1fr))' }}>
               <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
                 <p className="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none">Total Credit Credit-Sales</p>
                 <h4 className="text-xl font-black text-slate-800 dark:text-white mt-2">{currency}{Math.round(totalDebtIssued).toLocaleString()}</h4>

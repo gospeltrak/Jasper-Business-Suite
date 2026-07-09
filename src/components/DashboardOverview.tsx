@@ -88,6 +88,11 @@ export default function DashboardOverview({
   // Sales & Purchases status graph timeframe: 'today' | 'week' | 'month' | '3month' | 'year'
   const [statusTimeframe, setStatusTimeframe] = useState<'today' | 'week' | 'month' | '3month' | 'year'>('month');
 
+  const applyStatusTimeframe = (nextTimeframe: typeof statusTimeframe) => {
+    setStatusTimeframe(nextTimeframe);
+    setTimeframe(nextTimeframe);
+  };
+
   // Filter sales based on selected timeframe — exact date boundaries
   const filteredSales = useMemo(() => {
     const now = new Date();
@@ -588,11 +593,11 @@ export default function DashboardOverview({
         {/* Stat cards 2x2 grid */}
         <div className="grid grid-cols-2 gap-3">
           {[
-            { label: 'Total Orders', value: sales.filter((s:any) => new Date(s.timestamp).toDateString() === new Date().toDateString()).length, sub: `${filteredSales.reduce((sum:number,s:any)=>sum+(s.items?.reduce((a:number,i:any)=>a+(i.qty||0),0)||0),0)} items sold`, color: '#2196F3', up: true },
+            { label: 'Total Orders', value: filteredSales.length, sub: `${filteredSales.reduce((sum:number,s:any)=>sum+(s.items?.reduce((a:number,i:any)=>a+(i.qty||0),0)||0),0)} items sold`, color: '#2196F3', up: true },
             { label: `${timeframeLabel} Sales`, value: `${currency} ${Math.round(todayTotalRevenue).toLocaleString()}`, sub: todayTotalRevenue > 0 ? `↑ ${timeframeLabel}` : 'No sales yet', color: '#10B981', up: todayTotalRevenue > 0 },
             { label: 'Expenses', value: `${currency} ${Math.round(totalExpensesAmt).toLocaleString()}`, sub: 'Total spending', color: '#ef4444', up: false },
             { label: 'Profit', value: `${currency} ${Math.round(netProfit).toLocaleString()}`, sub: `${avgProfitMargin.toFixed(1)}% margin`, color: netProfit >= 0 ? '#00C853' : '#ef4444', up: netProfit >= 0 },
-            { label: 'Purchases', value: `${currency} ${Math.round(purchases.reduce((s:number,p:any)=>s+(p.total||p.amount||0),0)).toLocaleString()}`, sub: `${purchases.length} orders`, color: '#7c3aed', up: false },
+            { label: 'Purchases', value: `${currency} ${Math.round(simulatedPurchases).toLocaleString()}`, sub: `${filteredPurchases.length} orders`, color: '#7c3aed', up: false },
             { label: 'Dues Owed', value: `${currency} ${Math.round(filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').reduce((sum:number,s:any)=>sum+(s.dueAmount||s.amountDue||0),0)).toLocaleString()}`, sub: `${filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').length} unpaid`, color: '#f59e0b', up: false },
           ].map((card, i) => (
             <div key={i} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 shadow-sm">
@@ -1003,7 +1008,7 @@ export default function DashboardOverview({
             <div className="hidden xl:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto flex-nowrap border border-slate-200">
               <button
                 id="btn-timeframe-today"
-                onClick={() => setStatusTimeframe('today')}
+                onClick={() => applyStatusTimeframe('today')}
                 type="button"
                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all duration-150 cursor-pointer ${
                   statusTimeframe === 'today'
@@ -1015,7 +1020,7 @@ export default function DashboardOverview({
               </button>
               <button
                 id="btn-timeframe-week"
-                onClick={() => setStatusTimeframe('week')}
+                onClick={() => applyStatusTimeframe('week')}
                 type="button"
                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all duration-150 cursor-pointer ${
                   statusTimeframe === 'week'
@@ -1027,7 +1032,7 @@ export default function DashboardOverview({
               </button>
               <button
                 id="btn-timeframe-month"
-                onClick={() => setStatusTimeframe('month')}
+                onClick={() => applyStatusTimeframe('month')}
                 type="button"
                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all duration-150 cursor-pointer ${
                   statusTimeframe === 'month'
@@ -1039,7 +1044,7 @@ export default function DashboardOverview({
               </button>
               <button
                 id="btn-timeframe-3month"
-                onClick={() => setStatusTimeframe('3month')}
+                onClick={() => applyStatusTimeframe('3month')}
                 type="button"
                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all duration-150 cursor-pointer ${
                   statusTimeframe === '3month'
@@ -1051,7 +1056,7 @@ export default function DashboardOverview({
               </button>
               <button
                 id="btn-timeframe-year"
-                onClick={() => setStatusTimeframe('year')}
+                onClick={() => applyStatusTimeframe('year')}
                 type="button"
                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all duration-150 cursor-pointer ${
                   statusTimeframe === 'year'
@@ -1074,7 +1079,7 @@ export default function DashboardOverview({
               ].map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setStatusTimeframe(item.id as any)}
+                  onClick={() => applyStatusTimeframe(item.id as any)}
                   type="button"
                   className={`flex-1 py-1.5 px-0 rounded-lg text-[10px] min-[360px]:text-[11px] min-[400px]:text-xs font-semibold text-center whitespace-nowrap transition-all duration-150 cursor-pointer min-h-[34px] flex items-center justify-center ${
                     statusTimeframe === item.id

@@ -58,7 +58,7 @@ export default function SaaSDashboardMetrics() {
       )}
 
       {/* Top Value Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="mobile-tablet-kpi-grid gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(5, minmax(0, 1fr))' }}>
         {/* Subscribers Count */}
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
           <div className="p-3 rounded-xl bg-blue-500/10 text-blue-400">
@@ -104,7 +104,7 @@ export default function SaaSDashboardMetrics() {
         </div>
 
         {/* Balance Remaining */}
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4 lg:col-span-1 md:col-span-3">
+        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
           <div className="p-3 rounded-xl bg-indigo-500/10 text-indigo-400">
             <Landmark className="w-5 h-5" />
           </div>
