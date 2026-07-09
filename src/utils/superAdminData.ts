@@ -136,21 +136,44 @@ export async function loadSuperAdminOverview(): Promise<SuperAdminOverview> {
     console.warn('[SuperAdmin] API fallback to direct client:', apiErr?.message);
     try {
       const client: any = await getSecureDataBridgeClient();
-      const [tenantsRes, usersRes] = await Promise.all([
+      const [
+        tenantsRes,
+        usersRes,
+        workspacesRes,
+        sessionsRes,
+        affiliatesRes,
+        affiliatePartnersRes,
+        referralsRes,
+        sourceTrackingRes,
+        referredCustomersRes,
+        commissionsRes,
+        payoutsRes,
+      ] = await Promise.all([
         client.from('tenants').select('*').order('name', { ascending: true }),
         client.from('users').select('*').order('name', { ascending: true }),
+        client.from('tenant_workspaces').select('*'),
+        client.from('user_sessions').select('*').order('login_time', { ascending: false }),
+        client.from('affiliates').select('*').order('created_at', { ascending: false }),
+        client.from('affiliate_partners').select('*').order('created_at', { ascending: false }),
+        client.from('affiliate_referrals').select('*').order('created_at', { ascending: false }),
+        client.from('affiliate_source_tracking').select('*').order('created_at', { ascending: false }),
+        client.from('referred_customers').select('*').order('created_at', { ascending: false }),
+        client.from('affiliate_commissions').select('*').order('created_at', { ascending: false }),
+        client.from('affiliate_payouts').select('*').order('requested_at', { ascending: false }),
       ]);
       if (!tenantsRes.error && !usersRes.error) {
         overview = normalizeOverview({
           tenants: tenantsRes.data || [],
           users: usersRes.data || [],
-          workspaces: [],
-          sessions: [],
-          affiliates: [],
-          referrals: [],
-          sourceTracking: [],
-          commissions: [],
-          payouts: [],
+          workspaces: workspacesRes.error ? [] : workspacesRes.data || [],
+          sessions: sessionsRes.error ? [] : sessionsRes.data || [],
+          affiliates: affiliatesRes.error ? [] : affiliatesRes.data || [],
+          affiliatePartners: affiliatePartnersRes.error ? [] : affiliatePartnersRes.data || [],
+          referrals: referralsRes.error ? [] : referralsRes.data || [],
+          sourceTracking: sourceTrackingRes.error ? [] : sourceTrackingRes.data || [],
+          referredCustomers: referredCustomersRes.error ? [] : referredCustomersRes.data || [],
+          commissions: commissionsRes.error ? [] : commissionsRes.data || [],
+          payouts: payoutsRes.error ? [] : payoutsRes.data || [],
           auditLogs: [],
         });
       }
@@ -605,7 +628,7 @@ export function buildSuperAdminMetrics(overview: SuperAdminOverview): SuperAdmin
   const colors = ['#34d399', '#60a5fa', '#f87171', '#f59e0b', '#a78bfa', '#22d3ee'];
 
   return {
-    subscribersCount: users.length,
+    subscribersCount: safeOverview.tenants.length || users.length,
     activeTenants: safeOverview.tenants.length,
     activeSessions: safeOverview.sessions.filter((session) => session.is_active).length,
     totalIncome: platformRevenue,
