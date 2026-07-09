@@ -247,6 +247,15 @@ export async function deleteSuperAdminStaff(staffId: string) {
 const money = (value: unknown) => Number(value || 0);
 const formatDate = (value: unknown) => value ? new Date(String(value)).toISOString().slice(0, 10) : '';
 const formatDateTime = (value: unknown) => value ? new Date(String(value)).toISOString().replace('T', ' ').slice(0, 16) : '';
+const isPositivePaymentStatus = (value: unknown) => {
+  const status = String(value || '').trim().toLowerCase();
+  return ['paid', 'success', 'successful', 'completed', 'approved', 'active', 'verified'].some((token) => status.includes(token));
+};
+const isPlatformUser = (user: any) => {
+  const accountType = String(user?.account_type || '').toLowerCase();
+  const roleKey = String(user?.role_key || user?.role || '').toLowerCase();
+  return accountType === 'super_admin' || accountType === 'affiliate' || accountType === 'partner' || roleKey === 'super_admin' || Boolean(user?.is_saas_staff);
+};
 
 const getWorkspacePayload = (workspace: any) => {
   const payload = workspace?.payload;
@@ -363,8 +372,8 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
     usersByTenant.set(key, [...(usersByTenant.get(key) || []), user]);
   });
 
-  return safeOverview.users
-    .filter((user) => user.account_type !== 'super_admin' && user.account_type !== 'affiliate' && user.account_type !== 'partner')
+  const mappedUsers = safeOverview.users
+    .filter((user) => !isPlatformUser(user))
     .map((user) => {
       const tenantId = user.tenant_id ? String(user.tenant_id) : null;
       const tenant = tenantId ? tenantById.get(tenantId) : null;
@@ -490,15 +499,89 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
         paymentHistory: []
       };
     });
+
+  const representedTenantIds = new Set(mappedUsers.map((user) => user.tenantId).filter(Boolean).map(String));
+  const syntheticTenantUsers: SuperAdminUserRow[] = safeOverview.tenants
+    .filter((tenant) => tenant?.id && !representedTenantIds.has(String(tenant.id)))
+    .map((tenant) => {
+      const tenantId = String(tenant.id);
+      const sourceTrack = trackingByTenant.get(tenantId);
+      const referredRow = referredByTenant.get(tenantId);
+      const promoCodeUsed = referredRow?.promo_code_used || referredRow?.referral_code_used ||
+        sourceTrack?.promo_code_used || sourceTrack?.referral_code_used ||
+        tenant?.promo_code_used || tenant?.referral_code_used || '';
+      const linkedAffiliate = referredRow?.affiliate_id
+        ? affiliateById.get(String(referredRow.affiliate_id))
+        : promoCodeUsed ? affiliateByPromo.get(String(promoCodeUsed).toUpperCase()) : null;
+      const linkedPartner = referredRow?.parent_super_agent_id
+        ? partnerById.get(String(referredRow.parent_super_agent_id))
+        : null;
+      const lastActivity = tenant.updated_at || tenant.created_at || '';
+
+      return {
+        id: `tenant-${tenantId}`,
+        tenantId,
+        tenantName: tenant.name || tenant.business_name || 'Subscriber tenant',
+        name: tenant.owner_name || tenant.contact_name || tenant.name || tenant.business_name || 'Subscriber tenant',
+        username: tenant.phone || tenant.owner_phone || '',
+        email: tenant.owner_email || tenant.email || '',
+        phone: tenant.owner_phone || tenant.phone || '',
+        referralSource: promoCodeUsed ? 'affiliate' : 'direct',
+        referringAffiliate: promoCodeUsed || undefined,
+        referringAffiliateName: linkedAffiliate?.display_name || linkedAffiliate?.name || undefined,
+        referringPartnerName: linkedPartner?.name || linkedPartner?.display_name || undefined,
+        subscriberSourceType: (sourceTrack?.source_type || (promoCodeUsed ? 'sub_affiliate' : 'organic')) as SuperAdminUserRow['subscriberSourceType'],
+        promoCodeUsed: promoCodeUsed || undefined,
+        referralCodeUsed: sourceTrack?.referral_code_used || tenant.referral_code_used || undefined,
+        subAffiliateId: sourceTrack?.sub_affiliate_id || null,
+        subscriptionPlan: getTenantPlan(tenant),
+        paymentStatus: getPaymentStatus(tenant, {}),
+        paymentMethod: readTenantSettings(tenant)?.paymentMethod || 'Not recorded',
+        dateCreated: formatDate(tenant.created_at),
+        status: tenant.is_active === false ? 'Suspended' : 'Active',
+        ...resolveLocation(tenant, {}),
+        lastActivity,
+        lastActivityLabel: activityLabel(lastActivity),
+        trialStartDate: tenant?.trial_start_date || undefined,
+        trialEndDate: tenant?.trial_end_date || tenant?.trial_ends_at || undefined,
+        subscriptionStartDate: tenant?.subscription_start_date || undefined,
+        subscriptionEndDate: tenant?.subscription_end_date || undefined,
+        subscriptionStatus: tenant?.subscription_status || readTenantSettings(tenant)?.subscriptionStatus || 'unknown',
+        sessions: [],
+        transactions: [],
+        reports: [{
+          month: 'Current workspace',
+          profit: 0,
+          taxCollected: 0,
+          expenseTotal: 0
+        }],
+        stockRecords: [],
+        downlines: [],
+        messages: [],
+        paymentHistory: []
+      };
+    });
+
+  return [...mappedUsers, ...syntheticTenantUsers];
 }
 
 export function buildSuperAdminMetrics(overview: SuperAdminOverview): SuperAdminMetrics {
   const safeOverview = normalizeOverview(overview || EMPTY_SUPER_ADMIN_OVERVIEW);
   const users = mapSuperAdminUsers(safeOverview);
-  const totalWorkspaceRevenue = users.reduce((sum, user) => sum + user.transactions.reduce((sub, tx) => sub + tx.amount, 0), 0);
-  const affiliateRevenue = safeOverview.commissions.reduce((sum, row) => sum + money(row.gross_revenue), 0);
-  const affiliatePayouts = safeOverview.commissions.reduce((sum, row) => sum + money(row.net_payout || row.amount), 0);
-  const expenses = users.reduce((sum, user) => sum + user.reports.reduce((sub, report) => sub + report.expenseTotal, 0), 0);
+  const paidSubscriptionRevenue = safeOverview.referredCustomers
+    .filter((row) => isPositivePaymentStatus(row.payment_status || row.status))
+    .reduce((sum, row) => sum + money(row.amount_paid || row.amount || row.package_price), 0);
+  const paidTrackedRevenue = safeOverview.sourceTracking
+    .filter((row) => isPositivePaymentStatus(row.payment_status || row.subscription_status || row.status))
+    .reduce((sum, row) => sum + money(row.revenue_generated || row.amount_paid || row.amount), 0);
+  const paidCommissionRevenue = safeOverview.commissions
+    .filter((row) => isPositivePaymentStatus(row.payment_status || row.commission_status || row.status))
+    .reduce((sum, row) => sum + money(row.gross_revenue || row.amount_paid || row.amount), 0);
+  const platformRevenue = paidSubscriptionRevenue || paidTrackedRevenue || paidCommissionRevenue;
+  const affiliatePayouts = safeOverview.payouts
+    .filter((row) => isPositivePaymentStatus(row.status || row.payment_status))
+    .reduce((sum, row) => sum + money(row.amount || row.net_payout || row.payout_amount), 0);
+  const expenses = 0;
   const planCounts = new Map<string, number>();
   users.forEach((user) => planCounts.set(user.subscriptionPlan, (planCounts.get(user.subscriptionPlan) || 0) + 1));
 
@@ -525,10 +608,10 @@ export function buildSuperAdminMetrics(overview: SuperAdminOverview): SuperAdmin
     subscribersCount: users.length,
     activeTenants: safeOverview.tenants.length,
     activeSessions: safeOverview.sessions.filter((session) => session.is_active).length,
-    totalIncome: totalWorkspaceRevenue + affiliateRevenue,
+    totalIncome: platformRevenue,
     affiliatePayouts,
     expenses,
-    balance: totalWorkspaceRevenue + affiliateRevenue - affiliatePayouts - expenses,
+    balance: platformRevenue - affiliatePayouts - expenses,
     monthlyUsersByPackage: Array.from(monthMap.values()),
     packageDistribution: Array.from(planCounts.entries()).map(([name, value], index) => ({ name, value, color: colors[index % colors.length] })),
     organicVsAffiliate: Array.from(growthMap.values())
