@@ -4,7 +4,7 @@ import { useTheme } from '../ThemeContext';
 import { useTranslation } from '../LanguageContext';
 import { Tenant, Product, Sale } from '../types';
 import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitFormatter';
-import { useGlobalAdSettings } from '../utils/adPlacement';
+import { canShowDashboardAd, useGlobalAdSettings } from '../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../utils/safeHtml';
 import { 
   ResponsiveContainer, 
@@ -606,8 +606,7 @@ export default function DashboardOverview({
         {/* POS Hero Banner / Ad Placement */}
         {(() => {
           const adCode = adSettings.dashboardAdCode;
-          const adEnabled = adSettings.dashboardAdEnabled;
-          if (adCode && adEnabled) {
+          if (canShowDashboardAd(adSettings)) {
             return (
               <div className="flex min-h-[90px] w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
                 <div
@@ -949,8 +948,7 @@ export default function DashboardOverview({
       {/* ── QUICK ACTION / AD PLACEMENT — reads ad code from Web Editor if set ── */}
       {(() => {
         const adCode = adSettings.dashboardAdCode;
-        const adEnabled = adSettings.dashboardAdEnabled;
-        if (adCode && adEnabled) {
+        if (canShowDashboardAd(adSettings)) {
           return (
             <div className="hidden min-h-[90px] w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm xl:flex">
               <div

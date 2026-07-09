@@ -54,9 +54,9 @@ function readLegacySettings(): GlobalAdPlacementSettings {
 
   return {
     dashboardAdCode: dashboardAdCode === null ? DEFAULT_AD_SETTINGS.dashboardAdCode : dashboardAdCode,
-    dashboardAdEnabled: dashboardAdEnabled === null ? DEFAULT_AD_SETTINGS.dashboardAdEnabled : dashboardAdEnabled !== 'false',
+    dashboardAdEnabled: dashboardAdEnabled === null ? DEFAULT_AD_SETTINGS.dashboardAdEnabled : dashboardAdEnabled === 'true',
     bottomAdCode: bottomAdCode === null ? DEFAULT_AD_SETTINGS.bottomAdCode : bottomAdCode,
-    bottomAdEnabled: bottomAdEnabled === null ? DEFAULT_AD_SETTINGS.bottomAdEnabled : bottomAdEnabled !== 'false',
+    bottomAdEnabled: bottomAdEnabled === null ? DEFAULT_AD_SETTINGS.bottomAdEnabled : bottomAdEnabled === 'true',
   };
 }
 
@@ -68,7 +68,12 @@ function cacheLegacySettings(settings: GlobalAdPlacementSettings) {
 }
 
 export async function loadGlobalAdSettings(): Promise<GlobalAdPlacementSettings> {
-  const fallback = { ...DEFAULT_AD_SETTINGS, ...readLegacySettings() };
+  const legacy = readLegacySettings();
+  const fallback = {
+    ...DEFAULT_AD_SETTINGS,
+    dashboardAdCode: legacy.dashboardAdCode,
+    bottomAdCode: legacy.bottomAdCode,
+  };
   const settings = await loadPlatformRecord<GlobalAdPlacementSettings>('global_ad_placement', 'global', fallback);
   const normalized = { ...DEFAULT_AD_SETTINGS, ...settings };
   cacheLegacySettings(normalized);
@@ -88,7 +93,7 @@ export function notifyGlobalAdSettingsChanged() {
 }
 
 export function useGlobalAdSettings() {
-  const [settings, setSettings] = useState<GlobalAdPlacementSettings>(() => ({ ...DEFAULT_AD_SETTINGS, ...readLegacySettings() }));
+  const [settings, setSettings] = useState<GlobalAdPlacementSettings>(() => ({ ...DEFAULT_AD_SETTINGS }));
 
   useEffect(() => {
     let alive = true;
@@ -111,4 +116,16 @@ export function useGlobalAdSettings() {
   }, []);
 
   return settings;
+}
+
+export function canShowDashboardAd(settings: GlobalAdPlacementSettings) {
+  return Boolean(settings.dashboardAdEnabled && settings.dashboardAdCode?.trim());
+}
+
+export function canShowStickyBottomAd(settings: GlobalAdPlacementSettings) {
+  return Boolean(
+    settings.dashboardAdEnabled &&
+    settings.bottomAdEnabled &&
+    settings.bottomAdCode?.trim()
+  );
 }

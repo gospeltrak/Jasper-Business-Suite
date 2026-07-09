@@ -48,7 +48,7 @@ import {
   dbWrite,
   flushSyncQueue,
 } from '../../utils/offlineSync';
-import { useGlobalAdSettings } from '../../utils/adPlacement';
+import { canShowDashboardAd, useGlobalAdSettings } from '../../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../utils/safeHtml';
 import GlobalStickyAd from '../GlobalStickyAd';
 
@@ -582,7 +582,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
 
             {(() => {
               const adCode = adSettings.dashboardAdCode?.trim();
-              if (adSettings.dashboardAdEnabled && adCode) {
+              if (canShowDashboardAd(adSettings)) {
                 return (
                   <div className="flex min-h-[90px] w-full items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                     <div

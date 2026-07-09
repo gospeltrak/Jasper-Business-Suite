@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useGlobalAdSettings } from '../utils/adPlacement';
+import { canShowStickyBottomAd, useGlobalAdSettings } from '../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../utils/safeHtml';
 
 const STICKY_AD_RETURN_DELAY_MS = 45000;
@@ -29,7 +29,7 @@ export default function GlobalStickyAd({
   }, [hiddenUntil]);
 
   const bottomAdCode = adSettings.bottomAdCode?.trim();
-  if (!bottomAdCode || !adSettings.bottomAdEnabled || hiddenUntil > now) return null;
+  if (!canShowStickyBottomAd(adSettings) || hiddenUntil > now) return null;
 
   return (
     <div

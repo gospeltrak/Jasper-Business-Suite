@@ -34,7 +34,7 @@ import {
   flushSyncQueue,
   enqueueSyncItem,
 } from '../../utils/offlineSync';
-import { useGlobalAdSettings } from '../../utils/adPlacement';
+import { canShowDashboardAd, useGlobalAdSettings } from '../../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../utils/safeHtml';
 import GlobalStickyAd from '../GlobalStickyAd';
 import SaaSHardwarePOS from '../SaaSHardwarePOS';
@@ -1079,8 +1079,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
               {/* ── DASHBOARD AD PLACEMENT ── same slot as tenant dashboard ── */}
               {(() => {
                 const adCode = adSettings.dashboardAdCode;
-                const adEnabled = adSettings.dashboardAdEnabled;
-                if (!adCode || !adEnabled) return null;
+                if (!canShowDashboardAd(adSettings)) return null;
                 return (
                   <div className="w-full overflow-hidden rounded-2xl"
                     dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }} />

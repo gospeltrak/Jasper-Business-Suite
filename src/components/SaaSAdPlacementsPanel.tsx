@@ -59,6 +59,7 @@ export default function SaaSAdPlacementsPanel({ compact = false }: { compact?: b
   };
 
   const sectionShell = compact ? 'space-y-5' : 'mx-auto w-full max-w-5xl space-y-5 px-4 py-5 sm:px-6 lg:px-8 lg:py-8';
+  const stickyEffectivelyEnabled = dashboardAdEnabled && bottomAdEnabled;
 
   return (
     <div className={sectionShell}>
@@ -106,7 +107,10 @@ export default function SaaSAdPlacementsPanel({ compact = false }: { compact?: b
                 type="button"
                 onClick={() => {
                   const next = !dashboardAdEnabled;
-                  publishSettings({ ...currentSettings(), dashboardAdEnabled: next }, `Dashboard ad placement turned ${next ? 'ON' : 'OFF'}.`);
+                  publishSettings(
+                    { ...currentSettings(), dashboardAdEnabled: next, bottomAdEnabled: next ? bottomAdEnabled : false },
+                    `Dashboard ad placement turned ${next ? 'ON' : 'OFF'}.`
+                  );
                 }}
                 className={`relative h-7 w-14 rounded-full border-none transition-colors ${dashboardAdEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
                 aria-label="Toggle dashboard ad placement"
@@ -164,19 +168,21 @@ export default function SaaSAdPlacementsPanel({ compact = false }: { compact?: b
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <span className={`rounded-md px-2.5 py-1 text-[10px] font-black ${bottomAdEnabled ? 'bg-emerald-400/10 text-emerald-300' : 'bg-slate-800 text-slate-500'}`}>
-                {bottomAdEnabled ? 'ON' : 'OFF'}
+              <span className={`rounded-md px-2.5 py-1 text-[10px] font-black ${stickyEffectivelyEnabled ? 'bg-emerald-400/10 text-emerald-300' : 'bg-slate-800 text-slate-500'}`}>
+                {stickyEffectivelyEnabled ? 'ON' : 'OFF'}
               </span>
               <button
                 type="button"
+                disabled={!dashboardAdEnabled}
                 onClick={() => {
                   const next = !bottomAdEnabled;
                   publishSettings({ ...currentSettings(), bottomAdEnabled: next }, `Sticky bottom ad turned ${next ? 'ON' : 'OFF'}.`);
                 }}
-                className={`relative h-7 w-14 rounded-full border-none transition-colors ${bottomAdEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                className={`relative h-7 w-14 rounded-full border-none transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${stickyEffectivelyEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
                 aria-label="Toggle sticky bottom ad"
+                title={!dashboardAdEnabled ? 'Turn Dashboard Ad Placement ON first.' : 'Toggle sticky bottom ad'}
               >
-                <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${bottomAdEnabled ? 'translate-x-7' : 'translate-x-1'}`} />
+                <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${stickyEffectivelyEnabled ? 'translate-x-7' : 'translate-x-1'}`} />
               </button>
             </div>
           </div>
