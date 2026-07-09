@@ -172,6 +172,14 @@
     <!-- PWA Service Worker Registration -->
     <script>
       if ('serviceWorker' in navigator) {
+        var jasperRefreshingForServiceWorker = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          if (jasperRefreshingForServiceWorker || sessionStorage.getItem('jasper_sw_refresh_v1')) return;
+          jasperRefreshingForServiceWorker = true;
+          sessionStorage.setItem('jasper_sw_refresh_v1', '1');
+          window.location.reload();
+        });
+
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
             .then((registration) => {

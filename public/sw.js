@@ -1,5 +1,5 @@
 // Jasper Business Suite Service Worker (Premium POS/ERP Offline-First Support)
-const CACHE_NAME = 'jasper-pos-cache-v5';
+const CACHE_NAME = 'jasper-pos-cache-v6';
 const NAVIGATION_CACHE_KEY = '/__jasper-navigation-shell__';
 
 // Assets to cache immediately on SW install
@@ -36,17 +36,7 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    }).then(() => self.clients.claim()).then(async () => {
-      const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      await Promise.all(
-        clientsList.map((client) => {
-          if ('navigate' in client && client.url) {
-            return client.navigate(client.url).catch(() => undefined);
-          }
-          return Promise.resolve();
-        })
-      );
-    })
+    }).then(() => self.clients.claim())
   );
 });
 
@@ -94,6 +84,19 @@ self.addEventListener('fetch', (event) => {
             contentType.includes('application/wasm');
 
           if (!networkResponse.ok || !isExpectedAsset) {
+            if (event.request.destination === 'script' || url.pathname.endsWith('.js')) {
+              return new Response(
+                "if(!sessionStorage.getItem('jasper_asset_refresh_v1')){sessionStorage.setItem('jasper_asset_refresh_v1','1');location.reload();}",
+                {
+                  status: 200,
+                  headers: new Headers({
+                    'Content-Type': 'application/javascript; charset=utf-8',
+                    'Cache-Control': 'no-store'
+                  })
+                }
+              );
+            }
+
             return new Response('Asset not found', {
               status: 404,
               statusText: 'Not Found',
