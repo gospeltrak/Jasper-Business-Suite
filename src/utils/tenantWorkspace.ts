@@ -55,6 +55,21 @@ const normalizeWorkspace = (workspace: Partial<TenantWorkspace> | null | undefin
   };
 };
 
+export const workspaceHasBusinessData = (workspace: Partial<TenantWorkspace> | null | undefined): boolean => {
+  if (!workspace) return false;
+  return [
+    workspace.products,
+    workspace.sales,
+    workspace.expenses,
+    workspace.deliveries,
+    workspace.pendingDeliveryNotes,
+    workspace.purchases,
+    workspace.branches,
+    workspace.branchStocks,
+    workspace.branchStaffAssignments,
+  ].some((entry) => Array.isArray(entry) && entry.length > 0);
+};
+
 // ─── Check if Supabase is configured ───────────────────────────────────────
 
 async function getConfiguredClient(): Promise<any | null> {
@@ -96,6 +111,19 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 
     const safe = normalizeWorkspace(data.payload as TenantWorkspace);
     if (!safe) return fallback;
+    if (!workspaceHasBusinessData(safe) && workspaceHasBusinessData(fallback)) {
+      client
+        .from('tenant_workspaces')
+        .upsert(
+          { tenant_id: tenantId, payload: fallback, updated_at: new Date().toISOString() },
+          { onConflict: 'tenant_id' }
+        )
+        .then(({ error }: any) => {
+          if (error) console.warn('[workspace] recovery save error:', error.message);
+        })
+        .catch((error: any) => console.warn('[workspace] recovery save exception:', error?.message || error));
+      return fallback;
+    }
     cacheWorkspace(tenantId, safe);
     return safe;
   } catch (e) {

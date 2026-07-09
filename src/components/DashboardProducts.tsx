@@ -1668,8 +1668,8 @@ export default function DashboardProducts({
           Desktop: horizontal pill tabs — clean and fast
       ──────────────────────────────────────────────────────────────── */}
 
-      {/* MOBILE: 2×2 grid */}
-      <div className="xl:hidden grid grid-cols-2 gap-3 px-0">
+      {/* MOBILE/TABLET: 2×2 grid */}
+      <div className="xl:hidden grid grid-cols-2 auto-rows-fr gap-3 px-0 w-full">
         {[
           { id: 'catalog',  icon: '📦', label: 'Product List',     sub: 'View all products' },
           { id: 'category', icon: '📁', label: 'Categories',        sub: 'Browse by type' },
@@ -1681,7 +1681,7 @@ export default function DashboardProducts({
             <button
               key={tab.id}
               onClick={() => handleTabSwitch(tab.id as any)}
-              className="relative flex flex-col items-center justify-center py-4 px-3 rounded-2xl text-center transition-all active:scale-95"
+              className="relative flex min-w-0 flex-col items-center justify-center py-4 px-2 sm:px-3 rounded-2xl text-center transition-all active:scale-95"
               style={{
                 background: active ? '#059669' : '#ffffff',
                 border: active ? '2px solid #059669' : '2px solid #f1f5f9',
@@ -1692,7 +1692,7 @@ export default function DashboardProducts({
                 <div className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-emerald-400" />
               )}
               <span className="text-2xl mb-1.5 leading-none">{tab.icon}</span>
-              <span className="text-[12px] font-extrabold leading-tight" style={{ color: active ? '#ffffff' : '#475569' }}>
+              <span className="text-[11px] sm:text-[12px] font-extrabold leading-tight break-words" style={{ color: active ? '#ffffff' : '#475569' }}>
                 {tab.label}
               </span>
               <span className="text-[10px] mt-0.5 font-medium" style={{ color: active ? 'rgba(255,255,255,0.6)' : '#94a3b8' }}>

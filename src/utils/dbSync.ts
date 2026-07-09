@@ -30,6 +30,16 @@ function localKey(tenantId: string, dataKey: string): string {
   return `jasper_${dataKey}_${tenantId}`;
 }
 
+function payloadHasRecords(payload: any): boolean {
+  if (Array.isArray(payload)) return payload.length > 0;
+  if (!payload || typeof payload !== 'object') return payload !== undefined && payload !== null && payload !== '';
+  return Object.values(payload).some((value) => {
+    if (Array.isArray(value)) return value.length > 0;
+    if (!value || typeof value !== 'object') return value !== undefined && value !== null && value !== '';
+    return Object.keys(value).length > 0;
+  });
+}
+
 // ─── Core push/pull ──────────────────────────────────────────────────────────
 
 /**
@@ -142,14 +152,25 @@ export async function syncOnLogin(tenantId: string): Promise<void> {
   if (!tenantId) return;
   const cloudData = await pullAllFromCloud(tenantId);
   if (!cloudData || Object.keys(cloudData).length === 0) {
-    // No cloud data yet — push whatever is in localStorage to cloud
-    await syncLocalToCloud(tenantId);
+    // tenant_workspaces is the canonical workspace store. If legacy tenant_data
+    // is empty, never push empty browser cache over the user's cloud workspace.
+    await syncLocalToCloud(tenantId, { onlyMeaningfulPayloads: true });
     return;
   }
   // Write all cloud data to localStorage
   for (const [dataKey, payload] of Object.entries(cloudData)) {
     try {
-      localStorage.setItem(localKey(tenantId, dataKey), JSON.stringify(payload));
+      const key = localKey(tenantId, dataKey);
+      const existingRaw = localStorage.getItem(key);
+      if (!payloadHasRecords(payload) && existingRaw) {
+        try {
+          const existingPayload = JSON.parse(existingRaw);
+          if (payloadHasRecords(existingPayload)) continue;
+        } catch {
+          // If the local value is corrupt, let the cloud value replace it.
+        }
+      }
+      localStorage.setItem(key, JSON.stringify(payload));
     } catch (e) {}
   }
 }
@@ -157,7 +178,7 @@ export async function syncOnLogin(tenantId: string): Promise<void> {
 /**
  * Pushes all local data to cloud (used when user has local data but no cloud data yet).
  */
-async function syncLocalToCloud(tenantId: string): Promise<void> {
+async function syncLocalToCloud(tenantId: string, options: { onlyMeaningfulPayloads?: boolean } = {}): Promise<void> {
   const dataKeys = [
     'settings', 'products_map', 'sales_map', 'expenses_map',
     'channels', 'pending_delivery_notes_map', 'purchases_map'
@@ -167,6 +188,7 @@ async function syncLocalToCloud(tenantId: string): Promise<void> {
       const raw = localStorage.getItem(localKey(tenantId, dataKey));
       if (raw) {
         const payload = JSON.parse(raw);
+        if (options.onlyMeaningfulPayloads && !payloadHasRecords(payload)) continue;
         await pushToCloud(tenantId, dataKey, payload);
       }
     } catch (e) {}

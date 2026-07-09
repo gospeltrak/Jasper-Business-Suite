@@ -39,7 +39,7 @@ import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
 import { savePendingSaleOffline, clearPendingSales } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
-import { flushPendingTenantWorkspace, loadTenantWorkspace, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace } from '../utils/tenantWorkspace';
+import { flushPendingTenantWorkspace, loadTenantWorkspace, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
 import { 
@@ -562,6 +562,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     hasVat?: boolean;
   } | null>(null);
   const [workspaceReady, setWorkspaceReady] = useState(false);
+  const cloudWorkspaceLoadedRef = useRef(false);
   const localWorkspaceChangedAtRef = useRef(0);
   const skipNextWorkspaceSaveRef = useRef(false);
   const LOCAL_WORKSPACE_PROTECTION_MS = 12000;
@@ -594,6 +595,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     let active = true;
     let unsubscribe = () => undefined;
     let refreshInFlight = false;
+    cloudWorkspaceLoadedRef.current = false;
     localWorkspaceChangedAtRef.current = 0;
     setWorkspaceReady(false);
 
@@ -656,7 +658,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       try {
         await flushPendingTenantWorkspace(activeTenant.id);
         const workspace = await loadTenantWorkspace(activeTenant.id);
-        if (workspace) applyWorkspace(workspace);
+        if (workspace) {
+          cloudWorkspaceLoadedRef.current = true;
+          applyWorkspace(workspace);
+        }
       } finally {
         refreshInFlight = false;
       }
@@ -664,7 +669,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
     loadTenantWorkspace(activeTenant.id).then((workspace) => {
       if (!active) return;
-      if (workspace) applyWorkspace(workspace);
+      if (workspace) {
+        cloudWorkspaceLoadedRef.current = true;
+        applyWorkspace(workspace);
+      }
       setWorkspaceReady(true);
     });
 
@@ -711,6 +719,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
       purchases:            purchasesMap[activeTenant.id]            || [],
     };
+    if (!cloudWorkspaceLoadedRef.current && !workspaceHasBusinessData(workspace)) {
+      return;
+    }
     const timer = window.setTimeout(() => saveTenantWorkspace(activeTenant.id, workspace), 450);
     return () => window.clearTimeout(timer);
   }, [workspaceReady, activeTenant.id, branchesMap, branchStocksMap, branchStaffAssignmentsMap, productsMap, salesMap, expensesMap, systemSettings, deliveriesMap, pendingDeliveryNotesMap, purchasesMap]);
