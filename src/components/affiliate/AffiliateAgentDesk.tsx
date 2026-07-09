@@ -84,6 +84,7 @@ const NAV_TABS: { id: DashTab; label: string; icon: any; desc: string }[] = [
   { id: 'hw-inventory',   label: 'Hardware Inventory',     icon: HardDrive,     desc: 'Devices in network' },
   { id: 'settings',       label: 'Settings',               icon: Settings,      desc: 'Profile & preferences' },
 ];
+const MOBILE_PRIMARY_TAB_IDS: DashTab[] = ['overview', 'affiliates', 'customers'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -474,7 +475,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       partnerSupabaseUserId,
       partnerCode,
     ].map((value) => String(value || '').trim()).filter(Boolean)));
-    const affiliateColumns = 'id, user_id, display_name, promo_code, referral_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, total_revenue, gross_commission, withholding_tax, net_payout, customers_count, is_disabled, status, created_at, parent_super_agent_id';
+    const affiliateColumns = 'id, user_id, display_name, promo_code, referral_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, total_revenue, gross_commission, withholding_tax, net_payout, customers_count, is_disabled, status, created_at, parent_super_agent_id, parent_agent_id';
     const mapDbAffiliate = (a: any): SubAffiliateProfile => {
       const revenue = 0;
       const gross = 0;
@@ -486,7 +487,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       return {
         id: a.id,
         userId: a.user_id,
-        parentSuperAgentId: String(a.parent_super_agent_id || partnerId),
+        parentSuperAgentId: String(a.parent_super_agent_id || a.parent_agent_id || partnerId),
         name: displayName,
         phone: a.phone_whatsapp || '',
         email: '',
@@ -515,9 +516,12 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
       const client: any = await getSecureDataBridgeClient();
       let dbRows: any[] = [];
+      let authUserId = '';
+
+      const { data: authUser } = await client.auth.getUser();
+      if (authUser?.user) authUserId = authUser.user.id;
 
       if (!resolvedPartnerId) {
-        const { data: authUser } = await client.auth.getUser();
         if (authUser?.user) {
           const { data: partnerRow } = await client
             .from('affiliate_partners')
@@ -528,13 +532,21 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         }
       }
 
-      const dbCandidates = Array.from(new Set([...parentCandidates, resolvedPartnerId].filter(Boolean)));
+      const dbCandidates = Array.from(new Set([...parentCandidates, resolvedPartnerId, authUserId].filter(Boolean)));
       const dbUuidCandidates = dbCandidates.filter(isUuidLike);
 
       if (dbUuidCandidates.length) {
         const { data } = await client.from('affiliates')
           .select(affiliateColumns)
           .in('parent_super_agent_id', dbUuidCandidates)
+          .order('created_at', { ascending: false });
+        dbRows = data || [];
+      }
+
+      if (dbRows.length === 0 && dbUuidCandidates.length) {
+        const { data } = await client.from('affiliates')
+          .select(affiliateColumns)
+          .in('parent_agent_id', dbUuidCandidates)
           .order('created_at', { ascending: false });
         dbRows = data || [];
       }
@@ -548,7 +560,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         const allAffiliates = allRows || [];
         // Only show affiliates strictly matching this partner's candidates — no fallback to all
         const strictMatches = allAffiliates.filter((a: any) =>
-          dbCandidates.includes(String(a.parent_super_agent_id || '').trim())
+          dbCandidates.includes(String(a.parent_super_agent_id || '').trim()) ||
+          dbCandidates.includes(String(a.parent_agent_id || '').trim())
         );
         if (strictMatches.length > 0) {
           dbRows = strictMatches;
@@ -1827,7 +1840,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       <nav className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-slate-900/95 backdrop-blur border-t border-slate-800"
         style={{ height: 'calc(60px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-stretch h-[60px]">
-          {NAV_TABS.slice(0, 3).map(tab => {
+          {NAV_TABS.filter((tab) => MOBILE_PRIMARY_TAB_IDS.includes(tab.id)).map(tab => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
             return (
@@ -1845,8 +1858,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           })}
           {/* More button for the remaining partner tools */}
           <button onClick={() => setMoreOpen(true)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 cursor-pointer border-none bg-transparent transition-all ${NAV_TABS.slice(3).some(tab => tab.id === activeTab) || moreOpen ? 'text-amber-400' : 'text-slate-500'}`}>
-            <div className={`flex items-center justify-center w-7 h-6 rounded-lg ${NAV_TABS.slice(3).some(tab => tab.id === activeTab) || moreOpen ? 'bg-amber-500/15' : ''}`}>
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 cursor-pointer border-none bg-transparent transition-all ${NAV_TABS.some(tab => !MOBILE_PRIMARY_TAB_IDS.includes(tab.id) && tab.id === activeTab) || moreOpen ? 'text-amber-400' : 'text-slate-500'}`}>
+            <div className={`flex items-center justify-center w-7 h-6 rounded-lg ${NAV_TABS.some(tab => !MOBILE_PRIMARY_TAB_IDS.includes(tab.id) && tab.id === activeTab) || moreOpen ? 'bg-amber-500/15' : ''}`}>
               <Menu className="w-5 h-5" strokeWidth={1.8} />
             </div>
             <span className="text-[8px] font-bold leading-none">More</span>
@@ -1863,7 +1876,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-5" />
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">More Options</p>
             <div className="grid grid-cols-3 gap-4">
-              {NAV_TABS.slice(3).map((item, index) => {
+              {NAV_TABS.filter((item) => !MOBILE_PRIMARY_TAB_IDS.includes(item.id)).map((item, index) => {
                 const Icon = item.icon;
                 const colors = ['bg-blue-600', 'bg-emerald-600', 'bg-cyan-600', 'bg-violet-600', 'bg-orange-500', 'bg-slate-700'];
                 return (

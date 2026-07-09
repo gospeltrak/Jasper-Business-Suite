@@ -396,16 +396,21 @@ export async function loadAffiliateAgentWorkspace(): Promise<AffiliateAgentWorks
   const { data: authData, error: authError } = await client.auth.getUser();
   if (authError || !authData?.user) return null;
 
-  const [{ data: profile, error: profileError }, { data: assignments, error: assignmentError }] = await Promise.all([
+  const [{ data: profile, error: profileError }, { data: partnerProfile }, { data: assignments, error: assignmentError }] = await Promise.all([
     client.from('users').select('name').eq('id', authData.user.id).maybeSingle(),
-    client.from('affiliate_agent_assignments').select('affiliate:affiliates(id, display_name, referral_code, status)').is('ended_at', null).order('assigned_at', { ascending: false }),
+    client.from('affiliate_partners').select('id, display_name, promo_code').eq('user_id', authData.user.id).maybeSingle(),
+    client.from('affiliate_agent_assignments')
+      .select('affiliate:affiliates(id, display_name, referral_code, promo_code, status)')
+      .eq('agent_user_id', authData.user.id)
+      .is('ended_at', null)
+      .order('assigned_at', { ascending: false }),
   ]);
   if (profileError || assignmentError) throw profileError || assignmentError;
   const affiliates = asArray<any>(assignments)
     .map((assignment) => assignment.affiliate)
     .filter(Boolean)
     .filter((affiliate, index, all) => all.findIndex((candidate) => candidate.id === affiliate.id) === index) as ManagedAffiliate[];
-  return { agentName: profile?.name || authData.user.email || 'Agent', affiliates };
+  return { agentName: partnerProfile?.display_name || profile?.name || authData.user.email || 'Agent', affiliates };
 }
 
 export async function createAffiliateTask(input: {
