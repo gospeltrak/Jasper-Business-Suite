@@ -1,10 +1,9 @@
 // Jasper Business Suite Service Worker (Premium POS/ERP Offline-First Support)
-const CACHE_NAME = 'jasper-pos-cache-v4';
+const CACHE_NAME = 'jasper-pos-cache-v5';
+const NAVIGATION_CACHE_KEY = '/__jasper-navigation-shell__';
 
 // Assets to cache immediately on SW install
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
   '/manifest.json',
   '/jb-logo.png',
   '/jasper_logo_transparent.png',
@@ -37,10 +36,18 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
+    }).then(() => self.clients.claim()).then(async () => {
+      const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      await Promise.all(
+        clientsList.map((client) => {
+          if ('navigate' in client && client.url) {
+            return client.navigate(client.url).catch(() => undefined);
+          }
+          return Promise.resolve();
+        })
+      );
     })
   );
-  // Claim all active client tabs
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
@@ -59,13 +66,53 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put('/', copy));
+          const contentType = response.headers.get('content-type') || '';
+          if (response.ok && contentType.includes('text/html')) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(NAVIGATION_CACHE_KEY, copy));
+          }
           return response;
         })
         .catch(async () => {
           const cache = await caches.open(CACHE_NAME);
-          return (await cache.match('/')) || (await cache.match('/index.html'));
+          return (await cache.match(NAVIGATION_CACHE_KEY)) || (await cache.match('/index.html'));
+        })
+    );
+    return;
+  }
+
+  if (url.origin === self.location.origin && url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          const contentType = networkResponse.headers.get('content-type') || '';
+          const isExpectedAsset =
+            contentType.includes('javascript') ||
+            contentType.includes('text/css') ||
+            contentType.includes('font/') ||
+            contentType.includes('image/') ||
+            contentType.includes('application/wasm');
+
+          if (!networkResponse.ok || !isExpectedAsset) {
+            return new Response('Asset not found', {
+              status: 404,
+              statusText: 'Not Found',
+              headers: new Headers({ 'Content-Type': 'text/plain' })
+            });
+          }
+
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+          return networkResponse;
+        })
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          return new Response('Workspace Offline: Connectivity required to retrieve this asset.', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: new Headers({ 'Content-Type': 'text/plain' })
+          });
         })
     );
     return;
@@ -91,7 +138,13 @@ self.addEventListener('fetch', (event) => {
 
       return fetch(event.request).then((networkResponse) => {
         // Cache newly requested web assets dynamically
-        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+        const contentType = networkResponse.headers.get('content-type') || '';
+        if (
+          networkResponse &&
+          networkResponse.status === 200 &&
+          networkResponse.type === 'basic' &&
+          !contentType.includes('text/html')
+        ) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);

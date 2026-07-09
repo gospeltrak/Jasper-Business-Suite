@@ -176,6 +176,9 @@
           navigator.serviceWorker.register('/sw.js')
             .then((registration) => {
               console.log('Jasper PWA Service Worker registered securely with scope:', registration.scope);
+              registration.update().catch((error) => {
+                console.warn('Service Worker update check failed:', error);
+              });
             })
             .catch((error) => {
               console.error('Service Worker registration failed:', error);
