@@ -1395,7 +1395,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
         <div className="fixed inset-0 z-40 bg-slate-950/35 lg:hidden" onClick={() => setMobileMoreOpen(false)}>
           <section className="absolute inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-200" />
-            <div className="grid grid-cols-3 gap-3">
+            <div className="mobile-more-features-grid gap-3">
               {mobileMoreNav.map(([id, label, Icon]) => (
                 <button key={id} type="button" onClick={() => { setActiveTab(id); setMobileMoreOpen(false); }} className={`grid gap-1 rounded-xl border px-2 py-3 text-center text-[11px] font-bold ${activeTab === id ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-100 text-slate-600'}`}>
                   <Icon className="mx-auto h-5 w-5" />{label}

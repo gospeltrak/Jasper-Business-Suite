@@ -3148,7 +3148,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           <div className="flex-1 overflow-y-auto pb-24">
             <div className="px-5 pt-5 pb-2">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">All Features</p>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="mobile-more-features-grid gap-4">
                 {(user.role === 'SuperAdmin' ? [
                   // ── Super SaaS Admin more menu ─────────────────────
                   { id: 'admin-dashboard',   label: 'Dashboard',  icon: LayoutDashboard, bg: 'bg-emerald-600' },

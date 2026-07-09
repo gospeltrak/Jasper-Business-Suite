@@ -1875,7 +1875,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-5" />
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">More Options</p>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="mobile-more-features-grid gap-4">
               {NAV_TABS.filter((item) => !MOBILE_PRIMARY_TAB_IDS.includes(item.id)).map((item, index) => {
                 const Icon = item.icon;
                 const colors = ['bg-blue-600', 'bg-emerald-600', 'bg-cyan-600', 'bg-violet-600', 'bg-orange-500', 'bg-slate-700'];

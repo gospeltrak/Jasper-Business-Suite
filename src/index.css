@@ -1240,6 +1240,11 @@ button:active:not(:disabled),
   min-width: max-content;
 }
 
+.mobile-more-features-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
 #dashboard-scaffold {
   height: 100vh;
   height: 100dvh;
