@@ -153,6 +153,15 @@ function isUuidLike(value?: string | null): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 }
 
+function normalizeReferralCode(value?: string | null): string {
+  return String(value || '').trim().toUpperCase();
+}
+
+function isPaidReferralStatus(value?: string | null): boolean {
+  const status = String(value || '').trim().toLowerCase();
+  return ['paid', 'success', 'successful', 'completed', 'approved', 'verified'].some((token) => status.includes(token));
+}
+
 function uniqueBySubAffiliate(rows: SubAffiliateProfile[]): SubAffiliateProfile[] {
   const seen = new Set<string>();
   return rows.filter((row) => {
@@ -461,13 +470,14 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     const partnerSupabaseUserId = partnerInfo?.supabaseUserId || partnerInfo?.user_id || '';
     const parentCandidates = Array.from(new Set([
       partnerId,
+      partnerInfo?.id,
       partnerSupabaseUserId,
       partnerCode,
     ].map((value) => String(value || '').trim()).filter(Boolean)));
     const affiliateColumns = 'id, user_id, display_name, promo_code, referral_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, total_revenue, gross_commission, withholding_tax, net_payout, customers_count, is_disabled, status, created_at, parent_super_agent_id';
     const mapDbAffiliate = (a: any): SubAffiliateProfile => {
-      const revenue = numberValue(a.total_revenue);
-      const gross = a.gross_commission ? numberValue(a.gross_commission) : revenue * 0.15;
+      const revenue = 0;
+      const gross = 0;
       const tinNumber = a.tin_number || '';
       // Use phone as display name if display_name is missing — never show fake names
       const displayName = a.display_name && a.display_name.trim()
@@ -482,11 +492,11 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         email: '',
         promoCode: a.promo_code || a.referral_code || '',
         status: a.is_disabled ? 'suspended' : 'active',
-        customersGenerated: a.customers_count || 0,
+        customersGenerated: 0,
         revenueGenerated: revenue,
         grossCommission15: gross,
-        withholdingTax5: gross * 0.05,
-        netPayout: a.net_payout ? numberValue(a.net_payout) : gross,
+        withholdingTax5: 0,
+        netPayout: gross,
         tinNumber,
         tinStatus: normalizeTinStatus(tinNumber, a.tin_status),
         pendingCommission: gross,
@@ -554,13 +564,12 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     // Sarah Tunde, Jane Tunde, etc.) written by AffiliatePortal during demos.
     // Only Supabase DB data is trusted. If DB returns zero rows, show empty state.
 
-    setSubAffiliates(mapped);
-
     // Load tenants referred by sub-affiliates under this agent.
     // Agent's promo code is only for recruiting sub-affiliates — NOT for tenants.
     // Tenants are referred by SUB-AFFILIATES using their own promo codes.
     // referred_customers.parent_super_agent_id = agent's affiliate_partners.id
     // referred_customers.sub_affiliate_id = the sub-affiliate who brought the tenant
+    let finalSubAffiliates = mapped;
     try {
       const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
       const client: any = await getSecureDataBridgeClient();
@@ -570,12 +579,13 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         : resolvedPartnerId || '';
 
       let referredRows: any[] = [];
+      const referralColumns = 'id, tenant_id, customer_id, customer_name, phone_number, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, sub_affiliate_id, created_at';
 
       if (agentRowId) {
         // Primary path: all tenants whose sub-affiliate belongs to this agent
         const { data } = await client
           .from('referred_customers')
-          .select('id, tenant_id, customer_id, customer_name, phone_number, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, sub_affiliate_id, created_at')
+          .select(referralColumns)
           .eq('parent_super_agent_id', agentRowId)
           .order('created_at', { ascending: false });
         referredRows = data || [];
@@ -587,7 +597,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       if (subIds.length && referredRows.length === 0) {
         const { data } = await client
           .from('referred_customers')
-          .select('id, tenant_id, customer_id, customer_name, phone_number, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, sub_affiliate_id, created_at')
+          .select(referralColumns)
           .in('sub_affiliate_id', subIds)
           .order('created_at', { ascending: false });
         referredRows = data || [];
@@ -599,7 +609,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         if (subPromoCodes.length) {
           const { data: byPromo1 } = await client
             .from('referred_customers')
-            .select('id, tenant_id, customer_id, customer_name, phone_number, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, sub_affiliate_id, created_at')
+            .select(referralColumns)
             .in('promo_code_used', subPromoCodes)
             .order('created_at', { ascending: false });
           if (byPromo1?.length) referredRows = byPromo1;
@@ -627,6 +637,61 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         }
       }
 
+      const referredSubIds = Array.from(new Set(
+        referredRows.map((row: any) => String(row.sub_affiliate_id || '').trim()).filter(isUuidLike)
+      ));
+      const knownSubIds = new Set(mapped.map((aff) => aff.id));
+      const missingSubIds = referredSubIds.filter((id) => !knownSubIds.has(id));
+      if (missingSubIds.length) {
+        const { data: linkedRows } = await client
+          .from('affiliates')
+          .select(affiliateColumns)
+          .in('id', missingSubIds)
+          .order('created_at', { ascending: false });
+        if (linkedRows?.length) {
+          mapped = uniqueBySubAffiliate([...mapped, ...linkedRows.map(mapDbAffiliate)]);
+        }
+      }
+
+      const subIdByCode = new Map<string, string>();
+      for (const aff of mapped) {
+        const code = normalizeReferralCode(aff.promoCode);
+        if (code) subIdByCode.set(code, aff.id);
+      }
+
+      const getSubAffiliateIdForRow = (row: any): string => {
+        const directId = String(row.sub_affiliate_id || '').trim();
+        if (directId) return directId;
+        const code = normalizeReferralCode(row.promo_code_used || row.referral_code_used);
+        return code ? subIdByCode.get(code) || '' : '';
+      };
+
+      const totalsBySubAffiliate = new Map<string, { customers: number; paidRevenue: number }>();
+      for (const row of referredRows) {
+        const subAffiliateId = getSubAffiliateIdForRow(row);
+        if (!subAffiliateId) continue;
+        const current = totalsBySubAffiliate.get(subAffiliateId) || { customers: 0, paidRevenue: 0 };
+        current.customers += 1;
+        if (isPaidReferralStatus(row.payment_status)) {
+          current.paidRevenue += numberValue(row.amount_paid);
+        }
+        totalsBySubAffiliate.set(subAffiliateId, current);
+      }
+
+      finalSubAffiliates = mapped.map((aff) => {
+        const totals = totalsBySubAffiliate.get(aff.id) || { customers: 0, paidRevenue: 0 };
+        const bd = calculateCommissionBreakdown(totals.paidRevenue);
+        return {
+          ...aff,
+          customersGenerated: totals.customers,
+          revenueGenerated: bd.revenueAmount,
+          grossCommission15: bd.subAffiliateGrossCommission15,
+          withholdingTax5: bd.withholdingTax5,
+          netPayout: bd.subAffiliateNetPayout,
+          pendingCommission: bd.subAffiliateNetPayout,
+        };
+      });
+
       // Enrich with tenant details
       const tenantIds = Array.from(new Set(
         referredRows.map((r: any) => r.tenant_id || r.customer_id).filter(Boolean)
@@ -643,6 +708,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       setCustomers(referredRows.map((row: any) => {
         const tenantId = String(row.tenant_id || row.customer_id || '');
         const tenant = tenantById.get(tenantId);
+        const subAffiliateId = getSubAffiliateIdForRow(row);
         const packageName = readablePlan(
           tenant?.active_package_id || tenant?.selected_package_id ||
           tenant?.subscription_plan || row.package_id || row.package_name
@@ -660,19 +726,21 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           subscriptionEndDate,
           daysRemaining: daysUntil(subscriptionEndDate),
           registeredAt: row.created_at || tenant?.created_at || '',
-          subAffiliateId: row.sub_affiliate_id,
+          subAffiliateId,
         };
       }));
     } catch {
       setCustomers([]);
     }
 
+    setSubAffiliates(finalSubAffiliates);
+
     // Build reconciliation rows
-    const rows = mapped.map(aff =>
+    const rows = finalSubAffiliates.map(aff =>
       buildReconciliationRow(reconMonth, { id: partnerId, name: partnerName }, aff, [])
     );
     setRecon(rows);
-  }, [partnerCode, partnerId, partnerInfo?.supabaseUserId, partnerInfo?.user_id, partnerName, reconMonth]);
+  }, [partnerCode, partnerId, partnerInfo?.id, partnerInfo?.supabaseUserId, partnerInfo?.user_id, partnerName, reconMonth]);
 
   const refresh = useCallback(async () => {
     setState('loading');
@@ -852,7 +920,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     const bd = calculateCommissionBreakdown(mirrorTarget.revenueGenerated);
     const mirrorTenants = customers.filter((customer) => customer.subAffiliateId === mirrorTarget.id);
     return (
-      <div className="min-h-screen bg-slate-950 text-white">
+      <div className="min-h-[100dvh] max-h-[100dvh] overflow-y-auto overflow-x-hidden bg-slate-950 text-white [-webkit-overflow-scrolling:touch]">
         {/* Mirror banner */}
         <div className="bg-amber-500 text-slate-950 px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-2 font-black text-sm">
@@ -982,7 +1050,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   if (state === 'loading') {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center">
         <div className="text-center space-y-3">
           <LoaderCircle className="w-8 h-8 animate-spin text-amber-400 mx-auto" />
           <p className="text-slate-400 text-sm">Loading Partner Dashboard...</p>
@@ -994,7 +1062,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   // ── Main Dashboard ────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col bg-slate-950 text-white" style={{ height: '100dvh', overflow: 'hidden' }}>
+    <div className="flex min-h-0 flex-col bg-slate-950 text-white" style={{ height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' }}>
 
       {/* Offline banner */}
       {!isNetworkOnline && (
@@ -1030,10 +1098,10 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         </div>
       </header>
 
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* Sidebar — desktop only */}
-        <aside className="hidden md:flex md:flex-col w-60 border-r border-slate-800 bg-slate-900/50 flex-shrink-0 overflow-y-auto">
+        <aside className="hidden md:flex md:min-h-0 md:flex-col w-60 border-r border-slate-800 bg-slate-900/50 flex-shrink-0 overflow-y-auto">
           <nav className="p-3 space-y-0.5">
             {NAV_TABS.map(tab => {
               const Icon = tab.icon;
@@ -1060,7 +1128,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         </aside>
 
         {/* Main — add bottom padding on mobile for the nav */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-6">
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 pb-[calc(88px+env(safe-area-inset-bottom))] md:p-6 md:pb-6 [-webkit-overflow-scrolling:touch]">
           {notice && (
             <div className="flex items-center gap-2 p-3 mb-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-sm text-emerald-400">
               <CheckCircle className="w-4 h-4 shrink-0" /> {notice}
