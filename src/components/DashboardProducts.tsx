@@ -1760,7 +1760,7 @@ export default function DashboardProducts({
               </div>
 
               {/* Action tiles */}
-              <div className="grid grid-cols-2 gap-3 p-4">
+              <div className="product-import-actions-grid grid grid-cols-2 gap-3 p-4">
                 <button
                   onClick={downloadCsvTemplate}
                   className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
