@@ -591,7 +591,7 @@ export default function DashboardOverview({
       <div className="xl:hidden space-y-4">
 
         {/* Stat cards 2x2 grid */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="dashboard-kpi-two-column-grid grid grid-cols-2 gap-3">
           {[
             { label: 'Total Orders', value: filteredSales.length, sub: `${filteredSales.reduce((sum:number,s:any)=>sum+(s.items?.reduce((a:number,i:any)=>a+(i.qty||0),0)||0),0)} items sold`, color: '#2196F3', up: true },
             { label: `${timeframeLabel} Sales`, value: `${currency} ${Math.round(todayTotalRevenue).toLocaleString()}`, sub: todayTotalRevenue > 0 ? `↑ ${timeframeLabel}` : 'No sales yet', color: '#10B981', up: todayTotalRevenue > 0 },

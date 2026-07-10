@@ -1669,7 +1669,7 @@ export default function DashboardProducts({
       ──────────────────────────────────────────────────────────────── */}
 
       {/* MOBILE/TABLET: 2×2 grid */}
-      <div className="xl:hidden grid grid-cols-2 auto-rows-fr gap-3 px-0 w-full">
+      <div className="stock-tabs-two-column-grid xl:hidden grid grid-cols-2 auto-rows-fr gap-3 px-0 w-full">
         {[
           { id: 'catalog',  icon: '📦', label: 'Product List',     sub: 'View all products' },
           { id: 'category', icon: '📁', label: 'Categories',        sub: 'Browse by type' },
