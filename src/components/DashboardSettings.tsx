@@ -1713,7 +1713,7 @@ export default function DashboardSettings({
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">💼 Corporate Business Setup</h3>
                 <p className="text-xs text-slate-500 mt-1 font-sans">
-                  Configure your business identity details, branding logos for light/daymode and darkmode, customized physical warehouses, and cashier till payment modes. This setup personalizes the entire Jasper suite, dashboard views, receipts, and invoices.
+                  Configure your business identity details, branding logos for light/daymode and darkmode, customized physical warehouses, and cashier till payment modes. This setup personalizes the entire Ndiva Suite, dashboard views, receipts, and invoices.
                 </p>
               </div>
 

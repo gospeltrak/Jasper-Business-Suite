@@ -170,7 +170,7 @@ export default function JasperSplashScreen({
           <div style={{ position: 'relative', display: 'inline-block' }}>
             <img
               src={logoSrc}
-              alt="Jasper"
+              alt="Ndiva Suite"
               draggable={false}
               style={{
                 width: 'clamp(110px,28vw,160px)',

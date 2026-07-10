@@ -310,7 +310,7 @@ export default function DashboardSalesList({
   const getInvoiceFooter = (doc?: SalesDocument) => {
     const businessName = systemSettings?.business?.businessName || systemSettings?.company?.companyName || activeTenant.name;
     const mainMessage = doc?.tagline || systemSettings?.invoiceSettings?.footerNote || 'Thank you for doing business with us.';
-    const poweredBy = (systemSettings as any)?.systemWebLink || (systemSettings as any)?.business?.website || 'Powered by Jasper.Africa';
+    const poweredBy = (systemSettings as any)?.systemWebLink || (systemSettings as any)?.business?.website || 'Powered by Ndiva Suite';
     return { mainMessage, businessName, poweredBy };
   };
 

@@ -3544,7 +3544,7 @@ export default function DashboardReports({
 
           // Function to export to CSV
           const handleExportDualChannelCSV = () => {
-            let csv = "Jasper Business Suite - Dual-Channel Profit Audit Report\r\n";
+            let csv = "Ndiva Suite - Dual-Channel Profit Audit Report\r\n";
             csv += `Generational Range: ${startDateStr} to ${endDateStr}\r\n\r\n`;
             
             csv += "CHANNEL LEVEL PERFORMANCE SUMMARY\r\n";
@@ -3577,7 +3577,7 @@ export default function DashboardReports({
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.setAttribute("href", url);
-            link.setAttribute("download", `Jasper_Dual_Channel_Profits_${startDateStr}_to_${endDateStr}.csv`);
+            link.setAttribute("download", `Ndiva_Dual_Channel_Profits_${startDateStr}_to_${endDateStr}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -5250,7 +5250,7 @@ export default function DashboardReports({
               <button
                 type="button"
                 onClick={() => {
-                  alert("Opening Jasper Thermal Printer: Simulating direct 50mm POS thermal receipt print.");
+                  alert("Opening Ndiva Thermal Printer: Simulating direct 50mm POS thermal receipt print.");
                 }}
                 className="py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase hover:bg-slate-800 transition-all text-center cursor-pointer active:scale-95 shadow-sm"
               >

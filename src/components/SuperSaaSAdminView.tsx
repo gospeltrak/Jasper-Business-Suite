@@ -1011,7 +1011,7 @@ export default function SuperSaaSAdminView({
                     <label className="text-[9.5px] font-mono text-slate-500 uppercase">Ad Unit Campaign Title</label>
                     <input 
                       type="text"
-                      placeholder="e.g. Jasper Standard Leaderboard 2026"
+                      placeholder="e.g. Ndiva Standard Leaderboard 2026"
                       value={newBannerTitle}
                       onChange={(e) => setNewBannerTitle(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-emerald-500"

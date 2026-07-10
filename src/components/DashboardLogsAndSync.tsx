@@ -113,7 +113,7 @@ export default function DashboardLogsAndSync({
           </div>
 
           <p className="text-xs text-slate-500 leading-relaxed font-medium">
-            During internet blackout mode, Jasper saves permitted work locally on this device. Before clearing browser data, open this screen and confirm there are no pending jobs.
+            During internet blackout mode, Ndiva saves permitted work locally on this device. Before clearing browser data, open this screen and confirm there are no pending jobs.
           </p>
 
           {/* Interactive Switch Container */}

@@ -1005,7 +1005,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
     if (isRegisterSuper) {
       alert(
-        `👑 Congratulations! You have successfully registered your Recruiting Partner network console on Jasper Africa. Start onboarding downlines right away!`,
+        `👑 Congratulations! You have successfully registered your Recruiting Partner network console on Ndiva Suite. Start onboarding downlines right away!`,
       );
     } else {
       // Every affiliate MUST be recruited by a real, active Partner — no exceptions.
@@ -1035,7 +1035,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
       parentSuperId = parentMatch.id;
       alert(
-        `🎉 Welcome to the Jasper Affiliate Program! Your account is active and you can now earn 15% recurring commission on every subscription you refer. Share your code and start earning today.`,
+        `🎉 Welcome to the Ndiva Affiliate Program! Your account is active and you can now earn 15% recurring commission on every subscription you refer. Share your code and start earning today.`,
       );
     }
 
@@ -1542,7 +1542,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       ctx.fillText("Join Tanzania’s Pride ERP Today", 30, 620);
       ctx.fillStyle = "#64748b";
       ctx.font = "12px sans-serif";
-      ctx.fillText("Visit Jasper.africa signup screen", 30, 650);
+      ctx.fillText("Visit Ndiva Suite signup screen", 30, 650);
     }
 
     const imgURL = canvas.toDataURL("image/png");
@@ -1646,7 +1646,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
             </div>
             <div>
               <span className="text-base font-bold text-white">
-                Jasper{" "}
+                Ndiva{" "}
                 <span className="text-emerald-400 font-normal">Affiliate</span>
               </span>
               <span className="block text-[8px] text-slate-400 font-mono tracking-widest uppercase">
@@ -1686,7 +1686,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 <>
                   <div className="inline-flex items-center space-x-2 bg-amber-500/10 text-amber-400 px-3.5 py-1.5 rounded-full border border-amber-500/15 text-xs font-mono">
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>Jasper Partner Program</span>
+                    <span>Ndiva Partner Program</span>
                   </div>
                   <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
                     Lead a Network.{" "}
@@ -1695,7 +1695,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     </span>
                   </h1>
                   <p className="text-slate-400 text-sm sm:text-base leading-relaxed font-light">
-                    As a Jasper Partner (Super Affiliate Agent), you build and manage your own team of affiliates across Tanzania and East Africa. You earn{" "}
+                    As a Ndiva Partner (Super Affiliate Agent), you build and manage your own team of affiliates across Tanzania and East Africa. You earn{" "}
                     <strong className="text-amber-400">15% on your direct referrals</strong>{" "}
                     plus{" "}
                     <strong className="text-amber-400">5% oversight commission</strong>{" "}
@@ -1721,7 +1721,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 <>
                   <div className="inline-flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 px-3.5 py-1.5 rounded-full border border-emerald-500/15 text-xs font-mono">
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>Jasper Affiliate Program</span>
+                    <span>Ndiva Affiliate Program</span>
                   </div>
                   <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
                     Empower African Merchants.{" "}
@@ -1730,7 +1730,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     </span>
                   </h1>
                   <p className="text-slate-400 text-sm sm:text-base leading-relaxed font-light">
-                    Join Tanzania and East Africa's fastest-growing retail suite. Recommend Jasper to shop owners and Pharmacy owners. For every monthly subscription they complete, you receive{" "}
+                    Join Tanzania and East Africa's fastest-growing retail suite. Recommend Ndiva to shop owners and Pharmacy owners. For every monthly subscription they complete, you receive{" "}
                     <strong className="text-emerald-400">15% commission recurring</strong>, paid straight to your mobile wallet. No fine print. Just beautiful tools.
                   </p>
                   <div className="space-y-4">
@@ -1763,7 +1763,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     </div>
                   )}
                   <div className={`inline-flex p-3 rounded-2xl border items-center justify-center mb-1 ${portalRole === 'partner' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
-                    <img src="/jb-logo.png" alt="Jasper" className="w-10 h-10 object-contain" />
+                    <img src="/jb-logo.png" alt="Ndiva" className="w-10 h-10 object-contain" />
                   </div>
                   <h2 className="text-2xl font-black text-white tracking-tight">
                     {isPartnerSetupMode ? 'Create Partner Account' : (portalRole === 'partner' ? 'Partner Login' : (authMode === 'login' ? 'Affiliate Login' : 'Affiliate Portal'))}
@@ -2358,7 +2358,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           </span>
                           <p className="italic font-light">
                             "Anza kurahisisha hesabu za biashara yako leo kwa
-                            kutumia Jasper POS inayofanya kazi bila internet!
+                            kutumia Ndiva POS inayofanya kazi bila internet!
                             Watapata siku 30 za bure kwa kutumia promo code
                             yangu."
                           </p>
@@ -2949,7 +2949,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   {
                     id: "doc-1",
                     title:
-                      "Jasper POS System Operator Quick-Start Handbook (v2.4)",
+                      "Ndiva POS System Operator Quick-Start Handbook (v2.4)",
                     desc: "Offline sales, printers, shifts, tax, stock.",
                     category: "guide",
                     fileSize: "4.8 MB",
@@ -3019,7 +3019,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   ...tutorialLibrary.map((tutorial) => ({
                     id: tutorial.id,
                     title: tutorial.title,
-                    desc: tutorial.description || tutorial.link || tutorial.fileName || "Tutorial from Jasper admin.",
+                    desc: tutorial.description || tutorial.link || tutorial.fileName || "Tutorial from Ndiva admin.",
                     category: tutorial.type || "lesson",
                     fileSize: tutorial.fileName ? "Uploaded" : "Link",
                     duration: tutorial.type === "video" ? "Video" : "Lesson",
@@ -4377,7 +4377,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-[9.5px] font-mono font-bold text-slate-400 uppercase tracking-wider">
-                            Jasper Ads Materials
+                            Ndiva Ads Materials
                           </span>
                           <span className="text-[9px] text-slate-500 font-mono">
                             Preview before download
@@ -4407,7 +4407,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                     </>
                                   )}
                                   {isVisual && !isVideo && (
-                                    <img src={sspAd.assetData} alt={sspAd.title || "Jasper ad material"} className="h-full w-full object-cover" />
+                                    <img src={sspAd.assetData} alt={sspAd.title || "Ndiva ad material"} className="h-full w-full object-cover" />
                                   )}
                                   {!isVisual && (
                                     <div className="flex h-full w-full items-center justify-center p-4 text-center">
@@ -4441,7 +4441,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                   ) : (
                                     <button
                                       type="button"
-                                      onClick={() => downloadCreative(`Jasper SSP ${sspAd.title} Ad banner`, sspAd.size, activeAffiliate?.promoCode || "")}
+                                      onClick={() => downloadCreative(`Ndiva SSP ${sspAd.title} Ad banner`, sspAd.size, activeAffiliate?.promoCode || "")}
                                       className="rounded-lg bg-slate-900 px-2 py-2 text-[10px] font-black text-slate-200 hover:text-white"
                                     >
                                       Download
@@ -4607,7 +4607,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                 TANZANIA'S PRIDE POS
                               </h4>
                               <h5 className="text-[9px] text-emerald-400 font-bold mb-1">
-                                Jasper Business Suite
+                                Ndiva Suite
                               </h5>
                               <p className="text-[7.5px] text-slate-500 leading-normal">
                                 Manages cash, stocks, receipts, hotels,
@@ -4695,7 +4695,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                               <div className="relative z-10 w-full h-full flex flex-col justify-between bg-gradient-to-b from-slate-950/70 via-transparent to-slate-950/75 p-3 pointer-events-none">
                                 <div className="flex justify-end">
                                   <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1 py-0.5 text-[7px] font-mono whitespace-nowrap">
-                                    Ads by Jasper Exchange
+                                    Ads by Ndiva Exchange
                                   </span>
                                 </div>
                                 <div className="space-y-1">
@@ -4742,7 +4742,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             else if (activeCreativeTab === "tiktok")
                               sizeStr = "9:16";
                             downloadCreative(
-                              `Jasper ${sspMatch ? "SSP " + sspMatch.title : activeCreativeTab} Ad banner`,
+                              `Ndiva ${sspMatch ? "SSP " + sspMatch.title : activeCreativeTab} Ad banner`,
                               sizeStr,
                               activeAffiliate?.promoCode || "",
                             );
@@ -4812,7 +4812,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </span>
                       <p className="italic text-[11px] leading-relaxed">
                         "Unawasha duka, lodge, duka la dawa (Pharmacy) au
-                        mgahawa? Jasper ndio operating system uliyokuwa
+                        mgahawa? Ndiva ndio operating system uliyokuwa
                         unatafuta. Inafanya kazi 100% offline bila internet na
                         unaweza kuona ripoti zote za mauzo moja kwa moja kwenye
                         simu yako! Jisajili sasa upate siku 30 za majaribio ya
@@ -5449,7 +5449,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         {/* End with Contact Support footer */}
         <div className="border-t border-slate-900 pt-8 pb-4 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-550 text-slate-500 font-mono gap-4">
           <span>
-            © 2026 Jasper Suite • Verified Affiliate Shared Growth Ledger
+            © 2026 Ndiva Suite • Verified Affiliate Shared Growth Ledger
           </span>
           <button
             onClick={() => onNavigate("/")}

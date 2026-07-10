@@ -3286,7 +3286,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
                 <Receipt className="w-5 h-5 text-emerald-400" />
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-widest text-white">RESTAURANT GUEST RECEIPT</h4>
-                  <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">Jasper Dining Station</span>
+                  <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">Ndiva Dining Station</span>
                 </div>
               </div>
               <button
@@ -3406,7 +3406,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
                 )}
 
                 <div className="text-center font-normal text-[8.5px] text-slate-400 border-t border-dashed border-slate-200 pt-3 space-y-0.5">
-                  <p>Asante kwa kutembelea Jasper!</p>
+                  <p>Asante kwa kutembelea Ndiva!</p>
                   <p className="uppercase tracking-wider">Cloud Synchronized Dining Node</p>
                 </div>
               </div>

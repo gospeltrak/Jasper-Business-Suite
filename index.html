@@ -56,7 +56,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Jasper" />
+    <meta name="apple-mobile-web-app-title" content="Ndiva Suite" />
     <!-- Prevent Safari Reader Mode from activating on this SPA -->
     <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
@@ -91,7 +91,7 @@
     <!-- Google Identity Services client for real Google login -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     
-    <title>Jasper</title>
+    <title>Ndiva Suite</title>
     <style>
       /* ── NATIVE APP STABILITY — no hover transforms, no bounce, no shake ── */
 
@@ -183,7 +183,7 @@
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
             .then((registration) => {
-              console.log('Jasper PWA Service Worker registered securely with scope:', registration.scope);
+              console.log('Ndiva PWA Service Worker registered securely with scope:', registration.scope);
               registration.update().catch((error) => {
                 console.warn('Service Worker update check failed:', error);
               });

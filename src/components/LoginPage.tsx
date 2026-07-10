@@ -54,7 +54,7 @@ function decodeJwt(token: string) {
 
 const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
-    welcome: "Welcome to Jasper Enterprise Suite",
+    welcome: "Welcome to Ndiva Suite",
     welcomeSub: "Unifying POS Ledger, Hotel PMs & Multi-Tenant Channels",
     signinTab: "Sign In",
     registerTab: "Join Us",
@@ -74,12 +74,12 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     googleOrSig: "OR ONE-CLICK SIGN IN",
     demoProfiles: "DEMO TEST PROFILES",
     adminPortal: "SaaS Core Authority",
-    backHome: "Go back to Jasper Homepage",
+    backHome: "Go back to Ndiva Homepage",
     selectNicheMsg: "Please select a business industry niche first!",
     successReg: "Success! Registered \"{orgName}\" as a dynamic {businessType} tenant."
   },
   sw: {
-    welcome: "Karibu kwenye Jasper Suite ya Biashara",
+    welcome: "Karibu kwenye Ndiva Suite ya Biashara",
     welcomeSub: "POS Rejesta, Kitabu cha Hesabu, Usimamizi wa Hoteli na Huduma ya Pamoja",
     signinTab: "Ingia kwenye Akaunti",
     registerTab: "Sajili Biashara Mpya",
@@ -99,7 +99,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     googleOrSig: "AU INGIA KWA BONGO MOJA YA GOOGLE",
     demoProfiles: "MIPANGO YA MAJARIBIO YA HARAKA",
     adminPortal: "Mamlaka ya SaaS",
-    backHome: "Rudi ukurasa mkuu wa Jasper",
+    backHome: "Rudi ukurasa mkuu wa Ndiva",
     selectNicheMsg: "Tafadhali chagua aina ya biashara yako kwanza!",
     successReg: "Hongera! Umesajili \"{orgName}\" kama biashara mpya katika mfumo wetu mkuu."
   },
@@ -129,7 +129,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     successReg: "لقد تم بنجاح تسجيل \"{orgName}\" كمستأجر جديد للمنصة."
   },
   fr: {
-    welcome: "Bienvenue sur Jasper Suite",
+    welcome: "Bienvenue sur Ndiva Suite",
     welcomeSub: "Unification du registre POS, de la comptabilité et hôtelière multi-locataire",
     signinTab: "Se Connecter",
     registerTab: "Enregistrer une Entreprise",
@@ -499,7 +499,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
 
     if (!found.securityQuestion || !found.securityAnswer) {
-      setRecoveryMessage('Sorry, we could not verify that it was you. If you are confident it is you, please contact Jasper support.');
+      setRecoveryMessage('Sorry, we could not verify that it was you. If you are confident it is you, please contact Ndiva support.');
       return;
     }
 
@@ -521,7 +521,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
 
     if (normalizeSecurityAnswer(recoverySecurityAnswer) !== normalizeSecurityAnswer(recoveryUser.securityAnswer || '')) {
-      setRecoveryMessage('Sorry, we could not verify that it was you. If you are confident it is you, please contact Jasper support.');
+      setRecoveryMessage('Sorry, we could not verify that it was you. If you are confident it is you, please contact Ndiva support.');
       return;
     }
 
@@ -536,7 +536,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setRecoveryStep('verify');
     setRecoveryMessage('Security answer verified. OTP prepared. Send it to the owner/admin WhatsApp, then enter it here.');
 
-    const message = `Jasper Suite password reset OTP: ${otp}. Use this code to reset your admin account password. If you did not request this, please ignore it.`;
+    const message = `Ndiva Suite password reset OTP: ${otp}. Use this code to reset your admin account password. If you did not request this, please ignore it.`;
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
@@ -823,7 +823,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setPassword('');
     setLoginOtpMessage('OTP prepared. Send it through WhatsApp, then enter it here.');
 
-    const message = `Jasper Suite login OTP: ${otp}. Use this code to sign in. If you did not request this, please ignore it.`;
+    const message = `Ndiva Suite login OTP: ${otp}. Use this code to sign in. If you did not request this, please ignore it.`;
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
@@ -964,7 +964,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         onLogin({
           id: 'u-saas-duress',
           email: 'saas.admin@jasper.com',
-          name: 'Jasper SaaS Controller',
+          name: 'Ndiva Suite Controller',
           role: 'SuperAdmin',
           tenantId: 't-lagos-01',
           activeTenant: 't-lagos-01',
@@ -1489,13 +1489,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             {isSaasAdminPortal ? (
               <Shield className="w-8 h-8 text-amber-600 stroke-[1.75]" />
             ) : loginScreenLogoUrl ? (
-              <img src={loginScreenLogoUrl} alt="Jasper Suite Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
+              <img src={loginScreenLogoUrl} alt="Ndiva Suite Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
             ) : (
-              <img src="/jb-logo.png" alt="Jasper Suite Logo" className="w-10 h-10 object-contain animate-pulse" />
+              <img src="/jb-logo.png" alt="Ndiva Suite Logo" className="w-10 h-10 object-contain animate-pulse" />
             )}
           </div>
           <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-            {isSaasAdminPortal ? 'SaaS Core Authority' : 'Jasper Suite'}
+            {isSaasAdminPortal ? 'SaaS Core Authority' : 'Ndiva Suite'}
           </h2>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold tracking-normal leading-relaxed uppercase max-w-sm mx-auto">
             {isSaasAdminPortal 
@@ -2065,7 +2065,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600"
                   />
                   <span>
-                    I have read and agree to Jasper Business Suite's{' '}
+                    I have read and agree to Ndiva Suite's{' '}
                     <button type="button" onClick={() => setTenantLegalModalType('terms')} className="font-black text-emerald-700 underline bg-transparent border-none p-0 cursor-pointer">
                       Terms & Conditions
                     </button>
@@ -2103,7 +2103,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             onClick={() => onNavigate('/')}
             className="text-xs text-slate-400 hover:text-emerald-600 font-bold transition-all bg-transparent border-none cursor-pointer"
           >
-            ← Back to Jasper Landing Hub
+            ← Back to Ndiva Landing Hub
           </button>
         </div>
       </div>
@@ -2136,7 +2136,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               <div className="p-6 space-y-6">
                 <div className="text-center space-y-1.5">
                   <h3 className="text-base font-black text-slate-800 tracking-tight">Sign in with Google</h3>
-                  <p className="text-xs text-slate-500 font-medium">to continue securely to your Jasper SaaS cabin workspace</p>
+                  <p className="text-xs text-slate-500 font-medium">to continue securely to your Ndiva Suite cabin workspace</p>
                 </div>
 
                 <div className="space-y-2.5 font-sans">
@@ -2165,7 +2165,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   {/* Option B: SaaS Central admin */}
                   <button
                     type="button"
-                    onClick={() => handleSelectGoogleAccount('saas.admin@jasper.com', 'Sarah Jasper')}
+                    onClick={() => handleSelectGoogleAccount('saas.admin@jasper.com', 'Sarah Ndiva')}
                     className="w-full p-4 hover:bg-slate-50 border border-slate-200 hover:border-emerald-300 rounded-2xl text-left flex items-center justify-between transition-all cursor-pointer group"
                   >
                     <div className="flex items-center space-x-3.5">
@@ -2173,7 +2173,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                         SJ
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-slate-800 group-hover:text-amber-700 transition-colors">Sarah Jasper (SaaS SuperAdmin)</p>
+                        <p className="text-xs font-bold text-slate-800 group-hover:text-amber-700 transition-colors">Sarah Ndiva (SaaS SuperAdmin)</p>
                         <p className="text-[10.5px] font-mono text-slate-400">saas.admin@jasper.com</p>
                       </div>
                     </div>
@@ -2414,7 +2414,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               ) : (
                 <img 
                   src="/jb-logo.png" 
-                  alt="Jasper App Logo" 
+                  alt="Ndiva App Logo" 
                   className="w-16 h-16 object-contain" 
                 />
               )}

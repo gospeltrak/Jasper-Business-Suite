@@ -251,7 +251,7 @@ export default function SaaSReportsView() {
       <div className="flex justify-between items-center bg-slate-900 border border-slate-850 p-6 rounded-2xl flex-col sm:flex-row gap-4 print:hidden">
         <div>
           <h2 className="text-base font-bold text-white uppercase tracking-wider font-mono">
-            Jasper SaaS Business Reports
+            Ndiva Suite Business Reports
           </h2>
           <p className="text-xs text-slate-400 mt-1">
             Audit platform P&L ratios, subscription revenue margins, hardware

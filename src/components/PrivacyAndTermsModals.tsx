@@ -33,8 +33,8 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
             <div>
               <h3 className="text-lg font-bold tracking-tight">
                 {type === 'privacy' 
-                  ? (modalLang === 'en' ? 'Jasper Suite — Merchant Privacy Policy' : 'Jasper Suite — Sera ya Faragha ya Mfanyabiashara')
-                  : (modalLang === 'en' ? 'Jasper Suite — Terms & Conditions of Use' : 'Jasper Suite — Masharti na Vigezo vya Matumizi')
+                  ? (modalLang === 'en' ? 'Ndiva Suite — Merchant Privacy Policy' : 'Ndiva Suite — Sera ya Faragha ya Mfanyabiashara')
+                  : (modalLang === 'en' ? 'Ndiva Suite — Terms & Conditions of Use' : 'Ndiva Suite — Masharti na Vigezo vya Matumizi')
                 }
               </h3>
               <p className={`text-[10.5px] font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -99,7 +99,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                     1. Data Protection & Global Compliance Scope
                   </h4>
                   <p className="text-xs font-light">
-                    Jasper Suite ("we", "our", "us") values your business records and confidential merchant data. 
+                    Ndiva Suite ("we", "our", "us") values your business records and confidential merchant data. 
                     This Privacy Policy is compiled to comply strictly with modern personal data protection laws, including the 
                     <strong> Tanzania Personal Data Protection Act, 2022</strong>, 
                     <strong> Kenya Data Protection Act of 2019</strong>, 
@@ -125,7 +125,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">3. Offline-First Caching & Data Residency</h4>
                   <p className="text-xs font-light">
-                    Jasper is built with a secure <strong>offline-first encrypted sync model</strong>. Your detailed sales, stock, customer, staff, supplier, and operating records are controlled inside your own tenant workspace and device cache until they are synchronized through encrypted transport to the encrypted database. Jasper's platform administration view is limited to service-level records such as account creation date, subscription/payment status, package type, trial/subscription expiry, and system access status. Jasper does not operate as your bookkeeper and does not manually inspect your private transaction ledger in ordinary service operation.
+                    Ndiva is built with a secure <strong>offline-first encrypted sync model</strong>. Your detailed sales, stock, customer, staff, supplier, and operating records are controlled inside your own tenant workspace and device cache until they are synchronized through encrypted transport to the encrypted database. Ndiva's platform administration view is limited to service-level records such as account creation date, subscription/payment status, package type, trial/subscription expiry, and system access status. Ndiva does not operate as your bookkeeper and does not manually inspect your private transaction ledger in ordinary service operation.
                   </p>
                 </div>
 
@@ -133,7 +133,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">4. Secure Mobile Money Integration Handling</h4>
                   <p className="text-xs font-light">
                     When running manual mobile checkouts (for Tigo Pesa, M-Pesa, Airtel Money, or local banking transfers), 
-                    Jasper reads solely the specific transaction reference IDs you format and input. We do not extract personal consumer contact lists, credit card secrets, 
+                    Ndiva reads solely the specific transaction reference IDs you format and input. We do not extract personal consumer contact lists, credit card secrets, 
                     or external device telemetry logs. This secures your customers' trust and prevents payment identity phishing within public checkout kiosks.
                   </p>
                 </div>
@@ -141,7 +141,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">5. Non-Disclosure & Anti-Exploitation Guarantee</h4>
                   <p className="text-xs font-light">
-                    Jasper Suite may display platform-controlled ads, sponsor banners, product notices, or promotional placements inside dashboard spaces. 
+                    Ndiva Suite may display platform-controlled ads, sponsor banners, product notices, or promotional placements inside dashboard spaces. 
                     We do not sell, rent, distribute, or trade your private commercial reports, sales margins, cost of goods data, or statutory calculation records to third-party brokers or data aggregators.
                     Ads must not promote illegal conduct, unsafe products, hate, sexual exploitation, gambling to restricted persons, harmful medical claims, malware, fraud, or content that violates public morals or threatens user safety.
                     Your financial metrics remain your trade secret and are not used to expose your business performance to advertisers.
@@ -199,7 +199,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">12. Cookies, Local Storage & Tracking</h4>
                   <p className="text-xs font-light">
-                    Jasper uses cookies, local storage, IndexedDB, and similar technologies for login sessions, offline operation, sync queues, preferences, analytics, and security checks. Before clearing browser storage, the user must open the Sync menu and confirm there are no pending jobs. Clearing browser storage may permanently remove unsynced device data before it reaches the encrypted database.
+                    Ndiva uses cookies, local storage, IndexedDB, and similar technologies for login sessions, offline operation, sync queues, preferences, analytics, and security checks. Before clearing browser storage, the user must open the Sync menu and confirm there are no pending jobs. Clearing browser storage may permanently remove unsynced device data before it reaches the encrypted database.
                   </p>
                 </div>
 
@@ -220,7 +220,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">15. Children, Sensitive Data & User Responsibility</h4>
                   <p className="text-xs font-light">
-                    Jasper is intended for business users aged 18 or older. Do not upload unnecessary sensitive personal data, children’s data, medical records, or third-party confidential information unless you have lawful authority and appropriate safeguards. You remain responsible for the legality of data you enter into your tenant workspace.
+                    Ndiva is intended for business users aged 18 or older. Do not upload unnecessary sensitive personal data, children’s data, medical records, or third-party confidential information unless you have lawful authority and appropriate safeguards. You remain responsible for the legality of data you enter into your tenant workspace.
                   </p>
                 </div>
               </div>
@@ -233,7 +233,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                     1. Ulinzi wa Data na Uzingatiaji wa Sheria za Kimataifa
                   </h4>
                   <p className="text-xs font-light">
-                    Jasper Suite ("sisi", "yetu") inathamini sana rekodi za biashara yako na data zako za siri.
+                    Ndiva Suite ("sisi", "yetu") inathamini sana rekodi za biashara yako na data zako za siri.
                     Sera hii ya Faragha imeandaliwa ili kufuata kikamilifu sheria za kisasa za ulinzi wa data za kibinafsi, ikiwa ni pamoja na 
                     <strong> Sheria ya Ulinzi wa Taarifa Binafsi ya Tanzania, 2022</strong>, 
                     <strong> Sheria ya Ulinzi wa Data ya Kenya ya Mwaka 2019</strong>, 
@@ -259,7 +259,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">3. Uhifadhi Bila Mtandao (Offline-First)</h4>
                   <p className="text-xs font-light">
-                    Jasper imeundwa kwa mfumo salama wa <strong>offline-first encrypted sync</strong>. Rekodi za kina za mauzo, stoki, wateja, wafanyakazi, wasambazaji na uendeshaji zinadhibitiwa ndani ya tenant workspace yako na cache ya kifaa chako hadi zisawazishwe kwa njia iliyosimbwa kwenda kwenye encrypted database. Upande wa uendeshaji wa Jasper unaona taarifa za kiwango cha huduma kama tarehe uliyojiunga, hali ya malipo, kifurushi, muda wa trial/subscription kuisha na hali ya access ya mfumo. Jasper si mhasibu wako na haikagui ledger yako binafsi ya miamala katika matumizi ya kawaida ya huduma.
+                    Ndiva imeundwa kwa mfumo salama wa <strong>offline-first encrypted sync</strong>. Rekodi za kina za mauzo, stoki, wateja, wafanyakazi, wasambazaji na uendeshaji zinadhibitiwa ndani ya tenant workspace yako na cache ya kifaa chako hadi zisawazishwe kwa njia iliyosimbwa kwenda kwenye encrypted database. Upande wa uendeshaji wa Ndiva unaona taarifa za kiwango cha huduma kama tarehe uliyojiunga, hali ya malipo, kifurushi, muda wa trial/subscription kuisha na hali ya access ya mfumo. Ndiva si mhasibu wako na haikagui ledger yako binafsi ya miamala katika matumizi ya kawaida ya huduma.
                   </p>
                 </div>
 
@@ -267,7 +267,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">4. Usalama wa Utendaji wa Malipo ya Simu</h4>
                   <p className="text-xs font-light">
                     Unapofanya miamala na kuhakiki malipo kwa simu (kama vile Tigo Pesa, M-Pesa, au Airtel Money), 
-                    Jasper inasoma tu kumbukumbu za miamala (Reference IDs) unazoziingiza mwenyewe. Hatuchukui orodha za mawasiliano binafsi au namba za siri za wateja wako, 
+                    Ndiva inasoma tu kumbukumbu za miamala (Reference IDs) unazoziingiza mwenyewe. Hatuchukui orodha za mawasiliano binafsi au namba za siri za wateja wako, 
                     jambo hili linalinda siri za wateja wako na kuzuia wizi wa utambulisho wa malipo.
                   </p>
                 </div>
@@ -275,7 +275,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">5. Ahadi ya Kuzuia Unyonyaji na Kutoshiriki Data</h4>
                   <p className="text-xs font-light">
-                    Jasper Suite inaweza kuonyesha matangazo yanayodhibitiwa na mfumo, mabango ya wadhamini, taarifa za bidhaa au matangazo ya kibiashara kwenye sehemu maalum za dashboard.
+                    Ndiva Suite inaweza kuonyesha matangazo yanayodhibitiwa na mfumo, mabango ya wadhamini, taarifa za bidhaa au matangazo ya kibiashara kwenye sehemu maalum za dashboard.
                     Hatuuzi, hatukodishi, hatugawi wala kubadilishana ripoti zako za siri za mauzo, faida, gharama za bidhaa au rekodi za hesabu za kisheria kwa madalali wa data.
                     Matangazo hayataruhusiwa kuvunja maadili, kuhamasisha uhalifu, bidhaa hatarishi, chuki, udhalilishaji wa kingono, kamari kwa watu wasioruhusiwa, madai ya tiba yasiyo salama, malware, utapeli au jambo linalohatarisha usalama wa watumiaji.
                     Takwimu zako za kifedha zinasalia kuwa siri yako ya kibiashara.
@@ -333,7 +333,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">12. Cookies, Local Storage na Ufuatiliaji</h4>
                   <p className="text-xs font-light">
-                    Jasper hutumia cookies, local storage, IndexedDB na teknolojia zinazofanana kwa session, kazi bila mtandao, foleni ya sync, mapendeleo, analytics na ukaguzi wa usalama. Kabla ya kufuta browser storage, mtumiaji lazima afungue Sync menu na kuthibitisha hakuna pending jobs. Ukifuta browser storage unaweza kuondoa kabisa data ambazo hazijasync kwenda encrypted database.
+                    Ndiva hutumia cookies, local storage, IndexedDB na teknolojia zinazofanana kwa session, kazi bila mtandao, foleni ya sync, mapendeleo, analytics na ukaguzi wa usalama. Kabla ya kufuta browser storage, mtumiaji lazima afungue Sync menu na kuthibitisha hakuna pending jobs. Ukifuta browser storage unaweza kuondoa kabisa data ambazo hazijasync kwenda encrypted database.
                   </p>
                 </div>
 
@@ -354,7 +354,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">15. Watoto, Taarifa Nyeti na Wajibu wa Mtumiaji</h4>
                   <p className="text-xs font-light">
-                    Jasper ni kwa watumiaji wa biashara wenye miaka 18 au zaidi. Usiweke taarifa nyeti zisizo za lazima, taarifa za watoto, rekodi za kitabibu au siri za watu wengine bila mamlaka ya kisheria na ulinzi unaofaa. Unawajibika kwa uhalali wa taarifa unazoingiza kwenye workspace yako.
+                    Ndiva ni kwa watumiaji wa biashara wenye miaka 18 au zaidi. Usiweke taarifa nyeti zisizo za lazima, taarifa za watoto, rekodi za kitabibu au siri za watu wengine bila mamlaka ya kisheria na ulinzi unaofaa. Unawajibika kwa uhalali wa taarifa unazoingiza kwenye workspace yako.
                   </p>
                 </div>
               </div>
@@ -369,8 +369,8 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                     1. Direct Agreement & Scope of Services
                   </h4>
                   <p className="text-xs font-light">
-                    Please read these Terms and Conditions ("Terms", "Agreement") carefully before activating your account on Jasper Suite. 
-                    This legally binding Agreement governs your utilization of the Jasper POS Offline Cashier, Hotel PMS modules, 
+                    Please read these Terms and Conditions ("Terms", "Agreement") carefully before activating your account on Ndiva Suite. 
+                    This legally binding Agreement governs your utilization of the Ndiva POS Offline Cashier, Hotel PMS modules, 
                     Pharmacy management utilities, White-Label tools, and Lucy AI recommendations. By initiating your free trial or logging into our application terminals, 
                     you irrevocably agree to respect these terms. Update agreements operate worldwide and protect our operational interests.
                   </p>
@@ -388,7 +388,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">3. Licensing Limits & Intellectual Property Protection</h4>
                   <p className="text-xs font-light">
-                    Jasper Suite grants you a non-transferable, revocable, non-exclusive license to utilize our software platform to manage daily retail ledger histories. 
+                    Ndiva Suite grants you a non-transferable, revocable, non-exclusive license to utilize our software platform to manage daily retail ledger histories. 
                     You are strictly forbidden from reverse-engineering, database-mining, cloning core offline routing engines, 
                     or extracting the software’s underlying neural prompt matrices for any external commercial applications. All source codes, interfaces, and intellectual property remain our exclusive property.
                   </p>
@@ -397,13 +397,13 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3 bg-red-500/5 p-4 rounded-2xl border border-red-500/10 space-y-2">
                   <h4 className="font-bold text-base text-red-500 tracking-tight pb-1">4. CRITICAL DISCLAIMER: Offline System Synchronisation Covenants</h4>
                   <p className="text-xs font-light">
-                    Because Jasper is uniquely engineered with an <strong>Offline-First design</strong>, transaction logs remain cached on your specific browser or terminal. 
+                    Because Ndiva is uniquely engineered with an <strong>Offline-First design</strong>, transaction logs remain cached on your specific browser or terminal. 
                     <strong>The merchant absolutely acknowledges and covenants that:</strong>
                   </p>
                   <ul className="list-disc list-inside space-y-1.5 text-xs font-light ml-2">
-                    <li>If you clear your web browser cache, format your device, reset browser storage, or perform a manual browser cleanout BEFORE checking the Sync menu and synchronizing with the encrypted database, all unsynced device records may be permanently destroyed. Jasper cannot recover data that never reached the encrypted database.</li>
-                    <li>Before deleting cache, changing device, reinstalling the browser, or servicing a terminal, the merchant must open the Sync menu and confirm there are no pending jobs. Jasper is not responsible for local data loss caused by neglected synchronization, device misuse, staff misuse, malware, stolen passwords, or browser cache removal.</li>
-                    <li>Jasper's support/admin view is limited to service-level account information such as registration date, package, payment status, expiry date, and access status. Detailed tenant business records remain the responsibility of the tenant.</li>
+                    <li>If you clear your web browser cache, format your device, reset browser storage, or perform a manual browser cleanout BEFORE checking the Sync menu and synchronizing with the encrypted database, all unsynced device records may be permanently destroyed. Ndiva cannot recover data that never reached the encrypted database.</li>
+                    <li>Before deleting cache, changing device, reinstalling the browser, or servicing a terminal, the merchant must open the Sync menu and confirm there are no pending jobs. Ndiva is not responsible for local data loss caused by neglected synchronization, device misuse, staff misuse, malware, stolen passwords, or browser cache removal.</li>
+                    <li>Ndiva's support/admin view is limited to service-level account information such as registration date, package, payment status, expiry date, and access status. Detailed tenant business records remain the responsibility of the tenant.</li>
                   </ul>
                 </div>
 
@@ -412,7 +412,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <p className="text-xs font-light">
                     Our local regional agents offtake direct physical installations, hardware mapping (thermal receipts, barcode configurations, cashier box triggers), 
                     and on-site team training. While we strive to verify reliable offline operation at your specific terminal desk, 
-                    Jasper is not liable for hardware incompatibilities or regional GSM carrier outages affecting mobile money verification response rates.
+                    Ndiva is not liable for hardware incompatibilities or regional GSM carrier outages affecting mobile money verification response rates.
                   </p>
                 </div>
 
@@ -429,7 +429,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">7. Billing Subscription Plans, Cancellations & Upgrades</h4>
                   <p className="text-xs font-light">
-                    Jasper Suite provides a standard 10-day free trial. Accounts registered with a valid affiliate promo code may receive 20 free trial days. After trial expiration,
+                    Ndiva Suite provides a standard 10-day free trial. Accounts registered with a valid affiliate promo code may receive 20 free trial days. After trial expiration,
                     the selected subscription plan (Ruby, Diamond, or Tanzanite) will require timely payments to avoid automated write-access restrictions.
                     All subscription payments are non-refundable. You may cancel or upgrade your store registers directly through the account billing gateway.
                   </p>
@@ -439,7 +439,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">8. Strictest Limitation of Liability</h4>
                   <p className="text-xs font-light">
                     To the absolute maximum extent permitted under applicable local laws of your operating jurisdiction (including Kenya, Tanzania, Nigeria, Uganda, and Rwanda), 
-                    Jasper Suite, its directors, developers, and regional installer agents <strong>shall never be liable for any indirect, incidental, punitive, or consequential damages</strong>. 
+                    Ndiva Suite, its directors, developers, and regional installer agents <strong>shall never be liable for any indirect, incidental, punitive, or consequential damages</strong>. 
                     This includes, without limitation: loss of store profits, inventory accounting discrepancies, incorrect statutory rate settings, cashier embezzlement,
                     or encrypted database sync interruptions. Our total composite liability shall not exceed the subscription fees you actively paid us in the six (6) months prior to the dispute trigger.
                   </p>
@@ -448,7 +448,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">9. Advertising Placements & Ethical Content</h4>
                   <p className="text-xs font-light">
-                    Jasper may display dashboard banners, sticky ads, sponsor messages, educational promotions, Jasper product notices, and third-party ad placements approved by the platform. Ads must not violate public morals, encourage crime, endanger user safety, spread malware, impersonate institutions, promote illegal goods, contain hate or sexual exploitation, target restricted persons with gambling or harmful products, or make unsafe medical/financial claims. We may remove, block, or suspend any ad at our sole discretion.
+                    Ndiva may display dashboard banners, sticky ads, sponsor messages, educational promotions, Ndiva product notices, and third-party ad placements approved by the platform. Ads must not violate public morals, encourage crime, endanger user safety, spread malware, impersonate institutions, promote illegal goods, contain hate or sexual exploitation, target restricted persons with gambling or harmful products, or make unsafe medical/financial claims. We may remove, block, or suspend any ad at our sole discretion.
                   </p>
                 </div>
 
@@ -462,7 +462,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">11. Acceptable Use & Security Conduct</h4>
                   <p className="text-xs font-light">
-                    You must not attack, probe, bypass, overload, reverse engineer, scrape, resell, clone, or misuse Jasper services. You must not introduce malware, share credentials, create fraudulent accounts, tamper with subscription controls, or use the platform for unlawful surveillance, harassment, money laundering, illegal conduct, or regulated activities without proper licences.
+                    You must not attack, probe, bypass, overload, reverse engineer, scrape, resell, clone, or misuse Ndiva services. You must not introduce malware, share credentials, create fraudulent accounts, tamper with subscription controls, or use the platform for unlawful surveillance, harassment, money laundering, illegal conduct, or regulated activities without proper licences.
                   </p>
                 </div>
 
@@ -476,14 +476,14 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">13. Third-Party Services & Connectivity</h4>
                   <p className="text-xs font-light">
-                    Jasper may rely on internet providers, secure infrastructure providers, payment networks, AI providers, mobile-money channels, app stores, ad networks, SMS/WhatsApp channels, and device hardware. We are not responsible for outages, policy changes, fees, rejection, throttling, hardware defects, or inaccurate data supplied by third parties outside our direct control.
+                    Ndiva may rely on internet providers, secure infrastructure providers, payment networks, AI providers, mobile-money channels, app stores, ad networks, SMS/WhatsApp channels, and device hardware. We are not responsible for outages, policy changes, fees, rejection, throttling, hardware defects, or inaccurate data supplied by third parties outside our direct control.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">14. Indemnity</h4>
                   <p className="text-xs font-light">
-                    You agree to defend and indemnify Jasper, its owner, directors, staff, agents, and service providers from claims, penalties, losses, costs, or damages arising from your unlawful use, uploaded data, customer disputes, statutory calculation errors, staff misuse, breach of privacy duties, breach of these Terms, or violation of third-party rights.
+                    You agree to defend and indemnify Ndiva, its owner, directors, staff, agents, and service providers from claims, penalties, losses, costs, or damages arising from your unlawful use, uploaded data, customer disputes, statutory calculation errors, staff misuse, breach of privacy duties, breach of these Terms, or violation of third-party rights.
                   </p>
                 </div>
 
@@ -505,8 +505,8 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                     1. Makubaliano ya Moja kwa Moja na Huduma za Mfumo
                   </h4>
                   <p className="text-xs font-light">
-                    Tafadhali soma Masharti na Vigezo hivi ("Masharti", "Makubaliano") kwa makini kabla ya kuwezesha akaunti yako kwenye Jasper Suite. 
-                    Makubaliano haya ya kisheria yanatawala matumizi yako ya Keshia ya Jasper (Offline POS), usimamizi wa vyumba vya hoteli, 
+                    Tafadhali soma Masharti na Vigezo hivi ("Masharti", "Makubaliano") kwa makini kabla ya kuwezesha akaunti yako kwenye Ndiva Suite. 
+                    Makubaliano haya ya kisheria yanatawala matumizi yako ya Keshia ya Ndiva (Offline POS), usimamizi wa vyumba vya hoteli, 
                     katalogi za famasia, huduma za kurekebisha muonekano, na ushauri wa kiakili kutoka kwa Lucy AI. Kwa kuanza jaribio lako la bure au kuingia kwenye mfumo, 
                     unakubali masharti haya bila masharti yoyote. Maboresho ya masharti haya yanalinda haki zetu za uendeshaji biashara duniani kote.
                   </p>
@@ -524,21 +524,21 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">3. Mipaka ya Leseni na Ulinzi wa Miliki Ubunifu</h4>
                   <p className="text-xs font-light">
-                    Jasper Suite inakupa leseni maalum ambayo haiwezi kuhamishwa kwa mtu mwingine, na inaweza kufutwa wakati wowote, kutumia programu yetu kwa lengo la kusimamia mahesabu ya mauzo yako ya kila siku pekee. 
-                    Ni marufuku kabisa kujaribu kunakili msimbo wetu (reverse-engineer), kuiba siri zetu za kikashia zisizo na mtandao, au kutumia utendaji wa software yetu kutengeneza mifumo mingine inayofanana kwa malengo ya kibiashara nje ya Jasper. Msimbo na miundo yote ni miliki ya Jasper pekee.
+                    Ndiva Suite inakupa leseni maalum ambayo haiwezi kuhamishwa kwa mtu mwingine, na inaweza kufutwa wakati wowote, kutumia programu yetu kwa lengo la kusimamia mahesabu ya mauzo yako ya kila siku pekee. 
+                    Ni marufuku kabisa kujaribu kunakili msimbo wetu (reverse-engineer), kuiba siri zetu za kikashia zisizo na mtandao, au kutumia utendaji wa software yetu kutengeneza mifumo mingine inayofanana kwa malengo ya kibiashara nje ya Ndiva. Msimbo na miundo yote ni miliki ya Ndiva pekee.
                   </p>
                 </div>
 
                 <div className="space-y-3 bg-red-500/5 p-4 rounded-2xl border border-red-500/10 space-y-2">
                   <h4 className="font-bold text-base text-red-500 tracking-tight pb-1">4. ILANI MUHIMU SANA: Makubaliano ya Kusawazisha Mfumo (Sync) Bila Mtandao</h4>
                   <p className="text-xs font-light">
-                    Kwa sababu Jasper imetengenezwa kipekee kufanya kazi <strong>bila intaneti (Offline-First)</strong>, rekodi zote za mauzo zinahifadhiwa ndani ya kivinjari au kifaa chako husika. 
+                    Kwa sababu Ndiva imetengenezwa kipekee kufanya kazi <strong>bila intaneti (Offline-First)</strong>, rekodi zote za mauzo zinahifadhiwa ndani ya kivinjari au kifaa chako husika. 
                     <strong>Mfanyabiashara anakubali na kuahidi yafuatayo:</strong>
                   </p>
                   <ul className="list-disc list-inside space-y-1.5 text-xs font-light ml-2">
-                    <li>Ukifuta cache ya browser, uki-format kifaa, uki-reset browser storage, au kufanya usafishaji mkubwa KABLA ya kuangalia Sync menu na kusawazisha na encrypted database, rekodi zote ambazo hazijasync zinaweza kupotea kabisa. Jasper haiwezi kurejesha data ambayo haikuwahi kufika kwenye encrypted database.</li>
-                    <li>Kabla ya kufuta cache, kubadilisha kifaa, kusakinisha browser upya au kupeleka kifaa service, mfanyabiashara lazima afungue Sync menu na kuthibitisha hakuna pending jobs. Jasper haitawajibika kwa upotevu wa data unaosababishwa na kutosync, matumizi mabaya ya kifaa, matumizi mabaya ya staff, malware, password kuibiwa au browser cache kufutwa.</li>
-                    <li>Upande wa admin/support wa Jasper unaona tu taarifa za kiwango cha huduma kama tarehe ya kujiunga, kifurushi, hali ya malipo, tarehe ya kuisha na hali ya access. Rekodi za kina za biashara ya tenant ni wajibu wa tenant mwenyewe.</li>
+                    <li>Ukifuta cache ya browser, uki-format kifaa, uki-reset browser storage, au kufanya usafishaji mkubwa KABLA ya kuangalia Sync menu na kusawazisha na encrypted database, rekodi zote ambazo hazijasync zinaweza kupotea kabisa. Ndiva haiwezi kurejesha data ambayo haikuwahi kufika kwenye encrypted database.</li>
+                    <li>Kabla ya kufuta cache, kubadilisha kifaa, kusakinisha browser upya au kupeleka kifaa service, mfanyabiashara lazima afungue Sync menu na kuthibitisha hakuna pending jobs. Ndiva haitawajibika kwa upotevu wa data unaosababishwa na kutosync, matumizi mabaya ya kifaa, matumizi mabaya ya staff, malware, password kuibiwa au browser cache kufutwa.</li>
+                    <li>Upande wa admin/support wa Ndiva unaona tu taarifa za kiwango cha huduma kama tarehe ya kujiunga, kifurushi, hali ya malipo, tarehe ya kuisha na hali ya access. Rekodi za kina za biashara ya tenant ni wajibu wa tenant mwenyewe.</li>
                   </ul>
                 </div>
 
@@ -547,7 +547,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <p className="text-xs font-light">
                     Mawakala wetu wa karibu ofisini kwako wanasimamia ufungaji wa mfumo, uunganishaji wa vifaa vya keshia (mashine za risiti, scanners, keshdroo ya fedha), 
                     na mafunzo ya moja kwa moja ya timu yako. Wakati tunajitahidi kuhakikisha vifaa hivi vinafanya kazi vyema, 
-                    Jasper haitawajibika kwa matatizo ya kiufundi ya vifaa vya nje visivyoungwa mkono na softwea yetu, au kukatika kwa mtandao wa simu kuzuia uhakiki wa malipo ya simu.
+                    Ndiva haitawajibika kwa matatizo ya kiufundi ya vifaa vya nje visivyoungwa mkono na softwea yetu, au kukatika kwa mtandao wa simu kuzuia uhakiki wa malipo ya simu.
                   </p>
                 </div>
 
@@ -564,7 +564,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">7. Malipo ya Vifurushi, Kughairi na Kubadilisha Huduma</h4>
                   <p className="text-xs font-light">
-                    Jasper Suite inatoa siku 10 za majaribio bure. Akaunti iliyosajiliwa kwa promo code halali ya affiliate inaweza kupata siku 20 za majaribio bure. Baada ya kipindi cha majaribio kwisha,
+                    Ndiva Suite inatoa siku 10 za majaribio bure. Akaunti iliyosajiliwa kwa promo code halali ya affiliate inaweza kupata siku 20 za majaribio bure. Baada ya kipindi cha majaribio kwisha,
                     kifurushi kilichochaguliwa (Ruby, Diamond, au Tanzanite) kitahitaji malipo kwa wakati ili kuzuia akaunti kufungwa au kusimamisha uwezo wa kuandika taarifa mpya.
                     Malipo yote yaliyofanyika hayarudishwi (non-refundable). Unaweza kurejesha au kuongeza vifurushi moja kwa moja kupitia sehemu ya kulipia.
                   </p>
@@ -574,7 +574,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">8. Kikomo Kikubwa cha Dhima ya Kisheria</h4>
                   <p className="text-xs font-light">
                     Kwa kiwango cha juu kabisa kinachoruhusiwa na sheria husika za nchi unakoendesha biashara yako (Kenya, Tanzania, Nigeria, nk), 
-                    Jasper Suite, wakurugenzi wake, watengenezaji wake, na mawakala wake wa nyanjani <strong>hawatatakiwa kamwe kuwajibika kwa hasara yoyote ya moja kwa moja au isiyo ya moja kwa moja</strong>. 
+                    Ndiva Suite, wakurugenzi wake, watengenezaji wake, na mawakala wake wa nyanjani <strong>hawatatakiwa kamwe kuwajibika kwa hasara yoyote ya moja kwa moja au isiyo ya moja kwa moja</strong>. 
                     Hii inajumuisha, lakini si tu: upotevu wa faida ya duka au hoteli, makosa ya hesabu za bidhaa, mipangilio isiyo sahihi ya viwango vya kisheria, wizi wa ndani unaofanywa na keshia wako,
                     au kushindwa kwa encrypted database kusawazisha data zote. Dhima yetu kuu ya kifedha haitazidi kiasi cha usajili ulichotulipa katika kipindi cha miezi sita (6) iliyopita kabla ya kutokea kwa mgogoro husika.
                   </p>
@@ -583,7 +583,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">9. Matangazo na Maadili ya Maudhui</h4>
                   <p className="text-xs font-light">
-                    Jasper inaweza kuonyesha mabango ya dashboard, sticky ads, ujumbe wa wadhamini, matangazo ya elimu, taarifa za bidhaa za Jasper na matangazo ya watu wa tatu yaliyoidhinishwa na mfumo. Matangazo hayaruhusiwi kuvunja maadili ya jamii, kuhamasisha uhalifu, kuhatarisha usalama, kusambaza malware, kujifanya taasisi, kuuza bidhaa haramu, kueneza chuki au udhalilishaji wa kingono, kulenga watu wasioruhusiwa kwa kamari/bidhaa hatarishi, au kutoa madai ya tiba/fedha yasiyo salama. Tunaweza kuondoa, kuzuia au kusimamisha tangazo lolote kwa uamuzi wetu.
+                    Ndiva inaweza kuonyesha mabango ya dashboard, sticky ads, ujumbe wa wadhamini, matangazo ya elimu, taarifa za bidhaa za Ndiva na matangazo ya watu wa tatu yaliyoidhinishwa na mfumo. Matangazo hayaruhusiwi kuvunja maadili ya jamii, kuhamasisha uhalifu, kuhatarisha usalama, kusambaza malware, kujifanya taasisi, kuuza bidhaa haramu, kueneza chuki au udhalilishaji wa kingono, kulenga watu wasioruhusiwa kwa kamari/bidhaa hatarishi, au kutoa madai ya tiba/fedha yasiyo salama. Tunaweza kuondoa, kuzuia au kusimamisha tangazo lolote kwa uamuzi wetu.
                   </p>
                 </div>
 
@@ -597,7 +597,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">11. Matumizi Yanayokubalika na Usalama</h4>
                   <p className="text-xs font-light">
-                    Huruhusiwi kushambulia, kuchunguza kwa nia mbaya, kupita ulinzi, kulemea, kunakili, kuuza upya au kutumia vibaya huduma za Jasper. Huruhusiwi kuingiza malware, kugawa credentials, kutengeneza akaunti bandia, kuchezea controls za subscription, au kutumia mfumo kwa ufuatiliaji haramu, unyanyasaji, utakatishaji fedha, vitendo haramu au shughuli zilizo na leseni bila leseni sahihi.
+                    Huruhusiwi kushambulia, kuchunguza kwa nia mbaya, kupita ulinzi, kulemea, kunakili, kuuza upya au kutumia vibaya huduma za Ndiva. Huruhusiwi kuingiza malware, kugawa credentials, kutengeneza akaunti bandia, kuchezea controls za subscription, au kutumia mfumo kwa ufuatiliaji haramu, unyanyasaji, utakatishaji fedha, vitendo haramu au shughuli zilizo na leseni bila leseni sahihi.
                   </p>
                 </div>
 
@@ -611,14 +611,14 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">13. Huduma za Watu wa Tatu na Muunganisho</h4>
                   <p className="text-xs font-light">
-                    Jasper inaweza kutegemea watoa intaneti, secure infrastructure providers, mitandao ya malipo, watoa AI, mobile-money, app stores, ad networks, SMS/WhatsApp channels na vifaa vya hardware. Hatutawajibika kwa kukatika kwa huduma, mabadiliko ya sera, ada, kukataliwa, throttling, hitilafu za vifaa au data isiyo sahihi kutoka kwa wahusika walio nje ya udhibiti wetu.
+                    Ndiva inaweza kutegemea watoa intaneti, secure infrastructure providers, mitandao ya malipo, watoa AI, mobile-money, app stores, ad networks, SMS/WhatsApp channels na vifaa vya hardware. Hatutawajibika kwa kukatika kwa huduma, mabadiliko ya sera, ada, kukataliwa, throttling, hitilafu za vifaa au data isiyo sahihi kutoka kwa wahusika walio nje ya udhibiti wetu.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">14. Kufidia Hasara na Madai</h4>
                   <p className="text-xs font-light">
-                    Unakubali kumlinda na kumfidia Jasper, mmiliki wake, wakurugenzi, wafanyakazi, mawakala na watoa huduma dhidi ya madai, adhabu, hasara, gharama au uharibifu unaotokana na matumizi yako haramu, data uliyopakia, migogoro ya wateja, makosa ya hesabu za kisheria, matumizi mabaya ya staff, kuvunja wajibu wa faragha, kuvunja Masharti haya au kukiuka haki za wengine.
+                    Unakubali kumlinda na kumfidia Ndiva, mmiliki wake, wakurugenzi, wafanyakazi, mawakala na watoa huduma dhidi ya madai, adhabu, hasara, gharama au uharibifu unaotokana na matumizi yako haramu, data uliyopakia, migogoro ya wateja, makosa ya hesabu za kisheria, matumizi mabaya ya staff, kuvunja wajibu wa faragha, kuvunja Masharti haya au kukiuka haki za wengine.
                   </p>
                 </div>
 
