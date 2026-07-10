@@ -21,6 +21,9 @@ export interface TenantWorkspace {
 
 const cacheKey   = (tid: string) => `jasper_workspace_cache_${tid}`;
 const pendingKey = (tid: string) => `jasper_workspace_pending_sync_${tid}`;
+const backupIndexKey = (tid: string) => `jasper_workspace_backups_${tid}`;
+const backupItemKey = (tid: string, stamp: string) => `jasper_workspace_backup_${tid}_${stamp}`;
+const backupLastKey = (tid: string, reason: string) => `jasper_workspace_backup_last_${tid}_${reason}`;
 
 const browserOnline = () => typeof navigator === 'undefined' || navigator.onLine;
 
@@ -35,8 +38,30 @@ export const readCachedWorkspace = (tenantId: string): TenantWorkspace | null =>
 
 const cacheWorkspace = (tenantId: string, workspace: TenantWorkspace) => {
   try {
+    const current = readCachedWorkspace(tenantId);
+    if (workspaceHasBusinessData(current)) writeLocalWorkspaceBackup(tenantId, current as TenantWorkspace, 'local-cache');
     localStorage.setItem(cacheKey(tenantId), JSON.stringify(workspace));
   } catch { /* storage full — ignore */ }
+};
+
+const writeLocalWorkspaceBackup = (tenantId: string, workspace: TenantWorkspace, reason: string) => {
+  try {
+    const lastKey = backupLastKey(tenantId, reason);
+    const last = Number(localStorage.getItem(lastKey) || 0);
+    if (Date.now() - last < 10 * 60 * 1000) return;
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const key = backupItemKey(tenantId, stamp);
+    localStorage.setItem(key, JSON.stringify({ reason, createdAt: new Date().toISOString(), workspace }));
+    localStorage.setItem(lastKey, String(Date.now()));
+
+    const rawIndex = localStorage.getItem(backupIndexKey(tenantId));
+    const index: string[] = rawIndex ? JSON.parse(rawIndex) : [];
+    const next = [key, ...index.filter((entry) => entry !== key)].slice(0, 12);
+    localStorage.setItem(backupIndexKey(tenantId), JSON.stringify(next));
+
+    for (const oldKey of index.slice(12)) localStorage.removeItem(oldKey);
+  } catch { /* storage full or unavailable — skip backup */ }
 };
 
 const normalizeWorkspace = (workspace: Partial<TenantWorkspace> | null | undefined): TenantWorkspace | null => {
@@ -74,6 +99,61 @@ export const workspaceHasBusinessData = (workspace: Partial<TenantWorkspace> | n
     workspace.branchStocks,
     workspace.branchStaffAssignments,
   ].some((entry) => Array.isArray(entry) && entry.length > 0);
+};
+
+type WorkspaceArrayKey =
+  | 'products'
+  | 'sales'
+  | 'expenses'
+  | 'deliveries'
+  | 'pendingDeliveryNotes'
+  | 'purchases'
+  | 'branches'
+  | 'branchStocks'
+  | 'branchStaffAssignments';
+
+const protectedArrayKeys: WorkspaceArrayKey[] = [
+  'products',
+  'sales',
+  'expenses',
+  'deliveries',
+  'pendingDeliveryNotes',
+  'purchases',
+  'branches',
+  'branchStocks',
+  'branchStaffAssignments',
+];
+
+const countWorkspaceItems = (workspace: Partial<TenantWorkspace> | null | undefined): Record<WorkspaceArrayKey, number> => {
+  return protectedArrayKeys.reduce((acc, key) => {
+    acc[key] = Array.isArray(workspace?.[key]) ? (workspace?.[key] as any[]).length : 0;
+    return acc;
+  }, {} as Record<WorkspaceArrayKey, number>);
+};
+
+const reconcileProtectedWorkspace = (
+  incoming: TenantWorkspace,
+  current: TenantWorkspace | null,
+): { workspace: TenantWorkspace; protectedKeys: WorkspaceArrayKey[]; shrank: boolean } => {
+  if (!current) return { workspace: incoming, protectedKeys: [], shrank: false };
+
+  const merged: TenantWorkspace = { ...incoming };
+  const protectedKeys: WorkspaceArrayKey[] = [];
+  let shrank = false;
+
+  for (const key of protectedArrayKeys) {
+    const incomingItems = Array.isArray(incoming[key]) ? incoming[key] as any[] : [];
+    const currentItems = Array.isArray(current[key]) ? current[key] as any[] : [];
+
+    if (currentItems.length > 0 && incomingItems.length === 0) {
+      (merged as any)[key] = currentItems;
+      protectedKeys.push(key);
+    } else if (incomingItems.length < currentItems.length) {
+      shrank = true;
+    }
+  }
+
+  return { workspace: merged, protectedKeys, shrank };
 };
 
 // ─── Check if Supabase is configured ───────────────────────────────────────
@@ -125,6 +205,37 @@ async function loadLegacyTenantWorkspace(client: any, tenantId: string): Promise
   });
 
   return legacy && (workspaceHasBusinessData(legacy) || Object.keys(legacy.settings || {}).length > 0) ? legacy : null;
+}
+
+async function saveRemoteWorkspaceBackup(
+  client: any,
+  tenantId: string,
+  workspace: TenantWorkspace,
+  reason: string,
+): Promise<void> {
+  if (!workspaceHasBusinessData(workspace)) return;
+
+  try {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const counts = countWorkspaceItems(workspace);
+    const { error } = await client
+      .from('tenant_data')
+      .upsert({
+        tenant_id: tenantId,
+        data_key: `workspace_backup_${stamp}`,
+        payload: {
+          reason,
+          createdAt: new Date().toISOString(),
+          counts,
+          workspace,
+        },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'tenant_id,data_key' });
+
+    if (error) console.warn('[workspace] remote backup error:', error.message);
+  } catch (error: any) {
+    console.warn('[workspace] remote backup exception:', error?.message || error);
+  }
 }
 
 // ─── Load from DB ──────────────────────────────────────────────────────────
@@ -209,20 +320,19 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
   }
 
   try {
+    const { data: currentWorkspace } = await client
+      .from('tenant_workspaces')
+      .select('payload')
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    const currentSafe = normalizeWorkspace(currentWorkspace?.payload as TenantWorkspace);
+
     if (!workspaceHasBusinessData(workspace)) {
-      const [{ data: currentWorkspace }, legacy] = await Promise.all([
-        client
-          .from('tenant_workspaces')
-          .select('payload')
-          .eq('tenant_id', tenantId)
-          .maybeSingle(),
-        loadLegacyTenantWorkspace(client, tenantId)
-      ]);
-      const currentSafe = normalizeWorkspace(currentWorkspace?.payload as TenantWorkspace);
       if (workspaceHasBusinessData(currentSafe)) {
         cacheWorkspace(tenantId, currentSafe as TenantWorkspace);
         return;
       }
+      const legacy = await loadLegacyTenantWorkspace(client, tenantId);
       if (legacy && workspaceHasBusinessData(legacy)) {
         cacheWorkspace(tenantId, legacy);
         await client
@@ -235,10 +345,24 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
       }
     }
 
+    const protection = reconcileProtectedWorkspace(workspace, currentSafe);
+    const workspaceToSave = protection.workspace;
+
+    if (protection.protectedKeys.length > 0) {
+      console.warn(
+        '[workspace] prevented destructive empty overwrite for:',
+        protection.protectedKeys.join(', ')
+      );
+      await saveRemoteWorkspaceBackup(client, tenantId, currentSafe as TenantWorkspace, `prevented-empty-overwrite:${protection.protectedKeys.join(',')}`);
+      cacheWorkspace(tenantId, workspaceToSave);
+    } else if (protection.shrank && currentSafe) {
+      await saveRemoteWorkspaceBackup(client, tenantId, currentSafe, 'pre-shrink-save');
+    }
+
     const { error } = await client
       .from('tenant_workspaces')
       .upsert(
-        { tenant_id: tenantId, payload: workspace, updated_at: new Date().toISOString() },
+        { tenant_id: tenantId, payload: workspaceToSave, updated_at: new Date().toISOString() },
         { onConflict: 'tenant_id' }
       );
 
@@ -287,6 +411,11 @@ export async function subscribeToTenantWorkspace(
           if (workspace) {
             const safe = normalizeWorkspace(workspace);
             if (!safe) return;
+            const cached = readCachedWorkspace(tenantId);
+            if (!workspaceHasBusinessData(safe) && workspaceHasBusinessData(cached)) {
+              console.warn('[workspace] ignored empty realtime payload because local cache has business data');
+              return;
+            }
             cacheWorkspace(tenantId, safe);
             onWorkspace(safe);
           }
