@@ -164,9 +164,10 @@ interface LoginPageProps {
   isSaasAdminPortal?: boolean;
   resolvedTenant?: Tenant | null;
   domainMode?: 'root' | 'app' | 'tenant';
+  landingUrl?: string;
 }
 
-export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark = false, onToggleTheme, isSaasAdminPortal, resolvedTenant, domainMode = 'root' }: LoginPageProps) {
+export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark = false, onToggleTheme, isSaasAdminPortal, resolvedTenant, domainMode = 'root', landingUrl }: LoginPageProps) {
   // Navigation Tabs: signin vs register
   const [authTab, setAuthTab] = useState<'signin' | 'register'>(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -238,6 +239,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const tenantLogoFromContext = (resolvedTenant?.company_settings as any)?.logo_url || (resolvedTenant?.company_settings as any)?.logoUrl || null;
   const tenantLoginTitle = resolvedTenant?.name || (domainMode === 'tenant' ? 'Business Login' : 'Ndiva Suite');
   const isTenantDomainLogin = domainMode === 'tenant' && !!resolvedTenant?.id;
+  const handleBackToLandingHub = () => {
+    if (landingUrl && domainMode !== 'root') {
+      window.location.assign(landingUrl);
+      return;
+    }
+    onNavigate('/');
+  };
 
   // SaaS Dynamic Niche Launch State
   const [launchedNiches, setLaunchedNiches] = useState<string[]>(() => {
@@ -2133,7 +2141,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 {/* Back link */}
         <div className="text-center font-sans">
           <button
-            onClick={() => onNavigate('/')}
+            onClick={handleBackToLandingHub}
             className="text-xs text-slate-400 hover:text-emerald-600 font-bold transition-all bg-transparent border-none cursor-pointer"
           >
             ← Back to Ndiva Landing Hub

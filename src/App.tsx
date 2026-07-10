@@ -80,6 +80,7 @@ export default function App() {
   // Splash: show once per session when user first enters dashboard
   const [showSplash, setShowSplash] = useState(false);
   const splashShownRef = useRef(false);
+  const publicLandingUrl = tenantDomainContext.baseDomain ? `https://${tenantDomainContext.baseDomain}/` : undefined;
 
   useEffect(() => {
     if (user?.activeTenant) {
@@ -342,6 +343,7 @@ export default function App() {
           onToggleTheme={toggleTheme}
           resolvedTenant={tenantDomainContext.kind === 'tenant' ? tenantDomainContext.tenant || undefined : undefined}
           domainMode={tenantDomainContext.kind === 'tenant' ? 'tenant' : tenantDomainContext.kind === 'landing' ? 'root' : 'app'}
+          landingUrl={publicLandingUrl}
         />
       );
     }
@@ -378,6 +380,7 @@ export default function App() {
           onToggleTheme={toggleTheme}
           resolvedTenant={tenantDomainContext.kind === 'tenant' ? tenantDomainContext.tenant || undefined : undefined}
           domainMode={tenantDomainContext.kind === 'tenant' ? 'tenant' : tenantDomainContext.kind === 'landing' ? 'root' : 'app'}
+          landingUrl={publicLandingUrl}
         />
       );
     }
@@ -406,6 +409,7 @@ export default function App() {
               onToggleTheme={toggleTheme}
               resolvedTenant={tenantDomainContext.tenant || undefined}
               domainMode="tenant"
+              landingUrl={publicLandingUrl}
             />
           );
         }
@@ -418,6 +422,7 @@ export default function App() {
               isDark={isDark}
               onToggleTheme={toggleTheme}
               domainMode="app"
+              landingUrl={publicLandingUrl}
             />
           );
         }
@@ -434,6 +439,7 @@ export default function App() {
             onToggleTheme={toggleTheme}
             isSaasAdminPortal={true}
             domainMode="app"
+            landingUrl={publicLandingUrl}
           />
         );
       default:
