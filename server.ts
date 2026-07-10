@@ -43,10 +43,72 @@ const sanitizeScopeId = (value: unknown) => String(value || 'global').trim() || 
 const sanitizeRecordType = (value: unknown) => String(value || '').trim();
 const normalizeEmail = (value: unknown) => String(value || '').trim().toLowerCase();
 const normalizeText = (value: unknown, max = 180) => String(value || '').trim().slice(0, max);
+const normalizeHost = (value: unknown) => String(value || '').trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0].split(':')[0];
 const isStrongPassword = (value: unknown) => {
   const password = String(value || '');
   return password.length >= 10 && /[A-Za-z]/.test(password) && /\d/.test(password);
 };
+
+const DEFAULT_BASE_DOMAIN = 'ndiva.africa';
+const RESERVED_TENANT_SLUGS = new Set([
+  'www', 'app', 'admin', 'superadmin', 'api', 'auth', 'login', 'signup', 'dashboard',
+  'support', 'help', 'mail', 'static', 'assets', 'cdn', 'root'
+]);
+
+const getBaseDomain = () => normalizeHost(process.env.APP_BASE_DOMAIN || process.env.NDIVA_BASE_DOMAIN || DEFAULT_BASE_DOMAIN) || DEFAULT_BASE_DOMAIN;
+const cleanTenantSlug = (value: unknown) => String(value || '')
+  .toLowerCase()
+  .normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9\s-]/g, '')
+  .trim()
+  .replace(/\s+/g, '-')
+  .replace(/-+/g, '-')
+  .replace(/^-|-$/g, '')
+  .slice(0, 63);
+const isTenantSlugValid = (value: unknown) => {
+  const slug = cleanTenantSlug(value);
+  return slug.length >= 2 && /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(slug) && !RESERVED_TENANT_SLUGS.has(slug);
+};
+const getBusinessNameSlugCandidates = (businessName: unknown) => {
+  const words = String(businessName || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const candidates = [words.slice(0, 1), words.slice(0, 2), words.slice(0, 3)]
+    .map(parts => cleanTenantSlug(parts.join('-')))
+    .filter(Boolean);
+  return Array.from(new Set(candidates.length ? candidates : ['business']));
+};
+const tenantDomainSelect = [
+  'id',
+  'name',
+  'country',
+  'city',
+  'currency',
+  'currency_code',
+  'tax_rate',
+  'business_type',
+  'company_settings',
+  'business_settings',
+  'invoice_settings',
+  'selected_package_id',
+  'active_package_id',
+  'subscription_status',
+  'subscription_start_date',
+  'subscription_end_date',
+  'business_name',
+  'business_name_slug',
+  'subdomain_slug',
+  'custom_domain',
+  'primary_domain',
+  'domain_status',
+  'is_domain_active'
+].join(', ');
 
 type LucyPlanId = 'ruby' | 'diamond' | 'tanzanite';
 type LucyIntent = 'chat' | 'report' | 'forecast';
@@ -244,6 +306,109 @@ const platformAdminError = (res: express.Response, error: any) => {
 const adminTable = (tableName: string) => {
   if (!supabaseAdmin) throw new Error('Supabase backend client is not configured');
   return supabaseAdmin.from(tableName as any) as any;
+};
+
+const tenantSlugExists = async (slug: string, excludeTenantId?: string) => {
+  if (!supabaseAdmin) return false;
+  let query = adminTable('tenants').select('id').eq('subdomain_slug', slug).limit(1);
+  if (excludeTenantId && isUuid(excludeTenantId)) query = query.neq('id', excludeTenantId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return Array.isArray(data) && data.length > 0;
+};
+
+const generateUniqueTenantSlug = async (businessName: unknown, requestedSlug?: unknown, excludeTenantId?: string) => {
+  if (requestedSlug !== undefined && String(requestedSlug || '').trim()) {
+    const manualSlug = cleanTenantSlug(requestedSlug);
+    if (!isTenantSlugValid(manualSlug)) {
+      throw new Error('Business Name Slug is invalid or reserved. Use lowercase letters, numbers, and hyphens only.');
+    }
+    if (await tenantSlugExists(manualSlug, excludeTenantId)) {
+      throw new Error(`Business Name Slug "${manualSlug}" is already taken.`);
+    }
+    return manualSlug;
+  }
+
+  const candidates = getBusinessNameSlugCandidates(businessName).filter(isTenantSlugValid);
+  for (const candidate of candidates) {
+    if (!(await tenantSlugExists(candidate, excludeTenantId))) return candidate;
+  }
+
+  const base = candidates[0] || cleanTenantSlug(businessName) || 'business';
+  for (let index = 2; index < 1000; index += 1) {
+    const candidate = cleanTenantSlug(`${base}-${index}`);
+    if (isTenantSlugValid(candidate) && !(await tenantSlugExists(candidate, excludeTenantId))) return candidate;
+  }
+
+  throw new Error('Unable to generate a unique business slug. Please choose another business name.');
+};
+
+const mapTenantDomainRecord = (tenant: any) => {
+  if (!tenant) return null;
+  return {
+    id: tenant.id,
+    name: tenant.name || tenant.business_name || 'Business',
+    country: tenant.country,
+    city: tenant.city,
+    currency: tenant.currency,
+    currencyCode: tenant.currency_code,
+    taxRate: tenant.tax_rate,
+    businessType: tenant.business_type,
+    selectedPackageId: tenant.selected_package_id,
+    activePackageId: tenant.active_package_id,
+    subscriptionStatus: tenant.subscription_status,
+    subscriptionStartDate: tenant.subscription_start_date,
+    subscriptionEndDate: tenant.subscription_end_date,
+    company_settings: tenant.company_settings || {},
+    business_settings: tenant.business_settings || {},
+    invoice_settings: tenant.invoice_settings || {},
+    businessName: tenant.business_name || tenant.name,
+    businessNameSlug: tenant.business_name_slug || tenant.subdomain_slug || null,
+    subdomainSlug: tenant.subdomain_slug || null,
+    customDomain: tenant.custom_domain || null,
+    primaryDomain: tenant.primary_domain || (tenant.subdomain_slug ? `${tenant.subdomain_slug}.${getBaseDomain()}` : null),
+    domainStatus: tenant.domain_status || 'active',
+    isDomainActive: tenant.is_domain_active !== false
+  };
+};
+
+const resolveTenantDomain = async (rawHost: unknown) => {
+  const host = normalizeHost(rawHost);
+  const baseDomain = getBaseDomain();
+  const localHosts = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
+
+  if (!host || localHosts.has(host) || host.endsWith('.localhost')) {
+    return { kind: 'app', host, baseDomain };
+  }
+  if (host === baseDomain || host === `www.${baseDomain}`) {
+    return { kind: 'landing', host, baseDomain };
+  }
+  if (host === `app.${baseDomain}`) {
+    return { kind: 'app', host, baseDomain };
+  }
+
+  const subdomain = host.endsWith(`.${baseDomain}`) ? host.slice(0, -(baseDomain.length + 1)) : '';
+  if (!subdomain && !host.endsWith(`.${baseDomain}`)) {
+    return { kind: 'app', host, baseDomain };
+  }
+  if (!isTenantSlugValid(subdomain)) {
+    return { kind: 'tenant-not-found', host, baseDomain, subdomain, message: 'Tenant not found.' };
+  }
+
+  const { data: tenant, error } = await adminTable('tenants')
+    .select(tenantDomainSelect)
+    .or(`subdomain_slug.eq.${subdomain},primary_domain.eq.${host},custom_domain.eq.${host}`)
+    .maybeSingle();
+  if (error) throw error;
+  if (!tenant) {
+    return { kind: 'tenant-not-found', host, baseDomain, subdomain, message: 'Tenant not found.' };
+  }
+
+  const mappedTenant = mapTenantDomainRecord(tenant);
+  if (mappedTenant && mappedTenant.isDomainActive === false) {
+    return { kind: 'tenant-inactive', host, baseDomain, subdomain, tenant: mappedTenant, message: 'This business domain is not active.' };
+  }
+  return { kind: 'tenant', host, baseDomain, subdomain, tenant: mappedTenant };
 };
 
 const createInitialTenantSettings = (tenant: any) => ({
@@ -664,6 +829,86 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       supabaseUrl: process.env.SUPABASE_URL || null,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null
     });
+  });
+
+  app.get('/api/tenant/resolve', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    try {
+      if (!supabaseAdmin) {
+        return res.json({ kind: 'app', host: normalizeHost(req.query.host || req.headers['x-forwarded-host'] || req.headers.host), baseDomain: getBaseDomain() });
+      }
+      const host = req.query.host || req.headers['x-forwarded-host'] || req.headers.host;
+      return res.json(await resolveTenantDomain(host));
+    } catch (error: any) {
+      console.warn('[Tenant Domain Resolve] Falling back to app mode:', error?.message || error);
+      return res.status(200).json({
+        kind: 'app',
+        host: normalizeHost(req.query.host || req.headers['x-forwarded-host'] || req.headers.host),
+        baseDomain: getBaseDomain(),
+        warning: 'Tenant domain resolver is not fully configured yet.'
+      });
+    }
+  });
+
+  app.get('/api/tenant/slug/check', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    try {
+      if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase backend client is not configured' });
+      const slug = cleanTenantSlug(req.query.slug);
+      const tenantId = String(req.query.tenantId || '');
+      if (!isTenantSlugValid(slug)) {
+        return res.status(400).json({ available: false, slug, error: 'Slug is invalid or reserved.' });
+      }
+      const exists = await tenantSlugExists(slug, tenantId);
+      return res.json({ available: !exists, slug, domain: `${slug}.${getBaseDomain()}` });
+    } catch (error: any) {
+      return res.status(400).json({ available: false, error: error?.message || 'Unable to check slug.' });
+    }
+  });
+
+  app.post('/api/tenant/slug', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    try {
+      if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase backend client is not configured' });
+      const tenantId = String(req.body?.tenantId || '');
+      const requestedSlug = req.body?.slug;
+      if (!isUuid(tenantId)) return res.status(400).json({ error: 'Invalid tenant identifier.' });
+      await requireTenantUser(req, tenantId);
+
+      const { data: currentTenant, error: tenantError } = await adminTable('tenants')
+        .select('id, name, business_name, business_name_slug, subdomain_slug')
+        .eq('id', tenantId)
+        .maybeSingle();
+      if (tenantError) throw tenantError;
+      if (!currentTenant) return res.status(404).json({ error: 'Tenant not found.' });
+      if (currentTenant.subdomain_slug || currentTenant.business_name_slug) {
+        return res.status(409).json({
+          error: 'Business Name Slug is already saved and cannot be changed.',
+          slug: currentTenant.subdomain_slug || currentTenant.business_name_slug,
+          domain: `${currentTenant.subdomain_slug || currentTenant.business_name_slug}.${getBaseDomain()}`
+        });
+      }
+
+      const slug = await generateUniqueTenantSlug(currentTenant.business_name || currentTenant.name, requestedSlug, tenantId);
+      const domain = `${slug}.${getBaseDomain()}`;
+      const { data: updatedTenant, error: updateError } = await adminTable('tenants')
+        .update({
+          business_name: currentTenant.business_name || currentTenant.name,
+          business_name_slug: slug,
+          subdomain_slug: slug,
+          primary_domain: domain,
+          domain_status: 'active',
+          is_domain_active: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tenantId)
+        .select(tenantDomainSelect)
+        .single();
+      if (updateError) throw updateError;
+      return res.json({ success: true, slug, domain, tenant: mapTenantDomainRecord(updatedTenant) });
+    } catch (error: any) {
+      return res.status(400).json({ error: error?.message || 'Unable to save Business Name Slug.' });
+    }
   });
 
   app.get('/api/platform-records/:type/:scope?', async (req, res) => {
@@ -1207,7 +1452,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       return res.status(503).json({ error: 'Secure encrypted database client is not configured' });
     }
     
-    const { email, password, name, businessName, phone, country, city, currency, currencyCode, taxRate, businessType, referralCode } = req.body;
+    const { email, password, name, businessName, phone, country, city, currency, currencyCode, taxRate, businessType, referralCode, businessNameSlug, subdomainSlug } = req.body;
     const emailValue = normalizeEmail(email);
     
     if (!emailValue || !password || !name || !businessName) {
@@ -1241,32 +1486,62 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
       const authUserId = authData.user.id;
 
+      const requestedTenantSlug = subdomainSlug || businessNameSlug;
+      let generatedTenantSlug: string | null = null;
+      try {
+        generatedTenantSlug = await generateUniqueTenantSlug(businessName, requestedTenantSlug);
+      } catch (slugError: any) {
+        await supabaseAdmin.auth.admin.deleteUser(authUserId);
+        return res.status(400).json({ error: slugError?.message || 'Business Name Slug is not available.' });
+      }
+
+      const tenantBaseInsert = {
+        name: normalizeText(businessName),
+        country: normalizeText(country, 80) || 'Tanzania',
+        city: normalizeText(city, 80),
+        currency: normalizeText(currency, 20) || 'TSh',
+        currency_code: normalizeText(currencyCode, 10) || 'TZS',
+        tax_rate: Number.isFinite(taxRate) ? taxRate : 0,
+        business_type: normalizeText(businessType, 60) || 'retail',
+        mobile_money_providers: [],
+        company_settings: {},
+        business_settings: {},
+        invoice_settings: {},
+        selected_package_id: null,
+        active_package_id: null,
+        subscription_status: 'trial',
+        subscription_start_date: subscriptionStartDate.toISOString(),
+        subscription_end_date: subscriptionEndDate.toISOString(),
+        package_updated_at: new Date().toISOString(),
+        package_change_type: 'registration',
+        package_change_note: 'New clean tenant account created on trial status'
+      };
+      const tenantDomainInsert = generatedTenantSlug ? {
+        business_name: normalizeText(businessName),
+        business_name_slug: generatedTenantSlug,
+        subdomain_slug: generatedTenantSlug,
+        primary_domain: `${generatedTenantSlug}.${getBaseDomain()}`,
+        domain_status: 'active',
+        is_domain_active: true
+      } : {};
+
       // 2. Create the Tenant (Business Account)
-      const { data: tenantData, error: tenantError } = await supabaseAdmin
+      let tenantInsertResult = await supabaseAdmin
         .from('tenants')
-        .insert({
-          name: normalizeText(businessName),
-          country: normalizeText(country, 80) || 'Tanzania',
-          city: normalizeText(city, 80),
-          currency: normalizeText(currency, 20) || 'TSh',
-          currency_code: normalizeText(currencyCode, 10) || 'TZS',
-          tax_rate: Number.isFinite(taxRate) ? taxRate : 0,
-          business_type: normalizeText(businessType, 60) || 'retail',
-          mobile_money_providers: [],
-          company_settings: {},
-          business_settings: {},
-          invoice_settings: {},
-          selected_package_id: null,
-          active_package_id: null,
-          subscription_status: 'trial',
-          subscription_start_date: subscriptionStartDate.toISOString(),
-          subscription_end_date: subscriptionEndDate.toISOString(),
-          package_updated_at: new Date().toISOString(),
-          package_change_type: 'registration',
-          package_change_note: 'New clean tenant account created on trial status'
-        } as any)
-        .select('id, name, country, city, currency, currency_code, tax_rate, business_type, selected_package_id, active_package_id, subscription_status, subscription_start_date, subscription_end_date')
+        .insert({ ...tenantBaseInsert, ...tenantDomainInsert } as any)
+        .select(tenantDomainSelect)
         .single();
+
+      if (tenantInsertResult.error && /business_name|business_name_slug|subdomain_slug|primary_domain|domain_status|is_domain_active/i.test(tenantInsertResult.error.message || '')) {
+        console.warn('[Tenant Registration] Domain columns missing. Run supabase_tenant_domains_migration.sql to enable subdomains.');
+        tenantInsertResult = await supabaseAdmin
+          .from('tenants')
+          .insert(tenantBaseInsert as any)
+          .select('id, name, country, city, currency, currency_code, tax_rate, business_type, selected_package_id, active_package_id, subscription_status, subscription_start_date, subscription_end_date')
+          .single();
+      }
+
+      const { data: tenantData, error: tenantError } = tenantInsertResult;
 
       if (tenantError || !tenantData) {
         // Rollback strategy: delete the auth user since tenant creation failed
@@ -1400,7 +1675,14 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
           activePackageId: (tenantData as any).active_package_id || undefined,
           subscriptionStatus: (tenantData as any).subscription_status || 'trial',
           subscriptionStartDate: (tenantData as any).subscription_start_date || undefined,
-          subscriptionEndDate: (tenantData as any).subscription_end_date || undefined
+          subscriptionEndDate: (tenantData as any).subscription_end_date || undefined,
+          businessName: (tenantData as any).business_name || (tenantData as any).name,
+          businessNameSlug: (tenantData as any).business_name_slug || (tenantData as any).subdomain_slug || undefined,
+          subdomainSlug: (tenantData as any).subdomain_slug || undefined,
+          primaryDomain: (tenantData as any).primary_domain || ((tenantData as any).subdomain_slug ? `${(tenantData as any).subdomain_slug}.${getBaseDomain()}` : undefined),
+          customDomain: (tenantData as any).custom_domain || undefined,
+          domainStatus: (tenantData as any).domain_status || undefined,
+          isDomainActive: (tenantData as any).is_domain_active !== false
         }
       });
       
@@ -1441,10 +1723,19 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
   // API Route: Fetch tenant logo by domain or subdomain dynamically on login screen load
   app.get('/api/tenant/logo-by-domain', async (req, res) => {
-    const domain = normalizeText(req.query.domain, 120);
+    const domain = normalizeHost(req.query.domain);
     try {
       if (!supabaseAdmin) {
         return res.json({ logoUrl: null });
+      }
+
+      const resolved = await resolveTenantDomain(domain || req.headers.host);
+      const resolvedTenant = (resolved as any)?.tenant;
+      const resolvedCompanySettings = typeof resolvedTenant?.company_settings === 'string'
+        ? JSON.parse(resolvedTenant.company_settings)
+        : resolvedTenant?.company_settings;
+      if (resolvedCompanySettings?.logo_url || resolvedCompanySettings?.logoUrl) {
+        return res.json({ logoUrl: resolvedCompanySettings.logo_url || resolvedCompanySettings.logoUrl, tenantName: resolvedTenant?.name || null });
       }
 
       const { data: tenants, error } = await supabaseAdmin

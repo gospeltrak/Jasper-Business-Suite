@@ -5,10 +5,19 @@ import Dashboard from './components/Dashboard';
 import AffiliatePortal from './components/AffiliatePortal';
 import ToolsHub from './components/ToolsHub';
 import JasperSplashScreen from './components/JasperSplashScreen';
-import { User } from './types';
+import { User, Tenant } from './types';
 import { useTheme } from './ThemeContext';
 import { useTenantLogo } from './TenantLogoContext';
 import { endCloudSession, touchCloudSession } from './utils/sessionControl';
+
+type TenantDomainContext = {
+  kind: 'loading' | 'landing' | 'app' | 'tenant' | 'tenant-not-found' | 'tenant-inactive' | 'error';
+  host?: string;
+  baseDomain?: string;
+  subdomain?: string;
+  tenant?: Tenant | null;
+  message?: string;
+};
 
 export default function App() {
   const normalizePath = (path: string) => {
@@ -63,6 +72,7 @@ export default function App() {
     }
   });
   const [redirectMessage, setRedirectMessage] = useState<string>('');
+  const [tenantDomainContext, setTenantDomainContext] = useState<TenantDomainContext>({ kind: 'loading' });
   
   const { isDark, toggleTheme } = useTheme();
   const { fetchLogoUrl, logoUrl } = useTenantLogo();
@@ -81,6 +91,31 @@ export default function App() {
     if (!localStorage.getItem('jasper_lang')) {
       localStorage.setItem('jasper_lang', 'en');
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const resolveCurrentHost = async () => {
+      try {
+        const response = await fetch(`/api/tenant/resolve?host=${encodeURIComponent(window.location.host)}`, { cache: 'no-store' });
+        const payload = await response.json();
+        if (cancelled) return;
+        setTenantDomainContext({
+          kind: payload?.kind || 'app',
+          host: payload?.host,
+          baseDomain: payload?.baseDomain,
+          subdomain: payload?.subdomain,
+          tenant: payload?.tenant || null,
+          message: payload?.message || payload?.warning || undefined
+        });
+      } catch (error) {
+        if (!cancelled) {
+          setTenantDomainContext({ kind: 'app', host: window.location.hostname, message: 'Domain resolver unavailable.' });
+        }
+      }
+    };
+    resolveCurrentHost();
+    return () => { cancelled = true; };
   }, []);
 
   // Handle browser back and forward button operations
@@ -193,6 +228,19 @@ export default function App() {
 
   // Perform route protection redirects check
   useEffect(() => {
+    if (tenantDomainContext.kind === 'tenant' && user) {
+      const userTenantId = user.tenantId || user.activeTenant;
+      const isPlatformAdmin = user.role === 'SuperAdmin' || user.isSaaSStaff;
+      if (!isPlatformAdmin && userTenantId !== tenantDomainContext.tenant?.id) {
+        recordStaffLogout(user);
+        setUser(null);
+        localStorage.removeItem('jasper_cashier_user');
+        setRedirectMessage(`Please log in with an account for ${tenantDomainContext.tenant?.name || 'this business'}.`);
+        window.history.replaceState({}, '', '/login');
+        setCurrentPath('/login');
+        return;
+      }
+    }
     if (isDashboardRoute(currentPath) && !user) {
       setRedirectMessage('Please log in to continue.');
       window.history.replaceState({}, '', '/login');
@@ -210,9 +258,16 @@ export default function App() {
         return;
       }
     }
-  }, [currentPath, user]);
+  }, [currentPath, user, tenantDomainContext]);
 
   const handleLoginSuccess = (authenticatedUser: User) => {
+    const domainTenantId = tenantDomainContext.kind === 'tenant' ? tenantDomainContext.tenant?.id : null;
+    const userTenantId = authenticatedUser.tenantId || authenticatedUser.activeTenant;
+    const isPlatformAdmin = authenticatedUser.role === 'SuperAdmin' || authenticatedUser.isSaaSStaff;
+    if (domainTenantId && !isPlatformAdmin && userTenantId !== domainTenantId) {
+      setRedirectMessage(`This account does not belong to ${tenantDomainContext.tenant?.name || 'this business'}. Please use the correct business login.`);
+      return;
+    }
     recordStaffLogin(authenticatedUser);
     setUser(authenticatedUser);
     localStorage.setItem('jasper_cashier_user', JSON.stringify(authenticatedUser));
@@ -250,6 +305,33 @@ export default function App() {
 
   // Dynamic Component switcher based on pathname
   const renderRoute = () => {
+    if (tenantDomainContext.kind === 'loading') {
+      return (
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-6 text-center">
+          <div className="space-y-3">
+            <img src="/jb-logo.png" alt="Ndiva Suite Logo" className="w-14 h-14 object-contain mx-auto animate-pulse" />
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">Loading Ndiva Suite</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (tenantDomainContext.kind === 'tenant-not-found' || tenantDomainContext.kind === 'tenant-inactive' || tenantDomainContext.kind === 'error') {
+      return (
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
+          <div className="max-w-md rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:bg-slate-900 dark:border-slate-800">
+            <img src="/jb-logo.png" alt="Ndiva Suite Logo" className="mx-auto h-14 w-14 object-contain" />
+            <h1 className="mt-4 text-2xl font-black text-slate-900 dark:text-white">
+              {tenantDomainContext.kind === 'tenant-inactive' ? 'Business Domain Inactive' : 'Tenant Not Found'}
+            </h1>
+            <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+              {tenantDomainContext.message || 'We could not find an active business for this domain.'}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     if (currentPath === '/login' || currentPath.startsWith('/login/')) {
       return (
         <LoginPage
@@ -258,6 +340,8 @@ export default function App() {
           redirectMessage={redirectMessage}
           isDark={isDark}
           onToggleTheme={toggleTheme}
+          resolvedTenant={tenantDomainContext.kind === 'tenant' ? tenantDomainContext.tenant || undefined : undefined}
+          domainMode={tenantDomainContext.kind === 'tenant' ? 'tenant' : tenantDomainContext.kind === 'landing' ? 'root' : 'app'}
         />
       );
     }
@@ -292,12 +376,51 @@ export default function App() {
           redirectMessage={redirectMessage || 'Please log in to continue.'}
           isDark={isDark}
           onToggleTheme={toggleTheme}
+          resolvedTenant={tenantDomainContext.kind === 'tenant' ? tenantDomainContext.tenant || undefined : undefined}
+          domainMode={tenantDomainContext.kind === 'tenant' ? 'tenant' : tenantDomainContext.kind === 'landing' ? 'root' : 'app'}
         />
       );
     }
 
     switch (currentPath) {
       case '/':
+        if (tenantDomainContext.kind === 'tenant') {
+          if (user) {
+            return (
+              <Dashboard
+                user={user}
+                onLogout={handleLogoutSuccess}
+                onNavigate={navigateTo}
+                isDark={isDark}
+                onToggleTheme={toggleTheme}
+                initialTab={getDashboardTab('/dashboard')}
+              />
+            );
+          }
+          return (
+            <LoginPage
+              onLogin={handleLoginSuccess}
+              onNavigate={navigateTo}
+              redirectMessage={redirectMessage}
+              isDark={isDark}
+              onToggleTheme={toggleTheme}
+              resolvedTenant={tenantDomainContext.tenant || undefined}
+              domainMode="tenant"
+            />
+          );
+        }
+        if (tenantDomainContext.kind === 'app') {
+          return (
+            <LoginPage
+              onLogin={handleLoginSuccess}
+              onNavigate={navigateTo}
+              redirectMessage={redirectMessage}
+              isDark={isDark}
+              onToggleTheme={toggleTheme}
+              domainMode="app"
+            />
+          );
+        }
         return <LandingPage isDark={isDark} onToggleTheme={toggleTheme} onNavigate={navigateTo} />;
       case '/tools':
         return <ToolsHub isDark={isDark} onToggleTheme={toggleTheme} onNavigate={navigateTo} />;
@@ -310,6 +433,7 @@ export default function App() {
             isDark={isDark}
             onToggleTheme={toggleTheme}
             isSaasAdminPortal={true}
+            domainMode="app"
           />
         );
       default:

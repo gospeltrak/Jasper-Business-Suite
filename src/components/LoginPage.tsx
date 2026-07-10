@@ -162,9 +162,11 @@ interface LoginPageProps {
   isDark?: boolean;
   onToggleTheme?: () => void;
   isSaasAdminPortal?: boolean;
+  resolvedTenant?: Tenant | null;
+  domainMode?: 'root' | 'app' | 'tenant';
 }
 
-export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark = false, onToggleTheme, isSaasAdminPortal }: LoginPageProps) {
+export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark = false, onToggleTheme, isSaasAdminPortal, resolvedTenant, domainMode = 'root' }: LoginPageProps) {
   // Navigation Tabs: signin vs register
   const [authTab, setAuthTab] = useState<'signin' | 'register'>(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -233,6 +235,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   } | null>(null);
 
   const [loginScreenLogoUrl, setLoginScreenLogoUrl] = useState<string | null>(null);
+  const tenantLogoFromContext = (resolvedTenant?.company_settings as any)?.logo_url || (resolvedTenant?.company_settings as any)?.logoUrl || null;
+  const tenantLoginTitle = resolvedTenant?.name || (domainMode === 'tenant' ? 'Business Login' : 'Ndiva Suite');
+  const isTenantDomainLogin = domainMode === 'tenant' && !!resolvedTenant?.id;
 
   // SaaS Dynamic Niche Launch State
   const [launchedNiches, setLaunchedNiches] = useState<string[]>(() => {
@@ -241,20 +246,24 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   });
 
   useEffect(() => {
-    // Fetch tenant logo by domain on load
-    const domain = window.location.hostname;
-    fetch(`/api/tenant/logo-by-domain?domain=${encodeURIComponent(domain)}`)
-      .then(res => {
-        const contentType = res.headers.get('content-type') || '';
-        if (!res.ok || !contentType.includes('application/json')) return null;
-        return res.json();
-      })
-      .then(data => {
-        if (data && data.logoUrl) {
-          setLoginScreenLogoUrl(data.logoUrl);
-        }
-      })
-      .catch(() => undefined);
+    if (tenantLogoFromContext) {
+      setLoginScreenLogoUrl(tenantLogoFromContext);
+    } else {
+      // Fetch tenant logo by domain on load
+      const domain = window.location.hostname;
+      fetch(`/api/tenant/logo-by-domain?domain=${encodeURIComponent(domain)}`)
+        .then(res => {
+          const contentType = res.headers.get('content-type') || '';
+          if (!res.ok || !contentType.includes('application/json')) return null;
+          return res.json();
+        })
+        .then(data => {
+          if (data && data.logoUrl) {
+            setLoginScreenLogoUrl(data.logoUrl);
+          }
+        })
+        .catch(() => undefined);
+    }
 
     const handleUpdate = () => {
       const raw = localStorage.getItem('saas_launched_niches');
@@ -267,13 +276,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     const code = urlParams.get('ref') || urlParams.get('promo');
     if (code) {
       setAffiliateCode(code);
-      setAuthTab('register');
+      setAuthTab(isTenantDomainLogin ? 'signin' : 'register');
     } else if (urlParams.get('register') === 'true') {
-      setAuthTab('register');
+      setAuthTab(isTenantDomainLogin ? 'signin' : 'register');
+    } else if (isTenantDomainLogin) {
+      setAuthTab('signin');
     }
 
     return () => window.removeEventListener('saas_niches_updated', handleUpdate);
-  }, []);
+  }, [tenantLogoFromContext, isTenantDomainLogin]);
 
   useEffect(() => {
     const clearTransientLoginError = () => {
@@ -898,8 +909,21 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
         const isPlatformAdmin = userProfile?.account_type === 'super_admin' ||
           ['superadmin', 'super_admin'].includes(String(userProfile?.role_key || userProfile?.role || '').toLowerCase());
+        const profileTenantId = userProfile?.tenant_id || userProfile?.active_tenant;
+        if (isTenantDomainLogin && !isPlatformAdmin && profileTenantId !== resolvedTenant?.id) {
+          await client.auth.signOut();
+          setError(`This account does not belong to ${resolvedTenant?.name || 'this business'}. Please use the correct business login.`);
+          setIsLoading(false);
+          return;
+        }
         if (profileError || !userProfile || (!userProfile.tenant_id && !isPlatformAdmin)) {
           // No user profile profile/tenant exists yet. Redirect to onboarding form
+          if (isTenantDomainLogin) {
+            await client.auth.signOut();
+            setError(`This account does not belong to ${resolvedTenant?.name || 'this business'}. Please use the correct business login.`);
+            setIsLoading(false);
+            return;
+          }
           triggerOnLoginWithSplash({
             id: authData.user.id,
             email: authData.user.email || authEmail,
@@ -954,6 +978,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       }
     } catch (e) {
       console.warn('Secure signin request failed or bypassed. Executing simulated/demo fallback.', e);
+    }
+
+    if (isTenantDomainLogin) {
+      setHasActiveLoginAttempt(true);
+      setError(`Cloud login is required for ${resolvedTenant?.name || 'this business'}. Please check your credentials and try again.`);
+      setIsLoading(false);
+      return;
     }
 
     // Default Fallback
@@ -1495,11 +1526,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             )}
           </div>
           <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-            {isSaasAdminPortal ? 'SaaS Core Authority' : 'Ndiva Suite'}
+            {isSaasAdminPortal ? 'SaaS Core Authority' : tenantLoginTitle}
           </h2>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold tracking-normal leading-relaxed uppercase max-w-sm mx-auto">
             {isSaasAdminPortal 
               ? 'Central Management Backoffice' 
+              : isTenantDomainLogin
+                ? `${resolvedTenant?.primaryDomain || `${resolvedTenant?.subdomainSlug || ''}.ndiva.africa`} secure business portal`
               : currentLang === 'sw' 
                 ? 'Mfumo wa Kisasa wa Usimamizi wa Biashara na Mauzo' 
                 : 'Next-Generation Unified POS & Enterprise Management Suite'}
@@ -1528,7 +1561,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         )}
 
         {/* Auth Tab Picker */}
-        {!isSaasAdminPortal && !onboardingUser && (
+        {!isSaasAdminPortal && !onboardingUser && !isTenantDomainLogin && (
           <div className="flex bg-slate-200 p-1 rounded-2xl grid grid-cols-2 font-bold text-xs shadow-inner">
             <button
               onClick={() => { setAuthTab('signin'); setError(null); }}

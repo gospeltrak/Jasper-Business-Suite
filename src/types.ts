@@ -38,6 +38,13 @@ export interface Tenant {
   subscriptionStatus?: 'trial' | 'pending' | 'active' | 'expired' | 'suspended';
   subscriptionStartDate?: string;
   subscriptionEndDate?: string;
+  businessName?: string;
+  businessNameSlug?: string | null;
+  subdomainSlug?: string | null;
+  customDomain?: string | null;
+  primaryDomain?: string | null;
+  domainStatus?: 'pending' | 'active' | 'inactive' | 'failed' | 'verified' | string;
+  isDomainActive?: boolean;
   company_settings?: {
     logo_url: string | null;
   };
@@ -451,6 +458,11 @@ export interface BusinessSettings {
   registeredStores: string[];
   tagline?: string;
   businessEmail?: string;
+  businessNameSlug?: string;
+  subdomainSlug?: string;
+  primaryDomain?: string;
+  domainStatus?: string;
+  isDomainActive?: boolean;
   branchBranding?: Record<string, BranchBranding>; // keyed by store name
 }
 

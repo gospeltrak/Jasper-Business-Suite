@@ -552,7 +552,12 @@ const DEFAULT_BUSINESS_SETTINGS: BusinessSettings = {
   autoGenerateBarcode: false,
   paymentModes: [],
   deliveryPaymentModes: [],
-  registeredStores: []
+  registeredStores: [],
+  businessNameSlug: '',
+  subdomainSlug: '',
+  primaryDomain: '',
+  domainStatus: '',
+  isDomainActive: true
 } as unknown as BusinessSettings;
 
 const DEFAULT_PRODUCT_STORE_SETTINGS: ProductStoreSettings = {
@@ -647,6 +652,8 @@ export default function DashboardSettings({
 
   // Success alert message states
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [slugSaveStatus, setSlugSaveStatus] = useState<{ type: 'success' | 'error' | 'info'; msg: string } | null>(null);
+  const [isSlugSaving, setIsSlugSaving] = useState(false);
 
   // Logo upload and server persistence state
   const [isLogoSaving, setIsLogoSaving] = useState(false);
@@ -714,6 +721,59 @@ export default function DashboardSettings({
   const [newRoleName, setNewRoleName] = useState<string>('');
   const markSettingsDraftChanged = () => {
     settingsDraftTouchedAtRef.current = Date.now();
+  };
+
+  const cleanBusinessSlug = (value: string) => value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 63);
+
+  const baseDomain = ((import.meta as any).env?.VITE_APP_BASE_DOMAIN || 'ndiva.africa') as string;
+  const lockedBusinessSlug = activeTenant.subdomainSlug || activeTenant.businessNameSlug || (businessForm.domainStatus === 'active' ? (businessForm.subdomainSlug || businessForm.businessNameSlug) : '');
+  const currentBusinessSlug = String(lockedBusinessSlug || businessForm.subdomainSlug || businessForm.businessNameSlug || '');
+  const isBusinessSlugLocked = !!lockedBusinessSlug;
+  const currentBusinessDomain = currentBusinessSlug ? `${currentBusinessSlug}.${baseDomain}` : '';
+
+  const persistBusinessSlugIfNeeded = async () => {
+    if (isBusinessSlugLocked) return businessForm;
+    const slug = cleanBusinessSlug(currentBusinessSlug);
+    if (!slug) return businessForm;
+    if (slug.length < 2) throw new Error('Business Name Slug must be at least 2 characters.');
+
+    setIsSlugSaving(true);
+    setSlugSaveStatus({ type: 'info', msg: 'Saving Business Name Slug...' });
+    try {
+      const client: any = await getSecureDataBridgeClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error('Please sign in again before saving Business Name Slug.');
+      const response = await fetch('/api/tenant/slug', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ tenantId: activeTenant.id, slug })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result?.error || 'Unable to save Business Name Slug.');
+      const nextBusinessForm = {
+        ...businessForm,
+        businessNameSlug: result.slug,
+        subdomainSlug: result.slug,
+        primaryDomain: result.domain,
+        domainStatus: 'active',
+        isDomainActive: true
+      } as BusinessSettings;
+      setBusinessForm(nextBusinessForm);
+      setSlugSaveStatus({ type: 'success', msg: `Business domain saved: ${result.domain}. It cannot be changed.` });
+      return nextBusinessForm;
+    } finally {
+      setIsSlugSaving(false);
+    }
   };
 
   const handleTogglePermission = (roleId: string, module: string, permissionType: 'read' | 'write' | 'edit') => {
@@ -1282,10 +1342,18 @@ export default function DashboardSettings({
   };
 
   // Global Save triggers
-  const triggerSaveAll = () => {
+  const triggerSaveAll = async () => {
+    let nextBusinessForm = businessForm;
+    try {
+      nextBusinessForm = await persistBusinessSlugIfNeeded();
+    } catch (error: any) {
+      setSlugSaveStatus({ type: 'error', msg: error?.message || 'Unable to save Business Name Slug.' });
+      setSaveSuccess(null);
+      return;
+    }
     const fullyUpdatedSettings: SystemSettings = {
       company: companyForm,
-      business: businessForm,
+      business: nextBusinessForm,
       productStore: productForm,
       staffs: staffsList,
       customRoles: customRolesList,
@@ -1391,10 +1459,11 @@ export default function DashboardSettings({
           <button
             type="button"
             onClick={triggerSaveAll}
-            className="w-full sm:w-auto min-h-[48px] px-6 py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black uppercase tracking-wider rounded-2xl shadow-md shadow-emerald-600/10 cursor-pointer transition-all flex items-center justify-center space-x-2 shrink-0"
+            disabled={isSlugSaving}
+            className="w-full sm:w-auto min-h-[48px] px-6 py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-wider rounded-2xl shadow-md shadow-emerald-600/10 cursor-pointer transition-all flex items-center justify-center space-x-2 shrink-0"
           >
             <Check className="w-3.5 h-3.5" />
-            <span>Save Settings</span>
+            <span>{isSlugSaving ? 'Saving...' : 'Save Settings'}</span>
           </button>
         </div>
       </div>
@@ -1719,7 +1788,7 @@ export default function DashboardSettings({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs font-sans">
                 
-                <div className="space-y-1.5 md:col-span-2">
+                <div className="space-y-1.5">
                   <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">Business Brand Name</label>
                   <input
                     type="text"
@@ -1728,6 +1797,46 @@ export default function DashboardSettings({
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
                     placeholder="Enter business brand name..."
                   />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">Business Name Slug</label>
+                  <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-slate-50 focus-within:ring-1 focus-within:ring-emerald-500">
+                    <input
+                      type="text"
+                      value={currentBusinessSlug}
+                      disabled={isBusinessSlugLocked || isSlugSaving}
+                      onChange={(e) => {
+                        const slug = cleanBusinessSlug(e.target.value);
+                        setBusinessForm(prev => ({
+                          ...prev,
+                          businessNameSlug: slug,
+                          subdomainSlug: slug,
+                          primaryDomain: slug ? `${slug}.${baseDomain}` : '',
+                          domainStatus: 'draft'
+                        }));
+                        setSlugSaveStatus(null);
+                      }}
+                      className={`min-w-0 flex-1 px-4 py-2.5 bg-transparent font-semibold text-slate-700 outline-none ${isBusinessSlugLocked ? 'cursor-not-allowed text-slate-400' : ''}`}
+                      placeholder="lim"
+                    />
+                    <span className="shrink-0 border-l border-slate-200 px-3 py-2.5 text-[11px] font-black text-slate-400">.{baseDomain}</span>
+                  </div>
+                  <p className="text-[10px] font-medium leading-relaxed text-slate-500">
+                    This will be your domain name. Example: <span className="font-black text-slate-700">lim.{baseDomain}</span>. Once saved, it cannot be changed.
+                  </p>
+                  {currentBusinessDomain && (
+                    <p className="text-[10px] font-black text-emerald-600">
+                      {isBusinessSlugLocked ? 'Locked domain' : 'Pending save'}: {currentBusinessDomain}
+                    </p>
+                  )}
+                  {slugSaveStatus && (
+                    <p className={`text-[10px] font-bold ${
+                      slugSaveStatus.type === 'error' ? 'text-red-600' : slugSaveStatus.type === 'success' ? 'text-emerald-600' : 'text-slate-500'
+                    }`}>
+                      {slugSaveStatus.msg}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
