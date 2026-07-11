@@ -1195,7 +1195,8 @@ button:active:not(:disabled),
 
 .detail-shell,
 .responsive-modal-shell,
-.responsive-drawer-shell {
+.responsive-drawer-shell,
+.tenant-form-screen {
   max-height: calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom) - 1rem);
   min-height: 0;
   display: flex;
@@ -1204,25 +1205,35 @@ button:active:not(:disabled),
 }
 
 .detail-header,
-.detail-footer {
+.detail-footer,
+.tenant-form-header,
+.tenant-form-footer {
   flex-shrink: 0;
 }
 
 .detail-body,
-.scrollable-content {
+.scrollable-content,
+.tenant-form-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  scroll-padding-bottom: calc(var(--dashboard-bottom-nav-height, 80px) + var(--safe-area-bottom) + 1.5rem);
 }
 
-.detail-footer {
+.detail-footer,
+.tenant-form-footer {
   position: sticky;
   bottom: 0;
-  z-index: 1;
+  z-index: 20;
   padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+.tenant-modal-overlay {
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
 
 .responsive-table,
@@ -1360,10 +1371,32 @@ button:active:not(:disabled),
   #dashboard-scaffold:has([class*="fixed"][class*="inset-0"][class*="z-[110]"]) .lucy-copilot-panel,
   #dashboard-scaffold:has([class*="fixed"][class*="inset-0"][class*="z-[200]"]) .lucy-copilot-fab,
   #dashboard-scaffold:has([class*="fixed"][class*="inset-0"][class*="z-[200]"]) .lucy-copilot-panel,
+  #dashboard-scaffold:has([class*="fixed"][class*="inset-0"][class*="z-[220]"]) .lucy-copilot-fab,
+  #dashboard-scaffold:has([class*="fixed"][class*="inset-0"][class*="z-[220]"]) .lucy-copilot-panel,
+  #dashboard-scaffold:has([class*="fixed"][class*="inset-0"][class*="z-[230]"]) .lucy-copilot-fab,
+  #dashboard-scaffold:has([class*="fixed"][class*="inset-0"][class*="z-[230]"]) .lucy-copilot-panel,
   #dashboard-scaffold:has([class*="fixed"][class*="inset-0"][class*="z-[110]"]) .jasper-global-sticky-ad,
-  #dashboard-scaffold:has([class*="fixed"][class*="inset-0"][class*="z-[200]"]) .jasper-global-sticky-ad {
+  #dashboard-scaffold:has([class*="fixed"][class*="inset-0"][class*="z-[200]"]) .jasper-global-sticky-ad,
+  #dashboard-scaffold:has([class*="fixed"][class*="inset-0"][class*="z-[220]"]) .jasper-global-sticky-ad,
+  #dashboard-scaffold:has([class*="fixed"][class*="inset-0"][class*="z-[230]"]) .jasper-global-sticky-ad {
     opacity: 0;
     pointer-events: none;
+  }
+
+  #dashboard-scaffold .tenant-modal-overlay {
+    padding-top: max(0.5rem, var(--safe-area-top)) !important;
+    padding-right: max(0.5rem, env(safe-area-inset-right)) !important;
+    padding-left: max(0.5rem, env(safe-area-inset-left)) !important;
+    padding-bottom: calc(var(--dashboard-bottom-nav-height) + var(--safe-area-bottom) + 0.75rem) !important;
+  }
+
+  #dashboard-scaffold .tenant-form-screen {
+    height: calc(100dvh - var(--safe-area-top) - var(--dashboard-bottom-nav-height) - var(--safe-area-bottom) - 1.25rem) !important;
+    max-height: calc(100dvh - var(--safe-area-top) - var(--dashboard-bottom-nav-height) - var(--safe-area-bottom) - 1.25rem) !important;
+  }
+
+  #dashboard-scaffold .tenant-form-footer {
+    padding-bottom: calc(var(--safe-area-bottom) + 0.75rem) !important;
   }
 
   #dashboard-scaffold [class*="fixed"][class*="inset-0"][class*="items-center"],
@@ -1374,8 +1407,9 @@ button:active:not(:disabled),
     padding-bottom: calc(var(--dashboard-bottom-nav-height) + var(--safe-area-bottom) + 0.5rem) !important;
   }
 
-  #dashboard-scaffold [class*="fixed"][class*="inset-0"][class*="items-center"] > div:not([class*="fixed"]):not([class*="absolute"]),
-  #dashboard-scaffold [class*="fixed"][class*="inset-0"][class*="items-end"] > div:not([class*="fixed"]):not([class*="absolute"]) {
+  #dashboard-scaffold [class*="fixed"][class*="inset-0"][class*="items-center"] > :is(div, form):not([class*="fixed"]):not([class*="absolute"]),
+  #dashboard-scaffold [class*="fixed"][class*="inset-0"][class*="items-end"] > :is(div, form):not([class*="fixed"]):not([class*="absolute"]),
+  #dashboard-scaffold [class*="fixed"][class*="inset-0"][class*="items-stretch"] > :is(div, form):not([class*="fixed"]):not([class*="absolute"]) {
     max-height: calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom) - 1rem) !important;
     max-height: calc(100dvh - var(--safe-area-top) - var(--dashboard-bottom-nav-height) - var(--safe-area-bottom) - 1rem) !important;
     max-width: min(100%, 100vw - 1rem);
@@ -1384,7 +1418,7 @@ button:active:not(:disabled),
     overflow: hidden !important;
   }
 
-  #dashboard-scaffold [class*="fixed"][class*="inset-0"] > div:not([class*="fixed"]):not([class*="absolute"]) > :is(.overflow-y-auto, [class*="overflow-y-auto"], [class*="max-h-"]) {
+  #dashboard-scaffold [class*="fixed"][class*="inset-0"] > :is(div, form):not([class*="fixed"]):not([class*="absolute"]) > :is(.overflow-y-auto, [class*="overflow-y-auto"], [class*="max-h-"]) {
     min-height: 0;
     flex: 1 1 auto;
     overflow-y: auto !important;
@@ -1430,8 +1464,8 @@ button:active:not(:disabled),
     align-items: flex-end !important;
   }
 
-  #dashboard-scaffold [class*="fixed"][class*="inset-0"][class*="items-center"] > div:not([class*="fixed"]):not([class*="absolute"]),
-  #dashboard-scaffold [class*="fixed"][class*="inset-0"][class*="items-end"] > div:not([class*="fixed"]):not([class*="absolute"]) {
+  #dashboard-scaffold [class*="fixed"][class*="inset-0"][class*="items-center"] > :is(div, form):not([class*="fixed"]):not([class*="absolute"]),
+  #dashboard-scaffold [class*="fixed"][class*="inset-0"][class*="items-end"] > :is(div, form):not([class*="fixed"]):not([class*="absolute"]) {
     width: 100% !important;
     border-bottom-right-radius: 0 !important;
     border-bottom-left-radius: 0 !important;

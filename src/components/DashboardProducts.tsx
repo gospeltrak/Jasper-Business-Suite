@@ -3494,11 +3494,11 @@ export default function DashboardProducts({
 
       {/* METAMODAL: INVENTORY TRANSFER HUB */}
       {transferProduct && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
-          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col uppercase text-xs">
+        <div className="tenant-modal-overlay fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
+          <div className="tenant-form-screen relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col uppercase text-xs">
             
             {/* Header */}
-            <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <div className="tenant-form-header px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <ArrowLeftRight className="w-4 h-4 text-emerald-600" />
                 <h4 className="font-bold text-slate-800 text-xs tracking-wide">Internal Stock Transfer</h4>
@@ -3508,7 +3508,7 @@ export default function DashboardProducts({
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="tenant-form-body p-5 space-y-4 min-h-0 overflow-y-auto overflow-x-hidden">
               {/* Product Info */}
               <div className="space-y-0.5 normal-case font-medium">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{transferProduct.category}</p>
@@ -4033,10 +4033,10 @@ export default function DashboardProducts({
 
       {/* VIEW MODAL */}
       {viewingProduct && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] overflow-y-auto flex flex-col">
+        <div className="tenant-modal-overlay fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
+          <div className="tenant-form-screen bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <div className="tenant-form-header px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                 <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider font-mono">Product View-Details Desk</h4>
@@ -4046,7 +4046,7 @@ export default function DashboardProducts({
               </button>
             </div>
 
-            <div className="p-6 space-y-6 text-xs text-slate-600 uppercase">
+            <div className="tenant-form-body p-6 space-y-6 text-xs text-slate-600 uppercase min-h-0 overflow-y-auto overflow-x-hidden">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Visual Block & Classification summary */}
                 <div className="space-y-4">
@@ -4241,13 +4241,13 @@ export default function DashboardProducts({
 
       {/* EDIT PRODUCT MODAL */}
       {editingProduct && (
-        <div className="fixed inset-0 z-[230] flex items-stretch justify-center bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans lg:items-center lg:p-4" style={{paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)'}}>
+        <div className="tenant-modal-overlay fixed inset-0 z-[230] flex items-stretch justify-center bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans lg:items-center lg:p-4" style={{paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)'}}>
           <form 
             onSubmit={handleSaveProductEdit}
-            className="bg-white border border-slate-200 shadow-2xl w-full h-full max-h-[100dvh] overflow-hidden flex flex-col uppercase text-xs lg:h-auto lg:max-w-4xl lg:max-h-[calc(100dvh_-_2rem)] lg:rounded-3xl"
+            className="tenant-form-screen bg-white border border-slate-200 shadow-2xl w-full h-full max-h-[100dvh] overflow-hidden flex flex-col uppercase text-xs lg:h-auto lg:max-w-4xl lg:max-h-[calc(100dvh_-_2rem)] lg:rounded-3xl"
           >
             {/* Header */}
-            <div className="sticky top-0 z-10 px-4 py-3 sm:px-6 sm:py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+            <div className="tenant-form-header sticky top-0 z-10 px-4 py-3 sm:px-6 sm:py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div className="flex items-center space-x-2 min-w-0">
                 <Edit className="w-4 h-4 text-emerald-600 animate-pulse" />
                 <h4 className="flex-1 min-w-0 font-bold text-slate-800 text-[11px] sm:text-xs uppercase tracking-wider font-mono truncate">Adjust Product details desk</h4>
@@ -4257,7 +4257,7 @@ export default function DashboardProducts({
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-6 text-xs text-slate-600">
+            <div className="tenant-form-body flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-4 sm:p-6 space-y-6 text-xs text-slate-600">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Visual Block & Classification summary */}
                 <div className="space-y-4">
@@ -4820,7 +4820,7 @@ export default function DashboardProducts({
               </div>
             </div>
 
-            <div className="sticky bottom-0 z-10 bg-slate-50 p-3 sm:p-4 flex gap-2 border-t border-slate-200 shrink-0">
+            <div className="tenant-form-footer sticky bottom-0 z-10 bg-slate-50 p-3 sm:p-4 flex gap-2 border-t border-slate-200 shrink-0">
               <button 
                 type="button" 
                 onClick={() => setEditingProduct(null)} 
@@ -4840,9 +4840,9 @@ export default function DashboardProducts({
       )}
       {/* REPLENISH BATCH MODAL */}
       {replenishProduct && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
-          <form onSubmit={handleReplenishSubmit} className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-col space-y-1">
+        <div className="tenant-modal-overlay fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
+          <form onSubmit={handleReplenishSubmit} className="tenant-form-screen bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+            <div className="tenant-form-header px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-col space-y-1">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Package className="w-4 h-4 text-emerald-600" />
@@ -4855,7 +4855,7 @@ export default function DashboardProducts({
               <p className="text-xs text-slate-500">Adding new purchases for <span className="font-bold text-slate-800">{replenishProduct.name}</span></p>
             </div>
 
-            <div className="p-6 space-y-5 overflow-y-auto max-h-[calc(70dvh-56px-env(safe-area-inset-bottom))]">
+            <div className="tenant-form-body p-6 space-y-5 overflow-y-auto overflow-x-hidden min-h-0">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Qty Received</label>
@@ -4971,7 +4971,7 @@ export default function DashboardProducts({
               )}
             </div>
 
-            <div className="bg-slate-50 p-4 flex justify-between space-x-2 border-t border-slate-200">
+            <div className="tenant-form-footer bg-slate-50 p-4 flex justify-between space-x-2 border-t border-slate-200">
               <span className="text-[10px] text-slate-500 max-w-[240px] leading-tight flex items-center"><Package className="w-3 h-3 mr-1 shrink-0"/> {replenishCostingMethod === 'average_price' ? 'Saves batch and updates POS average price' : replenishCostingMethod === 'batch_price' ? 'Saves batch for batch-price selling' : 'Saves batch for FIFO selling'}</span>
               <div className="flex space-x-2">
                 <button type="button" onClick={() => setReplenishProduct(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-lg uppercase tracking-wider text-[10px] cursor-pointer">Cancel</button>
@@ -5133,7 +5133,7 @@ export default function DashboardProducts({
           <motion.div
             key="adjust-modal-backdrop"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+            className="tenant-modal-overlay fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
             onClick={(e) => { if (e.target === e.currentTarget) { setAdjustProduct(null); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(''); setAdjustSearchResults([]); setAdjustShowSearch(false); } }}
           >
             <motion.div
@@ -5142,10 +5142,10 @@ export default function DashboardProducts({
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: 60, opacity: 0, scale: 0.97 }}
               transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-              className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden"
+              className="tenant-form-screen w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100">
+              <div className="tenant-form-header flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
                     <ArrowLeftRight className="w-5 h-5 text-blue-600" />
@@ -5164,7 +5164,7 @@ export default function DashboardProducts({
                 </button>
               </div>
 
-              <div className="px-5 py-4 space-y-4">
+              <div className="tenant-form-body px-5 py-4 space-y-4 min-h-0 overflow-y-auto overflow-x-hidden">
                 {/* Product selector */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Product</label>
@@ -5247,7 +5247,7 @@ export default function DashboardProducts({
                 )}
 
                 {/* Action buttons */}
-                <div className="grid grid-cols-2 gap-3 pt-1 pb-2">
+                <div className="tenant-form-footer grid grid-cols-2 gap-3 pt-1 pb-2">
                   <button
                     type="button"
                     disabled={qty <= 0}
