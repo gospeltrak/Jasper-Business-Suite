@@ -1375,6 +1375,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   // Mutators passed down
   const handleAddExpense = (expense: Expense) => {
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
     const hasValidExpensePayload = Boolean(
       expense?.id &&
       expense?.category?.trim() &&
@@ -1420,6 +1422,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleUpdateActiveStocks = (updatedProducts: Product[]) => {
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
     setProductsMap(prev => ({
       ...prev,
       [activeTenant.id]: updatedProducts
@@ -1437,6 +1441,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleUpdateSales = (updatedSales: Sale[]) => {
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
     setSalesMap(prev => ({
       ...prev,
       [activeTenant.id]: updatedSales
@@ -1467,6 +1473,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       tenantId: activeTenant.id
     };
 
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
     setDeliveriesMap(prev => {
       const currentDeliveries = prev[activeTenant.id] || [];
       if (currentDeliveries.some(delivery => delivery.saleId === sale.id)) return prev;
@@ -1489,6 +1497,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleAddSale = (sale: Sale) => {
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
     setSalesMap(prev => {
       const currentTenantSales = prev[activeTenant.id] || [];
       return {
@@ -1589,6 +1599,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleDispatchDelivery = (deliveryId: string, riderDetails: NonNullable<Delivery['riderDetails']>, riderId?: string, customerData?: { name: string, phone: string, location: string, paymentMethod?: string }) => {
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
     setDeliveriesMap(prev => {
       const currentTenantDels = prev[activeTenant.id] || [];
       return {
@@ -1651,6 +1665,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleCreateProduct = (newProd: Product) => {
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
     setProductsMap(prev => {
       const currentProducts = prev[activeTenant.id] || [];
       return {
@@ -1710,6 +1726,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleAddPurchase = (purchase: Purchase) => {
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
     setPurchasesMap(prev => {
       const currentTenantPurchases = prev[activeTenant.id] || [];
       const updated = {
@@ -1766,6 +1784,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       console.error('[Dashboard] Failed to clear IndexedDB pending queue:', err);
     });
 
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
     setSalesMap(prev => {
       const currentList = prev[activeTenant.id] || [];
       const updatedList = currentList.map(s => s.syncStatus === 'pending' ? { ...s, syncStatus: 'synced' as const } : s);
