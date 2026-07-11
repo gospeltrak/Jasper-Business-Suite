@@ -86,6 +86,7 @@ export default function DashboardProducts({
 
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editStockDraft, setEditStockDraft] = useState({ shop: '', store: '', alert: '' });
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const getTotalStockQty = (shopQty: number, storeQty: number) => Number((Number(shopQty || 0) + Number(storeQty || 0)).toFixed(3));
@@ -200,11 +201,32 @@ export default function DashboardProducts({
   const handleBeginEdit = (prod: Product) => {
     setEditingProduct(prod);
     setEditForm({ ...prod });
+    setEditStockDraft({
+      shop: prod.shopStockQty !== undefined && prod.shopStockQty !== null ? String(prod.shopStockQty) : '',
+      store: prod.storeStockQty !== undefined && prod.storeStockQty !== null ? String(prod.storeStockQty) : '',
+      alert: prod.alertQty !== undefined && prod.alertQty !== null ? String(prod.alertQty) : '',
+    });
   };
 
   const runAfterMobileMenuClose = (action: () => void) => {
     setMobileProductMenu(null);
     window.setTimeout(action, 180);
+  };
+
+  const updateEditStockNumber = (
+    field: 'shopStockQty' | 'storeStockQty' | 'alertQty',
+    draftKey: 'shop' | 'store' | 'alert',
+    rawValue: string,
+  ) => {
+    setEditStockDraft(prev => ({ ...prev, [draftKey]: rawValue }));
+    if (rawValue === '') {
+      setEditForm(prev => ({ ...prev, [field]: undefined }));
+      return;
+    }
+    const parsed = Number(rawValue);
+    if (Number.isFinite(parsed)) {
+      setEditForm(prev => ({ ...prev, [field]: Math.max(0, parsed) }));
+    }
   };
 
   const getEditPharmacyStructure = (form: Partial<Product>) => {
@@ -4362,11 +4384,8 @@ export default function DashboardProducts({
                         type="number" 
                         min="0"
                         step="0.001"
-                        value={editForm.shopStockQty ?? 0}
-                        onChange={(e) => {
-                          const val = Math.max(0, parseFloat(e.target.value) || 0);
-                          setEditForm(prev => ({ ...prev, shopStockQty: val }));
-                        }}
+                        value={editStockDraft.shop}
+                        onChange={(e) => updateEditStockNumber('shopStockQty', 'shop', e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-mono outline-none"
                       />
                     </div>
@@ -4376,11 +4395,8 @@ export default function DashboardProducts({
                         type="number" 
                         min="0"
                         step="0.001"
-                        value={editForm.storeStockQty ?? 0}
-                        onChange={(e) => {
-                          const val = Math.max(0, parseFloat(e.target.value) || 0);
-                          setEditForm(prev => ({ ...prev, storeStockQty: val }));
-                        }}
+                        value={editStockDraft.store}
+                        onChange={(e) => updateEditStockNumber('storeStockQty', 'store', e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-mono outline-none"
                       />
                     </div>
@@ -4390,13 +4406,10 @@ export default function DashboardProducts({
                     <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Low alert Level threshold</label>
                     <input 
                       type="number" 
-                      min="1"
+                      min="0"
                       step="0.001"
-                      value={editForm.alertQty ?? 5}
-                      onChange={(e) => {
-                        const val = Math.max(0.001, parseFloat(e.target.value) || 1);
-                        setEditForm(prev => ({ ...prev, alertQty: val }));
-                      }}
+                      value={editStockDraft.alert}
+                      onChange={(e) => updateEditStockNumber('alertQty', 'alert', e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-mono outline-none"
                     />
                   </div>
