@@ -86,6 +86,14 @@ const scopedArray = (payload: any, tenantId: string): any[] => {
   return [];
 };
 
+const isNewerTimestamp = (candidate?: string | null, baseline?: string | null): boolean => {
+  if (!candidate) return false;
+  if (!baseline) return true;
+  const candidateTime = new Date(candidate).getTime();
+  const baselineTime = new Date(baseline).getTime();
+  return Number.isFinite(candidateTime) && (!Number.isFinite(baselineTime) || candidateTime > baselineTime);
+};
+
 export const workspaceHasBusinessData = (workspace: Partial<TenantWorkspace> | null | undefined): boolean => {
   if (!workspace) return false;
   return [
@@ -174,10 +182,15 @@ async function getConfiguredClient(): Promise<any | null> {
   }
 }
 
-async function loadLegacyTenantWorkspace(client: any, tenantId: string): Promise<TenantWorkspace | null> {
+type LegacyWorkspaceMeta = {
+  workspace: TenantWorkspace | null;
+  updatedAtByKey: Record<string, string>;
+};
+
+async function loadLegacyTenantWorkspaceMeta(client: any, tenantId: string): Promise<LegacyWorkspaceMeta> {
   const { data, error } = await client
     .from('tenant_data')
-    .select('data_key, payload')
+    .select('data_key, payload, updated_at')
     .eq('tenant_id', tenantId)
     .in('data_key', [
       'products', 'products_map',
@@ -192,9 +205,15 @@ async function loadLegacyTenantWorkspace(client: any, tenantId: string): Promise
       'branchStaffAssignments', 'branchStaffAssignments_map'
     ]);
 
-  if (error || !Array.isArray(data) || data.length === 0) return null;
+  if (error || !Array.isArray(data) || data.length === 0) {
+    return { workspace: null, updatedAtByKey: {} };
+  }
 
   const byKey = new Map<string, any>(data.map((row: any) => [row.data_key, row.payload]));
+  const updatedAtByKey = data.reduce((acc: Record<string, string>, row: any) => {
+    if (row.data_key && row.updated_at) acc[row.data_key] = row.updated_at;
+    return acc;
+  }, {});
   const legacy = normalizeWorkspace({
     products: scopedArray(byKey.get('products_map'), tenantId).length ? scopedArray(byKey.get('products_map'), tenantId) : scopedArray(byKey.get('products'), tenantId),
     sales: scopedArray(byKey.get('sales_map'), tenantId).length ? scopedArray(byKey.get('sales_map'), tenantId) : scopedArray(byKey.get('sales'), tenantId),
@@ -208,7 +227,15 @@ async function loadLegacyTenantWorkspace(client: any, tenantId: string): Promise
     settings: byKey.get('settings') || ({} as SystemSettings),
   });
 
-  return legacy && (workspaceHasBusinessData(legacy) || Object.keys(legacy.settings || {}).length > 0) ? legacy : null;
+  return {
+    workspace: legacy && (workspaceHasBusinessData(legacy) || Object.keys(legacy.settings || {}).length > 0) ? legacy : null,
+    updatedAtByKey,
+  };
+}
+
+async function loadLegacyTenantWorkspace(client: any, tenantId: string): Promise<TenantWorkspace | null> {
+  const legacy = await loadLegacyTenantWorkspaceMeta(client, tenantId);
+  return legacy.workspace;
 }
 
 async function saveRemoteWorkspaceBackup(
@@ -265,7 +292,20 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
       return fallback;
     }
 
-    if (!data?.payload) return fallback;
+    if (!data?.payload) {
+      const legacy = await loadLegacyTenantWorkspace(client, tenantId);
+      if (legacy && workspaceHasBusinessData(legacy)) {
+        await client
+          .from('tenant_workspaces')
+          .upsert(
+            { tenant_id: tenantId, payload: legacy, updated_at: new Date().toISOString() },
+            { onConflict: 'tenant_id' }
+          );
+        cacheWorkspace(tenantId, legacy);
+        return legacy;
+      }
+      return fallback;
+    }
 
     const safe = normalizeWorkspace(data.payload as TenantWorkspace);
     if (!safe) return fallback;
@@ -280,6 +320,28 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
           );
         cacheWorkspace(tenantId, legacy);
         return legacy;
+      }
+    }
+    const legacyMeta = await loadLegacyTenantWorkspaceMeta(client, tenantId);
+    const legacyProductsUpdatedAt = legacyMeta.updatedAtByKey.products_map || legacyMeta.updatedAtByKey.products;
+    const legacyProducts = legacyMeta.workspace?.products || [];
+    if (
+      legacyProducts.length > 0 &&
+      isNewerTimestamp(legacyProductsUpdatedAt, data.updated_at)
+    ) {
+      const reconciled = normalizeWorkspace({
+        ...safe,
+        products: legacyProducts,
+      });
+      if (reconciled) {
+        await client
+          .from('tenant_workspaces')
+          .upsert(
+            { tenant_id: tenantId, payload: reconciled, updated_at: new Date().toISOString() },
+            { onConflict: 'tenant_id' }
+          );
+        cacheWorkspace(tenantId, reconciled);
+        return reconciled;
       }
     }
     if (!workspaceHasBusinessData(safe) && workspaceHasBusinessData(fallback)) {
