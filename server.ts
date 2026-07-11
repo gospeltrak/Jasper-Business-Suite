@@ -1648,11 +1648,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       ];
       const { error: tenantDataError } = await adminTable('tenant_data').upsert(tenantDataRows, { onConflict: 'tenant_id,data_key' });
       if (tenantDataError) {
-        await supabaseAdmin.from('tenant_workspaces').delete().eq('tenant_id', (tenantData as any).id);
-        await supabaseAdmin.from('users').delete().eq('id', authUserId);
-        await supabaseAdmin.from('tenants').delete().eq('id', (tenantData as any).id);
-        await supabaseAdmin.auth.admin.deleteUser(authUserId);
-        throw new Error(tenantDataError.message || 'Failed to create cloud tenant data records');
+        console.warn('[registration] legacy tenant_data seed failed; keeping canonical tenant_workspace intact:', tenantDataError.message);
       }
 
       // Done.

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Tenant, Sale, Expense, PaymentChannel, LedgerEntry, User as AppUser } from '../types';
 import { isDemoTenant } from '../utils/tenantIsolation';
+import { safeSetJsonItem } from '../utils/dataSafety';
 import { 
   Landmark, 
   Wallet, 
@@ -71,7 +72,11 @@ export default function DashboardCashBank({
         // Migrate: save channels into systemSettings
         const updatedSettings = { ...systemSettings, paymentChannels: parsed };
         onUpdateSystemSettings(updatedSettings);
-        localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updatedSettings));
+        safeSetJsonItem(`jasper_settings_${activeTenant.id}`, updatedSettings, {
+          tenantId: activeTenant.id,
+          dataKey: 'settings',
+          logLabel: `${activeTenant.id}/settings`,
+        });
       }
     } catch (e) { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -383,13 +388,21 @@ export default function DashboardCashBank({
 
     const finalInitial = [...generated, ...(hasDemoSeedData ? defaultSettleDrops : [])];
     setLedgerEntries(finalInitial);
-    localStorage.setItem(storageKey, JSON.stringify(finalInitial));
+    safeSetJsonItem(storageKey, finalInitial, {
+      tenantId: activeTenant.id,
+      dataKey: 'cash_bank_matrix',
+      logLabel: `${activeTenant.id}/cash-bank-matrix`,
+    });
   }, [activeTenant.id, sales, expenses, deliveries, hasDemoSeedData]);
 
   // Update cached file local records
   const saveLedgerState = (entriesList: LedgerEntry[]) => {
     setLedgerEntries(entriesList);
-    localStorage.setItem(`jasper_cash_bank_matrix_${activeTenant.id}`, JSON.stringify(entriesList));
+    safeSetJsonItem(`jasper_cash_bank_matrix_${activeTenant.id}`, entriesList, {
+      tenantId: activeTenant.id,
+      dataKey: 'cash_bank_matrix',
+      logLabel: `${activeTenant.id}/cash-bank-matrix`,
+    });
   };
 
   // Carry out safe transfer action between registers and accounts/wallets
@@ -497,12 +510,20 @@ export default function DashboardCashBank({
     const updated = [...channels, newChan];
     setChannels(updated);
     // Save to dedicated localStorage key (for fast init)
-    localStorage.setItem(`jasper_channels_${activeTenant.id}`, JSON.stringify(updated));
+    safeSetJsonItem(`jasper_channels_${activeTenant.id}`, updated, {
+      tenantId: activeTenant.id,
+      dataKey: 'channels',
+      logLabel: `${activeTenant.id}/channels`,
+    });
     // ALSO save to systemSettings so channels persist reliably across sessions
     if (onUpdateSystemSettings && systemSettings) {
       const updatedSettings = { ...systemSettings, paymentChannels: updated };
       onUpdateSystemSettings(updatedSettings);
-      localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updatedSettings));
+      safeSetJsonItem(`jasper_settings_${activeTenant.id}`, updatedSettings, {
+        tenantId: activeTenant.id,
+        dataKey: 'settings',
+        logLabel: `${activeTenant.id}/settings`,
+      });
     }
 
     // Autofill transfer fields with this brand new target account

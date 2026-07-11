@@ -40,6 +40,7 @@ import CachedImage from './CachedImage';
 import { savePendingSaleOffline, clearPendingSales } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
 import { flushPendingTenantWorkspace, loadTenantWorkspace, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
+import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
 import { 
@@ -644,7 +645,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         }
         setSystemSettings(settingsToApply);
         try {
-          localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(settingsToApply));
+          safeSetJsonItem(`jasper_settings_${activeTenant.id}`, settingsToApply, {
+            tenantId: activeTenant.id,
+            dataKey: 'settings',
+            logLabel: `${activeTenant.id}/settings`,
+          });
         } catch (e) {
           // Cache write failure should not block live DB state.
         }
@@ -756,7 +761,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     const updatedSettings = { ...systemSettings, staffs: updatedStaffs };
     setSystemSettings(updatedSettings);
     try {
-      localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updatedSettings));
+      safeSetJsonItem(`jasper_settings_${activeTenant.id}`, updatedSettings, {
+        tenantId: activeTenant.id,
+        dataKey: 'settings',
+        logLabel: `${activeTenant.id}/settings`,
+      });
     } catch { /* quota */ }
   }, [workspaceReady, activeTenant.id]);
 
@@ -807,7 +816,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           try {
             const currentMap = JSON.parse(localStorage.getItem('jasper_products_map') || '{}');
             currentMap[tid] = updatedProducts;
-            localStorage.setItem('jasper_products_map', JSON.stringify(currentMap));
+            safeSetTenantMapItem('jasper_products_map', 'products_map', currentMap);
           } catch { /* quota */ }
           saveData(tid, 'products_map', { [tid]: updatedProducts });
           console.log(`[Jasper] Migrated ${migrated} product images to Storage.`);
@@ -1252,7 +1261,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   useEffect(() => {
     try {
-      localStorage.setItem('jasper_products_map', JSON.stringify(productsMap));
+      safeSetTenantMapItem('jasper_products_map', 'products_map', productsMap);
     } catch (e: any) {
       // localStorage quota exceeded — this should be rare now that product images
       // are stored in Supabase Storage (URLs) rather than base64 in localStorage.
@@ -1266,26 +1275,26 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   }, [productsMap]);
 
   useEffect(() => {
-    localStorage.setItem('jasper_branches_map', JSON.stringify(branchesMap));
+    safeSetTenantMapItem('jasper_branches_map', 'branches_map', branchesMap);
   }, [branchesMap]);
 
   useEffect(() => {
-    localStorage.setItem('jasper_branch_stocks_map', JSON.stringify(branchStocksMap));
+    safeSetTenantMapItem('jasper_branch_stocks_map', 'branch_stocks_map', branchStocksMap);
   }, [branchStocksMap]);
 
   useEffect(() => {
-    localStorage.setItem('jasper_branch_staff_assignments_map', JSON.stringify(branchStaffAssignmentsMap));
+    safeSetTenantMapItem('jasper_branch_staff_assignments_map', 'branch_staff_assignments_map', branchStaffAssignmentsMap);
   }, [branchStaffAssignmentsMap]);
 
   useEffect(() => {
-    localStorage.setItem('jasper_sales_map', JSON.stringify(salesMap));
+    safeSetTenantMapItem('jasper_sales_map', 'sales_map', salesMap);
     Object.entries(salesMap).forEach(([tid, data]) => {
       saveData(tid, 'sales_map', { [tid]: data });
     });
   }, [salesMap]);
 
   useEffect(() => {
-    localStorage.setItem('jasper_expenses_map', JSON.stringify(expensesMap));
+    safeSetTenantMapItem('jasper_expenses_map', 'expenses_map', expensesMap);
     Object.entries(expensesMap).forEach(([tid, data]) => {
       saveData(tid, 'expenses_map', { [tid]: data });
     });
@@ -1474,7 +1483,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       [activeTenant.id]: updatedNotes
     };
     setPendingDeliveryNotesMap(updated);
-    localStorage.setItem('jasper_pending_delivery_notes_map', JSON.stringify(updated));
+    safeSetTenantMapItem('jasper_pending_delivery_notes_map', 'pending_delivery_notes_map', updated);
     saveData(activeTenant.id, 'pending_delivery_notes_map', updated);
   };
 
@@ -2764,7 +2773,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onUpdateSettings={(updated) => {
                 localWorkspaceChangedAtRef.current = Date.now();
                 setSystemSettings(updated);
-                localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
+                safeSetJsonItem(`jasper_settings_${activeTenant.id}`, updated, {
+                  tenantId: activeTenant.id,
+                  dataKey: 'settings',
+                  logLabel: `${activeTenant.id}/settings`,
+                });
                 saveData(activeTenant.id, 'settings', updated);
               }}
               onAddProduct={handleCreateProduct}
@@ -2933,7 +2946,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onUpdateSystemSettings={(updated) => {
                 localWorkspaceChangedAtRef.current = Date.now();
                 setSystemSettings(updated);
-                localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
+                safeSetJsonItem(`jasper_settings_${activeTenant.id}`, updated, {
+                  tenantId: activeTenant.id,
+                  dataKey: 'settings',
+                  logLabel: `${activeTenant.id}/settings`,
+                });
                 saveData(activeTenant.id, 'settings', updated);
               }}
             />
@@ -2953,7 +2970,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onUpdateSettings={(updated) => {
                 localWorkspaceChangedAtRef.current = Date.now();
                 setSystemSettings(updated);
-                localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
+                safeSetJsonItem(`jasper_settings_${activeTenant.id}`, updated, {
+                  tenantId: activeTenant.id,
+                  dataKey: 'settings',
+                  logLabel: `${activeTenant.id}/settings`,
+                });
                 saveData(activeTenant.id, 'settings', updated);
               }}
               sales={activeSales}
@@ -2971,7 +2992,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onSaveSettings={(updated) => {
                 localWorkspaceChangedAtRef.current = Date.now();
                 setSystemSettings(updated);
-                localStorage.setItem(`jasper_settings_${activeTenant.id}`, JSON.stringify(updated));
+                safeSetJsonItem(`jasper_settings_${activeTenant.id}`, updated, {
+                  tenantId: activeTenant.id,
+                  dataKey: 'settings',
+                  logLabel: `${activeTenant.id}/settings`,
+                });
                 saveData(activeTenant.id, 'settings', updated);
                 saveTenantWorkspace(activeTenant.id, {
                   branches: branchesMap[activeTenant.id] || [],

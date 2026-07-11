@@ -3,6 +3,7 @@ import { Sale, Tenant, SaleItem, Product, SystemSettings, SalesDocument, User as
 import { motion, AnimatePresence } from 'motion/react';
 import { formatSaleItemQuantity } from '../utils/unitFormatter';
 import { isDemoTenant } from '../utils/tenantIsolation';
+import { safeSetJsonItem } from '../utils/dataSafety';
 import { 
   Search, 
   Calendar, 
@@ -377,7 +378,11 @@ export default function DashboardSalesList({
 
   // Save documents back to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem(`jasper_docs_${activeTenant.id}`, JSON.stringify(documents));
+    safeSetJsonItem(`jasper_docs_${activeTenant.id}`, documents, {
+      tenantId: activeTenant.id,
+      dataKey: 'docs',
+      logLabel: `${activeTenant.id}/docs`,
+    });
   }, [documents, activeTenant.id]);
 
   // Search state
@@ -402,7 +407,11 @@ export default function DashboardSalesList({
   });
 
   useEffect(() => {
-    localStorage.setItem(`till_settlements_${activeTenant.id}`, JSON.stringify(tillSettlements));
+    safeSetJsonItem(`till_settlements_${activeTenant.id}`, tillSettlements, {
+      tenantId: activeTenant.id,
+      dataKey: 'till_settlements',
+      logLabel: `${activeTenant.id}/till-settlements`,
+    });
   }, [tillSettlements, activeTenant.id]);
 
   // Selected Sale for visual receipt overlay
@@ -585,7 +594,11 @@ export default function DashboardSalesList({
   });
 
   useEffect(() => {
-    localStorage.setItem(`double_entry_ledgers_${activeTenant.id}`, JSON.stringify(doubleEntryLedgers));
+    safeSetJsonItem(`double_entry_ledgers_${activeTenant.id}`, doubleEntryLedgers, {
+      tenantId: activeTenant.id,
+      dataKey: 'double_entry_ledgers',
+      logLabel: `${activeTenant.id}/double-entry-ledgers`,
+    });
   }, [doubleEntryLedgers, activeTenant.id]);
 
   // Synchronize actual cash defaults once expected sales change

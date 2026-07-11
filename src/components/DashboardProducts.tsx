@@ -43,6 +43,7 @@ import {
 } from '../utils/inventoryCosting';
 import { formatProductQuantity } from '../utils/unitFormatter';
 import { compressImageFile } from '../utils/imageCompression';
+import { safeSetJsonItem } from '../utils/dataSafety';
 
 interface DashboardProductsProps {
   activeTenant: Tenant;
@@ -524,7 +525,11 @@ export default function DashboardProducts({
     };
     const existing = JSON.parse(localStorage.getItem('jasper_stock_adjustments') || '[]');
     existing.unshift(log);
-    localStorage.setItem('jasper_stock_adjustments', JSON.stringify(existing.slice(0, 1000)));
+    safeSetJsonItem('jasper_stock_adjustments', existing.slice(0, 1000), {
+      tenantId: (activeTenant as any)?.id || '',
+      dataKey: 'stock_adjustments',
+      logLabel: `${(activeTenant as any)?.id || 'global'}/stock-adjustments`,
+    });
 
     // Reset
     setAdjustProduct(null);

@@ -38,6 +38,7 @@ import {
   CartesianGrid 
 } from 'recharts';
 import { Tenant, Expense, Product, Sale } from '../types';
+import { safeSetJsonItem } from '../utils/dataSafety';
 
 const DEFAULT_EXPENSE_CATEGORIES = ['Utilities & Power', 'Wages & Salary', 'Logistics & Transport', 'Packaging Materials', 'Rent & Logistics', 'Marketing & Ads', 'Miscellaneous'];
 
@@ -97,7 +98,11 @@ export default function DashboardExpenses({
   // Settle categories to local storage
   const saveCategories = (newCats: string[]) => {
     setCategories(newCats);
-    localStorage.setItem(`jasper_expense_cats_${activeTenant.id}`, JSON.stringify(newCats));
+    safeSetJsonItem(`jasper_expense_cats_${activeTenant.id}`, newCats, {
+      tenantId: activeTenant.id,
+      dataKey: 'expense_cats',
+      logLabel: `${activeTenant.id}/expense-categories`,
+    });
   };
 
   // Form states for creating a new expense

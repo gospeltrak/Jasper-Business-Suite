@@ -10,6 +10,13 @@
  */
 
 import { getSecureDataBridgeClient } from '../secureDataBridge';
+import {
+  getTenantArray,
+  isProtectedDataKey,
+  payloadHasRecords,
+  protectTenantPayload,
+  safeSetJsonItem,
+} from './dataSafety';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -30,14 +37,28 @@ function localKey(tenantId: string, dataKey: string): string {
   return `jasper_${dataKey}_${tenantId}`;
 }
 
-function payloadHasRecords(payload: any): boolean {
-  if (Array.isArray(payload)) return payload.length > 0;
-  if (!payload || typeof payload !== 'object') return payload !== undefined && payload !== null && payload !== '';
-  return Object.values(payload).some((value) => {
-    if (Array.isArray(value)) return value.length > 0;
-    if (!value || typeof value !== 'object') return value !== undefined && value !== null && value !== '';
-    return Object.keys(value).length > 0;
-  });
+async function saveRemoteDataBackup(client: any, tenantId: string, dataKey: string, payload: any, reason: string): Promise<void> {
+  if (!payloadHasRecords(payload, tenantId)) return;
+  try {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const currentItems = getTenantArray(payload, tenantId);
+    await client
+      .from('tenant_data')
+      .upsert({
+        tenant_id: tenantId,
+        data_key: `data_backup_${dataKey}_${stamp}`,
+        payload: {
+          reason,
+          sourceDataKey: dataKey,
+          createdAt: now(),
+          count: currentItems ? currentItems.length : undefined,
+          value: payload,
+        },
+        updated_at: now(),
+      }, { onConflict: 'tenant_id,data_key' });
+  } catch (error) {
+    console.warn(`[dbSync] backup failed for ${dataKey}:`, error);
+  }
 }
 
 // ─── Core push/pull ──────────────────────────────────────────────────────────
@@ -48,12 +69,37 @@ function payloadHasRecords(payload: any): boolean {
 export async function pushToCloud(tenantId: string, dataKey: string, payload: any): Promise<void> {
   try {
     const client: any = await getSecureDataBridgeClient();
+    let payloadToPush = payload;
+
+    if (isProtectedDataKey(dataKey)) {
+      const { data: currentRow } = await client
+        .from('tenant_data')
+        .select('payload')
+        .eq('tenant_id', tenantId)
+        .eq('data_key', dataKey)
+        .maybeSingle();
+
+      const protection = protectTenantPayload(tenantId, dataKey, payload, currentRow?.payload);
+      payloadToPush = protection.payload;
+
+      if (payloadHasRecords(currentRow?.payload, tenantId) && !payloadHasRecords(payloadToPush, tenantId)) {
+        await saveRemoteDataBackup(client, tenantId, dataKey, currentRow?.payload, 'prevented-empty-overwrite');
+        console.warn(`[dbSync] prevented empty cloud overwrite for ${tenantId}/${dataKey}`);
+        payloadToPush = currentRow.payload;
+      } else if (protection.blockedEmptyOverwrite) {
+        await saveRemoteDataBackup(client, tenantId, dataKey, currentRow?.payload, 'prevented-empty-overwrite');
+        console.warn(`[dbSync] prevented empty cloud overwrite for ${tenantId}/${dataKey}`);
+      } else if (protection.shrank) {
+        await saveRemoteDataBackup(client, tenantId, dataKey, currentRow?.payload, 'pre-shrink-save');
+      }
+    }
+
     const { error } = await client
       .from('tenant_data')
       .upsert({
         tenant_id: tenantId,
         data_key: dataKey,
-        payload: payload,
+        payload: payloadToPush,
         updated_at: now(),
       }, { onConflict: 'tenant_id,data_key' });
 
@@ -118,13 +164,13 @@ export async function pullAllFromCloud(tenantId: string): Promise<Record<string,
 export function saveData(tenantId: string, dataKey: string, payload: any): void {
   if (!tenantId) return;
   // 1. Write to localStorage immediately (instant, offline-safe)
-  try {
-    localStorage.setItem(localKey(tenantId, dataKey), JSON.stringify(payload));
-  } catch (e) {
-    console.warn(`[dbSync] localStorage write failed for ${dataKey}:`, e);
-  }
+  const localPayload = safeSetJsonItem(localKey(tenantId, dataKey), payload, {
+    tenantId,
+    dataKey,
+    logLabel: `${tenantId}/${dataKey}`,
+  });
   // 2. Push to cloud asynchronously (don't await — never blocks the UI)
-  pushToCloud(tenantId, dataKey, payload).catch(() => {});
+  pushToCloud(tenantId, dataKey, localPayload).catch(() => {});
 }
 
 /**
@@ -162,15 +208,15 @@ export async function syncOnLogin(tenantId: string): Promise<void> {
     try {
       const key = localKey(tenantId, dataKey);
       const existingRaw = localStorage.getItem(key);
-      if (!payloadHasRecords(payload) && existingRaw) {
+      if (!payloadHasRecords(payload, tenantId) && existingRaw) {
         try {
           const existingPayload = JSON.parse(existingRaw);
-          if (payloadHasRecords(existingPayload)) continue;
+          if (payloadHasRecords(existingPayload, tenantId)) continue;
         } catch {
           // If the local value is corrupt, let the cloud value replace it.
         }
       }
-      localStorage.setItem(key, JSON.stringify(payload));
+      safeSetJsonItem(key, payload, { tenantId, dataKey, logLabel: `${tenantId}/${dataKey}` });
     } catch (e) {}
   }
 }
@@ -188,7 +234,7 @@ async function syncLocalToCloud(tenantId: string, options: { onlyMeaningfulPaylo
       const raw = localStorage.getItem(localKey(tenantId, dataKey));
       if (raw) {
         const payload = JSON.parse(raw);
-        if (options.onlyMeaningfulPayloads && !payloadHasRecords(payload)) continue;
+        if (options.onlyMeaningfulPayloads && !payloadHasRecords(payload, tenantId)) continue;
         await pushToCloud(tenantId, dataKey, payload);
       }
     } catch (e) {}

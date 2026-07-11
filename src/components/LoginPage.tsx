@@ -28,6 +28,7 @@ import { User, Tenant } from '../types';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../secureDataBridge';
 import { initializeCleanTenantWorkspace } from '../utils/tenantIsolation';
 import { startCloudSession } from '../utils/sessionControl';
+import { payloadHasRecords, readJsonValue, safeSetJsonItem } from '../utils/dataSafety';
 import { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
 import PrivacyAndTermsModals from './PrivacyAndTermsModals';
 
@@ -964,7 +965,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               .eq('tenant_id', tenantId)
               .maybeSingle();
             if (ws?.payload) {
-              localStorage.setItem(cacheKey, JSON.stringify(ws.payload));
+              const currentCache = readJsonValue(cacheKey);
+              if (!payloadHasRecords(ws.payload) && payloadHasRecords(currentCache)) {
+                console.warn('[login] ignored empty workspace pre-warm payload because local cache has data');
+              } else {
+                safeSetJsonItem(cacheKey, ws.payload, { tenantId, dataKey: 'tenant_workspaces', logLabel: `${tenantId}/workspace-cache` });
+              }
               localStorage.setItem(`${cacheKey}_synced_at`, new Date().toISOString());
             }
           } catch (_) { /* non-fatal — dashboard will load from DB directly */ }
