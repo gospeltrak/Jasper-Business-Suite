@@ -41,6 +41,7 @@ import { savePendingSaleOffline, clearPendingSales } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
 import { flushPendingTenantWorkspace, loadTenantWorkspace, markTenantProductsUpdated, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
+import { markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
 import { 
@@ -732,6 +733,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       deliveries:           deliveriesMap[activeTenant.id]           || [],
       pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
       purchases:            purchasesMap[activeTenant.id]            || [],
+      productTombstones:    readLocalProductTombstones(activeTenant.id),
     };
     if (!cloudWorkspaceLoadedRef.current && !workspaceHasBusinessData(workspace)) {
       return;
@@ -822,14 +824,16 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         }
 
         if (migrated > 0 && !cancelled) {
-          markTenantProductsUpdated(tid);
-          setProductsMap(prev => ({ ...prev, [tid]: updatedProducts }));
+          const syncUpdatedAt = new Date().toISOString();
+          const syncedProducts = stampProductsForSync(updatedProducts, products, syncUpdatedAt);
+          markTenantProductsUpdated(tid, syncUpdatedAt);
+          setProductsMap(prev => ({ ...prev, [tid]: syncedProducts }));
           try {
             const currentMap = JSON.parse(localStorage.getItem('jasper_products_map') || '{}');
-            currentMap[tid] = updatedProducts;
+            currentMap[tid] = syncedProducts;
             safeSetTenantMapItem('jasper_products_map', 'products_map', currentMap);
           } catch { /* quota */ }
-          saveData(tid, 'products_map', { [tid]: updatedProducts });
+          saveData(tid, 'products_map', { [tid]: syncedProducts });
           console.log(`[Jasper] Migrated ${migrated} product images to Storage.`);
         }
       } catch (err) {
@@ -1431,9 +1435,19 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const persistTenantProductsNow = (updatedProducts: Product[]) => {
+    const previousProducts = productsMap[activeTenant.id] || [];
+    const syncUpdatedAt = new Date().toISOString();
+    const deletedProductIds = previousProducts
+      .filter((product) => !updatedProducts.some((nextProduct) => nextProduct.id === product.id))
+      .map((product) => product.id)
+      .filter(Boolean);
+    if (deletedProductIds.length > 0) {
+      markLocalProductTombstones(activeTenant.id, deletedProductIds, syncUpdatedAt);
+    }
+    const syncedProducts = stampProductsForSync(updatedProducts, previousProducts, syncUpdatedAt);
     const updatedProductsMap = {
       ...productsMap,
-      [activeTenant.id]: updatedProducts,
+      [activeTenant.id]: syncedProducts,
     };
 
     try {
@@ -1442,8 +1456,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       console.warn('[Dashboard] Unable to cache updated products map:', error);
     }
 
-    markTenantProductsUpdated(activeTenant.id);
-    saveData(activeTenant.id, 'products_map', { [activeTenant.id]: updatedProducts });
+    markTenantProductsUpdated(activeTenant.id, syncUpdatedAt);
+    saveData(activeTenant.id, 'products_map', { [activeTenant.id]: syncedProducts });
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
 
@@ -1451,25 +1465,27 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       branches:             branchesMap[activeTenant.id]             || [],
       branchStocks:         branchStocksMap[activeTenant.id]         || [],
       branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
-      products:             updatedProducts,
+      products:             syncedProducts,
       sales:                salesMap[activeTenant.id]                || [],
       expenses:             expensesMap[activeTenant.id]             || [],
       settings:             systemSettings,
       deliveries:           deliveriesMap[activeTenant.id]           || [],
       pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
       purchases:            purchasesMap[activeTenant.id]            || [],
+      productTombstones:    readLocalProductTombstones(activeTenant.id),
     };
 
     saveTenantWorkspace(activeTenant.id, workspace).catch((error) => {
       console.warn('[Dashboard] Unable to immediately sync updated products workspace:', error);
     });
+    return syncedProducts;
   };
 
   const handleUpdateActiveStocks = (updatedProducts: Product[]) => {
-    persistTenantProductsNow(updatedProducts);
+    const syncedProducts = persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => ({
       ...prev,
-      [activeTenant.id]: updatedProducts
+      [activeTenant.id]: syncedProducts
     }));
     
     // Add real-time log action
@@ -1709,11 +1725,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   const handleCreateProduct = (newProd: Product) => {
     const updatedProducts = [newProd, ...(productsMap[activeTenant.id] || [])];
-    persistTenantProductsNow(updatedProducts);
+    const syncedProducts = persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => {
       return {
         ...prev,
-        [activeTenant.id]: updatedProducts
+        [activeTenant.id]: syncedProducts
       };
     });
 
@@ -1734,11 +1750,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   const handleDeleteProduct = (id: string) => {
     const updatedProducts = (productsMap[activeTenant.id] || []).filter(p => p.id !== id);
-    persistTenantProductsNow(updatedProducts);
+    const syncedProducts = persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => {
       return {
         ...prev,
-        [activeTenant.id]: updatedProducts
+        [activeTenant.id]: syncedProducts
       };
     });
 
@@ -3081,6 +3097,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   deliveries: deliveriesMap[activeTenant.id] || [],
                   pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
                   purchases: purchasesMap[activeTenant.id] || [],
+                  productTombstones: readLocalProductTombstones(activeTenant.id),
                 });
                 let logoToSave = '';
                 if (updated.company?.logo) {

@@ -174,19 +174,23 @@
       if ('serviceWorker' in navigator) {
         var jasperRefreshingForServiceWorker = false;
         navigator.serviceWorker.addEventListener('controllerchange', function() {
-          if (jasperRefreshingForServiceWorker || sessionStorage.getItem('jasper_sw_refresh_v1')) return;
+          if (jasperRefreshingForServiceWorker) return;
           jasperRefreshingForServiceWorker = true;
-          sessionStorage.setItem('jasper_sw_refresh_v1', '1');
           window.location.reload();
         });
 
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
+          navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
             .then((registration) => {
               console.log('Ndiva PWA Service Worker registered securely with scope:', registration.scope);
               registration.update().catch((error) => {
                 console.warn('Service Worker update check failed:', error);
               });
+              window.setInterval(() => {
+                registration.update().catch((error) => {
+                  console.warn('Service Worker periodic update check failed:', error);
+                });
+              }, 60000);
             })
             .catch((error) => {
               console.error('Service Worker registration failed:', error);

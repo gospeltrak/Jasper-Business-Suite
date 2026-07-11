@@ -167,6 +167,8 @@ export interface Product {
   alertQty: number;
   image?: string;
   brand?: string;
+  syncUpdatedAt?: string;
+  updatedAt?: string;
   // Pharmacy dosage configs
   tabsPerPack?: number;
   allowsDosageDividing?: boolean;

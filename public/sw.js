@@ -1,5 +1,6 @@
 // Jasper Business Suite Service Worker (Premium POS/ERP Offline-First Support)
-const CACHE_NAME = 'jasper-pos-cache-v6';
+const CACHE_NAME = 'jasper-pos-cache-v8';
+const SW_VERSION = '2026-07-11-product-sync-v2';
 const NAVIGATION_CACHE_KEY = '/__jasper-navigation-shell__';
 
 // Assets to cache immediately on SW install
@@ -36,7 +37,21 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    }).then(() => self.clients.claim())
+    })
+      .then(() => self.clients.claim())
+      .then(async () => {
+        const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        await Promise.all(clientsList.map(async (client) => {
+          try {
+            client.postMessage({ type: 'APP_VERSION_UPDATED', version: SW_VERSION });
+            if (client.url && client.url.startsWith(self.location.origin)) {
+              await client.navigate(client.url);
+            }
+          } catch (error) {
+            console.warn('[Service Worker] Client refresh after update failed:', error);
+          }
+        }));
+      })
   );
 });
 

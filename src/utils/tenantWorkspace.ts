@@ -2,6 +2,12 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import { Branch, BranchStaffAssignment, BranchStock, Delivery, Expense, Product, Purchase, SystemSettings } from '../types';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { getProductPayloadQualityScore, isProductPayloadDestructiveShrink, isProductPayloadQualityDowngrade } from './dataSafety';
+import {
+  mergeProductsForSync,
+  mergeProductTombstones,
+  readLocalProductTombstones,
+  writeLocalProductTombstones,
+} from './productSync';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -16,6 +22,7 @@ export interface TenantWorkspace {
   deliveries: Delivery[];
   pendingDeliveryNotes: any[];
   purchases: Purchase[];
+  productTombstones?: Record<string, string>;
 }
 
 // ─── Local cache helpers ────────────────────────────────────────────────────
@@ -79,6 +86,7 @@ const normalizeWorkspace = (workspace: Partial<TenantWorkspace> | null | undefin
     deliveries:          workspace.deliveries          || [],
     pendingDeliveryNotes:workspace.pendingDeliveryNotes|| [],
     purchases:           workspace.purchases           || [],
+    productTombstones:   workspace.productTombstones   || {},
   };
 };
 
@@ -123,14 +131,6 @@ const isNewerTimestamp = (candidate?: string | null, baseline?: string | null): 
   return Number.isFinite(candidateTime) && (!Number.isFinite(baselineTime) || candidateTime > baselineTime);
 };
 
-const productPayloadsDiffer = (left: any[] | undefined, right: any[] | undefined): boolean => {
-  try {
-    return JSON.stringify(left || []) !== JSON.stringify(right || []);
-  } catch {
-    return true;
-  }
-};
-
 const reconcileLocalProductCache = (
   tenantId: string,
   workspace: TenantWorkspace,
@@ -138,18 +138,25 @@ const reconcileLocalProductCache = (
 ): TenantWorkspace => {
   const localProducts = readLocalProductsMap(tenantId);
   const localProductsUpdatedAt = readLocalProductsUpdatedAt(tenantId);
+  const tombstones = mergeProductTombstones(workspace.productTombstones, readLocalProductTombstones(tenantId));
+  const mergedProducts = mergeProductsForSync(localProducts, workspace.products || [], tombstones);
+  const productsChanged = JSON.stringify(mergedProducts) !== JSON.stringify(workspace.products || []);
+  const tombstonesChanged = JSON.stringify(tombstones) !== JSON.stringify(workspace.productTombstones || {});
+  if (!productsChanged && !tombstonesChanged) return workspace;
+
   if (
-    localProducts.length > 0 &&
-    isNewerTimestamp(localProductsUpdatedAt, cloudUpdatedAt) &&
-    !isProductPayloadQualityDowngrade(localProducts, workspace.products || []) &&
-    !isProductPayloadDestructiveShrink(localProducts, workspace.products || [])
+    localProducts.length > 0
+    && isNewerTimestamp(localProductsUpdatedAt, cloudUpdatedAt)
+    && !isProductPayloadQualityDowngrade(localProducts, workspace.products || [])
+    && !isProductPayloadDestructiveShrink(localProducts, workspace.products || [])
   ) {
     return {
       ...workspace,
-      products: localProducts,
+      products: mergedProducts,
+      productTombstones: tombstones,
     };
   }
-  return workspace;
+  return { ...workspace, products: mergedProducts, productTombstones: tombstones };
 };
 
 export const workspaceHasBusinessData = (workspace: Partial<TenantWorkspace> | null | undefined): boolean => {
@@ -472,7 +479,6 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
   try {
     const currentSafe = readCachedWorkspace(tenantId);
     let remoteSafe: TenantWorkspace | null = null;
-    let remoteUpdatedAt: string | null = null;
     try {
       const { data: remoteData, error: remoteError } = await client
         .from('tenant_workspaces')
@@ -481,7 +487,6 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
         .maybeSingle();
       if (!remoteError && remoteData?.payload) {
         remoteSafe = normalizeWorkspace(remoteData.payload as TenantWorkspace);
-        remoteUpdatedAt = remoteData.updated_at || null;
       }
     } catch (error: any) {
       console.warn('[workspace] remote guard load exception:', error?.message || error);
@@ -507,19 +512,22 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
 
     const protection = reconcileProtectedWorkspace(workspace, remoteSafe || currentSafe);
     let workspaceToSave = protection.workspace;
-    let staleProductOverwriteBlocked = false;
-
-    if (
-      remoteSafe
-      && productPayloadsDiffer(workspaceToSave.products, remoteSafe.products)
-      && !isNewerTimestamp(readLocalProductsUpdatedAt(tenantId), remoteUpdatedAt)
-    ) {
-      workspaceToSave = {
-        ...workspaceToSave,
-        products: remoteSafe.products || [],
-      };
-      staleProductOverwriteBlocked = true;
-    }
+    const mergedTombstones = mergeProductTombstones(
+      remoteSafe?.productTombstones,
+      currentSafe?.productTombstones,
+      workspaceToSave.productTombstones,
+      readLocalProductTombstones(tenantId),
+    );
+    const mergedProducts = mergeProductsForSync(
+      workspaceToSave.products || [],
+      remoteSafe?.products || currentSafe?.products || [],
+      mergedTombstones,
+    );
+    workspaceToSave = {
+      ...workspaceToSave,
+      products: mergedProducts,
+      productTombstones: mergedTombstones,
+    };
 
     if (protection.protectedKeys.length > 0) {
       console.warn(
@@ -534,10 +542,6 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
     } else if (protection.shrank) {
       const backupSource = remoteSafe || currentSafe;
       if (backupSource) saveRemoteWorkspaceBackup(client, tenantId, backupSource, 'pre-shrink-save').catch(() => {});
-    } else if (staleProductOverwriteBlocked && remoteSafe) {
-      console.warn('[workspace] prevented stale product overwrite from older local cache');
-      saveRemoteWorkspaceBackup(client, tenantId, remoteSafe, 'prevented-stale-product-overwrite').catch(() => {});
-      cacheWorkspace(tenantId, workspaceToSave);
     }
 
     const { error } = await client
@@ -553,6 +557,8 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
       return false;
     }
     localStorage.removeItem(pendingKey(tenantId));
+    writeLocalProductTombstones(tenantId, mergedTombstones);
+    cacheWorkspace(tenantId, workspaceToSave);
     return true;
   } catch (e) {
     console.warn('[workspace] save exception:', (e as any)?.message || e);
@@ -606,6 +612,7 @@ export async function subscribeToTenantWorkspace(
                   if (error) console.warn('[workspace] realtime product reconciliation save error:', error.message);
                 })
                 .catch((error: any) => console.warn('[workspace] realtime product reconciliation exception:', error?.message || error));
+              writeLocalProductTombstones(tenantId, safeWithLocalProducts.productTombstones || {});
               cacheWorkspace(tenantId, safeWithLocalProducts);
               onWorkspace(safeWithLocalProducts);
               return;
@@ -615,6 +622,7 @@ export async function subscribeToTenantWorkspace(
               console.warn('[workspace] ignored empty realtime payload because local cache has business data');
               return;
             }
+            writeLocalProductTombstones(tenantId, safe.productTombstones || {});
             cacheWorkspace(tenantId, safe);
             onWorkspace(safe);
           }
@@ -659,6 +667,7 @@ export function emptyWorkspace(settings?: Partial<SystemSettings>): TenantWorksp
     deliveries: [],
     pendingDeliveryNotes: [],
     purchases: [],
+    productTombstones: {},
   };
 }
 
