@@ -72,25 +72,23 @@ export async function pushToCloud(tenantId: string, dataKey: string, payload: an
     let payloadToPush = payload;
 
     if (isProtectedDataKey(dataKey)) {
-      const { data: currentRow } = await client
-        .from('tenant_data')
-        .select('payload')
-        .eq('tenant_id', tenantId)
-        .eq('data_key', dataKey)
-        .maybeSingle();
+      // Use localStorage instead of a DB SELECT round-trip
+      const localRaw = localStorage.getItem(localKey(tenantId, dataKey));
+      let currentPayload: any = null;
+      try { if (localRaw) currentPayload = JSON.parse(localRaw); } catch {}
 
-      const protection = protectTenantPayload(tenantId, dataKey, payload, currentRow?.payload);
+      const protection = protectTenantPayload(tenantId, dataKey, payload, currentPayload);
       payloadToPush = protection.payload;
 
-      if (payloadHasRecords(currentRow?.payload, tenantId) && !payloadHasRecords(payloadToPush, tenantId)) {
-        await saveRemoteDataBackup(client, tenantId, dataKey, currentRow?.payload, 'prevented-empty-overwrite');
+      if (payloadHasRecords(currentPayload, tenantId) && !payloadHasRecords(payloadToPush, tenantId)) {
+        saveRemoteDataBackup(client, tenantId, dataKey, currentPayload, 'prevented-empty-overwrite').catch(() => {});
         console.warn(`[dbSync] prevented empty cloud overwrite for ${tenantId}/${dataKey}`);
-        payloadToPush = currentRow.payload;
+        payloadToPush = currentPayload;
       } else if (protection.blockedEmptyOverwrite) {
-        await saveRemoteDataBackup(client, tenantId, dataKey, currentRow?.payload, 'prevented-empty-overwrite');
+        saveRemoteDataBackup(client, tenantId, dataKey, currentPayload, 'prevented-empty-overwrite').catch(() => {});
         console.warn(`[dbSync] prevented empty cloud overwrite for ${tenantId}/${dataKey}`);
       } else if (protection.shrank) {
-        await saveRemoteDataBackup(client, tenantId, dataKey, currentRow?.payload, 'pre-shrink-save');
+        saveRemoteDataBackup(client, tenantId, dataKey, currentPayload, 'pre-shrink-save').catch(() => {});
       }
     }
 
