@@ -2553,11 +2553,14 @@ export default function DashboardProducts({
                       }}
                     >
                       {/* ── HEADER ROW ── */}
-                      <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+                      <div className="flex items-center gap-3.5 px-4 pt-4 pb-3.5">
                         {/* Avatar */}
-                        <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 font-black text-base overflow-hidden" style={{background: avatarBg, color: avatarColor}}>
+                        <div
+                          className="w-[76px] h-[76px] rounded-2xl flex items-center justify-center shrink-0 font-black text-lg overflow-hidden border border-slate-100 dark:border-slate-800 shadow-[0_8px_20px_rgba(15,23,42,0.06)]"
+                          style={{background: prod.image ? '#ffffff' : avatarBg, color: avatarColor}}
+                        >
                           {prod.image
-                            ? <img src={prod.image} alt={prod.name} className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
+                            ? <img src={prod.image} alt={prod.name} className="w-full h-full object-contain p-2" referrerPolicy="no-referrer" />
                             : prod.name.charAt(0).toUpperCase()
                           }
                         </div>
@@ -2682,11 +2685,11 @@ export default function DashboardProducts({
                         <td className="py-4 px-5">
                           <div className="flex items-center space-x-3">
                             {prod.image ? (
-                              <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
+                              <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center p-1.5 shadow-[0_8px_18px_rgba(15,23,42,0.07)]">
                                 <CachedImage src={prod.image} alt={prod.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                               </div>
                             ) : (
-                              <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 flex flex-col items-center justify-center font-mono text-[7px] font-black leading-none flex-shrink-0 select-none">
+                              <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-200 text-slate-400 flex flex-col items-center justify-center font-mono text-[7px] font-black leading-none flex-shrink-0 select-none shadow-[0_8px_18px_rgba(15,23,42,0.04)]">
                                 <span>No image</span>
                               </div>
                             )}
