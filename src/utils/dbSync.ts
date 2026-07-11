@@ -37,6 +37,8 @@ function localKey(tenantId: string, dataKey: string): string {
   return `jasper_${dataKey}_${tenantId}`;
 }
 
+const isProductDataKey = (dataKey: string) => dataKey === 'products' || dataKey === 'products_map';
+
 async function saveRemoteDataBackup(client: any, tenantId: string, dataKey: string, payload: any, reason: string): Promise<void> {
   if (!payloadHasRecords(payload, tenantId)) return;
   try {
@@ -72,7 +74,8 @@ export async function pushToCloud(tenantId: string, dataKey: string, payload: an
     let payloadToPush = payload;
 
     if (isProtectedDataKey(dataKey)) {
-      // Use localStorage instead of a DB SELECT round-trip
+      // Local cache catches same-device destructive writes immediately.
+      // Product payloads also compare against cloud below to stop stale devices.
       const localRaw = localStorage.getItem(localKey(tenantId, dataKey));
       let currentPayload: any = null;
       try { if (localRaw) currentPayload = JSON.parse(localRaw); } catch {}
@@ -89,6 +92,31 @@ export async function pushToCloud(tenantId: string, dataKey: string, payload: an
         console.warn(`[dbSync] prevented empty cloud overwrite for ${tenantId}/${dataKey}`);
       } else if (protection.shrank) {
         saveRemoteDataBackup(client, tenantId, dataKey, currentPayload, 'pre-shrink-save').catch(() => {});
+      }
+
+      if (isProductDataKey(dataKey)) {
+        const { data: remoteData, error: remoteError } = await client
+          .from('tenant_data')
+          .select('payload')
+          .eq('tenant_id', tenantId)
+          .eq('data_key', dataKey)
+          .maybeSingle();
+
+        if (!remoteError && remoteData?.payload) {
+          const remoteProtection = protectTenantPayload(tenantId, dataKey, payloadToPush, remoteData.payload);
+          payloadToPush = remoteProtection.payload;
+
+          if (payloadHasRecords(remoteData.payload, tenantId) && !payloadHasRecords(payloadToPush, tenantId)) {
+            saveRemoteDataBackup(client, tenantId, dataKey, remoteData.payload, 'prevented-empty-overwrite').catch(() => {});
+            console.warn(`[dbSync] prevented destructive cloud overwrite for ${tenantId}/${dataKey} from remote guard`);
+            payloadToPush = remoteData.payload;
+          } else if (remoteProtection.blockedEmptyOverwrite) {
+            saveRemoteDataBackup(client, tenantId, dataKey, remoteData.payload, 'prevented-empty-overwrite').catch(() => {});
+            console.warn(`[dbSync] prevented destructive cloud overwrite for ${tenantId}/${dataKey} from remote guard`);
+          } else if (remoteProtection.shrank) {
+            saveRemoteDataBackup(client, tenantId, dataKey, remoteData.payload, 'pre-remote-guard-save').catch(() => {});
+          }
+        }
       }
     }
 

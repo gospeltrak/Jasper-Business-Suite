@@ -1278,10 +1278,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       // If it still happens, log a warning but do NOT strip any data.
       console.warn('[Jasper] localStorage quota exceeded saving products map. Consider clearing old data.', e);
     }
-    // Sync each tenant's products to cloud
-    Object.entries(productsMap).forEach(([tid, data]) => {
-      saveData(tid, 'products_map', { [tid]: data });
-    });
+    // Keep this as a local cache write only. Product mutations call
+    // persistTenantProductsNow(...) so stale device caches cannot overwrite
+    // newer cloud products during startup/hydration.
   }, [productsMap]);
 
   useEffect(() => {

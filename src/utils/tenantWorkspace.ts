@@ -1,6 +1,7 @@
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { Branch, BranchStaffAssignment, BranchStock, Delivery, Expense, Product, Purchase, SystemSettings } from '../types';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
+import { getProductPayloadQualityScore, isProductPayloadDestructiveShrink, isProductPayloadQualityDowngrade } from './dataSafety';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -128,7 +129,9 @@ const reconcileLocalProductCache = (
   }
   if (
     localProducts.length > 0 &&
-    isNewerTimestamp(localProductsUpdatedAt, cloudUpdatedAt)
+    isNewerTimestamp(localProductsUpdatedAt, cloudUpdatedAt) &&
+    !isProductPayloadQualityDowngrade(localProducts, workspace.products || []) &&
+    !isProductPayloadDestructiveShrink(localProducts, workspace.products || [])
   ) {
     return {
       ...workspace,
@@ -201,6 +204,18 @@ const reconcileProtectedWorkspace = (
       // Incoming is completely empty but DB has data — protect DB data
       (merged as any)[key] = currentItems;
       protectedKeys.push(key);
+    } else if (
+      key === 'products'
+      && (
+        isProductPayloadQualityDowngrade(incomingItems, currentItems)
+        || isProductPayloadDestructiveShrink(incomingItems, currentItems)
+      )
+    ) {
+      // Product payloads restored from stale caches can have the same count but
+      // lose prices, categories, or real names. Keep the richer local/cloud copy.
+      (merged as any)[key] = currentItems;
+      protectedKeys.push(key);
+      shrank = true;
     } else if (incomingItems.length > 0 && incomingItems.length < currentItems.length) {
       // Incoming has some data but fewer than DB — flag as shrunk for backup,
       // but STILL save incoming (user may have deleted items intentionally)
@@ -380,8 +395,11 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
     const legacyMeta = await loadLegacyTenantWorkspaceMeta(client, tenantId);
     const legacyProductsUpdatedAt = legacyMeta.updatedAtByKey.products_map || legacyMeta.updatedAtByKey.products;
     const legacyProducts = legacyMeta.workspace?.products || [];
+    const legacyProductScore = getProductPayloadQualityScore(legacyProducts);
+    const workspaceProductScore = getProductPayloadQualityScore(safe.products || []);
     if (
       legacyProducts.length > 0 &&
+      legacyProductScore >= workspaceProductScore &&
       isNewerTimestamp(legacyProductsUpdatedAt, data.updated_at)
     ) {
       const reconciled = normalizeWorkspace({
@@ -441,8 +459,20 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
   }
 
   try {
-    // Use local cache instead of a DB pre-read — saves one full round-trip per save
     const currentSafe = readCachedWorkspace(tenantId);
+    let remoteSafe: TenantWorkspace | null = null;
+    try {
+      const { data: remoteData, error: remoteError } = await client
+        .from('tenant_workspaces')
+        .select('payload')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      if (!remoteError && remoteData?.payload) {
+        remoteSafe = normalizeWorkspace(remoteData.payload as TenantWorkspace);
+      }
+    } catch (error: any) {
+      console.warn('[workspace] remote guard load exception:', error?.message || error);
+    }
 
     if (!workspaceHasBusinessData(workspace)) {
       if (workspaceHasBusinessData(currentSafe)) {
@@ -462,18 +492,22 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
       }
     }
 
-    const protection = reconcileProtectedWorkspace(workspace, currentSafe);
+    const protection = reconcileProtectedWorkspace(workspace, remoteSafe || currentSafe);
     const workspaceToSave = protection.workspace;
 
     if (protection.protectedKeys.length > 0) {
       console.warn(
-        '[workspace] prevented destructive empty overwrite for:',
+        '[workspace] prevented destructive workspace overwrite for:',
         protection.protectedKeys.join(', ')
       );
-      saveRemoteWorkspaceBackup(client, tenantId, currentSafe as TenantWorkspace, `prevented-empty-overwrite:${protection.protectedKeys.join(',')}`).catch(() => {});
+      const backupSource = remoteSafe || currentSafe;
+      if (backupSource) {
+        saveRemoteWorkspaceBackup(client, tenantId, backupSource, `prevented-empty-overwrite:${protection.protectedKeys.join(',')}`).catch(() => {});
+      }
       cacheWorkspace(tenantId, workspaceToSave);
-    } else if (protection.shrank && currentSafe) {
-      saveRemoteWorkspaceBackup(client, tenantId, currentSafe, 'pre-shrink-save').catch(() => {});
+    } else if (protection.shrank) {
+      const backupSource = remoteSafe || currentSafe;
+      if (backupSource) saveRemoteWorkspaceBackup(client, tenantId, backupSource, 'pre-shrink-save').catch(() => {});
     }
 
     const { error } = await client

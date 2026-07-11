@@ -69,6 +69,60 @@ export function getTenantArray(payload: any, tenantId: string): any[] | null {
   return null;
 }
 
+const isProductDataKey = (dataKey: string) => dataKey === 'products' || dataKey === 'products_map';
+
+export function getProductPayloadQualityScore(items: any[] | null | undefined): number {
+  if (!Array.isArray(items)) return 0;
+  return items.reduce((score, item) => {
+    if (!item || typeof item !== 'object') return score;
+    const name = String(item.name || '').trim();
+    const category = String(item.category || '').trim();
+    const isRecoveredPlaceholder = /^Recovered Product\s+\d+/i.test(name);
+    return score
+      + (name && !isRecoveredPlaceholder ? 4 : 0)
+      + (Number(item.sellingPrice || 0) > 0 ? 3 : 0)
+      + (Number(item.costPrice || 0) > 0 ? 2 : 0)
+      + (category && category !== 'Recovered from images' ? 1 : 0)
+      + (item.brand ? 1 : 0)
+      + (Number(item.stockQty || 0) > 0 || Number(item.shopStockQty || 0) > 0 || Number(item.storeStockQty || 0) > 0 ? 1 : 0);
+  }, 0);
+}
+
+export function isProductPayloadQualityDowngrade(
+  incomingItems: any[] | null | undefined,
+  currentItems: any[] | null | undefined,
+): boolean {
+  if (!Array.isArray(incomingItems) || !Array.isArray(currentItems) || currentItems.length === 0) {
+    return false;
+  }
+  if (incomingItems.length < currentItems.length) return false;
+
+  const incomingScore = getProductPayloadQualityScore(incomingItems);
+  const currentScore = getProductPayloadQualityScore(currentItems);
+  const scoreDrop = currentScore - incomingScore;
+  const meaningfulDrop = Math.max(12, Math.ceil(currentItems.length * 2));
+
+  return (
+    currentScore > 0
+    && scoreDrop >= meaningfulDrop
+    && incomingScore <= currentScore * 0.9
+  );
+}
+
+export function isProductPayloadDestructiveShrink(
+  incomingItems: any[] | null | undefined,
+  currentItems: any[] | null | undefined,
+): boolean {
+  if (!Array.isArray(incomingItems) || !Array.isArray(currentItems) || currentItems.length === 0) {
+    return false;
+  }
+  if (incomingItems.length >= currentItems.length) return false;
+
+  const removedCount = currentItems.length - incomingItems.length;
+  const maxExpectedSingleSaveRemoval = Math.max(10, Math.ceil(currentItems.length * 0.1));
+  return removedCount > maxExpectedSingleSaveRemoval;
+}
+
 export function writeDataSafetyBackup(scope: string, value: any, reason: DataSafetyReason): void {
   if (!payloadHasRecords(value)) return;
   try {
@@ -113,6 +167,19 @@ export function protectTenantPayload<T>(
       ? currentItems
       : { ...(incoming as any), [tenantId]: currentItems };
     return { payload: merged as T, blockedEmptyOverwrite: true, shrank: false };
+  }
+
+  if (
+    isProductDataKey(dataKey)
+    && (
+      isProductPayloadQualityDowngrade(incomingItems, currentItems)
+      || isProductPayloadDestructiveShrink(incomingItems, currentItems)
+    )
+  ) {
+    const merged: any = Array.isArray(incoming)
+      ? currentItems
+      : { ...(incoming as any), [tenantId]: currentItems };
+    return { payload: merged as T, blockedEmptyOverwrite: false, shrank: true };
   }
 
   return { payload: incoming, blockedEmptyOverwrite: false, shrank: incomingItems.length < currentItems.length };
@@ -181,6 +248,15 @@ export function safeSetTenantMapItem<T extends Record<string, any[]>>(
     if (currentItems.length > 0 && incomingItems.length === 0) {
       next[tenantId] = currentItems;
       changed = true;
+    } else if (
+      isProductDataKey(dataKey)
+      && (
+        isProductPayloadQualityDowngrade(incomingItems, currentItems)
+        || isProductPayloadDestructiveShrink(incomingItems, currentItems)
+      )
+    ) {
+      next[tenantId] = currentItems;
+      shrank = true;
     } else if (incomingItems.length < currentItems.length) {
       shrank = true;
     }
