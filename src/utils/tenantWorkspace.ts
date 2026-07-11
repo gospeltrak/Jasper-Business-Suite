@@ -146,11 +146,15 @@ const reconcileProtectedWorkspace = (
     const currentItems = Array.isArray(current[key]) ? current[key] as any[] : [];
 
     if (currentItems.length > 0 && incomingItems.length === 0) {
+      // Incoming is completely empty but DB has data — protect DB data
       (merged as any)[key] = currentItems;
       protectedKeys.push(key);
-    } else if (incomingItems.length < currentItems.length) {
+    } else if (incomingItems.length > 0 && incomingItems.length < currentItems.length) {
+      // Incoming has some data but fewer than DB — flag as shrunk for backup,
+      // but STILL save incoming (user may have deleted items intentionally)
       shrank = true;
     }
+    // If incoming has MORE data than DB → user just added items → always save
   }
 
   return { workspace: merged, protectedKeys, shrank };

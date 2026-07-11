@@ -1659,6 +1659,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       };
     });
 
+    // Mark that local workspace has changed so the sync useEffect saves it
+    localWorkspaceChangedAtRef.current = Date.now();
+    // Ensure cloudWorkspaceLoadedRef is set so protection check doesn't skip save
+    cloudWorkspaceLoadedRef.current = true;
+
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
       type: 'product_update',
@@ -1677,6 +1682,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         [activeTenant.id]: currentProducts.filter(p => p.id !== id)
       };
     });
+
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
 
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
