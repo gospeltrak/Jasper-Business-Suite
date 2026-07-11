@@ -324,12 +324,8 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
   }
 
   try {
-    const { data: currentWorkspace } = await client
-      .from('tenant_workspaces')
-      .select('payload')
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
-    const currentSafe = normalizeWorkspace(currentWorkspace?.payload as TenantWorkspace);
+    // Use local cache instead of a DB pre-read — saves one full round-trip per save
+    const currentSafe = readCachedWorkspace(tenantId);
 
     if (!workspaceHasBusinessData(workspace)) {
       if (workspaceHasBusinessData(currentSafe)) {
@@ -357,10 +353,10 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
         '[workspace] prevented destructive empty overwrite for:',
         protection.protectedKeys.join(', ')
       );
-      await saveRemoteWorkspaceBackup(client, tenantId, currentSafe as TenantWorkspace, `prevented-empty-overwrite:${protection.protectedKeys.join(',')}`);
+      saveRemoteWorkspaceBackup(client, tenantId, currentSafe as TenantWorkspace, `prevented-empty-overwrite:${protection.protectedKeys.join(',')}`).catch(() => {});
       cacheWorkspace(tenantId, workspaceToSave);
     } else if (protection.shrank && currentSafe) {
-      await saveRemoteWorkspaceBackup(client, tenantId, currentSafe, 'pre-shrink-save');
+      saveRemoteWorkspaceBackup(client, tenantId, currentSafe, 'pre-shrink-save').catch(() => {});
     }
 
     const { error } = await client

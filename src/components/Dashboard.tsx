@@ -567,7 +567,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const cloudWorkspaceLoadedRef = useRef(false);
   const localWorkspaceChangedAtRef = useRef(0);
   const skipNextWorkspaceSaveRef = useRef(false);
-  const LOCAL_WORKSPACE_PROTECTION_MS = 30000; // 30 seconds — gives enough time for save to complete
+  const LOCAL_WORKSPACE_PROTECTION_MS = 10000; // 10s — save completes in < 5s normally
 
   // Automatically refresh settings when pivot branch (activeTenant) updates
   useEffect(() => {
@@ -692,7 +692,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     const handleFocus = () => {
       refreshWorkspaceFromDatabase(true);
     };
-    const liveRefreshTimer = window.setInterval(refreshWorkspaceFromDatabase, 30000); // every 30s, not every 1s
+    const liveRefreshTimer = window.setInterval(refreshWorkspaceFromDatabase, 5000); // every 5s
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('focus', handleFocus);
@@ -728,8 +728,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     if (!cloudWorkspaceLoadedRef.current && !workspaceHasBusinessData(workspace)) {
       return;
     }
-    const timer = window.setTimeout(() => saveTenantWorkspace(activeTenant.id, workspace), 450);
-    return () => window.clearTimeout(timer);
+    // Save immediately — no debounce. Protection window (30s) prevents
+    // the live refresh from overwriting while save is in flight.
+    saveTenantWorkspace(activeTenant.id, workspace);
   }, [workspaceReady, activeTenant.id, branchesMap, branchStocksMap, branchStaffAssignmentsMap, productsMap, salesMap, expensesMap, systemSettings, deliveriesMap, pendingDeliveryNotesMap, purchasesMap]);
 
   // PHASE 3 — Auto-create the business owner as a staff record on first login.
