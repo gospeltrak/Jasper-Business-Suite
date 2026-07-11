@@ -21,6 +21,7 @@ export interface TenantWorkspace {
 
 const cacheKey   = (tid: string) => `jasper_workspace_cache_${tid}`;
 const pendingKey = (tid: string) => `jasper_workspace_pending_sync_${tid}`;
+const productsUpdatedAtKey = (tid: string) => `jasper_products_map_updated_at_${tid}`;
 const backupIndexKey = (tid: string) => `jasper_workspace_backups_${tid}`;
 const backupItemKey = (tid: string, stamp: string) => `jasper_workspace_backup_${tid}_${stamp}`;
 const backupLastKey = (tid: string, reason: string) => `jasper_workspace_backup_last_${tid}_${reason}`;
@@ -86,12 +87,55 @@ const scopedArray = (payload: any, tenantId: string): any[] => {
   return [];
 };
 
+const readLocalProductsMap = (tenantId: string): Product[] => {
+  try {
+    const raw = localStorage.getItem('jasper_products_map');
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed?.[tenantId]) ? parsed[tenantId] : [];
+  } catch {
+    return [];
+  }
+};
+
+export const markTenantProductsUpdated = (tenantId: string, updatedAt = new Date().toISOString()) => {
+  if (!tenantId) return;
+  try {
+    localStorage.setItem(productsUpdatedAtKey(tenantId), updatedAt);
+  } catch {
+    // Local metadata must never block the actual product save.
+  }
+};
+
 const isNewerTimestamp = (candidate?: string | null, baseline?: string | null): boolean => {
   if (!candidate) return false;
   if (!baseline) return true;
   const candidateTime = new Date(candidate).getTime();
   const baselineTime = new Date(baseline).getTime();
   return Number.isFinite(candidateTime) && (!Number.isFinite(baselineTime) || candidateTime > baselineTime);
+};
+
+const reconcileLocalProductCache = (
+  tenantId: string,
+  workspace: TenantWorkspace,
+  cloudUpdatedAt?: string | null,
+): TenantWorkspace => {
+  const localProducts = readLocalProductsMap(tenantId);
+  let localProductsUpdatedAt: string | null = null;
+  try {
+    localProductsUpdatedAt = localStorage.getItem(productsUpdatedAtKey(tenantId));
+  } catch {
+    localProductsUpdatedAt = null;
+  }
+  if (
+    localProducts.length > 0 &&
+    isNewerTimestamp(localProductsUpdatedAt, cloudUpdatedAt)
+  ) {
+    return {
+      ...workspace,
+      products: localProducts,
+    };
+  }
+  return workspace;
 };
 
 export const workspaceHasBusinessData = (workspace: Partial<TenantWorkspace> | null | undefined): boolean => {
@@ -309,6 +353,17 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 
     const safe = normalizeWorkspace(data.payload as TenantWorkspace);
     if (!safe) return fallback;
+    const safeWithLocalProducts = reconcileLocalProductCache(tenantId, safe, data.updated_at);
+    if (safeWithLocalProducts !== safe) {
+      await client
+        .from('tenant_workspaces')
+        .upsert(
+          { tenant_id: tenantId, payload: safeWithLocalProducts, updated_at: new Date().toISOString() },
+          { onConflict: 'tenant_id' }
+        );
+      cacheWorkspace(tenantId, safeWithLocalProducts);
+      return safeWithLocalProducts;
+    }
     if (!workspaceHasBusinessData(safe)) {
       const legacy = await loadLegacyTenantWorkspace(client, tenantId);
       if (legacy && workspaceHasBusinessData(legacy)) {
@@ -475,6 +530,22 @@ export async function subscribeToTenantWorkspace(
           if (workspace) {
             const safe = normalizeWorkspace(workspace);
             if (!safe) return;
+            const safeWithLocalProducts = reconcileLocalProductCache(tenantId, safe, event.new?.updated_at);
+            if (safeWithLocalProducts !== safe) {
+              client
+                .from('tenant_workspaces')
+                .upsert(
+                  { tenant_id: tenantId, payload: safeWithLocalProducts, updated_at: new Date().toISOString() },
+                  { onConflict: 'tenant_id' }
+                )
+                .then(({ error }: any) => {
+                  if (error) console.warn('[workspace] realtime product reconciliation save error:', error.message);
+                })
+                .catch((error: any) => console.warn('[workspace] realtime product reconciliation exception:', error?.message || error));
+              cacheWorkspace(tenantId, safeWithLocalProducts);
+              onWorkspace(safeWithLocalProducts);
+              return;
+            }
             const cached = readCachedWorkspace(tenantId);
             if (!workspaceHasBusinessData(safe) && workspaceHasBusinessData(cached)) {
               console.warn('[workspace] ignored empty realtime payload because local cache has business data');
