@@ -567,7 +567,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const cloudWorkspaceLoadedRef = useRef(false);
   const localWorkspaceChangedAtRef = useRef(0);
   const skipNextWorkspaceSaveRef = useRef(false);
-  const LOCAL_WORKSPACE_PROTECTION_MS = 12000;
+  const LOCAL_WORKSPACE_PROTECTION_MS = 30000; // 30 seconds — gives enough time for save to complete
 
   // Automatically refresh settings when pivot branch (activeTenant) updates
   useEffect(() => {
@@ -692,7 +692,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     const handleFocus = () => {
       refreshWorkspaceFromDatabase(true);
     };
-    const liveRefreshTimer = window.setInterval(refreshWorkspaceFromDatabase, 1000);
+    const liveRefreshTimer = window.setInterval(refreshWorkspaceFromDatabase, 30000); // every 30s, not every 1s
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('focus', handleFocus);

@@ -305,22 +305,22 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 
 // ─── Save to DB ────────────────────────────────────────────────────────────
 
-export async function saveTenantWorkspace(tenantId: string, workspace: TenantWorkspace): Promise<void> {
-  if (!tenantId) return;
+export async function saveTenantWorkspace(tenantId: string, workspace: TenantWorkspace): Promise<boolean> {
+  if (!tenantId) return false;
 
   // Always write to local cache immediately
   cacheWorkspace(tenantId, workspace);
 
   if (!browserOnline()) {
     localStorage.setItem(pendingKey(tenantId), JSON.stringify(workspace));
-    return;
+    return false;
   }
 
   const client = await getConfiguredClient();
   if (!client) {
     // Queue for when we come online
     localStorage.setItem(pendingKey(tenantId), JSON.stringify(workspace));
-    return;
+    return false;
   }
 
   try {
@@ -334,7 +334,7 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
     if (!workspaceHasBusinessData(workspace)) {
       if (workspaceHasBusinessData(currentSafe)) {
         cacheWorkspace(tenantId, currentSafe as TenantWorkspace);
-        return;
+        return false;
       }
       const legacy = await loadLegacyTenantWorkspace(client, tenantId);
       if (legacy && workspaceHasBusinessData(legacy)) {
@@ -345,7 +345,7 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
             { tenant_id: tenantId, payload: legacy, updated_at: new Date().toISOString() },
             { onConflict: 'tenant_id' }
           );
-        return;
+        return true;
       }
     }
 
@@ -371,14 +371,16 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
       );
 
     if (error) {
-      console.warn('[workspace] save error:', error.message);
+      console.warn('[workspace] save error:', error.message, '| code:', (error as any).code);
       localStorage.setItem(pendingKey(tenantId), JSON.stringify(workspace));
-    } else {
-      localStorage.removeItem(pendingKey(tenantId));
+      return false;
     }
+    localStorage.removeItem(pendingKey(tenantId));
+    return true;
   } catch (e) {
-    console.warn('[workspace] save exception:', e);
+    console.warn('[workspace] save exception:', (e as any)?.message || e);
     localStorage.setItem(pendingKey(tenantId), JSON.stringify(workspace));
+    return false;
   }
 }
 
