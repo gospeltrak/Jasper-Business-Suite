@@ -123,7 +123,9 @@ export default function DashboardProducts({
   const [newCategoryName, setNewCategoryName] = useState('');
 
   const [customBrands, setCustomBrands] = useState<ProductBrand[]>(() => (
-    isDemoTenant(activeTenant.id)
+    Array.isArray(systemSettings?.productStore?.brands) && systemSettings.productStore.brands.length > 0
+      ? systemSettings.productStore.brands
+      : isDemoTenant(activeTenant.id)
       ? [
           { name: 'Coca Cola', logo: '' },
           { name: 'Nestle', logo: '' },
@@ -135,6 +137,24 @@ export default function DashboardProducts({
   const [selectedBrandFilter, setSelectedBrandFilter] = useState<string | null>(null);
   const [newBrandName, setNewBrandName] = useState('');
   const [newBrandLogo, setNewBrandLogo] = useState('');
+
+  useEffect(() => {
+    if (!Array.isArray(systemSettings?.productStore?.brands)) return;
+    setCustomBrands(systemSettings.productStore.brands);
+  }, [systemSettings?.productStore?.brands, activeTenant.id]);
+
+  const persistCustomBrands = (nextBrands: ProductBrand[]) => {
+    setCustomBrands(nextBrands);
+    onUpdateSettings({
+      ...systemSettings,
+      productStore: {
+        ...systemSettings?.productStore,
+        categories: systemSettings?.productStore?.categories || [],
+        units: systemSettings?.productStore?.units || [],
+        brands: nextBrands,
+      },
+    });
+  };
 
   // Self-healing, reactive list of categories that merges pre-loaded products and custom ones, and user settings
   const categoriesList = useMemo(() => {
@@ -3830,7 +3850,7 @@ export default function DashboardProducts({
                       name: trimmed,
                       logo: newBrandLogo || undefined
                     };
-                    setCustomBrands(prev => [...prev, nextBrand]);
+                    persistCustomBrands([...customBrands, nextBrand]);
                     setNewBrandName('');
                     setNewBrandLogo('');
                   }}
@@ -3905,7 +3925,7 @@ export default function DashboardProducts({
                         onClick={(e) => {
                           e.stopPropagation();
                           if (window.confirm(`Delete brand "${b.name}"? Products using it will be unlinked.`)) {
-                            setCustomBrands(prev => prev.filter(br => br.name !== b.name));
+                            persistCustomBrands(customBrands.filter(br => br.name !== b.name));
                             if (selectedBrandFilter === b.name) setSelectedBrandFilter(null);
                           }
                         }}

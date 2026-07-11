@@ -469,6 +469,7 @@ export interface BusinessSettings {
 export interface ProductStoreSettings {
   categories: string[];
   units: string[]; // pcs, kg, litres, box, bottle, etc.
+  brands?: { name: string; logo?: string }[];
 }
 
 export interface StaffSettings {

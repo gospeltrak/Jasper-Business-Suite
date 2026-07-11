@@ -453,7 +453,7 @@ export function emptyWorkspace(settings?: Partial<SystemSettings>): TenantWorksp
         deliveryPaymentModes: [],
         registeredStores: []
       },
-      productStore: { showImages: true, compactView: false, categories: [], units: [] },
+      productStore: { showImages: true, compactView: false, categories: [], units: [], brands: [] },
       staffs: [],
       ...(settings || {}),
     } as SystemSettings,

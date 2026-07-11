@@ -215,7 +215,8 @@ const getInitialSystemSettings = (tenant: Tenant): SystemSettings => {
     },
     productStore: {
       categories: ['Groceries', 'Beverages', 'Electronics', 'Pharmaceuticals', 'Personal Care', 'Homeware'],
-      units: ['pcs', 'kg', 'litres', 'box', 'bottle', 'dozen', 'meters']
+      units: ['pcs', 'kg', 'litres', 'box', 'bottle', 'dozen', 'meters'],
+      brands: []
     },
     staffs: [
       { id: 'st-01', name: 'John Mwangi', phone: '+254 722 123 456', role: 'Seller', salary: 35000, password: 'password123' },

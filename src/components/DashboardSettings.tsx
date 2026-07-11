@@ -564,7 +564,8 @@ const DEFAULT_PRODUCT_STORE_SETTINGS: ProductStoreSettings = {
   showImages: true,
   compactView: false,
   categories: [],
-  units: []
+  units: [],
+  brands: []
 } as unknown as ProductStoreSettings;
 
 const normalizeBusinessSettings = (settings?: Partial<BusinessSettings>): BusinessSettings => ({
@@ -579,7 +580,8 @@ const normalizeProductStoreSettings = (settings?: Partial<ProductStoreSettings>)
   ...DEFAULT_PRODUCT_STORE_SETTINGS,
   ...(settings || {}),
   categories: Array.isArray(settings?.categories) ? settings.categories : [],
-  units: Array.isArray(settings?.units) ? settings.units : []
+  units: Array.isArray(settings?.units) ? settings.units : [],
+  brands: Array.isArray(settings?.brands) ? settings.brands : []
 } as ProductStoreSettings);
 
 const SETTINGS_DRAFT_PROTECTION_MS = 15000;

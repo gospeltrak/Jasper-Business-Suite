@@ -38,7 +38,8 @@ export const createCleanTenantSettings = (tenant: Tenant): SystemSettings => ({
   },
   productStore: {
     categories: [],
-    units: []
+    units: [],
+    brands: []
   },
   staffs: [],
   customRoles: [],
