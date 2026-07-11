@@ -83,15 +83,6 @@ export default function DashboardProducts({
   // Mobile bottom sheet state — mobile only
   const [mobileProductMenu, setMobileProductMenu] = useState<Product | null>(null);
 
-  // Lock body scroll when mobile menu is open
-  useEffect(() => {
-    if (mobileProductMenu) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [mobileProductMenu]);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
@@ -114,6 +105,16 @@ export default function DashboardProducts({
   const [adjustSearch, setAdjustSearch] = useState<string>('');
   const [adjustSearchResults, setAdjustSearchResults] = useState<Product[]>([]);
   const [adjustShowSearch, setAdjustShowSearch] = useState(false);
+
+  // Lock body scroll when product overlays are open
+  useEffect(() => {
+    if (mobileProductMenu || editingProduct || replenishProduct || adjustProduct || viewingProduct) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileProductMenu, editingProduct, replenishProduct, adjustProduct, viewingProduct]);
   
   const [brand, setBrand] = useState(''); // New Brand input field for manual product creation
   const [customCategories, setCustomCategories] = useState<string[]>([]);
@@ -178,6 +179,11 @@ export default function DashboardProducts({
   const handleBeginEdit = (prod: Product) => {
     setEditingProduct(prod);
     setEditForm({ ...prod });
+  };
+
+  const runAfterMobileMenuClose = (action: () => void) => {
+    setMobileProductMenu(null);
+    window.setTimeout(action, 180);
   };
 
   const getEditPharmacyStructure = (form: Partial<Product>) => {
@@ -2526,6 +2532,7 @@ export default function DashboardProducts({
                           </div>
                           <button
                             type="button"
+                            aria-label={`Open actions for ${prod.name}`}
                             onClick={(e) => { e.stopPropagation(); setMobileProductMenu(prod); }}
                             className="w-8 h-8 rounded-xl flex items-center justify-center active:bg-slate-100 dark:active:bg-slate-800"
                           >
@@ -4187,24 +4194,24 @@ export default function DashboardProducts({
 
       {/* EDIT PRODUCT MODAL */}
       {editingProduct && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
+        <div className="fixed inset-0 z-[230] flex items-stretch justify-center bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans lg:items-center lg:p-4" style={{paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)'}}>
           <form 
             onSubmit={handleSaveProductEdit}
-            className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-56px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] overflow-y-auto flex flex-col uppercase text-xs"
+            className="bg-white border border-slate-200 shadow-2xl w-full h-full max-h-[100dvh] overflow-hidden flex flex-col uppercase text-xs lg:h-auto lg:max-w-4xl lg:max-h-[calc(100dvh_-_2rem)] lg:rounded-3xl"
           >
             {/* Header */}
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
+            <div className="sticky top-0 z-10 px-4 py-3 sm:px-6 sm:py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-2 min-w-0">
                 <Edit className="w-4 h-4 text-emerald-600 animate-pulse" />
-                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider font-mono">Adjust Product details desk</h4>
+                <h4 className="flex-1 min-w-0 font-bold text-slate-800 text-[11px] sm:text-xs uppercase tracking-wider font-mono truncate">Adjust Product details desk</h4>
               </div>
-              <button type="button" onClick={() => setEditingProduct(null)} className="text-slate-500 hover:text-slate-700 cursor-pointer">
+              <button type="button" onClick={() => setEditingProduct(null)} className="w-10 h-10 lg:w-auto lg:h-auto rounded-full bg-white lg:bg-transparent border border-slate-200 lg:border-0 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer shrink-0">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6 text-xs text-slate-600">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-6 text-xs text-slate-600">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Visual Block & Classification summary */}
                 <div className="space-y-4">
                   <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">1. Descriptor & Image</h5>
@@ -4775,17 +4782,17 @@ export default function DashboardProducts({
               </div>
             </div>
 
-            <div className="bg-slate-50 p-4 flex justify-end space-x-2">
+            <div className="sticky bottom-0 z-10 bg-slate-50 p-3 sm:p-4 flex gap-2 border-t border-slate-200 shrink-0">
               <button 
                 type="button" 
                 onClick={() => setEditingProduct(null)} 
-                className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
               >
                 Cancel Adjustments
               </button>
               <button 
                 type="submit" 
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-505 text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-505 text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
               >
                 Save Changes
               </button>
@@ -5007,7 +5014,10 @@ export default function DashboardProducts({
               </div>
               <div className="overflow-y-auto px-4 pb-4 space-y-2">
                 <button type="button" aria-label="View product details"
-                  onClick={() => { setViewingProduct(mobileProductMenu); setMobileProductMenu(null); }}
+                  onClick={() => {
+                    const prod = mobileProductMenu;
+                    if (prod) runAfterMobileMenuClose(() => setViewingProduct(prod));
+                  }}
                   className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-slate-50 text-left border border-slate-100"
                 >
                   <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center shrink-0"><Eye className="w-5 h-5 text-blue-600" /></div>
@@ -5015,7 +5025,10 @@ export default function DashboardProducts({
                   <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                 </button>
                 <button type="button" aria-label="Edit product"
-                  onClick={() => { handleBeginEdit(mobileProductMenu); setMobileProductMenu(null); }}
+                  onClick={() => {
+                    const prod = mobileProductMenu;
+                    if (prod) runAfterMobileMenuClose(() => handleBeginEdit(prod));
+                  }}
                   className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-slate-50 text-left border border-slate-100"
                 >
                   <div className="w-11 h-11 rounded-xl bg-teal-50 flex items-center justify-center shrink-0"><Edit className="w-5 h-5 text-teal-600" /></div>
@@ -5023,7 +5036,17 @@ export default function DashboardProducts({
                   <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                 </button>
                 <button type="button" aria-label="Replenish stock"
-                  onClick={() => { setReplenishProduct(mobileProductMenu); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(mobileProductMenu.costingMethod || mobileProductMenu.inventorySettings?.costingMethod || 'fifo'); setMobileProductMenu(null); }}
+                  onClick={() => {
+                    const prod = mobileProductMenu;
+                    if (prod) runAfterMobileMenuClose(() => {
+                      setReplenishProduct(prod);
+                      setReplenishCost('');
+                      setReplenishQty('');
+                      setReplenishSupplier('');
+                      setReplenishPriceAction('suggested');
+                      setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo');
+                    });
+                  }}
                   className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-slate-50 text-left border border-slate-100"
                 >
                   <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0"><Package className="w-5 h-5 text-emerald-600" /></div>
@@ -5033,8 +5056,13 @@ export default function DashboardProducts({
                 <button type="button" aria-label="Adjust stock"
                   onClick={() => {
                     const prod = mobileProductMenu;
-                    setMobileProductMenu(null);
-                    if (prod) { setAdjustProduct(prod); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(prod.name); setAdjustShowSearch(false); }
+                    if (prod) runAfterMobileMenuClose(() => {
+                      setAdjustProduct(prod);
+                      setAdjustQty('');
+                      setAdjustReason('');
+                      setAdjustSearch(prod.name);
+                      setAdjustShowSearch(false);
+                    });
                   }}
                   className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-slate-50 text-left border border-slate-100"
                 >
