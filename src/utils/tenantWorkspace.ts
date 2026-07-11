@@ -98,6 +98,14 @@ const readLocalProductsMap = (tenantId: string): Product[] => {
   }
 };
 
+const readLocalProductsUpdatedAt = (tenantId: string): string | null => {
+  try {
+    return localStorage.getItem(productsUpdatedAtKey(tenantId));
+  } catch {
+    return null;
+  }
+};
+
 export const markTenantProductsUpdated = (tenantId: string, updatedAt = new Date().toISOString()) => {
   if (!tenantId) return;
   try {
@@ -115,18 +123,21 @@ const isNewerTimestamp = (candidate?: string | null, baseline?: string | null): 
   return Number.isFinite(candidateTime) && (!Number.isFinite(baselineTime) || candidateTime > baselineTime);
 };
 
+const productPayloadsDiffer = (left: any[] | undefined, right: any[] | undefined): boolean => {
+  try {
+    return JSON.stringify(left || []) !== JSON.stringify(right || []);
+  } catch {
+    return true;
+  }
+};
+
 const reconcileLocalProductCache = (
   tenantId: string,
   workspace: TenantWorkspace,
   cloudUpdatedAt?: string | null,
 ): TenantWorkspace => {
   const localProducts = readLocalProductsMap(tenantId);
-  let localProductsUpdatedAt: string | null = null;
-  try {
-    localProductsUpdatedAt = localStorage.getItem(productsUpdatedAtKey(tenantId));
-  } catch {
-    localProductsUpdatedAt = null;
-  }
+  const localProductsUpdatedAt = readLocalProductsUpdatedAt(tenantId);
   if (
     localProducts.length > 0 &&
     isNewerTimestamp(localProductsUpdatedAt, cloudUpdatedAt) &&
@@ -461,14 +472,16 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
   try {
     const currentSafe = readCachedWorkspace(tenantId);
     let remoteSafe: TenantWorkspace | null = null;
+    let remoteUpdatedAt: string | null = null;
     try {
       const { data: remoteData, error: remoteError } = await client
         .from('tenant_workspaces')
-        .select('payload')
+        .select('payload, updated_at')
         .eq('tenant_id', tenantId)
         .maybeSingle();
       if (!remoteError && remoteData?.payload) {
         remoteSafe = normalizeWorkspace(remoteData.payload as TenantWorkspace);
+        remoteUpdatedAt = remoteData.updated_at || null;
       }
     } catch (error: any) {
       console.warn('[workspace] remote guard load exception:', error?.message || error);
@@ -493,7 +506,20 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
     }
 
     const protection = reconcileProtectedWorkspace(workspace, remoteSafe || currentSafe);
-    const workspaceToSave = protection.workspace;
+    let workspaceToSave = protection.workspace;
+    let staleProductOverwriteBlocked = false;
+
+    if (
+      remoteSafe
+      && productPayloadsDiffer(workspaceToSave.products, remoteSafe.products)
+      && !isNewerTimestamp(readLocalProductsUpdatedAt(tenantId), remoteUpdatedAt)
+    ) {
+      workspaceToSave = {
+        ...workspaceToSave,
+        products: remoteSafe.products || [],
+      };
+      staleProductOverwriteBlocked = true;
+    }
 
     if (protection.protectedKeys.length > 0) {
       console.warn(
@@ -508,6 +534,10 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
     } else if (protection.shrank) {
       const backupSource = remoteSafe || currentSafe;
       if (backupSource) saveRemoteWorkspaceBackup(client, tenantId, backupSource, 'pre-shrink-save').catch(() => {});
+    } else if (staleProductOverwriteBlocked && remoteSafe) {
+      console.warn('[workspace] prevented stale product overwrite from older local cache');
+      saveRemoteWorkspaceBackup(client, tenantId, remoteSafe, 'prevented-stale-product-overwrite').catch(() => {});
+      cacheWorkspace(tenantId, workspaceToSave);
     }
 
     const { error } = await client

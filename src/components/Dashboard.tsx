@@ -822,6 +822,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         }
 
         if (migrated > 0 && !cancelled) {
+          markTenantProductsUpdated(tid);
           setProductsMap(prev => ({ ...prev, [tid]: updatedProducts }));
           try {
             const currentMap = JSON.parse(localStorage.getItem('jasper_products_map') || '{}');
@@ -1441,8 +1442,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       console.warn('[Dashboard] Unable to cache updated products map:', error);
     }
 
-    saveData(activeTenant.id, 'products_map', { [activeTenant.id]: updatedProducts });
     markTenantProductsUpdated(activeTenant.id);
+    saveData(activeTenant.id, 'products_map', { [activeTenant.id]: updatedProducts });
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
 

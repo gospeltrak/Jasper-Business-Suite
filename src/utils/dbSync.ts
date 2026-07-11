@@ -38,6 +38,31 @@ function localKey(tenantId: string, dataKey: string): string {
 }
 
 const isProductDataKey = (dataKey: string) => dataKey === 'products' || dataKey === 'products_map';
+const productsUpdatedAtKey = (tenantId: string) => `jasper_products_map_updated_at_${tenantId}`;
+
+const readLocalProductsUpdatedAt = (tenantId: string): string | null => {
+  try {
+    return localStorage.getItem(productsUpdatedAtKey(tenantId));
+  } catch {
+    return null;
+  }
+};
+
+const isNewerTimestamp = (candidate?: string | null, baseline?: string | null): boolean => {
+  if (!candidate) return false;
+  if (!baseline) return true;
+  const candidateTime = new Date(candidate).getTime();
+  const baselineTime = new Date(baseline).getTime();
+  return Number.isFinite(candidateTime) && (!Number.isFinite(baselineTime) || candidateTime > baselineTime);
+};
+
+const payloadsDiffer = (left: any, right: any): boolean => {
+  try {
+    return JSON.stringify(left) !== JSON.stringify(right);
+  } catch {
+    return true;
+  }
+};
 
 async function saveRemoteDataBackup(client: any, tenantId: string, dataKey: string, payload: any, reason: string): Promise<void> {
   if (!payloadHasRecords(payload, tenantId)) return;
@@ -97,12 +122,22 @@ export async function pushToCloud(tenantId: string, dataKey: string, payload: an
       if (isProductDataKey(dataKey)) {
         const { data: remoteData, error: remoteError } = await client
           .from('tenant_data')
-          .select('payload')
+          .select('payload, updated_at')
           .eq('tenant_id', tenantId)
           .eq('data_key', dataKey)
           .maybeSingle();
 
         if (!remoteError && remoteData?.payload) {
+          const localProductsUpdatedAt = readLocalProductsUpdatedAt(tenantId);
+          if (
+            payloadsDiffer(payloadToPush, remoteData.payload)
+            && !isNewerTimestamp(localProductsUpdatedAt, remoteData.updated_at)
+          ) {
+            saveRemoteDataBackup(client, tenantId, dataKey, remoteData.payload, 'prevented-stale-product-overwrite').catch(() => {});
+            console.warn(`[dbSync] prevented stale product cloud overwrite for ${tenantId}/${dataKey}`);
+            payloadToPush = remoteData.payload;
+          }
+
           const remoteProtection = protectTenantPayload(tenantId, dataKey, payloadToPush, remoteData.payload);
           payloadToPush = remoteProtection.payload;
 
