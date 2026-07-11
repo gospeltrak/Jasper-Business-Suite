@@ -358,8 +358,16 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     if (!activeTenant.id) return;
     syncOnLogin(activeTenant.id).then(() => {
       // After sync, reload data maps from localStorage (which now has database data)
+      let workspaceHasProducts = false;
+      try {
+        const workspaceCache = localStorage.getItem(`jasper_workspace_cache_${activeTenant.id}`);
+        const workspace = workspaceCache ? JSON.parse(workspaceCache) : null;
+        workspaceHasProducts = Array.isArray(workspace?.products) && workspace.products.length > 0;
+      } catch {
+        workspaceHasProducts = false;
+      }
       const freshProducts = localStorage.getItem('jasper_products_map');
-      if (freshProducts) {
+      if (freshProducts && !workspaceHasProducts) {
         try { setProductsMap(prev => ({ ...prev, ...JSON.parse(freshProducts) })); } catch (e) {}
       }
       const freshSales = localStorage.getItem('jasper_sales_map');
@@ -1422,9 +1430,42 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     }));
   };
 
-  const handleUpdateActiveStocks = (updatedProducts: Product[]) => {
+  const persistTenantProductsNow = (updatedProducts: Product[]) => {
+    const updatedProductsMap = {
+      ...productsMap,
+      [activeTenant.id]: updatedProducts,
+    };
+
+    try {
+      safeSetTenantMapItem('jasper_products_map', 'products_map', updatedProductsMap);
+    } catch (error) {
+      console.warn('[Dashboard] Unable to cache updated products map:', error);
+    }
+
+    saveData(activeTenant.id, 'products_map', { [activeTenant.id]: updatedProducts });
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
+
+    const workspace: TenantWorkspace = {
+      branches:             branchesMap[activeTenant.id]             || [],
+      branchStocks:         branchStocksMap[activeTenant.id]         || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+      products:             updatedProducts,
+      sales:                salesMap[activeTenant.id]                || [],
+      expenses:             expensesMap[activeTenant.id]             || [],
+      settings:             systemSettings,
+      deliveries:           deliveriesMap[activeTenant.id]           || [],
+      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+      purchases:            purchasesMap[activeTenant.id]            || [],
+    };
+
+    saveTenantWorkspace(activeTenant.id, workspace).catch((error) => {
+      console.warn('[Dashboard] Unable to immediately sync updated products workspace:', error);
+    });
+  };
+
+  const handleUpdateActiveStocks = (updatedProducts: Product[]) => {
+    persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => ({
       ...prev,
       [activeTenant.id]: updatedProducts
@@ -1666,13 +1707,12 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleCreateProduct = (newProd: Product) => {
-    localWorkspaceChangedAtRef.current = Date.now();
-    cloudWorkspaceLoadedRef.current = true;
+    const updatedProducts = [newProd, ...(productsMap[activeTenant.id] || [])];
+    persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => {
-      const currentProducts = prev[activeTenant.id] || [];
       return {
         ...prev,
-        [activeTenant.id]: [newProd, ...currentProducts]
+        [activeTenant.id]: updatedProducts
       };
     });
 
@@ -1692,11 +1732,12 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleDeleteProduct = (id: string) => {
+    const updatedProducts = (productsMap[activeTenant.id] || []).filter(p => p.id !== id);
+    persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => {
-      const currentProducts = prev[activeTenant.id] || [];
       return {
         ...prev,
-        [activeTenant.id]: currentProducts.filter(p => p.id !== id)
+        [activeTenant.id]: updatedProducts
       };
     });
 

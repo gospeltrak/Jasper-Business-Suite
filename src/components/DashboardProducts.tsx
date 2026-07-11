@@ -199,12 +199,16 @@ export default function DashboardProducts({
   }, [products, customBrands]);
 
   const handleBeginEdit = (prod: Product) => {
+    const editDraftNumber = (value: number | undefined | null) => {
+      if (value === undefined || value === null || Number(value) === 0) return '';
+      return String(value);
+    };
     setEditingProduct(prod);
     setEditForm({ ...prod });
     setEditStockDraft({
-      shop: prod.shopStockQty !== undefined && prod.shopStockQty !== null ? String(prod.shopStockQty) : '',
-      store: prod.storeStockQty !== undefined && prod.storeStockQty !== null ? String(prod.storeStockQty) : '',
-      alert: prod.alertQty !== undefined && prod.alertQty !== null ? String(prod.alertQty) : '',
+      shop: editDraftNumber(prod.shopStockQty),
+      store: editDraftNumber(prod.storeStockQty),
+      alert: editDraftNumber(prod.alertQty),
     });
   };
 
@@ -227,6 +231,13 @@ export default function DashboardProducts({
     if (Number.isFinite(parsed)) {
       setEditForm(prev => ({ ...prev, [field]: Math.max(0, parsed) }));
     }
+  };
+
+  const editNumberValue = (value: number | string | undefined | null) => {
+    if (value === undefined || value === null || value === '') return '';
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric === 0) return '';
+    return String(value);
   };
 
   const getEditPharmacyStructure = (form: Partial<Product>) => {
@@ -4460,10 +4471,10 @@ export default function DashboardProducts({
                         type="number" 
                         min="0"
                         value={editForm.isBulkProduct && activeTenant.businessType !== 'pharmacy'
-                          ? (editForm.packageBuyingCost ?? editForm.inventorySettings?.packageBuyingCost ?? editForm.costPrice ?? 0)
-                          : (editForm.costPrice ?? 0)}
+                          ? editNumberValue(editForm.packageBuyingCost ?? editForm.inventorySettings?.packageBuyingCost ?? editForm.costPrice)
+                          : editNumberValue(editForm.costPrice)}
                         onChange={(e) => {
-                          const val = Math.max(0, parseFloat(e.target.value) || 0);
+                          const val = e.target.value === '' ? undefined : Math.max(0, parseFloat(e.target.value) || 0);
                           setEditForm(prev => prev.isBulkProduct && activeTenant.businessType !== 'pharmacy'
                             ? { ...prev, packageBuyingCost: val }
                             : { ...prev, costPrice: val }
@@ -4478,9 +4489,9 @@ export default function DashboardProducts({
                         type="number" 
                         min="1"
                         disabled={editForm.sellInRetail === false}
-                        value={editForm.sellInRetail !== false ? (editForm.sellingPrice ?? 0) : 0}
+                        value={editForm.sellInRetail !== false ? editNumberValue(editForm.sellingPrice) : ''}
                         onChange={(e) => {
-                          const val = Math.max(0, parseFloat(e.target.value) || 0);
+                          const val = e.target.value === '' ? undefined : Math.max(0, parseFloat(e.target.value) || 0);
                           setEditForm(prev => ({ ...prev, sellingPrice: val }));
                         }}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none"
@@ -4495,9 +4506,9 @@ export default function DashboardProducts({
                         type="number" 
                         min="1"
                         disabled={!editForm.sellInWholesale}
-                        value={editForm.sellInWholesale ? (editForm.wholesalePrice ?? 0) : 0}
+                        value={editForm.sellInWholesale ? editNumberValue(editForm.wholesalePrice) : ''}
                         onChange={(e) => {
-                          const val = Math.max(0, parseFloat(e.target.value) || 0);
+                          const val = e.target.value === '' ? undefined : Math.max(0, parseFloat(e.target.value) || 0);
                           setEditForm(prev => ({ ...prev, wholesalePrice: val }));
                         }}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none"
@@ -4509,9 +4520,9 @@ export default function DashboardProducts({
                         type="number" 
                         min="1"
                         disabled={!editForm.sellInWholesale}
-                        value={editForm.sellInWholesale ? (editForm.minWholesaleQty ?? 10) : 10}
+                        value={editForm.sellInWholesale ? editNumberValue(editForm.minWholesaleQty) : ''}
                         onChange={(e) => {
-                          const val = Math.max(1, parseInt(e.target.value) || 1);
+                          const val = e.target.value === '' ? undefined : Math.max(1, parseInt(e.target.value) || 1);
                           setEditForm(prev => ({ ...prev, minWholesaleQty: val }));
                         }}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none"
@@ -4601,7 +4612,7 @@ export default function DashboardProducts({
                       </div>
                       <div className="space-y-1">
                         <label className="text-[9.5px] font-bold text-slate-500 uppercase block">1 Package Contains</label>
-                        <input type="number" step="0.001" value={editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1} onChange={e => setEditForm(prev => ({ ...prev, conversionToBaseUnit: Number(e.target.value) || 1 }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        <input type="number" step="0.001" value={editNumberValue(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit)} onChange={e => setEditForm(prev => ({ ...prev, conversionToBaseUnit: e.target.value === '' ? undefined : Number(e.target.value) || 1 }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                       </div>
                     </div>
                   )}
@@ -4677,7 +4688,7 @@ export default function DashboardProducts({
                           )}
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-slate-500 uppercase">{structure.hierarchy.levels[0]?.unit || 'Top unit'} price</label>
-                            <input type="number" value={editForm.sellingPrice ?? 0} onChange={e => setEditForm(prev => ({ ...prev, sellingPrice: Number(e.target.value) || 0 }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                            <input type="number" value={editNumberValue(editForm.sellingPrice)} onChange={e => setEditForm(prev => ({ ...prev, sellingPrice: e.target.value === '' ? undefined : Number(e.target.value) || 0 }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                           </div>
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {structure.hierarchy.baseUnit}</label>
