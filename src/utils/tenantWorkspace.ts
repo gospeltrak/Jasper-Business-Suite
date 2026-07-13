@@ -9,6 +9,7 @@ import {
   writeLocalProductTombstones,
 } from './productSync';
 import { mergeRecordsById } from './recordSync';
+import { mergeSettingsForSync } from './settingsSync';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -549,6 +550,7 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
           (mergeBase as any)[key],
         );
       }
+      workspaceToSave.settings = mergeSettingsForSync(workspaceToSave.settings, mergeBase.settings);
     }
 
     if (protection.protectedKeys.length > 0) {

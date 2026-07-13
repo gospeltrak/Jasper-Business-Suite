@@ -594,6 +594,7 @@ export interface SystemSettings {
   business: BusinessSettings;
   productStore: ProductStoreSettings;
   staffs: StaffSettings[];
+  settingsSync?: Record<string, string>;
   customRoles?: CustomRole[];
   invoiceSettings?: InvoiceSettings;
   posSettings?: {

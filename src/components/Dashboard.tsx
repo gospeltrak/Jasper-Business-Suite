@@ -42,6 +42,7 @@ import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolatio
 import { flushPendingTenantWorkspace, loadTenantWorkspace, markTenantProductsUpdated, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
 import { markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
+import { mergeSettingsForSync, stampSettingsForSync } from '../utils/settingsSync';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
 import { 
@@ -381,7 +382,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       }
       const freshSettings = localStorage.getItem(`jasper_settings_${activeTenant.id}`);
       if (freshSettings) {
-        try { setSystemSettings(prev => ({ ...prev, ...JSON.parse(freshSettings) })); } catch (e) {}
+        try {
+          const parsedSettings = JSON.parse(freshSettings);
+          setSystemSettings(prev => mergeSettingsForSync(parsedSettings, prev));
+        } catch (e) {}
       }
     }).catch(() => {}); // Always fails gracefully — localStorage still works
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -626,29 +630,12 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
       setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
       if (workspace.settings) {
-        // Prefer localStorage settings over cloud workspace settings.
-        // localStorage is written synchronously on every save, while the
-        // cloud workspace is written async — if the user saves categories,
-        // then refreshes quickly, the cloud may return old data before the
-        // async write completes. localStorage is always the most current.
         const localSettingsRaw = localStorage.getItem(`jasper_settings_${activeTenant.id}`);
         let settingsToApply = workspace.settings;
         if (localSettingsRaw) {
           try {
             const localSettings = JSON.parse(localSettingsRaw);
-            // Merge: use local productStore.categories if they exist locally,
-            // since that's what the user explicitly saved via the Settings panel.
-            settingsToApply = {
-              ...workspace.settings,
-              ...localSettings,
-              productStore: {
-                ...(workspace.settings.productStore || {}),
-                ...(localSettings.productStore || {}),
-                categories: Array.isArray(localSettings.productStore?.categories)
-                  ? localSettings.productStore.categories
-                  : (workspace.settings.productStore?.categories || []),
-              },
-            };
+            settingsToApply = mergeSettingsForSync(localSettings, workspace.settings);
           } catch {
             settingsToApply = workspace.settings;
           }
@@ -770,7 +757,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     };
 
     const updatedStaffs = [ownerRecord, ...staffs];
-    const updatedSettings = { ...systemSettings, staffs: updatedStaffs };
+    const updatedSettings = stampSettingsForSync({ ...systemSettings, staffs: updatedStaffs }, systemSettings);
     setSystemSettings(updatedSettings);
     try {
       safeSetJsonItem(`jasper_settings_${activeTenant.id}`, updatedSettings, {
@@ -778,6 +765,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         dataKey: 'settings',
         logLabel: `${activeTenant.id}/settings`,
       });
+      saveData(activeTenant.id, 'settings', updatedSettings);
     } catch { /* quota */ }
   }, [workspaceReady, activeTenant.id]);
 
@@ -1479,6 +1467,21 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       console.warn('[Dashboard] Unable to immediately sync updated products workspace:', error);
     });
     return syncedProducts;
+  };
+
+  const persistSystemSettingsNow = (updated: SystemSettings) => {
+    const syncUpdatedAt = new Date().toISOString();
+    const syncedSettings = stampSettingsForSync(updated, systemSettings, syncUpdatedAt);
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
+    setSystemSettings(syncedSettings);
+    safeSetJsonItem(`jasper_settings_${activeTenant.id}`, syncedSettings, {
+      tenantId: activeTenant.id,
+      dataKey: 'settings',
+      logLabel: `${activeTenant.id}/settings`,
+    });
+    saveData(activeTenant.id, 'settings', syncedSettings);
+    return syncedSettings;
   };
 
   const handleUpdateActiveStocks = (updatedProducts: Product[]) => {
@@ -2862,14 +2865,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               products={activeProducts}
               systemSettings={systemSettings}
               onUpdateSettings={(updated) => {
-                localWorkspaceChangedAtRef.current = Date.now();
-                setSystemSettings(updated);
-                safeSetJsonItem(`jasper_settings_${activeTenant.id}`, updated, {
-                  tenantId: activeTenant.id,
-                  dataKey: 'settings',
-                  logLabel: `${activeTenant.id}/settings`,
-                });
-                saveData(activeTenant.id, 'settings', updated);
+                persistSystemSettingsNow(updated);
               }}
               onAddProduct={handleCreateProduct}
               onDeleteProduct={handleDeleteProduct}
@@ -3035,14 +3031,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               user={user}
               systemSettings={systemSettings}
               onUpdateSystemSettings={(updated) => {
-                localWorkspaceChangedAtRef.current = Date.now();
-                setSystemSettings(updated);
-                safeSetJsonItem(`jasper_settings_${activeTenant.id}`, updated, {
-                  tenantId: activeTenant.id,
-                  dataKey: 'settings',
-                  logLabel: `${activeTenant.id}/settings`,
-                });
-                saveData(activeTenant.id, 'settings', updated);
+                persistSystemSettingsNow(updated);
               }}
             />
           )}
@@ -3059,14 +3048,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             <DashboardStaff 
               systemSettings={systemSettings}
               onUpdateSettings={(updated) => {
-                localWorkspaceChangedAtRef.current = Date.now();
-                setSystemSettings(updated);
-                safeSetJsonItem(`jasper_settings_${activeTenant.id}`, updated, {
-                  tenantId: activeTenant.id,
-                  dataKey: 'settings',
-                  logLabel: `${activeTenant.id}/settings`,
-                });
-                saveData(activeTenant.id, 'settings', updated);
+                persistSystemSettingsNow(updated);
               }}
               sales={activeSales}
               expenses={activeExpenses}
@@ -3081,14 +3063,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               activeTenant={activeTenant}
               systemSettings={systemSettings}
               onSaveSettings={(updated) => {
-                localWorkspaceChangedAtRef.current = Date.now();
-                setSystemSettings(updated);
-                safeSetJsonItem(`jasper_settings_${activeTenant.id}`, updated, {
-                  tenantId: activeTenant.id,
-                  dataKey: 'settings',
-                  logLabel: `${activeTenant.id}/settings`,
-                });
-                saveData(activeTenant.id, 'settings', updated);
+                const syncedSettings = persistSystemSettingsNow(updated);
                 saveTenantWorkspace(activeTenant.id, {
                   branches: branchesMap[activeTenant.id] || [],
                   branchStocks: branchStocksMap[activeTenant.id] || [],
@@ -3096,19 +3071,19 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   products: productsMap[activeTenant.id] || [],
                   sales: salesMap[activeTenant.id] || [],
                   expenses: expensesMap[activeTenant.id] || [],
-                  settings: updated,
+                  settings: syncedSettings,
                   deliveries: deliveriesMap[activeTenant.id] || [],
                   pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
                   purchases: purchasesMap[activeTenant.id] || [],
                   productTombstones: readLocalProductTombstones(activeTenant.id),
                 });
                 let logoToSave = '';
-                if (updated.company?.logo) {
-                  logoToSave = updated.company.logo;
-                } else if (updated.business?.businessLogoLight) {
-                  logoToSave = updated.business.businessLogoLight;
-                } else if (updated.business?.businessLogo) {
-                  logoToSave = updated.business.businessLogo;
+                if (syncedSettings.company?.logo) {
+                  logoToSave = syncedSettings.company.logo;
+                } else if (syncedSettings.business?.businessLogoLight) {
+                  logoToSave = syncedSettings.business.businessLogoLight;
+                } else if (syncedSettings.business?.businessLogo) {
+                  logoToSave = syncedSettings.business.businessLogo;
                 }
                 if (logoToSave) {
                   localStorage.setItem(`jasper_tenant_logo_${activeTenant.id}`, logoToSave);
