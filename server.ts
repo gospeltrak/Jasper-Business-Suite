@@ -844,7 +844,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
           .not('email', 'like', '%@whatsapp.jasper.local')
           .not('email', 'like', '%@signup.jasper.local')
           .maybeSingle();
-        if (data?.email) return res.json({ email: data.email });
+        const matchedUser = data as { email?: string } | null;
+        if (matchedUser?.email) return res.json({ email: matchedUser.email });
       }
       return res.json({ email: null });
     } catch {
