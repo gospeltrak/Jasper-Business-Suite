@@ -3,14 +3,16 @@
  * 
  * Stores SaaS platform data (hardware inventory, POS products, sales, etc.)
  * directly in Supabase tenant_data table using 'saas-global' as the tenant_id.
- * Falls back to localStorage when offline and syncs when back online.
+ * Online-only writes: localStorage is read/cache only and offline queues are
+ * preserved for manual audit instead of replayed automatically.
  */
 
 import { getSecureDataBridgeClient } from '../secureDataBridge';
+import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline, warnOfflineWriteBlocked } from './onlineOnly';
 
 const GLOBAL_SCOPE = 'saas-global';
 
-// ─── localStorage fallback key ─────────────────────────────────────────────
+// ─── localStorage cache key ─────────────────────────────────────────────────
 function localKey(recordType: string, scopeId: string): string {
   return `jasper_platform_${recordType}_${scopeId}`;
 }
@@ -62,7 +64,7 @@ async function fetchSuperAdminPlatformRecord<T>(recordType: string, scopeId: str
   }
 }
 
-// ─── Load from Supabase, fallback to localStorage ─────────────────────────
+// ─── Load from Supabase, fallback to localStorage cache ─────────────────────
 export async function loadPlatformRecord<T>(
   recordType: string,
   scopeId = GLOBAL_SCOPE,
@@ -91,7 +93,7 @@ export async function loadPlatformRecord<T>(
       .maybeSingle();
 
     if (!error && data?.payload !== undefined) {
-      // Cache to localStorage for offline use
+      // Cache to localStorage for fast reads only.
       try {
         localStorage.setItem(localKey(recordType, scope), JSON.stringify(data.payload));
       } catch { /* storage full */ }
@@ -99,7 +101,7 @@ export async function loadPlatformRecord<T>(
     }
   } catch { /* offline */ }
 
-  // Fallback to localStorage
+  // Read-only fallback to existing localStorage cache.
   try {
     const cached = localStorage.getItem(localKey(recordType, scope));
     if (cached) return JSON.parse(cached) as T;
@@ -108,7 +110,7 @@ export async function loadPlatformRecord<T>(
   return fallback;
 }
 
-// ─── Save to Supabase AND localStorage ────────────────────────────────────
+// ─── Save to Supabase, then refresh localStorage cache ──────────────────────
 export async function savePlatformRecord<T>(
   recordType: string,
   scopeId: string,
@@ -119,10 +121,10 @@ export async function savePlatformRecord<T>(
     throw new Error('Invalid platform record key.');
   }
 
-  // Always save to localStorage immediately (works offline)
-  try {
-    localStorage.setItem(localKey(recordType, scope), JSON.stringify(value));
-  } catch { /* storage full */ }
+  if (!canWriteBusinessDataOnline()) {
+    warnOfflineWriteBlocked(`savePlatformRecord:${recordType}/${scope}`);
+    throw new Error(ONLINE_ONLY_WRITE_MESSAGE);
+  }
 
   // Save through the protected Super Admin API. Browser clients must never
   // write global platform records directly into tenant_data.
@@ -139,20 +141,14 @@ export async function savePlatformRecord<T>(
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || 'Platform record could not be saved.');
-    return (data?.record?.payload ?? value) as T;
-  } catch (error) {
-    // Offline/auth failure — keep only local cache. Never queue privileged
-    // global writes from an unauthenticated browser context.
-    console.warn('[platform-records] secure save deferred locally:', error);
+    const saved = (data?.record?.payload ?? value) as T;
     try {
-      const queue: any[] = JSON.parse(localStorage.getItem('jasper_platform_admin_pending') || '[]');
-      const filtered = queue.filter((item: any) => !(item.recordType === recordType && item.scopeId === scope));
-      filtered.push({ recordType, scopeId: scope, value, updatedAt: new Date().toISOString() });
-      localStorage.setItem('jasper_platform_admin_pending', JSON.stringify(filtered));
+      localStorage.setItem(localKey(recordType, scope), JSON.stringify(saved));
     } catch { /* storage full */ }
-    if (typeof navigator !== 'undefined' && navigator.onLine) {
-      throw error instanceof Error ? error : new Error('Platform record could not be saved securely.');
-    }
+    return saved;
+  } catch (error) {
+    console.warn('[platform-records] secure save failed:', error);
+    throw error instanceof Error ? error : new Error('Platform record could not be saved securely.');
   }
 
   return value;
@@ -167,54 +163,28 @@ export async function deletePlatformRecord(
     throw new Error('Invalid platform record key.');
   }
 
-  localStorage.removeItem(localKey(recordType, scopeId));
-
   try {
+    if (!canWriteBusinessDataOnline()) {
+      warnOfflineWriteBlocked(`deletePlatformRecord:${recordType}/${scopeId}`);
+      throw new Error(ONLINE_ONLY_WRITE_MESSAGE);
+    }
     const token = await getAccessToken();
     if (!token) throw new Error('Super Admin login is required.');
-    await fetch(`/api/super-admin/platform-records/${encodeURIComponent(recordType)}/${encodeURIComponent(scopeId)}`, {
+    const res = await fetch(`/api/super-admin/platform-records/${encodeURIComponent(recordType)}/${encodeURIComponent(scopeId)}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` }
     });
+    if (!res.ok) throw new Error('Platform record could not be deleted securely.');
+    localStorage.removeItem(localKey(recordType, scopeId));
   } catch (error) {
     console.warn('[platform-records] secure delete failed:', error);
+    throw error instanceof Error ? error : new Error('Platform record could not be deleted securely.');
   }
 }
 
-// ─── Sync queued offline saves when online ────────────────────────────────
+// ─── Preserve legacy offline queue without replaying it ─────────────────────
 export async function flushPlatformRecordQueue(): Promise<void> {
-  if (!navigator.onLine) return;
-  try {
-    const queue: any[] = JSON.parse(localStorage.getItem('jasper_platform_admin_pending') || '[]');
-    if (!queue.length) return;
-
-    const token = await getAccessToken();
-    if (!token) return;
-    const remaining: any[] = [];
-
-    for (const item of queue) {
-      try {
-        if (!safeRecordToken(item.recordType) || !safeRecordToken(item.scopeId)) continue;
-        const res = await fetch(`/api/super-admin/platform-records/${encodeURIComponent(item.recordType)}/${encodeURIComponent(item.scopeId)}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ payload: item.value })
-        });
-        if (!res.ok) {
-          item.retries = (item.retries || 0) + 1;
-          if (item.retries < 5) remaining.push(item);
-        }
-      } catch {
-        item.retries = (item.retries || 0) + 1;
-        if (item.retries < 5) remaining.push(item);
-      }
-    }
-
-    localStorage.setItem('jasper_platform_admin_pending', JSON.stringify(remaining));
-  } catch { /* offline */ }
+  warnOfflineWriteBlocked('flushPlatformRecordQueue:legacy-queue');
 }
 
 // Attach online listener once

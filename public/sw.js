@@ -1,6 +1,6 @@
-// Jasper Business Suite Service Worker (Premium POS/ERP Offline-First Support)
-const CACHE_NAME = 'jasper-pos-cache-v8';
-const SW_VERSION = '2026-07-11-product-sync-v2';
+// Jasper Business Suite Service Worker (online-only business writes)
+const CACHE_NAME = 'jasper-pos-cache-v9-online-only';
+const SW_VERSION = '2026-07-13-online-only-writes-v1';
 const NAVIGATION_CACHE_KEY = '/__jasper-navigation-shell__';
 
 // Assets to cache immediately on SW install
@@ -203,7 +203,8 @@ function openDB() {
   });
 }
 
-// Function to fetch and upload pending sales to standard bulk sync API
+// Online-only mode: pending sales are preserved for manual audit/recovery.
+// The service worker must not replay stale offline sales or clear IndexedDB.
 async function syncOfflinePOSSales() {
   try {
     const db = await openDB();
@@ -220,41 +221,7 @@ async function syncOfflinePOSSales() {
       return;
     }
 
-    console.log(`[Service Worker Background Sync] Found ${sales.length} queued bills, publishing to server...`);
-
-    const response = await fetch('/api/sales/sync', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ sales })
-    });
-
-    if (response.ok) {
-      const resultData = await response.json();
-      console.log('[Service Worker Background Sync] Sync successfully processed by cloud target:', resultData);
-
-      // Successfully synced! Clean up IndexedDB store
-      await new Promise((resolve, reject) => {
-        const tx = db.transaction('pending_sales', 'readwrite');
-        const store = tx.objectStore('pending_sales');
-        const request = store.clear();
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-
-      // Broadcast completion status message to all active clients (tabs)
-      const clientsList = await self.clients.matchAll();
-      clientsList.forEach(client => {
-        client.postMessage({
-          type: 'OFFLINE_BACKGROUND_SYNC_SUCCESS',
-          count: sales.length,
-          syncedIds: sales.map(s => s.id)
-        });
-      });
-    } else {
-      console.error('[Service Worker Background Sync] Bulk upload failed with status:', response.status);
-    }
+    console.warn(`[Service Worker Background Sync] Online-only mode blocked ${sales.length} queued offline sale(s). Queue preserved; no upload or delete performed.`);
   } catch (error) {
     console.error('[Service Worker Background Sync] Error during queue sync event:', error);
   }
@@ -263,7 +230,7 @@ async function syncOfflinePOSSales() {
 // Background sync registration handler
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-pos-sales') {
-    console.log('[Service Worker Sync Event] "sync-pos-sales" signal received; flushing offline queue...');
+    console.log('[Service Worker Sync Event] "sync-pos-sales" signal received; online-only mode will not replay queue.');
     event.waitUntil(syncOfflinePOSSales());
   }
 });
@@ -271,7 +238,7 @@ self.addEventListener('sync', (event) => {
 // Also listen to custom messages from client to manually trigger sync or notify SW of connectivity changes
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'TRIGGER_POS_SYNC') {
-    console.log('[Service Worker Message Event] Manual sync requested by client application tab.');
+    console.log('[Service Worker Message Event] Manual sync requested; online-only mode will not replay queue.');
     event.waitUntil(syncOfflinePOSSales());
   }
 });

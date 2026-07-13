@@ -97,7 +97,6 @@ export const initializeCleanTenantWorkspace = (tenant: Tenant) => {
   safeSetJsonItem(`jasper_channels_${tenantId}`, [], { tenantId, dataKey: 'channels', logLabel: `${tenantId}/channels` });
   safeSetJsonItem(`jasper_cash_bank_matrix_${tenantId}`, [], { tenantId, dataKey: 'cash_bank_matrix', logLabel: `${tenantId}/cash-bank-matrix` });
   safeSetJsonItem(`jasper_deliveries_${tenantId}`, [], { tenantId, dataKey: 'deliveries', logLabel: `${tenantId}/deliveries` });
-  localStorage.removeItem(`jasper_tenant_logo_${tenantId}`);
 
   // Save empty workspace to Supabase DB so data persists across devices
   if (!hasExistingBusinessData) {

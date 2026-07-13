@@ -48,6 +48,7 @@ import {
   dbWrite,
   flushSyncQueue,
 } from '../../utils/offlineSync';
+import { ONLINE_ONLY_WRITE_MESSAGE } from '../../utils/onlineOnly';
 import { canShowDashboardAd, useGlobalAdSettings } from '../../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../utils/safeHtml';
 import GlobalStickyAd from '../GlobalStickyAd';
@@ -102,24 +103,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const adSettings = useGlobalAdSettings();
 
   useEffect(() => {
-    // Purge stale demo entries from localStorage on mount
-    try {
-      const raw = localStorage.getItem('saas_immersive_affiliates');
-      if (raw) {
-        const all: any[] = JSON.parse(raw);
-        const realOnly = all.filter((a: any) =>
-          a.user_id && typeof a.user_id === 'string' && a.user_id.length > 10 &&
-          !(a.name && /tunde/i.test(a.name))
-        );
-        if (realOnly.length !== all.length) {
-          localStorage.setItem('saas_immersive_affiliates', JSON.stringify(realOnly));
-        }
-      }
-    } catch { /* ignore */ }
-
-    initOfflineSync((result) => {
-      setNotice(`✅ ${result.synced} changes synced.`);
-    });
+    initOfflineSync();
     const up   = () => { setIsNetworkOnline(true);  flushSyncQueue(); };
     const down = () => setIsNetworkOnline(false);
     window.addEventListener('online',  up);
@@ -145,6 +129,10 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
 
   const saveCode = async () => {
     if (!workspace || !newCode.trim()) return;
+    if (!isNetworkOnline) {
+      setCodeError(ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     const cleaned = newCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     if (!cleaned) { setCodeError('Code must contain letters or numbers only.'); return; }
     // Check duplicates in localStorage
@@ -160,12 +148,16 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
       setSuggestions(sugg);
       return;
     }
-    // Save to DB — queues automatically if offline, syncs when connected
-    await dbWrite('affiliates', 'update',
+    // Save to DB first; local cache follows only after cloud confirms.
+    const result = await dbWrite('affiliates', 'update',
       { promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() },
       { column: 'id', value: workspace.profile.id },
       workspace.profile.id
     );
+    if (!result.success) {
+      setCodeError(result.error || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     // Update localStorage
     const updated = all.map((a: any) => a.id === workspace.profile.id ? { ...a, promoCode: cleaned } : a);
     localStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
@@ -348,10 +340,25 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
 
   const saveAffiliateSettings = async () => {
     if (!workspace?.profile) return;
+    if (!isNetworkOnline) {
+      setNotice(ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     const displayName = profileDraft.displayName.trim() || workspace.profile.display_name;
     const payoutMethod = profileDraft.payoutMethod.trim() || null;
     const payoutAccount = profileDraft.payoutAccount.trim() || null;
     const prefsKey = `jasper_affiliate_preferences_${workspace.profile.id}`;
+    const result = await dbWrite(
+      'affiliates',
+      'update',
+      { display_name: displayName, payout_method: payoutMethod, payout_account: payoutAccount },
+      { column: 'id', value: workspace.profile.id },
+      workspace.profile.id,
+    );
+    if (!result.success) {
+      setNotice(result.error || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     localStorage.setItem(prefsKey, JSON.stringify(profilePrefs));
     setWorkspace({
       ...workspace,
@@ -362,18 +369,15 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
         payout_account: payoutAccount,
       },
     });
-    const result = await dbWrite(
-      'affiliates',
-      'update',
-      { display_name: displayName, payout_method: payoutMethod, payout_account: payoutAccount },
-      { column: 'id', value: workspace.profile.id },
-      workspace.profile.id,
-    );
-    setNotice(result.queued ? 'Profile saved locally and will sync when online.' : 'Profile settings saved.');
+    setNotice('Profile settings saved.');
   };
 
-  const handleWithdrawSubmit = async () => {
-    if (!workspace?.profile) return;
+	  const handleWithdrawSubmit = async () => {
+	    if (!workspace?.profile) return;
+	    if (!isNetworkOnline) {
+	      setWithdrawError(ONLINE_ONLY_WRITE_MESSAGE);
+	      return;
+	    }
     const { name, phone, amount, password } = withdrawForm;
     if (!name.trim()) { setWithdrawError('Please enter the account holder name.'); return; }
     if (!phone.trim()) { setWithdrawError('Please enter the phone number.'); return; }
@@ -409,14 +413,14 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
     );
 
     setWithdrawing(false);
-    if (result.queued || result.id) {
-      setShowWithdrawModal(false);
-      setWithdrawForm({ name: '', phone: '', amount: '', password: '' });
-      setNotice(`✅ Withdrawal of ${currency.format(netAmount)} submitted successfully (after ${currency.format(fee)} fee).`);
-      await refresh();
-    } else {
-      setWithdrawError('Failed to submit withdrawal. Please try again.');
-    }
+	    if (result.success) {
+	      setShowWithdrawModal(false);
+	      setWithdrawForm({ name: '', phone: '', amount: '', password: '' });
+	      setNotice(`✅ Withdrawal of ${currency.format(netAmount)} submitted successfully (after ${currency.format(fee)} fee).`);
+	      await refresh();
+	    } else {
+	      setWithdrawError(result.error || 'Failed to submit withdrawal. Please try again.');
+	    }
   };
 
   const downloadUrl = (url: string, fileName?: string | null) => {
@@ -540,7 +544,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
       {/* Offline banner */}
       {!isNetworkOnline && (
         <div className="flex items-center justify-center gap-2 bg-amber-500 text-slate-950 text-xs font-bold py-2 px-4">
-          ⚠️ Offline — Unafanya kazi bila intaneti. Mabadiliko yatasync ukiunganika. | Changes will sync when connected.
+          ⚠️ Offline — Reconnect before saving changes. No offline sync will run automatically.
         </div>
       )}
       <div className="mx-auto grid min-h-screen max-w-[1440px] lg:grid-cols-[232px_minmax(0,1fr)]">

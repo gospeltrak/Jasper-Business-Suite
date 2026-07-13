@@ -1,16 +1,17 @@
 /**
- * offlineSync.ts — Secure offline-first data layer
+ * offlineSync.ts — Secure online-only data layer
  *
  * DESIGN:
  * 1. ALL registrations must go online first (block if offline)
- * 2. Operational data (promo edits, tasks, meetings) work offline
- *    and sync when network returns
+ * 2. Offline business mutations are preserved only for manual audit/recovery
+ *    and are never replayed automatically.
  * 3. localStorage is keyed per-account to prevent data mixing
  * 4. Sensitive data is namespaced so different accounts on the
  *    same browser never see each other's data
  */
 
 import { getSecureDataBridgeClient } from '../secureDataBridge';
+import { ONLINE_ONLY_WRITE_MESSAGE, warnOfflineWriteBlocked } from './onlineOnly';
 
 // ─── Network status ────────────────────────────────────────────────────────
 
@@ -57,8 +58,8 @@ export function clearAccountData(accountId: string): void {
   keysToRemove.forEach(k => localStorage.removeItem(k));
 }
 
-// ─── Offline sync queue ────────────────────────────────────────────────────
-// When offline, mutations are queued per-account and replayed when online
+// ─── Legacy offline sync queue ──────────────────────────────────────────────
+// Online-only mode preserves legacy queue records but never replays them.
 
 interface SyncQueueItem {
   id: string;
@@ -74,60 +75,17 @@ interface SyncQueueItem {
 const SYNC_QUEUE_KEY = 'jasper_offline_sync_queue';
 
 export function enqueueSyncItem(item: Omit<SyncQueueItem, 'id' | 'createdAt' | 'retries'>): void {
-  try {
-    const queue: SyncQueueItem[] = JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || '[]');
-    queue.push({
-      ...item,
-      id: `sync_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
-      createdAt: new Date().toISOString(),
-      retries: 0,
-    });
-    localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
-  } catch { /* storage full */ }
+  warnOfflineWriteBlocked(`enqueueSyncItem:${item.table}/${item.operation}`);
 }
 
 export async function flushSyncQueue(): Promise<{ synced: number; failed: number }> {
-  if (!isOnline()) return { synced: 0, failed: 0 };
-
-  const queue: SyncQueueItem[] = JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || '[]');
-  if (!queue.length) return { synced: 0, failed: 0 };
-
-  let synced = 0;
-  let failed = 0;
-  const remaining: SyncQueueItem[] = [];
-
-  try {
-    const client: any = await getSecureDataBridgeClient();
-
-    for (const item of queue) {
-      try {
-        if (item.operation === 'insert') {
-          await client.from(item.table).insert(item.data);
-        } else if (item.operation === 'update' && item.filter) {
-          await client.from(item.table).update(item.data).eq(item.filter.column, item.filter.value);
-        } else if (item.operation === 'upsert') {
-          await client.from(item.table).upsert(item.data);
-        }
-        synced++;
-      } catch {
-        item.retries++;
-        if (item.retries < 5) {
-          remaining.push(item); // retry up to 5 times
-        } else {
-          failed++; // discard after 5 retries
-        }
-      }
-    }
-  } catch {
-    // Supabase unavailable — keep all items in queue
-    return { synced: 0, failed: 0 };
-  }
-
-  localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(remaining));
-  return { synced, failed };
+  // Online-only mode keeps legacy queued items for manual audit/recovery but
+  // never replays stale browser mutations automatically.
+  warnOfflineWriteBlocked('flushSyncQueue:legacy-queue');
+  return { synced: 0, failed: 0 };
 }
 
-// ─── Smart DB write — online writes directly, offline queues ──────────────
+// ─── Smart DB write — online writes directly, offline writes are blocked ────
 
 export async function dbWrite(
   table: string,
@@ -136,26 +94,26 @@ export async function dbWrite(
   filter?: { column: string; value: string },
   accountId = 'system'
 ): Promise<{ success: boolean; queued: boolean; error?: string }> {
-  if (isOnline()) {
-    try {
-      const client: any = await getSecureDataBridgeClient();
-      if (operation === 'insert') {
-        await client.from(table).insert(data);
-      } else if (operation === 'update' && filter) {
-        await client.from(table).update(data).eq(filter.column, filter.value);
-      } else if (operation === 'upsert') {
-        await client.from(table).upsert(data);
-      }
-      return { success: true, queued: false };
-    } catch (e: any) {
-      // DB write failed even though online — queue it
-      enqueueSyncItem({ table, operation, data, filter, accountId });
-      return { success: false, queued: true, error: e?.message };
+	  if (isOnline()) {
+	    try {
+	      const client: any = await getSecureDataBridgeClient();
+	      let result: any = null;
+	      if (operation === 'insert') {
+	        result = await client.from(table).insert(data);
+	      } else if (operation === 'update' && filter) {
+	        result = await client.from(table).update(data).eq(filter.column, filter.value);
+	      } else if (operation === 'upsert') {
+	        result = await client.from(table).upsert(data);
+	      }
+	      if (result?.error) throw result.error;
+	      return { success: true, queued: false };
+	    } catch (e: any) {
+      warnOfflineWriteBlocked(`dbWrite:${table}/${operation}`);
+      return { success: false, queued: false, error: e?.message || ONLINE_ONLY_WRITE_MESSAGE };
     }
   } else {
-    // Offline — queue for later
-    enqueueSyncItem({ table, operation, data, filter, accountId });
-    return { success: false, queued: true };
+    warnOfflineWriteBlocked(`dbWrite:${table}/${operation}`);
+    return { success: false, queued: false, error: ONLINE_ONLY_WRITE_MESSAGE };
   }
 }
 
@@ -168,19 +126,13 @@ export function initOfflineSync(onSynced?: (result: { synced: number; failed: nu
   syncListenerAttached = true;
 
   window.addEventListener('online', async () => {
-    const result = await flushSyncQueue();
-    if (result.synced > 0 && onSynced) {
-      onSynced(result);
-    }
+    await flushSyncQueue();
   });
 
   // Also try to flush on page focus (user switches back to tab)
   window.addEventListener('focus', async () => {
     if (isOnline()) {
-      const result = await flushSyncQueue();
-      if (result.synced > 0 && onSynced) {
-        onSynced(result);
-      }
+      await flushSyncQueue();
     }
   });
 }

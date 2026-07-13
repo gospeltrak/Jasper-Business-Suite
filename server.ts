@@ -1978,29 +1978,19 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
 
   app.post('/api/sales/sync', (req, res) => {
-    try {
-      const { sales } = req.body;
-      if (!sales || !Array.isArray(sales)) {
-        return res.status(400).json({ error: 'Invalid payload: sales list array is required.' });
-      }
+    const sales = Array.isArray(req.body?.sales) ? req.body.sales : [];
+    console.warn(
+      `[Cloud POS Server] Online-only mode blocked ${sales.length} offline transaction(s). ` +
+        'Nothing was written or deleted; local pending records must be reviewed manually.'
+    );
 
-      console.log(`[Cloud POS Server] Sync packet received: Processing ${sales.length} offline transactions...`);
-      const results = sales.map((sale: any) => ({
-        id: sale.id,
-        status: 'synced',
-        timestamp: new Date().toISOString()
-      }));
-
-      return res.json({
-        success: true,
-        message: `Successfully stored and synchronized ${sales.length} transactions payload packages in cloud database container!`,
-        syncedIds: sales.map((s: any) => s.id),
-        results
-      });
-    } catch (error: any) {
-      console.error('[Cloud POS Server Error] Failed to process background sync:', error);
-      return res.status(500).json({ error: 'Failed to process bulk sync', details: error?.message });
-    }
+    return res.status(409).json({
+      success: false,
+      onlineOnly: true,
+      queuedPreserved: true,
+      message:
+        'Offline sales sync is disabled. Pending local records were preserved and must be reviewed manually.'
+    });
   });
 
   // API Route: Smart Inventory Forecasting proxy via Gemini 3.5 Flash

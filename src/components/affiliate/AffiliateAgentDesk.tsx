@@ -32,8 +32,8 @@ import {
   dbWrite,
   clearAffiliateSession,
   flushSyncQueue,
-  enqueueSyncItem,
 } from '../../utils/offlineSync';
+import { ONLINE_ONLY_WRITE_MESSAGE } from '../../utils/onlineOnly';
 import { canShowDashboardAd, useGlobalAdSettings } from '../../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../utils/safeHtml';
 import GlobalStickyAd from '../GlobalStickyAd';
@@ -190,29 +190,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     // These accumulate from AffiliatePortal admin forms during testing/demo sessions
     // (e.g. Ema Tunde, John Tunde, Sarah Tunde, Jane Tunde).
     // The real source of truth is Supabase — localStorage is not used for sub-affiliates.
-    try {
-      const raw = localStorage.getItem('saas_immersive_affiliates');
-      if (raw) {
-        const all: any[] = JSON.parse(raw);
-        // Keep only entries that have a valid Supabase-style UUID id AND
-        // were written by real Supabase login (have a user_id field)
-        const realOnly = all.filter((a: any) =>
-          a.user_id &&                          // written by Supabase auth
-          typeof a.user_id === 'string' &&
-          a.user_id.length > 10 &&
-          !a._isDemoEntry &&                    // explicit demo flag (if ever set)
-          !(a.name && /tunde/i.test(a.name))    // known demo surname pattern
-        );
-        if (realOnly.length !== all.length) {
-          localStorage.setItem('saas_immersive_affiliates', JSON.stringify(realOnly));
-          console.info(`[AffiliateAgentDesk] Cleaned ${all.length - realOnly.length} stale demo entries from localStorage.`);
-        }
-      }
-    } catch { /* ignore */ }
-
-    initOfflineSync((result) => {
-      setNotice(`✅ ${result.synced} changes synced to database.`);
-    });
+    initOfflineSync();
     const up   = () => { setIsNetworkOnline(true);  flushSyncQueue(); };
     const down = () => setIsNetworkOnline(false);
     window.addEventListener('online',  up);
@@ -247,10 +225,14 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       setCodeSuggestions(sugg);
       return;
     }
+    if (!isNetworkOnline) {
+      setCodeError(ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
+
     // Save to Supabase — update by user_id (auth) or id (row) in affiliate_partners
     const supabaseUserId = partnerInfo?.supabaseUserId;
     const supabaseRowId  = partnerInfo?.id;
-    let dbConfirmedLock = false;
 
     if (supabaseUserId || supabaseRowId) {
       try {
@@ -261,30 +243,22 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           : { column: 'id',      value: supabaseRowId };
         // Server-side guard: only updates if not already locked — prevents
         // a second edit slipping through even if stale UI state allowed the click.
-        const { data: updatedRows } = await client.from('affiliate_partners')
+        const { data: updatedRows, error } = await client.from('affiliate_partners')
           .update({ promo_code: cleaned, referral_slug: cleaned.toLowerCase(), promo_code_locked: true })
           .eq(filter.column, filter.value)
           .eq('promo_code_locked', false)
           .select('id');
+        if (error) throw error;
         if (updatedRows && updatedRows.length > 0) {
-          dbConfirmedLock = true;
+          // Confirmed in the cloud; local cache can now follow.
         } else {
           // No row matched the "not locked" condition — someone already used the edit
           setCodeError('Your promo code has already been changed once and is now permanently locked.');
           return;
         }
-      } catch {
-        // Queue for later sync — still locks locally so the UI reflects it immediately
-        enqueueSyncItem({
-          table: 'affiliate_partners',
-          operation: 'update',
-          data: { promo_code: cleaned, referral_slug: cleaned.toLowerCase(), promo_code_locked: true },
-          filter: supabaseUserId
-            ? { column: 'user_id', value: supabaseUserId }
-            : { column: 'id',      value: supabaseRowId },
-          accountId: partnerId,
-        });
-        dbConfirmedLock = true;
+      } catch (error: any) {
+        setCodeError(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+        return;
       }
     }
     // Update localStorage — both stores
@@ -435,6 +409,10 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const liveCode = editingCode && newCode ? newCode : partnerCode;
 
   const savePartnerSettings = async () => {
+    if (!isNetworkOnline) {
+      setNotice(ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     const updated = {
       ...partnerInfo,
       name: partnerProfileDraft.name.trim() || partnerName,
@@ -442,9 +420,6 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       paymentMethod: partnerProfileDraft.payoutMethod.trim(),
       payoutPhone: partnerProfileDraft.payoutPhone.trim(),
     };
-    setPartnerInfo(updated);
-    localStorage.setItem('jasper_logged_affiliate', JSON.stringify(updated));
-    localStorage.setItem(`jasper_partner_preferences_${partnerId}`, JSON.stringify(partnerPrefs));
     if (partnerId && partnerId !== 'partner-local') {
       const result = await dbWrite(
         'affiliate_partners',
@@ -458,10 +433,15 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         { column: 'id', value: partnerId },
         partnerId,
       );
-      setNotice(result.queued ? 'Profile saved locally and will sync when online.' : 'Profile settings saved.');
-      return;
+      if (!result.success) {
+        setNotice(result.error || ONLINE_ONLY_WRITE_MESSAGE);
+        return;
+      }
     }
-    setNotice('Profile settings saved on this device.');
+    setPartnerInfo(updated);
+    localStorage.setItem('jasper_logged_affiliate', JSON.stringify(updated));
+    localStorage.setItem(`jasper_partner_preferences_${partnerId}`, JSON.stringify(partnerPrefs));
+    setNotice(partnerId && partnerId !== 'partner-local' ? 'Profile settings saved.' : 'Profile settings saved on this device.');
   };
 
   // ── Load data ───────────────────────────────────────────────
@@ -791,14 +771,21 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     const newStatus = action === 'activate' ? 'active' : action === 'deactivate' ? 'inactive' : 'suspended';
     const newIsDisabled = action !== 'activate';
 
+    if (!isNetworkOnline) {
+      setNotice(ONLINE_ONLY_WRITE_MESSAGE);
+      setStatusModal(null);
+      return;
+    }
+
     // Update Supabase affiliates table
     try {
       const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
       const client: any = await getSecureDataBridgeClient();
-      await client.from('affiliates')
+      const { error: affiliateError } = await client.from('affiliates')
         .update({ is_disabled: newIsDisabled, status: newStatus })
         .eq('id', aff.id);
-      await client.from('account_status_logs').insert({
+      if (affiliateError) throw affiliateError;
+      const { error: logError } = await client.from('account_status_logs').insert({
         id: `asl-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
         account_id: aff.id,
         changed_by: partnerId,
@@ -807,14 +794,11 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         reason: statusReason || action,
         created_at: new Date().toISOString(),
       });
-    } catch {
-      // Offline — queue both writes for later sync
-      enqueueSyncItem({
-        table: 'affiliates', operation: 'update',
-        data: { is_disabled: newIsDisabled, status: newStatus },
-        filter: { column: 'id', value: aff.id },
-        accountId: partnerId,
-      });
+      if (logError) throw logError;
+    } catch (error: any) {
+      setNotice(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      setStatusModal(null);
+      return;
     }
 
     // Update localStorage (offline cache / instant UI)
@@ -850,12 +834,21 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const saveEdit = async () => {
     if (!editModal) return;
 
+    if (!isNetworkOnline) {
+      setNotice(ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
+
     // Update Supabase
-    await dbWrite('affiliates', 'update',
+    const result = await dbWrite('affiliates', 'update',
       { display_name: editName, phone_whatsapp: editPhone, payout_account: editPayoutPhone, payout_method: editPayoutMethod },
       { column: 'id', value: editModal.id },
       partnerId
     );
+    if (!result.success) {
+      setNotice(result.error || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
 
     // Update localStorage
     try {
@@ -1080,7 +1073,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       {/* Offline banner */}
       {!isNetworkOnline && (
         <div className="shrink-0 flex items-center justify-center gap-2 bg-amber-500 text-slate-950 text-xs font-bold py-1.5 px-4">
-          ⚠️ Offline — changes queued and will sync when connected
+          ⚠️ Offline — reconnect before saving changes. Offline queue replay is disabled.
         </div>
       )}
 

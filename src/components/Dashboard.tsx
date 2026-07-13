@@ -37,12 +37,13 @@ import GlobalStickyAd from './GlobalStickyAd';
 import SuperSaaSAdminView from './SuperSaaSAdminView';
 import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
-import { savePendingSaleOffline, clearPendingSales } from '../utils/offlineDb';
+import { savePendingSaleOffline } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
 import { flushPendingTenantWorkspace, loadTenantWorkspace, markTenantProductsUpdated, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
 import { markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
 import { mergeSettingsForSync, stampSettingsForSync } from '../utils/settingsSync';
+import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../utils/onlineOnly';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
 import { 
@@ -543,13 +544,27 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     }, 3500);
   };
 
+  const blockOfflineBusinessWrite = (action: string) => {
+    if (canWriteBusinessDataOnline()) return false;
+    const message = `${ONLINE_ONLY_WRITE_MESSAGE} Action blocked: ${action}.`;
+    addToast(message, 'warning');
+    setLogs(prev => [{
+      id: 'ONLINE-ONLY-' + Math.random().toString(36).slice(2, 8),
+      type: 'system_action',
+      status: 'warning',
+      message,
+      timestamp: new Date().toISOString()
+    }, ...prev]);
+    return true;
+  };
+
   // Monitor logs to trigger native responsive toast automatically on actions
   useEffect(() => {
     if (logs.length > 0) {
       const latest = logs[0];
       if (latest && latest.message) {
         // Find if this specific message was already toasted to avoid repeat
-        addToast(latest.message, latest.status === 'error' ? 'error' : 'success');
+        addToast(latest.message, latest.status === 'error' ? 'error' : latest.status === 'warning' ? 'warning' : 'success');
       }
     }
   }, [logs]);
@@ -604,8 +619,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     }
   }, [activeTenant]);
 
-  // The encrypted database is the tenant source of truth. Local storage is used only as a cache
-  // and offline queue until the same workspace can be written to the database.
+  // The encrypted database is the tenant source of truth. Local storage is used
+  // only as a read cache/recovery copy and is never replayed automatically.
   useEffect(() => {
     let active = true;
     let unsubscribe = () => undefined;
@@ -704,6 +719,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   useEffect(() => {
     if (!workspaceReady) return;
+    if (!canWriteBusinessDataOnline()) return;
     if (skipNextWorkspaceSaveRef.current) {
       skipNextWorkspaceSaveRef.current = false;
       return;
@@ -736,6 +752,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   // and no owner record exists yet.
   useEffect(() => {
     if (!workspaceReady || user.role === 'SuperAdmin') return;
+    if (!canWriteBusinessDataOnline()) return;
     const staffs: any[] = systemSettings?.staffs || [];
     const ownerExists = staffs.some((s: any) => s.isOwner);
     if (ownerExists) return;
@@ -774,6 +791,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   // active user edits). Uses server-side API with service role key — bypasses RLS.
   useEffect(() => {
     if (!workspaceReady || user.role === 'SuperAdmin') return;
+    if (!canWriteBusinessDataOnline()) return;
 
     let cancelled = false;
     const tid = activeTenant.id;
@@ -839,28 +857,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     if ('serviceWorker' in navigator) {
       const handleServiceWorkerMessage = (event: MessageEvent) => {
         if (event.data && event.data.type === 'OFFLINE_BACKGROUND_SYNC_SUCCESS') {
-          const { count, syncedIds } = event.data;
-          
-          // Move matched pending sales to synced
-          setSalesMap(prev => {
-            const updated: Record<string, Sale[]> = {};
-            Object.keys(prev).forEach(tenantId => {
-              updated[tenantId] = prev[tenantId].map(sale => {
-                if (syncedIds.includes(sale.id)) {
-                  return { ...sale, syncStatus: 'synced' as const };
-                }
-                return sale;
-              });
-            });
-            return updated;
-          });
-
-          // Add a glorious trace log
           const newLog: SyncLog = {
-            id: 'l-' + Math.random().toString(36).substr(2, 9),
+            id: 'ONLINE-ONLY-SW-' + Math.random().toString(36).slice(2, 8),
             type: 'sale',
-            status: 'success',
-            message: `Background Sync worker flushed ${count} pending offline sales receipts successfully!`,
+            status: 'warning',
+            message: 'Ignored legacy background sync success event. Online-only mode will not mark local pending sales as synced automatically.',
             timestamp: new Date().toISOString()
           };
           setLogs(prev => [newLog, ...prev]);
@@ -874,29 +875,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         const newLog: SyncLog = {
           id: 'l-' + Math.random().toString(36).substr(2, 9),
           type: 'inventory_audit',
-          status: 'success',
-          message: `Network connectivity restored. Requesting Service Worker transaction queue flush...`,
+          status: 'warning',
+          message: 'Network connectivity restored. Offline queue replay remains disabled to protect tenant data.',
           timestamp: new Date().toISOString()
         };
         setLogs(prev => [newLog, ...prev]);
-
-        // Attempt Background Sync tag registration
-        if ('SyncManager' in window) {
-          navigator.serviceWorker.ready.then(reg => {
-            return (reg as any).sync.register('sync-pos-sales');
-          }).catch(err => {
-            console.warn('Sync registration failed:', err);
-            // Fallback: send message to SW to trigger sync immediately
-            if (navigator.serviceWorker.controller) {
-              navigator.serviceWorker.controller.postMessage({ type: 'TRIGGER_POS_SYNC' });
-            }
-          });
-        } else {
-          // Manual fallback for browsers without Background Sync API support (or sandboxed iframes)
-          if (navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage({ type: 'TRIGGER_POS_SYNC' });
-          }
-        }
       };
 
       window.addEventListener('online', handleOnlineStatus);
@@ -1236,13 +1219,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       setManualActivationReceipt(null);
       setManualActivationNote('');
     } catch (err: any) {
-      const fallbackKey = `jasper_manual_subscription_requests_${activeTenant.id}`;
-      const cached = JSON.parse(localStorage.getItem(fallbackKey) || '[]');
-      localStorage.setItem(fallbackKey, JSON.stringify([...cached, requestRecord]));
       setManualActivationMessage(
         err?.message
-          ? `Saved offline. It will need sync when database access is available: ${err.message}`
-          : 'Saved offline. It will need sync when database access is available.'
+          ? `Internet is required to submit activation requests. Nothing was saved offline: ${err.message}`
+          : 'Internet is required to submit activation requests. Nothing was saved offline.'
       );
     } finally {
       setManualActivationSubmitting(false);
@@ -1263,6 +1243,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const currentStaffCount = systemSettings.staffs?.length || 0;
 
   useEffect(() => {
+    if (!canWriteBusinessDataOnline()) return;
     try {
       safeSetTenantMapItem('jasper_products_map', 'products_map', productsMap);
     } catch (e: any) {
@@ -1277,18 +1258,22 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   }, [productsMap]);
 
   useEffect(() => {
+    if (!canWriteBusinessDataOnline()) return;
     safeSetTenantMapItem('jasper_branches_map', 'branches_map', branchesMap);
   }, [branchesMap]);
 
   useEffect(() => {
+    if (!canWriteBusinessDataOnline()) return;
     safeSetTenantMapItem('jasper_branch_stocks_map', 'branch_stocks_map', branchStocksMap);
   }, [branchStocksMap]);
 
   useEffect(() => {
+    if (!canWriteBusinessDataOnline()) return;
     safeSetTenantMapItem('jasper_branch_staff_assignments_map', 'branch_staff_assignments_map', branchStaffAssignmentsMap);
   }, [branchStaffAssignmentsMap]);
 
   useEffect(() => {
+    if (!canWriteBusinessDataOnline()) return;
     safeSetTenantMapItem('jasper_sales_map', 'sales_map', salesMap);
     Object.entries(salesMap).forEach(([tid, data]) => {
       saveData(tid, 'sales_map', { [tid]: data });
@@ -1296,6 +1281,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   }, [salesMap]);
 
   useEffect(() => {
+    if (!canWriteBusinessDataOnline()) return;
     safeSetTenantMapItem('jasper_expenses_map', 'expenses_map', expensesMap);
     Object.entries(expensesMap).forEach(([tid, data]) => {
       saveData(tid, 'expenses_map', { [tid]: data });
@@ -1376,6 +1362,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   // Mutators passed down
   const handleAddExpense = (expense: Expense) => {
+    if (blockOfflineBusinessWrite('expense entry')) return;
+
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     const hasValidExpensePayload = Boolean(
@@ -1409,6 +1397,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleDeleteExpense = (expenseId: string) => {
+    if (blockOfflineBusinessWrite('expense delete')) return;
+
     setExpensesMap(prev => ({
       ...prev,
       [activeTenant.id]: (prev[activeTenant.id] || []).filter(e => e.id !== expenseId)
@@ -1416,6 +1406,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleUpdateExpense = (updatedExpense: Expense) => {
+    if (blockOfflineBusinessWrite('expense update')) return;
+
     setExpensesMap(prev => ({
       ...prev,
       [activeTenant.id]: (prev[activeTenant.id] || []).map(e => e.id === updatedExpense.id ? updatedExpense : e)
@@ -1423,6 +1415,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const persistTenantProductsNow = (updatedProducts: Product[]) => {
+    if (blockOfflineBusinessWrite('product or stock changes')) {
+      return productsMap[activeTenant.id] || [];
+    }
+
     const previousProducts = productsMap[activeTenant.id] || [];
     const syncUpdatedAt = new Date().toISOString();
     const deletedProductIds = previousProducts
@@ -1470,6 +1466,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const persistSystemSettingsNow = (updated: SystemSettings) => {
+    if (blockOfflineBusinessWrite('settings changes')) {
+      return systemSettings;
+    }
+
     const syncUpdatedAt = new Date().toISOString();
     const syncedSettings = stampSettingsForSync(updated, systemSettings, syncUpdatedAt);
     localWorkspaceChangedAtRef.current = Date.now();
@@ -1485,6 +1485,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleUpdateActiveStocks = (updatedProducts: Product[]) => {
+    if (blockOfflineBusinessWrite('stock adjustment')) return;
+
     const syncedProducts = persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => ({
       ...prev,
@@ -1503,6 +1505,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleUpdateSales = (updatedSales: Sale[]) => {
+    if (blockOfflineBusinessWrite('sales ledger update')) return;
+
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     const syncUpdatedAt = new Date().toISOString();
@@ -1522,6 +1526,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleSendToDeliveryNote = (sale: Sale) => {
+    if (blockOfflineBusinessWrite('delivery note creation')) return;
+
     const newDelivery: Delivery = {
       id: `DL-${sale.id.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}`,
       saleId: sale.id,
@@ -1550,6 +1556,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleUpdatePendingDeliveryNotes = (updatedNotes: any[]) => {
+    if (blockOfflineBusinessWrite('pending delivery notes update')) return;
+
     const updated = {
       ...pendingDeliveryNotesMap,
       [activeTenant.id]: updatedNotes
@@ -1560,6 +1568,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleAddSale = (sale: Sale) => {
+    if (blockOfflineBusinessWrite('POS sale')) return;
+
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     const syncUpdatedAt = new Date().toISOString();
@@ -1596,30 +1606,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
        console.error("Failed to parse sale notification event", e);
     }
 
-    // Queue in IndexedDB for Background Sync if pending (offline mode)
     if (sale.syncStatus === 'pending') {
-      savePendingSaleOffline(saleToStore).then(() => {
-        console.log('[Dashboard] Offline sale queued in IndexedDB database.');
-        // Notify Service Worker or register Background Sync tag
-        if ('serviceWorker' in navigator) {
-          if ('SyncManager' in window) {
-            navigator.serviceWorker.ready.then(reg => {
-              return (reg as any).sync.register('sync-pos-sales');
-            }).catch(err => {
-              console.warn('Sync registration failed, fallback to postMessage:', err);
-              if (navigator.serviceWorker.controller) {
-                navigator.serviceWorker.controller.postMessage({ type: 'TRIGGER_POS_SYNC' });
-              }
-            });
-          } else {
-            if (navigator.serviceWorker.controller) {
-              navigator.serviceWorker.controller.postMessage({ type: 'TRIGGER_POS_SYNC' });
-            }
-          }
-        }
-      }).catch(err => {
-        console.error('[Dashboard] Error queuing pending sale in IndexedDB:', err);
-      });
+      savePendingSaleOffline(saleToStore).catch(() => {});
     }
 
     // Auto trigger delivery dispatch if deliveryCost was paid
@@ -1652,7 +1640,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       type: 'sale',
       status: sale.syncStatus === 'pending' ? 'warning' : 'success',
       message: sale.syncStatus === 'pending'
-        ? `Offline Sale (Ref: ${sale.id}) saved to IndexedDB & Service Worker queue registry.`
+        ? `Sale (Ref: ${sale.id}) needs online confirmation. Offline queue replay is disabled.`
         : `Sale (Ref: ${sale.id}) saved as a manual ${sale.paymentMethod || 'payment'} record.`,
       timestamp: new Date().toISOString()
     };
@@ -1664,6 +1652,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleDispatchDelivery = (deliveryId: string, riderDetails: NonNullable<Delivery['riderDetails']>, riderId?: string, customerData?: { name: string, phone: string, location: string, paymentMethod?: string }) => {
+    if (blockOfflineBusinessWrite('delivery dispatch')) return;
+
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     localWorkspaceChangedAtRef.current = Date.now();
@@ -1703,6 +1693,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleUpdateDeliveryStatus = (deliveryId: string, status: Delivery['status']) => {
+    if (blockOfflineBusinessWrite('delivery status update')) return;
+
     setDeliveriesMap(prev => {
       const currentTenantDels = prev[activeTenant.id] || [];
       return {
@@ -1730,6 +1722,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleCreateProduct = (newProd: Product) => {
+    if (blockOfflineBusinessWrite('product creation')) return;
+
     const updatedProducts = [newProd, ...(productsMap[activeTenant.id] || [])];
     const syncedProducts = persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => {
@@ -1755,6 +1749,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleDeleteProduct = (id: string) => {
+    if (blockOfflineBusinessWrite('product delete/archive')) return;
+
     const updatedProducts = (productsMap[activeTenant.id] || []).filter(p => p.id !== id);
     const syncedProducts = persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => {
@@ -1791,6 +1787,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleAddPurchase = (purchase: Purchase) => {
+    if (blockOfflineBusinessWrite('purchase entry')) return;
+
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     setPurchasesMap(prev => {
@@ -1842,37 +1840,21 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     }
   };
 
-  // Flushing pending offline queues to encrypted database channel
+  // Legacy pending queue review: replay is disabled in online-only mode.
   const handleSyncOfflineQueue = (callback: () => void) => {
-    // Clear pending queue from IndexedDB 
-    clearPendingSales().catch(err => {
-      console.error('[Dashboard] Failed to clear IndexedDB pending queue:', err);
-    });
-
-    localWorkspaceChangedAtRef.current = Date.now();
-    cloudWorkspaceLoadedRef.current = true;
-    setSalesMap(prev => {
-      const currentList = prev[activeTenant.id] || [];
-      const updatedList = currentList.map(s => s.syncStatus === 'pending' ? { ...s, syncStatus: 'synced' as const } : s);
-      return {
-        ...prev,
-        [activeTenant.id]: updatedList
-      };
-    });
-
     const newLog: SyncLog = {
-      id: 'l-' + Math.random().toString(36).substr(2, 9),
+      id: 'ONLINE-ONLY-SYNC-' + Math.random().toString(36).slice(2, 8),
       type: 'sale',
-      status: 'success',
-      message: `Offline queued sales synced successfully to the encrypted database and cleared from the local device queue.`,
+      status: 'warning',
+      message: 'Offline queue replay is disabled to protect tenant data. Existing pending records were not deleted.',
       timestamp: new Date().toISOString()
     };
-    
+
     setLogs(prev => [newLog, ...prev]);
     callback();
   };
 
-  // Turn off offline simulation mode and immediately synchronise the queue
+  // Turn off offline state and record that legacy queue replay stays disabled.
   const handleToggleOnlineAndSync = () => {
     setIsOfflineMode(false);
     
@@ -1881,14 +1863,14 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       id: 'RECONNECT-' + Math.random().toString(36).substring(3, 8),
       type: 'auth_sync',
       status: 'success',
-      message: `Network connectivity re-established! Synchronizing local resilient queue...`,
+      message: `Network connectivity re-established. Legacy queue replay remains disabled.`,
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [reconnectLog, ...prev]);
 
-    // Perform queue flush
+    // Preserve queue without replay.
     handleSyncOfflineQueue(() => {
-      console.log('[Dashboard] Offline local queue synchronized successfully.');
+      console.log('[Dashboard] Legacy offline queue preserved; replay disabled.');
     });
   };
 
@@ -1897,8 +1879,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       const currentList = salesMap[currentTenantId] || [];
       const pendingCount = currentList.filter(s => s.syncStatus === 'pending').length;
       if (pendingCount > 0) {
-        // Auto-sync
-        const logMsg = `Network connected. Auto-syncing ${pendingCount} offline receipts.`;
+        // Preserve pending records for manual review.
+        const logMsg = `Network connected. ${pendingCount} legacy pending receipt(s) preserved; replay disabled.`;
         setLogs(prev => [{
           id: 'AUTO-SYNC-' + Math.random().toString(36).substring(3, 8),
           type: 'system_action',
@@ -1908,7 +1890,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         }, ...prev]);
 
         handleSyncOfflineQueue(() => {
-          console.log('[Dashboard] Auto-synced offline queue successfully.');
+          console.log('[Dashboard] Legacy pending queue preserved; replay disabled.');
         });
       }
     }
@@ -1968,7 +1950,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       ? [
           { id: 'expenses', label: 'Expenses', icon: Receipt },
           { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-          { id: 'sync', label: 'Offline Sync Hub', icon: Activity },
+          { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
           { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
           { id: 'settings', label: 'System Settings', icon: SettingsIcon }
         ]
@@ -1976,7 +1958,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         ? [
             { id: 'expenses', label: 'Expenses', icon: Receipt },
             { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-            { id: 'sync', label: 'Offline Sync Hub', icon: Activity },
+            { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
             { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
             { id: 'settings', label: 'System Settings', icon: SettingsIcon }
           ]
@@ -1987,7 +1969,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             { id: 'inventory', label: 'Drug Stock Valuations', icon: Package },
             { id: 'suppliers', label: 'Suppliers Directory', icon: Users },
             { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-            { id: 'sync', label: 'Offline Sync Hub', icon: Activity },
+            { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
             { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
             { id: 'settings', label: 'System Settings', icon: SettingsIcon }
           ]
@@ -1999,7 +1981,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             { id: 'forecasting', label: 'AI Stock Forecast', icon: TrendingUp },
             { id: 'suppliers', label: 'Partners Directory', icon: Users },
             { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-            { id: 'sync', label: 'Offline Sync Hub', icon: Activity },
+            { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
             { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
             { id: 'settings', label: 'System Settings', icon: SettingsIcon }
           ]
@@ -2028,7 +2010,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           { id: 'hotel-pms', label: 'Room Matrix (PMS)', icon: Bed },
           { id: 'expenses', label: 'Expenses', icon: Receipt },
           { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-          { id: 'sync', label: 'Offline Sync Hub', icon: Activity },
+          { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
           { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
           { id: 'settings', label: 'System Settings', icon: SettingsIcon }
         ]
@@ -2037,7 +2019,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             { id: 'restaurant-hub', label: 'Dining & KDS Hub', icon: Utensils },
             { id: 'expenses', label: 'Expenses', icon: Receipt },
             { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-            { id: 'sync', label: 'Offline Sync Hub', icon: Activity },
+            { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
             { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
             { id: 'settings', label: 'System Settings', icon: SettingsIcon }
           ]
@@ -2052,7 +2034,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               { id: 'products', label: 'Drugs & Products Catalog', icon: Package },
               { id: 'suppliers', label: 'Suppliers Directory', icon: Users },
               { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-              { id: 'sync', label: 'Offline Sync Hub', icon: Activity },
+              { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
               { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
               { id: 'settings', label: 'System Settings', icon: SettingsIcon }
             ]
@@ -2068,7 +2050,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               { id: 'products', label: 'Products Catalog', icon: Package },
               { id: 'suppliers', label: 'Partners Directory', icon: Users },
               { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-              { id: 'sync', label: 'Offline Sync Hub', icon: Activity },
+              { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
               { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
               { id: 'settings', label: 'System Settings', icon: SettingsIcon }
             ]
@@ -2334,7 +2316,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </div>
           
           <div
-            title={isOfflineMode ? "Local Mode (Offline)" : "Cloud Network Connected"}
+            title={isOfflineMode ? "Offline - saving disabled" : "Cloud Network Connected"}
             className={`p-1.5 rounded-lg text-slate-500 transition-all cursor-default ${sidebarCollapsed ? '' : 'hidden xl:flex'} items-center justify-center`}
           >
             <Globe className={`w-4 h-4 ${isOfflineMode ? 'text-amber-500 animate-pulse' : 'text-emerald-400'}`} />
@@ -3063,6 +3045,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               activeTenant={activeTenant}
               systemSettings={systemSettings}
               onSaveSettings={(updated) => {
+                if (blockOfflineBusinessWrite('settings save')) return;
                 const syncedSettings = persistSystemSettingsNow(updated);
                 saveTenantWorkspace(activeTenant.id, {
                   branches: branchesMap[activeTenant.id] || [],

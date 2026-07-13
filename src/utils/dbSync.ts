@@ -1,11 +1,11 @@
 /**
  * dbSync.ts — Central database synchronisation layer
  *
- * Strategy: localStorage is the IMMEDIATE source of truth (fast, offline-capable).
- * Supabase is the PERSISTENT source of truth (syncs across devices/browsers).
+ * Strategy: Supabase/cloud is the source of truth for business data.
+ * localStorage is a read/cache layer only; offline business writes are blocked.
  *
  * On login:      Pull from Supabase → write to localStorage
- * On save:       Write to localStorage immediately → push to Supabase async
+ * On save:       Require internet → write cache → push to Supabase
  * On conflict:   Supabase wins (server-side timestamp comparison)
  */
 
@@ -27,6 +27,7 @@ import {
 } from './productSync';
 import { APPEND_MERGE_DATA_KEYS, mergeRecordsById } from './recordSync';
 import { mergeSettingsForSync } from './settingsSync';
+import { canWriteBusinessDataOnline, warnOfflineWriteBlocked } from './onlineOnly';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,11 @@ async function saveRemoteDataBackup(client: any, tenantId: string, dataKey: stri
  * Push one data key to Supabase. Fails silently — localStorage already has the data.
  */
 export async function pushToCloud(tenantId: string, dataKey: string, payload: any): Promise<void> {
+  if (!canWriteBusinessDataOnline()) {
+    warnOfflineWriteBlocked(`pushToCloud:${tenantId}/${dataKey}`);
+    return;
+  }
+
   try {
     const client: any = await getSecureDataBridgeClient();
     let payloadToPush = payload;
@@ -235,11 +241,16 @@ export async function pullAllFromCloud(tenantId: string): Promise<Record<string,
 // ─── Save helpers (localStorage + cloud) ─────────────────────────────────────
 
 /**
- * Save any data blob — writes to localStorage immediately,
- * then pushes to Supabase in the background.
+ * Save any data blob — online-only for business data.
+ * Existing local cache is preserved when offline; no new offline mutation is stored.
  */
 export function saveData(tenantId: string, dataKey: string, payload: any): void {
   if (!tenantId) return;
+  if (!canWriteBusinessDataOnline()) {
+    warnOfflineWriteBlocked(`saveData:${tenantId}/${dataKey}`);
+    return;
+  }
+
   // 1. Write to localStorage immediately (instant, offline-safe)
   const localPayload = safeSetJsonItem(localKey(tenantId, dataKey), payload, {
     tenantId,
@@ -251,17 +262,28 @@ export function saveData(tenantId: string, dataKey: string, payload: any): void 
 }
 
 /**
- * Load data — reads localStorage first (fast), falls back to cloud.
+ * Load data — reads cloud first when online, localStorage only as fallback/cache.
  */
 export async function loadData(tenantId: string, dataKey: string): Promise<any | null> {
   if (!tenantId) return null;
-  // Try localStorage first
+  if (canWriteBusinessDataOnline()) {
+    const cloudPayload = await pullFromCloud(tenantId, dataKey);
+    if (cloudPayload !== null && cloudPayload !== undefined) {
+      safeSetJsonItem(localKey(tenantId, dataKey), cloudPayload, {
+        tenantId,
+        dataKey,
+        logLabel: `${tenantId}/${dataKey}`,
+      });
+      return cloudPayload;
+    }
+  }
+
+  // Offline/unavailable fallback: cache is read-only and must not be pushed.
   try {
     const raw = localStorage.getItem(localKey(tenantId, dataKey));
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  // Fall back to cloud
-  return pullFromCloud(tenantId, dataKey);
+  return null;
 }
 
 // ─── Sync on login ───────────────────────────────────────────────────────────
@@ -275,9 +297,8 @@ export async function syncOnLogin(tenantId: string): Promise<void> {
   if (!tenantId) return;
   const cloudData = await pullAllFromCloud(tenantId);
   if (!cloudData || Object.keys(cloudData).length === 0) {
-    // tenant_workspaces is the canonical workspace store. If legacy tenant_data
-    // is empty, never push empty browser cache over the user's cloud workspace.
-    await syncLocalToCloud(tenantId, { onlyMeaningfulPayloads: true });
+    // tenant_workspaces is the canonical workspace store. Never push browser
+    // cache over cloud automatically; stale devices must not recreate old state.
     return;
   }
   // Write all cloud data to localStorage
@@ -302,6 +323,11 @@ export async function syncOnLogin(tenantId: string): Promise<void> {
  * Pushes all local data to cloud (used when user has local data but no cloud data yet).
  */
 async function syncLocalToCloud(tenantId: string, options: { onlyMeaningfulPayloads?: boolean } = {}): Promise<void> {
+  if (!canWriteBusinessDataOnline()) {
+    warnOfflineWriteBlocked(`syncLocalToCloud:${tenantId}`);
+    return;
+  }
+
   const dataKeys = [
     'settings', 'products_map', 'sales_map', 'expenses_map',
     'channels', 'pending_delivery_notes_map', 'purchases_map'

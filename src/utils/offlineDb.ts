@@ -1,4 +1,5 @@
 import { Sale } from '../types';
+import { warnOfflineWriteBlocked } from './onlineOnly';
 
 const DB_NAME = 'jasper-offline-db';
 const DB_VERSION = 1;
@@ -19,18 +20,7 @@ export function openOfflineDb(): Promise<IDBDatabase> {
 }
 
 export async function savePendingSaleOffline(sale: Sale): Promise<void> {
-  try {
-    const db = await openOfflineDb();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const request = store.put({ ...sale, syncStatus: 'pending' });
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  } catch (err) {
-    console.error('Failed to write pending sale to IndexedDB:', err);
-  }
+  warnOfflineWriteBlocked(`savePendingSaleOffline:${sale?.id || 'unknown-sale'}`);
 }
 
 export async function getPendingSales(): Promise<Sale[]> {
@@ -50,31 +40,9 @@ export async function getPendingSales(): Promise<Sale[]> {
 }
 
 export async function deletePendingSale(id: string): Promise<void> {
-  try {
-    const db = await openOfflineDb();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const request = store.delete(id);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  } catch (err) {
-    console.error('Failed to delete pending sale from IndexedDB:', err);
-  }
+  warnOfflineWriteBlocked(`deletePendingSale:${id}`);
 }
 
 export async function clearPendingSales(): Promise<void> {
-  try {
-    const db = await openOfflineDb();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const request = store.clear();
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  } catch (err) {
-    console.error('Failed to clear pending sales in IndexedDB:', err);
-  }
+  warnOfflineWriteBlocked('clearPendingSales');
 }

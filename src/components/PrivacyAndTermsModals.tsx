@@ -111,7 +111,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">2. Information We Collect</h4>
                   <p className="text-xs font-light">
-                    To deliver reliable offline enterprise resource planning, hotel occupancy statistics, pharmacy stock indicators, 
+	                    To deliver reliable online enterprise resource planning, hotel occupancy statistics, pharmacy stock indicators,
                     and virtual AI desk operations, we store:
                   </p>
                   <ul className="list-disc list-inside space-y-1.5 text-xs font-light ml-2">
@@ -123,9 +123,9 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 </div>
 
                 <div className="space-y-3">
-                  <h4 className="font-bold text-base tracking-tight border-b pb-1">3. Offline-First Caching & Data Residency</h4>
-                  <p className="text-xs font-light">
-                    Ndiva is built with a secure <strong>offline-first encrypted sync model</strong>. Your detailed sales, stock, customer, staff, supplier, and operating records are controlled inside your own tenant workspace and device cache until they are synchronized through encrypted transport to the encrypted database. Ndiva's platform administration view is limited to service-level records such as account creation date, subscription/payment status, package type, trial/subscription expiry, and system access status. Ndiva does not operate as your bookkeeper and does not manually inspect your private transaction ledger in ordinary service operation.
+	                  <h4 className="font-bold text-base tracking-tight border-b pb-1">3. Online-First Cloud Data Residency</h4>
+	                  <p className="text-xs font-light">
+	                    Ndiva is built with a secure <strong>online-first cloud data model</strong>. Business changes require internet so detailed sales, stock, customer, staff, supplier, and operating records are saved directly to the encrypted database. Existing browser cache and legacy pending queues may be retained only for manual audit or recovery and are not replayed automatically. Ndiva's platform administration view is limited to service-level records such as account creation date, subscription/payment status, package type, trial/subscription expiry, and system access status. Ndiva does not operate as your bookkeeper and does not manually inspect your private transaction ledger in ordinary service operation.
                   </p>
                 </div>
 
@@ -155,7 +155,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   </p>
                   <ul className="list-disc list-inside space-y-1 text-xs font-light ml-2">
                     <li><strong>Right to Portability:</strong> You may download, export, and transfer your transaction history logs at any time.</li>
-                    <li><strong>Right to Deletion:</strong> You can purge eligible service records and restore/empty your local physical cache directly through settings. Once unsynced local data is wiped, we cannot recover it.</li>
+	                    <li><strong>Right to Deletion:</strong> You can request deletion of eligible service records according to law and account status. Existing local browser cache may contain recovery copies; clearing it can remove records that exist only on that device.</li>
                   </ul>
                 </div>
 
@@ -199,7 +199,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">12. Cookies, Local Storage & Tracking</h4>
                   <p className="text-xs font-light">
-                    Ndiva uses cookies, local storage, IndexedDB, and similar technologies for login sessions, offline operation, sync queues, preferences, analytics, and security checks. Before clearing browser storage, the user must open the Sync menu and confirm there are no pending jobs. Clearing browser storage may permanently remove unsynced device data before it reaches the encrypted database.
+	                    Ndiva uses cookies, local storage, IndexedDB, and similar technologies for login sessions, read caches, preserved legacy queues, preferences, analytics, and security checks. Business data changes require internet and are saved to the encrypted database. Clearing browser storage may remove local recovery copies that exist only on that device.
                   </p>
                 </div>
 
@@ -245,7 +245,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">2. Taarifa Tunazokusanya</h4>
                   <p className="text-xs font-light">
-                    Ili kukupa mfumo madhubuti wa usimamizi wa mauzo bila mtandao, takwimu za vyumba vya kulala, udhibiti wa famasia na bidhaa, 
+	                    Ili kukupa mfumo madhubuti wa usimamizi wa mauzo mtandaoni, takwimu za vyumba vya kulala, udhibiti wa famasia na bidhaa,
                     pamoja na roboti msaidizi wa AI (Lucy), tunahifadhi yafuatayo:
                   </p>
                   <ul className="list-disc list-inside space-y-1.5 text-xs font-light ml-2">
@@ -257,9 +257,9 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 </div>
 
                 <div className="space-y-3">
-                  <h4 className="font-bold text-base tracking-tight border-b pb-1">3. Uhifadhi Bila Mtandao (Offline-First)</h4>
-                  <p className="text-xs font-light">
-                    Ndiva imeundwa kwa mfumo salama wa <strong>offline-first encrypted sync</strong>. Rekodi za kina za mauzo, stoki, wateja, wafanyakazi, wasambazaji na uendeshaji zinadhibitiwa ndani ya tenant workspace yako na cache ya kifaa chako hadi zisawazishwe kwa njia iliyosimbwa kwenda kwenye encrypted database. Upande wa uendeshaji wa Ndiva unaona taarifa za kiwango cha huduma kama tarehe uliyojiunga, hali ya malipo, kifurushi, muda wa trial/subscription kuisha na hali ya access ya mfumo. Ndiva si mhasibu wako na haikagui ledger yako binafsi ya miamala katika matumizi ya kawaida ya huduma.
+	                  <h4 className="font-bold text-base tracking-tight border-b pb-1">3. Uhifadhi wa Cloud Kwanza</h4>
+	                  <p className="text-xs font-light">
+	                    Ndiva imeundwa kwa mfumo salama wa <strong>online-first cloud data</strong>. Mabadiliko ya biashara yanahitaji intaneti ili rekodi za mauzo, stoki, wateja, wafanyakazi, wasambazaji na uendeshaji zihifadhiwe moja kwa moja kwenye encrypted database. Cache na foleni za zamani zilizopo kwenye browser zinaweza kubaki kwa audit/recovery tu na hazisynci automatically. Upande wa uendeshaji wa Ndiva unaona taarifa za kiwango cha huduma kama tarehe uliyojiunga, hali ya malipo, kifurushi, muda wa trial/subscription kuisha na hali ya access ya mfumo. Ndiva si mhasibu wako na haikagui ledger yako binafsi ya miamala katika matumizi ya kawaida ya huduma.
                   </p>
                 </div>
 
@@ -289,7 +289,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   </p>
                   <ul className="list-disc list-inside space-y-1 text-xs font-light ml-2">
                     <li><strong>Haki ya Kuhamisha:</strong> Unaweza kupakua au kuhamisha kumbukumbu zako za mauzo wakati wowote.</li>
-                    <li><strong>Haki ya Kufutwa kabisa:</strong> Unaweza kufuta service records zinazostahili pamoja na kusafisha kumbukumbu ya kifaa chako moja kwa moja kupitia sehemu ya mipangilio. Data ya local ambayo haijasync ikifutwa haiwezi kurejeshwa tena.</li>
+	                    <li><strong>Haki ya Kufutwa kabisa:</strong> Unaweza kuomba kufutwa kwa service records zinazostahili kulingana na sheria na hali ya akaunti. Browser cache inaweza kuwa na recovery copies; ukiifuta unaweza kuondoa kumbukumbu zilizokuwepo kwenye kifaa hicho pekee.</li>
                   </ul>
                 </div>
 
@@ -333,7 +333,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">12. Cookies, Local Storage na Ufuatiliaji</h4>
                   <p className="text-xs font-light">
-                    Ndiva hutumia cookies, local storage, IndexedDB na teknolojia zinazofanana kwa session, kazi bila mtandao, foleni ya sync, mapendeleo, analytics na ukaguzi wa usalama. Kabla ya kufuta browser storage, mtumiaji lazima afungue Sync menu na kuthibitisha hakuna pending jobs. Ukifuta browser storage unaweza kuondoa kabisa data ambazo hazijasync kwenda encrypted database.
+	                    Ndiva hutumia cookies, local storage, IndexedDB na teknolojia zinazofanana kwa session, cache ya kusoma, foleni za zamani zilizohifadhiwa, mapendeleo, analytics na ukaguzi wa usalama. Mabadiliko ya business data yanahitaji intaneti na husave kwenye encrypted database. Ukifuta browser storage unaweza kuondoa recovery copies zilizokuwepo kwenye kifaa hicho pekee.
                   </p>
                 </div>
 
@@ -370,7 +370,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   </h4>
                   <p className="text-xs font-light">
                     Please read these Terms and Conditions ("Terms", "Agreement") carefully before activating your account on Ndiva Suite. 
-                    This legally binding Agreement governs your utilization of the Ndiva POS Offline Cashier, Hotel PMS modules, 
+	                    This legally binding Agreement governs your utilization of the Ndiva POS Online Cashier, Hotel PMS modules,
                     Pharmacy management utilities, White-Label tools, and Lucy AI recommendations. By initiating your free trial or logging into our application terminals, 
                     you irrevocably agree to respect these terms. Update agreements operate worldwide and protect our operational interests.
                   </p>
@@ -389,20 +389,20 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">3. Licensing Limits & Intellectual Property Protection</h4>
                   <p className="text-xs font-light">
                     Ndiva Suite grants you a non-transferable, revocable, non-exclusive license to utilize our software platform to manage daily retail ledger histories. 
-                    You are strictly forbidden from reverse-engineering, database-mining, cloning core offline routing engines, 
+	                    You are strictly forbidden from reverse-engineering, database-mining, cloning core data routing engines,
                     or extracting the software’s underlying neural prompt matrices for any external commercial applications. All source codes, interfaces, and intellectual property remain our exclusive property.
                   </p>
                 </div>
 
                 <div className="space-y-3 bg-red-500/5 p-4 rounded-2xl border border-red-500/10 space-y-2">
-                  <h4 className="font-bold text-base text-red-500 tracking-tight pb-1">4. CRITICAL DISCLAIMER: Offline System Synchronisation Covenants</h4>
-                  <p className="text-xs font-light">
-                    Because Ndiva is uniquely engineered with an <strong>Offline-First design</strong>, transaction logs remain cached on your specific browser or terminal. 
+	                  <h4 className="font-bold text-base text-red-500 tracking-tight pb-1">4. CRITICAL DISCLAIMER: Online-Only Saving Covenants</h4>
+	                  <p className="text-xs font-light">
+	                    Because Ndiva is now engineered with an <strong>online-only business saving model</strong>, business changes require internet before they are accepted.
                     <strong>The merchant absolutely acknowledges and covenants that:</strong>
                   </p>
                   <ul className="list-disc list-inside space-y-1.5 text-xs font-light ml-2">
-                    <li>If you clear your web browser cache, format your device, reset browser storage, or perform a manual browser cleanout BEFORE checking the Sync menu and synchronizing with the encrypted database, all unsynced device records may be permanently destroyed. Ndiva cannot recover data that never reached the encrypted database.</li>
-                    <li>Before deleting cache, changing device, reinstalling the browser, or servicing a terminal, the merchant must open the Sync menu and confirm there are no pending jobs. Ndiva is not responsible for local data loss caused by neglected synchronization, device misuse, staff misuse, malware, stolen passwords, or browser cache removal.</li>
+	                    <li>If internet is unavailable, the merchant must reconnect before recording sales, editing stock, changing products, or updating settings.</li>
+	                    <li>Existing local browser cache or legacy pending records may be preserved for manual recovery only. They are not automatically replayed to the encrypted database.</li>
                     <li>Ndiva's support/admin view is limited to service-level account information such as registration date, package, payment status, expiry date, and access status. Detailed tenant business records remain the responsibility of the tenant.</li>
                   </ul>
                 </div>
@@ -411,7 +411,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">5. Regional Agent On-Site Deployments SLA</h4>
                   <p className="text-xs font-light">
                     Our local regional agents offtake direct physical installations, hardware mapping (thermal receipts, barcode configurations, cashier box triggers), 
-                    and on-site team training. While we strive to verify reliable offline operation at your specific terminal desk, 
+	                    and on-site team training. While we strive to verify reliable online operation at your specific terminal desk,
                     Ndiva is not liable for hardware incompatibilities or regional GSM carrier outages affecting mobile money verification response rates.
                   </p>
                 </div>
@@ -506,7 +506,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   </h4>
                   <p className="text-xs font-light">
                     Tafadhali soma Masharti na Vigezo hivi ("Masharti", "Makubaliano") kwa makini kabla ya kuwezesha akaunti yako kwenye Ndiva Suite. 
-                    Makubaliano haya ya kisheria yanatawala matumizi yako ya Keshia ya Ndiva (Offline POS), usimamizi wa vyumba vya hoteli, 
+	                    Makubaliano haya ya kisheria yanatawala matumizi yako ya Keshia ya Ndiva ya Mtandaoni (Online POS), usimamizi wa vyumba vya hoteli,
                     katalogi za famasia, huduma za kurekebisha muonekano, na ushauri wa kiakili kutoka kwa Lucy AI. Kwa kuanza jaribio lako la bure au kuingia kwenye mfumo, 
                     unakubali masharti haya bila masharti yoyote. Maboresho ya masharti haya yanalinda haki zetu za uendeshaji biashara duniani kote.
                   </p>
@@ -525,19 +525,19 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">3. Mipaka ya Leseni na Ulinzi wa Miliki Ubunifu</h4>
                   <p className="text-xs font-light">
                     Ndiva Suite inakupa leseni maalum ambayo haiwezi kuhamishwa kwa mtu mwingine, na inaweza kufutwa wakati wowote, kutumia programu yetu kwa lengo la kusimamia mahesabu ya mauzo yako ya kila siku pekee. 
-                    Ni marufuku kabisa kujaribu kunakili msimbo wetu (reverse-engineer), kuiba siri zetu za kikashia zisizo na mtandao, au kutumia utendaji wa software yetu kutengeneza mifumo mingine inayofanana kwa malengo ya kibiashara nje ya Ndiva. Msimbo na miundo yote ni miliki ya Ndiva pekee.
+	                    Ni marufuku kabisa kujaribu kunakili msimbo wetu (reverse-engineer), kuiba siri za data routing, au kutumia utendaji wa software yetu kutengeneza mifumo mingine inayofanana kwa malengo ya kibiashara nje ya Ndiva. Msimbo na miundo yote ni miliki ya Ndiva pekee.
                   </p>
                 </div>
 
                 <div className="space-y-3 bg-red-500/5 p-4 rounded-2xl border border-red-500/10 space-y-2">
-                  <h4 className="font-bold text-base text-red-500 tracking-tight pb-1">4. ILANI MUHIMU SANA: Makubaliano ya Kusawazisha Mfumo (Sync) Bila Mtandao</h4>
-                  <p className="text-xs font-light">
-                    Kwa sababu Ndiva imetengenezwa kipekee kufanya kazi <strong>bila intaneti (Offline-First)</strong>, rekodi zote za mauzo zinahifadhiwa ndani ya kivinjari au kifaa chako husika. 
+	                  <h4 className="font-bold text-base text-red-500 tracking-tight pb-1">4. ILANI MUHIMU SANA: Makubaliano ya Online-Only Saving</h4>
+	                  <p className="text-xs font-light">
+	                    Kwa sababu Ndiva sasa inatumia <strong>online-only business saving</strong>, mabadiliko ya biashara yanahitaji intaneti kabla ya kukubaliwa.
                     <strong>Mfanyabiashara anakubali na kuahidi yafuatayo:</strong>
                   </p>
                   <ul className="list-disc list-inside space-y-1.5 text-xs font-light ml-2">
-                    <li>Ukifuta cache ya browser, uki-format kifaa, uki-reset browser storage, au kufanya usafishaji mkubwa KABLA ya kuangalia Sync menu na kusawazisha na encrypted database, rekodi zote ambazo hazijasync zinaweza kupotea kabisa. Ndiva haiwezi kurejesha data ambayo haikuwahi kufika kwenye encrypted database.</li>
-                    <li>Kabla ya kufuta cache, kubadilisha kifaa, kusakinisha browser upya au kupeleka kifaa service, mfanyabiashara lazima afungue Sync menu na kuthibitisha hakuna pending jobs. Ndiva haitawajibika kwa upotevu wa data unaosababishwa na kutosync, matumizi mabaya ya kifaa, matumizi mabaya ya staff, malware, password kuibiwa au browser cache kufutwa.</li>
+	                    <li>Internet isipokuwepo, mfanyabiashara anatakiwa kuunganisha kwanza kabla ya kurekodi mauzo, kubadili stoki, bidhaa au settings.</li>
+	                    <li>Cache za browser au pending records za zamani zinaweza kuhifadhiwa kwa manual recovery tu. Hazitasync automatically kwenda encrypted database.</li>
                     <li>Upande wa admin/support wa Ndiva unaona tu taarifa za kiwango cha huduma kama tarehe ya kujiunga, kifurushi, hali ya malipo, tarehe ya kuisha na hali ya access. Rekodi za kina za biashara ya tenant ni wajibu wa tenant mwenyewe.</li>
                   </ul>
                 </div>

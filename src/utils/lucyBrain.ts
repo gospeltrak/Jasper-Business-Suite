@@ -157,8 +157,8 @@ const buildHelpAnswer = (ctx: LucyContext, language: LucyLanguage, lower: string
 
   if (lower.includes('offline') || lower.includes('internet') || lower.includes('mtandao')) {
     return language === 'sw'
-      ? 'Ndiva inaendelea kufanya kazi bila internet kwa kuhifadhi mauzo na mabadiliko muhimu kwenye kifaa. Internet ikirudi, sehemu ya sync inasaidia kusawazisha data. Ukiona kitu hakijahifadhiwa baada ya refresh, ni dalili ya sehemu hiyo bado haijaunganishwa vizuri na local/cloud storage.'
-      : 'Ndiva can keep working without internet by saving important sales and changes on the device. When internet returns, the sync area helps consolidate data. If something disappears after refresh, that screen still needs stronger local/cloud persistence.';
+      ? 'Ndiva sasa inahitaji intaneti ili kusave mabadiliko ya biashara. Hii inalinda mauzo, stoki, settings na taarifa za tenant zisisave kwenye kifaa tu kisha zipotee au ku-overwrite cloud. Internet ikikatika, unganisha kwanza kabla ya kuendelea na mabadiliko.'
+      : 'Ndiva now requires internet to save business changes. This protects sales, stock, settings, and tenant records from being saved only on one device and later lost or overwriting cloud data. If internet drops, reconnect before continuing with edits.';
   }
 
   if (lower.includes('password') || lower.includes('login') || lower.includes('otp') || lower.includes('ingia')) {
@@ -179,8 +179,8 @@ const isShortGreeting = (lower: string) => {
 const buildLandingAnswer = (message: string, language: LucyLanguage, lower: string) => {
   if (isShortGreeting(lower)) {
     return language === 'sw'
-      ? 'Karibu sana. Nipo hapa kukuongoza taratibu: unaweza kuniambia aina ya biashara yako, au uniulize kuhusu bei, free trial, POS, stoki, reports, offline mode, pharmacy, hotel au restaurant.'
-      : 'Welcome. I am here with you step by step: tell me your business type, or ask about pricing, free trial, POS, stock, reports, offline mode, pharmacy, hotel, or restaurant.';
+      ? 'Karibu sana. Nipo hapa kukuongoza taratibu: unaweza kuniambia aina ya biashara yako, au uniulize kuhusu bei, free trial, POS, stoki, reports, cloud sync, pharmacy, hotel au restaurant.'
+      : 'Welcome. I am here with you step by step: tell me your business type, or ask about pricing, free trial, POS, stock, reports, cloud sync, pharmacy, hotel, or restaurant.';
   }
 
   if (includesAny(lower, ['price', 'cost', 'package', 'packages', 'subscription', 'pricing', 'free trial', 'trial', 'bei', 'gharama', 'kifurushi', 'vifurushi', 'malipo', 'jaribio'])) {
@@ -209,8 +209,8 @@ const buildLandingAnswer = (message: string, language: LucyLanguage, lower: stri
 
   if (includesAny(lower, ['offline', 'internet', 'network', 'sync', 'mtandao', 'bila internet'])) {
     return language === 'sw'
-      ? 'Ndiyo, Ndiva imeundwa kusaidia biashara isisimame internet ikikatika. Unafanya kazi kwenye kifaa, kisha mtandao ukirudi mfumo unasync taarifa muhimu. Kabla ya kufuta cache au kubadilisha kifaa, ni vizuri kuhakikisha sync iko updated. Unataka nikueleze jinsi sync inavyofanya kazi kwa mfano wa duka?'
-      : 'Yes, Ndiva is designed so business should not stop when internet goes down. You keep working on the device, then once the network returns the important changes sync back online. Before clearing cache or changing devices, make sure sync is updated. Would you like me to explain sync with a shop example?';
+      ? 'Kwa sasa Ndiva inasave business data online-only. Ukiwa bila internet, unganisha kwanza kabla ya kufanya mauzo, kubadili bidhaa, stoki au settings. Hii inapunguza risk ya data kupotea au kifaa cha zamani kuandika juu ya cloud.'
+      : 'Ndiva now saves business data online-only. If you are offline, reconnect before recording sales or changing products, stock, or settings. This reduces the risk of data loss or an old device overwriting cloud data.';
   }
 
   if (includesAny(lower, ['pos', 'sell', 'sales', 'cashier', 'receipt', 'uza', 'mauzo', 'risiti'])) {

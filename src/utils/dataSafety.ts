@@ -1,5 +1,7 @@
 type DataSafetyReason = 'empty-overwrite' | 'shrink-save' | 'local-cache';
 
+import { canWriteBusinessDataOnline, warnOfflineWriteBlocked } from './onlineOnly';
+
 const PROTECTED_DATA_KEYS = new Set([
   'products',
   'products_map',
@@ -138,9 +140,8 @@ export function writeDataSafetyBackup(scope: string, value: any, reason: DataSaf
 
     const indexRaw = localStorage.getItem(backupIndexKey(safeScope));
     const index: string[] = indexRaw ? JSON.parse(indexRaw) : [];
-    const next = [key, ...index.filter((entry) => entry !== key)].slice(0, 12);
+    const next = [key, ...index.filter((entry) => entry !== key)];
     localStorage.setItem(backupIndexKey(safeScope), JSON.stringify(next));
-    for (const oldKey of index.slice(12)) localStorage.removeItem(oldKey);
   } catch {
     // Storage may be full or unavailable; backup must never block a user action.
   }
@@ -191,6 +192,11 @@ export function safeSetJsonItem<T>(
   options: { tenantId?: string; dataKey?: string; logLabel?: string } = {},
 ): T {
   const current = readJsonValue(storageKey);
+  if (options.dataKey && isProtectedDataKey(options.dataKey) && !canWriteBusinessDataOnline()) {
+    warnOfflineWriteBlocked(`safeSetJsonItem:${options.logLabel || storageKey}`);
+    return (current ?? value) as T;
+  }
+
   const protectedValue = options.tenantId && options.dataKey
     ? protectTenantPayload(options.tenantId, options.dataKey, value, current)
     : { payload: value, blockedEmptyOverwrite: false, shrank: false };
@@ -233,6 +239,11 @@ export function safeSetTenantMapItem<T extends Record<string, any[]>>(
   value: T,
 ): T {
   const current = readJsonValue<Record<string, any[]>>(storageKey);
+  if (isProtectedDataKey(dataKey) && !canWriteBusinessDataOnline()) {
+    warnOfflineWriteBlocked(`safeSetTenantMapItem:${storageKey}`);
+    return (current ?? value) as T;
+  }
+
   if (!current || typeof current !== 'object' || !isProtectedDataKey(dataKey)) {
     return safeSetJsonItem(storageKey, value, { dataKey, logLabel: storageKey });
   }

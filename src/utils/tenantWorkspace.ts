@@ -10,6 +10,7 @@ import {
 } from './productSync';
 import { mergeRecordsById } from './recordSync';
 import { mergeSettingsForSync } from './settingsSync';
+import { canWriteBusinessDataOnline, isBrowserOnline, warnOfflineWriteBlocked } from './onlineOnly';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -35,8 +36,6 @@ const productsUpdatedAtKey = (tid: string) => `jasper_products_map_updated_at_${
 const backupIndexKey = (tid: string) => `jasper_workspace_backups_${tid}`;
 const backupItemKey = (tid: string, stamp: string) => `jasper_workspace_backup_${tid}_${stamp}`;
 const backupLastKey = (tid: string, reason: string) => `jasper_workspace_backup_last_${tid}_${reason}`;
-
-const browserOnline = () => typeof navigator === 'undefined' || navigator.onLine;
 
 export const readCachedWorkspace = (tenantId: string): TenantWorkspace | null => {
   try {
@@ -68,10 +67,8 @@ const writeLocalWorkspaceBackup = (tenantId: string, workspace: TenantWorkspace,
 
     const rawIndex = localStorage.getItem(backupIndexKey(tenantId));
     const index: string[] = rawIndex ? JSON.parse(rawIndex) : [];
-    const next = [key, ...index.filter((entry) => entry !== key)].slice(0, 12);
+    const next = [key, ...index.filter((entry) => entry !== key)];
     localStorage.setItem(backupIndexKey(tenantId), JSON.stringify(next));
-
-    for (const oldKey of index.slice(12)) localStorage.removeItem(oldKey);
   } catch { /* storage full or unavailable — skip backup */ }
 };
 
@@ -365,7 +362,7 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
   if (!tenantId) return null;
   const fallback = readCachedWorkspace(tenantId);
 
-  if (!browserOnline()) return fallback;
+  if (!isBrowserOnline()) return fallback;
 
   const client = await getConfiguredClient();
   if (!client) return fallback;
@@ -399,17 +396,8 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 
     const safe = normalizeWorkspace(data.payload as TenantWorkspace);
     if (!safe) return fallback;
-    const safeWithLocalProducts = reconcileLocalProductCache(tenantId, safe, data.updated_at);
-    if (safeWithLocalProducts !== safe) {
-      await client
-        .from('tenant_workspaces')
-        .upsert(
-          { tenant_id: tenantId, payload: safeWithLocalProducts, updated_at: new Date().toISOString() },
-          { onConflict: 'tenant_id' }
-        );
-      cacheWorkspace(tenantId, safeWithLocalProducts);
-      return safeWithLocalProducts;
-    }
+    // Online-only mode: do not push browser-local product cache into the
+    // canonical cloud workspace during load. Cloud remains the source of truth.
     if (!workspaceHasBusinessData(safe)) {
       const legacy = await loadLegacyTenantWorkspace(client, tenantId);
       if (legacy && workspaceHasBusinessData(legacy)) {
@@ -449,16 +437,7 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
       }
     }
     if (!workspaceHasBusinessData(safe) && workspaceHasBusinessData(fallback)) {
-      client
-        .from('tenant_workspaces')
-        .upsert(
-          { tenant_id: tenantId, payload: fallback, updated_at: new Date().toISOString() },
-          { onConflict: 'tenant_id' }
-        )
-        .then(({ error }: any) => {
-          if (error) console.warn('[workspace] recovery save error:', error.message);
-        })
-        .catch((error: any) => console.warn('[workspace] recovery save exception:', error?.message || error));
+      console.warn('[workspace] cloud workspace is empty; showing local cache read-only without pushing it to cloud');
       return fallback;
     }
     cacheWorkspace(tenantId, safe);
@@ -474,18 +453,14 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 export async function saveTenantWorkspace(tenantId: string, workspace: TenantWorkspace): Promise<boolean> {
   if (!tenantId) return false;
 
-  // Always write to local cache immediately
-  cacheWorkspace(tenantId, workspace);
-
-  if (!browserOnline()) {
-    localStorage.setItem(pendingKey(tenantId), JSON.stringify(workspace));
+  if (!canWriteBusinessDataOnline()) {
+    warnOfflineWriteBlocked(`saveTenantWorkspace:${tenantId}`);
     return false;
   }
 
   const client = await getConfiguredClient();
   if (!client) {
-    // Queue for when we come online
-    localStorage.setItem(pendingKey(tenantId), JSON.stringify(workspace));
+    warnOfflineWriteBlocked(`saveTenantWorkspace:no-client:${tenantId}`);
     return false;
   }
 
@@ -577,16 +552,16 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
 
     if (error) {
       console.warn('[workspace] save error:', error.message, '| code:', (error as any).code);
-      localStorage.setItem(pendingKey(tenantId), JSON.stringify(workspace));
       return false;
     }
-    localStorage.removeItem(pendingKey(tenantId));
+    // Preserve any legacy pending workspace payloads for manual audit/recovery.
+    // Online-only mode must not silently delete local records, even after a
+    // successful cloud save.
     writeLocalProductTombstones(tenantId, mergedTombstones);
     cacheWorkspace(tenantId, workspaceToSave);
     return true;
   } catch (e) {
     console.warn('[workspace] save exception:', (e as any)?.message || e);
-    localStorage.setItem(pendingKey(tenantId), JSON.stringify(workspace));
     return false;
   }
 }
@@ -595,13 +570,10 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
 
 export async function flushPendingTenantWorkspace(tenantId: string): Promise<void> {
   if (!tenantId) return;
-  if (!browserOnline()) return;
+  if (!canWriteBusinessDataOnline()) return;
   const pendingRaw = localStorage.getItem(pendingKey(tenantId));
   if (!pendingRaw) return;
-  try {
-    const pending = JSON.parse(pendingRaw) as TenantWorkspace;
-    await saveTenantWorkspace(tenantId, pending);
-  } catch { /* ignore */ }
+  warnOfflineWriteBlocked(`flushPendingTenantWorkspace:legacy-queue:${tenantId}`);
 }
 
 // ─── Real-time subscription ─────────────────────────────────────────────────
@@ -624,23 +596,6 @@ export async function subscribeToTenantWorkspace(
           if (workspace) {
             const safe = normalizeWorkspace(workspace);
             if (!safe) return;
-            const safeWithLocalProducts = reconcileLocalProductCache(tenantId, safe, event.new?.updated_at);
-            if (safeWithLocalProducts !== safe) {
-              client
-                .from('tenant_workspaces')
-                .upsert(
-                  { tenant_id: tenantId, payload: safeWithLocalProducts, updated_at: new Date().toISOString() },
-                  { onConflict: 'tenant_id' }
-                )
-                .then(({ error }: any) => {
-                  if (error) console.warn('[workspace] realtime product reconciliation save error:', error.message);
-                })
-                .catch((error: any) => console.warn('[workspace] realtime product reconciliation exception:', error?.message || error));
-              writeLocalProductTombstones(tenantId, safeWithLocalProducts.productTombstones || {});
-              cacheWorkspace(tenantId, safeWithLocalProducts);
-              onWorkspace(safeWithLocalProducts);
-              return;
-            }
             const cached = readCachedWorkspace(tenantId);
             if (!workspaceHasBusinessData(safe) && workspaceHasBusinessData(cached)) {
               console.warn('[workspace] ignored empty realtime payload because local cache has business data');

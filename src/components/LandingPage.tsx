@@ -102,26 +102,26 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     capitalDesc: "Keep your capital safe with clear, simple transaction logs.",
     stockIntel: "Stock Control",
     stockDesc: "Track your product levels and get simple notifications when low.",
-    offlineTitle: "Works Without Internet",
-    offlineDesc: "Runs 100% offline. Accepts mobile money instantly with no slowdowns.",
+    offlineTitle: "Secure Online Mode",
+    offlineDesc: "Requires internet so every sale, stock change, and setting is saved directly to the cloud.",
     meetLucy: "Lucy AI Business Assistant",
     lucyDesc: "Lucy guides users through Ndiva, answers business questions in any language, creates reports, and helps owners grow with safer AI support.",
     featLucyTitle: "Lucy AI Business Assistant",
     featLucyDesc: "Ask Lucy how to use Ndiva, understand sales, stock, expenses, and generate guided business reports from Diamond plan and above.",
     creed: "Ndiva helps your business grow higher!",
     getStarted: "Get Started — It's Free",
-    offlineMetric: "Works Offline",
+    offlineMetric: "Cloud Synced",
     syncMetric: "Instant Sync",
     aiMetric: "AI Assistant",
-    aboutTitle: "Offline Sales Support For All Businesses",
-    aboutDesc: "We created Ndiva because unstable internet should never stop your sales desk. Whether you are in Dar, Mbeya, or Nairobi, your cash drawer keeps working.",
+    aboutTitle: "Online Sales Support For All Businesses",
+    aboutDesc: "We created Ndiva so every important sale, stock update, and setting is protected in the cloud as soon as you save it.",
     aboutSupport: "Real support offices around East Africa",
     aboutCurrency: "Automatic local tax settings",
     aboutEndpoints: "Over 2,400 active stores registered",
     advancedCapabilities: "Advanced Features",
     advancedDesc: "Simple solutions to keep your cash registers working always.",
-    featOfflineTitle: "Offline Cashier Desk",
-    featOfflineDesc: "No internet or power goes out? No problem. Keep selling as normal and sync when network is restored.",
+    featOfflineTitle: "Online Cashier Desk",
+    featOfflineDesc: "Every checkout saves to the cloud in real time. If internet drops, reconnect before continuing.",
     featLedgerTitle: "Stock & Expiry Alerts",
     featLedgerDesc: "Track stock quantities, receive automatic low-stock notifications, and monitor medicine/product expiry dates easily.",
     featGatewayTitle: "Mobile Money Check",
@@ -130,7 +130,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     featSmartSokoDesc: "Manage raw materials, production batches, and yield efficiency with live unit cost tracking.",
     testimonialHeader: "Successful Businesses",
     testimonialSub: "What other shop owners say",
-    mustafaSay: "We were losing sales when the internet was down. Since starting with Ndiva's offline cashier, sales never stop.",
+    mustafaSay: "We needed cleaner records across devices. Since starting with Ndiva's cloud cashier, our sales and stock updates stay aligned.",
     kwameSay: "Managing medicine lists was hard. Then we got Ndiva—Lucy sorted everything out easily. Perfect.",
     fatumaSay: "The hotel room booking works wonderfully. Our local receptionist team learned to use it in five minutes.",
     mustafaRole: "Restaurant Owner • Dar es Salaam",
@@ -199,26 +199,26 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     capitalDesc: "Weka mtaji wako salama kwa kumbukumbu rahisi za mauzo.",
     stockIntel: "Udhibiti wa Stoki",
     stockDesc: "Fuatilia idadi ya bidhaa zako na upate taarifa zikiisha.",
-    offlineTitle: "Inafanya Kazi Bure Bila Internet",
-    offlineDesc: "Inafanya kazi 100% bila internet. Pokea malipo ya simu haraka.",
+    offlineTitle: "Mfumo Salama wa Mtandaoni",
+    offlineDesc: "Unahitaji intaneti ili kila mauzo, stoki na settings zisave moja kwa moja kwenye cloud.",
     meetLucy: "Msaidizi wa Biashara Lucy AI",
     lucyDesc: "Lucy humuelekeza mtumiaji kutumia Ndiva, hujibu maswali ya biashara kwa lugha yoyote, hutengeneza ripoti, na husaidia biashara kukua kwa usalama.",
     featLucyTitle: "Msaidizi wa Biashara Lucy AI",
     featLucyDesc: "Muulize Lucy jinsi ya kutumia Ndiva, kuelewa mauzo, stoki, gharama, na kutengeneza ripoti za biashara kuanzia kifurushi cha Diamond na kuendelea.",
     creed: "Ndiva inasaidia biashara yako kukua zaidi!",
     getStarted: "Anza Sasa - Ni Bure",
-    offlineMetric: "Bila Mtandao",
+    offlineMetric: "Cloud Sync",
     syncMetric: "Sawazisha Haraka",
     aiMetric: "Msaidizi wa AI",
-    aboutTitle: "usaidizi wa biashara yako bila mtandao",
-    aboutDesc: "jasper imeundwa ili kukusaidia kusimimamia na kukuza biashara yako popote ulipo. jasper inarahisisha iwe upo dar mbeya au nairobi biashara yako iko mikononi mwako.",
+    aboutTitle: "usaidizi wa biashara yako mtandaoni",
+    aboutDesc: "Ndiva imeundwa ili kila mauzo, stoki na settings muhimu vihifadhiwe salama kwenye cloud mara tu unapozisave.",
     aboutSupport: "msaada wa haraka unapokwama",
     aboutCurrency: "Marekebisho rahisi ya kodi",
     aboutEndpoints: "zaidi ya maduka 1000+ yanayotumia",
     advancedCapabilities: "Vipengele Muhimu",
     advancedDesc: "Njia rahisi za kuhakikisha mashine za mauzo zinafanya kazi kila wakati.",
-    featOfflineTitle: "mauzo bil ya mtandao",
-    featOfflineDesc: "Je, hakuna internet au umeme ikikatika? Hakuna shida. Mauzo yanaendelea na kujisawazisha mtandao ukirudi.",
+    featOfflineTitle: "keshia ya mtandaoni",
+    featOfflineDesc: "Kila mauzo yanasave kwenye cloud kwa wakati huo huo. Internet ikikatika, unganisha kwanza kabla ya kuendelea.",
     featLedgerTitle: "Usimamizi wa Stoki & Taarifa za Bidhaa",
     featLedgerDesc: "Fuatilia idadi ya bidhaa zako kwa urahisi, pokea taarifa stoki inapopungua, na uzuie hasara kwa kufuatilia tarehe za kuharibika kwa bidhaa.",
     featGatewayTitle: "Hakiki Malipo ya Simu",
@@ -227,7 +227,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     featSmartSokoDesc: "Dhibiti malighafi, uzalishaji, na gharama halisi za kila bidhaa kwa urahisi.",
     testimonialHeader: "Biashara Zinazofanikiwa",
     testimonialSub: "Maudhui kutoka kwa wamiliki wa maduka",
-    mustafaSay: "Tulipoteza mauzo mtandao ulipokatika. Tangu tuanze kutumia keshia ya bila mtandao ya Ndiva, mauzo hayajawahi kusimama.",
+    mustafaSay: "Tulihitaji rekodi safi kwenye vifaa vyote. Tangu tuanze kutumia keshia ya cloud ya Ndiva, mauzo na stoki zinabaki sawa.",
     kwameSay: "Kupanga orodha za dawa ilikuwa ngumu sana. Baada ya kupata Ndiva, Lucy alimaliza tatizo huo kwa urahisi. Safi kabisa.",
     fatumaSay: "Mfumo wa vyumba vya hoteli unafanya kazi vizuri. Wafanyakazi wetu walijifunza kuutumia kwa dakika tano tu.",
     mustafaRole: "Mmiliki wa Mgahawa • Dar es Salaam",
@@ -295,24 +295,24 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     capitalDesc: "Mantén tu capital seguro con registros simples de transacciones.",
     stockIntel: "Control de Inventario",
     stockDesc: "Sigue tus productos con alertas de bajo nivel de stock.",
-    offlineTitle: "Funciona Sin Internet",
-    offlineDesc: "Funciona 100% sin internet. Recibe pagos móviles al instante.",
+    offlineTitle: "Modo seguro en línea",
+    offlineDesc: "Requiere internet para guardar ventas, stock y ajustes directamente en la nube.",
     meetLucy: "Conoce a Lucy",
     lucyDesc: "Tu asesora inteligente lista para responder preguntas y ayudarte a crecer.",
     creed: "¡Ndiva ayuda a que tu negocio crezca más!",
     getStarted: "Comienza Gratis",
-    offlineMetric: "Sin Internet",
+    offlineMetric: "Cloud Sync",
     syncMetric: "Sincronización Rápida",
     aiMetric: "Asistente de IA",
-    aboutTitle: "Apoyo Sin Internet para Tu Negocio",
-    aboutDesc: "Creamos Ndiva para que un internet inestable nunca detenga tus ventas. Tu caja registradora sigue funcionando siempre.",
+    aboutTitle: "Apoyo en línea para tu negocio",
+    aboutDesc: "Creamos Ndiva para que cada venta, cambio de stock y ajuste importante se guarde seguro en la nube.",
     aboutSupport: "Oficinas de soporte reales",
     aboutCurrency: "Configuración automática de impuestos locales",
     aboutEndpoints: "Más de 2400 tiendas activas",
     advancedCapabilities: "Características Avanzadas",
     advancedDesc: "Soluciones sencillas para mantener tus cajas funcionando siempre.",
-    featOfflineTitle: "Caja Registradora Sin Internet",
-    featOfflineDesc: "¿Sin internet o sin luz? No hay problema. Sigue vendiendo y se actualiza al volver la red.",
+    featOfflineTitle: "Caja en línea",
+    featOfflineDesc: "Cada venta se guarda en la nube. Si cae internet, reconecta antes de continuar.",
     featLedgerTitle: "Moneda Multi-País",
     featLedgerDesc: "Soporta monedas TZS, KES y NGN con tasas de impuestos locales fácilmente.",
     featGatewayTitle: "Verificación de Pago Móvil",
@@ -382,24 +382,24 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     capitalDesc: "Gardez votre capital en sécurité avec des calculs simples.",
     stockIntel: "Suivi des Stocks",
     stockDesc: "Faites le point de vos stocks avec des alertes simples de baisse.",
-    offlineTitle: "Fonctionne Sans Connexion",
-    offlineDesc: "Marche à 100% sans internet. Reçoit les paiements mobiles de suite.",
+    offlineTitle: "Mode en ligne sécurisé",
+    offlineDesc: "Internet est requis pour enregistrer les ventes, le stock et les réglages dans le cloud.",
     meetLucy: "Découvrez Lucy",
     lucyDesc: "Votre assistante intelligente qui répond à vos questions et vous aide à grandir.",
     creed: "Ndiva aide votre commerce à grandir plus haut !",
     getStarted: "Commencer Gratuitement",
-    offlineMetric: "Sans Internet",
+    offlineMetric: "Cloud Sync",
     syncMetric: "Mise à jour Rapide",
     aiMetric: "Assistant IA",
-    aboutTitle: "De l'Aide Sans Connexion Pour Vos Ventes",
-    aboutDesc: "Nous avons créé Ndiva pour qu'une mauvaise connexion ne bloque jamais vos ventes. Votre tiroir-caisse fonctionne toujours.",
+    aboutTitle: "Aide en ligne pour vos ventes",
+    aboutDesc: "Nous avons créé Ndiva pour que chaque vente, stock et réglage important soit protégé dans le cloud.",
     aboutSupport: "Bureaux de support réels",
     aboutCurrency: "Calcul automatique de la taxe locale",
     aboutEndpoints: "Plus de 2 400 boutiques actives",
     advancedCapabilities: "Fonctions Clés",
     advancedDesc: "Des plans faciles pour que la caisse de votre boutique reste active.",
-    featOfflineTitle: "Caisse Sans Internet",
-    featOfflineDesc: "Panne de réseau ou de courant ? Aucun souci. Vendez comme d'habitude et synchronisez après.",
+    featOfflineTitle: "Caisse en ligne",
+    featOfflineDesc: "Chaque vente est enregistrée dans le cloud. Si internet tombe, reconnectez-vous avant de continuer.",
     featLedgerTitle: "Multi-Devise Simple",
     featLedgerDesc: "Gère les monnaies TZS, KES, et NGN avec les taxes de vente locales en direct.",
     featGatewayTitle: "Validation de Paiement Mobile",
@@ -469,31 +469,31 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     capitalDesc: "Proteggi i tuoi guadagni con registri di vendita facili da leggere.",
     stockIntel: "Gestione Prodotti",
     stockDesc: "Tieni il conto del magazzino e ricevi avvisi quando il prodotto scarseggia.",
-    offlineTitle: "Funziona Senza Internet",
-    offlineDesc: "Attivo al 100% senza rete. Ricevi i pagamenti dei cellulari sul momento.",
+    offlineTitle: "Modalita online sicura",
+    offlineDesc: "Serve internet per salvare vendite, stock e impostazioni direttamente nel cloud.",
     meetLucy: "Incontra Lucy",
     lucyDesc: "La tua aiutante intelligente pronta a rispondere e a far crescere i tuoi affari.",
     creed: "Ndiva spinge la tua attività ancora più in alto!",
     getStarted: "Comincia Gratis",
-    offlineMetric: "Senza Internet",
+    offlineMetric: "Cloud Sync",
     syncMetric: "Sincronia Rapida",
     aiMetric: "Aiutante IA",
-    aboutTitle: "Vendite Sicure Anche Senza Connessione",
-    aboutDesc: "Abbiamo costruito Ndiva perché una connessione instabile non deve mai bloccare la tua cassa. Il tuo negozio continua a vendere sempre.",
+    aboutTitle: "Supporto vendite online",
+    aboutDesc: "Abbiamo costruito Ndiva per proteggere nel cloud ogni vendita, stock e impostazione importante.",
     aboutSupport: "Uffici di supporto reali",
     aboutCurrency: "Configurazione tasse locali automatica",
     aboutEndpoints: "Più di 2.400 negozi attivi",
     advancedCapabilities: "Caratteristiche Chiave",
     advancedDesc: "Metodi chiari per far funzionare sempre la tua cassa di vendita.",
-    featOfflineTitle: "Cassa Attiva Senza Rete",
-    featOfflineDesc: "Niente rete o via la corrente? Non c'è problema. Continua a battere scontrini e si aggiorna dopo.",
+    featOfflineTitle: "Cassa online",
+    featOfflineDesc: "Ogni vendita viene salvata nel cloud. Se internet cade, riconnettiti prima di continuare.",
     featLedgerTitle: "Gestione Valute Diverse",
     featLedgerDesc: "Gestisce valute TZS, KES, NGN e le relative tasse con la massima facilità.",
     featGatewayTitle: "Verifica Pagamenti da Cellulare",
     featGatewayDesc: "Controlla le transazioni con M-Pesa, Airtel e Tigo in pochissimi istanti.",
     testimonialHeader: "Commercianti Felici",
     testimonialSub: "Cosa dicono i nostri clienti",
-    mustafaSay: "Perdevamo soldi quando saltava la rete. Grazie alla cassa offline di Ndiva, adesso vendiamo senza sosta.",
+    mustafaSay: "Avevamo bisogno di dati puliti su tutti i dispositivi. Con la cassa cloud di Ndiva, vendite e stock restano allineati.",
     kwameSay: "Organizzare l'elenco dei farmaci era un tormento. Lucy di Ndiva ha sistemato tutto in modo facile.",
     fatumaSay: "Il sistema di prenotazione camere funziona molto bene. I dipendenti hanno imparato la cassa in cinque minuti.",
     mustafaRole: "Proprietario Ristorante • Dar es Salaam",
@@ -556,24 +556,24 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     capitalDesc: "حافظ على أمان أموالك عبر سجلات مبيعات بسيطة ومباشرة.",
     stockIntel: "تنظيم وإدارة المخزون",
     stockDesc: "تابع كميات بضائعك وتلقى تنبيهات فورية عند اقتراب نفاذ المنتجات.",
-    offlineTitle: "يعمل بالكامل بدون إنترنت",
-    offlineDesc: "يعمل بنسبة مئة بالمائة في حال انقطاع الشبكة أو الكهرباء. يوثق الدفع فوراً.",
+    offlineTitle: "وضع آمن عبر الإنترنت",
+    offlineDesc: "يتطلب الإنترنت لحفظ المبيعات والمخزون والإعدادات مباشرة في السحابة.",
     meetLucy: "تحدث مع لوسي الذكية",
     lucyDesc: "مساعدتك الذكية الودودة للإجابة عن تساؤلاتك ومساعدتك على تنمية تجارتك.",
     creed: "جاسبر يساعد عملك التجاري للوصول لأعلى المراتب!",
     getStarted: "ابدأ الآن مجاناً",
-    offlineMetric: "دون اتصال",
+    offlineMetric: "مزامنة سحابية",
     syncMetric: "تحديث فوري",
     aiMetric: "مساعد ذكاء اصطناعي",
-    aboutTitle: "بياعتك مستمرة حتى بدون شبكة",
-    aboutDesc: "لقد قمنا بتطوير جاسبر لكي لا يقف انقطاع النت عائق حساباتك أبداً. درج المبيعات يعمل دائماً.",
+    aboutTitle: "دعم مبيعات آمن عبر الإنترنت",
+    aboutDesc: "صممنا Ndiva لحفظ كل عملية بيع ومخزون وإعداد مهم في السحابة مباشرة.",
     aboutSupport: "مكاتب دعم فني حقيقية",
     aboutCurrency: "تحديث الضرائب المحلية تلقائياً",
     aboutEndpoints: "أكثر من ٢٤٠٠ متجر نشط",
     advancedCapabilities: "ميزات وتجهيزات متقدمة",
     advancedDesc: "خطوات غاية في السهولة لتأمين عمل آلات المحاسبة طوال اليوم.",
-    featOfflineTitle: "ماكينة بيع دون إنترنت",
-    featOfflineDesc: "شبكة ضعيفة أو كهرباء مقطوعة؟ لا تقلق. واصل البيع وسيتم التحديث بمجرد عودة الاتصال.",
+    featOfflineTitle: "نقطة بيع عبر الإنترنت",
+    featOfflineDesc: "يتم حفظ كل عملية بيع في السحابة. عند انقطاع الإنترنت، أعد الاتصال قبل المتابعة.",
     featLedgerTitle: "دعم العملات المختلفة",
     featLedgerDesc: "إدارة عملات TZS و KES و NGN والضرائب المخصصة معاً بمنتهى البساطة.",
     featGatewayTitle: "توثيق فوري للمدفوعات عبر الهاتف",
@@ -643,24 +643,24 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     capitalDesc: "通过清晰简单的交易日志，保障您的每一笔资金安全无虞。",
     stockIntel: "库存智能跟踪",
     stockDesc: "智能监控您的产品库存，并在库存不足时及时发送提醒。",
-    offlineTitle: "不依赖网络运行",
-    offlineDesc: "100% 支持离线操作。即使停网断电，也能瞬间完成收款。",
+    offlineTitle: "安全在线模式",
+    offlineDesc: "需要网络才能将销售、库存和设置直接保存到云端。",
     meetLucy: "与智能助手 Lucy 相识",
     lucyDesc: "您的友好助手，随时解答疑问并提供业务优化建议。",
     creed: "Ndiva 助您的生意蓬勃发展，更上一层楼！",
     getStarted: "免费开始使用",
-    offlineMetric: "离线结账支持",
+    offlineMetric: "云端同步",
     syncMetric: "联网自动同步",
     aiMetric: "智能 AI 助手",
-    aboutTitle: "为所有商家量身定做的离线销售服务",
-    aboutDesc: "我们创立 Ndiva 的初衷是，不稳定的网络不应该成为销售的绊脚石。无论您在何处，收款抽屉都会正常运转。",
+    aboutTitle: "为所有商家提供在线销售支持",
+    aboutDesc: "我们创立 Ndiva，是为了让每笔销售、库存和重要设置都能安全保存到云端。",
     aboutSupport: "实体人工支持网点",
     aboutCurrency: "全自动本地税率计算与设置",
     aboutEndpoints: "已有超过 2400 家活跃注册店铺使用",
     advancedCapabilities: "行业领先的高级功能",
     advancedDesc: "简单实用的解决方案，确保您的收银台始终流畅运转。",
-    featOfflineTitle: "离线智能收银台",
-    featOfflineDesc: "没有网络或突然断电？完全不用担心。照常收银，并在网络恢复后自动同步。",
+    featOfflineTitle: "在线智能收银台",
+    featOfflineDesc: "每笔销售都会保存到云端。网络中断时，请先重新连接再继续。",
     featLedgerTitle: "多国货币支持",
     featLedgerDesc: "轻松支持 TZS, KES 和 NGN 货币，并自动适配当地的商业税率计算。",
     featGatewayTitle: "手机快捷收款实时验证",
@@ -730,24 +730,24 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     capitalDesc: "लेनदेन के सरल रिकॉर्ड के साथ अपनी पूंजी सुरक्षित रखें.",
     stockIntel: "सामान का हिसाब (स्टॉक)",
     stockDesc: "सामान की संख्या पर नज़र रखें और खत्म होने पर तुरंत जानें.",
-    offlineTitle: "बिना इंटरनेट चलेगा",
-    offlineDesc: "बिजली या इंटरनेट न होने पर भी 100% चलेगा. तुरंत पेमेंट लें.",
+    offlineTitle: "सुरक्षित ऑनलाइन मोड",
+    offlineDesc: "हर बिक्री, स्टॉक और सेटिंग को क्लाउड में सेव करने के लिए इंटरनेट जरूरी है.",
     meetLucy: "मिलिए लकी से",
     lucyDesc: "आपकी मददगार साथी जो सवाल के जवाब देती है और व्यापार बढ़ाती है.",
     creed: "जैस्पर आपके व्यापार को और आगे बढ़ाएगा!",
     getStarted: "मुफ़्त शुरू करें",
-    offlineMetric: "बिना इंटरनेट",
+    offlineMetric: "क्लाउड सिंक",
     syncMetric: "तुरंत अपडेट",
     aiMetric: "AI सहायक",
-    aboutTitle: "सामान बेचने में इंटरनेट की परेशानी खत्म",
-    aboutDesc: "हमने जैस्पर इसलिए बनाया ताकि खराब इंटरनेट से कभी आपकी दुकान की बिक्री न रुके. आपका पैसे का गल्ला हमेशा चालू रहेगा.",
+    aboutTitle: "हर व्यापार के लिए ऑनलाइन बिक्री सहायता",
+    aboutDesc: "Ndiva हर बिक्री, स्टॉक और जरूरी सेटिंग को सुरक्षित रूप से क्लाउड में सेव करने में मदद करता है.",
     aboutSupport: "असली सहायता केंद्र",
     aboutCurrency: "स्थानीय टैक्स का अपने आप मेल",
     aboutEndpoints: "2400 से ज़्यादा चलती हुई दुकानें",
     advancedCapabilities: "मुख्य विशेषताएं",
     advancedDesc: "हमेशा बिक्री चालू रखने के आसान और सीधे तरीके.",
-    featOfflineTitle: "बिना इंटरनेट की गल्ला मशीन",
-    featOfflineDesc: "इंटरनेट नहीं है? कोई बात नहीं. बिक्री जारी रखें, नेट आने पर अपने आप अपडेट हो जाएगा.",
+    featOfflineTitle: "ऑनलाइन गल्ला मशीन",
+    featOfflineDesc: "हर बिक्री क्लाउड में सेव होती है. इंटरनेट बंद हो तो आगे बढ़ने से पहले फिर से कनेक्ट करें.",
     featLedgerTitle: "विभिन्न देशों के पैसे का सपोर्ट",
     featLedgerDesc: "बिना किसी झंझट के स्थानीय टैक्स के साथ TZS, KES और NGN पैसों को संभाले.",
     featGatewayTitle: "मोबाइल पैसे की तुरंत जांच",
@@ -875,7 +875,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       const saved = localStorage.getItem('jasper_custom_testimonials');
       return saved ? JSON.parse(saved) : [
         {
-          quote: "We were losing almost 15% of daily checkout logs because our internet went unstable at peak hours inside Mwenge food court. With Ndiva's offline queue, our cashier till never stops. Incredible offline product.",
+          quote: "We needed cleaner checkout logs across devices during peak hours inside Mwenge food court. With Ndiva's cloud-first saving, our cashier records stay aligned.",
           name: "Mustafa Al-Busaidy",
           role: "Restaurant Owner • Dar es Salaam",
           initials: "MA",
@@ -1003,7 +1003,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
     setLucyInput('');
     setIsLucyThinking(true);
 
-    // Lucy works offline on the landing page and stores lightweight interest signals locally.
+    // Lucy runs on the landing page and stores lightweight interest signals locally.
     setTimeout(() => {
       const lucy = createLucyResponse(userMsg, { surface: 'landing' });
       const lower = userMsg.toLowerCase();
@@ -1054,8 +1054,8 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
   const faqDataByLang: Record<string, Array<{ q: string, a: string }>> = {
     en: [
       {
-        q: "Does Ndiva work 100% offline?",
-        a: "Yes, absolutely! If your internet connection or power goes down, Ndiva keeps checking out customers and tracking stock locally on your device. Once the internet is restored, it automatically synchronizes and updates your cloud dashboard."
+        q: "Does Ndiva require internet to save changes?",
+        a: "Yes. Ndiva now uses secure online-only saving so sales, stock, settings, and tenant records go directly to the cloud. If internet drops, reconnect before continuing with business changes."
       },
       {
         q: "How do I pay after my free trial?",
@@ -1072,8 +1072,8 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
     ],
     sw: [
       {
-        q: "Je, inafanya kazi nikiwa nje ya mtandao (bila internet)?",
-        a: "Ndiyo, kabisa! Internet au umeme ukikatika, Ndiva itaendelea kufanya kazi ya mauzo na kupunguza stoki kama kawaida. Internet ikirudi, mfumo unajisawazisha wenyewe kwenye mtandao wako."
+        q: "Je, Ndiva inahitaji intaneti ili kusave mabadiliko?",
+        a: "Ndiyo. Ndiva sasa inatumia online-only saving ili mauzo, stoki, settings na taarifa za tenant ziende moja kwa moja cloud. Internet ikikatika, unganisha kwanza kabla ya kuendelea na mabadiliko ya biashara."
       },
       {
         q: "Ninalipia vipi baada ya majaribio ya bure kuisha?",
@@ -1444,18 +1444,18 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               ))}
             </div>
 
-            {/* Offline Resilience & AI assistant interactive panel */}
+            {/* Online resilience & AI assistant interactive panel */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
               
-              {/* Box 1: Zero Friction Payments & Offline Register */}
+              {/* Box 1: Zero Friction Payments & Online Register */}
               <div className={`p-6 rounded-3xl space-y-3 relative overflow-hidden border-2 ${isDark ? 'bg-slate-900/20 border-slate-900' : 'bg-white border-slate-200 shadow-xs'}`}>
                 <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/5 rounded-full blur-xl" />
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-teal-400">Resilience System</span>
                 <h4 className={`text-base font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  {t.offlineTitle || "Works Without Internet"}
+                  {t.offlineTitle || "Secure Online Mode"}
                 </h4>
                 <p className={`text-xs font-light leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                  {t.offlineDesc || "Runs 100% offline. Accepts mobile money instantly with no slowdowns."}
+                  {t.offlineDesc || "Requires internet so every sale, stock change, and setting is saved directly to the cloud."}
                 </p>
               </div>
 
@@ -1513,7 +1513,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           <div className={`grid grid-cols-3 gap-8 pt-8 text-center w-full max-w-xl border-t ${isDark ? 'border-slate-900' : 'border-slate-200'}`}>
             <div>
               <dt className={`text-xl sm:text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{t.metric1_val || "99.9%"}</dt>
-              <dd className="text-[10px] text-slate-500 font-mono mt-0.5 uppercase tracking-wider">{t.offlineMetric || "Works Offline"}</dd>
+              <dd className="text-[10px] text-slate-500 font-mono mt-0.5 uppercase tracking-wider">{t.offlineMetric || "Cloud Synced"}</dd>
             </div>
             <div>
               <dt className={`text-xl sm:text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{t.metric2_val || "0.3s"}</dt>
@@ -1531,7 +1531,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       <section id="about" className={`py-20 relative border-t px-4 sm:px-6 lg:px-8 transition-colors duration-300 order-${sectionsOrder.indexOf('about') + 1} ${hiddenSections['about'] ? 'hidden' : 'block'} ${isDark ? 'bg-slate-950 border-slate-900' : 'bg-slate-100 border-slate-200'}`}>
         <div className="max-w-4xl mx-auto space-y-8 text-center flex flex-col items-center">
           <span className="text-xs font-mono uppercase tracking-widest text-emerald-500 font-bold">{t.aboutUs || "About Us"} • ABOUT JASPER SUITE</span>
-          <h2 className={`text-3xl sm:text-4xl font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>{t.aboutTitle || "Offline Sales Support For All Businesses"}</h2>
+          <h2 className={`text-3xl sm:text-4xl font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>{t.aboutTitle || "Online Sales Support For All Businesses"}</h2>
           <p className={`text-sm leading-relaxed font-light max-w-3xl ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
             {t.aboutDesc || "We created Ndiva because unstable internet should never stop your sales desk. Whether you are in Dar, Mbeya, or Nairobi, your cash drawer keeps working."}
           </p>

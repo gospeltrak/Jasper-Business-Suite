@@ -61,10 +61,10 @@ import {
   saveAffiliateSession,
   clearAffiliateSession,
   getAffiliateSession,
-  enqueueSyncItem,
   flushSyncQueue,
   AffiliateSession,
 } from "../utils/offlineSync";
+import { ONLINE_ONLY_WRITE_MESSAGE } from "../utils/onlineOnly";
 import { useTranslation } from "../LanguageContext";
 import {
   getTermsTitle,
@@ -154,13 +154,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   // is sitting in jasper_logged_affiliate from a previous session/device —
   // that was causing stale or demo accounts to silently auto-login.
 
-  // ── INIT OFFLINE SYNC + ONLINE INDICATOR ────────────────────────────────
+  // ── INIT ONLINE INDICATOR ────────────────────────────────────────────────
   const [isNetworkOnline, setIsNetworkOnline] = useState(isOnline());
 
   useEffect(() => {
-    initOfflineSync((result) => {
-      console.info(`[offlineSync] ${result.synced} pending changes synced to database.`);
-    });
+    initOfflineSync();
     const handleOnline  = () => { setIsNetworkOnline(true);  flushSyncQueue(); };
     const handleOffline = () => setIsNetworkOnline(false);
     window.addEventListener('online',  handleOnline);
@@ -171,7 +169,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // Offline sync now handled by initOfflineSync() and flushSyncQueue()
+  // Legacy offline queues are preserved for manual audit but never replayed.
 
   useEffect(() => {
     // Load dynamic SSP banners from admin platform
@@ -266,6 +264,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
   const handleWaitlistSubmit = (e: any) => {
     e.preventDefault();
+    if (!isNetworkOnline) {
+      alert(ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     if (!waitlistName.trim()) {
       alert("Please provide your Full Name.");
       return;
@@ -356,6 +358,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
   const handleSendTutorialToSubAffiliate = (tutorial: any, child: any) => {
     if (!activeAffiliate || !tutorial || !child) return;
+    if (!isNetworkOnline) {
+      alert(ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     const assignment = {
       id: "lesson-" + Math.floor(Math.random() * 1000000),
       tutorialId: tutorial.id,
@@ -501,10 +507,15 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   });
 
   // Custom Super Affiliate mutation handlers
-  const saveAffiliatesList = (nextList: any[]) => {
+  const saveAffiliatesList = (nextList: any[]): boolean => {
+    if (!isNetworkOnline) {
+      alert(ONLINE_ONLY_WRITE_MESSAGE);
+      return false;
+    }
     localStorage.setItem("saas_immersive_affiliates", JSON.stringify(nextList));
     // Trigger internal dispatch to update claims/counts
     window.dispatchEvent(new CustomEvent("saas_claims_reload"));
+    return true;
   };
 
   const handleCreateSubAffiliate = (e: React.FormEvent) => {
@@ -555,7 +566,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     };
 
     const updatedList = [...list, newAff];
-    saveAffiliatesList(updatedList);
+    if (!saveAffiliatesList(updatedList)) return;
 
     // Clear inputs
     setAddAffName("");
@@ -604,7 +615,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       return a;
     });
 
-    saveAffiliatesList(updatedList);
+    if (!saveAffiliatesList(updatedList)) return;
     setShowEditAffiliateModal(false);
     setSelectedEditAffiliate(null);
     alert("✓ Downline Affiliate information updated successfully!");
@@ -641,7 +652,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     }
 
     const filtered = list.filter((a) => a.id !== affId);
-    saveAffiliatesList(filtered);
+    if (!saveAffiliatesList(filtered)) return;
     alert(`✗ Affiliate ${name} has been removed from your network.`);
   };
 
@@ -656,13 +667,17 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     const updated = list.map((a: any) =>
       a.id === affId ? { ...a, isDisabled: !currentlyDisabled, status: currentlyDisabled ? 'Active' : 'Disabled' } : a
     );
-    saveAffiliatesList(updated);
+    if (!saveAffiliatesList(updated)) return;
     alert(`${currentlyDisabled ? '✅ Enabled' : '⛔ Disabled'}: ${name} has been ${action}d.`);
   };
 
   const handleSendMessageToSubline = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMessageAffiliate) return;
+    if (!isNetworkOnline) {
+      alert(ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     if (!sublineDirectMessage.trim()) {
       alert("Please enter a message text to transmit.");
       return;
@@ -734,13 +749,17 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     localStorage.removeItem("jasper_logged_affiliate");
   }, []);
 
-  const handleUpdatePromoCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleaned = newPromoInput.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
-    if (!cleaned) {
-      setPromoError("Promo code must contain letters and numbers only.");
-      return;
-    }
+	  const handleUpdatePromoCode = async (e: React.FormEvent) => {
+	    e.preventDefault();
+	    const cleaned = newPromoInput.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+	    if (!cleaned) {
+	      setPromoError("Promo code must contain letters and numbers only.");
+	      return;
+	    }
+	    if (!isNetworkOnline) {
+	      setPromoError(ONLINE_ONLY_WRITE_MESSAGE);
+	      return;
+	    }
 
     // Check all existing promo codes across both stores
     const existingAffs = JSON.parse(localStorage.getItem("jasper_affiliates") || "[]");
@@ -772,11 +791,30 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       return;
     }
 
-    setPromoError(null);
-    setPromoSuggestions([]);
+	    setPromoError(null);
+	    setPromoSuggestions([]);
 
-    // Update activeAffiliate state
-    const updatedAffiliate = {
+	    // Save to Supabase first. Local/session cache follows only after cloud confirms.
+	    const result = activeAffiliate?.isSuper
+	      ? await dbWrite('affiliate_partners',
+	        'update',
+	        { promo_code: cleaned, referral_slug: cleaned.toLowerCase() },
+	        { column: 'id', value: activeAffiliate?.id || '' },
+	        activeAffiliate?.id
+	      )
+	      : await dbWrite('affiliates',
+	        'update',
+	        { promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() },
+	        { column: 'id', value: activeAffiliate?.id || '' },
+	        activeAffiliate?.id
+	      );
+	    if (!result.success) {
+	      setPromoError(result.error || ONLINE_ONLY_WRITE_MESSAGE);
+	      return;
+	    }
+
+	    // Update activeAffiliate state
+	    const updatedAffiliate = {
       ...activeAffiliate!,
       promoCode: cleaned
     };
@@ -831,28 +869,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       localStorage.setItem("jasper_referral_ledger", JSON.stringify(updatedLedger));
     } catch (err) {}
 
-    setIsEditingPromo(false);
-    setPromoError(null);
-    setPromoSuggestions([]);
-
-    // Save to Supabase — partners live in affiliate_partners, everyone else in affiliates.
-    // Queues automatically if offline, syncs when online.
-    if (activeAffiliate?.isSuper) {
-      await dbWrite('affiliate_partners',
-        'update',
-        { promo_code: cleaned, referral_slug: cleaned.toLowerCase() },
-        { column: 'id', value: activeAffiliate?.id || '' },
-        activeAffiliate?.id
-      );
-    } else {
-      await dbWrite('affiliates',
-        'update',
-        { promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() },
-        { column: 'id', value: activeAffiliate?.id || '' },
-        activeAffiliate?.id
-      );
-    }
-  };
+	    setIsEditingPromo(false);
+	    setPromoError(null);
+	    setPromoSuggestions([]);
+	  };
 
   const handleRegisterAffiliate = async (e: any) => {
     e.preventDefault();
@@ -987,7 +1007,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           attempts++;
         }
       }
-    } catch { /* offline or DB unreachable — proceed with base code */ }
+    } catch { /* DB unreachable — proceed with base code; final save still requires internet. */ }
 
     // Check for parent super-affiliate recruiter assignment
     let parentSuperId: string | undefined = undefined;
@@ -1025,7 +1045,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           if (dbPartner && !dbPartner.is_disabled) {
             parentMatch = { id: dbPartner.id, name: dbPartner.display_name, promoCode: dbPartner.promo_code };
           }
-        } catch { /* offline — already blocked by isOnline() check above */ }
+        } catch { /* DB check failed — registration save still validates online below. */ }
       }
 
       if (!parentMatch) {
@@ -1079,13 +1099,6 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       tinNumber: tinNumber || "",
     };
 
-    // ── Save to localStorage (offline cache) ──────────────────
-    const existing = JSON.parse(localStorage.getItem("jasper_affiliates") || "[]");
-    existing.push(newAff);
-    localStorage.setItem("jasper_affiliates", JSON.stringify(existing));
-    immersiveList.push(newImmersiveRecord);
-    localStorage.setItem("saas_immersive_affiliates", JSON.stringify(immersiveList));
-
     // ── Save to Supabase affiliates table (source of truth) ───
     try {
       const client: any = await getSecureDataBridgeClient();
@@ -1101,6 +1114,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           // (Authentication → Sign In / Providers → Confirm email → OFF).
         },
       });
+      if (authError) throw authError;
+      if (!authData?.user) throw new Error('Affiliate auth account could not be created.');
 
       // If Supabase created the user but email confirmation is ON in project
       // settings, the user will exist but be unconfirmed and unable to log in.
@@ -1191,19 +1206,23 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           newAff.id = insertedRow.id;
           newAff.supabaseUserId = authData.user.id;
         } else {
-          alert("⚠️ Account created locally but could not confirm the database save. Please check your connection and try logging in again — if the problem continues, contact support.");
+          throw new Error("Account could not confirm the database save. Please check your connection and try again.");
         }
-        // Update localStorage records with correct Supabase ID
-        const affIdx = immersiveList.findIndex((a: any) => a.promoCode === cleanCode);
-        if (affIdx !== -1) {
-          immersiveList[affIdx].id = newAff.id;
-          immersiveList[affIdx].supabaseUserId = authData.user.id;
-          localStorage.setItem("saas_immersive_affiliates", JSON.stringify(immersiveList));
-        }
+
+        // Refresh local session cache only after the cloud profile is confirmed.
+        const existing = JSON.parse(localStorage.getItem("jasper_affiliates") || "[]")
+          .filter((item: any) => item.id !== newAff.id);
+        localStorage.setItem("jasper_affiliates", JSON.stringify([newAff, ...existing]));
+        const nextImmersive = [
+          { ...newImmersiveRecord, id: newAff.id, supabaseUserId: authData.user.id },
+          ...immersiveList.filter((item: any) => item.id !== newAff.id && item.promoCode !== cleanCode),
+        ];
+        localStorage.setItem("saas_immersive_affiliates", JSON.stringify(nextImmersive));
       }
     } catch (dbErr: any) {
       console.error("[affiliate] Supabase save failed:", dbErr);
       alert(`⚠️ Registration failed: ${dbErr?.message || 'Could not save your account to the database. Please check your internet connection and try again.'}`);
+      return;
     }
 
     // ── Show promo code to user ────────────────────────────────
@@ -1294,7 +1313,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
             tinNumber: profile.tin_number || '',
             payoutPhone: profile.payout_account || '',
           };
-          // Sync to localStorage for offline use
+          // Cache the authenticated profile for session continuity only.
           localStorage.setItem('jasper_logged_affiliate', JSON.stringify(mappedAff));
           const immersive = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
           const exists = immersive.find((a: any) => a.id === profile.id);
@@ -1398,7 +1417,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     ctx.fillStyle = "#ffffff";
     if (size === "728x90") {
       ctx.font = "bold 20px sans-serif";
-      ctx.fillText("JASPER POS Ledger - 100% Offline Suite", 25, 38);
+      ctx.fillText("NDIVA POS Ledger - Secure Cloud Suite", 25, 38);
       ctx.fillStyle = "#34d399";
       ctx.font = "bold 13px monospace";
       ctx.fillText(`PROMO: ${promo} (Get 1 Month Extended Trial)`, 25, 62);
@@ -1410,13 +1429,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       ctx.fillText("ANZA SASA BURE", 555, 49);
     } else if (size === "160x600") {
       ctx.font = "bold 24px sans-serif";
-      ctx.fillText("JASPER", 20, 50);
+      ctx.fillText("NDIVA", 20, 50);
       ctx.font = "bold 15px sans-serif";
       ctx.fillText("ERP Ledger", 20, 75);
 
       ctx.fillStyle = "#34d399";
       ctx.font = "bold 14px sans-serif";
-      ctx.fillText("100% Offline", 20, 120);
+      ctx.fillText("Cloud Synced", 20, 120);
       ctx.fillText("Biashara Smart", 20, 140);
 
       ctx.fillStyle = "rgba(16, 185, 129, 0.1)";
@@ -1441,10 +1460,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       ctx.fillText("ACCESS NOW", 40, 507);
     } else if (size === "300x250") {
       ctx.font = "bold 22px sans-serif";
-      ctx.fillText("JASPER Suite ERP", 20, 45);
+      ctx.fillText("NDIVA Suite ERP", 20, 45);
       ctx.fillStyle = "#34d399";
       ctx.font = "bold 14px sans-serif";
-      ctx.fillText("Runs 100% Offline POS", 20, 75);
+      ctx.fillText("Secure Online POS", 20, 75);
 
       ctx.fillStyle = "#ffffff";
       ctx.font = "12px sans-serif";
@@ -1468,14 +1487,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       ctx.fillText("No Credit Card Required • Fast & Reliable", 20, 230);
     } else if (size === "1:1") {
       ctx.font = "bold 42px sans-serif";
-      ctx.fillText("JASPER POS & ERP", 50, 100);
+      ctx.fillText("NDIVA POS & ERP", 50, 100);
       ctx.fillStyle = "#34d399";
       ctx.font = "bold 26px sans-serif";
       ctx.fillText("Tanzania Authorized SaaS Solution", 50, 145);
 
       ctx.fillStyle = "#ffffff";
       ctx.font = "20px sans-serif";
-      ctx.fillText("✓ Runs 100% Offline - Never down", 50, 230);
+      ctx.fillText("✓ Secure cloud saving for every sale", 50, 230);
       ctx.fillText("✓ Accepts Mobile money Instantly", 50, 280);
       ctx.fillText("✓ For Retail, Pharmacies & Restaurants", 50, 330);
       ctx.fillText("✓ Lucy assistant built-in for support", 50, 380);
@@ -1510,10 +1529,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       ctx.fillText("JISAJILI KATIKA: https://jasper.africa", 50, 730);
     } else if (size === "9:16") {
       ctx.font = "bold 26px sans-serif";
-      ctx.fillText("JASPER SAAS POWERHOUSE", 30, 80);
+      ctx.fillText("NDIVA SAAS POWERHOUSE", 30, 80);
       ctx.fillStyle = "#34d399";
       ctx.font = "bold 18px sans-serif";
-      ctx.fillText("100% Offline Retail Suite", 30, 120);
+      ctx.fillText("Cloud Synced Retail Suite", 30, 120);
 
       ctx.fillStyle = "#ffffff";
       ctx.font = "16px sans-serif";
@@ -1624,8 +1643,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       {!isNetworkOnline && (
         <div className="sticky top-0 z-50 flex items-center justify-center gap-2 bg-amber-500 text-slate-950 text-xs font-bold py-2 px-4">
           <span>⚠️</span>
-          <span>Huna mtandao — Unafanya kazi bila intaneti. Mabadiliko yatahifadhiwa na kusync ukiunganika.</span>
-          <span className="hidden sm:inline">| Offline mode — changes will sync when connected.</span>
+	          <span>Huna mtandao — Unganisha intaneti kabla ya kusave mabadiliko.</span>
+	          <span className="hidden sm:inline">| Offline sync is disabled to protect account data.</span>
         </div>
       )}
       {/* Background radial effects */}
@@ -2358,7 +2377,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           </span>
                           <p className="italic font-light">
                             "Anza kurahisisha hesabu za biashara yako leo kwa
-                            kutumia Ndiva POS inayofanya kazi bila internet!
+	                            kutumia Ndiva POS inayosave data moja kwa moja cloud!
                             Watapata siku 30 za bure kwa kutumia promo code
                             yangu."
                           </p>
@@ -2370,7 +2389,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           </span>
                           <ul className="list-disc pl-4 space-y-1 text-[11px]">
                             <li>Focus on Pharmacy, Retail & Dine niches.</li>
-                            <li>Emphasize Offline operation structure.</li>
+	                            <li>Emphasize secure online cloud saving.</li>
                             <li>Target 150+ signups for bonus.</li>
                           </ul>
                         </div>
@@ -2472,12 +2491,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                             "replyText",
                                           ) as HTMLInputElement;
                                         const replyVal = formInput?.value || "";
-                                        if (!replyVal.trim())
-                                          return alert(
-                                            "Please enter response comment.",
-                                          );
+	                                        if (!replyVal.trim())
+	                                          return alert(
+	                                            "Please enter response comment.",
+	                                          );
+	                                        if (!isNetworkOnline)
+	                                          return alert(ONLINE_ONLY_WRITE_MESSAGE);
 
-                                        const centralClaims = JSON.parse(
+	                                        const centralClaims = JSON.parse(
                                           localStorage.getItem(
                                             "saas_affiliate_claims",
                                           ) || "[]",
@@ -2950,7 +2971,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     id: "doc-1",
                     title:
                       "Ndiva POS System Operator Quick-Start Handbook (v2.4)",
-                    desc: "Offline sales, printers, shifts, tax, stock.",
+	                    desc: "Online sales, printers, shifts, tax, stock.",
                     category: "guide",
                     fileSize: "4.8 MB",
                     duration: "25 min read",
@@ -2960,7 +2981,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     id: "doc-2",
                     title:
                       "Strategic Merchant Invitation & Objection Resolution Script",
-                    desc: "Effective talking points and scripts specifically designed for Tanzanian pharmacies, retail shops and diners, answering questions on pricing, tax, and local offline resilience.",
+	                    desc: "Effective talking points and scripts specifically designed for Tanzanian pharmacies, retail shops and diners, answering questions on pricing, tax, and secure cloud saving.",
                     category: "guide",
                     fileSize: "1.2 MB",
                     duration: "12 min study",
@@ -4510,14 +4531,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             <div>
                               <div className="flex justify-between items-center mb-1">
                                 <h4 className="text-xs font-black text-emerald-400">
-                                  JASPER ERP LEDGER
+	                                  NDIVA ERP LEDGER
                                 </h4>
                                 <span className="text-[7px] text-slate-500 border border-slate-800 px-1 py-0.2 rounded font-mono">
                                   15% SHARE
                                 </span>
                               </div>
                               <p className="text-[9px] text-slate-400 leading-relaxed">
-                                Runs 100% offline. Manages store, pharmacy,
+	                                Secure cloud saving. Manages store, pharmacy,
                                 duka, or table-orders.
                               </p>
                             </div>
@@ -4539,14 +4560,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           <div className="w-[120px] h-[320px] bg-slate-905 bg-slate-900 border border-emerald-500/30 rounded p-2.5 text-left font-sans flex flex-col justify-between text-white shrink-0 text-center">
                             <div>
                               <h4 className="text-xs font-black text-emerald-400 tracking-tight text-center">
-                                JASPER
+	                                NDIVA
                               </h4>
                               <span className="text-[8px] text-slate-400 block text-center font-bold">
-                                Runs offline
+	                                Cloud synced
                               </span>
                               <div className="border-t border-slate-800 my-2"></div>
                               <p className="text-[7.5px] text-slate-500 leading-tight">
-                                No internet required for POS cashier tills.
+	                                Internet required before saving cashier changes.
                               </p>
                             </div>
                             <div className="bg-emerald-500/5 p-1 rounded border border-emerald-500/25">
@@ -4570,13 +4591,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             </div>
                             <div>
                               <h4 className="text-sm font-black text-white leading-tight">
-                                JASPER ONLINE/OFFLINE
+	                                NDIVA ONLINE POS
                               </h4>
                               <h5 className="text-[10px] text-emerald-400 font-bold mb-2">
                                 Merchant Retail Powerhouse
                               </h5>
                               <ul className="space-y-0.5 text-[8.5px] text-slate-400">
-                                <li>✓ Works 100% Offline without network</li>
+	                                <li>✓ Secure cloud saving for every sale</li>
                                 <li>
                                   ✓ Instantly accept all mobile money wallets
                                 </li>
@@ -4813,7 +4834,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       <p className="italic text-[11px] leading-relaxed">
                         "Unawasha duka, lodge, duka la dawa (Pharmacy) au
                         mgahawa? Ndiva ndio operating system uliyokuwa
-                        unatafuta. Inafanya kazi 100% offline bila internet na
+	                        unatafuta. Inasave data moja kwa moja cloud na
                         unaweza kuona ripoti zote za mauzo moja kwa moja kwenye
                         simu yako! Jisajili sasa upate siku 30 za majaribio ya
                         BURE ukitumia code yangu: {activeAffiliate?.promoCode}{" "}
@@ -4893,10 +4914,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   )}
 
                   <div className="text-center pt-2">
-                    <button
-                      onClick={() => {
-                        const newName = prompt(
-                          "Enter name of shop you want to simulate as referred:",
+	                    <button
+	                      onClick={() => {
+	                        if (!isNetworkOnline) {
+	                          alert(ONLINE_ONLY_WRITE_MESSAGE);
+	                          return;
+	                        }
+	                        const newName = prompt(
+	                          "Enter name of shop you want to simulate as referred:",
                         );
                         if (!newName) return;
                         const packageChoice = prompt(
@@ -5005,10 +5030,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   ) : (
                     <form
                       onSubmit={(e) => {
-                        e.preventDefault();
-                        if (!claimMessage.trim())
-                          return alert("Please describe your dispute details.");
-                        const targetSuperMatch = activeAffiliate?.parentSuperId;
+	                        e.preventDefault();
+	                        if (!claimMessage.trim())
+	                          return alert("Please describe your dispute details.");
+	                        if (!isNetworkOnline)
+	                          return alert(ONLINE_ONLY_WRITE_MESSAGE);
+	                        const targetSuperMatch = activeAffiliate?.parentSuperId;
                         const claims = JSON.parse(
                           localStorage.getItem("saas_affiliate_claims") || "[]",
                         );
