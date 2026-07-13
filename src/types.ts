@@ -312,6 +312,7 @@ export interface Sale {
   reference: string;
   tenantId: string;
   timestamp: string; // ISO String
+  syncUpdatedAt?: string;
   syncStatus: 'synced' | 'pending';
   cashierName: string;
   amountPaid?: number;

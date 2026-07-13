@@ -1502,9 +1502,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const handleUpdateSales = (updatedSales: Sale[]) => {
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
+    const syncUpdatedAt = new Date().toISOString();
     setSalesMap(prev => ({
       ...prev,
-      [activeTenant.id]: updatedSales
+      [activeTenant.id]: updatedSales.map((sale) => ({ ...sale, syncUpdatedAt: (sale as any).syncUpdatedAt || syncUpdatedAt }) as Sale)
     }));
     
     const newLog: SyncLog = {
@@ -1558,11 +1559,13 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const handleAddSale = (sale: Sale) => {
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
+    const syncUpdatedAt = new Date().toISOString();
+    const saleToStore = { ...sale, syncUpdatedAt } as Sale;
     setSalesMap(prev => {
       const currentTenantSales = prev[activeTenant.id] || [];
       return {
         ...prev,
-        [activeTenant.id]: [sale, ...currentTenantSales]
+        [activeTenant.id]: [saleToStore, ...currentTenantSales]
       };
     });
 
@@ -1592,7 +1595,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
     // Queue in IndexedDB for Background Sync if pending (offline mode)
     if (sale.syncStatus === 'pending') {
-      savePendingSaleOffline(sale).then(() => {
+      savePendingSaleOffline(saleToStore).then(() => {
         console.log('[Dashboard] Offline sale queued in IndexedDB database.');
         // Notify Service Worker or register Background Sync tag
         if ('serviceWorker' in navigator) {

@@ -8,6 +8,7 @@ import {
   readLocalProductTombstones,
   writeLocalProductTombstones,
 } from './productSync';
+import { mergeRecordsById } from './recordSync';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -187,6 +188,17 @@ type WorkspaceArrayKey =
 
 const protectedArrayKeys: WorkspaceArrayKey[] = [
   'products',
+  'sales',
+  'expenses',
+  'deliveries',
+  'pendingDeliveryNotes',
+  'purchases',
+  'branches',
+  'branchStocks',
+  'branchStaffAssignments',
+];
+
+const appendMergeWorkspaceKeys: WorkspaceArrayKey[] = [
   'sales',
   'expenses',
   'deliveries',
@@ -528,6 +540,16 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
       products: mergedProducts,
       productTombstones: mergedTombstones,
     };
+
+    const mergeBase = remoteSafe || currentSafe;
+    if (mergeBase) {
+      for (const key of appendMergeWorkspaceKeys) {
+        (workspaceToSave as any)[key] = mergeRecordsById(
+          (workspaceToSave as any)[key],
+          (mergeBase as any)[key],
+        );
+      }
+    }
 
     if (protection.protectedKeys.length > 0) {
       console.warn(

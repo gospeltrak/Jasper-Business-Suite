@@ -25,6 +25,7 @@ import {
   readLocalProductTombstones,
   writeLocalProductTombstones,
 } from './productSync';
+import { APPEND_MERGE_DATA_KEYS, mergeRecordsById } from './recordSync';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -138,6 +139,22 @@ export async function pushToCloud(tenantId: string, dataKey: string, payload: an
           } else if (remoteProtection.shrank) {
             saveRemoteDataBackup(client, tenantId, dataKey, remoteData.payload, 'pre-remote-guard-save').catch(() => {});
           }
+        }
+      } else if (APPEND_MERGE_DATA_KEYS.has(dataKey)) {
+        const { data: remoteData, error: remoteError } = await client
+          .from('tenant_data')
+          .select('payload')
+          .eq('tenant_id', tenantId)
+          .eq('data_key', dataKey)
+          .maybeSingle();
+
+        if (!remoteError && remoteData?.payload) {
+          const incomingItems = getTenantArray(payloadToPush, tenantId) || [];
+          const remoteItems = getTenantArray(remoteData.payload, tenantId) || [];
+          const mergedRecords = mergeRecordsById(incomingItems, remoteItems);
+          payloadToPush = Array.isArray(payloadToPush)
+            ? mergedRecords
+            : { ...(payloadToPush || {}), [tenantId]: mergedRecords };
         }
       }
     }
