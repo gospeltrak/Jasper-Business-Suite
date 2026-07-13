@@ -249,14 +249,14 @@ export default function SaaSReportsView() {
   const trendsData = timeframeMode === "monthly" ? monthlyTrendsData : weeklyTrendsData;
 
   return (
-    <div id="saas-financial-audit-pdf-template" className={`space-y-8 text-left font-sans animate-fade-in`}>
+    <div id="saas-financial-audit-pdf-template" className={`space-y-5 sm:space-y-6 text-left font-sans animate-fade-in`}>
       {/* Printable page trigger header */}
-      <div className="flex justify-between items-center bg-slate-900 border border-slate-850 p-6 rounded-2xl flex-col sm:flex-row gap-4 print:hidden">
+      <div className="flex justify-between items-start sm:items-center bg-slate-900/95 border border-slate-800 p-4 sm:p-5 rounded-3xl flex-col sm:flex-row gap-4 shadow-[0_16px_40px_rgba(2,6,23,0.22)] print:hidden">
         <div>
           <h2 className="text-base font-bold text-white uppercase tracking-wider font-mono">
             Ndiva Suite Business Reports
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-2xl">
             Audit platform P&L ratios, subscription revenue margins, hardware
             ledgers, and network cost breakdowns.
           </p>
@@ -268,7 +268,7 @@ export default function SaaSReportsView() {
             fileName: `jasper-saas-financial-audit-${timeframeMode}.pdf`,
             format: "a4"
           })}
-          className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-bold font-mono text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow transition-colors"
+          className="w-full sm:w-auto justify-center px-4 py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 rounded-2xl font-bold font-mono text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow transition-colors"
         >
           <FileText className="w-4 h-4" />
           <span>Export Financial Audit Sheet</span>
@@ -276,17 +276,17 @@ export default function SaaSReportsView() {
       </div>
 
       {/* CORE CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="mobile-tablet-kpi-grid gap-3 sm:gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(4, minmax(0, 1fr))' }}>
         {/* Gross Income Card */}
-        <div className="bg-slate-900 border border-slate-850 p-5 rounded-2xl relative overflow-hidden flex flex-col justify-between">
+        <div className="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-3xl relative overflow-hidden flex flex-col justify-between min-w-0 shadow-[0_14px_34px_rgba(2,6,23,0.18)]">
           <div>
-            <div className="flex items-center justify-between text-slate-400 text-xs font-mono uppercase tracking-wider">
+            <div className="flex items-center justify-between text-slate-400 text-[10px] sm:text-xs font-mono uppercase tracking-wider gap-2">
               <span>Gross Income</span>
               <span className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400">
                 <ArrowUpRight className="w-3 h-3" />
               </span>
             </div>
-            <h3 className="text-xl font-black text-white font-mono mt-2">
+            <h3 className="text-lg sm:text-xl font-black text-white font-mono mt-2 leading-tight break-words">
               TSh {grossIncome.toLocaleString()}
             </h3>
           </div>
@@ -307,15 +307,15 @@ export default function SaaSReportsView() {
         </div>
 
         {/* Total Expenses Card */}
-        <div className="bg-slate-900 border border-slate-850 p-5 rounded-2xl relative overflow-hidden flex flex-col justify-between">
+        <div className="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-3xl relative overflow-hidden flex flex-col justify-between min-w-0 shadow-[0_14px_34px_rgba(2,6,23,0.18)]">
           <div>
-            <div className="flex items-center justify-between text-slate-400 text-xs font-mono uppercase tracking-wider">
+            <div className="flex items-center justify-between text-slate-400 text-[10px] sm:text-xs font-mono uppercase tracking-wider gap-2">
               <span>Gross Expenses</span>
               <span className="p-1 bg-rose-500/10 rounded-lg text-rose-400">
                 <ArrowDownRight className="w-3 h-3" />
               </span>
             </div>
-            <h3 className="text-xl font-black text-rose-400 font-mono mt-2">
+            <h3 className="text-lg sm:text-xl font-black text-rose-400 font-mono mt-2 leading-tight break-words">
               TSh {totalSaaSExpenses.toLocaleString()}
             </h3>
           </div>
@@ -337,14 +337,14 @@ export default function SaaSReportsView() {
 
         {/* Net Profit Card */}
         <div
-          className={`p-5 rounded-2xl relative overflow-hidden flex flex-col justify-between border ${
+          className={`p-4 sm:p-5 rounded-3xl relative overflow-hidden flex flex-col justify-between border min-w-0 shadow-[0_14px_34px_rgba(2,6,23,0.14)] ${
             isLoss
               ? "bg-rose-500/5 border-rose-500/20"
               : "bg-emerald-500/5 border-emerald-500/20"
           }`}
         >
           <div>
-            <div className="flex items-center justify-between text-slate-400 text-xs font-mono uppercase tracking-wider">
+            <div className="flex items-center justify-between text-slate-400 text-[10px] sm:text-xs font-mono uppercase tracking-wider gap-2">
               <span>Net Profit</span>
               <span
                 className={`p-1 rounded-lg ${isLoss ? "bg-rose-500/20 text-rose-400" : "bg-emerald-500/20 text-emerald-400"}`}
@@ -357,7 +357,7 @@ export default function SaaSReportsView() {
               </span>
             </div>
             <h3
-              className={`text-xl font-black font-mono mt-2 ${isLoss ? "text-rose-400" : "text-emerald-400"}`}
+              className={`text-lg sm:text-xl font-black font-mono mt-2 leading-tight break-words ${isLoss ? "text-rose-400" : "text-emerald-400"}`}
             >
               TSh {netProfitOrLoss.toLocaleString()}
             </h3>
@@ -380,15 +380,15 @@ export default function SaaSReportsView() {
         </div>
 
         {/* HW Inventory Value Card */}
-        <div className="bg-slate-900 border border-slate-850 p-5 rounded-2xl relative overflow-hidden flex flex-col justify-between">
+        <div className="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-3xl relative overflow-hidden flex flex-col justify-between min-w-0 shadow-[0_14px_34px_rgba(2,6,23,0.18)]">
           <div>
-            <div className="flex items-center justify-between text-slate-400 text-xs font-mono uppercase tracking-wider">
+            <div className="flex items-center justify-between text-slate-400 text-[10px] sm:text-xs font-mono uppercase tracking-wider gap-2">
               <span>HW Stock Value</span>
               <span className="p-1 bg-amber-500/10 rounded-lg text-amber-400">
                 <Layers className="w-3 h-3" />
               </span>
             </div>
-            <h3 className="text-xl font-black text-amber-400 font-mono mt-2">
+            <h3 className="text-lg sm:text-xl font-black text-amber-400 font-mono mt-2 leading-tight break-words">
               TSh {totalHardwareStockValue.toLocaleString()}
             </h3>
           </div>

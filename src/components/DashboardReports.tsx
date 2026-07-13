@@ -1189,6 +1189,8 @@ export default function DashboardReports({
     if (startDateStr === '2020-01-01' && endDateStr === today) return 'all';
     return 'custom';
   };
+  const mobileReportKpiCardClass = "bg-white p-3 rounded-2xl border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.055)] flex flex-col justify-between min-h-[84px] text-left min-w-0";
+  const mobileReportToneKpiCardClass = "p-3 rounded-2xl border shadow-[0_8px_24px_rgba(15,23,42,0.055)] flex flex-col justify-between min-h-[84px] text-left min-w-0";
 
   return (
     <div className="space-y-8 animate-fade-in pb-[calc(80px+env(safe-area-inset-bottom))]" id="reports-view-root">
@@ -1252,7 +1254,7 @@ export default function DashboardReports({
               </div>
             </div>
             {/* Date quick chips */}
-            <div className="flex gap-1.5">
+            <div className="grid grid-cols-4 gap-1.5">
               {[
                 {l:'Today',   f:()=>{const t=getTodayRange();setStartDateStr(t);setEndDateStr(t);}},
                 {l:'7 Days',  f:()=>{setStartDateStr(getLast7DaysRange());setEndDateStr(getTodayRange());}},
@@ -1260,42 +1262,41 @@ export default function DashboardReports({
                 {l:'All',     f:()=>{setStartDateStr('2020-01-01');setEndDateStr(getTodayRange());}},
               ].map(p=>(
                 <button key={p.l} type="button" onClick={p.f}
-                  className="px-3 py-1.5 rounded-xl text-[10px] font-bold" style={{background:'rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.75)'}}>{p.l}</button>
+                  className="px-2 py-1.5 rounded-xl text-[10px] font-bold text-center" style={{background:'rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.75)'}}>{p.l}</button>
               ))}
             </div>
           </div>
         </div>
 
         {/* KPI mini cards 2×2 — clean elegant cards */}
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="mobile-tablet-kpi-grid gap-2.5" style={{ ['--desktop-kpi-columns' as any]: 'repeat(5, minmax(0, 1fr))' }}>
           {[
             {label:'Total Sales', value:`${currency}${Math.round(totalGrossSales).toLocaleString()}`, sub:`${filteredSales.length} receipts`, color:'#059669', bg:'#f0fdf4', icon:<TrendingUp className="w-4 h-4"/>},
             {label:'Revenue',     value:`${currency}${Math.round(totalSalesRevenue).toLocaleString()}`, sub:'Net revenue', color:'#2563eb', bg:'#eff6ff', icon:<DollarSign className="w-4 h-4"/>},
             {label:'COGS',        value:`${currency}${Math.round(totalCOGS).toLocaleString()}`, sub:`Margin ${totalSalesRevenue>0?Math.round(((totalSalesRevenue-totalCOGS)/totalSalesRevenue)*100):0}%`, color:'#d97706', bg:'#fffbeb', icon:<Package className="w-4 h-4"/>},
             {label:'Expenses',    value:`${currency}${Math.round(totalExpensesCharged).toLocaleString()}`, sub:'Operating', color:'#dc2626', bg:'#fff5f5', icon:<Receipt className="w-4 h-4"/>},
           ].map((kpi,i)=>(
-            <div key={i} className="bg-white rounded-2xl p-3.5" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
+            <div key={i} className="bg-white rounded-2xl p-3.5 min-w-0" style={{border:'1px solid #e2e8f0',boxShadow:'0 8px 24px rgba(15,23,42,0.06)'}}>
               <div className="flex items-center justify-between mb-2.5">
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:kpi.bg,color:kpi.color}}>{kpi.icon}</div>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider text-right">{kpi.label}</p>
               </div>
-              <p className="text-[18px] font-black text-slate-900 leading-none">{kpi.value}</p>
+              <p className="text-[18px] font-black text-slate-900 leading-tight break-words">{kpi.value}</p>
               <p className="text-[9px] text-slate-400 mt-1.5">{kpi.sub}</p>
             </div>
           ))}
-          {/* Net profit full-width — gradient banner */}
-          <div className="col-span-2 rounded-2xl overflow-hidden"
-            style={{background:netProfit>=0?'linear-gradient(135deg,#059669,#047857)':'linear-gradient(135deg,#dc2626,#b91c1c)',boxShadow:`0 4px 16px ${netProfit>=0?'rgba(5,150,105,0.2)':'rgba(220,38,38,0.2)'}`}}>
-            <div className="flex items-center justify-between px-4 py-3.5">
-              <div>
-                <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-0.5">Net Profit</p>
-                <p className="text-white font-black text-[22px] leading-none">{netProfit<0?'-':''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}</p>
-                <p className="text-white/50 text-[10px] mt-1">{netProfit>=0?'↑ Surplus':'↓ Deficit'}</p>
+          {/* Net profit stays inside the two-column KPI rhythm on mobile/tablet. */}
+          <div className="bg-white rounded-2xl p-3.5 min-w-0" style={{border:'1px solid #e2e8f0',boxShadow:`0 8px 24px ${netProfit>=0?'rgba(5,150,105,0.08)':'rgba(220,38,38,0.08)'}`}}>
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:netProfit>=0?'#f0fdf4':'#fff5f5',color:netProfit>=0?'#059669':'#dc2626'}}>
+                <BarChart3 className="w-4 h-4"/>
               </div>
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{background:'rgba(255,255,255,0.15)'}}>
-                <BarChart3 className="w-6 h-6 text-white"/>
-              </div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider text-right">Net Profit</p>
             </div>
+            <p className={`text-[18px] font-black leading-tight break-words ${netProfit>=0?'text-emerald-700':'text-rose-700'}`}>
+              {netProfit<0?'-':''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}
+            </p>
+            <p className={`text-[9px] mt-1.5 ${netProfit>=0?'text-emerald-600':'text-rose-600'}`}>{netProfit>=0?'Surplus':'Deficit'}</p>
           </div>
         </div>
       </div>
@@ -1871,9 +1872,9 @@ export default function DashboardReports({
               </div>
 
               {/* Filtering summary stats metrics grid */}
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
+              <div className="mobile-tablet-kpi-grid gap-3 lg:gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(5, minmax(0, 1fr))' }}>
                 {/* Total Sales Orders */}
-                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
+                <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.05)] flex flex-col justify-between min-h-[108px] text-left min-w-0">
                   <div className="flex items-start space-x-2">
                     <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600 shrink-0">
                       <ShoppingBag className="w-4 h-4" />
@@ -1892,7 +1893,7 @@ export default function DashboardReports({
                 </div>
  
                 {/* Money Earned */}
-                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
+                <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.05)] flex flex-col justify-between min-h-[108px] text-left min-w-0">
                   <div className="flex items-start space-x-2">
                     <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
                       <TrendingUp className="w-4 h-4" />
@@ -1906,7 +1907,7 @@ export default function DashboardReports({
                 </div>
 
                 {/* Paid Transactions Info */}
-                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
+                <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.05)] flex flex-col justify-between min-h-[108px] text-left min-w-0">
                   <div className="flex items-start space-x-2">
                     <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
                       <CheckCircle className="w-4 h-4" />
@@ -1920,7 +1921,7 @@ export default function DashboardReports({
                 </div>
 
                 {/* Unpaid / Credit Info */}
-                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[108px] text-left">
+                <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.05)] flex flex-col justify-between min-h-[108px] text-left min-w-0">
                   <div className="flex items-start space-x-2">
                     <div className="p-1.5 rounded-lg bg-rose-50 text-rose-600 shrink-0">
                       <AlertCircle className="w-4 h-4" />
@@ -1934,7 +1935,7 @@ export default function DashboardReports({
                 </div>
 
                 {/* Profit Generated */}
-                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[108px] text-left col-span-2 lg:col-span-1">
+                <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.05)] flex flex-col justify-between min-h-[108px] text-left min-w-0">
                   <div className="flex items-start space-x-2">
                     <div className="p-1.5 rounded-lg bg-purple-50 text-purple-600 shrink-0">
                       <BarChart3 className="w-4 h-4" />
@@ -2085,7 +2086,7 @@ export default function DashboardReports({
             </div>
 
             {/* High level counters — uses configured payment channels if available */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-2">
+            <div className="mobile-tablet-kpi-grid gap-3 sm:gap-4 pb-2" style={{ ['--desktop-kpi-columns' as any]: 'repeat(4, minmax(0, 1fr))' }}>
               {Object.keys(paymentMethodTotals).length > 0 ? (
                 // Show per-configured-channel breakdown
                 Object.entries(paymentMethodTotals)
@@ -2097,7 +2098,7 @@ export default function DashboardReports({
                     const bg = isCredit ? 'bg-amber-50 border-amber-200' : isMobile ? 'bg-emerald-50 border-emerald-100' : isBank ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-slate-100';
                     const textColor = isCredit ? 'text-amber-700' : isMobile ? 'text-emerald-700' : isBank ? 'text-blue-700' : 'text-slate-800';
                     return (
-                      <div key={key} className={`border p-3.5 rounded-2xl ${bg}`}>
+                      <div key={key} className={`border p-3.5 rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0 ${bg}`}>
                         <p className={`text-[10px] font-mono font-bold uppercase tracking-widest leading-none truncate ${textColor} opacity-70`}>{label}</p>
                         <h5 className={`text-lg font-black mt-1.5 ${textColor}`}>{currency}{Math.round(amount).toLocaleString()}</h5>
                         <p className="text-[10px] text-slate-400 mt-0.5">{count} transaction{count !== 1 ? 's' : ''}</p>
@@ -2117,7 +2118,7 @@ export default function DashboardReports({
                       const bg = isCredit ? 'bg-amber-50 border-amber-200' : isMobile ? 'bg-emerald-50 border-emerald-100' : isBank ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-slate-100';
                       const textColor = isCredit ? 'text-amber-700' : isMobile ? 'text-emerald-700' : isBank ? 'text-blue-700' : 'text-slate-800';
                       return (
-                        <div key={method} className={`border p-3.5 rounded-2xl ${bg}`}>
+                        <div key={method} className={`border p-3.5 rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0 ${bg}`}>
                           <p className={`text-[10px] font-mono font-bold uppercase tracking-widest leading-none truncate ${textColor} opacity-70`}>{method}</p>
                           <h5 className={`text-lg font-black mt-1.5 ${textColor}`}>{currency}{Math.round(revenue).toLocaleString()}</h5>
                           <p className="text-[10px] text-slate-400 mt-0.5">{count} transaction{count !== 1 ? 's' : ''}</p>
@@ -2126,19 +2127,19 @@ export default function DashboardReports({
                     })
                 ) : (
                   <>
-                  <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
+                  <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
                     <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Cash</p>
                     <h5 className="text-lg font-black text-slate-800 mt-1.5">{currency}{paymentBreakdown.Cash.toLocaleString()}</h5>
                   </div>
-                  <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
+                  <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
                     <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Card & Online</p>
                     <h5 className="text-lg font-black text-slate-800 mt-1.5">{currency}{paymentBreakdown.CardAndOnline.toLocaleString()}</h5>
                   </div>
-                  <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
+                  <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
                     <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Mobile Money</p>
                     <h5 className="text-lg font-black text-slate-800 mt-1.5">{currency}{paymentBreakdown.MobileMoney.toLocaleString()}</h5>
                   </div>
-                  <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl">
+                  <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
                     <p className="text-[10px] font-mono font-bold text-amber-700 uppercase tracking-widest leading-none">Store Credit</p>
                     <h5 className="text-lg font-black text-amber-700 mt-1.5">{currency}{paymentBreakdown.Credit.toLocaleString()}</h5>
                   </div>
@@ -2228,10 +2229,10 @@ export default function DashboardReports({
               </div>
 
               {/* High visual grid breakdown */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              <div className="mobile-tablet-kpi-grid gap-3 sm:gap-5" style={{ ['--desktop-kpi-columns' as any]: 'repeat(3, minmax(0, 1fr))' }}>
                 
                 {/* Shop Stock Val */}
-                <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl relative overflow-hidden">
+                <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl relative overflow-hidden shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
                   <span className="absolute top-2 right-2 bg-emerald-100 text-emerald-800 text-[8px] font-black font-mono tracking-widest rounded px-1.5 py-0.5">SHOP FLOOR</span>
                   <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest">Shelf Valuation</p>
                   <div className="mt-2 text-xs space-y-1">
@@ -2242,7 +2243,7 @@ export default function DashboardReports({
                 </div>
 
                 {/* Store Backroom Val */}
-                <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl relative overflow-hidden">
+                <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl relative overflow-hidden shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
                   <span className="absolute top-2 right-2 bg-blue-105 text-blue-800 text-[8px] font-black font-mono tracking-widest rounded px-1.5 py-0.5">BACKROOM STORE</span>
                   <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest">Store Valuation</p>
                   <div className="mt-2 text-xs space-y-1">
@@ -2253,7 +2254,7 @@ export default function DashboardReports({
                 </div>
 
                 {/* Debt Credit Val */}
-                <div className="bg-amber-500/5 border border-amber-200 p-4 rounded-2xl relative overflow-hidden">
+                <div className="bg-amber-500/5 border border-amber-200 p-4 rounded-2xl relative overflow-hidden shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
                   <span className="absolute top-2 right-2 bg-amber-200 text-amber-800 text-[8px] font-black font-mono tracking-widest rounded px-1.5 py-0.5">OUTSTANDING CREDIT</span>
                   <p className="text-[10px] font-mono font-bold text-amber-600 uppercase tracking-widest">On-Credit Worth</p>
                   <div className="mt-2 text-xs space-y-1">
@@ -3987,7 +3988,7 @@ export default function DashboardReports({
                 <div className="space-y-5">
                   {/* Summary Metrics Grid */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className={mobileReportKpiCardClass}>
                       <div className="flex items-center space-x-1.5 text-emerald-600">
                         <TrendingUp className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Total Sales</span>
@@ -3995,7 +3996,7 @@ export default function DashboardReports({
                       <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</span>
                     </div>
 
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className={mobileReportKpiCardClass}>
                       <div className="flex items-center space-x-1.5 text-amber-500">
                         <Package className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Total COGS</span>
@@ -4003,7 +4004,7 @@ export default function DashboardReports({
                       <span className="text-sm font-black text-slate-800 font-sans mt-2">{currency}{Math.round(totalCOGS).toLocaleString()}</span>
                     </div>
 
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className={mobileReportKpiCardClass}>
                       <div className="flex items-center space-x-1.5 text-rose-500">
                         <Receipt className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Operating Exp</span>
@@ -4011,7 +4012,7 @@ export default function DashboardReports({
                       <span className="text-sm font-black text-rose-600 font-sans mt-2">{currency}{Math.round(totalExpensesCharged).toLocaleString()}</span>
                     </div>
 
-                    <div className={`p-3 rounded-xl border shadow-xs flex flex-col justify-between min-h-[84px] text-left ${netProfit >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                    <div className={`${mobileReportToneKpiCardClass} ${netProfit >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
                       <div className={`flex items-center space-x-1.5 ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                         <DollarSign className="w-4 h-4" />
                         <span className="text-[10px] font-bold uppercase tracking-wider font-mono">Net Profit</span>
@@ -4081,7 +4082,7 @@ export default function DashboardReports({
                 <div className="space-y-4">
                   {/* Summary Metrics Grid */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className={mobileReportKpiCardClass}>
                       <div className="flex items-center space-x-1.5 text-indigo-505">
                         <ShoppingBag className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Sales Count</span>
@@ -4089,7 +4090,7 @@ export default function DashboardReports({
                       <span className="text-sm font-black text-slate-800 font-sans mt-2">{salesReportMetrics.totalOrders} Tickets</span>
                     </div>
 
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className={mobileReportKpiCardClass}>
                       <div className="flex items-center space-x-1.5 text-emerald-600">
                         <DollarSign className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Gross Revenue</span>
@@ -4097,7 +4098,7 @@ export default function DashboardReports({
                       <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(salesReportMetrics.totalRevenue).toLocaleString()}</span>
                     </div>
 
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className={mobileReportKpiCardClass}>
                       <div className="flex items-center space-x-1.5 text-emerald-505">
                         <CheckCircle className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Paid Channel</span>
@@ -4105,7 +4106,7 @@ export default function DashboardReports({
                       <span className="text-sm font-black text-emerald-700 font-sans mt-2">{currency}{Math.round(salesReportMetrics.paidRevenue).toLocaleString()}</span>
                     </div>
 
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                    <div className={mobileReportKpiCardClass}>
                       <div className="flex items-center space-x-1.5 text-rose-500">
                         <ShieldAlert className="w-4 h-4" />
                         <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider font-mono">Credit Due</span>
@@ -4184,7 +4185,7 @@ export default function DashboardReports({
                           const iconColor = isCredit ? 'text-rose-500' : isMobile ? 'text-amber-500' : isBank ? 'text-blue-500' : 'text-emerald-600';
                           const valColor = isCredit ? 'text-rose-600' : isMobile ? 'text-amber-700' : isBank ? 'text-blue-700' : 'text-emerald-600';
                           return (
-                            <div key={key} className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                            <div key={key} className={mobileReportKpiCardClass}>
                               <div className={`flex items-center space-x-1.5 ${iconColor}`}>
                                 <DollarSign className="w-4 h-4" />
                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono truncate">{label}</span>
@@ -4196,28 +4197,28 @@ export default function DashboardReports({
                         })
                     ) : (
                       <>
-                        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                        <div className={mobileReportKpiCardClass}>
                           <div className="flex items-center space-x-1.5 text-emerald-600">
                             <DollarSign className="w-4 h-4" />
                             <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Cash</span>
                           </div>
                           <span className="text-sm font-black text-emerald-600 mt-2">{currency}{paymentBreakdown.Cash.toLocaleString()}</span>
                         </div>
-                        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                        <div className={mobileReportKpiCardClass}>
                           <div className="flex items-center space-x-1.5 text-indigo-500">
                             <CheckCircle className="w-4 h-4" />
                             <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Card & Online</span>
                           </div>
                           <span className="text-sm font-black text-slate-800 mt-2">{currency}{paymentBreakdown.CardAndOnline.toLocaleString()}</span>
                         </div>
-                        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                        <div className={mobileReportKpiCardClass}>
                           <div className="flex items-center space-x-1.5 text-amber-500">
                             <Smartphone className="w-4 h-4" />
                             <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Mobile Money</span>
                           </div>
                           <span className="text-sm font-black text-slate-800 mt-2">{currency}{paymentBreakdown.MobileMoney.toLocaleString()}</span>
                         </div>
-                        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                        <div className={mobileReportKpiCardClass}>
                           <div className="flex items-center space-x-1.5 text-rose-500">
                             <AlertTriangle className="w-4 h-4" />
                             <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Store Credit</span>
@@ -4269,7 +4270,7 @@ export default function DashboardReports({
                     return (
                       <>
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-indigo-500">
                               <Package className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Shop Stock</span>
@@ -4277,7 +4278,7 @@ export default function DashboardReports({
                             <span className="text-sm font-black text-slate-800 mt-2">{currency}{Math.round(totalShopVal).toLocaleString()}</span>
                           </div>
 
-                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-amber-500">
                               <Archive className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Backroom Store</span>
@@ -4285,7 +4286,7 @@ export default function DashboardReports({
                             <span className="text-sm font-black text-slate-800 mt-2">{currency}{Math.round(totalStoreVal).toLocaleString()}</span>
                           </div>
 
-                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-blue-500">
                               <Tag className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Catalog SKUs</span>
@@ -4361,7 +4362,7 @@ export default function DashboardReports({
                       <div className="space-y-4 text-left">
                         {/* Summary Metrics Grid */}
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-blue-500">
                               <Users className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Loyal Clients</span>
@@ -4369,7 +4370,7 @@ export default function DashboardReports({
                             <span className="text-sm font-black text-slate-800 mt-2">{Object.keys(custMap).length} Profiles</span>
                           </div>
 
-                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-emerald-500">
                               <Users className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Active Staff</span>
@@ -4427,7 +4428,7 @@ export default function DashboardReports({
                       <div className="space-y-4 text-left">
                         {/* Summary Metrics Grid */}
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-rose-500">
                               <Receipt className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Expense Logs</span>
@@ -4543,7 +4544,7 @@ export default function DashboardReports({
                           return (
                             <>
                               <div className="grid grid-cols-2 gap-3">
-                                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                                <div className={mobileReportKpiCardClass}>
                                   <div className="flex items-center space-x-1.5 text-indigo-505">
                                     <ShoppingBag className="w-4 h-4" />
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Units Sold</span>
@@ -4553,7 +4554,7 @@ export default function DashboardReports({
                                   </span>
                                 </div>
 
-                                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                                <div className={mobileReportKpiCardClass}>
                                   <div className="flex items-center space-x-1.5 text-emerald-600">
                                     <DollarSign className="w-4 h-4" />
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Gross Income</span>
@@ -4561,7 +4562,7 @@ export default function DashboardReports({
                                   <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(totalRevenue).toLocaleString()}</span>
                                 </div>
 
-                                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                                <div className={mobileReportKpiCardClass}>
                                   <div className="flex items-center space-x-1.5 text-indigo-505">
                                     <Percent className="w-4 h-4" />
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Average Margin</span>
@@ -4658,7 +4659,7 @@ export default function DashboardReports({
                       <div className="space-y-4 font-sans text-left">
                         {/* Summary Metrics Grid */}
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-indigo-500">
                               <ShoppingBag className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Retail Sales</span>
@@ -4667,7 +4668,7 @@ export default function DashboardReports({
                             <span className="text-[10px] text-slate-400 font-mono mt-0.5">{currency}{Math.round(retailRevenue).toLocaleString()}</span>
                           </div>
 
-                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-amber-500">
                               <Archive className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Wholesale Sales</span>
@@ -4738,7 +4739,7 @@ export default function DashboardReports({
                       <div className="space-y-4 font-sans text-left">
                         {/* Summary Metrics Grid */}
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-slate-500">
                               <Truck className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider font-mono">Fulfillments</span>
@@ -4746,7 +4747,7 @@ export default function DashboardReports({
                             <span className="text-sm font-black text-slate-800 mt-1">{validDeliveries.length} orders</span>
                           </div>
 
-                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-indigo-500">
                               <DollarSign className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider font-mono">Logistics Rev</span>
@@ -4754,7 +4755,7 @@ export default function DashboardReports({
                             <span className="text-sm font-black text-slate-800 mt-1">{currency}{deliveryIncome.toLocaleString()}</span>
                           </div>
 
-                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-rose-500">
                               <Receipt className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider font-mono">Fleet Outflow</span>
@@ -4762,7 +4763,7 @@ export default function DashboardReports({
                             <span className="text-sm font-black text-rose-600 mt-1">{currency}{totalDeliveryExpenses.toLocaleString()}</span>
                           </div>
 
-                          <div className={`p-3 rounded-xl border shadow-xs flex flex-col justify-between min-h-[84px] text-left ${netDeliveryProfit >= 0 ? 'bg-emerald-50 border-emerald-150' : 'bg-rose-50 border-rose-150'}`}>
+                          <div className={`${mobileReportToneKpiCardClass} ${netDeliveryProfit >= 0 ? 'bg-emerald-50 border-emerald-150' : 'bg-rose-50 border-rose-150'}`}>
                             <div className="flex items-center space-x-1.5">
                               <TrendingUp className={`w-4 h-4 ${netDeliveryProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`} />
                               <span className={`text-[10px] font-bold uppercase tracking-wider font-mono block ${netDeliveryProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>Net value margin</span>
@@ -5715,20 +5716,20 @@ export default function DashboardReports({
                 return (
                   <div className="space-y-6">
                     {/* Key Metrics */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                    <div className="mobile-tablet-kpi-grid gap-3 sm:gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(4, minmax(0, 1fr))' }}>
+                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
                         <span className="block text-[10px] font-mono font-bold uppercase text-slate-500 tracking-wider mb-2">Total Deliveries</span>
                         <span className="text-2xl font-black text-slate-800">{validDeliveries.length}</span>
                       </div>
-                      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 text-center">
+                      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 text-center shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
                         <span className="block text-[10px] font-mono font-bold uppercase text-indigo-600 tracking-wider mb-2">Total Delivery Revenue</span>
                         <span className="text-2xl font-black font-mono text-indigo-900">{currency}{deliveryIncome.toLocaleString()}</span>
                       </div>
-                      <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-center">
+                      <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-center shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
                         <span className="block text-[10px] font-mono font-bold uppercase text-rose-600 tracking-wider mb-2">Fleet Expenses</span>
                         <span className="text-2xl font-black font-mono text-rose-900">{currency}{totalDeliveryExpenses.toLocaleString()}</span>
                       </div>
-                      <div className={`rounded-2xl p-4 text-center border ${netDeliveryProfit >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                      <div className={`rounded-2xl p-4 text-center border shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0 ${netDeliveryProfit >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
                         <span className={`block text-[10px] font-mono font-bold uppercase tracking-wider mb-2 ${netDeliveryProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>Net Value Generated</span>
                         <span className={`text-2xl font-black font-mono ${netDeliveryProfit >= 0 ? 'text-emerald-900' : 'text-red-900'}`}>
                           {netDeliveryProfit >= 0 ? '+' : ''}{currency}{netDeliveryProfit.toLocaleString()}
