@@ -944,6 +944,30 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         }
       }
 
+      // All synthetic email attempts failed — look up real email from users table
+      if (authError && !cleanIdentifier.includes('@')) {
+        try {
+          const norm = normalizePhoneForWhatsapp(cleanIdentifier);
+          const alt0 = norm.startsWith('255') ? `0${norm.slice(3)}` : cleanIdentifier;
+          const { data: userRow } = await client
+            .from('users')
+            .select('email')
+            .or(`phone.eq.${cleanIdentifier},phone.eq.+${norm},phone.eq.${alt0},username_phone.eq.${cleanIdentifier},username_phone.eq.${norm}`)
+            .maybeSingle();
+          if (userRow?.email && !userRow.email.includes('@whatsapp.jasper.local')) {
+            const retry = await client.auth.signInWithPassword({ email: userRow.email, password: cleanPassword });
+            if (!retry.error && retry.data?.user) {
+              authData = retry.data;
+              authError = null;
+              matchedAuthEmail = userRow.email;
+            }
+          }
+        } catch (_) { /* continue to error below */ }
+      }
+          break;
+        }
+      }
+
       if (!authError && authData?.user) {
         // Authenticated successfully. Fetch matching public users row
         const { data: userProfile, error: profileError } = await client
