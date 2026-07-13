@@ -963,9 +963,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           }
         } catch (_) { /* continue to error below */ }
       }
-          break;
-        }
-      }
 
       if (!authError && authData?.user) {
         // Authenticated successfully. Fetch matching public users row

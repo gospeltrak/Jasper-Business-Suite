@@ -8,6 +8,7 @@ import JasperSplashScreen from './components/JasperSplashScreen';
 import { User, Tenant } from './types';
 import { useTheme } from './ThemeContext';
 import { useTenantLogo } from './TenantLogoContext';
+import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from './secureDataBridge';
 import { endCloudSession, touchCloudSession } from './utils/sessionControl';
 
 type TenantDomainContext = {
@@ -139,6 +140,12 @@ export default function App() {
 
   const getSessionTenantId = (sessionUser: User) => sessionUser.tenantId || sessionUser.activeTenant || 'default';
 
+  const getAuthenticatedRoute = (sessionUser: User) => {
+    if (sessionUser.role === 'Partner' || sessionUser.portal_role === 'partner') return '/partner';
+    if (sessionUser.role === 'Affiliate' || sessionUser.portal_role === 'affiliate') return '/affiliate';
+    return '/dashboard';
+  };
+
   const getDeviceLabel = () => {
     const width = window.innerWidth;
     if (width < 768) return 'Mobile';
@@ -229,6 +236,13 @@ export default function App() {
 
   // Perform route protection redirects check
   useEffect(() => {
+    if ((currentPath === '/login' || currentPath.startsWith('/login/')) && user) {
+      const targetPath = getAuthenticatedRoute(user);
+      window.history.replaceState({}, '', targetPath);
+      setCurrentPath(targetPath);
+      return;
+    }
+
     if (tenantDomainContext.kind === 'tenant' && user) {
       const userTenantId = user.tenantId || user.activeTenant;
       const isPlatformAdmin = user.role === 'SuperAdmin' || user.isSaaSStaff;
@@ -261,6 +275,62 @@ export default function App() {
     }
   }, [currentPath, user, tenantDomainContext]);
 
+  useEffect(() => {
+    if (user || tenantDomainContext.kind === 'loading') return;
+    let cancelled = false;
+
+    const restoreCloudSession = async () => {
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        if (isPlaceholderSecureDataBridgeClient(client)) return;
+
+        const { data: sessionData } = await client.auth.getSession();
+        const authUser = sessionData?.session?.user;
+        if (!authUser?.id) return;
+
+        const { data: userProfile, error: profileError } = await client
+          .from('users')
+          .select('*')
+          .eq('id', authUser.id)
+          .maybeSingle();
+
+        if (cancelled || profileError || !userProfile) return;
+
+        const isPlatformAdmin = userProfile?.account_type === 'super_admin' ||
+          ['superadmin', 'super_admin'].includes(String(userProfile?.role_key || userProfile?.role || '').toLowerCase());
+        const profileTenantId = userProfile?.tenant_id || userProfile?.active_tenant;
+        if (!profileTenantId && !isPlatformAdmin) return;
+
+        const restoredUser: User = {
+          id: userProfile.id,
+          email: userProfile.email || authUser.email || '',
+          name: userProfile.name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+          role: isPlatformAdmin ? 'SuperAdmin' : (userProfile.role || 'Admin'),
+          tenantId: userProfile.tenant_id || 'platform-control',
+          activeTenant: userProfile.active_tenant || userProfile.tenant_id || 'platform-control',
+          phone: userProfile.phone || authUser.user_metadata?.phone || undefined,
+          isSaaSStaff: userProfile.is_saas_staff || false,
+          saasPermissions: userProfile.role_permissions || undefined,
+          profileImage: userProfile.profile_image_url || undefined
+        };
+
+        setUser(restoredUser);
+        localStorage.setItem('jasper_cashier_user', JSON.stringify(restoredUser));
+
+        if (currentPath === '/login' || currentPath.startsWith('/login/')) {
+          const targetPath = getAuthenticatedRoute(restoredUser);
+          window.history.replaceState({}, '', targetPath);
+          setCurrentPath(targetPath);
+        }
+      } catch (error) {
+        console.warn('Cloud session restore skipped', error);
+      }
+    };
+
+    restoreCloudSession();
+    return () => { cancelled = true; };
+  }, [currentPath, tenantDomainContext.kind, user]);
+
   const handleLoginSuccess = (authenticatedUser: User) => {
     const domainTenantId = tenantDomainContext.kind === 'tenant' ? tenantDomainContext.tenant?.id : null;
     const userTenantId = authenticatedUser.tenantId || authenticatedUser.activeTenant;
@@ -278,15 +348,7 @@ export default function App() {
       setShowSplash(true);
     }
     // Route based on role — Partner and Affiliate get their own portals
-    const role = authenticatedUser.role;
-    const portalRole = authenticatedUser.portal_role;
-    if (role === 'Partner' || portalRole === 'partner') {
-      navigateTo('/partner');
-    } else if (role === 'Affiliate' || portalRole === 'affiliate') {
-      navigateTo('/affiliate');
-    } else {
-      navigateTo('/dashboard');
-    }
+    navigateTo(getAuthenticatedRoute(authenticatedUser));
   };
 
   useEffect(() => {
