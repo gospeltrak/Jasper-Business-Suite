@@ -55,6 +55,7 @@ import {
 } from 'lucide-react';
 import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } from '../utils/unitFormatter';
 import { printPdfFromElement } from '../utils/pdfShare';
+import CachedImage from './CachedImage';
 
 // Revenue helper: exclude delivery fees from product revenue calculations
 const saleProductRevenue = (s: any): number =>
@@ -4294,7 +4295,7 @@ export default function DashboardReports({
                             <span className="text-sm font-black text-blue-600 mt-2">{products.length} Products</span>
                           </div>
 
-                          <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
+                          <div className={`${mobileReportToneKpiCardClass} bg-emerald-50 border-emerald-150`}>
                             <div className="flex items-center space-x-1.5 text-emerald-600">
                               <Package className="w-4 h-4" />
                               <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Total Assets</span>
@@ -4304,27 +4305,73 @@ export default function DashboardReports({
                         </div>
 
                         {/* List replacements */}
-                        <div className="space-y-2.5 text-left">
-                          <div className="flex justify-between items-center px-1">
-                            <h4 className="text-xs font-semibold text-slate-800 font-sans">Valuations Journal Listings</h4>
-                            <span className="text-[10px] font-mono text-slate-400">{products.length} products</span>
+                        <div className="space-y-3 text-left">
+                          <div className="flex justify-between items-end px-1">
+                            <div>
+                              <h4 className="text-xs font-black text-slate-800 font-sans tracking-tight">Valuations Journal Listings</h4>
+                              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Product-level stock value cards</p>
+                            </div>
+                            <span className="px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-mono font-bold text-slate-500">{products.length} products</span>
                           </div>
 
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                             {products.map((p) => {
                               const totalQty = p.stockQty || 0;
+                              const shopQty = p.shopStockQty || 0;
+                              const storeQty = p.storeStockQty || 0;
                               const valAmount = totalQty * p.costPrice;
+                              const retailAmount = totalQty * p.sellingPrice;
+                              const stockIsLow = totalQty <= (p.alertQty || 0);
                               return (
-                                <div key={p.id} className="bg-white px-4 py-3 border border-slate-200 rounded-xl shadow-xs flex justify-between items-center text-left">
-                                  <div>
-                                    <span className="text-sm font-bold text-slate-800 block">{p.name}</span>
-                                    <span className="text-xs text-slate-400 block mt-0.5">
-                                      SKU: {p.sku || 'N/A'} • Cost: {currency}{p.costPrice.toFixed(1)} • Shop: {formatProductQuantity(p.shopStockQty || 0, p)}
-                                    </span>
-                                  </div>
-                                  <div className="text-right shrink-0">
-                                    <span className="text-sm font-extrabold text-slate-900 block">{formatProductQuantity(totalQty, p)}</span>
-                                    <span className="text-[11px] text-indigo-600 font-bold block mt-0.5">{currency}{Math.round(valAmount).toLocaleString()}</span>
+                                <div key={p.id} className="relative overflow-hidden bg-white p-3.5 border border-slate-200 rounded-3xl shadow-[0_12px_30px_rgba(15,23,42,0.07)] text-left">
+                                  <div className={`absolute inset-x-0 top-0 h-1 ${stockIsLow ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center p-1.5 shadow-[0_8px_18px_rgba(15,23,42,0.05)]">
+                                      {p.image ? (
+                                        <CachedImage src={p.image} alt={p.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                                      ) : (
+                                        <div className="w-full h-full rounded-xl bg-white flex flex-col items-center justify-center text-slate-400">
+                                          <Package className="w-5 h-5" />
+                                          <span className="text-[7px] font-black font-mono uppercase mt-1">Stock</span>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <span className="text-[13px] font-black text-slate-900 block leading-tight break-words">{p.name}</span>
+                                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[9px] font-mono font-bold text-slate-500 uppercase max-w-[128px] truncate">{p.category || 'Uncategorized'}</span>
+                                            <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-[9px] font-mono font-bold text-indigo-600 uppercase max-w-[104px] truncate">SKU {p.sku || 'N/A'}</span>
+                                          </div>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Value</span>
+                                          <span className="text-sm font-black text-slate-900 block leading-tight">{currency}{Math.round(valAmount).toLocaleString()}</span>
+                                        </div>
+                                      </div>
+
+                                      <div className="grid grid-cols-3 gap-1.5 mt-3">
+                                        <div className="rounded-2xl bg-emerald-50 border border-emerald-100 px-2 py-2 min-w-0">
+                                          <span className="text-[8.5px] font-black font-mono text-emerald-600 uppercase block">Shop</span>
+                                          <span className="text-[11px] font-black text-emerald-800 block mt-0.5 truncate">{formatProductQuantity(shopQty, p)}</span>
+                                        </div>
+                                        <div className="rounded-2xl bg-blue-50 border border-blue-100 px-2 py-2 min-w-0">
+                                          <span className="text-[8.5px] font-black font-mono text-blue-600 uppercase block">Store</span>
+                                          <span className="text-[11px] font-black text-blue-800 block mt-0.5 truncate">{formatProductQuantity(storeQty, p)}</span>
+                                        </div>
+                                        <div className={`rounded-2xl border px-2 py-2 min-w-0 ${stockIsLow ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-200'}`}>
+                                          <span className={`text-[8.5px] font-black font-mono uppercase block ${stockIsLow ? 'text-amber-700' : 'text-slate-500'}`}>Total</span>
+                                          <span className={`text-[11px] font-black block mt-0.5 truncate ${stockIsLow ? 'text-amber-800' : 'text-slate-900'}`}>{formatProductQuantity(totalQty, p)}</span>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-slate-100">
+                                        <span className="text-[10px] text-slate-400 font-medium">Cost {currency}{p.costPrice.toFixed(1)}</span>
+                                        <span className="text-[10px] text-slate-500 font-bold">Retail {currency}{Math.round(retailAmount).toLocaleString()}</span>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               );
