@@ -949,17 +949,29 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         try {
           const norm = normalizePhoneForWhatsapp(cleanIdentifier);
           const alt0 = norm.startsWith('255') ? `0${norm.slice(3)}` : cleanIdentifier;
-          const { data: userRow } = await client
-            .from('users')
-            .select('email')
-            .or(`phone.eq.${cleanIdentifier},phone.eq.+${norm},phone.eq.${alt0},username_phone.eq.${cleanIdentifier},username_phone.eq.${norm}`)
-            .maybeSingle();
-          if (userRow?.email && !userRow.email.includes('@whatsapp.jasper.local')) {
-            const retry = await client.auth.signInWithPassword({ email: userRow.email, password: cleanPassword });
+          const digits9 = norm.length > 3 ? norm.slice(-9) : '';
+          
+          // Try each phone format separately to avoid .or() failures on missing columns
+          let userEmail: string | null = null;
+          
+          for (const phoneVal of [cleanIdentifier, norm, `+${norm}`, alt0, digits9].filter(Boolean)) {
+            const { data: userRow } = await client
+              .from('users')
+              .select('email')
+              .eq('phone', phoneVal)
+              .maybeSingle();
+            if (userRow?.email && !userRow.email.includes('@whatsapp.jasper.local')) {
+              userEmail = userRow.email;
+              break;
+            }
+          }
+          
+          if (userEmail) {
+            const retry = await client.auth.signInWithPassword({ email: userEmail, password: cleanPassword });
             if (!retry.error && retry.data?.user) {
               authData = retry.data;
               authError = null;
-              matchedAuthEmail = userRow.email;
+              matchedAuthEmail = userEmail;
             }
           }
         } catch (_) { /* continue to error below */ }
