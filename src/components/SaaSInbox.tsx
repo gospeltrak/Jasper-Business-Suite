@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Inbox, CheckCircle, Clock, Trash, AlertTriangle, Reply } from 'lucide-react';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
+import { ONLINE_ONLY_WRITE_MESSAGE } from '../utils/onlineOnly';
 
 interface InboxMessage {
   id: string;
@@ -28,22 +29,31 @@ export default function SaaSInbox() {
     return () => { alive = false; };
   }, []);
 
-  const handleMarkAsRead = (id: string, e?: React.MouseEvent) => {
+  const handleMarkAsRead = async (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     const updated = messages.map(m => m.id === id ? { ...m, isRead: true } : m);
-    setMessages(updated);
-    savePlatformRecord('platform_inbox', 'global', updated).catch(() => {});
+    try {
+      await savePlatformRecord('platform_inbox', 'global', updated);
+      setMessages(updated);
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+    }
   };
 
-  const handleDelete = (id: string, e?: React.MouseEvent) => {
+  const handleDelete = async (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     const updated = messages.filter(m => m.id !== id);
-    setMessages(updated);
-    savePlatformRecord('platform_inbox', 'global', updated).catch(() => {});
+    try {
+      await savePlatformRecord('platform_inbox', 'global', updated);
+      setMessages(updated);
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     if (selectedMessage?.id === id) setSelectedMessage(null);
   };
 
-  const handleReply = (e: React.FormEvent) => {
+  const handleReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!replyText.trim()) return;
     const replyRecord: InboxMessage = {
@@ -56,8 +66,13 @@ export default function SaaSInbox() {
       priority: 'normal'
     };
     const updated = [replyRecord, ...messages];
-    setMessages(updated);
-    savePlatformRecord('platform_inbox', 'global', updated).catch(() => {});
+    try {
+      await savePlatformRecord('platform_inbox', 'global', updated);
+      setMessages(updated);
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     alert('Reply saved to platform inbox ledger.');
     setReplyText('');
     setSelectedMessage(null);

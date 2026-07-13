@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Plus, Edit2, Trash } from 'lucide-react';
 import { defaultHardwareInventory, loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
+import { ONLINE_ONLY_WRITE_MESSAGE } from '../utils/onlineOnly';
 
 export default function SaaSHardwareInventory({ affiliateId }: { affiliateId?: string }) {
   const [inventory, setInventory] = useState<any[]>([]);
@@ -21,30 +22,43 @@ export default function SaaSHardwareInventory({ affiliateId }: { affiliateId?: s
     return () => { alive = false; };
   }, [recordType, scopeId, affiliateId]);
 
-  const handleUpdateStock = (id: string, qty: number) => {
+  const handleUpdateStock = async (id: string, qty: number) => {
     const updated = inventory.map(item => item.id === id ? { ...item, stock: Math.max(0, item.stock + qty) } : item);
-    setInventory(updated);
-    savePlatformRecord(recordType, scopeId, updated).catch(() => {});
+    try {
+      await savePlatformRecord(recordType, scopeId, updated);
+      setInventory(updated);
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+    }
   };
 
-  const handleSaveItem = () => {
+  const handleSaveItem = async () => {
     let updated;
     if (selectedEdit) {
       updated = inventory.map(item => item.id === selectedEdit.id ? { ...item, ...formData } : item);
     } else {
       updated = [...inventory, { id: 'item-' + Date.now(), ...formData }];
     }
-    setInventory(updated);
-    savePlatformRecord(recordType, scopeId, updated).catch(() => {});
+    try {
+      await savePlatformRecord(recordType, scopeId, updated);
+      setInventory(updated);
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     setShowAddModal(false);
     setSelectedEdit(null);
   };
 
-  const handleDeleteItem = (id: string) => {
+  const handleDeleteItem = async (id: string) => {
     if (!confirm('Are you sure you want to delete this hardware item?')) return;
     const updated = inventory.filter(i => i.id !== id);
-    setInventory(updated);
-    savePlatformRecord(recordType, scopeId, updated).catch(() => {});
+    try {
+      await savePlatformRecord(recordType, scopeId, updated);
+      setInventory(updated);
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+    }
   };
 
   const openAdd = () => {

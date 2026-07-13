@@ -52,6 +52,7 @@ import { initPlatformSync } from '../utils/superAdminPlatformRecords';
 import SaaSWebEditor from './SaaSWebEditor';
 import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
+import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../utils/onlineOnly';
 
 export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'user-activity' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
 
@@ -70,7 +71,7 @@ export default function SuperSaaSAdminView({
 }: SuperSaaSAdminViewProps = {}) {
   const [internalActiveTab, setInternalActiveTab] = useState<SuperAdminWorkspaceTab>('dashboard');
 
-  // Init offline sync for platform records (hardware, etc.)
+  // Init legacy queue preservation for platform records. Writes are online-only.
   useEffect(() => { initPlatformSync(); }, []);
   const activeTab = externalActiveTab || internalActiveTab;
   const setActiveTab = (tab: SuperAdminWorkspaceTab) => {
@@ -148,21 +149,33 @@ export default function SuperSaaSAdminView({
     return raw ? JSON.parse(raw) : ['retail', 'pharmacy']; // Defaults to Retail/Wholesale + Pharmacy launched!
   });
 
-  const handleToggleNiche = (nicheId: string) => {
+  const handleToggleNiche = async (nicheId: string) => {
+    if (!canWriteBusinessDataOnline()) {
+      alert(ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     let updated: string[];
+    let auditMessage: string;
     if (launchedNiches.includes(nicheId)) {
       if (launchedNiches.length <= 1) {
         alert('⚠️ You must keep at least one active launched niche to sustain user signups.');
         return;
       }
       updated = launchedNiches.filter(n => n !== nicheId);
-      handleAuditLog(`De-escalated niche: "${nicheId}" to background development mode`, 'Niche Launch Manager');
+      auditMessage = `De-escalated niche: "${nicheId}" to background development mode`;
     } else {
       updated = [...launchedNiches, nicheId];
-      handleAuditLog(`Escalated niche: "${nicheId}" to active commercial production`, 'Niche Launch Manager');
+      auditMessage = `Escalated niche: "${nicheId}" to active commercial production`;
     }
-    setLaunchedNiches(updated);
-    localStorage.setItem('saas_launched_niches', JSON.stringify(updated));
+    try {
+      await savePlatformRecord('saas_launched_niches', 'global', updated);
+      setLaunchedNiches(updated);
+      localStorage.setItem('saas_launched_niches', JSON.stringify(updated));
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
+    handleAuditLog(auditMessage, 'Niche Launch Manager');
     // Dispatch custom window event so login/registration UI can update on screen immediately
     window.dispatchEvent(new Event('saas_niches_updated'));
   };
@@ -193,7 +206,9 @@ export default function SuperSaaSAdminView({
       adminUsername: '@super_admin_core'
     };
     const updated = [newLog, ...current];
-    localStorage.setItem('saas_ops_admin_logs', JSON.stringify(updated));
+    savePlatformRecord('saas_ops_admin_logs', 'global', updated).catch((error) => {
+      console.warn('[super-admin] audit log save blocked:', error);
+    });
   };
 
   const initializeSaaSData = async () => {
@@ -214,15 +229,17 @@ export default function SuperSaaSAdminView({
     setTutorials(currentTutorials);
   };
 
-  const saveData = (placements: any[], activeBanners: any[], currentMessages: any[]) => {
-    savePlatformRecord('ad_placements', 'global', placements).catch(() => {});
-    savePlatformRecord('promotional_banners', 'global', activeBanners).catch(() => {});
-    savePlatformRecord('platform_messages', 'global', currentMessages).catch(() => {});
+  const saveData = async (placements: any[], activeBanners: any[], currentMessages: any[]) => {
+    await Promise.all([
+      savePlatformRecord('ad_placements', 'global', placements),
+      savePlatformRecord('promotional_banners', 'global', activeBanners),
+      savePlatformRecord('platform_messages', 'global', currentMessages)
+    ]);
   };
 
-  const saveTutorials = (nextTutorials: any[]) => {
+  const saveTutorials = async (nextTutorials: any[]) => {
+    await savePlatformRecord('training_tutorials', 'global', nextTutorials);
     setTutorials(nextTutorials);
-    savePlatformRecord('training_tutorials', 'global', nextTutorials).catch(() => {});
   };
 
   const handleCreateTutorial = (e: React.FormEvent) => {
@@ -233,7 +250,7 @@ export default function SuperSaaSAdminView({
       return;
     }
 
-    const persistTutorial = (assetData: string | null = null) => {
+    const persistTutorial = async (assetData: string | null = null) => {
       const tutorial = {
         id: 'tut-' + Math.floor(Math.random() * 1000000),
         title: newTutorialTitle.trim(),
@@ -245,7 +262,12 @@ export default function SuperSaaSAdminView({
         assetData,
         createdAt: new Date().toISOString(),
       };
-      saveTutorials([tutorial, ...tutorials]);
+      try {
+        await saveTutorials([tutorial, ...tutorials]);
+      } catch (error: any) {
+        alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+        return;
+      }
       setNewTutorialTitle('');
       setNewTutorialDescription('');
       setNewTutorialLink('');
@@ -260,7 +282,7 @@ export default function SuperSaaSAdminView({
     }
 
     const reader = new FileReader();
-    reader.onload = () => persistTutorial(typeof reader.result === 'string' ? reader.result : null);
+    reader.onload = () => { persistTutorial(typeof reader.result === 'string' ? reader.result : null); };
     reader.onerror = () => alert('Could not read tutorial file.');
     reader.readAsDataURL(newTutorialFile);
   };
@@ -289,7 +311,7 @@ export default function SuperSaaSAdminView({
   };
 
   // Hotline Send Broadcast
-  const handleSendBroadcast = (e: React.FormEvent) => {
+  const handleSendBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!broadcastMessage.trim()) return;
 
@@ -303,15 +325,20 @@ export default function SuperSaaSAdminView({
     };
 
     const updated = [newMsg, ...messages];
-    setMessages(updated);
-    saveData(adPlacements, banners, updated);
+    try {
+      await saveData(adPlacements, banners, updated);
+      setMessages(updated);
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     setBroadcastMessage('');
     handleAuditLog(`Transmitted general broadcast to ${broadcastTarget}`, 'Platform Broadcaster');
     alert(`📢 General broadcast dispatched to all connected ${broadcastTarget}!`);
   };
 
   // Direct DM Support Routing
-  const handleSendDM = (e: React.FormEvent) => {
+  const handleSendDM = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dmMessage.trim() || !dmSearchQuery.trim()) return;
 
@@ -325,8 +352,13 @@ export default function SuperSaaSAdminView({
     };
 
     const updated = [newDm, ...messages];
-    setMessages(updated);
-    saveData(adPlacements, banners, updated);
+    try {
+      await saveData(adPlacements, banners, updated);
+      setMessages(updated);
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     setDmMessage('');
     handleAuditLog(`Dispatched DM message to ${dmSearchQuery}`, dmSearchQuery);
     alert(`💌 Support DM successfully routed to ${dmSearchQuery}!`);
@@ -355,7 +387,7 @@ export default function SuperSaaSAdminView({
     setNewBannerCreative(null);
   };
 
-  const handleDeleteBanner = (bannerId: string) => {
+  const handleDeleteBanner = async (bannerId: string) => {
     const target = banners.find((banner) => banner.id === bannerId);
     if (!target) return;
     if (!confirm(`Delete SSP ad "${target.title}"? Affiliates will no longer see this material.`)) return;
@@ -365,9 +397,14 @@ export default function SuperSaaSAdminView({
       if (placement.size !== target.size) return placement;
       return { ...placement, activeBannersCount: Math.max(0, Number(placement.activeBannersCount || 0) - 1) };
     });
-    setBanners(updatedBanners);
-    setAdPlacements(updatedPlacements);
-    saveData(updatedPlacements, updatedBanners, messages);
+    try {
+      await saveData(updatedPlacements, updatedBanners, messages);
+      setBanners(updatedBanners);
+      setAdPlacements(updatedPlacements);
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     if (editingBannerId === bannerId) resetBannerForm();
     handleAuditLog(`Deleted SSP ad unit: ${target.title}`, 'Banner engine');
   };
@@ -385,7 +422,7 @@ export default function SuperSaaSAdminView({
       return;
     }
 
-    const persistAd = (assetData: string | null = null) => {
+    const persistAd = async (assetData: string | null = null) => {
       const finalAssetData = assetData ?? (editingBannerId ? existingBanner?.assetData || null : null);
       const finalCreativeName = newBannerCreative ? newBannerCreative.name : existingBanner?.creativeName || null;
       const finalCreativeMime = newBannerCreative ? newBannerCreative.type : existingBanner?.creativeMime || null;
@@ -407,7 +444,6 @@ export default function SuperSaaSAdminView({
       const updatedBanners = editingBannerId
         ? banners.map((banner) => banner.id === editingBannerId ? nextAd : banner)
         : [...banners, nextAd];
-      setBanners(updatedBanners);
 
       const updatedPlacements = adPlacements.map(p => {
         const count = Number(p.activeBannersCount || 0);
@@ -420,9 +456,15 @@ export default function SuperSaaSAdminView({
         }
         return p;
       });
-      setAdPlacements(updatedPlacements);
 
-      saveData(updatedPlacements, updatedBanners, messages);
+      try {
+        await saveData(updatedPlacements, updatedBanners, messages);
+        setBanners(updatedBanners);
+        setAdPlacements(updatedPlacements);
+      } catch (error: any) {
+        alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+        return;
+      }
       resetBannerForm();
       handleAuditLog(`${editingBannerId ? 'Updated' : 'Created'} SSP ad unit: ${newBannerTitle}`, 'Banner engine');
       alert(`SSP ad ${editingBannerId ? 'updated' : 'stored'} and active.`);
@@ -448,29 +490,29 @@ export default function SuperSaaSAdminView({
   };
 
   // Campaign Auto Code generator with automatic collision resolution
-  const handleGeneratePromoAndLink = (e: React.FormEvent) => {
+  const handleGeneratePromoAndLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAffFirstName.trim()) return;
 
     const codeBase = newAffFirstName.trim().toUpperCase();
     let uniqueCode = codeBase;
     
-    // Simulate loading existing affiliates from storage to resolve collisions
-    const existingRaw = localStorage.getItem('saas_immersive_affiliates');
-    const existingAffs = existingRaw ? JSON.parse(existingRaw) : [];
+    let existingAffs: any[] = [];
+    try {
+      existingAffs = await loadPlatformRecord<any[]>('saas_immersive_affiliates', 'global', []);
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
     
     let suffix = 0;
-    while (existingAffs.some((a: any) => a.promoCode.toUpperCase() === uniqueCode)) {
+    while (existingAffs.some((a: any) => String(a.promoCode || a.promo_code || '').toUpperCase() === uniqueCode)) {
       suffix++;
       uniqueCode = `${codeBase}${suffix.toString().padStart(2, '0')}`;
     }
 
     const campaignLink = `https://dukaplus.co.tz/join?ref=${uniqueCode.toLowerCase()}`;
     
-    // Set response log
-    const responseLog = `🎉 PROMO COLLISION SAFEGUARDS TRIGGERED\n--------------------------------------\nPROMOTER CODE BOUND: ${uniqueCode}\nCAMPAIGN TRACK LINK: ${campaignLink}\nSEGMENT ASSIGNED: ${newAffPurpose}\nSTATUS: Active Central Registry Node`;
-    setCouponCreationLog(responseLog);
-
     // Save back to list
     const newAffRecord = {
       id: 'aff-' + Math.floor(Math.random() * 100000),
@@ -492,7 +534,17 @@ export default function SuperSaaSAdminView({
     };
 
     const nextList = [newAffRecord, ...existingAffs];
-    localStorage.setItem('saas_immersive_affiliates', JSON.stringify(nextList));
+    try {
+      await savePlatformRecord('saas_immersive_affiliates', 'global', nextList);
+      localStorage.setItem('saas_immersive_affiliates', JSON.stringify(nextList));
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
+
+    // Set response log after cloud confirmation.
+    const responseLog = `🎉 PROMO COLLISION SAFEGUARDS TRIGGERED\n--------------------------------------\nPROMOTER CODE BOUND: ${uniqueCode}\nCAMPAIGN TRACK LINK: ${campaignLink}\nSEGMENT ASSIGNED: ${newAffPurpose}\nSTATUS: Active Central Registry Node`;
+    setCouponCreationLog(responseLog);
 
     // Force updates on user list or desk listeners
     window.dispatchEvent(new Event('saas_logs_updated'));

@@ -27,6 +27,7 @@ import {
   SuperAdminUserRow,
   updateSuperAdminUser
 } from '../utils/superAdminData';
+import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 
 // Encrypted persistence simulation
 const encryptValue = (val: string) => {
@@ -81,6 +82,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'organic' | 'sub_affiliate'>('all');
   const [loadError, setLoadError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [hardwarePurchasesBySubscriber, setHardwarePurchasesBySubscriber] = useState<Record<string, any[]>>({});
 
   // Mirror view authentication states
   const [showMirrorModal, setShowMirrorModal] = useState(false);
@@ -146,9 +148,13 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   const loadUsersData = async () => {
     setIsLoading(true);
     try {
-      const overview = await loadSuperAdminOverview();
+      const [overview, purchasesBySubscriber] = await Promise.all([
+        loadSuperAdminOverview(),
+        loadPlatformRecord<Record<string, any[]>>('hardware_purchases_by_subscriber', 'global', {})
+      ]);
       const liveUsers = mapSuperAdminUsers(overview);
       setUsers(liveUsers);
+      setHardwarePurchasesBySubscriber(purchasesBySubscriber || {});
       setSelectedUser((current) => current ? liveUsers.find((user) => user.id === current.id) || null : null);
       setLoadError('');
     } catch (error: any) {
@@ -160,18 +166,22 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
     return;
   };
 
-  const handleAuditLog = (actionTaken: string, targetName: string) => {
-    const adminLogs = localStorage.getItem('saas_ops_admin_logs') ? JSON.parse(localStorage.getItem('saas_ops_admin_logs')!) : [];
-    const newLog = {
-      id: 'log-' + Math.floor(Math.random() * 1000000),
-      actionTaken,
-      targetUser: targetName,
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      adminUsername: '@super_admin_core'
-    };
-    const updated = [newLog, ...adminLogs];
-    localStorage.setItem('saas_ops_admin_logs', JSON.stringify(updated));
-    window.dispatchEvent(new Event('saas_logs_updated')); // Custom event notification for live synchronization
+  const handleAuditLog = async (actionTaken: string, targetName: string) => {
+    try {
+      const adminLogs = await loadPlatformRecord<any[]>('saas_ops_admin_logs', 'global', []);
+      const newLog = {
+        id: 'log-' + Math.floor(Math.random() * 1000000),
+        actionTaken,
+        targetUser: targetName,
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        adminUsername: '@super_admin_core'
+      };
+      const updated = [newLog, ...adminLogs];
+      await savePlatformRecord('saas_ops_admin_logs', 'global', updated);
+      window.dispatchEvent(new Event('saas_logs_updated'));
+    } catch (error) {
+      console.warn('Admin audit log was not saved:', error);
+    }
   };
 
   // Star-only Admin Password verification
@@ -621,9 +631,10 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                           <h4 className="text-xs font-mono uppercase text-emerald-400 font-black">Purchased Hardware Devices</h4>
                           <div className="bg-slate-950 rounded-lg overflow-hidden border border-slate-850 p-3">
                             {(() => {
-                              const rawPurchases = localStorage.getItem('saas_hw_purchases_by_sub') || '{}';
-                              const purchases = JSON.parse(rawPurchases);
-                              const userPurchases: any[] = purchases[selectedUser.name] || [];
+                              const userPurchases: any[] =
+                                hardwarePurchasesBySubscriber[selectedUser.name] ||
+                                hardwarePurchasesBySubscriber[selectedUser.id] ||
+                                [];
 
                               if (!userPurchases || userPurchases.length === 0) {
                                 return <div className="text-center text-slate-500 text-xs py-4">No hardware devices purchased.</div>;

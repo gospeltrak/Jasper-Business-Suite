@@ -28,7 +28,7 @@ import {
 } from "recharts";
 import { Tenant } from "../types";
 import { loadPlatformRecord } from "../utils/superAdminPlatformRecords";
-import { loadSuperAdminOverview, mapSuperAdminUsers } from "../utils/superAdminData";
+import { loadSuperAdminOverview } from "../utils/superAdminData";
 import { printPdfFromElement } from "../utils/pdfShare";
 
 interface ExpenseRecord {
@@ -48,12 +48,19 @@ interface AffiliateAccount {
   isSuper?: boolean;
 }
 
+const moneyValue = (value: unknown) => Number(value || 0);
+const isPositivePaymentStatus = (value: unknown) => {
+  const status = String(value || '').trim().toLowerCase();
+  return ['paid', 'success', 'successful', 'completed', 'approved', 'active', 'verified'].some((token) => status.includes(token));
+};
+
 export default function SaaSReportsView() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [affiliates, setAffiliates] = useState<AffiliateAccount[]>([]);
   const [hardwareSales, setHardwareSales] = useState<any[]>([]);
   const [hardwareInventory, setHardwareInventory] = useState<any[]>([]);
+  const [subscriptionRevenue, setSubscriptionRevenue] = useState(0);
   const [printReady, setPrintReady] = useState(false);
   const [timeframeMode, setTimeframeMode] = useState<"monthly" | "weekly">("monthly");
 
@@ -70,6 +77,13 @@ export default function SaaSReportsView() {
       setExpenses(Array.isArray(platformExpenses) ? platformExpenses : []);
       setHardwareSales(Array.isArray(hwSales) ? hwSales : []);
       setHardwareInventory(Array.isArray(hwInventory) ? hwInventory : []);
+      const paidSubscriptionRevenue = (overview.referredCustomers || [])
+        .filter((row: any) => isPositivePaymentStatus(row.payment_status || row.status))
+        .reduce((sum: number, row: any) => sum + moneyValue(row.amount_paid || row.amount || row.package_price), 0);
+      const paidTrackedRevenue = (overview.sourceTracking || [])
+        .filter((row: any) => isPositivePaymentStatus(row.payment_status || row.subscription_status || row.status))
+        .reduce((sum: number, row: any) => sum + moneyValue(row.revenue_generated || row.amount_paid || row.amount), 0);
+      setSubscriptionRevenue(paidSubscriptionRevenue || paidTrackedRevenue);
       setAffiliates((overview.affiliates || []).map((affiliate: any) => {
         const commissions = (overview.commissions || []).filter((row: any) => row.affiliate_id === affiliate.id);
         return {
@@ -88,25 +102,14 @@ export default function SaaSReportsView() {
       setAffiliates([]);
       setHardwareSales([]);
       setHardwareInventory([]);
+      setSubscriptionRevenue(0);
     });
     return () => { alive = false; };
   }, []);
 
   // -- FINANCE INTEGRATION LOGIC --
   // A. Subscription Fee revenues
-  const calculateSubscriptionRevenues = () => {
-    return tenants.reduce((total, t) => {
-      // Map plans to monetary amounts
-      let planCharge = 0;
-      if ((t as any).status === "active" || (t as any).status === "Paid" || !(t as any).status) {
-        if (t.planType === "Tanzanite") planCharge = 50000;
-        else if (t.planType === "Diamond") planCharge = 35000;
-        else if (t.planType === "Ruby") planCharge = 20000;
-        else planCharge = 35000;
-      }
-      return total + planCharge;
-    }, 0);
-  };
+  const calculateSubscriptionRevenues = () => subscriptionRevenue;
 
   const subscriptionTotal = calculateSubscriptionRevenues();
 
@@ -184,7 +187,7 @@ export default function SaaSReportsView() {
     { name: "Hardware", value: hardwareRevenues, color: "#f59e0b" },
   ].filter((d) => d.value > 0);
 
-  if (incomeData.length === 0) {
+  if (incomeData.every((entry) => entry.value <= 0)) {
     incomeData = [{ name: "No Revenue", value: 1, color: "#334155" }];
   }
 

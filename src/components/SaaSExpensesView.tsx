@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Receipt, Trash } from 'lucide-react';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
+import { ONLINE_ONLY_WRITE_MESSAGE } from '../utils/onlineOnly';
 
 interface ExpenseRecord {
   id: string;
@@ -47,7 +48,13 @@ export default function SaaSExpensesView() {
     };
 
     const updated = [...expenses, newExp];
-    await savePlatformRecord('platform_expenses', 'global', updated);
+    try {
+      await savePlatformRecord('platform_expenses', 'global', updated);
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
+
     setExpenses(updated);
     setExpTitle('');
     setExpAmount('');
@@ -59,7 +66,13 @@ export default function SaaSExpensesView() {
   const handleDeleteExpense = async (id: string) => {
     if (!window.confirm('Delete this expense record?')) return;
     const filtered = expenses.filter(e => e.id !== id);
-    await savePlatformRecord('platform_expenses', 'global', filtered);
+    try {
+      await savePlatformRecord('platform_expenses', 'global', filtered);
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
+
     setExpenses(filtered);
   };
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Search, Plus, Trash, CheckCircle, User } from 'lucide-react';
 import { defaultHardwareInventory, loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
+import { ONLINE_ONLY_WRITE_MESSAGE } from '../utils/onlineOnly';
 
 async function loadAffiliatesForPOS(): Promise<any[]> {
   const results: any[] = [];
@@ -21,15 +22,7 @@ async function loadAffiliatesForPOS(): Promise<any[]> {
         });
       });
     }
-  } catch { /* offline */ }
-  try {
-    const local: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
-    local.forEach((aff: any) => {
-      if (!results.some(r => r.id === aff.id || r.promoCode === aff.promoCode)) {
-        results.push({ id: aff.id, name: aff.name || aff.display_name || aff.promoCode, promoCode: aff.promoCode, phone: aff.phone, isSuper: !!aff.isSuper });
-      }
-    });
-  } catch { /* ignore */ }
+  } catch { /* DB unavailable — do not use stale local affiliate cache. */ }
   return results;
 }
 
@@ -181,48 +174,53 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
       }
       return invItem;
     });
-    setInventory(newInv);
-    await savePlatformRecord(recordType, scopeId, newInv);
+    try {
+      await savePlatformRecord(recordType, scopeId, newInv);
 
-    const salesRecordType = affiliateId ? 'affiliate_hardware_sales' : 'hardware_sales';
-    const priorSales = await loadPlatformRecord<any[]>(salesRecordType, scopeId, []);
-    await savePlatformRecord(salesRecordType, scopeId, [saleRecord, ...(Array.isArray(priorSales) ? priorSales : [])]);
+      const salesRecordType = affiliateId ? 'affiliate_hardware_sales' : 'hardware_sales';
+      const priorSales = await loadPlatformRecord<any[]>(salesRecordType, scopeId, []);
+      await savePlatformRecord(salesRecordType, scopeId, [saleRecord, ...(Array.isArray(priorSales) ? priorSales : [])]);
 
-    // Also update subscriber profile directly if isSub is true
-    if (isSub && !affiliateId) {
-      const purchases = await loadPlatformRecord<Record<string, any[]>>('hardware_purchases_by_subscriber', 'global', {});
-      if (!purchases[custName]) purchases[custName] = [];
-      purchases[custName].push(saleRecord);
-      await savePlatformRecord('hardware_purchases_by_subscriber', 'global', purchases);
-    }
+      // Also update subscriber profile directly if isSub is true
+      if (isSub && !affiliateId) {
+        const purchases = await loadPlatformRecord<Record<string, any[]>>('hardware_purchases_by_subscriber', 'global', {});
+        if (!purchases[custName]) purchases[custName] = [];
+        purchases[custName].push(saleRecord);
+        await savePlatformRecord('hardware_purchases_by_subscriber', 'global', purchases);
+      }
 
-    // If super admin selling to affiliate ON CREDIT — add to affiliate's inventory
-    // The affiliate's POS reads from: affiliate_hardware_inventory__{affiliate.id}
-    // We must use the same ID the Partner dashboard uses as partnerId
-    if (isAff && !affiliateId && selectedAffiliate) {
-      const affRecord = affiliates.find(a => a.id === selectedAffiliate);
-      const affId = affRecord?.id || selectedAffiliate;
+      // If super admin selling to affiliate ON CREDIT — add to affiliate's inventory
+      // The affiliate's POS reads from: affiliate_hardware_inventory__{affiliate.id}
+      // We must use the same ID the Partner dashboard uses as partnerId
+      if (isAff && !affiliateId && selectedAffiliate) {
+        const affRecord = affiliates.find(a => a.id === selectedAffiliate);
+        const affId = affRecord?.id || selectedAffiliate;
 
-      const affInv = await loadPlatformRecord<any[]>('affiliate_hardware_inventory', affId, []);
-      cart.forEach(cartItem => {
-        const existing = affInv.find((i: any) => i.id === cartItem.id);
-        if (existing) {
-          existing.stock = (existing.stock || 0) + cartItem.qty;
-        } else {
-          affInv.push({ ...cartItem, stock: cartItem.qty });
-        }
-      });
-      await savePlatformRecord('affiliate_hardware_inventory', affId, affInv);
+        const affInv = await loadPlatformRecord<any[]>('affiliate_hardware_inventory', affId, []);
+        cart.forEach(cartItem => {
+          const existing = affInv.find((i: any) => i.id === cartItem.id);
+          if (existing) {
+            existing.stock = (existing.stock || 0) + cartItem.qty;
+          } else {
+            affInv.push({ ...cartItem, stock: cartItem.qty });
+          }
+        });
+        await savePlatformRecord('affiliate_hardware_inventory', affId, affInv);
 
-      // Also save sale as a credit record for this affiliate
-      const creditSales = await loadPlatformRecord<any[]>('affiliate_credit_sales', affId, []);
-      await savePlatformRecord('affiliate_credit_sales', affId, [{
-        ...saleRecord,
-        soldOnCredit: true,
-        affiliateId: affId,
-        affiliateName: custName,
-        creditDate: new Date().toISOString(),
-      }, ...creditSales]);
+        // Also save sale as a credit record for this affiliate
+        const creditSales = await loadPlatformRecord<any[]>('affiliate_credit_sales', affId, []);
+        await savePlatformRecord('affiliate_credit_sales', affId, [{
+          ...saleRecord,
+          soldOnCredit: true,
+          affiliateId: affId,
+          affiliateName: custName,
+          creditDate: new Date().toISOString(),
+        }, ...creditSales]);
+      }
+      setInventory(newInv);
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
     }
 
     alert(`Checkout successful! Hardware sale recorded as ${paymentMethod}.`);

@@ -82,8 +82,8 @@ export async function loadGlobalAdSettings(): Promise<GlobalAdPlacementSettings>
 
 export async function saveGlobalAdSettings(settings: GlobalAdPlacementSettings): Promise<GlobalAdPlacementSettings> {
   const normalized = { ...DEFAULT_AD_SETTINGS, ...settings };
-  cacheLegacySettings(normalized);
   const saved = await savePlatformRecord('global_ad_placement', 'global', normalized);
+  cacheLegacySettings(saved);
   window.dispatchEvent(new Event(AD_SETTINGS_EVENT));
   return saved;
 }

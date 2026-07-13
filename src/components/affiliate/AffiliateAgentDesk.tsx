@@ -391,7 +391,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           setPartnerInfo(updated);
           localStorage.setItem('jasper_logged_affiliate', JSON.stringify(updated));
         }
-      } catch { /* offline — use localStorage */ }
+      } catch { /* Cloud profile unavailable; keep the last confirmed session cache. */ }
     };
     loadFreshProfile();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -801,7 +801,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       return;
     }
 
-    // Update localStorage (offline cache / instant UI)
+    // Confirmed in Supabase; local cache can now follow.
     try {
       const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
       const updated = all.map(a =>
@@ -850,7 +850,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       return;
     }
 
-    // Update localStorage
+    // Confirmed in Supabase; local cache can now follow.
     try {
       const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
       const updated = all.map(a =>
@@ -872,7 +872,12 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   // ── Mirror mode ─────────────────────────────────────────────
 
-  const enterMirror = (aff: SubAffiliateProfile) => {
+  const enterMirror = async (aff: SubAffiliateProfile) => {
+    if (!isNetworkOnline) {
+      setNotice(ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
+
     const logEntry = {
       id: `mal-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
       viewer_user_id: partnerId,
@@ -883,9 +888,13 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       fields_changed: null,
       created_at: new Date().toISOString(),
     };
-    // Audit log — DB write (queues if offline)
-    dbWrite('mirror_access_logs', 'insert', logEntry, undefined, partnerId).catch(() => {});
-    // Also keep a local copy for quick reference
+    const result = await dbWrite('mirror_access_logs', 'insert', logEntry, undefined, partnerId);
+    if (!result.success) {
+      setNotice(result.error || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
+
+    // Confirmed in Supabase; keep a local copy for quick reference.
     try {
       const logs: any[] = JSON.parse(localStorage.getItem('mirror_access_logs') || '[]');
       logs.unshift(logEntry);

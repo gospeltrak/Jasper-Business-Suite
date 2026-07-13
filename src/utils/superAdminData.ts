@@ -182,53 +182,7 @@ export async function loadSuperAdminOverview(): Promise<SuperAdminOverview> {
     }
   }
 
-  // Merge with localStorage for offline-created tenants/users
-  try {
-    const localTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
-    const localUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
-    const tenantIds = new Set(overview.tenants.map((tenant) => String(tenant.id)));
-    const userIds = new Set(overview.users.map((user) => String(user.id)));
-    const mergedTenants = [
-      ...overview.tenants,
-      ...localTenants
-        .filter((tenant: any) => tenant?.id && !tenantIds.has(String(tenant.id)))
-        .map((tenant: any) => ({
-          id: tenant.id,
-          name: tenant.name,
-          country: tenant.country,
-          city: tenant.city,
-          currency: tenant.currency,
-          currency_code: tenant.currencyCode || tenant.currency_code,
-          tax_rate: tenant.taxRate ?? tenant.tax_rate,
-          business_type: tenant.businessType || tenant.business_type,
-          subscription_plan: tenant.activePackageId || tenant.selectedPackageId || 'trial',
-          subscription_status: tenant.subscriptionStatus || 'trial',
-          created_at: tenant.subscriptionStartDate || new Date().toISOString(),
-        }))
-    ];
-    const mergedUsers = [
-      ...overview.users,
-      ...localUsers
-        .filter((user: any) => user?.id && !userIds.has(String(user.id)))
-        .map((user: any) => ({
-          id: user.id,
-          tenant_id: user.tenantId || user.tenant_id || user.activeTenant,
-          active_tenant: user.activeTenant || user.tenantId,
-          email: user.email,
-          name: user.name,
-          phone: user.phone,
-          role: user.role || 'Admin',
-          role_key: String(user.role || 'Admin').toLowerCase(),
-          account_type: user.is_affiliate_lead ? 'subscriber' : 'tenant_owner',
-          is_active: true,
-          created_at: user.trial_start_date || new Date().toISOString(),
-          referral_code_used: user.referral_code_used,
-        }))
-    ];
-    return { ...overview, tenants: mergedTenants, users: mergedUsers };
-  } catch {
-    return overview;
-  }
+  return overview;
 }
 
 export async function updateSuperAdminUser(userId: string, payload: Record<string, unknown>) {

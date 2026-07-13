@@ -5,7 +5,7 @@
  * localStorage is a read/cache layer only; offline business writes are blocked.
  *
  * On login:      Pull from Supabase → write to localStorage
- * On save:       Require internet → write cache → push to Supabase
+ * On save:       Require internet → push to Supabase → refresh local cache
  * On conflict:   Supabase wins (server-side timestamp comparison)
  */
 
@@ -27,7 +27,7 @@ import {
 } from './productSync';
 import { APPEND_MERGE_DATA_KEYS, mergeRecordsById } from './recordSync';
 import { mergeSettingsForSync } from './settingsSync';
-import { canWriteBusinessDataOnline, warnOfflineWriteBlocked } from './onlineOnly';
+import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline, warnOfflineWriteBlocked } from './onlineOnly';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -77,12 +77,12 @@ async function saveRemoteDataBackup(client: any, tenantId: string, dataKey: stri
 // ─── Core push/pull ──────────────────────────────────────────────────────────
 
 /**
- * Push one data key to Supabase. Fails silently — localStorage already has the data.
+ * Push one data key to Supabase and return the payload that was accepted.
  */
-export async function pushToCloud(tenantId: string, dataKey: string, payload: any): Promise<void> {
+export async function pushToCloud(tenantId: string, dataKey: string, payload: any): Promise<any> {
   if (!canWriteBusinessDataOnline()) {
     warnOfflineWriteBlocked(`pushToCloud:${tenantId}/${dataKey}`);
-    return;
+    throw new Error(ONLINE_ONLY_WRITE_MESSAGE);
   }
 
   try {
@@ -188,9 +188,12 @@ export async function pushToCloud(tenantId: string, dataKey: string, payload: an
 
     if (error) {
       console.warn(`[dbSync] push failed for ${dataKey}:`, error.message);
+      throw error;
     }
+    return payloadToPush;
   } catch (e) {
     console.warn(`[dbSync] push exception for ${dataKey}:`, e);
+    throw e;
   }
 }
 
@@ -251,14 +254,17 @@ export function saveData(tenantId: string, dataKey: string, payload: any): void 
     return;
   }
 
-  // 1. Write to localStorage immediately (instant, offline-safe)
-  const localPayload = safeSetJsonItem(localKey(tenantId, dataKey), payload, {
-    tenantId,
-    dataKey,
-    logLabel: `${tenantId}/${dataKey}`,
-  });
-  // 2. Push to cloud asynchronously (don't await — never blocks the UI)
-  pushToCloud(tenantId, dataKey, localPayload).catch(() => {});
+  pushToCloud(tenantId, dataKey, payload)
+    .then((cloudPayload) => {
+      safeSetJsonItem(localKey(tenantId, dataKey), cloudPayload, {
+        tenantId,
+        dataKey,
+        logLabel: `${tenantId}/${dataKey}`,
+      });
+    })
+    .catch((error) => {
+      console.warn(`[dbSync] online-only save failed for ${tenantId}/${dataKey}:`, error);
+    });
 }
 
 /**

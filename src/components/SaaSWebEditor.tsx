@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowUp, 
   ArrowDown, 
@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { DEFAULT_TENANTS } from '../data';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
+import { ONLINE_ONLY_WRITE_MESSAGE } from '../utils/onlineOnly';
 import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
 
 const DEFAULT_SECTIONS = [
@@ -40,8 +41,8 @@ const DEFAULT_TRANSLATIONS: Record<string, string> = {
   headlinePre: "Stop Managing.",
   headlinePost: "Start Growing.",
   tagline: "Your business deserves a partner that works as hard as you do.",
-  aboutTitle: "Offline Sales Support For All Businesses",
-  aboutDesc: "We created Ndiva because unstable internet should never stop your sales desk. Whether you are in Dar, Mbeya, or Nairobi, your cash drawer keeps working.",
+  aboutTitle: "Online Sales Support For All Businesses",
+  aboutDesc: "We created Ndiva so every sale, stock update, and setting change is confirmed in your online business database before it counts.",
   aboutSupport: "Real support offices around East Africa",
   aboutCurrency: "Automatic local tax settings",
   aboutEndpoints: "Over 2,400 active stores registered",
@@ -160,6 +161,7 @@ export default function SaaSWebEditor() {
     return saved ? JSON.parse(saved) : [];
   });
   const [saveNotification, setSaveNotification] = useState<string | null>(null);
+  const capacitySaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const handleWaitlistReload = () => {
@@ -186,6 +188,10 @@ export default function SaaSWebEditor() {
       })
       .catch(() => {});
     return () => { alive = false; };
+  }, []);
+
+  useEffect(() => () => {
+    if (capacitySaveTimerRef.current) clearTimeout(capacitySaveTimerRef.current);
   }, []);
 
   // Helper for shifting order
@@ -218,48 +224,90 @@ export default function SaaSWebEditor() {
     }));
   };
 
+  const persistWebEditorSettings = async (overrides: Partial<{
+    sectionsOrder: string[];
+    hiddenSections: Record<string, boolean>;
+    customValues: Record<string, string>;
+    featuredLogos: FeaturedLogo[];
+    partnerCapacity: number;
+    partnerWaitlist: any[];
+  }> = {}) => {
+    await savePlatformRecord('web_editor_settings', 'global', {
+      sectionsOrder,
+      hiddenSections,
+      customValues,
+      featuredLogos,
+      partnerCapacity,
+      partnerWaitlist,
+      ...overrides,
+    });
+  };
+
   // Reset to default settings
   const handleReset = async () => {
     if (window.confirm("Are you sure you want to revert home page website layout and texts to system default? This cannot be undone.")) {
-      setSectionsOrder(DEFAULT_SECTIONS.map(s => s.id));
+      const defaultOrder = DEFAULT_SECTIONS.map(s => s.id);
+      try {
+        await persistWebEditorSettings({
+          sectionsOrder: defaultOrder,
+          hiddenSections: {},
+          customValues: DEFAULT_TRANSLATIONS,
+          featuredLogos: [],
+        });
+      } catch (error: any) {
+        alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+        return;
+      }
+
+      setSectionsOrder(defaultOrder);
       setHiddenSections({});
       setCustomValues(DEFAULT_TRANSLATIONS);
       setFeaturedLogos([]);
-      await savePlatformRecord('web_editor_settings', 'global', {
-        sectionsOrder: DEFAULT_SECTIONS.map(s => s.id),
-        hiddenSections: {},
-        customValues: DEFAULT_TRANSLATIONS,
-        featuredLogos: [],
-        partnerCapacity,
-        partnerWaitlist
-      });
 
       // Broadcast update event
       window.dispatchEvent(new Event('saas_landing_page_updated'));
-      
+
       showToast("Home page restored successfully to factory defaults!");
     }
+  };
+
+  const handlePartnerCapacityChange = (value: string) => {
+    const val = parseInt(value, 10) || 5;
+    setPartnerCapacity(val);
+    if (capacitySaveTimerRef.current) clearTimeout(capacitySaveTimerRef.current);
+    capacitySaveTimerRef.current = setTimeout(() => {
+      persistWebEditorSettings({ partnerCapacity: val })
+        .catch((error: any) => alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE));
+    }, 500);
+  };
+
+  const handleRemoveWaitlistLead = async (idx: number) => {
+    const lead = partnerWaitlist[idx];
+    if (!lead || !window.confirm(`Are you sure you want to delete ${lead.fullName} from the waitlist?`)) return;
+
+    const updated = partnerWaitlist.filter((_, i) => i !== idx);
+    try {
+      await persistWebEditorSettings({ partnerWaitlist: updated });
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
+
+    setPartnerWaitlist(updated);
   };
 
   // Save changes
   const handleSave = async () => {
     try {
-      await savePlatformRecord('web_editor_settings', 'global', {
-        sectionsOrder,
-        hiddenSections,
-        customValues,
-        featuredLogos,
-        partnerCapacity,
-        partnerWaitlist
-      });
+      await persistWebEditorSettings();
 
       // Dispatch custom document broadcast event to reload parent/iFrame Landing Page immediately!
       window.dispatchEvent(new Event('saas_landing_page_updated'));
       window.dispatchEvent(new CustomEvent('jasper_partner_settings_updated', { detail: { capacity: partnerCapacity } }));
 
       showToast("Changes applied and published live successfully!");
-    } catch (e) {
-      alert("Error saving settings to Supabase platform database");
+    } catch (error: any) {
+      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
     }
   };
 
@@ -592,7 +640,7 @@ export default function SaaSWebEditor() {
                     value={customValues.aboutTitle || ''}
                     onChange={(e) => handleInputChange('aboutTitle', e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500 font-sans"
-                    placeholder="e.g. Offline Sales Support For All Businesses"
+                    placeholder="e.g. Online Sales Support For All Businesses"
                   />
                 </div>
 
@@ -1013,18 +1061,7 @@ export default function SaaSWebEditor() {
                       min={1}
                       max={100}
                       value={partnerCapacity}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10) || 5;
-                        setPartnerCapacity(val);
-                        savePlatformRecord('web_editor_settings', 'global', {
-                          sectionsOrder,
-                          hiddenSections,
-                          customValues,
-                          featuredLogos,
-                          partnerCapacity: val,
-                          partnerWaitlist
-                        }).catch(() => {});
-                      }}
+                      onChange={(e) => { handlePartnerCapacityChange(e.target.value); }}
                       className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-500 font-mono"
                     />
                     <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans">
@@ -1093,20 +1130,7 @@ export default function SaaSWebEditor() {
                             <td className="p-3 text-slate-500">{lead.addedAt || 'N/A'}</td>
                             <td className="p-3 text-right">
                               <button
-                                onClick={() => {
-                                  if (window.confirm(`Are you sure you want to delete ${lead.fullName} from the waitlist?`)) {
-                                    const updated = partnerWaitlist.filter((_, i) => i !== idx);
-                                    setPartnerWaitlist(updated);
-                                    savePlatformRecord('web_editor_settings', 'global', {
-                                      sectionsOrder,
-                                      hiddenSections,
-                                      customValues,
-                                      featuredLogos,
-                                      partnerCapacity,
-                                      partnerWaitlist: updated
-                                    }).catch(() => {});
-                                  }
-                                }}
+                                onClick={() => { handleRemoveWaitlistLead(idx); }}
                                 className="p-1 px-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/35 rounded-lg transition-colors cursor-pointer"
                                 title="Remove Lead"
                               >

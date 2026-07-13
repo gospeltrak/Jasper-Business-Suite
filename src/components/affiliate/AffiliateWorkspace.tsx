@@ -135,14 +135,27 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
     }
     const cleaned = newCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     if (!cleaned) { setCodeError('Code must contain letters or numbers only.'); return; }
-    // Check duplicates in localStorage
-    const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
-    const taken = all.some(a => a.promoCode?.toUpperCase() === cleaned && a.id !== workspace.profile.id);
+    let cloudAffiliateCodes: any[] = [];
+    try {
+      const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+      const client: any = await getSecureDataBridgeClient();
+      const { data, error } = await client.from('affiliates').select('id, promo_code, referral_code');
+      if (error) throw error;
+      cloudAffiliateCodes = Array.isArray(data) ? data : [];
+    } catch (error: any) {
+      setCodeError(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+      return;
+    }
+
+    const taken = cloudAffiliateCodes.some((a: any) => (
+      String(a.promo_code || a.referral_code || '').toUpperCase() === cleaned &&
+      a.id !== workspace.profile.id
+    ));
     if (taken) {
       const sugg: string[] = [];
       for (const sfx of ['1','2','3','_TZ','_EA','_PRO']) {
         const s = `${cleaned}${sfx}`;
-        if (!all.some(a => a.promoCode?.toUpperCase() === s)) { sugg.push(s); if (sugg.length >= 3) break; }
+        if (!cloudAffiliateCodes.some((a: any) => String(a.promo_code || a.referral_code || '').toUpperCase() === s)) { sugg.push(s); if (sugg.length >= 3) break; }
       }
       setCodeError(`"${cleaned}" is already taken.`);
       setSuggestions(sugg);
@@ -158,7 +171,8 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
       setCodeError(result.error || ONLINE_ONLY_WRITE_MESSAGE);
       return;
     }
-    // Update localStorage
+    // Confirmed in Supabase; local cache can now follow.
+    const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
     const updated = all.map((a: any) => a.id === workspace.profile.id ? { ...a, promoCode: cleaned } : a);
     localStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
     const savedAff = JSON.parse(localStorage.getItem('jasper_logged_affiliate') || '{}');

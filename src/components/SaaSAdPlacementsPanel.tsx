@@ -46,13 +46,15 @@ export default function SaaSAdPlacementsPanel({ compact = false }: { compact?: b
 
   const publishSettings = async (next: GlobalAdPlacementSettings, message: string) => {
     setSaving(true);
-    setDashboardAdCode(next.dashboardAdCode);
-    setDashboardAdEnabled(next.dashboardAdEnabled);
-    setBottomAdCode(next.bottomAdCode);
-    setBottomAdEnabled(next.bottomAdEnabled);
     try {
-      await saveGlobalAdSettings(next);
+      const saved = await saveGlobalAdSettings(next);
+      setDashboardAdCode(saved.dashboardAdCode);
+      setDashboardAdEnabled(saved.dashboardAdEnabled);
+      setBottomAdCode(saved.bottomAdCode);
+      setBottomAdEnabled(saved.bottomAdEnabled);
       showNotice(message);
+    } catch (error: any) {
+      showNotice(error?.message || 'Internet is required to save dashboard ad settings.');
     } finally {
       setSaving(false);
     }
