@@ -944,34 +944,21 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         }
       }
 
-      // All synthetic email attempts failed — look up real email from users table
+      // All synthetic email attempts failed — use backend to look up real email (bypasses RLS)
       if (authError && !cleanIdentifier.includes('@')) {
         try {
-          const norm = normalizePhoneForWhatsapp(cleanIdentifier);
-          const alt0 = norm.startsWith('255') ? `0${norm.slice(3)}` : cleanIdentifier;
-          const digits9 = norm.length > 3 ? norm.slice(-9) : '';
-          
-          // Try each phone format separately to avoid .or() failures on missing columns
-          let userEmail: string | null = null;
-          
-          for (const phoneVal of [cleanIdentifier, norm, `+${norm}`, alt0, digits9].filter(Boolean)) {
-            const { data: userRow } = await client
-              .from('users')
-              .select('email')
-              .eq('phone', phoneVal)
-              .maybeSingle();
-            if (userRow?.email && !userRow.email.includes('@whatsapp.jasper.local')) {
-              userEmail = userRow.email;
-              break;
-            }
-          }
-          
-          if (userEmail) {
-            const retry = await client.auth.signInWithPassword({ email: userEmail, password: cleanPassword });
+          const lookupRes = await fetch('/api/auth/lookup-phone', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: cleanIdentifier })
+          });
+          const { email: realEmail } = await lookupRes.json();
+          if (realEmail) {
+            const retry = await client.auth.signInWithPassword({ email: realEmail, password: cleanPassword });
             if (!retry.error && retry.data?.user) {
               authData = retry.data;
               authError = null;
-              matchedAuthEmail = userEmail;
+              matchedAuthEmail = realEmail;
             }
           }
         } catch (_) { /* continue to error below */ }

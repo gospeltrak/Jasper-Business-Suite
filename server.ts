@@ -823,6 +823,35 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   });
 
   // Public configuration endpoint for runtime frontend initialization
+  // Phone → email lookup (uses service role to bypass RLS)
+  // Called by LoginPage when phone login fails with synthetic email
+  app.post('/api/auth/lookup-phone', async (req, res) => {
+    if (!supabaseAdmin) return res.status(503).json({ email: null });
+    const { phone } = req.body || {};
+    if (!phone || typeof phone !== 'string') return res.json({ email: null });
+    
+    const digits = phone.replace(/\D/g, '');
+    const norm = digits.startsWith('0') ? `255${digits.slice(1)}` : digits;
+    const local = norm.startsWith('255') ? `0${norm.slice(3)}` : digits;
+    const formats = [...new Set([phone.trim(), digits, norm, `+${norm}`, local, norm.slice(-9)])].filter(Boolean);
+    
+    try {
+      for (const fmt of formats) {
+        const { data } = await supabaseAdmin
+          .from('users')
+          .select('email')
+          .eq('phone', fmt)
+          .not('email', 'like', '%@whatsapp.jasper.local')
+          .not('email', 'like', '%@signup.jasper.local')
+          .maybeSingle();
+        if (data?.email) return res.json({ email: data.email });
+      }
+      return res.json({ email: null });
+    } catch {
+      return res.json({ email: null });
+    }
+  });
+
   app.get('/api/auth/config', (req, res) => {
     res.setHeader('Cache-Control', 'no-store, max-age=0');
     return res.json({
