@@ -454,11 +454,35 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     return systemUsers;
   };
 
+  const getPhoneDigits = (phone: string) => (phone || '').replace(/\D/g, '');
+
   const normalizePhoneForWhatsapp = (phone: string) => {
-    const digits = (phone || '').replace(/\D/g, '');
+    let digits = getPhoneDigits(phone);
     if (!digits) return '';
+    if (digits.startsWith('00')) digits = digits.slice(2);
+    if (digits.startsWith('2550')) return `255${digits.slice(4)}`;
     if (digits.startsWith('0')) return `255${digits.slice(1)}`;
+    if (digits.length === 9 && /^[67]/.test(digits)) return `255${digits}`;
     return digits;
+  };
+
+  const makeInternalEmailCandidatesFromPhone = (phone: string) => {
+    const digits = getPhoneDigits(phone);
+    const normalized = normalizePhoneForWhatsapp(phone);
+    const candidates = new Set<string>();
+
+    if (normalized) candidates.add(normalized);
+    if (digits) {
+      candidates.add(digits);
+      if (digits.startsWith('0')) candidates.add(`255${digits.slice(1)}`);
+      if (digits.startsWith('2550')) candidates.add(`255${digits.slice(4)}`);
+      if (digits.startsWith('255') && digits.length > 3) candidates.add(`0${digits.slice(3)}`);
+      if (digits.length === 9 && /^[67]/.test(digits)) candidates.add(`255${digits}`);
+    }
+
+    return Array.from(candidates)
+      .filter(Boolean)
+      .map(value => `wa${value}@whatsapp.jasper.local`);
   };
 
   const sameLoginIdentifier = (valueA?: string, valueB?: string) => {
@@ -472,8 +496,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   };
 
   const makeInternalEmailFromPhone = (phone: string) => {
-    const normalized = normalizePhoneForWhatsapp(phone);
-    return normalized ? `wa${normalized}@whatsapp.jasper.local` : '';
+    return makeInternalEmailCandidatesFromPhone(phone)[0] || '';
   };
 
   const makeInternalEmailFromBusiness = (businessName: string, owner: string) => {
@@ -890,22 +913,35 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         setIsLoading(false);
         return;
       }
-      const authEmail = cleanIdentifier.includes('@') ? cleanIdentifier.toLowerCase() : makeInternalEmailFromPhone(cleanIdentifier);
+      const authEmailCandidates = cleanIdentifier.includes('@')
+        ? [cleanIdentifier.toLowerCase()]
+        : makeInternalEmailCandidatesFromPhone(cleanIdentifier);
+      const authEmail = authEmailCandidates[0] || cleanIdentifier.toLowerCase();
       
       // Perform authentic database-backed authentication securely
-      let { data: authData, error: authError } = await client.auth.signInWithPassword({
-        email: authEmail,
-        password: cleanPassword
-      });
+      let authData: any = null;
+      let authError: any = null;
+      let matchedAuthEmail = authEmail;
+      for (const candidateEmail of authEmailCandidates.length ? authEmailCandidates : [authEmail]) {
+        ({ data: authData, error: authError } = await client.auth.signInWithPassword({
+          email: candidateEmail,
+          password: cleanPassword
+        }));
 
-      if (authError && typeof navigator !== 'undefined' && navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
-        try {
-          await client.auth.signOut({ scope: 'local' });
-          ({ data: authData, error: authError } = await client.auth.signInWithPassword({
-            email: authEmail,
-            password: cleanPassword
-          }));
-        } catch (_) { /* fallback continues below */ }
+        if (authError && typeof navigator !== 'undefined' && navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
+          try {
+            await client.auth.signOut({ scope: 'local' });
+            ({ data: authData, error: authError } = await client.auth.signInWithPassword({
+              email: candidateEmail,
+              password: cleanPassword
+            }));
+          } catch (_) { /* fallback continues below */ }
+        }
+
+        if (!authError && authData?.user) {
+          matchedAuthEmail = candidateEmail;
+          break;
+        }
       }
 
       if (!authError && authData?.user) {
@@ -935,7 +971,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           }
           triggerOnLoginWithSplash({
             id: authData.user.id,
-            email: authData.user.email || authEmail,
+            email: authData.user.email || matchedAuthEmail,
             name: authData.user.user_metadata?.full_name || authData.user.email?.split('@')[0] || 'User',
             role: 'Admin',
             tenantId: null,
