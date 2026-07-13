@@ -2278,45 +2278,91 @@ export default function DashboardReports({
               </div>
 
               {/* Individual SKU list */}
-              <div className="overflow-x-auto rounded-2xl border border-slate-200">
-                <table className="w-full text-left border-collapse text-xs font-sans">
-                  <thead>
-                    <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-mono font-black text-slate-500 uppercase tracking-wider">
-                      <th className="p-4">Barcode / Code ID</th>
-                      <th className="p-4">Product Name</th>
-                      <th className="p-4 uppercase">Category</th>
-                      <th className="p-4 text-center">Units</th>
-                      <th className="p-4 text-center">Store Units</th>
-                      <th className="p-4 text-center text-amber-700 font-bold">Sold on Credit</th>
-                      {showProfitCogs && <th className="p-4 text-right">Cost Price (COGS)</th>}
-                      <th className="p-4 text-right">Sel. Price</th>
-                      {showProfitCogs && <th className="p-4 text-right font-black">Valued Profits Potential</th>}
-                    </tr>
-                  </thead>
-                <tbody className="divide-y divide-slate-100 font-sans">
-                  {productValuationsFiltered.map(p => (
-                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="p-4 font-mono text-slate-600 leading-none">{p.sku}</td>
-                      <td className="p-4 font-bold text-slate-800 leading-none">{p.name}</td>
-                      <td className="p-4"><span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[9.5px] uppercase font-mono font-medium text-slate-600">{p.category}</span></td>
-                      <td className="p-4 text-center font-bold text-emerald-700 bg-emerald-500/5">{formatProductQuantity(p.shopQty, p.product)}</td>
-                      <td className="p-4 text-center font-bold text-blue-700 bg-blue-500/5">{formatProductQuantity(p.storeQty, p.product)}</td>
-                      <td className="p-4 text-center font-bold text-amber-700 bg-amber-500/5">{formatProductQuantity(p.creditIssuedQty, p.product)}</td>
-                      {showProfitCogs && <td className="p-4 text-right font-mono text-slate-600">{currency}{p.cogsShop + p.cogsStore + p.cogsCredit > 0 ? p.totalCogs.toLocaleString() : '0'}</td>}
-                      <td className="p-4 text-right font-mono text-slate-600">{currency}{p.sellingPrice.toLocaleString()}</td>
-                      {showProfitCogs && <td className="p-4 text-right font-mono font-black text-slate-800">{currency}{p.unrealizedProfit.toLocaleString()}</td>}
-                    </tr>
-                  ))}
-                  {productValuationsFiltered.length === 0 && (
-                    <tr>
-                      <td colSpan={showProfitCogs ? 9 : 7} className="p-8 text-center text-slate-500">
-                        No product items match the catalog category search query.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+              <div className="space-y-3">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider font-mono">Valuation Journal Listings</h4>
+                    <p className="text-xs text-slate-500 mt-1">Modern product cards for stock value, warehouse split, and profit outlook.</p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-mono font-bold text-slate-500 shrink-0">
+                    {productValuationsFiltered.length} products
+                  </span>
+                </div>
+
+                {productValuationsFiltered.length > 0 ? (
+                  <div className="grid grid-cols-1 2xl:grid-cols-2 gap-3">
+                    {productValuationsFiltered.map(p => {
+                      const product = p.product;
+                      const stockIsLow = p.totalQty <= (product.alertQty || 0);
+                      const totalCogsValue = p.cogsShop + p.cogsStore + p.cogsCredit > 0 ? p.totalCogs : 0;
+                      return (
+                        <div key={p.id} className="relative overflow-hidden bg-white p-4 border border-slate-200 rounded-3xl shadow-[0_12px_30px_rgba(15,23,42,0.065)] text-left">
+                          <div className={`absolute inset-x-0 top-0 h-1 ${stockIsLow ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                          <div className="flex items-start gap-4">
+                            <div className="w-20 h-20 rounded-3xl bg-slate-50 border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center p-2 shadow-[0_10px_22px_rgba(15,23,42,0.055)]">
+                              {product.image ? (
+                                <CachedImage src={product.image} alt={p.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                              ) : (
+                                <div className="w-full h-full rounded-2xl bg-white flex flex-col items-center justify-center text-slate-400">
+                                  <Package className="w-6 h-6" />
+                                  <span className="text-[8px] font-black font-mono uppercase mt-1">Stock</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-black text-slate-900 leading-tight break-words">{p.name}</p>
+                                  <div className="flex flex-wrap gap-1.5 mt-2">
+                                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[9px] font-mono font-bold text-slate-500 uppercase max-w-[150px] truncate">{p.category || 'Uncategorized'}</span>
+                                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-[9px] font-mono font-bold text-indigo-600 uppercase max-w-[130px] truncate">SKU {p.sku || 'N/A'}</span>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider block">Retail Value</span>
+                                  <span className="text-base font-black text-slate-900 block leading-tight">{currency}{p.totalValue.toLocaleString()}</span>
+                                  {showProfitCogs && (
+                                    <span className="text-[10px] font-bold text-emerald-600 block mt-1">Profit {currency}{p.unrealizedProfit.toLocaleString()}</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-4 gap-2 mt-4">
+                                <div className="rounded-2xl bg-emerald-50 border border-emerald-100 px-2.5 py-2 min-w-0">
+                                  <span className="text-[8.5px] font-black font-mono text-emerald-600 uppercase block">Shop</span>
+                                  <span className="text-[11px] font-black text-emerald-800 block mt-0.5 truncate">{formatProductQuantity(p.shopQty, product)}</span>
+                                </div>
+                                <div className="rounded-2xl bg-blue-50 border border-blue-100 px-2.5 py-2 min-w-0">
+                                  <span className="text-[8.5px] font-black font-mono text-blue-600 uppercase block">Store</span>
+                                  <span className="text-[11px] font-black text-blue-800 block mt-0.5 truncate">{formatProductQuantity(p.storeQty, product)}</span>
+                                </div>
+                                <div className="rounded-2xl bg-amber-50 border border-amber-100 px-2.5 py-2 min-w-0">
+                                  <span className="text-[8.5px] font-black font-mono text-amber-700 uppercase block">Credit</span>
+                                  <span className="text-[11px] font-black text-amber-800 block mt-0.5 truncate">{formatProductQuantity(p.creditIssuedQty, product)}</span>
+                                </div>
+                                <div className={`rounded-2xl border px-2.5 py-2 min-w-0 ${stockIsLow ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-200'}`}>
+                                  <span className={`text-[8.5px] font-black font-mono uppercase block ${stockIsLow ? 'text-amber-700' : 'text-slate-500'}`}>Total</span>
+                                  <span className={`text-[11px] font-black block mt-0.5 truncate ${stockIsLow ? 'text-amber-800' : 'text-slate-900'}`}>{formatProductQuantity(p.totalQty, product)}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-slate-100">
+                                {showProfitCogs && <span className="text-[10px] text-slate-400 font-medium">COGS {currency}{totalCogsValue.toLocaleString()}</span>}
+                                <span className="text-[10px] text-slate-500 font-bold ml-auto">Selling {currency}{p.sellingPrice.toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-8 rounded-3xl border border-dashed border-slate-200 text-center text-slate-500 text-sm">
+                    No product items match the catalog category search query.
+                  </div>
+                )}
+              </div>
           </div>
         );
       })()}
@@ -4314,7 +4360,7 @@ export default function DashboardReports({
                             <span className="px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-mono font-bold text-slate-500">{products.length} products</span>
                           </div>
 
-                          <div className="space-y-3">
+                          <div className="hidden sm:block space-y-3">
                             {products.map((p) => {
                               const totalQty = p.stockQty || 0;
                               const shopQty = p.shopStockQty || 0;
@@ -4372,6 +4418,27 @@ export default function DashboardReports({
                                         <span className="text-[10px] text-slate-500 font-bold">Retail {currency}{Math.round(retailAmount).toLocaleString()}</span>
                                       </div>
                                     </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="space-y-2 sm:hidden">
+                            {products.map((p) => {
+                              const totalQty = p.stockQty || 0;
+                              const valAmount = totalQty * p.costPrice;
+                              return (
+                                <div key={p.id} className="bg-white px-4 py-3 border border-slate-200 rounded-xl shadow-xs flex justify-between items-center text-left">
+                                  <div className="min-w-0 pr-3">
+                                    <span className="text-sm font-bold text-slate-800 block truncate">{p.name}</span>
+                                    <span className="text-xs text-slate-400 block mt-0.5 truncate">
+                                      SKU: {p.sku || 'N/A'} • Cost: {currency}{p.costPrice.toFixed(1)} • Shop: {formatProductQuantity(p.shopStockQty || 0, p)}
+                                    </span>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <span className="text-sm font-extrabold text-slate-900 block">{formatProductQuantity(totalQty, p)}</span>
+                                    <span className="text-[11px] text-indigo-600 font-bold block mt-0.5">{currency}{Math.round(valAmount).toLocaleString()}</span>
                                   </div>
                                 </div>
                               );
