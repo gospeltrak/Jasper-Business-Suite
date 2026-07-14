@@ -1190,8 +1190,8 @@ export default function DashboardReports({
     if (startDateStr === '2020-01-01' && endDateStr === today) return 'all';
     return 'custom';
   };
-  const mobileReportKpiCardClass = "bg-white p-3 rounded-2xl border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.055)] flex flex-col justify-between min-h-[84px] text-left min-w-0";
-  const mobileReportToneKpiCardClass = "p-3 rounded-2xl border shadow-[0_8px_24px_rgba(15,23,42,0.055)] flex flex-col justify-between min-h-[84px] text-left min-w-0";
+  const mobileReportKpiCardClass = "native-report-kpi-card bg-white dark:bg-slate-900 px-3.5 py-3.5 rounded-[20px] border border-slate-200/90 dark:border-slate-800 shadow-[0_10px_30px_rgba(15,23,42,0.07)] flex flex-col justify-between min-h-[108px] text-left min-w-0 active:scale-[0.98] transition-transform";
+  const mobileReportToneKpiCardClass = "native-report-kpi-card px-3.5 py-3.5 rounded-[20px] border shadow-[0_10px_30px_rgba(15,23,42,0.07)] flex flex-col justify-between min-h-[108px] text-left min-w-0 active:scale-[0.98] transition-transform";
 
   return (
     <div className="space-y-8 animate-fade-in pb-[calc(80px+env(safe-area-inset-bottom))]" id="reports-view-root">
@@ -3867,10 +3867,19 @@ export default function DashboardReports({
         {mobileView === 'menu' ? (
           <div className="space-y-5">
             {/* Mobile Header for Selector */}
-            <div className="flex flex-col space-y-1 pb-3 border-b border-slate-200">
-              <span className="text-[10px] font-black tracking-widest text-slate-400 font-mono uppercase">Reporting Terminal</span>
-              <h2 className="text-xl font-black text-slate-800 tracking-tight text-left">Intelligence & Auditing</h2>
-              <p className="text-xs text-slate-500 font-medium text-left">Select an audited branch segment to inspect.</p>
+            <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-5 py-5 text-white shadow-[0_16px_40px_rgba(15,23,42,0.22)]">
+              <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-indigo-400/10" />
+              <div className="absolute -bottom-12 left-12 h-24 w-24 rounded-full bg-emerald-400/10" />
+              <div className="relative flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <span className="text-[9px] font-black tracking-[0.22em] text-white/45 uppercase">Business intelligence</span>
+                  <h2 className="text-[22px] font-black tracking-tight text-left leading-tight">Reports</h2>
+                  <p className="text-[11px] text-slate-300 font-medium text-left">Choose a report to inspect live performance.</p>
+                </div>
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10">
+                  <BarChart3 className="h-5 w-5 text-emerald-300" />
+                </div>
+              </div>
             </div>
 
             {/* Quick Overview Cards for Mobile */}
@@ -3886,7 +3895,7 @@ export default function DashboardReports({
             </div>
 
             {/* List of Reports Cards with Icons */}
-            <div className="grid grid-cols-1 gap-3.5">
+            <div className="grid grid-cols-2 gap-3">
               {[
                 { id: 'p&l', label: 'Profit & Loss', icon: BarChart3, desc: 'View summary accounting statement of gross & net margins', colorClass: 'bg-emerald-50 text-emerald-605 border border-emerald-100', reqPerm: 'reportsProfitCogs' },
                 { id: 'sales-report', label: 'Sales Report', icon: TrendingUp, desc: 'Detailed transactions audit, payment channels and daily VAT tickets', colorClass: 'bg-indigo-50 text-indigo-605 border border-indigo-100', reqPerm: 'reportsSalesExpenses' },
@@ -3911,22 +3920,18 @@ export default function DashboardReports({
                       setReportTab(tab.id as any);
                       setMobileView('report');
                     }}
-                    className="w-full flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl shadow-xs text-left hover:bg-slate-50 transition-all cursor-pointer min-h-[72px]"
+                    className="relative w-full flex min-w-0 flex-col items-start justify-between gap-4 overflow-hidden p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[20px] shadow-[0_10px_28px_rgba(15,23,42,0.06)] text-left active:scale-[0.98] transition-all cursor-pointer min-h-[142px]"
                   >
-                    <div className="flex items-center space-x-3.5">
-                      <div className={`p-2.5 rounded-xl shrink-0 ${tab.colorClass}`}>
+                    <div className="flex w-full items-start justify-between gap-2">
+                      <div className={`p-2.5 rounded-[14px] shrink-0 ${tab.colorClass}`}>
                         <IconComp className="w-5 h-5" />
                       </div>
-                      <div className="space-y-1">
-                        <span className="text-sm font-bold text-slate-800 block leading-none text-left">
-                          {tab.label}
-                        </span>
-                        <span className="text-[11px] block leading-tight text-slate-455 line-clamp-1 max-w-[220px] text-left">
-                          {tab.desc}
-                        </span>
-                      </div>
+                      <ArrowRight className="w-4 h-4 text-slate-300 shrink-0" />
                     </div>
-                    <ArrowRight className="w-4 h-4 text-slate-400 shrink-0" />
+                    <div className="min-w-0 space-y-1.5">
+                      <span className="text-[13px] font-extrabold text-slate-850 dark:text-white block leading-tight text-left">{tab.label}</span>
+                      <span className="text-[10px] block leading-[1.35] text-slate-400 line-clamp-2 text-left">{tab.desc}</span>
+                    </div>
                   </button>
                 );
               })}
@@ -3935,17 +3940,17 @@ export default function DashboardReports({
         ) : (
           <div className="space-y-5 pb-10">
             {/* Header pattern matching other screens */}
-            <div className="sticky top-0 z-30 flex items-center justify-between h-14 bg-white/95 backdrop-blur-md px-4 border-b border-slate-200 shadow-xs -mx-4 -mt-2">
+            <div className="sticky top-0 z-30 flex items-center justify-between min-h-16 bg-slate-950/95 backdrop-blur-xl px-4 py-2.5 border-b border-white/10 shadow-lg -mx-4 -mt-2 text-white">
               <div className="flex items-center space-x-3">
                 <button
                   type="button"
                   onClick={() => setMobileView('menu')}
-                  className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100 transition-all cursor-pointer border border-slate-200"
+                  className="w-10 h-10 flex items-center justify-center rounded-[14px] bg-white/10 text-white transition-all cursor-pointer border border-white/10 active:scale-95"
                   aria-label="Back to menu"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <span className="text-base font-extrabold text-slate-800 tracking-tight text-left">
+                <span className="text-[15px] font-extrabold text-white tracking-tight text-left leading-tight">
                   {reportTab === 'p&l' ? 'Profit & Loss' :
                    reportTab === 'sales-report' ? 'Sales Report' :
                    reportTab === 'dual-channel' ? 'Dual Channel Report' :
@@ -3963,7 +3968,7 @@ export default function DashboardReports({
               <button
                 type="button"
                 onClick={printActiveReportPdf}
-                className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer"
+                className="w-10 h-10 flex items-center justify-center rounded-[14px] bg-white/10 text-white border border-white/10 transition-all cursor-pointer active:scale-95"
                 title="Export PDF"
               >
                 <Printer className="w-[18px] h-[18px]" />
@@ -3971,7 +3976,7 @@ export default function DashboardReports({
             </div>
 
             {/* Side-by-side date inputs with quick presets row - matching other screens */}
-            <div className="space-y-3 bg-white border border-slate-200 p-4 rounded-2xl shadow-xs">
+            <div className="space-y-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-[20px] shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
               <div className="flex flex-row gap-2 w-full">
                 {/* FROM Input */}
                 <div className="flex-1 flex flex-col bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl relative">
@@ -4028,7 +4033,7 @@ export default function DashboardReports({
               {reportTab === 'p&l' && (
                 <div className="space-y-5">
                   {/* Summary Metrics Grid */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
                     <div className={mobileReportKpiCardClass}>
                       <div className="flex items-center space-x-1.5 text-emerald-600">
                         <TrendingUp className="w-4 h-4" />
@@ -4122,7 +4127,7 @@ export default function DashboardReports({
               {reportTab === 'sales-report' && (
                 <div className="space-y-4">
                   {/* Summary Metrics Grid */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
                     <div className={mobileReportKpiCardClass}>
                       <div className="flex items-center space-x-1.5 text-indigo-505">
                         <ShoppingBag className="w-4 h-4" />
@@ -4215,7 +4220,7 @@ export default function DashboardReports({
               {reportTab === 'payments' && (
                 <div className="space-y-4">
                   {/* Summary Metrics Grid — configured payment channels */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
                     {Object.keys(paymentMethodTotals).length > 0 ? (
                       Object.entries(paymentMethodTotals)
                         .sort((a, b) => b[1].amount - a[1].amount)
@@ -4310,7 +4315,7 @@ export default function DashboardReports({
                     const totalAssetVal = products.reduce((acc, curr) => acc + (curr.stockQty || 0) * curr.costPrice, 0);
                     return (
                       <>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
                           <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-indigo-500">
                               <Package className="w-4 h-4" />
@@ -4449,7 +4454,7 @@ export default function DashboardReports({
                     return (
                       <div className="space-y-4 text-left">
                         {/* Summary Metrics Grid */}
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
                           <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-blue-500">
                               <Users className="w-4 h-4" />
@@ -4515,7 +4520,7 @@ export default function DashboardReports({
                     return (
                       <div className="space-y-4 text-left">
                         {/* Summary Metrics Grid */}
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
                           <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-rose-500">
                               <Receipt className="w-4 h-4" />
@@ -4631,7 +4636,7 @@ export default function DashboardReports({
 
                           return (
                             <>
-                              <div className="grid grid-cols-2 gap-3">
+                              <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
                                 <div className={mobileReportKpiCardClass}>
                                   <div className="flex items-center space-x-1.5 text-indigo-505">
                                     <ShoppingBag className="w-4 h-4" />
@@ -4746,7 +4751,7 @@ export default function DashboardReports({
                     return (
                       <div className="space-y-4 font-sans text-left">
                         {/* Summary Metrics Grid */}
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
                           <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-indigo-500">
                               <ShoppingBag className="w-4 h-4" />
@@ -4826,7 +4831,7 @@ export default function DashboardReports({
                     return (
                       <div className="space-y-4 font-sans text-left">
                         {/* Summary Metrics Grid */}
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
                           <div className={mobileReportKpiCardClass}>
                             <div className="flex items-center space-x-1.5 text-slate-500">
                               <Truck className="w-4 h-4" />
@@ -4928,6 +4933,7 @@ export default function DashboardReports({
                     const isFastMode = velocitySortOrder === 'desc';
                     const displayList = isFastMode ? fastMovers : slowMovers;
                     const topItem = isFastMode ? fastMovers[0] : slowMovers[0];
+                    const totalVelocityUnits = allSorted.reduce((sum, item) => sum + item.qty, 0);
 
                     return (
                       <div className="space-y-4 text-left">
@@ -4943,8 +4949,25 @@ export default function DashboardReports({
                           </button>
                         </div>
 
+                        <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
+                          <div className={mobileReportKpiCardClass}>
+                            <div className="flex items-center space-x-1.5 text-indigo-500">
+                              <Package className="h-4 w-4" />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tracked SKUs</span>
+                            </div>
+                            <span className="mt-2 text-sm font-black text-slate-850 dark:text-white">{allSorted.length} products</span>
+                          </div>
+                          <div className={mobileReportKpiCardClass}>
+                            <div className="flex items-center space-x-1.5 text-emerald-600">
+                              <ArrowUpDown className="h-4 w-4" />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Units Moved</span>
+                            </div>
+                            <span className="mt-2 text-sm font-black text-emerald-700">{totalVelocityUnits.toLocaleString()}</span>
+                          </div>
+                        </div>
+
                         {/* Top card */}
-                        <div className={`p-4 rounded-2xl border ${isFastMode ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                        <div className={`p-4 rounded-[20px] border shadow-[0_10px_30px_rgba(15,23,42,0.06)] ${isFastMode ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
                           <div className={`flex items-center gap-1.5 mb-2 ${isFastMode ? 'text-emerald-600' : 'text-rose-500'}`}>
                             {isFastMode ? <TrendingUp className="w-4 h-4" /> : <MinusCircle className="w-4 h-4" />}
                             <span className="text-[10px] font-black uppercase tracking-wider">{isFastMode ? 'Top Fast Mover' : 'Slowest Mover'}</span>

@@ -1261,6 +1261,35 @@ button:active:not(:disabled),
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* Native report KPI rhythm: always two-up on phone and tablet. */
+#reports-view-root .native-report-kpi-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.75rem !important;
+}
+
+#reports-view-root .native-report-kpi-grid > * {
+  min-width: 0;
+  min-height: 6.75rem;
+  overflow: hidden;
+  border-radius: 1.25rem !important;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.07);
+}
+
+#reports-view-root .native-report-kpi-card > div:first-child svg {
+  width: 2rem;
+  height: 2rem;
+  padding: 0.45rem;
+  border-radius: 0.7rem;
+  background: rgba(148, 163, 184, 0.12);
+  flex: 0 0 auto;
+}
+
+#reports-view-root .native-report-kpi-card > span:last-child {
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+
 @media (min-width: 1280px) {
   .mobile-tablet-kpi-grid {
     grid-template-columns: var(--desktop-kpi-columns, repeat(4, minmax(0, 1fr)));
@@ -1449,7 +1478,8 @@ button:active:not(:disabled),
   #dashboard-scaffold .dashboard-kpi-two-column-grid,
   #dashboard-scaffold .stock-tabs-two-column-grid,
   #dashboard-scaffold .product-import-actions-grid,
-  #dashboard-scaffold .mobile-tablet-kpi-grid {
+  #dashboard-scaffold .mobile-tablet-kpi-grid,
+  #dashboard-scaffold .native-report-kpi-grid {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
