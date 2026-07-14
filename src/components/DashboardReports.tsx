@@ -1190,8 +1190,8 @@ export default function DashboardReports({
     if (startDateStr === '2020-01-01' && endDateStr === today) return 'all';
     return 'custom';
   };
-  const mobileReportKpiCardClass = "native-report-kpi-card bg-white dark:bg-slate-900 px-3.5 py-3.5 rounded-[20px] border border-slate-200/90 dark:border-slate-800 shadow-[0_10px_30px_rgba(15,23,42,0.07)] flex flex-col justify-between min-h-[108px] text-left min-w-0 active:scale-[0.98] transition-transform";
-  const mobileReportToneKpiCardClass = "native-report-kpi-card px-3.5 py-3.5 rounded-[20px] border shadow-[0_10px_30px_rgba(15,23,42,0.07)] flex flex-col justify-between min-h-[108px] text-left min-w-0 active:scale-[0.98] transition-transform";
+  const mobileReportKpiCardClass = "native-report-kpi-card bg-white dark:bg-slate-900 px-4 py-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-2 text-left min-w-0 active:scale-[0.97] transition-transform";
+  const mobileReportToneKpiCardClass = "native-report-kpi-card px-4 py-4 rounded-2xl border shadow-sm flex flex-col gap-2 text-left min-w-0 active:scale-[0.97] transition-transform";
 
   return (
     <div className="space-y-8 animate-fade-in pb-[calc(80px+env(safe-area-inset-bottom))]" id="reports-view-root">
@@ -3972,8 +3972,32 @@ export default function DashboardReports({
               </button>
             </div>
 
+            {/* Per-report identity strip */}
+            {(() => {
+              const identity: Record<string, { bg: string; accent: string; label: string; sub: string }> = {
+                'p&l':                { bg: 'from-[#064e3b] to-[#065f46]', accent: 'text-emerald-300', label: 'Profit & Loss', sub: 'Revenue · COGS · Operating margin' },
+                'sales-report':       { bg: 'from-[#1e1b4b] to-[#312e81]', accent: 'text-indigo-300', label: 'Sales Report', sub: 'Transactions · VAT · Channels' },
+                'dual-channel':       { bg: 'from-[#134e4a] to-[#115e59]', accent: 'text-teal-300', label: 'Dual Channel', sub: 'Retail vs Wholesale · Pricing spread' },
+                'inventory':          { bg: 'from-[#78350f] to-[#92400e]', accent: 'text-amber-300', label: 'Inventory', sub: 'SKU valuation · Stock levels · Alerts' },
+                'payments':           { bg: 'from-[#1e3a5f] to-[#1e40af]', accent: 'text-blue-300', label: 'Payments', sub: 'Collections · Methods · Settlement' },
+                'product-monitoring': { bg: 'from-[#4a044e] to-[#6b21a8]', accent: 'text-purple-300', label: 'Profitability', sub: 'Margins · Rankings · Revenue mix' },
+                'users':              { bg: 'from-[#4c0519] to-[#881337]', accent: 'text-rose-300', label: 'Customers', sub: 'Loyalty · Spend · Staff journal' },
+                'expenses':           { bg: 'from-[#450a0a] to-[#7f1d1d]', accent: 'text-red-300', label: 'Branch Expenses', sub: 'Categories · Receipts · Cash' },
+                'deliveries':         { bg: 'from-[#2e1065] to-[#4c1d95]', accent: 'text-violet-300', label: 'Fleet & Logistics', sub: 'Dispatch · Riders · Delivery fees' },
+                'velocity':           { bg: 'from-[#431407] to-[#7c2d12]', accent: 'text-orange-300', label: 'Velocity', sub: 'Turnover rates · Speed · Rankings' },
+              };
+              const id = identity[reportTab] || identity['p&l'];
+              return (
+                <div className={`-mx-4 -mt-2 mb-1 px-4 pt-4 pb-5 bg-gradient-to-br ${id.bg}`}>
+                  <p className={`text-[9px] font-black tracking-[0.18em] uppercase mb-1 ${id.accent}`}>{id.sub}</p>
+                  <h2 className="text-xl font-black text-white tracking-tight">{id.label}</h2>
+                </div>
+              );
+            })()}
+
+            {/* Date filter */}
             {/* Side-by-side date inputs with quick presets row - matching other screens */}
-            <div className="space-y-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-[20px] shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+            <div className="space-y-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-3.5 rounded-2xl shadow-sm">
               <div className="flex flex-row gap-2 w-full">
                 {/* FROM Input */}
                 <div className="flex-1 flex flex-col bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl relative">
@@ -4012,10 +4036,10 @@ export default function DashboardReports({
                       key={p.id}
                       type="button"
                       onClick={p.range}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-tight transition-all cursor-pointer border min-h-[36px] flex items-center justify-center ${
+                      className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold tracking-tight transition-all cursor-pointer border min-h-[34px] flex items-center justify-center ${
                         isActive
-                          ? 'bg-slate-900 border-slate-900 text-white font-bold'
-                          : 'bg-slate-100 border-slate-200 text-slate-500'
+                          ? 'bg-slate-900 dark:bg-white border-slate-900 dark:border-white text-white dark:text-slate-900 font-bold'
+                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
                       }`}
                     >
                       {p.label}
@@ -4030,45 +4054,34 @@ export default function DashboardReports({
               {reportTab === 'p&l' && (
                 <div className="space-y-5">
                   {/* Summary Metrics Grid */}
-                  <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
-                    <div className={mobileReportKpiCardClass}>
-                      <div className="flex items-center space-x-1.5 text-emerald-600">
-                        <TrendingUp className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Total Sales</span>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {[
+                      { label: 'Revenue', value: `${currency}${Math.round(totalSalesRevenue).toLocaleString()}`, color: 'text-emerald-600', dot: 'bg-emerald-500', sub: 'Gross sales' },
+                      { label: 'COGS', value: `${currency}${Math.round(totalCOGS).toLocaleString()}`, color: 'text-slate-700 dark:text-slate-200', dot: 'bg-amber-400', sub: 'Cost of goods' },
+                      { label: 'Expenses', value: `${currency}${Math.round(totalExpensesCharged).toLocaleString()}`, color: 'text-rose-600', dot: 'bg-rose-500', sub: 'Operating costs' },
+                      { label: 'Net Profit', value: `${netProfit < 0 ? '-' : ''}${currency}${Math.abs(Math.round(netProfit)).toLocaleString()}`, color: netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700', dot: netProfit >= 0 ? 'bg-emerald-500' : 'bg-rose-500', sub: netProfit >= 0 ? 'Surplus' : 'Deficit', highlight: true },
+                    ].map((k, i) => (
+                      <div key={i} className={`rounded-2xl p-4 border text-left ${k.highlight ? (netProfit >= 0 ? 'bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-800' : 'bg-rose-50 border-rose-100 dark:bg-rose-900/20 dark:border-rose-800') : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'} shadow-sm`}>
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span className={`w-1.5 h-1.5 rounded-full ${k.dot} shrink-0`} />
+                          <span className="text-[9.5px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{k.label}</span>
+                        </div>
+                        <p className={`text-[17px] font-black leading-none ${k.color} font-mono`}>{k.value}</p>
+                        <p className="text-[9px] text-slate-400 mt-1">{k.sub}</p>
                       </div>
-                      <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</span>
-                    </div>
-
-                    <div className={mobileReportKpiCardClass}>
-                      <div className="flex items-center space-x-1.5 text-amber-500">
-                        <Package className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Total COGS</span>
-                      </div>
-                      <span className="text-sm font-black text-slate-800 font-sans mt-2">{currency}{Math.round(totalCOGS).toLocaleString()}</span>
-                    </div>
-
-                    <div className={mobileReportKpiCardClass}>
-                      <div className="flex items-center space-x-1.5 text-rose-500">
-                        <Receipt className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Operating Exp</span>
-                      </div>
-                      <span className="text-sm font-black text-rose-600 font-sans mt-2">{currency}{Math.round(totalExpensesCharged).toLocaleString()}</span>
-                    </div>
-
-                    <div className={`${mobileReportToneKpiCardClass} ${netProfit >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-                      <div className={`flex items-center space-x-1.5 ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        <DollarSign className="w-4 h-4" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider font-mono">Net Profit</span>
-                      </div>
-                      <span className={`text-sm font-black font-sans mt-2 ${netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                        {netProfit < 0 ? '-' : ''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}
-                      </span>
-                    </div>
+                    ))}
                   </div>
 
-                  {/* Charts with horizontal scroll and max height 200px */}
-                  <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-2 text-left">
-                    <h4 className="text-sm font-bold text-slate-800">Consolidated Margin Curve</h4>
+                  {/* Margin trend chart */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 rounded-2xl shadow-sm space-y-2 text-left">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-black tracking-widest uppercase text-slate-400">Margin Trend</span>
+                      <div className="flex items-center gap-3 text-[9px] text-slate-400">
+                        <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-emerald-500 inline-block rounded" />Sales</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-purple-500 inline-block rounded" />Profit</span>
+                      </div>
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-800 hidden">Consolidated Margin Curve</h4>
                     <div className="w-full overflow-x-auto scrollbar-none">
                       <div className="min-w-[340px] h-[180px]">
                         <ResponsiveContainer width="105%" height="100%">
@@ -4085,38 +4098,34 @@ export default function DashboardReports({
                     </div>
                   </div>
 
-                  {/* Statement card list */}
-                  <div className="space-y-2 text-left">
-                    <h4 className="text-xs font-semibold text-slate-800 font-sans px-1">Statement Line Items</h4>
-                    <div className="space-y-2.5">
-                      {[
-                        { label: 'Total Sales Revenue', value: totalSalesRevenue, type: 'plus' },
-                        { label: 'Cost of Goods Sold (COGS)', value: totalCOGS, type: 'minus' },
-                        { label: 'Gross Operating Profit', value: grossProfit, type: 'summary' },
-                        { label: 'Operating Expenses Burden', value: totalExpensesCharged, type: 'minus' },
-                        { label: 'Consolidated Net Profit/Loss', value: netProfit, type: 'net' }
-                      ].map((item, idx) => (
-                        <div key={idx} className={`flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 bg-white text-left ${
-                          item.type === 'summary' ? 'bg-emerald-50 border-emerald-200' :
-                          item.type === 'net' ? (item.value >= 0 ? 'bg-emerald-100 border-emerald-300' : 'bg-rose-50 border-rose-250') : 'bg-white'
-                        }`}>
-                          <div>
-                            <span className="text-xs font-bold text-slate-800 block">{item.label}</span>
-                            <span className="text-[10px] text-slate-500 block mt-0.5">
-                              {item.type === 'minus' ? 'Debit/Expense' : item.type === 'plus' ? 'Gross Credit' : 'Accounting Margin'}
-                            </span>
+                  {/* P&L Statement — clean financial ledger style */}
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                      <span className="text-[9px] font-black tracking-widest uppercase text-slate-400">Income Statement</span>
+                    </div>
+                    {[
+                      { label: 'Total Sales Revenue', value: totalSalesRevenue, tag: 'CREDIT', tagColor: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30', valColor: 'text-emerald-600', prefix: '+' },
+                      { label: 'Cost of Goods Sold', value: totalCOGS, tag: 'DEBIT', tagColor: 'text-rose-500 bg-rose-50 dark:bg-rose-900/30', valColor: 'text-slate-700 dark:text-slate-200', prefix: '-' },
+                      { label: 'Gross Profit', value: grossProfit, tag: 'MARGIN', tagColor: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30', valColor: 'text-indigo-700 dark:text-indigo-300', prefix: '=', divider: true },
+                      { label: 'Operating Expenses', value: totalExpensesCharged, tag: 'DEBIT', tagColor: 'text-rose-500 bg-rose-50 dark:bg-rose-900/30', valColor: 'text-slate-700 dark:text-slate-200', prefix: '-' },
+                      { label: 'Net Profit / Loss', value: netProfit, tag: netProfit >= 0 ? 'SURPLUS' : 'DEFICIT', tagColor: netProfit >= 0 ? 'text-emerald-700 bg-emerald-100 dark:bg-emerald-900/40' : 'text-rose-700 bg-rose-100 dark:bg-rose-900/40', valColor: netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700', prefix: '=', divider: true, bold: true },
+                    ].map((row, i) => (
+                      <div key={i}>
+                        {row.divider && <div className="h-px bg-slate-100 dark:bg-slate-800 mx-4" />}
+                        <div className="flex items-center justify-between px-4 py-3.5">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="text-[10px] font-black text-slate-300 dark:text-slate-600 font-mono w-3 shrink-0">{row.prefix}</span>
+                            <div>
+                              <p className={`text-xs ${row.bold ? 'font-black' : 'font-semibold'} text-slate-800 dark:text-slate-100`}>{row.label}</p>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${row.tagColor} mt-0.5 inline-block`}>{row.tag}</span>
+                            </div>
                           </div>
-                          <span className={`text-sm font-extrabold font-mono ${
-                            item.type === 'minus' ? 'text-rose-600' : 
-                            item.type === 'plus' ? 'text-emerald-600' : 
-                            item.type === 'summary' ? 'text-emerald-700' : 
-                            (item.value >= 0 ? 'text-emerald-800' : 'text-rose-700')
-                          }`}>
-                            {item.type === 'minus' ? '-' : ''}{currency}{Math.abs(Math.round(item.value)).toLocaleString()}
+                          <span className={`text-[15px] font-black font-mono ${row.valColor} shrink-0 ml-2`}>
+                            {currency}{Math.abs(Math.round(row.value)).toLocaleString()}
                           </span>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -4124,38 +4133,22 @@ export default function DashboardReports({
               {reportTab === 'sales-report' && (
                 <div className="space-y-4">
                   {/* Summary Metrics Grid */}
-                  <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
-                    <div className={mobileReportKpiCardClass}>
-                      <div className="flex items-center space-x-1.5 text-indigo-505">
-                        <ShoppingBag className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Sales Count</span>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {[
+                      { label: 'Transactions', value: `${salesReportMetrics.totalOrders}`, sub: 'tickets issued', color: 'text-indigo-600', dot: 'bg-indigo-500' },
+                      { label: 'Revenue', value: `${currency}${Math.round(salesReportMetrics.totalRevenue).toLocaleString()}`, sub: 'gross income', color: 'text-emerald-600', dot: 'bg-emerald-500' },
+                      { label: 'Collected', value: `${currency}${Math.round(salesReportMetrics.paidRevenue).toLocaleString()}`, sub: 'paid channel', color: 'text-slate-700 dark:text-slate-100', dot: 'bg-teal-500' },
+                      { label: 'Credit Due', value: `${currency}${Math.round(salesReportMetrics.unpaidRevenue).toLocaleString()}`, sub: 'outstanding', color: 'text-rose-600', dot: 'bg-rose-500' },
+                    ].map((k, i) => (
+                      <div key={i} className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 shadow-sm text-left">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span className={`w-1.5 h-1.5 rounded-full ${k.dot}`} />
+                          <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest">{k.label}</span>
+                        </div>
+                        <p className={`text-[17px] font-black leading-none ${k.color} font-mono`}>{k.value}</p>
+                        <p className="text-[9px] text-slate-400 mt-1">{k.sub}</p>
                       </div>
-                      <span className="text-sm font-black text-slate-800 font-sans mt-2">{salesReportMetrics.totalOrders} Tickets</span>
-                    </div>
-
-                    <div className={mobileReportKpiCardClass}>
-                      <div className="flex items-center space-x-1.5 text-emerald-600">
-                        <DollarSign className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Gross Revenue</span>
-                      </div>
-                      <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(salesReportMetrics.totalRevenue).toLocaleString()}</span>
-                    </div>
-
-                    <div className={mobileReportKpiCardClass}>
-                      <div className="flex items-center space-x-1.5 text-emerald-505">
-                        <CheckCircle className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Paid Channel</span>
-                      </div>
-                      <span className="text-sm font-black text-emerald-700 font-sans mt-2">{currency}{Math.round(salesReportMetrics.paidRevenue).toLocaleString()}</span>
-                    </div>
-
-                    <div className={mobileReportKpiCardClass}>
-                      <div className="flex items-center space-x-1.5 text-rose-500">
-                        <ShieldAlert className="w-4 h-4" />
-                        <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider font-mono">Credit Due</span>
-                      </div>
-                      <span className="text-sm font-black text-rose-600 font-sans mt-2">{currency}{Math.round(salesReportMetrics.unpaidRevenue).toLocaleString()}</span>
-                    </div>
+                    ))}
                   </div>
 
                   {/* Search Bar for Mobile */}
@@ -4185,27 +4178,19 @@ export default function DashboardReports({
                       </div>
                     ) : (
                       recordsFilteredSales.slice(0, 30).map((sale) => (
-                        <div key={sale.id} className="bg-white px-4 py-3 border border-slate-200 rounded-xl shadow-xs space-y-2 text-left">
-                          <div className="flex justify-between items-start">
-                            <div className="text-left">
-                              <span className="text-sm font-bold text-slate-800 block">
-                                {sale.customerName || 'Walk-In Customer'}
-                              </span>
-                              <span className="text-[10px] font-mono font-bold text-slate-400 block mt-0.5">
-                                Ref: <span className="text-indigo-600">#{sale.id}</span> | {new Date(sale.timestamp).toLocaleDateString()}
-                              </span>
+                        <div key={sale.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden text-left">
+                          <div className="flex items-center justify-between px-4 py-3">
+                            <div className="min-w-0">
+                              <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{sale.customerName || 'Walk-In'}</p>
+                              <p className="text-[9px] font-mono text-slate-400 mt-0.5">{new Date(sale.timestamp).toLocaleDateString()} · {sale.paymentMethod}</p>
                             </div>
-                            <span className="text-sm font-black font-mono text-slate-800">
-                              {currency}{sale.total.toFixed(1)}
-                            </span>
+                            <div className="text-right shrink-0 ml-3">
+                              <p className="text-[15px] font-black font-mono text-slate-800 dark:text-slate-100">{currency}{sale.total.toFixed(0)}</p>
+                              <p className="text-[9px] text-slate-400">{sale.items.length} item{sale.items.length !== 1 ? 's' : ''}</p>
+                            </div>
                           </div>
-
-                          <div className="border-t border-slate-100 pt-2 flex flex-col gap-1 text-[11px] text-slate-500">
-                            <p className="truncate text-left"><strong className="text-slate-700">Items:</strong> {sale.items.map(it => `${it.qty}x ${it.productName}`).join(', ')}</p>
-                            <div className="flex justify-between items-center text-[10px] mt-1 font-mono uppercase font-bold text-slate-400">
-                              <span>Mode: {sale.paymentMethod}</span>
-                              <span>Staff: {sale.cashierName || 'Operator'}</span>
-                            </div>
+                          <div className="px-4 py-2 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
+                            <p className="text-[10px] text-slate-500 truncate">{sale.items.slice(0,3).map(it => `${it.qty}× ${it.productName}`).join(' · ')}{sale.items.length > 3 ? ` +${sale.items.length-3}` : ''}</p>
                           </div>
                         </div>
                       ))
@@ -4228,13 +4213,13 @@ export default function DashboardReports({
                           const iconColor = isCredit ? 'text-rose-500' : isMobile ? 'text-amber-500' : isBank ? 'text-blue-500' : 'text-emerald-600';
                           const valColor = isCredit ? 'text-rose-600' : isMobile ? 'text-amber-700' : isBank ? 'text-blue-700' : 'text-emerald-600';
                           return (
-                            <div key={key} className={mobileReportKpiCardClass}>
-                              <div className={`flex items-center space-x-1.5 ${iconColor}`}>
-                                <DollarSign className="w-4 h-4" />
-                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono truncate">{label}</span>
+                            <div key={key} className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 shadow-sm text-left">
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <span className={`w-1.5 h-1.5 rounded-full ${isCredit ? 'bg-rose-500' : isMobile ? 'bg-amber-400' : isBank ? 'bg-blue-500' : 'bg-emerald-500'}`} />
+                                <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest truncate">{label}</span>
                               </div>
-                              <span className={`text-sm font-black mt-2 ${valColor}`}>{currency}{Math.round(amount).toLocaleString()}</span>
-                              <span className="text-[10px] text-slate-400">{count} txn{count !== 1 ? 's' : ''}</span>
+                              <p className={`text-[17px] font-black leading-none font-mono ${valColor}`}>{currency}{Math.round(amount).toLocaleString()}</p>
+                              <p className="text-[9px] text-slate-400 mt-1">{count} transaction{count !== 1 ? 's' : ''}</p>
                             </div>
                           );
                         })
@@ -4635,21 +4620,19 @@ export default function DashboardReports({
                             <>
                               <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
                                 <div className={mobileReportKpiCardClass}>
-                                  <div className="flex items-center space-x-1.5 text-indigo-505">
-                                    <ShoppingBag className="w-4 h-4" />
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Units Sold</span>
-                                  </div>
-                                  <span className="text-sm font-black text-slate-800 font-sans mt-2">
-                                    {isAll ? `${totalUnits.toLocaleString()} mixed units` : formatProductQuantity(totalUnits, products.find(p => p.id === selectedMonitoredProductId))}
-                                  </span>
+                                  <div className="flex items-center gap-1.5 mb-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                          <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest">Units Sold</span>
+                        </div>
+                        <p className="text-[17px] font-black leading-none text-slate-800 font-mono">{isAll ? `${totalUnits.toLocaleString()} mixed units` : formatProductQuantity(totalUnits, products.find(p => p.id === selectedMonitoredProductId))}</p>
                                 </div>
 
                                 <div className={mobileReportKpiCardClass}>
-                                  <div className="flex items-center space-x-1.5 text-emerald-600">
-                                    <DollarSign className="w-4 h-4" />
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Gross Income</span>
-                                  </div>
-                                  <span className="text-sm font-black text-emerald-600 font-sans mt-2">{currency}{Math.round(totalRevenue).toLocaleString()}</span>
+                                  <div className="flex items-center gap-1.5 mb-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0" />
+                          <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest">Gross Income</span>
+                        </div>
+                        <p className="text-[17px] font-black leading-none text-emerald-600 font-mono">{currency}{Math.round(totalRevenue).toLocaleString()}</p>
                                 </div>
 
                                 <div className={mobileReportKpiCardClass}>
