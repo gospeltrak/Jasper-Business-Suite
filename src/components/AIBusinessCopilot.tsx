@@ -128,6 +128,19 @@ export default function AIBusinessCopilot({
   );
   const [usage, setUsage] = useState<{ intent?: string; used?: number; limit?: number; remaining?: number; model?: string } | null>(null);
 
+  useEffect(() => {
+    setOnlineStatus(isLucyEnabled ? 'online' : 'locked');
+    setMessages(prev => {
+      if (prev.length !== 1 || prev[0]?.sender !== 'ai') return prev;
+      return [{
+        ...prev[0],
+        text: isLucyEnabled
+          ? getLucyGreeting('en', activeTenant.name)
+          : 'Lucy AI is available from Diamond. Upgrade to unlock online guidance, reports, and business growth support.'
+      }];
+    });
+  }, [isLucyEnabled, activeTenant.name]);
+
   // Voice Controls States
   const [isListening, setIsListening] = useState(false);
   const [isSpokenOutputEnabled, setIsSpokenOutputEnabled] = useState(false);
@@ -247,6 +260,14 @@ export default function AIBusinessCopilot({
     setIsLoading(true);
 
     const intent = inferLucyIntent(textToSend);
+    const localLucy = createLucyResponse(textToSend, {
+      activeTenant,
+      activeTab,
+      products,
+      sales,
+      expenses,
+      surface: 'dashboard'
+    });
     try {
       const client: any = await getSecureDataBridgeClient();
       const { data: { session } = { session: null } } = !isPlaceholderSecureDataBridgeClient(client) && client.auth
@@ -283,15 +304,17 @@ export default function AIBusinessCopilot({
         throw Object.assign(new Error(data.responseText), { lucyPayload: data });
       }
 
+      const onlineText = typeof data.responseText === 'string' ? data.responseText.trim() : '';
+      const answerText = onlineText || localLucy.text;
       const aiMsgObj: Message = {
         sender: 'ai',
-        text: data.responseText || 'I am online, but I could not prepare a useful answer. Please try again.',
+        text: answerText,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        actionTriggered: data.action === 'NAVIGATE' ? data.targetTab : undefined,
-        unsupportedFeature: data.unsupportedFeature
+        actionTriggered: (data.action === 'NAVIGATE' ? data.targetTab : undefined) || (localLucy.action === 'NAVIGATE' ? localLucy.targetTab : undefined),
+        unsupportedFeature: data.unsupportedFeature || localLucy.safetyTopic
       };
 
-      setOnlineStatus('online');
+      setOnlineStatus(onlineText ? 'online' : 'safe-mode');
       setUsage(data.usage || null);
       setMessages(prev => [...prev, aiMsgObj]);
       speakAIResponse(aiMsgObj.text);
@@ -301,6 +324,8 @@ export default function AIBusinessCopilot({
         window.setTimeout(() => onNavigate(data.targetTab), 500);
       } else if (data.action === 'UPGRADE_REQUIRED') {
         window.setTimeout(() => onNavigate('subscription-modal'), 500);
+      } else if (!onlineText && localLucy.action === 'NAVIGATE' && localLucy.targetTab) {
+        window.setTimeout(() => onNavigate(localLucy.targetTab!), 500);
       }
     } catch (error: any) {
       const blockedPayload = error?.lucyPayload;

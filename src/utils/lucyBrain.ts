@@ -55,6 +55,11 @@ const generalKnowledgeSignals = [
   'pika', 'mchezo'
 ];
 
+const greetingSignals = [
+  'hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening',
+  'habari', 'mambo', 'niaje', 'hujambo', 'salama', 'shikamoo'
+];
+
 const navigationIntents: Array<{ tab: string; sw: string; en: string; keys: string[] }> = [
   { tab: 'overview', sw: 'Nimefungua dashboard yako.', en: 'I opened your dashboard.', keys: ['dashboard', 'home', 'overview', 'nyumbani'] },
   { tab: 'pos', sw: 'Nimefungua POS ya mauzo.', en: 'I opened the POS sales screen.', keys: ['pos', 'till', 'cashier', 'checkout', 'sell', 'uza', 'mauzo'] },
@@ -239,6 +244,14 @@ const buildLandingAnswer = (message: string, language: LucyLanguage, lower: stri
 export const createLucyResponse = (message: string, ctx: LucyContext = {}): LucyResponse => {
   const language = detectLucyLanguage(message);
   const lower = normalize(message);
+
+  const isGreeting = greetingSignals.some(signal => lower === signal || lower.startsWith(`${signal} `));
+  if (isGreeting) {
+    return {
+      language,
+      text: getLucyGreeting(language, ctx.activeTenant?.name, ctx.activeTenant?.businessType)
+    };
+  }
 
   const risk = systemRiskSignals.find(signal => lower.includes(signal));
   if (risk) {
