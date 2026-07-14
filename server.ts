@@ -895,11 +895,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const { data: profile } = await supabaseAdmin.from('users').select('id,tenant_id,account_type,role_key,role,is_active').eq('id', authUser.id).maybeSingle();
       if (!profile?.is_active) return res.json({ allowed: false, reasonCode: 'account_inactive', reason: 'This account is not active.' });
 
-      // Only sessions with no heartbeat for 15 minutes are treated as abandoned.
-      const staleBefore = new Date(Date.now() - 15 * 60 * 1000).toISOString();
       const now = new Date().toISOString();
-      await supabaseAdmin.from('user_sessions').update({ is_active: false, logout_at: now, updated_at: now })
-        .eq('user_id', authUser.id).eq('is_active', true).lt('last_activity_at', staleBefore);
 
       const { data: sameDevice } = await supabaseAdmin.from('user_sessions').select('id')
         .eq('user_id', authUser.id).eq('device_id', String(deviceId)).eq('is_active', true).maybeSingle();

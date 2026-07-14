@@ -20,14 +20,6 @@ begin
     return jsonb_build_object('allowed', false, 'reason_code', 'account_inactive', 'reason', 'This account is not active.');
   end if;
 
-  -- Remove only abandoned sessions. A healthy client sends a heartbeat every
-  -- five minutes, so fifteen minutes means the browser is no longer connected.
-  update public.user_sessions
-  set is_active = false, logout_at = coalesce(logout_at, now()), updated_at = now()
-  where user_id = v_user.id
-    and is_active
-    and last_activity_at < now() - interval '15 minutes';
-
   select * into v_session
   from public.user_sessions
   where user_id = v_user.id and device_id = p_device_id and is_active
