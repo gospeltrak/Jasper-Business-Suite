@@ -1,6 +1,6 @@
 // Jasper Business Suite Service Worker (online-only business writes)
-const CACHE_NAME = 'jasper-pos-cache-v15-two-device-limit';
-const SW_VERSION = '2026-07-14-two-device-limit-v1';
+const CACHE_NAME = 'jasper-pos-cache-v16-auth-session-storage';
+const SW_VERSION = '2026-07-14-auth-session-storage-v1';
 const NAVIGATION_CACHE_KEY = '/__jasper-navigation-shell__';
 
 // Assets to cache immediately on SW install

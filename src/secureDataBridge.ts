@@ -4,11 +4,30 @@ let secureDataBridgeInstance: ReturnType<typeof createClient> | null = null;
 const PLACEHOLDER_DATA_URL = 'https://placeholder-url.supabase.co';
 const PLACEHOLDER_DATA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy';
 
+// Keep authentication outside localStorage. Large tenant workspaces can fill
+// localStorage; auth must still be able to save its token and complete login.
+const browserAuthStorage = {
+  getItem: (key: string) => typeof window === 'undefined' ? null : window.sessionStorage.getItem(key),
+  setItem: (key: string, value: string) => {
+    if (typeof window !== 'undefined') window.sessionStorage.setItem(key, value);
+  },
+  removeItem: (key: string) => {
+    if (typeof window !== 'undefined') window.sessionStorage.removeItem(key);
+  }
+};
+
 export const isPlaceholderSecureDataBridgeClient = (client: any) =>
   Boolean(client?.__isPlaceholderSecureDataBridgeClient);
 
 export async function getSecureDataBridgeClient() {
   if (secureDataBridgeInstance && secureDataBridgeInstance.auth) {
+    return secureDataBridgeInstance;
+  }
+
+  // Reuse the eager real client. Creating two GoTrue clients with the same
+  // project/storage key can make logout and the next login behave unpredictably.
+  if (!isStaticPlaceholder) {
+    secureDataBridgeInstance = secureDataBridge;
     return secureDataBridgeInstance;
   }
 
@@ -45,7 +64,9 @@ export async function getSecureDataBridgeClient() {
     auth: {
       persistSession: !isPlaceholder,
       autoRefreshToken: !isPlaceholder,
-      detectSessionInUrl: !isPlaceholder
+      detectSessionInUrl: !isPlaceholder,
+      storage: browserAuthStorage,
+      storageKey: 'jasper_supabase_auth_v2'
     },
     global: {
       fetch: isPlaceholder ? (async () => new Response('{}', { status: 200 })) as any : undefined
@@ -66,7 +87,9 @@ export const secureDataBridge = createClient(secureDataUrl, secureDataAnonKey, {
   auth: {
     persistSession: !isStaticPlaceholder,
     autoRefreshToken: !isStaticPlaceholder,
-    detectSessionInUrl: !isStaticPlaceholder
+    detectSessionInUrl: !isStaticPlaceholder,
+    storage: browserAuthStorage,
+    storageKey: isStaticPlaceholder ? 'jasper_supabase_auth_placeholder_v2' : 'jasper_supabase_auth_v2'
   },
   global: {
     fetch: isStaticPlaceholder ? (async () => new Response('{}', { status: 200 })) as any : undefined

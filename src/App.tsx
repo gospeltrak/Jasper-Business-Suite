@@ -64,7 +64,7 @@ export default function App() {
   const [currentPath, setCurrentPath] = useState<string>(() => normalizePath(window.location.pathname || '/'));
   const [user, setUser] = useState<User | null>(() => {
     try {
-      const cached = localStorage.getItem('jasper_cashier_user');
+      const cached = localStorage.getItem('jasper_cashier_user') || sessionStorage.getItem('jasper_cashier_user');
       return cached ? JSON.parse(cached) : null;
     } catch (err) {
       console.error('Failed to load saved user session', err);
@@ -83,6 +83,19 @@ export default function App() {
   const splashShownRef = useRef(false);
   const logoutInProgressRef = useRef(false);
   const publicLandingUrl = tenantDomainContext.baseDomain ? `https://${tenantDomainContext.baseDomain}/` : undefined;
+
+  const persistSignedInUser = (sessionUser: User) => {
+    const serialized = JSON.stringify(sessionUser);
+    try {
+      localStorage.setItem('jasper_cashier_user', serialized);
+      sessionStorage.removeItem('jasper_cashier_user');
+    } catch (error) {
+      // Tenant workspace data may fill localStorage. Keep it untouched and use
+      // this tab's sessionStorage for the small signed-in user record.
+      console.warn('Local storage is full; using tab session for login.', error);
+      sessionStorage.setItem('jasper_cashier_user', serialized);
+    }
+  };
 
   useEffect(() => {
     if (user?.activeTenant) {
@@ -316,7 +329,7 @@ export default function App() {
         };
 
         setUser(restoredUser);
-        localStorage.setItem('jasper_cashier_user', JSON.stringify(restoredUser));
+        persistSignedInUser(restoredUser);
 
         if (currentPath === '/login' || currentPath.startsWith('/login/')) {
           const targetPath = getAuthenticatedRoute(restoredUser);
@@ -343,7 +356,7 @@ export default function App() {
     }
     recordStaffLogin(authenticatedUser);
     setUser(authenticatedUser);
-    localStorage.setItem('jasper_cashier_user', JSON.stringify(authenticatedUser));
+    persistSignedInUser(authenticatedUser);
     // Show splash on fresh login — only once per session
     if (!splashShownRef.current) {
       splashShownRef.current = true;
@@ -387,6 +400,7 @@ export default function App() {
     } finally {
       setUser(null);
       localStorage.removeItem('jasper_cashier_user');
+      sessionStorage.removeItem('jasper_cashier_user');
       splashShownRef.current = false;
       navigateTo('/');
     }
