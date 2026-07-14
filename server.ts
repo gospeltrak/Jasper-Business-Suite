@@ -841,8 +841,6 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
           .from('users')
           .select('email')
           .eq('phone', fmt)
-          .not('email', 'like', '%@whatsapp.jasper.local')
-          .not('email', 'like', '%@signup.jasper.local')
           .maybeSingle();
         const matchedUser = data as { email?: string } | null;
         if (matchedUser?.email) return res.json({ email: matchedUser.email });
@@ -850,6 +848,28 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       return res.json({ email: null });
     } catch {
       return res.json({ email: null });
+    }
+  });
+
+  // Return the signed-in user's own profile through the trusted backend.
+  // This prevents a slow browser-side profile query from leaving login stuck.
+  app.get('/api/auth/profile', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    if (!supabaseAdmin) return res.status(503).json({ profile: null, error: 'Authentication service unavailable.' });
+    const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    if (!token) return res.status(401).json({ profile: null, error: 'Missing login token.' });
+    try {
+      const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !authData.user?.id) return res.status(401).json({ profile: null, error: 'Invalid login token.' });
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('users')
+        .select('*')
+        .eq('id', authData.user.id)
+        .maybeSingle();
+      if (profileError) throw profileError;
+      return res.json({ profile: profile || null });
+    } catch (error: any) {
+      return res.status(500).json({ profile: null, error: error?.message || 'Could not load account.' });
     }
   });
 

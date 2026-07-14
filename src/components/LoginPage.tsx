@@ -967,12 +967,42 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       }
 
       if (!authError && authData?.user) {
-        // Authenticated successfully. Fetch matching public users row
-        const { data: userProfile, error: profileError } = await client
-          .from('users')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single();
+        // Password is verified. Load the matching profile through the trusted
+        // backend first so a slow RLS/browser request cannot leave login loading.
+        let userProfile: any = null;
+        let profileError: any = null;
+        try {
+          const controller = new AbortController();
+          const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+          const profileResponse = await fetch('/api/auth/profile', {
+            cache: 'no-store',
+            headers: { Authorization: `Bearer ${authData.session?.access_token || ''}` },
+            signal: controller.signal
+          });
+          window.clearTimeout(timeoutId);
+          if (profileResponse.ok) {
+            const profilePayload = await profileResponse.json();
+            userProfile = profilePayload?.profile || null;
+          } else {
+            profileError = new Error('Could not load this account.');
+          }
+        } catch (error) {
+          profileError = error;
+        }
+
+        // Fallback for static deployments that do not have the profile route.
+        if (!userProfile) {
+          try {
+            const profileResult: any = await Promise.race([
+              client.from('users').select('*').eq('id', authData.user.id).single(),
+              new Promise((_, reject) => window.setTimeout(() => reject(new Error('Account lookup timed out.')), 8000))
+            ]);
+            userProfile = profileResult?.data || null;
+            profileError = profileResult?.error || null;
+          } catch (error) {
+            profileError = error;
+          }
+        }
 
         const isPlatformAdmin = userProfile?.account_type === 'super_admin' ||
           ['superadmin', 'super_admin'].includes(String(userProfile?.role_key || userProfile?.role || '').toLowerCase());
@@ -1017,11 +1047,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         if (tenantId) {
           const cacheKey = `jasper_workspace_cache_${tenantId}`;
           try {
-            const { data: ws } = await client
-              .from('tenant_workspaces')
-              .select('payload')
-              .eq('tenant_id', tenantId)
-              .maybeSingle();
+            const workspaceResult: any = await Promise.race([
+              client.from('tenant_workspaces').select('payload').eq('tenant_id', tenantId).maybeSingle(),
+              new Promise((_, reject) => window.setTimeout(() => reject(new Error('Workspace pre-load timed out.')), 5000))
+            ]);
+            const ws = workspaceResult?.data;
             if (ws?.payload) {
               const currentCache = readJsonValue(cacheKey);
               if (!payloadHasRecords(ws.payload) && payloadHasRecords(currentCache)) {

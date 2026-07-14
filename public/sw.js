@@ -1,6 +1,6 @@
 // Jasper Business Suite Service Worker (online-only business writes)
-const CACHE_NAME = 'jasper-pos-cache-v13-a4-document-template';
-const SW_VERSION = '2026-07-14-a4-document-template-v1';
+const CACHE_NAME = 'jasper-pos-cache-v14-reliable-login';
+const SW_VERSION = '2026-07-14-reliable-login-v1';
 const NAVIGATION_CACHE_KEY = '/__jasper-navigation-shell__';
 
 // Assets to cache immediately on SW install

@@ -376,7 +376,10 @@ export default function App() {
         // Remove this browser's persisted Supabase token. Leaving it behind makes
         // the session-restoration effect sign the user straight back in and can
         // prevent the next password login from starting with a clean auth state.
-        const { error } = await client.auth.signOut({ scope: 'local' });
+        const { error }: any = await Promise.race([
+          client.auth.signOut({ scope: 'local' }),
+          new Promise((_, reject) => window.setTimeout(() => reject(new Error('Browser logout timed out.')), 5000))
+        ]);
         if (error) throw error;
       }
     } catch (error) {
