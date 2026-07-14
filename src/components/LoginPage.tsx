@@ -822,9 +822,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       );
     }).catch(() => { /* non-critical */ });
 
-    setTimeout(() => {
-      onLogin(userPayload);
-    }, 2000);
+    // Authentication and the cloud session are already complete at this point.
+    // Hand control to App immediately so the protected route cannot remain on
+    // the login page while a cosmetic welcome timer is pending. App owns the
+    // dashboard splash screen after navigation.
+    onLogin(userPayload);
   };
 
   const handleLoginSubmit = (e: FormEvent) => {

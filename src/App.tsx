@@ -81,6 +81,7 @@ export default function App() {
   // Splash: show once per session when user first enters dashboard
   const [showSplash, setShowSplash] = useState(false);
   const splashShownRef = useRef(false);
+  const logoutInProgressRef = useRef(false);
   const publicLandingUrl = tenantDomainContext.baseDomain ? `https://${tenantDomainContext.baseDomain}/` : undefined;
 
   useEffect(() => {
@@ -276,7 +277,7 @@ export default function App() {
   }, [currentPath, user, tenantDomainContext]);
 
   useEffect(() => {
-    if (user || tenantDomainContext.kind === 'loading') return;
+    if (user || logoutInProgressRef.current || tenantDomainContext.kind === 'loading') return;
     let cancelled = false;
 
     const restoreCloudSession = async () => {
@@ -332,6 +333,7 @@ export default function App() {
   }, [currentPath, tenantDomainContext.kind, user]);
 
   const handleLoginSuccess = (authenticatedUser: User) => {
+    logoutInProgressRef.current = false;
     const domainTenantId = tenantDomainContext.kind === 'tenant' ? tenantDomainContext.tenant?.id : null;
     const userTenantId = authenticatedUser.tenantId || authenticatedUser.activeTenant;
     const isPlatformAdmin = authenticatedUser.role === 'SuperAdmin' || authenticatedUser.isSaaSStaff;
@@ -359,11 +361,32 @@ export default function App() {
   }, [user?.id]);
 
   const handleLogoutSuccess = async () => {
+    logoutInProgressRef.current = true;
     recordStaffLogout(user);
-    await endCloudSession();
-    setUser(null);
-    localStorage.removeItem('jasper_cashier_user');
-    navigateTo('/');
+    try {
+      await endCloudSession();
+    } catch (error) {
+      // Local logout must still complete if the session-tracking RPC is offline.
+      console.warn('Cloud session could not be closed during logout', error);
+    }
+
+    try {
+      const client: any = await getSecureDataBridgeClient();
+      if (!isPlaceholderSecureDataBridgeClient(client)) {
+        // Remove this browser's persisted Supabase token. Leaving it behind makes
+        // the session-restoration effect sign the user straight back in and can
+        // prevent the next password login from starting with a clean auth state.
+        const { error } = await client.auth.signOut({ scope: 'local' });
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.warn('Browser auth session could not be closed during logout', error);
+    } finally {
+      setUser(null);
+      localStorage.removeItem('jasper_cashier_user');
+      splashShownRef.current = false;
+      navigateTo('/');
+    }
   };
 
   // Dynamic Component switcher based on pathname
