@@ -291,14 +291,23 @@ export default function DashboardPOS({
 
   const buildReceiptPdfData = (): ReceiptData | null => {
     if (!receiptResult) return null;
+    const stores = systemSettings?.business?.registeredStores || [];
+    const activeBranch = stores[0];
+    const branchBranding = activeBranch ? systemSettings?.business?.branchBranding?.[activeBranch] : undefined;
+    const rawTerms = systemSettings?.invoiceSettings?.termsAndConditions;
+    const terms = Array.isArray(rawTerms) ? rawTerms : rawTerms ? String(rawTerms).split('\n').filter(Boolean) : [];
     return {
         businessName: systemSettings?.business?.businessName || activeTenant.name,
         businessAddress: systemSettings?.business?.businessAddress || activeTenant.city || undefined,
         businessPhone: systemSettings?.business?.businessPhone || undefined,
+        businessEmail: systemSettings?.business?.businessEmail || undefined,
+        businessCity: activeTenant.city || undefined,
+        businessLogo: branchBranding?.businessLogoLight || branchBranding?.businessLogo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo || undefined,
         receiptId: receiptResult.reference || receiptResult.id,
         timestamp: receiptResult.timestamp,
         cashierName: receiptResult.cashierName || userName || undefined,
         customerName: receiptResult.customerName || undefined,
+        customerPhone: receiptResult.customerPhone || customerPhone || undefined,
         paymentMethod: receiptResult.paymentMethod,
         items: receiptResult.items.map(item => {
           const prod = products.find(p => p.id === item.productId);
@@ -320,7 +329,11 @@ export default function DashboardPOS({
         amountPaid: receiptResult.amountPaid ?? receiptResult.total,
         change: receiptResult.change ?? 0,
         vatNumber: (systemSettings?.business as any)?.vatNumber || undefined,
-        footer: 'Thank you for shopping with us!',
+        documentTitle: 'A4 Receipt',
+        status: (receiptResult.amountPaid ?? receiptResult.total) >= receiptResult.total ? 'Paid' : 'Pending',
+        preparedByRole: 'Cashier',
+        terms,
+        footer: 'Powered by Ndiva Suite',
       };
   };
 

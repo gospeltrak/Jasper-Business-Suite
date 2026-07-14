@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { buildWhatsAppLink } from './whatsapp';
 
 const sanitizeFileName = (name: string) =>
@@ -45,10 +46,15 @@ export interface ReceiptData {
   businessName: string;
   businessAddress?: string;
   businessPhone?: string;
+  businessEmail?: string;
+  businessCity?: string;
+  businessLogo?: string;
   receiptId: string;
   timestamp: string;
   cashierName?: string;
   customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
   paymentMethod: string;
   items: Array<{
     name: string;
@@ -68,155 +74,139 @@ export interface ReceiptData {
   change?: number;
   vatNumber?: string;
   footer?: string;
+  documentTitle?: string;
+  status?: string;
+  preparedByRole?: string;
+  terms?: string[];
 }
 
 export function createReceiptPdfFromData(data: ReceiptData): File {
-  // Receipt width: 80mm thermal paper = 226.77pt
-  const W = 226;
-  const margin = 10;
-  const contentW = W - margin * 2;
-
-  // Build PDF — height will be calculated
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [W, 800] });
-
-  let y = margin;
-
-  const line = (x1: number, y1: number, x2: number, y2: number, color = '#e2e8f0') => {
-    pdf.setDrawColor(color);
-    pdf.line(x1, y1, x2, y2);
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  const W = pdf.internal.pageSize.getWidth();
+  const H = pdf.internal.pageSize.getHeight();
+  const margin = 32;
+  const navy = '#0f172a';
+  const muted = '#64748b';
+  const pale = '#f8fafc';
+  const indigo = '#4f46e5';
+  const text = (value: string, x: number, y: number, options: { align?: 'left'|'center'|'right'; size?: number; bold?: boolean; color?: string } = {}) => {
+    pdf.setFont('helvetica', options.bold ? 'bold' : 'normal');
+    pdf.setFontSize(options.size || 8);
+    pdf.setTextColor(options.color || navy);
+    pdf.text(String(value), x, y, { align: options.align || 'left' });
+  };
+  const fmt = (amount: number) => `${data.currency} ${Math.abs(amount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  const roundedBox = (x: number, y: number, w: number, h: number, radius: number, fill: string, stroke?: string) => {
+    pdf.setFillColor(fill);
+    if (stroke) pdf.setDrawColor(stroke);
+    pdf.roundedRect(x, y, w, h, radius, radius, stroke ? 'FD' : 'F');
   };
 
-  const dashed = (yPos: number) => {
-    pdf.setDrawColor('#cbd5e1');
-    pdf.setLineDashPattern([2, 2], 0);
-    pdf.line(margin, yPos, W - margin, yPos);
-    pdf.setLineDashPattern([], 0);
-  };
-
-  const text = (str: string, x: number, yPos: number, opts?: { align?: 'left'|'center'|'right'; size?: number; bold?: boolean; color?: string }) => {
-    const { align = 'left', size = 7, bold = false, color = '#0f172a' } = opts || {};
-    pdf.setFontSize(size);
-    pdf.setFont('helvetica', bold ? 'bold' : 'normal');
-    pdf.setTextColor(color);
-    pdf.text(str, x, yPos, { align });
-  };
-
-  const fmt = (amount: number) => `${data.currency} ${Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-  // ── Header ────────────────────────────────────────────────────────────────
-  y += 4;
-  text(data.businessName, W / 2, y, { align: 'center', size: 10, bold: true });
-  y += 12;
-
-  if (data.businessAddress) {
-    text(data.businessAddress, W / 2, y, { align: 'center', size: 7, color: '#475569' });
-    y += 10;
+  // Header — same arrangement as the approved A4 template.
+  let logoAdded = false;
+  if (data.businessLogo?.startsWith('data:image/')) {
+    try {
+      pdf.addImage(data.businessLogo, data.businessLogo.includes('png') ? 'PNG' : 'JPEG', margin, 34, 88, 42, undefined, 'FAST');
+      logoAdded = true;
+    } catch { /* fall back to the business initial */ }
   }
-  if (data.businessPhone) {
-    text(data.businessPhone, W / 2, y, { align: 'center', size: 7, color: '#475569' });
-    y += 10;
+  if (!logoAdded) {
+    roundedBox(margin, 35, 34, 34, 8, indigo);
+    text(data.businessName.charAt(0).toUpperCase(), margin + 17, 58, { align: 'center', size: 18, bold: true, color: '#ffffff' });
   }
-  if (data.vatNumber) {
-    text(`VAT No: ${data.vatNumber}`, W / 2, y, { align: 'center', size: 6, color: '#64748b' });
-    y += 9;
-  }
-
-  y += 4;
-  dashed(y);
-  y += 8;
-
-  // ── Receipt meta ──────────────────────────────────────────────────────────
-  text('RECEIPT', W / 2, y, { align: 'center', size: 9, bold: true });
-  y += 10;
-
-  const metaRows = [
-    ['Receipt No:', data.receiptId],
-    ['Date:', new Date(data.timestamp).toLocaleString()],
-    ...(data.cashierName ? [['Served by:', data.cashierName]] : []),
-    ...(data.customerName ? [['Customer:', data.customerName]] : []),
-    ['Payment:', data.paymentMethod],
-  ];
-  metaRows.forEach(([label, value]) => {
-    text(label, margin, y, { size: 6.5, color: '#64748b' });
-    text(value, W - margin, y, { align: 'right', size: 6.5, bold: true });
-    y += 9;
+  text(data.businessName, margin, 101, { size: 16, bold: true });
+  let businessY = 117;
+  [data.businessCity, data.businessAddress, data.businessPhone ? `Tel: ${data.businessPhone}` : '', data.businessEmail].filter(Boolean).forEach(value => {
+    text(String(value), margin, businessY, { size: 8, color: muted });
+    businessY += 12;
   });
 
-  y += 4;
-  dashed(y);
-  y += 8;
+  const title = (data.documentTitle || 'A4 RECEIPT').toUpperCase();
+  const titleWidth = Math.max(112, Math.min(178, title.length * 8 + 28));
+  roundedBox(W - margin - titleWidth, 32, titleWidth, 28, 10, indigo);
+  text(title, W - margin - titleWidth / 2, 51, { align: 'center', size: 11, bold: true, color: '#ffffff' });
+  const metaX = W - margin;
+  text(`No:  ${data.receiptId}`, metaX, 78, { align: 'right', size: 8, bold: true });
+  text(`Date:  ${new Date(data.timestamp).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`, metaX, 94, { align: 'right', size: 8, color: muted });
+  if (data.cashierName) text(`Prepared by:  ${data.cashierName}`, metaX, 110, { align: 'right', size: 8, color: muted });
+  const status = (data.status || ((data.amountPaid ?? 0) >= data.grandTotal ? 'PAID' : 'PENDING')).toUpperCase();
+  roundedBox(W - margin - 64, 121, 64, 18, 7, status === 'PAID' ? '#ecfdf5' : '#fffbeb', status === 'PAID' ? '#a7f3d0' : '#fde68a');
+  text(`• ${status}`, W - margin - 32, 133.5, { align: 'center', size: 7, bold: true, color: status === 'PAID' ? '#047857' : '#b45309' });
 
-  // ── Column headers ────────────────────────────────────────────────────────
-  text('ITEM', margin, y, { size: 6, bold: true, color: '#64748b' });
-  text('QTY', margin + contentW * 0.6, y, { size: 6, bold: true, color: '#64748b' });
-  text('PRICE', margin + contentW * 0.76, y, { size: 6, bold: true, color: '#64748b' });
-  text('TOTAL', W - margin, y, { align: 'right', size: 6, bold: true, color: '#64748b' });
-  y += 5;
-  line(margin, y, W - margin, y, '#e2e8f0');
-  y += 7;
+  // Bill To / From panel.
+  roundedBox(margin, 178, W - margin * 2, 80, 12, pale, '#e2e8f0');
+  text('BILL TO', margin + 16, 202, { size: 7, bold: true, color: '#94a3b8' });
+  text(data.customerName || 'Walk-In Customer', margin + 16, 224, { size: 11, bold: true });
+  if (data.customerPhone) text(data.customerPhone, margin + 16, 239, { size: 8, color: muted });
+  text('FROM', W / 2 + 8, 202, { size: 7, bold: true, color: '#94a3b8' });
+  text(data.businessName, W / 2 + 8, 224, { size: 11, bold: true });
+  text(data.preparedByRole || data.paymentMethod || 'Sales', W / 2 + 8, 239, { size: 8, color: muted });
 
-  // ── Items ─────────────────────────────────────────────────────────────────
-  data.items.forEach(item => {
-    // Item name — wrap if needed
-    const nameLines = pdf.splitTextToSize(item.name, contentW * 0.55);
-    text(nameLines[0], margin, y, { size: 7 });
-    if (nameLines.length > 1) {
-      y += 9;
-      text(nameLines[1], margin, y, { size: 6, color: '#64748b' });
+  // Items table, with automatic extra A4 pages when an invoice is long.
+  let y = 284;
+  const drawTableHeader = () => {
+    roundedBox(margin, y, W - margin * 2, 30, 9, navy);
+    text('#', margin + 14, y + 19, { size: 7, bold: true, color: '#ffffff' });
+    text('DESCRIPTION', margin + 44, y + 19, { size: 7, bold: true, color: '#ffffff' });
+    text('QTY', W - 250, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'center' });
+    text('UNIT PRICE', W - 130, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'right' });
+    text('TOTAL', W - margin - 12, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'right' });
+    y += 46;
+  };
+  drawTableHeader();
+  data.items.forEach((item, index) => {
+    if (y > 690) {
+      pdf.addPage();
+      y = 38;
+      drawTableHeader();
     }
-    const qtyStr = `${item.qty}${item.unit ? ` ${item.unit}` : ''}`;
-    text(qtyStr, margin + contentW * 0.6, y, { size: 7 });
-    text(fmt(item.price), margin + contentW * 0.76, y, { size: 7 });
-    text(fmt(item.total), W - margin, y, { align: 'right', size: 7, bold: true });
-    y += 10;
+    const nameLines = pdf.splitTextToSize(item.name || 'Item', 210).slice(0, 2);
+    text(String(index + 1), margin + 14, y, { size: 8, color: '#94a3b8' });
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(navy);
+    pdf.text(nameLines, margin + 44, y);
+    text(`${item.qty}${item.unit ? ` ${item.unit}` : ''}`, W - 250, y, { size: 8, align: 'center' });
+    text(fmt(item.price), W - 130, y, { size: 8, align: 'right', color: muted });
+    text(fmt(item.total), W - margin - 12, y, { size: 8, align: 'right', bold: true });
+    y += Math.max(28, nameLines.length * 11 + 10);
   });
 
-  y += 2;
-  line(margin, y, W - margin, y, '#e2e8f0');
-  y += 8;
-
-  // ── Totals ────────────────────────────────────────────────────────────────
-  const totalRow = (label: string, value: string, bold = false, color = '#0f172a') => {
-    text(label, margin + contentW * 0.4, y, { size: 7, color: bold ? color : '#475569' });
-    text(value, W - margin, y, { align: 'right', size: 7, bold, color });
-    y += 10;
+  const totalsX = W - margin - 220;
+  y = Math.max(y + 8, 390);
+  const totalRow = (label: string, value: string, color = muted) => {
+    text(label, totalsX, y, { size: 8, color });
+    text(value, W - margin, y, { size: 8, align: 'right', bold: true });
+    y += 22;
   };
-
   totalRow('Subtotal', fmt(data.subtotal));
-  if (data.discount && data.discount > 0) totalRow('Discount', `-${fmt(data.discount)}`, false, '#dc2626');
-  if (data.tax && data.tax > 0) totalRow('VAT/Tax', fmt(data.tax));
-  if (data.deliveryCost && data.deliveryCost > 0) totalRow('Delivery', fmt(data.deliveryCost));
+  if ((data.discount || 0) > 0) totalRow('Discount', `-${fmt(data.discount || 0)}`, '#b45309');
+  if ((data.tax || 0) > 0) totalRow('VAT / Tax', fmt(data.tax || 0));
+  if ((data.deliveryCost || 0) > 0) totalRow('Delivery', fmt(data.deliveryCost || 0));
+  roundedBox(totalsX, y - 7, W - margin - totalsX, 38, 9, navy);
+  text('TOTAL', totalsX + 14, y + 17, { size: 10, bold: true, color: '#ffffff' });
+  text(fmt(data.grandTotal), W - margin - 14, y + 17, { align: 'right', size: 11, bold: true, color: '#ffffff' });
+  y += 52;
+  const balance = Math.max(0, data.grandTotal - (data.amountPaid || 0));
+  totalRow('Balance', fmt(balance));
 
-  y += 2;
-  line(margin, y, W - margin, y, '#94a3b8');
-  y += 7;
-
-  // Grand total — larger
-  text('TOTAL', margin + contentW * 0.4, y, { size: 9, bold: true });
-  text(fmt(data.grandTotal), W - margin, y, { align: 'right', size: 9, bold: true });
-  y += 12;
-
-  if (data.amountPaid !== undefined && data.amountPaid >= 0) {
-    totalRow('Paid', fmt(data.amountPaid));
-    if (data.change !== undefined && data.change >= 0) {
-      totalRow('Change', fmt(data.change));
-    }
+  // Signatures, terms and footer.
+  const signatureY = Math.max(585, y + 34);
+  pdf.setDrawColor('#cbd5e1');
+  pdf.line(margin, signatureY, margin + 255, signatureY);
+  pdf.line(W - margin - 255, signatureY, W - margin, signatureY);
+  text(data.cashierName || 'Authorized Person', margin, signatureY + 16, { size: 8, bold: true });
+  text(data.preparedByRole || 'Staff', margin, signatureY + 29, { size: 7, color: '#94a3b8' });
+  text('Authorized Signature', W - margin, signatureY + 16, { align: 'right', size: 7, color: '#94a3b8' });
+  const terms = data.terms?.filter(Boolean) || [];
+  if (terms.length) {
+    const termsY = signatureY + 72;
+    pdf.setDrawColor('#f1f5f9'); pdf.line(margin, termsY - 18, W - margin, termsY - 18);
+    text('TERMS & CONDITIONS', margin, termsY, { size: 7, bold: true, color: '#94a3b8' });
+    terms.slice(0, 4).forEach((term, index) => text(`${index + 1}. ${term}`, margin, termsY + 19 + index * 17, { size: 8, color: muted }));
   }
+  pdf.setDrawColor('#f1f5f9'); pdf.line(margin, H - 66, W - margin, H - 66);
+  text(data.footer || 'Powered by Ndiva Suite', W / 2, H - 48, { align: 'center', size: 6, color: '#cbd5e1' });
 
-  y += 4;
-  dashed(y);
-  y += 10;
-
-  // ── Footer ────────────────────────────────────────────────────────────────
-  text(data.footer || 'Thank you for your business!', W / 2, y, { align: 'center', size: 7, color: '#475569' });
-  y += 9;
-  text('Powered by jasper.africa', W / 2, y, { align: 'center', size: 5.5, color: '#94a3b8' });
-  y += 8;
-
-  // Resize page to actual content height
-  (pdf.internal as any).pageSize.height = y + margin;
-
-  const cleanName = sanitizeFileName(`receipt-${data.receiptId}.pdf`);
+  const cleanName = sanitizeFileName(`a4-receipt-${data.receiptId}.pdf`);
   return new File([pdf.output('blob')], cleanName, { type: 'application/pdf' });
 }
 
@@ -358,11 +348,112 @@ const drawTable = (pdf: jsPDF, table: HTMLTableElement, yStart: number, margin: 
   return y + 8;
 };
 
+const waitForDocumentAssets = async (root: HTMLElement) => {
+  if (document.fonts?.ready) await document.fonts.ready;
+  await Promise.all(Array.from(root.querySelectorAll('img')).map(async (image) => {
+    if (image.complete) {
+      try { await image.decode(); } catch { /* html2canvas will use the available image */ }
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      image.addEventListener('load', () => resolve(), { once: true });
+      image.addEventListener('error', () => resolve(), { once: true });
+      setTimeout(resolve, 3000);
+    });
+  }));
+};
+
+const createVisualA4Pdf = async (source: HTMLElement) => {
+  const host = document.createElement('div');
+  host.setAttribute('aria-hidden', 'true');
+  Object.assign(host.style, {
+    position: 'fixed',
+    left: '-10000px',
+    top: '0',
+    width: '794px',
+    background: '#ffffff',
+    zIndex: '-1',
+    pointerEvents: 'none',
+  });
+
+  const clone = source.cloneNode(true) as HTMLElement;
+  clone.removeAttribute('id');
+  Object.assign(clone.style, {
+    display: 'block',
+    width: '794px',
+    minHeight: '1123px',
+    height: 'auto',
+    maxHeight: 'none',
+    margin: '0',
+    transform: 'none',
+    transformOrigin: 'top left',
+    boxShadow: 'none',
+    overflow: 'visible',
+    background: '#ffffff',
+  });
+  clone.querySelectorAll('button,[role="button"],input,textarea,select,.print\\:hidden').forEach(node => node.remove());
+  host.appendChild(clone);
+  document.body.appendChild(host);
+
+  try {
+    await waitForDocumentAssets(clone);
+    const canvas = await html2canvas(clone, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: '#ffffff',
+      logging: false,
+      width: 794,
+      height: Math.max(1123, clone.scrollHeight),
+      windowWidth: 794,
+      windowHeight: Math.max(1123, clone.scrollHeight),
+      scrollX: 0,
+      scrollY: 0,
+    });
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const standardSliceHeight = Math.floor(canvas.width * (pageHeight / pageWidth));
+    // 794 × 1123 is the browser A4 canvas. Its rounded pixel height can be one
+    // pixel taller than the PDF ratio, which must not create a blank second page.
+    const sliceHeight = canvas.height <= standardSliceHeight + 4 ? canvas.height : standardSliceHeight;
+    let sourceY = 0;
+    let page = 0;
+
+    while (sourceY < canvas.height) {
+      if (page > 0 && canvas.height - sourceY < 8) break;
+      const currentHeight = Math.min(sliceHeight, canvas.height - sourceY);
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = currentHeight;
+      const context = pageCanvas.getContext('2d');
+      if (!context) throw new Error('Could not prepare the A4 page.');
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+      context.drawImage(canvas, 0, sourceY, canvas.width, currentHeight, 0, 0, canvas.width, currentHeight);
+      if (page > 0) pdf.addPage();
+      const imageHeight = pageWidth * (currentHeight / canvas.width);
+      pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.96), 'JPEG', 0, 0, pageWidth, imageHeight, undefined, 'FAST');
+      sourceY += currentHeight;
+      page += 1;
+    }
+    return pdf;
+  } finally {
+    host.remove();
+  }
+};
+
 export async function createPdfFromElement({
   elementId, fileName, format = 'a4', includeHidden = false
 }: Omit<PdfShareOptions, 'phone' | 'message'>): Promise<File> {
   const source = document.getElementById(elementId);
   if (!source) throw new Error('Document not found. Make sure the preview is open.');
+
+  if (format === 'a4') {
+    const visualPdf = await createVisualA4Pdf(source);
+    const cleanName = sanitizeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
+    return new File([visualPdf.output('blob')], cleanName, { type: 'application/pdf' });
+  }
 
   const pdf = new jsPDF({
     orientation: 'portrait',

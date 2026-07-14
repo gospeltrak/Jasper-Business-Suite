@@ -2751,7 +2751,7 @@ export default function DashboardSalesList({
                     }
                     @media print { body * { visibility: hidden !important; } #sales-invoice-a4-pdf-template, #sales-invoice-a4-pdf-template * { visibility: visible !important; } #sales-invoice-a4-pdf-template { position: fixed !important; left: 0 !important; top: 0 !important; width: 100% !important; transform: none !important; } }
                   `}</style>
-                  <div className="p-10 space-y-8">
+                  <div className="hidden">
                   
                   {/* Decorative Paid/Unpaid background watermark stamp */}
                   <div className="absolute top-8 right-8 select-none pointer-events-none opacity-10 rotate-12">
@@ -2958,6 +2958,108 @@ export default function DashboardSalesList({
                     Thank you for shopping with us! Powered by: jasper.africa
                   </div>
 
+                </div>
+
+                {/* Standard A4 template used by every downloaded sales invoice. */}
+                <div className="p-10 space-y-8">
+                  <div className="flex items-start justify-between gap-8">
+                    <div className="min-w-0">
+                      {(((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo) ? (
+                        <img
+                          src={((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo || undefined}
+                          alt="Logo"
+                          referrerPolicy="no-referrer"
+                          className="max-h-16 max-w-[200px] object-contain mb-3"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl font-black mb-3">
+                          {(systemSettings?.business?.businessName || activeTenant.name).charAt(0)}
+                        </div>
+                      )}
+                      <h2 className="text-xl font-black text-slate-900">{systemSettings?.business?.businessName || activeTenant.name}</h2>
+                      {activeTenant.city && <p className="text-[11px] text-slate-400 uppercase font-semibold mt-1">{activeTenant.city}</p>}
+                      {systemSettings?.business?.businessAddress && <p className="text-[11px] text-slate-500 mt-1">{systemSettings.business.businessAddress}</p>}
+                      {systemSettings?.business?.businessPhone && <p className="text-[11px] text-slate-500">Tel: {systemSettings.business.businessPhone}</p>}
+                      {systemSettings?.business?.businessEmail && <p className="text-[11px] text-slate-500">{systemSettings.business.businessEmail}</p>}
+                    </div>
+                    <div className="text-right font-mono text-xs space-y-1 shrink-0">
+                      <div className="inline-block bg-indigo-600 text-white text-sm font-black uppercase tracking-wider px-5 py-2 rounded-xl mb-2">Sales Invoice</div>
+                      <p className="text-slate-400">No: <strong className="text-slate-800">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</strong></p>
+                      <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
+                      <p className="text-slate-400">Prepared by: <span className="text-slate-700">{selectedSale.cashierName || 'Admin'}</span></p>
+                      {(() => {
+                        const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
+                        const status = paid >= selectedSale.total ? 'Paid' : 'Pending';
+                        return <span className={`inline-flex mt-1 px-2 py-0.5 rounded-lg border text-[10px] font-black uppercase ${status === 'Paid' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>● {status}</span>;
+                      })()}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6 bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">Bill To</p>
+                      <p className="font-black text-slate-800 text-sm">{selectedSale.customerName || 'Walk-In Customer'}</p>
+                      {selectedSale.customerPhone && <p className="text-xs text-slate-500 mt-1">{selectedSale.customerPhone}</p>}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">From</p>
+                      <p className="font-black text-slate-800 text-sm">{systemSettings?.business?.businessName || activeTenant.name}</p>
+                      <p className="text-xs text-slate-500 mt-1">{selectedSale.cashierName || 'Admin'}</p>
+                    </div>
+                  </div>
+
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-900 text-white">
+                        <th className="py-3 px-4 rounded-l-xl w-10">#</th>
+                        <th className="py-3 px-4 uppercase text-[10px]">Description</th>
+                        <th className="py-3 px-4 uppercase text-[10px] text-center">Qty</th>
+                        <th className="py-3 px-4 uppercase text-[10px] text-right">Unit Price</th>
+                        <th className="py-3 px-4 uppercase text-[10px] text-right rounded-r-xl">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedSale.items.map((item, index) => (
+                        <tr key={index} className={index % 2 ? 'bg-slate-50/60' : 'bg-white'}>
+                          <td className="py-3 px-4 text-slate-400 font-mono">{index + 1}</td>
+                          <td className="py-3 px-4 font-semibold text-slate-800">{item.productName}</td>
+                          <td className="py-3 px-4 text-center text-slate-700">{formatSaleItemQuantity(item, products.find(product => product.id === item.productId))}</td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-600">{currency}{item.price.toLocaleString()}</td>
+                          <td className="py-3 px-4 text-right font-mono font-black text-slate-900">{currency}{Math.round(item.price * item.qty).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <div className="flex justify-end">
+                    <div className="w-72 space-y-2 font-mono text-xs">
+                      {(() => {
+                        const subtotal = selectedSale.items.reduce((sum, item) => sum + item.price * item.qty, 0);
+                        const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
+                        const balance = Math.max(0, selectedSale.total - paid);
+                        return <>
+                          <div className="flex justify-between text-slate-500"><span>Subtotal</span><strong className="text-slate-800">{currency}{Math.round(subtotal).toLocaleString()}</strong></div>
+                          {(selectedSale.discount || 0) > 0 && <div className="flex justify-between text-amber-600"><span>Discount</span><strong>-{currency}{Math.round(selectedSale.discount || 0).toLocaleString()}</strong></div>}
+                          {(selectedSale.tax || 0) > 0 && <div className="flex justify-between text-slate-500"><span>VAT / Tax</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.tax || 0).toLocaleString()}</strong></div>}
+                          {(selectedSale.deliveryCost || 0) > 0 && <div className="flex justify-between text-slate-500"><span>Delivery</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.deliveryCost || 0).toLocaleString()}</strong></div>}
+                          <div className="flex justify-between bg-slate-900 text-white rounded-xl px-4 py-3"><strong className="uppercase text-sm">Total</strong><strong className="text-base">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong></div>
+                          <div className="flex justify-between text-slate-500 px-4"><span>Balance</span><strong className="text-slate-800">{currency}{Math.round(balance).toLocaleString()}</strong></div>
+                        </>;
+                      })()}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-6 flex items-end justify-between gap-8">
+                    <div className="flex-1"><div className="h-10 border-b border-slate-300 mb-1.5"/><p className="text-xs font-semibold text-slate-700">{selectedSale.cashierName || 'Admin'}</p><p className="text-[10px] text-slate-400">Authorized Person</p></div>
+                    <div className="flex-1 text-right"><div className="h-10 border-b border-slate-300 mb-1.5"/><p className="text-[10px] text-slate-400">Authorized Signature</p></div>
+                  </div>
+                  {(() => {
+                    const rawTerms = systemSettings?.invoiceSettings?.termsAndConditions;
+                    const terms = Array.isArray(rawTerms) ? rawTerms : rawTerms ? String(rawTerms).split('\n').filter(Boolean) : [];
+                    if (!terms.length) return null;
+                    return <div className="border-t border-slate-100 pt-4"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mb-2">Terms &amp; Conditions</p><ol className="list-decimal list-inside space-y-1">{terms.map((term: string, index: number) => <li key={index} className="text-[11px] text-slate-500">{term}</li>)}</ol></div>;
+                  })()}
+                  <div className="text-center border-t border-slate-100 pt-3"><p className="text-[8px] text-slate-300 font-mono">Powered by Ndiva Suite</p></div>
                 </div>
               </div>
                 </div>
