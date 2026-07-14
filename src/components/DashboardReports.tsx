@@ -3897,16 +3897,16 @@ export default function DashboardReports({
             {/* List of Reports Cards with Icons */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                { id: 'p&l', label: 'Profit & Loss', icon: BarChart3, desc: 'View summary accounting statement of gross & net margins', colorClass: 'bg-emerald-50 text-emerald-605 border border-emerald-100', reqPerm: 'reportsProfitCogs' },
-                { id: 'sales-report', label: 'Sales Report', icon: TrendingUp, desc: 'Detailed transactions audit, payment channels and daily VAT tickets', colorClass: 'bg-indigo-50 text-indigo-605 border border-indigo-100', reqPerm: 'reportsSalesExpenses' },
-                { id: 'dual-channel', label: 'Dual Channel Report', icon: ShieldAlert, desc: 'Analyze retail vs wholesale channel distributions and pricing', colorClass: 'bg-teal-50 text-teal-605 border border-teal-100', reqPerm: 'reportsSalesExpenses' },
-                { id: 'inventory', label: 'Inventory Report', icon: Package, desc: 'Sku-level valuations, storefront vs warehouse stock and assets index', colorClass: 'bg-amber-50 text-amber-605 border border-amber-100', reqPerm: 'reportsSalesExpenses' },
-                { id: 'payments', label: 'Payments Report', icon: DollarSign, desc: 'Analyze aggregated collections across mobile money, cards, and bank till', colorClass: 'bg-green-50 text-green-605 border border-green-100', reqPerm: 'reportsSalesExpenses' },
-                { id: 'product-monitoring', label: 'Product Profitability', icon: Tag, desc: 'Drilldown rankings of product item margins, units sold and gross revenues', colorClass: 'bg-rose-50 text-rose-605 border border-rose-100', reqPerm: 'reportsSalesExpenses' },
-                { id: 'users', label: 'Partners & Customers', icon: Users, desc: 'Customer loyalty tracking, accrued spends and branch staff sales journal', colorClass: 'bg-blue-50 text-blue-605 border border-blue-100', reqPerm: 'reportsSalesExpenses' },
-                { id: 'expenses', label: 'Branch Expenses', icon: MinusCircle, desc: 'Operating expenses categories, logs of receipt slips and petty cash balances', colorClass: 'bg-red-50 text-red-655 border border-red-100', reqPerm: 'reportsSalesExpenses' },
-                { id: 'deliveries', label: 'Fleet & Logistics', icon: Truck, desc: 'Recent dispatch statuses, rider assignments, delivery fees and fuel costs', colorClass: 'bg-violet-50 text-violet-605 border border-violet-100', reqPerm: 'reportsSalesExpenses' },
-                { id: 'velocity', label: 'Velocity Report', icon: ArrowUpDown, desc: 'Monitor inventory sales speed, item turnover rates, and velocity ranks', colorClass: 'bg-orange-50 text-orange-605 border border-orange-100', reqPerm: 'reportsSalesExpenses' }
+                { id: 'p&l', label: 'Profit & Loss', icon: BarChart3, desc: 'Gross & net margin statement', colorClass: 'bg-emerald-50 text-emerald-605 border border-emerald-100', reqPerm: 'reportsProfitCogs' },
+                { id: 'sales-report', label: 'Sales Report', icon: TrendingUp, desc: 'Transactions & VAT audit', colorClass: 'bg-indigo-50 text-indigo-605 border border-indigo-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'dual-channel', label: 'Dual Channel Report', icon: ShieldAlert, desc: 'Retail vs wholesale pricing', colorClass: 'bg-teal-50 text-teal-605 border border-teal-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'inventory', label: 'Inventory Report', icon: Package, desc: 'Stock & asset valuations', colorClass: 'bg-amber-50 text-amber-605 border border-amber-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'payments', label: 'Payments Report', icon: DollarSign, desc: 'Collections by payment method', colorClass: 'bg-green-50 text-green-605 border border-green-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'product-monitoring', label: 'Product Profitability', icon: Tag, desc: 'Product margin rankings', colorClass: 'bg-rose-50 text-rose-605 border border-rose-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'users', label: 'Partners & Customers', icon: Users, desc: 'Loyalty & staff journal', colorClass: 'bg-blue-50 text-blue-605 border border-blue-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'expenses', label: 'Branch Expenses', icon: MinusCircle, desc: 'Costs & petty cash logs', colorClass: 'bg-red-50 text-red-655 border border-red-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'deliveries', label: 'Fleet & Logistics', icon: Truck, desc: 'Dispatch & rider fees', colorClass: 'bg-violet-50 text-violet-605 border border-violet-100', reqPerm: 'reportsSalesExpenses' },
+                { id: 'velocity', label: 'Velocity Report', icon: ArrowUpDown, desc: 'Inventory turnover rates', colorClass: 'bg-orange-50 text-orange-605 border border-orange-100', reqPerm: 'reportsSalesExpenses' }
               ].filter(tab => {
                 if (!rolePermissions) return true;
                 const permGroup = (rolePermissions as any)[tab.reqPerm];
@@ -3920,17 +3920,14 @@ export default function DashboardReports({
                       setReportTab(tab.id as any);
                       setMobileView('report');
                     }}
-                    className="relative w-full flex min-w-0 flex-col items-start justify-between gap-4 overflow-hidden p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[20px] shadow-[0_10px_28px_rgba(15,23,42,0.06)] text-left active:scale-[0.98] transition-all cursor-pointer min-h-[142px]"
+                    className="relative w-full flex min-w-0 flex-col items-start p-3.5 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl shadow-sm text-left active:scale-[0.97] transition-all cursor-pointer gap-2.5"
                   >
-                    <div className="flex w-full items-start justify-between gap-2">
-                      <div className={`p-2.5 rounded-[14px] shrink-0 ${tab.colorClass}`}>
-                        <IconComp className="w-5 h-5" />
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-slate-300 shrink-0" />
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${tab.colorClass}`}>
+                      <IconComp className="w-4.5 h-4.5" />
                     </div>
-                    <div className="min-w-0 space-y-1.5">
-                      <span className="text-[13px] font-extrabold text-slate-850 dark:text-white block leading-tight text-left">{tab.label}</span>
-                      <span className="text-[10px] block leading-[1.35] text-slate-400 line-clamp-2 text-left">{tab.desc}</span>
+                    <div className="min-w-0">
+                      <span className="text-[12.5px] font-bold text-slate-800 dark:text-slate-100 block leading-tight">{tab.label}</span>
+                      <span className="text-[10px] block leading-snug text-slate-400 dark:text-slate-500 mt-0.5 line-clamp-2">{tab.desc}</span>
                     </div>
                   </button>
                 );
