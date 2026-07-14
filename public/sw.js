@@ -1,6 +1,6 @@
 // Jasper Business Suite Service Worker (online-only business writes)
-const CACHE_NAME = 'jasper-pos-cache-v9-online-only';
-const SW_VERSION = '2026-07-13-online-only-writes-v1';
+const CACHE_NAME = 'jasper-pos-cache-v10-auth-session-fix';
+const SW_VERSION = '2026-07-14-auth-session-fix-v1';
 const NAVIGATION_CACHE_KEY = '/__jasper-navigation-shell__';
 
 // Assets to cache immediately on SW install
