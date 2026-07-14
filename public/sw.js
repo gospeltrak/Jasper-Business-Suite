@@ -1,6 +1,6 @@
 // Jasper Business Suite Service Worker (online-only business writes)
-const CACHE_NAME = 'jasper-pos-cache-v11-mobile-reports';
-const SW_VERSION = '2026-07-14-mobile-reports-v1';
+const CACHE_NAME = 'jasper-pos-cache-v12-simple-languages';
+const SW_VERSION = '2026-07-14-simple-languages-v1';
 const NAVIGATION_CACHE_KEY = '/__jasper-navigation-shell__';
 
 // Assets to cache immediately on SW install

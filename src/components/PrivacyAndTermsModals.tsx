@@ -1,5 +1,6 @@
 import { X, Globe, Shield, Scale, FileText } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from '../LanguageContext';
 
 interface PrivacyAndTermsModalsProps {
   isOpen: boolean;
@@ -8,8 +9,37 @@ interface PrivacyAndTermsModalsProps {
   isDark?: boolean;
 }
 
+function FrenchLegalContent({ type, isDark }: { type: 'privacy' | 'terms'; isDark: boolean }) {
+  const sectionClass = `border p-4 rounded-2xl ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'}`;
+  if (type === 'privacy') {
+    return (
+      <div className="space-y-4 pr-1">
+        <div className={sectionClass}><h4 className="font-bold text-emerald-500 mb-2">1. Vos informations</h4><p className="text-xs">Ndiva garde les informations nécessaires pour gérer votre compte, vos ventes, vos produits et vos paiements.</p></div>
+        <div className={sectionClass}><h4 className="font-bold text-emerald-500 mb-2">2. Sécurité</h4><p className="text-xs">Nous protégeons les informations envoyées entre votre appareil et nos serveurs.</p></div>
+        <div className={sectionClass}><h4 className="font-bold text-emerald-500 mb-2">3. Partage</h4><p className="text-xs">Nous ne vendons pas les informations de votre entreprise. Nous les partageons seulement si la loi l'exige.</p></div>
+        <div className={sectionClass}><h4 className="font-bold text-emerald-500 mb-2">4. Vos droits</h4><p className="text-xs">Vous pouvez demander une copie, une correction ou la suppression de vos informations.</p></div>
+        <div className={sectionClass}><h4 className="font-bold text-emerald-500 mb-2">5. Aide</h4><p className="text-xs">Contactez l'équipe Ndiva si vous avez une question sur vos informations.</p></div>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-4 pr-1">
+      <div className={sectionClass}><h4 className="font-bold text-emerald-500 mb-2">1. Utilisation du système</h4><p className="text-xs">Utilisez Ndiva pour un travail légal. Gardez votre mot de passe secret.</p></div>
+      <div className={sectionClass}><h4 className="font-bold text-emerald-500 mb-2">2. Votre compte</h4><p className="text-xs">Donnez des informations correctes. Vous êtes responsable des actions faites avec votre compte.</p></div>
+      <div className={sectionClass}><h4 className="font-bold text-emerald-500 mb-2">3. Paiement</h4><p className="text-xs">Les fonctions disponibles dépendent du forfait choisi et du paiement effectué.</p></div>
+      <div className={sectionClass}><h4 className="font-bold text-emerald-500 mb-2">4. Vos données</h4><p className="text-xs">Vous gardez la propriété de vos données. Faites des copies de vos rapports importants.</p></div>
+      <div className={sectionClass}><h4 className="font-bold text-emerald-500 mb-2">5. Assistance</h4><p className="text-xs">Contactez Ndiva si le système ne fonctionne pas correctement ou si vous avez besoin d'aide.</p></div>
+    </div>
+  );
+}
+
 export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = false }: PrivacyAndTermsModalsProps) {
-  const [modalLang, setModalLang] = useState<'en' | 'sw'>('en');
+  const { lang } = useTranslation();
+  const [modalLang, setModalLang] = useState<'en' | 'sw' | 'fr'>(lang);
+
+  useEffect(() => {
+    if (isOpen) setModalLang(lang);
+  }, [isOpen, lang]);
 
   if (!isOpen) return null;
 
@@ -33,14 +63,14 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
             <div>
               <h3 className="text-lg font-bold tracking-tight">
                 {type === 'privacy' 
-                  ? (modalLang === 'en' ? 'Ndiva Suite — Merchant Privacy Policy' : 'Ndiva Suite — Sera ya Faragha ya Mfanyabiashara')
-                  : (modalLang === 'en' ? 'Ndiva Suite — Terms & Conditions of Use' : 'Ndiva Suite — Masharti na Vigezo vya Matumizi')
+                  ? (modalLang === 'en' ? 'Ndiva Suite — Privacy Policy' : modalLang === 'fr' ? 'Ndiva Suite — Règles de Confidentialité' : 'Ndiva Suite — Sera ya Faragha')
+                  : (modalLang === 'en' ? 'Ndiva Suite — Terms of Use' : modalLang === 'fr' ? "Ndiva Suite — Conditions d'Utilisation" : 'Ndiva Suite — Masharti ya Matumizi')
                 }
               </h3>
               <p className={`text-[10.5px] font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                 {type === 'privacy' 
-                  ? (modalLang === 'en' ? 'Compliant with East African & International Privacy Laws (PDPA / GDPR)' : 'Inazingatia Sheria za Kulinda Data za Afrika Mashariki na Kimataifa')
-                  : (modalLang === 'en' ? 'Legal Framework & Operational Limitation of Liability' : 'Mwongozo wa Kisheria na Kikomo cha Dhima ya Kampuni')
+                  ? (modalLang === 'en' ? 'How we keep your information safe' : modalLang === 'fr' ? 'Comment nous protégeons vos informations' : 'Jinsi tunavyolinda taarifa zako')
+                  : (modalLang === 'en' ? 'Rules for using Ndiva' : modalLang === 'fr' ? 'Règles pour utiliser Ndiva' : 'Sheria za kutumia Ndiva')
                 }
               </p>
             </div>
@@ -70,6 +100,16 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 }`}
               >
                 Kiswahili
+              </button>
+              <button
+                onClick={() => setModalLang('fr')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  modalLang === 'fr'
+                    ? isDark ? 'bg-emerald-500 text-slate-950' : 'bg-[#00b87a] text-white shadow-xs'
+                    : 'text-slate-400 hover:text-slate-500'
+                }`}
+              >
+                Français
               </button>
             </div>
 
@@ -224,6 +264,8 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   </p>
                 </div>
               </div>
+            ) : modalLang === 'fr' ? (
+              <FrenchLegalContent type="privacy" isDark={isDark} />
             ) : (
               // PRIVACY POLICY (SWAHILI)
               <div className="space-y-6 pr-1">
@@ -496,6 +538,8 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   </p>
                 </div>
               </div>
+            ) : modalLang === 'fr' ? (
+              <FrenchLegalContent type="terms" isDark={isDark} />
             ) : (
               // TERMS AND CONDITIONS (SWAHILI)
               <div className="space-y-6 pr-1">
@@ -642,7 +686,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
           <div className="flex items-center space-x-1.5 text-xs text-slate-400">
             <Globe className="w-3.5 h-3.5 text-emerald-500" />
             <span className="font-mono text-[10px] uppercase">
-              {modalLang === 'en' ? 'Verified Legal Shield v2.4' : 'Ulinzi wa Kisheria v2.4'}
+              {modalLang === 'en' ? 'Legal information' : modalLang === 'fr' ? 'Informations légales' : 'Taarifa za sheria'}
             </span>
           </div>
 
@@ -654,7 +698,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 : 'bg-[#00b87a] hover:bg-[#009966] text-white shadow-xs'
             }`}
           >
-            {modalLang === 'en' ? 'Understood & Close' : 'Nimeelewa & Funga'}
+            {modalLang === 'en' ? 'Close' : modalLang === 'fr' ? 'Fermer' : 'Funga'}
           </button>
         </div>
       </div>

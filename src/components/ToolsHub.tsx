@@ -28,7 +28,7 @@ interface ToolsHubProps {
 }
 
 export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHubProps) {
-  // Localization: English ('en') vs Swahili ('sw') vs Arabic ('ar') vs French ('fr')
+  // Localization: simple English, Swahili, and French.
   const { lang, setLang } = useTranslation();
 
   // Token quota: users have a daily quota of 2 free tokens
@@ -724,8 +724,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
                   }`}>
                     {[
                       { code: 'en', label: 'English' },
-                      { code: 'sw', label: 'Swahili' },
-                      { code: 'ar', label: '🇸🇦 العربية' },
+                      { code: 'sw', label: 'Kiswahili' },
                       { code: 'fr', label: '🇫🇷 Français' }
                     ].map((item) => (
                       <button

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-type LanguageType = 'en' | 'sw' | 'ar' | 'fr';
+export type LanguageType = 'en' | 'sw' | 'fr';
 
 interface LanguageContextType {
   lang: LanguageType;
@@ -11,8 +11,53 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 // Comprehensive dictionary for complete app-wide Translation propagation
-const BUSINESS_DICTIONARY: Record<LanguageType, Record<string, string>> = {
-  en: {}, // English is default, returns unmodified if not translated
+const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
+  // English stays the default, but hard system words are changed to plain words.
+  en: {
+    "account identifier": "Phone number or email",
+    "owner pin password": "Password",
+    "business industry niche": "Business type",
+    "business industry niche / type": "Business type",
+    "region of operations": "Country or area",
+    "city / office location": "City",
+    "commercial profit & loss account": "Profit and loss report",
+    "consolidated margin curve": "Sales and profit chart",
+    "statement line items": "Report details",
+    "operating outlays": "Business costs",
+    "operating expenses burden": "Business expenses",
+    "aggregate outflow": "Total money spent",
+    "procurements": "Purchases",
+    "procurement": "Purchase",
+    "ledger": "Records",
+    "audit ledger": "Report records",
+    "reporting terminal": "Reports",
+    "intelligence & auditing": "Business reports",
+    "business intelligence": "Business reports",
+    "gross income": "Total income",
+    "gross revenue": "Total sales money",
+    "net gross profit": "Profit",
+    "cogs": "Product cost",
+    "cost of goods sold": "Product cost",
+    "sku": "Product code",
+    "tracked skus": "Products checked",
+    "units moved": "Items sold",
+    "sales velocity": "Sales speed",
+    "fast movers": "Fast-selling items",
+    "slow movers": "Slow-selling items",
+    "channel": "Sales type",
+    "dual channel": "Retail and wholesale",
+    "product profitability": "Product profit",
+    "payment channels": "Payment methods",
+    "active stock": "Products in stock",
+    "branch yield": "Sales income",
+    "deferred credit": "Pay later",
+    "custom interval": "Choose dates",
+    "all time": "All dates",
+    "compile report": "Create report",
+    "export": "Download",
+    "commit ledger": "Save expense",
+    "discard": "Cancel"
+  },
   sw: {
     "bulkProduct": "Bidhaa ya Jumla / Bulk Product",
     "sellByWeightOrPcs": "Uza kwa uzito au vipande",
@@ -1549,7 +1594,7 @@ const BUSINESS_DICTIONARY: Record<LanguageType, Record<string, string>> = {
 
 // Clean casing-aware word-by-word replacement or exact lookup
 function translateString(text: string, lang: LanguageType): string {
-  if (!text || lang === 'en') return text;
+  if (!text) return text;
   
   const trimmed = text.trim();
   if (!trimmed) return text;
@@ -1651,15 +1696,9 @@ function translateNode(node: Node, language: LanguageType) {
       (node as any).__originalText = originalText;
     }
 
-    if (language === 'en') {
-      if (node.nodeValue !== originalText) {
-        node.nodeValue = originalText;
-      }
-    } else {
-      const translated = translateString(originalText || '', language);
-      if (node.nodeValue !== translated) {
-        node.nodeValue = translated;
-      }
+    const translated = translateString(originalText || '', language);
+    if (node.nodeValue !== translated) {
+      node.nodeValue = translated;
     }
   } else if (node.nodeType === Node.ELEMENT_NODE) {
     const el = node as HTMLElement;
@@ -1677,15 +1716,9 @@ function translateNode(node: Node, language: LanguageType) {
 
       if (!originalAttr) return;
 
-      if (language === 'en') {
-        if (el.getAttribute(attr) !== originalAttr) {
-          el.setAttribute(attr, originalAttr);
-        }
-      } else {
-        const translated = translateString(originalAttr, language);
-        if (el.getAttribute(attr) !== translated) {
-          el.setAttribute(attr, translated);
-        }
+      const translated = translateString(originalAttr, language);
+      if (el.getAttribute(attr) !== translated) {
+        el.setAttribute(attr, translated);
       }
     });
 
@@ -1699,15 +1732,9 @@ function translateNode(node: Node, language: LanguageType) {
         (inputEl as any).__originalPlaceholder = originalPlaceholder;
       }
 
-      if (language === 'en') {
-        if (inputEl.placeholder !== originalPlaceholder) {
-          inputEl.placeholder = originalPlaceholder;
-        }
-      } else {
-        const translated = translateString(originalPlaceholder || '', language);
-        if (inputEl.placeholder !== translated) {
-          inputEl.placeholder = translated;
-        }
+      const translated = translateString(originalPlaceholder || '', language);
+      if (inputEl.placeholder !== translated) {
+        inputEl.placeholder = translated;
       }
     }
 
@@ -1720,10 +1747,17 @@ function translateNode(node: Node, language: LanguageType) {
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<LanguageType>(() => {
     const cached = localStorage.getItem('jasper_lang');
-    return (cached && ['en', 'sw', 'ar', 'fr'].includes(cached))
+    return (cached && ['en', 'sw', 'fr'].includes(cached))
       ? (cached as LanguageType)
       : 'en';
   });
+
+  useEffect(() => {
+    const saved = localStorage.getItem('jasper_lang');
+    if (!saved || !['en', 'sw', 'fr'].includes(saved)) {
+      localStorage.setItem('jasper_lang', 'en');
+    }
+  }, []);
 
   const setLang = (newLang: LanguageType) => {
     setLangState(newLang);
@@ -1734,7 +1768,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleLangChange = (e: Event) => {
       const customEvent = e as CustomEvent;
-      if (customEvent.detail && ['en', 'sw', 'ar', 'fr'].includes(customEvent.detail)) {
+      if (customEvent.detail && ['en', 'sw', 'fr'].includes(customEvent.detail)) {
         setLangState(customEvent.detail as LanguageType);
       }
     };
@@ -1746,16 +1780,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   // Use absolute real-time MutationObserver to translate the DOM in place
   useEffect(() => {
-    // RTL Support for Arabic
-    if (lang === 'ar') {
-      document.documentElement.dir = 'rtl';
-      document.documentElement.lang = 'ar';
-      document.body.classList.add('rtl');
-    } else {
-      document.documentElement.removeAttribute('dir');
-      document.documentElement.lang = lang;
-      document.body.classList.remove('rtl');
-    }
+    document.documentElement.removeAttribute('dir');
+    document.documentElement.lang = lang;
+    document.body.classList.remove('rtl');
 
     const runGlobalTranslation = () => {
       translateNode(document.body, lang);

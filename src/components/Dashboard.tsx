@@ -2431,8 +2431,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                     <div className="absolute right-0 mt-2 w-32 rounded-xl border p-1 shadow-xl z-50 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-800 dark:text-slate-200">
                       {[
                         { code: 'en', label: 'English' },
-                        { code: 'sw', label: 'Swahili' },
-                        { code: 'ar', label: '🇸🇦 العربية' },
+                        { code: 'sw', label: 'Kiswahili' },
                         { code: 'fr', label: '🇫🇷 Français' }
                       ].map((item) => (
                         <button
@@ -2623,8 +2622,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                     <div className="absolute right-0 mt-2 w-32 rounded-xl border p-1 shadow-xl z-50 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-800 dark:text-slate-200">
                       {[
                         { code: 'en', label: 'English' },
-                        { code: 'sw', label: 'Swahili' },
-                        { code: 'ar', label: '🇸🇦 العربية' },
+                        { code: 'sw', label: 'Kiswahili' },
                         { code: 'fr', label: '🇫🇷 Français' }
                       ].map((item) => (
                         <button
