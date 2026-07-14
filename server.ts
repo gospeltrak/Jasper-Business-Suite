@@ -873,6 +873,92 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  const getAuthenticatedBackendUser = async (req: express.Request) => {
+    if (!supabaseAdmin) return null;
+    const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    if (!token) return null;
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    return error ? null : data.user || null;
+  };
+
+  // Strict two-device control. A third device is rejected with a clear reason;
+  // the server never silently removes a recently active device.
+  app.post('/api/auth/session/start', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    if (!supabaseAdmin) return res.status(503).json({ allowed: false, reasonCode: 'service_unavailable' });
+    const authUser = await getAuthenticatedBackendUser(req);
+    if (!authUser?.id) return res.status(401).json({ allowed: false, reasonCode: 'not_authenticated' });
+    const { deviceId, deviceLabel, userAgent } = req.body || {};
+    if (!deviceId) return res.status(400).json({ allowed: false, reasonCode: 'missing_device' });
+
+    try {
+      const { data: profile } = await supabaseAdmin.from('users').select('id,tenant_id,account_type,role_key,role,is_active').eq('id', authUser.id).maybeSingle();
+      if (!profile?.is_active) return res.json({ allowed: false, reasonCode: 'account_inactive', reason: 'This account is not active.' });
+
+      // Only sessions with no heartbeat for 15 minutes are treated as abandoned.
+      const staleBefore = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+      const now = new Date().toISOString();
+      await supabaseAdmin.from('user_sessions').update({ is_active: false, logout_at: now, updated_at: now })
+        .eq('user_id', authUser.id).eq('is_active', true).lt('last_activity_at', staleBefore);
+
+      const { data: sameDevice } = await supabaseAdmin.from('user_sessions').select('id')
+        .eq('user_id', authUser.id).eq('device_id', String(deviceId)).eq('is_active', true).maybeSingle();
+      if (sameDevice?.id) {
+        await supabaseAdmin.from('user_sessions').update({ last_activity_at: now, device_label: deviceLabel || null, user_agent: String(userAgent || '').slice(0, 500), updated_at: now }).eq('id', sameDevice.id);
+        return res.json({ allowed: true, sessionId: sameDevice.id });
+      }
+
+      const { count } = await supabaseAdmin.from('user_sessions').select('id', { count: 'exact', head: true })
+        .eq('user_id', authUser.id).eq('is_active', true);
+      if ((count || 0) >= 2) {
+        return res.json({
+          allowed: false,
+          reasonCode: 'device_limit',
+          reason: 'This account is open on two devices. Log out from one device, then try again.'
+        });
+      }
+
+      const { data: created, error: createError } = await supabaseAdmin.from('user_sessions').insert({
+        user_id: authUser.id,
+        tenant_id: profile.tenant_id,
+        device_id: String(deviceId),
+        device_label: deviceLabel || null,
+        user_agent: String(userAgent || '').slice(0, 500),
+        account_type: profile.account_type || 'business_user',
+        role_key: profile.role_key || profile.role || 'business_user',
+        is_active: true,
+        last_activity_at: now
+      }).select('id').single();
+      if (createError) throw createError;
+      return res.json({ allowed: true, sessionId: created.id });
+    } catch (error: any) {
+      return res.status(500).json({ allowed: false, reasonCode: 'session_error', reason: error?.message || 'Could not start login session.' });
+    }
+  });
+
+  app.post('/api/auth/session/end', async (req, res) => {
+    if (!supabaseAdmin) return res.status(503).json({ ended: false });
+    const authUser = await getAuthenticatedBackendUser(req);
+    if (!authUser?.id) return res.status(401).json({ ended: false });
+    const sessionId = String(req.body?.sessionId || '');
+    const now = new Date().toISOString();
+    const { error } = await supabaseAdmin.from('user_sessions')
+      .update({ is_active: false, logout_at: now, updated_at: now })
+      .eq('id', sessionId).eq('user_id', authUser.id).eq('is_active', true);
+    return error ? res.status(500).json({ ended: false }) : res.json({ ended: true });
+  });
+
+  app.post('/api/auth/session/touch', async (req, res) => {
+    if (!supabaseAdmin) return res.status(503).json({ touched: false });
+    const authUser = await getAuthenticatedBackendUser(req);
+    if (!authUser?.id) return res.status(401).json({ touched: false });
+    const now = new Date().toISOString();
+    const { error } = await supabaseAdmin.from('user_sessions')
+      .update({ last_activity_at: now, updated_at: now })
+      .eq('id', String(req.body?.sessionId || '')).eq('user_id', authUser.id).eq('is_active', true);
+    return error ? res.status(500).json({ touched: false }) : res.json({ touched: true });
+  });
+
   app.get('/api/auth/config', (req, res) => {
     res.setHeader('Cache-Control', 'no-store, max-age=0');
     return res.json({

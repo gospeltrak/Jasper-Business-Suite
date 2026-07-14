@@ -1033,10 +1033,20 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           return;
         }
 
-        const sessionStart = await startCloudSession();
+        const sessionStart = await startCloudSession(authData.session?.access_token);
         if (!sessionStart.allowed) {
-          await client.auth.signOut();
-          setError(sessionStart.reason || 'This account cannot start another session right now.');
+          await Promise.race([
+            client.auth.signOut({ scope: 'local' }),
+            new Promise((_, reject) => window.setTimeout(() => reject(new Error('Logout timed out.')), 4000))
+          ]).catch(() => null);
+          const deviceLimitMessage = currentLang === 'sw'
+            ? 'Account hii tayari imefunguliwa kwenye simu au kompyuta mbili. Toka (logout) kwenye moja, kisha ujaribu tena.'
+            : currentLang === 'fr'
+              ? 'Ce compte est ouvert sur deux appareils. Déconnectez-vous sur un appareil, puis réessayez.'
+              : 'This account is open on two devices. Log out from one device, then try again.';
+          setError(sessionStart.reasonCode === 'device_limit'
+            ? deviceLimitMessage
+            : (sessionStart.reason || 'We could not check active devices. Please try again.'));
           setIsLoading(false);
           return;
         }
