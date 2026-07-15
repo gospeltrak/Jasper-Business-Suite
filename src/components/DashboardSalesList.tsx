@@ -4398,164 +4398,89 @@ export default function DashboardSalesList({
 
       {/* DIALOG: NEW DOCUMENT CREATOR MODAL */}
       {showNewDocModal && createPortal((
-        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="relative bg-white dark:bg-slate-900 w-full sm:max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden" style={{maxHeight:'96dvh'}}>
+        <div className="fixed inset-0 z-[200] flex items-end xl:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
 
-            {/* ── Header ── */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+          {/* ── MOBILE / TABLET: bottom sheet (< xl) ── */}
+          <div className="xl:hidden relative bg-white dark:bg-slate-900 w-full rounded-t-3xl shadow-2xl flex flex-col overflow-hidden" style={{maxHeight:'96dvh'}}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0">
               <div>
-                <h3 className="text-[15px] font-black text-slate-900 dark:text-white">New Document</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">Quotation or Proforma Invoice</p>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">New Document</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">Create a quotation or proforma invoice</p>
               </div>
               <button type="button" onClick={() => setShowNewDocModal(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer border-none transition-colors">
+                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-800 cursor-pointer border-none">
                 <X className="w-4 h-4" />
               </button>
             </div>
-
-            {/* ── Scrollable body ── */}
-            <div className="overflow-y-auto flex-1 px-5 py-5 space-y-5">
-
-              {/* Doc type picker — single row, badge + label */}
+            <div className="overflow-y-auto flex-1 px-5 pb-4 space-y-4">
+              {/* Doc type */}
               <div className="flex gap-2">
                 {(['price quote', 'proforma invoice'] as const).map(t => (
                   <button key={t} type="button" onClick={() => setNewDocType(t)}
-                    className={`flex-1 flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl cursor-pointer border-2 transition-all ${
-                      newDocType === t
-                        ? 'bg-indigo-600 border-indigo-600 text-white'
-                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
-                    }`}>
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-[9px] font-black ${newDocType === t ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
-                      {t === 'price quote' ? 'QUO' : 'PFI'}
-                    </div>
-                    <span className="text-[13px] font-bold leading-tight">{getDocumentLabel(t)}</span>
+                    className={`flex-1 flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl cursor-pointer border-2 transition-all ${newDocType === t ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-[9px] font-black ${newDocType === t ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>{t === 'price quote' ? 'QUO' : 'PFI'}</div>
+                    <span className="text-[13px] font-bold">{getDocumentLabel(t)}</span>
                   </button>
                 ))}
               </div>
-
-              {/* Client details */}
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Client Details</p>
+              {/* Client */}
+              <div className="space-y-2">
+                <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-[0.12em]">Client Details</p>
                 <div className="flex gap-2">
                   <div className="flex-1 min-w-0">
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Client Name</label>
-                    <input type="text" placeholder="e.g. Lipa Traders Ltd" value={newDocCustomerName}
-                      onChange={e => setNewDocCustomerName(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20" />
+                    <input type="text" placeholder="e.g. Lipa Traders Ltd" value={newDocCustomerName} onChange={e => setNewDocCustomerName(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20" />
                   </div>
                   <div className="w-[128px] shrink-0">
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Phone</label>
-                    <input type="text" placeholder="+255 7XX…" value={newDocCustomerPhone}
-                      onChange={e => setNewDocCustomerPhone(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20" />
+                    <input type="text" placeholder="+255 7XX…" value={newDocCustomerPhone} onChange={e => setNewDocCustomerPhone(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20" />
                   </div>
                 </div>
-                <div className="mt-2">
-                  <label className="text-[10px] font-bold text-slate-500 block mb-1">Client Address</label>
-                  <textarea placeholder="e.g. P.O. Box 1234, Kariakoo, Dar es Salaam, Tanzania" value={newDocCustomerAddress}
-                    onChange={e => setNewDocCustomerAddress(e.target.value)}
-                    rows={2}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 resize-none leading-relaxed" />
-                </div>
+                <textarea placeholder="Client address (optional) — e.g. P.O. Box 1234, Dar es Salaam" value={newDocCustomerAddress} onChange={e => setNewDocCustomerAddress(e.target.value)} rows={2}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 focus:outline-none focus:border-indigo-500 resize-none leading-relaxed" />
               </div>
-
-              {/* Date + payment + delivery */}
+              {/* Settings */}
               <div className="space-y-2">
                 <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-[0.12em]">Settings</p>
                 <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Date</label>
-                    <input type="date" value={newDocDate} onChange={e => setNewDocDate(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Payment</label>
-                    <select value={newDocPaymentMethod} onChange={e => setNewDocPaymentMethod(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer">
-                      {(systemSettings?.business?.paymentModes?.length ? systemSettings.business.paymentModes : ['Cash', 'Card', 'M-Pesa', 'Bank']).map(mode => (
-                        <option key={mode} value={mode}>{mode}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Delivery ({currency})</label>
-                    <input type="number" min="0" placeholder="0" value={newDocDeliveryCost || ''}
-                      onChange={e => setNewDocDeliveryCost(Math.max(0, Number(e.target.value)))}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
-                  </div>
+                  <div><label className="text-[10px] font-bold text-slate-500 block mb-1">Date</label>
+                    <input type="date" value={newDocDate} onChange={e => setNewDocDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer" /></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 block mb-1">Payment</label>
+                    <select value={newDocPaymentMethod} onChange={e => setNewDocPaymentMethod(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                      {(systemSettings?.business?.paymentModes?.length ? systemSettings.business.paymentModes : ['Cash','Card','M-Pesa','Bank']).map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 block mb-1">Delivery ({currency})</label>
+                    <input type="number" min="0" placeholder="0" value={newDocDeliveryCost || ''} onChange={e => setNewDocDeliveryCost(Math.max(0, Number(e.target.value)))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" /></div>
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input type="checkbox" id="newDocHasVatCheckbox" checked={newDocHasVat}
-                    onChange={e => setNewDocHasVat(e.target.checked)}
-                    className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0" />
-                  <span className="text-[12px] font-semibold text-slate-600 dark:text-slate-400">Include VAT ({Math.round(newDocTaxRate * 100)}%)</span>
-                  <span className="text-[10px] text-slate-400 hidden sm:inline">· Applied after discount</span>
-                </label>
+                <label className="flex items-center gap-2 cursor-pointer select-none"><input type="checkbox" checked={newDocHasVat} onChange={e => setNewDocHasVat(e.target.checked)} className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0" /><span className="text-[12px] font-semibold text-slate-600 dark:text-slate-400">Include VAT ({Math.round(newDocTaxRate * 100)}%)</span></label>
               </div>
-
               {/* Product search */}
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Add Products</p>
-                <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-3 space-y-2.5 border border-slate-200 dark:border-slate-700">
-                  {/* Search box */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                    <input type="text" placeholder="Search by name or scan barcode…"
-                      value={docWizardProductSearchQuery}
-                      onChange={e => setDocWizardProductSearchQuery(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          const query = docWizardProductSearchQuery.toLowerCase().trim();
-                          const matches = products.filter(p =>
-                            (p.barcode && p.barcode.toLowerCase() === query) ||
-                            (p.sku && p.sku.toLowerCase() === query) ||
-                            (p.name && p.name.toLowerCase().includes(query))
-                          );
-                          if (matches.length === 1) {
-                            setDocWizardSelectedProductId(matches[0].id);
-                            setDocWizardProductSearchQuery(matches[0].name);
-                          }
-                          e.preventDefault();
-                        }
-                      }}
-                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-8 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500" />
-                    {docWizardProductSearchQuery && (
-                      <button type="button" onClick={() => { setDocWizardProductSearchQuery(''); setDocWizardSelectedProductId(''); }}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer text-xs font-bold">✕</button>
-                    )}
+              <div className="space-y-2">
+                <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-[0.12em]">Add Products</p>
+                <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-3 space-y-2 border border-slate-200 dark:border-slate-700">
+                  <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <input type="text" placeholder="Search by name or scan barcode…" value={docWizardProductSearchQuery} onChange={e => setDocWizardProductSearchQuery(e.target.value)} onKeyDown={e => { if (e.key==='Enter'){const q=docWizardProductSearchQuery.toLowerCase().trim();const m=products.filter(p=>(p.barcode&&p.barcode.toLowerCase()===q)||(p.sku&&p.sku.toLowerCase()===q)||(p.name&&p.name.toLowerCase().includes(q)));if(m.length===1){setDocWizardSelectedProductId(m[0].id);setDocWizardProductSearchQuery(m[0].name);}e.preventDefault();}}}
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-8 py-2.5 text-sm focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-100" />
+                    {docWizardProductSearchQuery && <button type="button" onClick={() => { setDocWizardProductSearchQuery(''); setDocWizardSelectedProductId(''); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer text-xs font-bold">✕</button>}
                   </div>
-
-                  {/* Product results / selected chip */}
                   {(() => {
                     const query = docWizardProductSearchQuery.toLowerCase().trim();
-                    const filtered = products.filter(p => {
-                      if (!query) return true;
-                      return (p.name && p.name.toLowerCase().includes(query)) ||
-                        (p.barcode && p.barcode.toLowerCase().includes(query)) ||
-                        (p.sku && p.sku.toLowerCase().includes(query));
-                    });
                     const selected = products.find(p => p.id === docWizardSelectedProductId);
-                    if (selected && (!query || selected.name.toLowerCase().includes(query) || (selected.barcode || '').includes(query))) {
-                      return (
-                        <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-xl px-3 py-2 flex items-center justify-between">
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-indigo-800 dark:text-indigo-300 truncate">{selected.name}</p>
-                            <p className="text-[10px] text-indigo-500">{currency}{selected.sellingPrice.toLocaleString()} · Stock: {selected.shopStockQty ?? selected.stockQty ?? 0}</p>
-                          </div>
-                          <button type="button" onClick={() => { setDocWizardSelectedProductId(''); setDocWizardProductSearchQuery(''); }}
-                            className="text-indigo-300 hover:text-indigo-600 ml-2 shrink-0 cursor-pointer text-sm font-bold border-none bg-transparent">✕</button>
-                        </div>
-                      );
-                    }
+                    if (selected && (!query || selected.name.toLowerCase().includes(query) || (selected.barcode||'').includes(query))) return (
+                      <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-xl px-3 py-2 flex items-center justify-between">
+                        <div className="min-w-0"><p className="text-sm font-bold text-indigo-800 dark:text-indigo-300 truncate">{selected.name}</p><p className="text-[10px] text-indigo-500">{currency}{selected.sellingPrice.toLocaleString()} · Stock: {selected.shopStockQty ?? selected.stockQty ?? 0}</p></div>
+                        <button type="button" onClick={() => { setDocWizardSelectedProductId(''); setDocWizardProductSearchQuery(''); }} className="text-indigo-300 hover:text-indigo-600 ml-2 cursor-pointer text-sm font-bold border-none bg-transparent">✕</button>
+                      </div>
+                    );
                     if (!query) return null;
+                    const filtered = products.filter(p => !query || p.name?.toLowerCase().includes(query) || p.barcode?.toLowerCase().includes(query) || p.sku?.toLowerCase().includes(query));
                     return (
-                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden max-h-44 overflow-y-auto shadow-md">
-                        {filtered.length === 0 ? (
-                          <p className="px-3 py-4 text-xs text-slate-400 text-center">No products found</p>
-                        ) : filtered.slice(0, 20).map(p => (
-                          <button key={p.id} type="button"
-                            onClick={() => { setDocWizardSelectedProductId(p.id); setDocWizardProductSearchQuery(p.name); }}
-                            className={`w-full text-left px-3 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border-b border-slate-50 dark:border-slate-800 last:border-0 cursor-pointer transition-colors ${docWizardSelectedProductId === p.id ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}>
+                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden max-h-40 overflow-y-auto shadow-md">
+                        {filtered.length === 0 ? <p className="px-3 py-4 text-xs text-slate-400 text-center">No products found</p>
+                        : filtered.slice(0,20).map(p => (
+                          <button key={p.id} type="button" onClick={() => { setDocWizardSelectedProductId(p.id); setDocWizardProductSearchQuery(p.name); }}
+                            className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border-b border-slate-50 dark:border-slate-800 last:border-0 cursor-pointer">
                             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{p.name}</p>
                             <p className="text-[10px] text-slate-400">{currency}{p.sellingPrice.toLocaleString()} · Stock: {p.shopStockQty ?? p.stockQty ?? 0}</p>
                           </button>
@@ -4563,164 +4488,269 @@ export default function DashboardSalesList({
                       </div>
                     );
                   })()}
-
-                  {/* Quantity + Add */}
                   <div className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Qty</label>
-                      <input type="number" min="1" value={docWizardSelectedQty}
-                        onChange={e => setDocWizardSelectedQty(Number(e.target.value))}
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
-                    </div>
-                    <button type="button"
-                      onClick={() => {
-                        if (!docWizardSelectedProductId) return;
-                        const found = products.find(p => p.id === docWizardSelectedProductId);
-                        if (!found) return;
-                        const existingIdx = newDocItems.findIndex(x => x.productId === found.id);
-                        if (existingIdx >= 0) {
-                          setNewDocItems(prev => prev.map((item, index) => index === existingIdx
-                            ? { ...item, qty: toNumber(item.qty) + docWizardSelectedQty }
-                            : item));
-                        } else {
-                          setNewDocItems(prev => [...prev, {
-                            productId: found.id, productName: found.name,
-                            qty: docWizardSelectedQty, price: found.sellingPrice,
-                            discount: 0, discountType: 'percent' as const
-                          }]);
-                        }
-                        setDocWizardSelectedProductId('');
-                        setDocWizardSelectedQty(1);
-                        setDocWizardProductSearchQuery('');
-                      }}
-                      disabled={!docWizardSelectedProductId}
-                      className="shrink-0 h-[42px] px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl border-none cursor-pointer transition-colors whitespace-nowrap">
-                      + Add
-                    </button>
+                    <div className="flex-1"><label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Qty</label><input type="number" min="1" value={docWizardSelectedQty} onChange={e => setDocWizardSelectedQty(Number(e.target.value))} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" /></div>
+                    <div className="flex-1"><label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Discount %</label><input type="number" min="0" max="100" value={docWizardSelectedDiscount} onChange={e => setDocWizardSelectedDiscount(Number(e.target.value))} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" /></div>
+                    <button type="button" onClick={() => { if(!docWizardSelectedProductId)return; const found=products.find(p=>p.id===docWizardSelectedProductId); if(!found)return; const ei=newDocItems.findIndex(x=>x.productId===found.id); if(ei>=0){const u=[...newDocItems];u[ei].qty+=docWizardSelectedQty;setNewDocItems(u);}else setNewDocItems(prev=>[...prev,{productId:found.id,productName:found.name,qty:docWizardSelectedQty,price:found.sellingPrice,discount:docWizardSelectedDiscount,discountType:'percent' as const}]); setDocWizardSelectedProductId('');setDocWizardSelectedQty(1);setDocWizardSelectedDiscount(0);setDocWizardProductSearchQuery(''); }} disabled={!docWizardSelectedProductId}
+                      className="h-[42px] px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl border-none cursor-pointer whitespace-nowrap shrink-0">+ Add</button>
                   </div>
+                </div>
+              </div>
+              {newDocItems.length === 0 ? (
+                <div className="py-6 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700"><p className="text-slate-400 text-sm font-medium">No items yet</p><p className="text-slate-300 text-xs mt-0.5">Search and add products above</p></div>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-[0.12em]">Items ({newDocItems.length})</p>
+                  {newDocItems.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-3.5 py-2.5">
+                      <div className="flex-1 min-w-0"><p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{item.productName}</p><p className="text-[10px] text-slate-400 font-mono mt-0.5">{item.qty} × {currency}{item.price}{item.discount > 0 ? ` − ${item.discount}%` : ''}</p></div>
+                      <p className="text-[14px] font-black text-slate-800 dark:text-slate-100 font-mono shrink-0">{currency}{Math.round(item.qty * item.price * (1 - item.discount / 100)).toLocaleString()}</p>
+                      <button type="button" onClick={() => setNewDocItems(prev => prev.filter((_, i) => i !== idx))} className="w-7 h-7 flex items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-900/30 text-rose-500 border-none cursor-pointer shrink-0 hover:bg-rose-100"><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                  {(() => { const sub=newDocItems.reduce((s,i)=>s+i.qty*i.price*(1-i.discount/100),0); const vat=newDocHasVat?sub*newDocTaxRate:0; const del=Number(newDocDeliveryCost)||0; const grand=sub+vat+del;
+                    return (<div className="mt-1 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">{([[`Subtotal`,sub,false],...(newDocHasVat?[[`VAT ${Math.round(newDocTaxRate*100)}%`,vat,false]]:[]),...(del>0?[[`Delivery`,del,false]]:[]),[`Grand Total`,grand,true]] as [string,number,boolean][]).map(([label,val,bold],i)=>(<div key={i} className={`flex justify-between items-center px-4 py-2.5 ${i>0?'border-t border-slate-100 dark:border-slate-700':''} ${bold?'bg-indigo-50 dark:bg-indigo-900/20':'bg-white dark:bg-slate-900'}`}><span className={`text-sm ${bold?'font-black text-slate-900 dark:text-white':'text-slate-500 font-medium'}`}>{label}</span><span className={`font-mono ${bold?'text-[15px] font-black text-indigo-700 dark:text-indigo-400':'text-sm font-bold text-slate-700 dark:text-slate-300'}`}>{currency}{(bold?grand:val).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>))}</div>);
+                  })()}
+                </div>
+              )}
+            </div>
+            <div className="shrink-0 px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-2">
+              <button type="button" onClick={() => setShowNewDocModal(false)} className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold text-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800">Cancel</button>
+              <button type="button" disabled={newDocItems.length === 0}
+                onClick={() => { const prefix=newDocType==='price quote'?'QUO':'PFI'; const nextNum=`${prefix}-2026-${Math.floor(1000+Math.random()*9000)}`; const sub=newDocItems.reduce((s,i)=>s+i.qty*i.price*(1-i.discount/100),0); const vat=newDocHasVat?sub*newDocTaxRate:0; const del=Number(newDocDeliveryCost)||0; const newDoc: SalesDocument={id:`doc-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,type:newDocType,documentNumber:nextNum,customerName:newDocCustomerName||'General Customer',customerPhone:newDocCustomerPhone||'',customerAddress:newDocCustomerAddress||'',items:newDocItems,total:sub+vat+del,hasVat:newDocHasVat,taxRate:newDocTaxRate,deliveryCost:del,paymentMethod:newDocPaymentMethod,date:newDocDate||new Date().toISOString().split('T')[0],status:'active',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}; onAddDocument?.(newDoc); setShowNewDocModal(false); }}
+                className="flex-[2] py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-black text-sm cursor-pointer border-none">
+                Create {getDocumentLabel(newDocType)}
+              </button>
+            </div>
+          </div>
+
+          {/* ── DESKTOP: wide two-column dialog (xl+) ── */}
+          <div className="hidden xl:flex relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden" style={{width:'900px', maxHeight:'88vh'}}>
+
+            {/* Left panel — document setup */}
+            <div className="flex flex-col border-r border-slate-100 dark:border-slate-800" style={{width:'340px', minWidth:'340px'}}>
+              {/* Header */}
+              <div className="px-6 pt-6 pb-5 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-[17px] font-black text-slate-900 dark:text-white tracking-tight">New Document</h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Quotation or Proforma Invoice</p>
+                  </div>
+                  <button type="button" onClick={() => setShowNewDocModal(false)}
+                    className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-800 cursor-pointer border-none transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                {/* Doc type toggle */}
+                <div className="flex gap-1.5 mt-4 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                  {(['price quote', 'proforma invoice'] as const).map(t => (
+                    <button key={t} type="button" onClick={() => setNewDocType(t)}
+                      className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-bold cursor-pointer border-none transition-all ${newDocType === t ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}>
+                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${newDocType === t ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400' : 'bg-slate-200 dark:bg-slate-600 text-slate-400'}`}>{t === 'price quote' ? 'QUO' : 'PFI'}</span>
+                      {getDocumentLabel(t)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Form body */}
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+                {/* Client details */}
+                <div className="space-y-2">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.14em]">Client Details</p>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Client Name</label>
+                    <input type="text" placeholder="e.g. Lipa Traders Ltd" value={newDocCustomerName} onChange={e => setNewDocCustomerName(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block mb-1">Phone</label>
+                      <input type="text" placeholder="+255 7XX XXX XXX" value={newDocCustomerPhone} onChange={e => setNewDocCustomerPhone(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block mb-1">Payment Method</label>
+                      <select value={newDocPaymentMethod} onChange={e => setNewDocPaymentMethod(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                        {(systemSettings?.business?.paymentModes?.length ? systemSettings.business.paymentModes : ['Cash','Card','M-Pesa','Bank']).map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Client Address</label>
+                    <textarea placeholder="P.O. Box 1234, Kariakoo, Dar es Salaam" value={newDocCustomerAddress} onChange={e => setNewDocCustomerAddress(e.target.value)} rows={2}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 focus:outline-none focus:border-indigo-500 resize-none leading-relaxed" />
+                  </div>
+                </div>
+
+                {/* Document settings */}
+                <div className="space-y-2">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.14em]">Document Settings</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block mb-1">Document Date</label>
+                      <input type="date" value={newDocDate} onChange={e => setNewDocDate(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block mb-1">Delivery Cost ({currency})</label>
+                      <input type="number" min="0" placeholder="0.00" value={newDocDeliveryCost || ''} onChange={e => setNewDocDeliveryCost(Math.max(0, Number(e.target.value)))}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2.5 py-2 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer select-none">
+                    <input type="checkbox" checked={newDocHasVat} onChange={e => setNewDocHasVat(e.target.checked)} className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0" />
+                    <div>
+                      <p className="text-[12px] font-bold text-slate-700 dark:text-slate-300">Include VAT ({Math.round(newDocTaxRate * 100)}%)</p>
+                      <p className="text-[9px] text-slate-400">Applied after any item discounts</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Footer actions */}
+              <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 flex gap-2">
+                <button type="button" onClick={() => setShowNewDocModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                  Cancel
+                </button>
+                <button type="button" disabled={newDocItems.length === 0}
+                  onClick={() => { const prefix=newDocType==='price quote'?'QUO':'PFI'; const nextNum=`${prefix}-2026-${Math.floor(1000+Math.random()*9000)}`; const sub=newDocItems.reduce((s,i)=>s+i.qty*i.price*(1-i.discount/100),0); const vat=newDocHasVat?sub*newDocTaxRate:0; const del=Number(newDocDeliveryCost)||0; const newDoc: SalesDocument={id:`doc-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,type:newDocType,documentNumber:nextNum,customerName:newDocCustomerName||'General Customer',customerPhone:newDocCustomerPhone||'',customerAddress:newDocCustomerAddress||'',items:newDocItems,total:sub+vat+del,hasVat:newDocHasVat,taxRate:newDocTaxRate,deliveryCost:del,paymentMethod:newDocPaymentMethod,date:newDocDate||new Date().toISOString().split('T')[0],status:'active',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}; onAddDocument?.(newDoc); setShowNewDocModal(false); }}
+                  className="flex-[2] py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-black text-sm cursor-pointer transition-colors border-none">
+                  Create {getDocumentLabel(newDocType)}
+                </button>
+              </div>
+            </div>
+
+            {/* Right panel — product picker + items */}
+            <div className="flex flex-col flex-1 min-w-0 bg-slate-50/40 dark:bg-slate-950/30">
+              {/* Panel header */}
+              <div className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+                <h4 className="text-[13px] font-black text-slate-700 dark:text-slate-300">Product Line Items</h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">Search and add products to the document</p>
+              </div>
+
+              {/* Product search */}
+              <div className="px-6 pt-4 space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input type="text" placeholder="Search product by name or scan barcode…" value={docWizardProductSearchQuery}
+                    onChange={e => setDocWizardProductSearchQuery(e.target.value)}
+                    onKeyDown={e => { if(e.key==='Enter'){const q=docWizardProductSearchQuery.toLowerCase().trim();const m=products.filter(p=>(p.barcode&&p.barcode.toLowerCase()===q)||(p.sku&&p.sku.toLowerCase()===q)||(p.name&&p.name.toLowerCase().includes(q)));if(m.length===1){setDocWizardSelectedProductId(m[0].id);setDocWizardProductSearchQuery(m[0].name);}e.preventDefault();}}}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-9 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 shadow-sm" />
+                  {docWizardProductSearchQuery && <button type="button" onClick={() => { setDocWizardProductSearchQuery(''); setDocWizardSelectedProductId(''); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer text-sm font-bold">✕</button>}
+                </div>
+
+                {/* Selected chip */}
+                {(() => {
+                  const query = docWizardProductSearchQuery.toLowerCase().trim();
+                  const selected = products.find(p => p.id === docWizardSelectedProductId);
+                  if (selected && (!query || selected.name.toLowerCase().includes(query) || (selected.barcode||'').includes(query))) return (
+                    <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-xl px-4 py-3 flex items-center justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-indigo-900 dark:text-indigo-200 truncate">{selected.name}</p>
+                        <p className="text-[10px] text-indigo-500 mt-0.5">{currency}{selected.sellingPrice.toLocaleString()} per unit · {selected.shopStockQty ?? selected.stockQty ?? 0} in stock</p>
+                      </div>
+                      <button type="button" onClick={() => { setDocWizardSelectedProductId(''); setDocWizardProductSearchQuery(''); }} className="text-indigo-300 hover:text-indigo-600 ml-3 cursor-pointer text-sm font-bold border-none bg-transparent shrink-0">✕</button>
+                    </div>
+                  );
+                  if (!query) return null;
+                  const filtered = products.filter(p => !query || p.name?.toLowerCase().includes(query) || p.barcode?.toLowerCase().includes(query) || p.sku?.toLowerCase().includes(query));
+                  return (
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden max-h-48 overflow-y-auto shadow-lg">
+                      {filtered.length === 0 ? <p className="px-4 py-4 text-sm text-slate-400 text-center">No products match your search</p>
+                      : filtered.slice(0,20).map(p => (
+                        <button key={p.id} type="button" onClick={() => { setDocWizardSelectedProductId(p.id); setDocWizardProductSearchQuery(p.name); }}
+                          className={`w-full text-left px-4 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border-b border-slate-50 dark:border-slate-800 last:border-0 cursor-pointer transition-colors ${docWizardSelectedProductId===p.id?'bg-indigo-50 dark:bg-indigo-900/20':''}`}>
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{p.name}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{p.barcode ? `${p.barcode} · ` : ''}{currency}{p.sellingPrice.toLocaleString()} · Stock: {p.shopStockQty ?? p.stockQty ?? 0}</p>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Qty + discount + add row */}
+                <div className="flex items-end gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="w-20 shrink-0">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Qty</label>
+                    <input type="number" min="1" value={docWizardSelectedQty} onChange={e => setDocWizardSelectedQty(Number(e.target.value))}
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono text-center" />
+                  </div>
+                  <div className="w-28 shrink-0">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Discount %</label>
+                    <input type="number" min="0" max="100" value={docWizardSelectedDiscount} onChange={e => setDocWizardSelectedDiscount(Number(e.target.value))}
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono text-center" />
+                  </div>
+                  <button type="button"
+                    onClick={() => { if(!docWizardSelectedProductId)return; const found=products.find(p=>p.id===docWizardSelectedProductId); if(!found)return; const ei=newDocItems.findIndex(x=>x.productId===found.id); if(ei>=0){const u=[...newDocItems];u[ei].qty+=docWizardSelectedQty;setNewDocItems(u);}else setNewDocItems(prev=>[...prev,{productId:found.id,productName:found.name,qty:docWizardSelectedQty,price:found.sellingPrice,discount:docWizardSelectedDiscount,discountType:'percent' as const}]); setDocWizardSelectedProductId('');setDocWizardSelectedQty(1);setDocWizardSelectedDiscount(0);setDocWizardProductSearchQuery(''); }}
+                    disabled={!docWizardSelectedProductId}
+                    className="flex-1 h-[42px] bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-sm font-black rounded-xl border-none cursor-pointer transition-colors flex items-center justify-center gap-2">
+                    <Plus className="w-4 h-4" /> Add to Document
+                  </button>
                 </div>
               </div>
 
               {/* Items list */}
-              {newDocItems.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Items ({newDocItems.length})</p>
-                  <div className="space-y-1.5">
+              <div className="flex-1 overflow-y-auto px-6 py-3">
+                {newDocItems.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center py-12">
+                    <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
+                      <FileText className="w-6 h-6 text-slate-300 dark:text-slate-600" />
+                    </div>
+                    <p className="text-slate-500 dark:text-slate-400 font-semibold text-sm">Document is empty</p>
+                    <p className="text-slate-400 text-xs mt-1">Search and add products above</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {/* Column headers */}
+                    <div className="grid text-[9px] font-black text-slate-400 uppercase tracking-widest px-2" style={{gridTemplateColumns:'1fr 60px 70px 80px 32px'}}>
+                      <span>Product</span><span className="text-center">Qty</span><span className="text-right">Unit</span><span className="text-right">Total</span><span></span>
+                    </div>
                     {newDocItems.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5">
-                        <div className="flex-1 min-w-0">
+                      <div key={idx} className="grid items-center bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2.5 gap-2 group hover:border-slate-200 dark:hover:border-slate-700 transition-colors" style={{gridTemplateColumns:'1fr 60px 70px 80px 32px'}}>
+                        <div className="min-w-0">
                           <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{item.productName}</p>
-                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">{item.qty} × {currency}{item.price}</p>
+                          {item.discount > 0 && <p className="text-[9px] text-amber-600 font-bold">{item.discount}% off</p>}
                         </div>
-                        <p className="text-[14px] font-black text-slate-800 dark:text-slate-100 font-mono shrink-0">
-                          {currency}{Math.round(item.qty * item.price).toLocaleString()}
-                        </p>
+                        <p className="text-sm font-bold text-slate-600 dark:text-slate-400 font-mono text-center">{item.qty}</p>
+                        <p className="text-xs text-slate-500 font-mono text-right">{currency}{item.price.toLocaleString()}</p>
+                        <p className="text-sm font-black text-slate-900 dark:text-white font-mono text-right">{currency}{Math.round(item.qty * item.price * (1 - item.discount/100)).toLocaleString()}</p>
                         <button type="button" onClick={() => setNewDocItems(prev => prev.filter((_, i) => i !== idx))}
-                          className="w-7 h-7 flex items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-900/30 text-rose-500 hover:bg-rose-100 border-none cursor-pointer shrink-0 transition-colors">
+                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-300 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-900/30 border-none cursor-pointer transition-colors shrink-0">
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {newDocItems.length === 0 && (
-                <div className="py-8 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
-                  <p className="text-slate-400 text-sm">No items added yet</p>
-                  <p className="text-slate-300 text-xs mt-1">Search and add products above</p>
-                </div>
-              )}
-
-              {newDocItems.length > 0 && (
-                <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-3.5 space-y-2.5">
-                  <div>
-                    <p className="text-xs font-black text-slate-800 dark:text-slate-100">Order Discount</p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">One discount for all products.</p>
-                  </div>
-                  <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-2">
-                    <select value={newDocDiscountType}
-                      onChange={e => setNewDocDiscountType(e.target.value as 'percent' | 'cash')}
-                      className="min-h-11 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 rounded-xl px-3 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-amber-500">
-                      <option value="percent">Percent %</option>
-                      <option value="cash">Amount</option>
-                    </select>
-                    <input data-testid="document-order-discount" type="number" min="0"
-                      max={newDocDiscountType === 'percent' ? 100 : newDocSubtotal}
-                      inputMode="decimal" placeholder="0" value={newDocDiscountValue || ''}
-                      onChange={e => setNewDocDiscountValue(Math.max(0, Number(e.target.value) || 0))}
-                      className="min-h-11 w-full bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 rounded-xl px-3 text-sm font-black text-slate-800 dark:text-slate-100 focus:outline-none focus:border-amber-500 font-mono" />
-                  </div>
-                </div>
-              )}
-
-              {/* Totals */}
-              {newDocItems.length > 0 && (
-                  <div key={`${newDocItems.length}-${newDocSubtotal}-${newDocDiscountAmount}-${newDocTaxAmount}-${newDocDeliveryCost}`} className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                    {[
-                      ['Subtotal', `${currency}${newDocSubtotal.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}`, false],
-                      ...(newDocDiscountAmount > 0 ? [[`Order Discount${newDocDiscountType === 'percent' ? ` (${cappedDiscountValue}%)` : ''}`, `-${currency}${newDocDiscountAmount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}`, false]] : []),
-                      ...(newDocHasVat ? [[`VAT ${Math.round(newDocTaxRate * 100)}%`, `+${currency}${newDocTaxAmount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}`, false]] : []),
-                      ...(newDocDeliveryCost > 0 ? [['Delivery', `+${currency}${newDocDeliveryCost.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}`, false]] : []),
-                      ['Grand Total', `${currency}${newDocGrandTotal.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}`, true],
-                    ].map(([label, value, bold], i) => (
-                      <div key={i} className={`flex justify-between items-center px-4 py-2.5 ${i > 0 ? 'border-t border-slate-200 dark:border-slate-700' : ''} ${bold ? 'bg-white dark:bg-slate-900' : ''}`}>
-                        <span className={`text-sm ${bold ? 'font-black text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 font-medium'}`}>{label as string}</span>
-                        <span className={`font-mono ${bold ? 'text-base font-black text-indigo-700 dark:text-indigo-400' : 'text-sm font-bold text-slate-700 dark:text-slate-300'}`}>{value as string}</span>
+              {/* Totals bar */}
+              {newDocItems.length > 0 && (() => {
+                const sub=newDocItems.reduce((s,i)=>s+i.qty*i.price*(1-i.discount/100),0);
+                const vat=newDocHasVat?sub*newDocTaxRate:0; const del=Number(newDocDeliveryCost)||0; const grand=sub+vat+del;
+                return (
+                  <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                    <div className="flex items-end justify-between gap-8">
+                      <div className="flex gap-6 text-[11px]">
+                        <div><p className="text-slate-400 font-medium">Subtotal</p><p className="font-bold text-slate-700 dark:text-slate-300 font-mono">{currency}{sub.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</p></div>
+                        {newDocHasVat && <div><p className="text-slate-400 font-medium">VAT {Math.round(newDocTaxRate*100)}%</p><p className="font-bold text-slate-700 dark:text-slate-300 font-mono">+{currency}{vat.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</p></div>}
+                        {del > 0 && <div><p className="text-slate-400 font-medium">Delivery</p><p className="font-bold text-slate-700 dark:text-slate-300 font-mono">+{currency}{del.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</p></div>}
                       </div>
-                    ))}
+                      <div className="text-right shrink-0">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Grand Total</p>
+                        <p className="text-[22px] font-black text-indigo-700 dark:text-indigo-400 font-mono leading-tight">{currency}{grand.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</p>
+                      </div>
+                    </div>
                   </div>
-              )}
+                );
+              })()}
             </div>
-
-            {/* ── Footer ── */}
-            <div className="shrink-0 px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-2">
-              <button type="button" onClick={() => setShowNewDocModal(false)}
-                className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold text-sm cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
-                Cancel
-              </button>
-              <button type="button"
-                disabled={newDocItems.length === 0}
-                onClick={() => {
-                  const prefixMap = { 'price quote': 'QUO', 'proforma invoice': 'PFI' };
-                  const prefix = prefixMap[newDocType] || 'DOC';
-                  const nextNum = `${prefix}-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-                  const deliverySum = Number(newDocDeliveryCost) || 0;
-                  const newDoc: SalesDocument = {
-                    id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                    type: newDocType,
-                    documentNumber: nextNum,
-                    customerName: newDocCustomerName || 'General Customer',
-                    customerPhone: newDocCustomerPhone || '',
-                    customerAddress: newDocCustomerAddress || '',
-                    items: newDocItems.map(item => ({ ...item, discount: 0, discountType: 'percent' })),
-                    total: newDocGrandTotal,
-                    tax: newDocTaxAmount,
-                    discountAmount: newDocDiscountAmount,
-                    discountValue: cappedDiscountValue,
-                    discountType: newDocDiscountType,
-                    hasVat: newDocHasVat,
-                    deliveryCost: deliverySum,
-                    paymentMethod: newDocPaymentMethod,
-                    date: newDocDate || new Date().toISOString().split('T')[0],
-                    status: 'active',
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  };
-                  onAddDocument?.(newDoc);
-                  setNewDocItems([]);
-                  setNewDocCustomerName('');
-                  setNewDocCustomerPhone('');
-                  setNewDocCustomerAddress('');
-                  setNewDocDiscountValue(0);
-                  setShowNewDocModal(false);
-                }}
-                className="flex-[2] py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-black text-sm cursor-pointer transition-colors border-none">
-                Create {getDocumentLabel(newDocType)}
-              </button>
-            </div>
-
           </div>
+
         </div>
       ), document.body)}
 

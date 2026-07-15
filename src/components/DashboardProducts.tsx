@@ -624,9 +624,9 @@ export default function DashboardProducts({
   const [unit, setUnit] = useState(unitsList[0] || 'Pcs');
   const [costPrice, setCostPrice] = useState(0);
   const [sellingPrice, setSellingPrice] = useState(0);
-  const [shopStockQty, setShopStockQty] = useState(5);
-  const [storeStockQty, setStoreStockQty] = useState(10);
-  const [alertQty, setAlertQty] = useState(5);
+  const [shopStockQty, setShopStockQty] = useState<number | ''>('');
+  const [storeStockQty, setStoreStockQty] = useState<number | ''>('');
+  const [alertQty, setAlertQty] = useState<number | ''>('');
   const [productImage, setProductImage] = useState<string>('');
   const [productImageFile, setProductImageFile] = useState<File | null>(null); // raw file for Supabase Storage upload
 
@@ -643,7 +643,7 @@ export default function DashboardProducts({
   const [sellInRetail, setSellInRetail] = useState(true);
   const [sellInWholesale, setSellInWholesale] = useState(false);
   const [wholesalePrice, setWholesalePrice] = useState(0);
-  const [minWholesaleQty, setMinWholesaleQty] = useState(10);
+  const [minWholesaleQty, setMinWholesaleQty] = useState<number | ''>('');
   
   // Bulk-To-Unit Selling Form states
   const [isBulkProduct, setIsBulkProduct] = useState(false);
@@ -961,7 +961,7 @@ export default function DashboardProducts({
 
     const finalSellingPrice = sellInRetail ? sellingPrice : 0;
     const finalWholesalePrice = sellInWholesale ? wholesalePrice : 0;
-    const finalMinWholesaleQty = sellInWholesale ? minWholesaleQty : 0;
+    const finalMinWholesaleQty = sellInWholesale ? (minWholesaleQty === '' ? 0 : minWholesaleQty) : 0;
 
     if (sellInRetail && finalSellingPrice <= 0) {
       setFormError('Retail price must be greater than zero when selling in retail.');
@@ -1034,10 +1034,10 @@ export default function DashboardProducts({
       unit: activeTenant.businessType === 'pharmacy' ? hierarchy.baseUnit : unit,
       costPrice: ledgerCostPrice,
       sellingPrice: finalSellingPrice,
-      stockQty: getTotalStockQty(shopStockQty, storeStockQty),
-      shopStockQty: shopStockQty,
-      storeStockQty: storeStockQty,
-      alertQty: alertQty,
+      stockQty: getTotalStockQty(shopStockQty === '' ? 0 : shopStockQty, storeStockQty === '' ? 0 : storeStockQty),
+      shopStockQty: shopStockQty === '' ? 0 : shopStockQty,
+      storeStockQty: storeStockQty === '' ? 0 : storeStockQty,
+      alertQty: alertQty === '' ? 0 : alertQty,
       image: productImage || undefined,
       brand: brand.trim() || undefined,
       sellInRetail,
@@ -1160,15 +1160,15 @@ export default function DashboardProducts({
       setCategory(categoriesList[0] || '');
       setCostPrice(0);
       setSellingPrice(0);
-      setShopStockQty(5);
-      setStoreStockQty(10);
-      setAlertQty(5);
+      setShopStockQty('');
+      setStoreStockQty('');
+      setAlertQty('');
       setProductImage('');
       setProductImageFile(null);
       setSellInRetail(true);
       setSellInWholesale(false);
       setWholesalePrice(0);
-      setMinWholesaleQty(10);
+      setMinWholesaleQty('');
       setIsBulkProduct(false);
       setDosesPerPacket(10);
       setTabsPerDose(2);
@@ -2085,9 +2085,10 @@ export default function DashboardProducts({
                       <input 
                         type="number" 
                         min="0"
-                        step="0.001"
+                        step="1"
+                        placeholder="e.g. 20"
                         value={shopStockQty}
-                        onChange={(e) => setShopStockQty(Math.max(0, parseFloat(e.target.value) || 0))}
+                        onChange={(e) => { const v = e.target.value; setShopStockQty(v === '' ? '' : Math.max(0, Math.floor(Number(v) || 0))); }}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
                       />
                     </div>
@@ -2096,9 +2097,10 @@ export default function DashboardProducts({
                       <input 
                         type="number" 
                         min="0"
-                        step="0.001"
+                        step="1"
+                        placeholder="e.g. 50"
                         value={storeStockQty}
-                        onChange={(e) => setStoreStockQty(Math.max(0, parseFloat(e.target.value) || 0))}
+                        onChange={(e) => { const v = e.target.value; setStoreStockQty(v === '' ? '' : Math.max(0, Math.floor(Number(v) || 0))); }}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
                       />
                     </div>
@@ -2109,10 +2111,11 @@ export default function DashboardProducts({
                     <p className="text-[9px] text-slate-400 leading-tight">Set low-stock alert.</p>
                     <input 
                       type="number" 
-                      min="1"
-                      step="0.001"
+                      min="0"
+                      step="1"
+                      placeholder="e.g. 5"
                       value={alertQty}
-                      onChange={(e) => setAlertQty(Math.max(0.001, parseFloat(e.target.value) || 0))}
+                      onChange={(e) => { const v = e.target.value; setAlertQty(v === '' ? '' : Math.max(0, Math.floor(Number(v) || 0))); }}
                       className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none mt-1"
                     />
                   </div>
@@ -2204,7 +2207,7 @@ export default function DashboardProducts({
                         min="1"
                         disabled={!sellInWholesale}
                         value={sellInWholesale ? (minWholesaleQty || '') : 10}
-                        onChange={(e) => setMinWholesaleQty(Math.max(1, parseInt(e.target.value) || 0))}
+                        onChange={(e) => { const v = e.target.value; setMinWholesaleQty(v === '' ? '' : Math.max(0, Math.floor(Number(v) || 0))); }}
                         placeholder={!sellInWholesale ? "Inactive" : "10"}
                         className={`w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none font-semibold ${!sellInWholesale ? 'opacity-50 cursor-not-allowed bg-slate-100' : ''}`}
                       />
