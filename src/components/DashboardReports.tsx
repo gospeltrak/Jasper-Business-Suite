@@ -4564,12 +4564,13 @@ export default function DashboardReports({
               {reportTab === 'product-monitoring' && (
                 <div className="space-y-4">
                   {(() => {
-                    const prodPerfMap: Record<string, { name: string; sku: string; cost: number; price: number; margin: number; sold: number; rev: number; profit: number }> = {};
+                    const prodPerfMap: Record<string, { id: string; name: string; sku: string; cost: number; price: number; margin: number; sold: number; rev: number; profit: number }> = {};
                     filteredSales.forEach(s => {
                       s.items.forEach(it => {
                         if (!prodPerfMap[it.productId]) {
                           const match = products.find(p => p.id === it.productId);
                           prodPerfMap[it.productId] = {
+                            id: it.productId,
                             name: it.productName,
                             sku: match?.sku || '',
                             cost: it.costPriceAtSale ?? match?.costPrice ?? 0,
@@ -4654,28 +4655,49 @@ export default function DashboardReports({
 
                               {/* Catalog Rankings list */}
                               <div className="space-y-2.5">
-                                <h4 className="text-xs font-semibold text-slate-800 font-sans px-1 text-left">Profitability Rankings Contributions</h4>
+                                <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-100 font-sans px-1 text-left">Profitability Rankings Contributions</h4>
                                 <div className="space-y-2">
                                   {matchItems.length === 0 ? (
-                                    <p className="text-center text-slate-400 italic text-xs py-10 bg-white border border-slate-200 rounded-xl text-center">No stats found for product list.</p>
+                                    <p className="text-center text-slate-400 italic text-xs py-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center">No stats found for product list.</p>
                                   ) : (
-                                    matchItems.map((item, idx) => (
-                                      <div key={idx} className="bg-white px-4 py-3 border border-slate-200 rounded-xl shadow-xs text-left flex justify-between items-center animate-fade-in">
-                                        <div>
-                                          <div className="flex items-center space-x-1.5 justify-start">
-                                            <span className="text-[10px] font-mono font-bold text-indigo-650 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">Rank #{idx + 1}</span>
-                                            <span className="text-sm font-bold text-slate-800 block truncate max-w-[130px]">{item.name}</span>
+                                    matchItems.map((item, idx) => {
+                                      const productObj = products.find(p => p.id === item.id) || products.find(p => p.name === item.name);
+                                      const thumbSrc = productObj?.image || productObj?.imageBase64 || '';
+                                      return (
+                                        <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm text-left flex items-center gap-3 pr-4 overflow-hidden animate-fade-in">
+                                          {/* Product thumbnail */}
+                                          <div className="w-[54px] h-[54px] shrink-0 bg-slate-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+                                            {thumbSrc ? (
+                                              <CachedImage
+                                                src={thumbSrc}
+                                                alt={item.name}
+                                                className="w-full h-full object-contain p-1"
+                                                referrerPolicy="no-referrer"
+                                              />
+                                            ) : (
+                                              <div className="w-full h-full flex items-center justify-center bg-slate-100 dark:bg-slate-800">
+                                                <span className="text-[11px] font-black text-slate-300 dark:text-slate-600">
+                                                  {item.name.slice(0, 2).toUpperCase()}
+                                                </span>
+                                              </div>
+                                            )}
                                           </div>
-                                          <span className="text-[11px] text-slate-400 font-mono block mt-1.5 text-left">
-                                            SKU: {item.sku || 'N/A'} • Price: {currency}{item.price.toFixed(1)}
-                                          </span>
+                                          {/* Info */}
+                                          <div className="flex-1 min-w-0 py-3">
+                                            <div className="flex items-center gap-1.5 mb-0.5">
+                                              <span className="text-[9px] font-black font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-1.5 py-0.5 rounded-md">#{idx + 1}</span>
+                                              <span className="text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate">{item.name}</span>
+                                            </div>
+                                            <span className="text-[9px] text-slate-400 font-mono">{item.sold} sold · {currency}{item.price.toFixed(0)}/unit</span>
+                                          </div>
+                                          {/* Profit */}
+                                          <div className="text-right shrink-0">
+                                            <span className="text-[14px] font-black text-emerald-600 font-mono block">+{currency}{Math.round(item.profit).toLocaleString()}</span>
+                                            <span className="text-[9px] text-slate-400">{item.rev > 0 ? Math.round((item.profit/item.rev)*100) : 0}% margin</span>
+                                          </div>
                                         </div>
-                                        <div className="text-right shrink-0">
-                                          <span className="text-xs font-black text-slate-800 block font-mono">{item.sold} sold</span>
-                                          <span className="text-[11px] text-emerald-600 font-extrabold block font-mono mt-0.5">+{currency}{Math.round(item.profit).toLocaleString()}</span>
-                                        </div>
-                                      </div>
-                                    ))
+                                      );
+                                    })
                                   )}
                                 </div>
                               </div>
