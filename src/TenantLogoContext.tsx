@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { getSecureDataBridgeClient } from './secureDataBridge';
 
 interface TenantLogoContextType {
   logoUrl: string | null;
+  businessName: string | null;
   setLogoUrl: (url: string | null) => void;
   fetchLogoUrl: (tenantId: string) => Promise<string | null>;
   getFallbackInitials: (name: string) => string;
@@ -11,6 +13,7 @@ const TenantLogoContext = createContext<TenantLogoContextType | undefined>(undef
 
 export function TenantLogoProvider({ children }: { children: ReactNode }) {
   const [logoUrl, setLogoState] = useState<string | null>(null);
+  const [businessName, setBusinessName] = useState<string | null>(null);
 
   const setLogoUrl = (url: string | null) => {
     setLogoState(url);
@@ -28,15 +31,25 @@ export function TenantLogoProvider({ children }: { children: ReactNode }) {
 
   const fetchLogoUrl = async (tenantId: string): Promise<string | null> => {
     if (!tenantId) return null;
-    
-    // First try onlineStorage
-    const local = onlineStorage.getItem(`jasper_tenant_logo_${tenantId}`);
-    if (local) {
-      setLogoState(local);
-      return local;
-    }
 
     try {
+      // Business branding comes directly from the tenant's online workspace.
+      // Do not use company name, tenant name, admin name or local browser storage.
+      const client: any = await getSecureDataBridgeClient();
+      const { data: workspace } = await client
+        .from('tenant_workspaces')
+        .select('payload')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      const business = workspace?.payload?.settings?.business;
+      const cloudBusinessName = String(business?.businessName || '').trim();
+      const cloudBusinessLogo = business?.businessLogoLight || business?.businessLogoDark || business?.businessLogo || null;
+      setBusinessName(cloudBusinessName || null);
+      if (cloudBusinessLogo) {
+        setLogoState(cloudBusinessLogo);
+        return cloudBusinessLogo;
+      }
+
       const response = await fetch(`/api/tenant/logo-by-id?tenantId=${encodeURIComponent(tenantId)}`);
       const contentType = response.headers.get('content-type') || '';
       if (!response.ok || !contentType.includes('application/json')) {
@@ -44,8 +57,8 @@ export function TenantLogoProvider({ children }: { children: ReactNode }) {
         return null;
       }
       const data = await response.json();
+      if (data?.businessName) setBusinessName(String(data.businessName).trim() || null);
       if (data && data.logoUrl) {
-        onlineStorage.setItem(`jasper_tenant_logo_${tenantId}`, data.logoUrl);
         setLogoState(data.logoUrl);
         return data.logoUrl;
       }
@@ -58,7 +71,7 @@ export function TenantLogoProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <TenantLogoContext.Provider value={{ logoUrl, setLogoUrl, fetchLogoUrl, getFallbackInitials }}>
+    <TenantLogoContext.Provider value={{ logoUrl, businessName, setLogoUrl, fetchLogoUrl, getFallbackInitials }}>
       {children}
     </TenantLogoContext.Provider>
   );

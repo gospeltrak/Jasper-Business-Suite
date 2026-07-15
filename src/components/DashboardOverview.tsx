@@ -6,6 +6,7 @@ import { Tenant, Product, Sale } from '../types';
 import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitFormatter';
 import { canShowDashboardAd, useGlobalAdSettings } from '../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../utils/safeHtml';
+import { getBusinessDisplayName } from '../utils/businessBranding';
 import { 
   ResponsiveContainer, 
   ComposedChart, 
@@ -81,6 +82,7 @@ export default function DashboardOverview({
   const { t, lang } = useTranslation();
   const adSettings = useGlobalAdSettings();
   const currency = activeTenant.currencyCode || 'TSh';
+  const businessDisplayName = getBusinessDisplayName(activeTenant, systemSettings, userName);
   
   // Date timeframe filtering state: 'today' | 'week' | 'month' | '3month' | 'year'
   const [timeframe, setTimeframe] = useState<'today' | 'week' | 'month' | '3month' | 'year'>('month');
@@ -681,14 +683,14 @@ export default function DashboardOverview({
               return (
                 <img
                   src={logo}
-                  alt={`${systemSettings?.business?.businessName || activeTenant.name} Logo`}
+                  alt={`${businessDisplayName} Logo`}
                   className="w-14 h-14 rounded-full object-cover border-2 border-emerald-400 shrink-0 shadow-xs"
                   referrerPolicy="no-referrer"
                 />
               );
             }
             // Priority 3: initials from business brand name
-            const brandName = systemSettings?.business?.businessName || activeTenant.name || 'JA';
+            const brandName = businessDisplayName;
             return (
               <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-300 text-white flex items-center justify-center font-black text-lg tracking-wide shrink-0 shadow-xs">
                 {brandName.substring(0, 2).toUpperCase()}

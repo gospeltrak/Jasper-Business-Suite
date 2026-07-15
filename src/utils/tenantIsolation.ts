@@ -29,7 +29,7 @@ export const createCleanTenantSettings = (tenant: Tenant): SystemSettings => ({
     themeMode: 'light'
   },
   business: {
-    businessName: tenant.name,
+    businessName: tenant.businessName || '',
     businessPhone: '',
     businessAddress: '',
     businessLogo: '',

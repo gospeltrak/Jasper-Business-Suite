@@ -807,7 +807,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     
     setSplashInfo({
       userName: userPayload.name,
-      businessName: matchedTenant.name,
+      businessName: matchedTenant.businessName || 'My Business',
       logoUrl: uploadedLogo
     });
     
