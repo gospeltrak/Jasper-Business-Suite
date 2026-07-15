@@ -885,6 +885,8 @@ export default function DashboardSalesList({
       setTimeout(() => win.close(), 1000);
     }, 500);
   };
+
+  const downloadSalePdf = async (sale: Sale) => {
     try {
       setPdfShareStatus('Preparing download...');
       await downloadPdfFromElement({
