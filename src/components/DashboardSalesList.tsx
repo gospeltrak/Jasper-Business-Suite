@@ -435,6 +435,7 @@ export default function DashboardSalesList({
 
   // Dropdown action popover state
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{top:number;right:number} | null>(null);
   const [mobileActionsSale, setMobileActionsSale] = useState<Sale | null>(null);
 
   // Modal triggers
@@ -855,8 +856,8 @@ export default function DashboardSalesList({
                 <p className="text-white font-black text-[13px] mt-0.5">{currency}{Math.round(creditsVolume).toLocaleString()}</p>
               </div>
               <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
-                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Offline</p>
-                <p className="text-white font-black text-[13px] mt-0.5">{pendingSyncCount} bills</p>
+                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Cash</p>
+                <p className="text-white font-black text-[13px] mt-0.5">{currency}{Math.round(sales.filter(s=>s.paymentMethod==='Cash').reduce((sum,s)=>sum+(s.total||0),0)).toLocaleString()}</p>
               </div>
               <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
                 <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Pending</p>
@@ -927,7 +928,7 @@ export default function DashboardSalesList({
           {[
             { label: 'Total Sales', value: `${currency}${Math.round(totalVolume).toLocaleString()}`, sub: `${filteredSales.length} sales`, icon: <TrendingUp className="w-5 h-5" />, color: '#059669', iconBg: '#dcfce7' },
             { label: 'Credit Outstanding', value: `${currency}${Math.round(creditsVolume).toLocaleString()}`, sub: `${sales.filter(s=>s.paymentMethod==='Credit').length} credit sales`, icon: <CreditCard className="w-5 h-5" />, color: '#d97706', iconBg: '#fef3c7' },
-            { label: 'Pending Sync', value: `${pendingSyncCount}`, sub: 'offline bills', icon: <Clock className="w-5 h-5" />, color: '#7c3aed', iconBg: '#ede9fe' },
+            { label: 'Cash Collected', value: `${currency}${Math.round(sales.filter(s=>s.paymentMethod==='Cash').reduce((sum,s)=>sum+(s.total||0),0)).toLocaleString()}`, sub: `${sales.filter(s=>s.paymentMethod==='Cash').length} cash sales`, icon: <Coins className="w-5 h-5" />, color: '#7c3aed', iconBg: '#ede9fe' },
             { label: 'Amount Due', value: `${pendingCount}`, sub: 'outstanding bills', icon: <AlertCircle className="w-5 h-5" />, color: '#dc2626', iconBg: '#fee2e2' },
           ].map((kpi, i) => (
             <div key={i} className="rounded-2xl p-4 flex items-center gap-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm">
@@ -1320,64 +1321,79 @@ export default function DashboardSalesList({
                       <td className="py-3.5 px-4 text-center relative" onClick={e => e.stopPropagation()}>
                         <div className="relative inline-block">
                           <button
-                            onClick={() => setActiveMenuId(activeMenuId === sale.id ? null : sale.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeMenuId === sale.id) {
+                                setActiveMenuId(null);
+                                setMenuPos(null);
+                              } else {
+                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                setMenuPos({
+                                  top: rect.bottom + 6,
+                                  right: window.innerWidth - rect.right,
+                                });
+                                setActiveMenuId(sale.id);
+                              }
+                            }}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-colors border border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
                           >
                             <MoreVertical className="w-3.5 h-3.5" />
                             <span>Actions</span>
                           </button>
 
-                          {activeMenuId === sale.id && (
-                            <div className="absolute right-0 mt-1.5 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 py-1.5 overflow-hidden"
-                              style={{boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)'}}>
-                              <div className="px-3 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Sale Actions</div>
+                          {activeMenuId === sale.id && menuPos && (
+                            <>
+                              <div className="fixed z-40 inset-0" onClick={() => { setActiveMenuId(null); setMenuPos(null); }} />
+                              <div
+                                className="fixed w-52 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 py-1.5 overflow-hidden"
+                                style={{ top: menuPos.top, right: menuPos.right, boxShadow: '0 8px 32px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.04)' }}
+                              >
+                                <div className="px-3 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Sale Actions</div>
 
-                              {calculatedDue > 0 && (
-                                <button onClick={() => { setSelectedSale(sale); setPayInInputVal(calculatedDue.toString()); setViewPaymentsOpen(true); setActiveMenuId(null); }}
-                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold text-emerald-700 hover:bg-emerald-50">
-                                  <Coins className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Payment In
-                                </button>
-                              )}
-                              <button onClick={() => { setSelectedSale(sale); setPayInInputVal(''); setViewPaymentsOpen(true); setActiveMenuId(null); }}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-                                <CreditCard className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> Payments Log
-                              </button>
-                              <button onClick={() => { setViewingSaleDetail(sale); setActiveMenuId(null); }}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-                                <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" /> View Sale
-                              </button>
-                              <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:initialPaid,amountDue:calculatedDue,items:[...sale.items]}); setActiveMenuId(null); }}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-                                <Edit className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Edit Sale
-                              </button>
-
-                              <div className="border-t border-slate-100 mt-1 pt-1">
-                                <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(false); setActiveMenuId(null); }}
+                                {calculatedDue > 0 && (
+                                  <button onClick={() => { setSelectedSale(sale); setPayInInputVal(calculatedDue.toString()); setViewPaymentsOpen(true); setActiveMenuId(null); setMenuPos(null); }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold text-emerald-700 hover:bg-emerald-50">
+                                    <Coins className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Payment In
+                                  </button>
+                                )}
+                                <button onClick={() => { setSelectedSale(sale); setPayInInputVal(''); setViewPaymentsOpen(true); setActiveMenuId(null); setMenuPos(null); }}
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-                                  <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" /> POS Receipt
+                                  <CreditCard className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> Payments Log
                                 </button>
-                                <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(true); setActiveMenuId(null); }}
+                                <button onClick={() => { setViewingSaleDetail(sale); setActiveMenuId(null); setMenuPos(null); }}
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-                                  <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> A4 Invoice
+                                  <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" /> View Sale
                                 </button>
-                                <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(true); setWhatsappPhone((sale.customerPhone||'').replace(/[^0-9]/g,'')); setActiveMenuId(null); }}
-                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-50">
-                                  <MessageSquare className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Send via WhatsApp
+                                <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:initialPaid,amountDue:calculatedDue,items:[...sale.items]}); setActiveMenuId(null); setMenuPos(null); }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                                  <Edit className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Edit Sale
                                 </button>
-                              </div>
 
-                              {(!rolePermissions || rolePermissions.deleteSale?.write !== false) && (
                                 <div className="border-t border-slate-100 mt-1 pt-1">
-                                  <button onClick={() => { setSaleToDelete(sale); setActiveMenuId(null); }}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold text-rose-600 hover:bg-rose-50">
-                                    <Trash2 className="w-3.5 h-3.5 shrink-0" /> Delete Sale
+                                  <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(false); setActiveMenuId(null); setMenuPos(null); }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                                    <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" /> POS Receipt
+                                  </button>
+                                  <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(true); setActiveMenuId(null); setMenuPos(null); }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                                    <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> A4 Invoice
+                                  </button>
+                                  <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(true); setWhatsappPhone((sale.customerPhone||'').replace(/[^0-9]/g,'')); setActiveMenuId(null); setMenuPos(null); }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-50">
+                                    <MessageSquare className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Send via WhatsApp
                                   </button>
                                 </div>
-                              )}
-                            </div>
-                          )}
-                          {activeMenuId === sale.id && (
-                            <div className="fixed inset-0 z-40" onClick={() => setActiveMenuId(null)} />
+
+                                {(!rolePermissions || rolePermissions.deleteSale?.write !== false) && (
+                                  <div className="border-t border-slate-100 mt-1 pt-1">
+                                    <button onClick={() => { setSaleToDelete(sale); setActiveMenuId(null); setMenuPos(null); }}
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold text-rose-600 hover:bg-rose-50">
+                                      <Trash2 className="w-3.5 h-3.5 shrink-0" /> Delete Sale
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </>
                           )}
                         </div>
                       </td>
