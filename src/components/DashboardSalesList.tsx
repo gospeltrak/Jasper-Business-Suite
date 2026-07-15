@@ -4411,19 +4411,19 @@ export default function DashboardSalesList({
             {/* ── Scrollable body ── */}
             <div className="overflow-y-auto flex-1 px-5 py-5 space-y-5">
 
-              {/* Doc type picker */}
-              <div className="grid grid-cols-2 gap-2">
+              {/* Doc type picker — single row, badge + label */}
+              <div className="flex gap-2">
                 {(['price quote', 'proforma invoice'] as const).map(t => (
                   <button key={t} type="button" onClick={() => setNewDocType(t)}
-                    className={`py-3 px-4 rounded-2xl text-[13px] font-bold text-left transition-all cursor-pointer border-2 ${
+                    className={`flex-1 flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl cursor-pointer border-2 transition-all ${
                       newDocType === t
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                        ? 'bg-indigo-600 border-indigo-600 text-white'
                         : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
                     }`}>
-                    <span className="block text-[10px] font-black uppercase tracking-widest opacity-60 mb-0.5">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-[9px] font-black ${newDocType === t ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
                       {t === 'price quote' ? 'QUO' : 'PFI'}
-                    </span>
-                    {getDocumentLabel(t)}
+                    </div>
+                    <span className="text-[13px] font-bold leading-tight">{getDocumentLabel(t)}</span>
                   </button>
                 ))}
               </div>
@@ -4431,32 +4431,33 @@ export default function DashboardSalesList({
               {/* Client details */}
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Client Details</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div>
+                <div className="flex gap-2">
+                  <div className="flex-1 min-w-0">
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Client Name</label>
-                    <input type="text" placeholder="e.g. Lipa Traders" value={newDocCustomerName}
+                    <input type="text" placeholder="e.g. Lipa Traders Ltd" value={newDocCustomerName}
                       onChange={e => setNewDocCustomerName(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500" />
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20" />
                   </div>
-                  <div>
+                  <div className="w-[128px] shrink-0">
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Phone</label>
-                    <input type="text" placeholder="+255 7XX XXX XXX" value={newDocCustomerPhone}
+                    <input type="text" placeholder="+255 7XX…" value={newDocCustomerPhone}
                       onChange={e => setNewDocCustomerPhone(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500" />
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20" />
                   </div>
                 </div>
                 <div className="mt-2">
-                  <label className="text-[10px] font-bold text-slate-500 block mb-1">Address</label>
-                  <input type="text" placeholder="Street, area or city" value={newDocCustomerAddress}
+                  <label className="text-[10px] font-bold text-slate-500 block mb-1">Client Address</label>
+                  <textarea placeholder="e.g. P.O. Box 1234, Kariakoo, Dar es Salaam, Tanzania" value={newDocCustomerAddress}
                     onChange={e => setNewDocCustomerAddress(e.target.value)}
-                    className="w-full min-h-11 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500" />
+                    rows={2}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 resize-none leading-relaxed" />
                 </div>
               </div>
 
               {/* Date + payment + delivery */}
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Settings</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="space-y-2">
+                <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-[0.12em]">Settings</p>
+                <div className="grid grid-cols-3 gap-2">
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Date</label>
                     <input type="date" value={newDocDate} onChange={e => setNewDocDate(e.target.value)}
@@ -4478,13 +4479,12 @@ export default function DashboardSalesList({
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
                   </div>
                 </div>
-                {/* VAT toggle */}
-                <label className="flex items-center gap-2.5 mt-1 cursor-pointer select-none py-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input type="checkbox" id="newDocHasVatCheckbox" checked={newDocHasVat}
                     onChange={e => setNewDocHasVat(e.target.checked)}
                     className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0" />
-                  <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-300">Include VAT ({Math.round(newDocTaxRate * 100)}%)</span>
-                  <span className="text-[10px] text-slate-400">Calculated after the order discount.</span>
+                  <span className="text-[12px] font-semibold text-slate-600 dark:text-slate-400">Include VAT ({Math.round(newDocTaxRate * 100)}%)</span>
+                  <span className="text-[10px] text-slate-400 hidden sm:inline">· Applied after discount</span>
                 </label>
               </div>
 
