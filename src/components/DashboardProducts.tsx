@@ -44,6 +44,7 @@ import {
 import { formatProductQuantity } from '../utils/unitFormatter';
 import { compressImageFile } from '../utils/imageCompression';
 import { safeSetJsonItem } from '../utils/dataSafety';
+import { generateUniqueEan13Barcode } from '../utils/barcode';
 
 interface DashboardProductsProps {
   activeTenant: Tenant;
@@ -264,6 +265,11 @@ export default function DashboardProducts({
     e.preventDefault();
     if (!editForm.name) return;
 
+    const enteredBarcode = String(editForm.barcode || '').trim();
+    const finalizedEditBarcode = enteredBarcode || generateUniqueEan13Barcode(
+      products.flatMap(product => [product.barcode, product.sku]),
+    );
+
     // Upload new image to Supabase Storage if a new image was selected.
     // editForm.image = compressed base64 preview from the canvas.
     // We upload this base64 directly — same pattern as new product creation.
@@ -299,7 +305,7 @@ export default function DashboardProducts({
       if (p.id === editingProduct?.id) {
         const rawCostPrice = editForm.costPrice ?? 0;
         const sellPrice = editForm.sellInRetail !== false ? (editForm.sellingPrice ?? 0) : 0;
-        const b = editForm.barcode ? editForm.barcode.trim() : p.barcode;
+        const b = finalizedEditBarcode;
         const editPharmacy = getEditPharmacyStructure(editForm);
         const editDosesPerPacket = Math.max(1, Number(editPharmacy.middleQty || 1));
         const editTabsPerDose = Math.max(1, Number(editPharmacy.doseQty || 1));
@@ -982,7 +988,9 @@ export default function DashboardProducts({
     }
 
     // Use barcode, or automatically generate one if left blank
-    const finalizedBarcode = barcode.trim() || `${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const finalizedBarcode = barcode.trim() || generateUniqueEan13Barcode(
+      products.flatMap(product => [product.barcode, product.sku]),
+    );
     const hierarchy = buildPharmacyHierarchy(
       pharmacyProductType,
       pharmacyHierarchyStart,
@@ -4384,11 +4392,12 @@ export default function DashboardProducts({
                     <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Retail barcode (SKU)</label>
                     <input 
                       type="text" 
-                      required
                       value={editForm.barcode || ''}
                       onChange={(e) => setEditForm(prev => ({ ...prev, barcode: e.target.value }))}
+                      placeholder="Leave blank to generate automatically"
                       className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none font-mono tracking-wide"
                     />
+                    <p className="text-[9.5px] text-slate-400 font-sans">Leave this blank and Save. The system will create a unique barcode.</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 pb-1 font-mono">
