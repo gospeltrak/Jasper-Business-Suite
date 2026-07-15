@@ -1,7 +1,7 @@
 {
-  "short_name": "Ndiva Suite",
-  "name": "Ndiva Suite",
-  "id": "/?source=pwa",
+  "short_name": "Jasper",
+  "name": "Jasper Business Suite",
+  "id": "/",
   "description": "Premium African retail POS, dine-in, pharmacy, and hotel ERP workspace.",
   "icons": [
     {
@@ -14,16 +14,33 @@
       "src": "/icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
     }
   ],
-  "start_url": "/?source=pwa",
+  "start_url": "/",
   "scope": "/",
   "background_color": "#0f172a",
   "display": "standalone",
-  "display_override": ["standalone", "fullscreen", "minimal-ui", "browser"],
+  "display_override": ["standalone", "fullscreen"],
   "theme_color": "#0f172a",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
   "categories": ["business", "productivity", "finance"],
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "screenshots": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ]
 }

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no" />
     <!-- Patch window.fetch writable to prevent TypeError when other scripts/extensions try to mock/assign it in read-only iframe environments -->
     <script>
       (function() {
@@ -51,12 +51,15 @@
     </script>
     <!-- Progressive Web App Theme Styling & Branding -->
     <meta name="theme-color" content="#0f172a" />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f8fafc" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0f172a" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f172a" />
+    <!-- iOS Safari: hide ALL browser chrome — address bar, tab bar, share button -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Ndiva Suite" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="Jasper" />
+    <!-- Prevent iOS callout and selection highlights on tap -->
+    <meta name="format-detection" content="telephone=no" />
     <!-- Prevent Safari Reader Mode from activating on this SPA -->
     <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
@@ -163,6 +166,37 @@
         transform: none !important;
         transition: none !important;
       }
+
+      /* ── NATIVE APP: no browser-feel touches ── */
+      /* No text selection on UI controls */
+      button, a, label, nav, header, [role="button"], [role="tab"] {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
+      /* Allow selection only in content areas */
+      p, span, h1, h2, h3, h4, input, textarea {
+        -webkit-user-select: text;
+        user-select: text;
+      }
+
+      /* Safe area insets — ensure nothing hides under notch or home indicator */
+      .pb-safe   { padding-bottom: env(safe-area-inset-bottom, 16px); }
+      .pt-safe   { padding-top:    env(safe-area-inset-top, 0px); }
+
+      /* Root fills full screen including safe areas */
+      #root {
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+      }
+
+      /* Prevent double-tap zoom on iOS */
+      * { touch-action: manipulation; }
+      /* Re-allow pan on scrollable areas */
+      .overflow-y-auto, .overflow-y-scroll,
+      [data-scroll="true"] { touch-action: pan-y; }
     </style>
   </head>
   <body>
