@@ -1,6 +1,6 @@
 // Jasper Business Suite Service Worker (online-only business writes)
-const CACHE_NAME = 'jasper-pos-cache-v19-native-app';
-const SW_VERSION = '2026-07-15-native-fullscreen-v1';
+const CACHE_NAME = 'jasper-pos-cache-v20-instant-totals';
+const SW_VERSION = '2026-07-15-pos-instant-totals-v2';
 const NAVIGATION_CACHE_KEY = '/__jasper-navigation-shell__';
 
 // Assets to cache immediately on SW install
@@ -57,6 +57,20 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+
+  // Never cache Vite development modules. Cache-first handling here can serve
+  // yesterday's POS component after a refresh and leave totals visually stale.
+  const isDevelopmentModule = url.origin === self.location.origin && (
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/@vite/') ||
+    url.pathname.startsWith('/@react-refresh') ||
+    url.pathname.startsWith('/node_modules/.vite/')
+  );
+  if (isDevelopmentModule) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   // Let API and AI endpoint requests pass through to the live network with no caching
   if (
     event.request.method !== 'GET' ||
