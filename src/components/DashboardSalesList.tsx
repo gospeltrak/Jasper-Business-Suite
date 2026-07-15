@@ -47,7 +47,7 @@ import {
   Barcode,
   ScanLine
 } from 'lucide-react';
-import { printPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
+import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
 import { normalizeSubscriptionPlanId } from '../utils/subscription';
 
@@ -781,6 +781,30 @@ export default function DashboardSalesList({
       setPdfShareStatus('PDF opened for printing.');
     } catch (err: any) {
       setPdfShareStatus(err?.message || 'Could not prepare PDF.');
+    } finally {
+      setTimeout(() => setPdfShareStatus(null), 4000);
+    }
+  };
+
+  // Build smart download filename: first word of business name + 4 char suffix
+  const buildInvoiceFileName = (sale: Sale) => {
+    const bizName = (systemSettings?.business?.businessName || activeTenant.name || 'Invoice').trim();
+    const firstWord = bizName.split(/[\s\-_]+/)[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 20) || 'Invoice';
+    const suffix = (sale.reference || sale.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase() || Math.random().toString(36).slice(-4).toUpperCase();
+    return `${firstWord}-${suffix}.pdf`;
+  };
+
+  const downloadSalePdf = async (sale: Sale) => {
+    try {
+      setPdfShareStatus('Preparing download...');
+      await downloadPdfFromElement({
+        elementId: 'sales-invoice-a4-pdf-template',
+        fileName: buildInvoiceFileName(sale),
+        format: 'a4'
+      });
+      setPdfShareStatus('Invoice downloaded.');
+    } catch (err: any) {
+      setPdfShareStatus(err?.message || 'Could not download PDF.');
     } finally {
       setTimeout(() => setPdfShareStatus(null), 4000);
     }
@@ -2689,11 +2713,11 @@ export default function DashboardSalesList({
 
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
-                    onClick={() => { setViewA4InvoiceOpen(false); }}
+                    onClick={() => downloadSalePdf(selectedSale)}
                     className="hidden sm:flex h-8 px-3 bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold rounded-lg cursor-pointer transition-all items-center gap-1.5"
                   >
-                    <Receipt className="w-3.5 h-3.5" />
-                    <span>Thermal Receipt</span>
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download</span>
                   </button>
                   <button
                     onClick={() => shareSalePdf(selectedSale, selectedSale.customerPhone, 'a4')}
@@ -2720,9 +2744,9 @@ export default function DashboardSalesList({
 
               {/* ── BOTTOM ACTION BAR — minimal, mobile-friendly ── */}
               <div className="shrink-0 bg-[#1e1e1e] border-t border-[#2a2a2a] px-4 py-3 flex items-center justify-center gap-2 print:hidden">
-                <button onClick={() => { setViewA4InvoiceOpen(false); }}
+                <button onClick={() => downloadSalePdf(selectedSale)}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
-                  <Receipt className="w-3.5 h-3.5" /><span>Thermal</span>
+                  <Download className="w-3.5 h-3.5" /><span>Download</span>
                 </button>
                 <button onClick={() => shareSalePdf(selectedSale, selectedSale.customerPhone, 'a4')}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors">
