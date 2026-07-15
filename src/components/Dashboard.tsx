@@ -2837,6 +2837,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               activeTenant={activeTenant}
               sales={activeSales}
               onUpdateSales={handleUpdateSales}
+              onUpdateProducts={handleUpdateActiveStocks}
               rolePermissions={currentPermissions}
               products={activeProducts}
               systemSettings={systemSettings}

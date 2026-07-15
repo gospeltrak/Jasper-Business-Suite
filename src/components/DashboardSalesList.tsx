@@ -161,6 +161,7 @@ interface DashboardSalesListProps {
   activeTenant: Tenant;
   sales: Sale[];
   onUpdateSales?: (updatedSales: Sale[]) => void;
+  onUpdateProducts?: (updatedProducts: Product[]) => void;
   rolePermissions?: any;
   products?: Product[];
   systemSettings?: SystemSettings;
@@ -183,7 +184,8 @@ interface DashboardSalesListProps {
 export default function DashboardSalesList({ 
   activeTenant, 
   sales, 
-  onUpdateSales, 
+  onUpdateSales,
+  onUpdateProducts,
   rolePermissions,
   products = [],
   systemSettings,
@@ -4383,6 +4385,24 @@ export default function DashboardSalesList({
                     const nextSales = sales.filter(s => s.id !== saleToDelete.id);
                     onUpdateSales(nextSales);
                   }
+
+                  // Restore stock for each item in the deleted sale
+                  if (onUpdateProducts && products.length > 0) {
+                    const updatedProducts = products.map(prod => {
+                      const saleItem = saleToDelete.items.find(it => it.productId === prod.id);
+                      if (!saleItem) return prod;
+                      const restoredQty = saleItem.qty || 0;
+                      const newShopQty = (prod.shopStockQty ?? 0) + restoredQty;
+                      const newTotalQty = (prod.stockQty ?? 0) + restoredQty;
+                      return {
+                        ...prod,
+                        shopStockQty: newShopQty,
+                        stockQty: newTotalQty,
+                      };
+                    });
+                    onUpdateProducts(updatedProducts);
+                  }
+
                   setSaleToDelete(null);
                 }}
                 className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-xl border-none transition-all text-xs uppercase flex items-center space-x-1.5 cursor-pointer shadow-md select-none"
