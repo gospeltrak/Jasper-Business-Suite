@@ -1277,6 +1277,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const handleDeleteExpense = (expenseId: string) => {
     if (blockOfflineBusinessWrite('expense delete')) return;
 
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
+
     setExpensesMap(prev => ({
       ...prev,
       [activeTenant.id]: (prev[activeTenant.id] || []).filter(e => e.id !== expenseId)
@@ -1561,6 +1564,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   const handleUpdateDeliveryStatus = (deliveryId: string, status: Delivery['status']) => {
     if (blockOfflineBusinessWrite('delivery status update')) return;
+
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
 
     setDeliveriesMap(prev => {
       const currentTenantDels = prev[activeTenant.id] || [];
