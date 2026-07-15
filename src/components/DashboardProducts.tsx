@@ -2670,7 +2670,7 @@ export default function DashboardProducts({
                     <th className="py-4 px-4 text-right">Cost Price</th>
                     <th className="py-4 px-4 text-right">Retail Price</th>
                     <th className="py-4 px-4 text-right">Wholesale Price / Min Qty</th>
-                    <th className="py-4 px-4 text-center">Units</th>
+                    <th className="py-4 px-4 text-center">Shop Units</th>
                     <th className="py-4 px-4 text-center">Store Units</th>
                     <th className="py-4 px-4 text-center">Total Units</th>
                     <th className="py-4 px-4 text-center">Status</th>
