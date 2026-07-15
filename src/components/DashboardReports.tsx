@@ -3972,28 +3972,6 @@ export default function DashboardReports({
               </button>
             </div>
 
-            {/* Per-report identity strip */}
-            {(() => {
-              const identity: Record<string, { bg: string; accent: string; label: string; sub: string }> = {
-                'p&l':                { bg: 'from-[#064e3b] to-[#065f46]', accent: 'text-emerald-300', label: 'Profit & Loss', sub: 'Revenue · COGS · Operating margin' },
-                'sales-report':       { bg: 'from-[#1e1b4b] to-[#312e81]', accent: 'text-indigo-300', label: 'Sales Report', sub: 'Transactions · VAT · Channels' },
-                'dual-channel':       { bg: 'from-[#134e4a] to-[#115e59]', accent: 'text-teal-300', label: 'Dual Channel', sub: 'Retail vs Wholesale · Pricing spread' },
-                'inventory':          { bg: 'from-[#78350f] to-[#92400e]', accent: 'text-amber-300', label: 'Inventory', sub: 'SKU valuation · Stock levels · Alerts' },
-                'payments':           { bg: 'from-[#1e3a5f] to-[#1e40af]', accent: 'text-blue-300', label: 'Payments', sub: 'Collections · Methods · Settlement' },
-                'product-monitoring': { bg: 'from-[#4a044e] to-[#6b21a8]', accent: 'text-purple-300', label: 'Profitability', sub: 'Margins · Rankings · Revenue mix' },
-                'users':              { bg: 'from-[#4c0519] to-[#881337]', accent: 'text-rose-300', label: 'Customers', sub: 'Loyalty · Spend · Staff journal' },
-                'expenses':           { bg: 'from-[#450a0a] to-[#7f1d1d]', accent: 'text-red-300', label: 'Branch Expenses', sub: 'Categories · Receipts · Cash' },
-                'deliveries':         { bg: 'from-[#2e1065] to-[#4c1d95]', accent: 'text-violet-300', label: 'Fleet & Logistics', sub: 'Dispatch · Riders · Delivery fees' },
-                'velocity':           { bg: 'from-[#431407] to-[#7c2d12]', accent: 'text-orange-300', label: 'Velocity', sub: 'Turnover rates · Speed · Rankings' },
-              };
-              const id = identity[reportTab] || identity['p&l'];
-              return (
-                <div className={`-mx-4 -mt-2 mb-1 px-4 pt-4 pb-5 bg-gradient-to-br ${id.bg}`}>
-                  <p className={`text-[9px] font-black tracking-[0.18em] uppercase mb-1 ${id.accent}`}>{id.sub}</p>
-                  <h2 className="text-xl font-black text-white tracking-tight">{id.label}</h2>
-                </div>
-              );
-            })()}
 
             {/* Date filter */}
             {/* Side-by-side date inputs with quick presets row - matching other screens */}
@@ -4982,23 +4960,44 @@ export default function DashboardReports({
 
                         {/* Product list */}
                         <div className="space-y-2">
+                          <p className="text-[9px] font-black tracking-widest uppercase text-slate-400 px-1">
+                            {isFastMode ? '🔥 Fast Moving Products' : '🐢 Slow Moving Products'}
+                          </p>
                           {displayList.length === 0 ? (
-                            <div className="text-center py-8 text-slate-400">
+                            <div className="text-center py-8 text-slate-400 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
                               <p className="text-sm font-semibold">No data available</p>
                               <p className="text-xs mt-1">Record sales to see velocity data</p>
                             </div>
-                          ) : displayList.map((item, idx) => (
-                            <div key={idx} className={`px-4 py-3 border rounded-xl flex justify-between items-center bg-white ${isFastMode ? 'border-emerald-100' : 'border-rose-100'}`}>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-bold text-slate-800 truncate">{item.name}</p>
-                                <p className="text-xs text-slate-400 mt-0.5">{item.cat || 'Uncategorized'}{item.barcode ? ` · ${item.barcode}` : ''}</p>
+                          ) : displayList.map((item, idx) => {
+                            const productObj = products.find(p => p.name === item.name);
+                            const thumbSrc = productObj?.image || productObj?.imageBase64 || '';
+                            const velocityPerDay = (item.qty / 30).toFixed(2);
+                            return (
+                              <div key={idx} className={`flex items-center bg-white dark:bg-slate-900 border rounded-2xl overflow-hidden shadow-sm ${isFastMode ? 'border-emerald-100 dark:border-emerald-900/40' : 'border-rose-100 dark:border-rose-900/40'}`}>
+                                {/* Left: rank */}
+                                <div className={`w-8 shrink-0 flex items-center justify-center py-4 text-[10px] font-black ${isFastMode ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                  {idx + 1}
+                                </div>
+                                {/* Middle: info */}
+                                <div className="flex-1 min-w-0 py-3 pr-2">
+                                  <p className="text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate">{item.name}</p>
+                                  <p className="text-[9px] text-slate-400 mt-0.5">{item.cat || 'Uncategorized'}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] font-black font-mono text-slate-700 dark:text-slate-300">{item.qty} units</span>
+                                    <span className={`text-[10px] font-bold font-mono ${isFastMode ? 'text-emerald-600' : 'text-rose-500'}`}>{velocityPerDay}/day</span>
+                                  </div>
+                                </div>
+                                {/* Right: product image */}
+                                <div className="w-[56px] h-[56px] shrink-0 bg-slate-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden mr-2 rounded-xl">
+                                  {thumbSrc ? (
+                                    <CachedImage src={thumbSrc} alt={item.name} className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
+                                  ) : (
+                                    <span className="text-[11px] font-black text-slate-300 dark:text-slate-600">{item.name.slice(0,2).toUpperCase()}</span>
+                                  )}
+                                </div>
                               </div>
-                              <div className="text-right shrink-0 ml-3">
-                                <p className="text-sm font-extrabold text-slate-900">{formatProductQuantity(item.qty, products.find(p => p.name === item.name))}</p>
-                                <p className={`text-[11px] font-extrabold mt-0.5 ${isFastMode ? 'text-emerald-600' : 'text-rose-500'}`}>{(item.qty / 30).toFixed(2)}/day</p>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -5564,33 +5563,51 @@ export default function DashboardReports({
 
           {/* TAB: INVENTORY */}
           {reportTab === 'inventory' && (
-            <div className="space-y-4">
-              <table className="w-full text-left font-sans text-[9px]">
-                <thead>
-                  <tr className="bg-slate-100 font-bold border-b border-slate-300">
-                    <th className="p-1.5">Product Title</th>
-                    <th className="p-1.5 col-span-2">SKU / Code</th>
-                    <th className="p-1.5">Category</th>
-                    <th className="p-1.5 text-right">Cost Price</th>
-                    <th className="p-1.5 text-right">Selling Price</th>
-                    <th className="p-1.5 text-right">Units</th>
-                    <th className="p-1.5 text-right">Assets Value</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {products.map(p => (
-                    <tr key={p.id}>
-                      <td className="p-1.5 font-bold">{p.name}</td>
-                      <td className="p-1.5 font-mono text-[8px]">{p.sku || 'N/A'}</td>
-                      <td className="p-1.5 whitespace-nowrap">{p.category || 'General'}</td>
-                      <td className="p-1.5 text-right font-mono">{currency}{p.costPrice.toFixed(1)}</td>
-                      <td className="p-1.5 text-right font-mono">{currency}{p.sellingPrice.toFixed(1)}</td>
-                      <td className="p-1.5 text-right font-mono font-black">{formatProductQuantity(p.stockQty || 0, p)}</td>
-                      <td className="p-1.5 text-right font-mono font-bold">{currency}{((p.stockQty || 0) * p.costPrice).toLocaleString(undefined, {minimumFractionDigits: 1})}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-2">
+              {products.map(p => {
+                const stockQty = p.shopStockQty ?? p.stockQty ?? 0;
+                const assetVal = stockQty * (p.costPrice || 0);
+                const margin = p.sellingPrice > 0 ? Math.round(((p.sellingPrice - p.costPrice) / p.sellingPrice) * 100) : 0;
+                const isLow = stockQty <= (p.alertQty || 5) && stockQty > 0;
+                const isOut = stockQty <= 0;
+                return (
+                  <div key={p.id} className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                    {/* Product image */}
+                    <div className="w-[60px] h-[60px] shrink-0 bg-slate-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+                      {p.image ? (
+                        <CachedImage src={p.image} alt={p.name} className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
+                      ) : (
+                        <span className="text-[13px] font-black text-slate-300 dark:text-slate-600">{p.name.slice(0,2).toUpperCase()}</span>
+                      )}
+                    </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0 py-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate leading-tight">{p.name}</p>
+                        {isOut ? (
+                          <span className="text-[9px] font-black text-rose-600 bg-rose-50 dark:bg-rose-900/30 px-1.5 py-0.5 rounded-md shrink-0">OUT</span>
+                        ) : isLow ? (
+                          <span className="text-[9px] font-black text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-md shrink-0">LOW</span>
+                        ) : null}
+                      </div>
+                      <p className="text-[9px] text-slate-400 mt-0.5">{p.category || 'General'}{p.sku ? ` · ${p.sku}` : ''}</p>
+                      <div className="flex items-center gap-3 mt-1.5 text-[10px] font-mono">
+                        <span className="text-slate-500">Cost <span className="text-slate-700 dark:text-slate-300 font-bold">{currency}{p.costPrice.toFixed(0)}</span></span>
+                        <span className="text-slate-500">Sell <span className="text-emerald-600 font-bold">{currency}{p.sellingPrice.toFixed(0)}</span></span>
+                        <span className="text-indigo-500 font-bold">{margin}%</span>
+                      </div>
+                    </div>
+                    {/* Stock + value */}
+                    <div className="text-right pr-3.5 shrink-0">
+                      <p className={`text-[15px] font-black font-mono ${isOut ? 'text-rose-500' : isLow ? 'text-amber-500' : 'text-slate-800 dark:text-slate-100'}`}>{stockQty}</p>
+                      <p className="text-[8.5px] text-slate-400 font-mono">{currency}{Math.round(assetVal).toLocaleString()}</p>
+                    </div>
+                  </div>
+                );
+              })}
+              {products.length === 0 && (
+                <p className="text-center text-slate-400 py-10 text-sm">No products found</p>
+              )}
             </div>
           )}
 
