@@ -5596,6 +5596,17 @@ export default function DashboardReports({
                         <span className="text-slate-500">Sell <span className="text-emerald-600 font-bold">{currency}{p.sellingPrice.toFixed(0)}</span></span>
                         <span className="text-indigo-500 font-bold">{margin}%</span>
                       </div>
+                      {/* Shop vs Store breakdown */}
+                      <div className="flex items-center gap-2 mt-1 text-[9px] font-mono">
+                        <span className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+                          <span className="text-slate-400">Shop <span className="font-bold text-slate-600 dark:text-slate-300">{p.shopStockQty ?? 0}</span></span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
+                          <span className="text-slate-400">Store <span className="font-bold text-slate-600 dark:text-slate-300">{p.storeStockQty ?? 0}</span></span>
+                        </span>
+                      </div>
                     </div>
                     {/* Stock + value */}
                     <div className="text-right pr-3.5 shrink-0">
