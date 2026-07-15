@@ -2558,11 +2558,12 @@ export default function DashboardProducts({
                   const shopQty = prod.shopStockQty ?? 0;
                   const storeQty = prod.storeStockQty ?? 0;
                   const totalQty = getTotalStockQty(shopQty, storeQty);
+                  const alertThreshold = (prod.alertQty != null && prod.alertQty > 0) ? prod.alertQty : 0;
                   const isOutOfStock = totalQty <= 0;
-                  const isLow = !isOutOfStock && shopQty <= (prod.alertQty || 5);
-                  const isCritical = isLow && shopQty <= Math.floor((prod.alertQty || 5) / 2);
-                  const shopPct = Math.min(100, Math.round((shopQty / Math.max(1, (prod.alertQty || 5) * 4)) * 100));
-                  const storePct = Math.min(100, Math.round((storeQty / Math.max(1, (prod.alertQty || 5) * 4)) * 100));
+                  const isLow = !isOutOfStock && alertThreshold > 0 && shopQty <= alertThreshold;
+                  const isCritical = isLow && shopQty <= Math.floor(alertThreshold / 2);
+                  const shopPct = Math.min(100, Math.round((shopQty / Math.max(1, alertThreshold > 0 ? alertThreshold * 4 : Math.max(totalQty, 1))) * 100));
+                  const storePct = Math.min(100, Math.round((storeQty / Math.max(1, alertThreshold > 0 ? alertThreshold * 4 : Math.max(totalQty, 1))) * 100));
 
                   // Color theme per status
                   const avatarBg = isOutOfStock ? '#f1f5f9' : isCritical ? '#fff1f2' : isLow ? '#fff7ed' : '#f0fdf4';
