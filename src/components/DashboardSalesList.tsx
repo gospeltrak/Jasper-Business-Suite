@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { Sale, Tenant, SaleItem, Product, SystemSettings, SalesDocument, User as AppUser } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatSaleItemQuantity } from '../utils/unitFormatter';
@@ -287,7 +288,7 @@ export default function DashboardSalesList({
     return (item as any).item_description || (item as any).description || item.productName || (item as any).name || product?.name || 'Item';
   };
   const getDocumentItemUnit = (item: SaleItem) => item.unit || item.sellUnit || item.baseUnit || '';
-  const getLineTotal = (item: SaleItem) => {
+  const getLegacyLineTotal = (item: SaleItem) => {
     const qty = toNumber(item.qty);
     const price = toNumber(item.price);
     const discount = toNumber(item.discount);
@@ -296,9 +297,23 @@ export default function DashboardSalesList({
       : price * (1 - discount / 100);
     return Math.max(0, effectivePrice * qty);
   };
+  const getLineTotal = (item: SaleItem) => Math.max(0, toNumber(item.qty) * toNumber(item.price));
+  const normalizeDocumentDiscount = (doc: SalesDocument): SalesDocument => {
+    const rawSubtotal = (doc.items || []).reduce((sum, item) => sum + getLineTotal(item), 0);
+    const legacySubtotal = (doc.items || []).reduce((sum, item) => sum + getLegacyLineTotal(item), 0);
+    const legacyDiscount = Math.max(0, rawSubtotal - legacySubtotal);
+    const discountAmount = Math.max(0, toNumber(doc.discountAmount, legacyDiscount));
+    return {
+      ...doc,
+      discountAmount,
+      discountValue: Math.max(0, toNumber(doc.discountValue, discountAmount)),
+      discountType: doc.discountType || 'cash',
+      items: (doc.items || []).map(item => ({ ...item, discount: 0, discountType: 'percent' })),
+    };
+  };
   const getDocumentTotals = (doc: SalesDocument) => {
     const subTotal = (doc.items || []).reduce((sum, item) => sum + getLineTotal(item), 0);
-    const discount = toNumber((doc as any).discountAmount);
+    const discount = Math.min(subTotal, Math.max(0, toNumber(doc.discountAmount)));
     const tax = doc.hasVat ? toNumber(doc.tax, Math.max(0, subTotal - discount) * (activeTenant.taxRate || 0.18)) : toNumber(doc.tax);
     const delivery = toNumber(doc.deliveryCost);
     const storedTotal = toNumber(doc.total, NaN);
@@ -331,7 +346,7 @@ export default function DashboardSalesList({
             qty: toNumber(item.qty),
             discount: toNumber(item.discount),
           }));
-          return { ...d, type: normalizeDocType(d.type), items: normalizedItems, total: toNumber(d.total, normalizedItems.reduce((sum, item) => sum + getLineTotal(item), 0)), tax: toNumber(d.tax) };
+          return normalizeDocumentDiscount({ ...d, type: normalizeDocType(d.type), items: normalizedItems, total: toNumber(d.total, normalizedItems.reduce((sum, item) => sum + getLegacyLineTotal(item), 0)), tax: toNumber(d.tax) });
         });
       } catch (e) {
         return [];
@@ -373,7 +388,7 @@ export default function DashboardSalesList({
         status: 'pending'
       }
     ];
-    return defaultDocs;
+    return defaultDocs.map(normalizeDocumentDiscount);
   });
 
   // Save documents back to onlineStorage whenever they change
@@ -469,6 +484,8 @@ export default function DashboardSalesList({
   const [newDocItems, setNewDocItems] = useState<SaleItem[]>([]);
   const [newDocTagline, setNewDocTagline] = useState(() => systemSettings?.business?.tagline || '');
   const [newDocDeliveryCost, setNewDocDeliveryCost] = useState(0);
+  const [newDocDiscountValue, setNewDocDiscountValue] = useState(0);
+  const [newDocDiscountType, setNewDocDiscountType] = useState<'percent' | 'cash'>('percent');
   const [newDocPaymentMethod, setNewDocPaymentMethod] = useState(() => systemSettings?.business?.paymentModes?.[0] || 'Cash');
   const [newDocHasVat, setNewDocHasVat] = useState(() => !!systemSettings?.invoiceSettings?.hasVatByDefault);
 
@@ -480,6 +497,8 @@ export default function DashboardSalesList({
     if (justOpened) {
       setNewDocHasVat(!!systemSettings?.invoiceSettings?.hasVatByDefault);
       setNewDocDeliveryCost(0);
+      setNewDocDiscountValue(0);
+      setNewDocDiscountType('percent');
       setNewDocPaymentMethod(systemSettings?.business?.paymentModes?.[0] || 'Cash');
     }
   }, [showNewDocModal]); // intentionally exclude systemSettings — we only want to reset on open
@@ -497,8 +516,21 @@ export default function DashboardSalesList({
   // Wizard quick add product states
   const [docWizardSelectedProductId, setDocWizardSelectedProductId] = useState('');
   const [docWizardSelectedQty, setDocWizardSelectedQty] = useState(1);
-  const [docWizardSelectedDiscount, setDocWizardSelectedDiscount] = useState(0);
   const [docWizardProductSearchQuery, setDocWizardProductSearchQuery] = useState('');
+  const newDocSubtotal = React.useMemo(
+    () => newDocItems.reduce((sum, item) => sum + (toNumber(item.qty) * toNumber(item.price)), 0),
+    [newDocItems]
+  );
+  const cappedDiscountValue = newDocDiscountType === 'percent'
+    ? Math.min(100, Math.max(0, newDocDiscountValue))
+    : Math.min(newDocSubtotal, Math.max(0, newDocDiscountValue));
+  const newDocDiscountAmount = newDocDiscountType === 'percent'
+    ? newDocSubtotal * cappedDiscountValue / 100
+    : cappedDiscountValue;
+  const newDocTaxableAmount = Math.max(0, newDocSubtotal - newDocDiscountAmount);
+  const newDocTaxRate = activeTenant.taxRate || 0.18;
+  const newDocTaxAmount = newDocHasVat ? newDocTaxableAmount * newDocTaxRate : 0;
+  const newDocGrandTotal = newDocTaxableAmount + newDocTaxAmount + Math.max(0, Number(newDocDeliveryCost) || 0);
 
   // States for Direct Add Sale tab removed as all sales must be logged on POS view
 
@@ -4360,7 +4392,7 @@ export default function DashboardSalesList({
       )}
 
       {/* DIALOG: NEW DOCUMENT CREATOR MODAL */}
-      {showNewDocModal && (
+      {showNewDocModal && createPortal((
         <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="relative bg-white dark:bg-slate-900 w-full sm:max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden" style={{maxHeight:'96dvh'}}>
 
@@ -4399,7 +4431,7 @@ export default function DashboardSalesList({
               {/* Client details */}
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Client Details</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Client Name</label>
                     <input type="text" placeholder="e.g. Lipa Traders" value={newDocCustomerName}
@@ -4413,12 +4445,18 @@ export default function DashboardSalesList({
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500" />
                   </div>
                 </div>
+                <div className="mt-2">
+                  <label className="text-[10px] font-bold text-slate-500 block mb-1">Address</label>
+                  <input type="text" placeholder="Street, area or city" value={newDocCustomerAddress}
+                    onChange={e => setNewDocCustomerAddress(e.target.value)}
+                    className="w-full min-h-11 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500" />
+                </div>
               </div>
 
               {/* Date + payment + delivery */}
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Settings</p>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Date</label>
                     <input type="date" value={newDocDate} onChange={e => setNewDocDate(e.target.value)}
@@ -4445,7 +4483,8 @@ export default function DashboardSalesList({
                   <input type="checkbox" id="newDocHasVatCheckbox" checked={newDocHasVat}
                     onChange={e => setNewDocHasVat(e.target.checked)}
                     className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0" />
-                  <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-300">Include VAT (18%)</span>
+                  <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-300">Include VAT ({Math.round(newDocTaxRate * 100)}%)</span>
+                  <span className="text-[10px] text-slate-400">Calculated after the order discount.</span>
                 </label>
               </div>
 
@@ -4520,18 +4559,12 @@ export default function DashboardSalesList({
                     );
                   })()}
 
-                  {/* Qty + Discount + Add */}
+                  {/* Quantity + Add */}
                   <div className="flex items-end gap-2">
                     <div className="flex-1">
                       <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Qty</label>
                       <input type="number" min="1" value={docWizardSelectedQty}
                         onChange={e => setDocWizardSelectedQty(Number(e.target.value))}
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Discount %</label>
-                      <input type="number" min="0" max="100" value={docWizardSelectedDiscount}
-                        onChange={e => setDocWizardSelectedDiscount(Number(e.target.value))}
                         className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
                     </div>
                     <button type="button"
@@ -4541,19 +4574,18 @@ export default function DashboardSalesList({
                         if (!found) return;
                         const existingIdx = newDocItems.findIndex(x => x.productId === found.id);
                         if (existingIdx >= 0) {
-                          const updated = [...newDocItems];
-                          updated[existingIdx].qty += docWizardSelectedQty;
-                          setNewDocItems(updated);
+                          setNewDocItems(prev => prev.map((item, index) => index === existingIdx
+                            ? { ...item, qty: toNumber(item.qty) + docWizardSelectedQty }
+                            : item));
                         } else {
                           setNewDocItems(prev => [...prev, {
                             productId: found.id, productName: found.name,
                             qty: docWizardSelectedQty, price: found.sellingPrice,
-                            discount: docWizardSelectedDiscount, discountType: 'percent' as const
+                            discount: 0, discountType: 'percent' as const
                           }]);
                         }
                         setDocWizardSelectedProductId('');
                         setDocWizardSelectedQty(1);
-                        setDocWizardSelectedDiscount(0);
                         setDocWizardProductSearchQuery('');
                       }}
                       disabled={!docWizardSelectedProductId}
@@ -4573,10 +4605,10 @@ export default function DashboardSalesList({
                       <div key={idx} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5">
                         <div className="flex-1 min-w-0">
                           <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{item.productName}</p>
-                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">{item.qty} × {currency}{item.price}{item.discount > 0 ? ` − ${item.discount}%` : ''}</p>
+                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">{item.qty} × {currency}{item.price}</p>
                         </div>
                         <p className="text-[14px] font-black text-slate-800 dark:text-slate-100 font-mono shrink-0">
-                          {currency}{Math.round(item.qty * item.price * (1 - item.discount / 100)).toLocaleString()}
+                          {currency}{Math.round(item.qty * item.price).toLocaleString()}
                         </p>
                         <button type="button" onClick={() => setNewDocItems(prev => prev.filter((_, i) => i !== idx))}
                           className="w-7 h-7 flex items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-900/30 text-rose-500 hover:bg-rose-100 border-none cursor-pointer shrink-0 transition-colors">
@@ -4595,19 +4627,37 @@ export default function DashboardSalesList({
                 </div>
               )}
 
+              {newDocItems.length > 0 && (
+                <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-3.5 space-y-2.5">
+                  <div>
+                    <p className="text-xs font-black text-slate-800 dark:text-slate-100">Order Discount</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">One discount for all products.</p>
+                  </div>
+                  <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-2">
+                    <select value={newDocDiscountType}
+                      onChange={e => setNewDocDiscountType(e.target.value as 'percent' | 'cash')}
+                      className="min-h-11 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 rounded-xl px-3 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-amber-500">
+                      <option value="percent">Percent %</option>
+                      <option value="cash">Amount</option>
+                    </select>
+                    <input data-testid="document-order-discount" type="number" min="0"
+                      max={newDocDiscountType === 'percent' ? 100 : newDocSubtotal}
+                      inputMode="decimal" placeholder="0" value={newDocDiscountValue || ''}
+                      onChange={e => setNewDocDiscountValue(Math.max(0, Number(e.target.value) || 0))}
+                      className="min-h-11 w-full bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 rounded-xl px-3 text-sm font-black text-slate-800 dark:text-slate-100 focus:outline-none focus:border-amber-500 font-mono" />
+                  </div>
+                </div>
+              )}
+
               {/* Totals */}
-              {newDocItems.length > 0 && (() => {
-                const subSum = newDocItems.reduce((sum, item) => sum + (item.qty * item.price * (1 - item.discount / 100)), 0);
-                const taxSum = newDocHasVat ? subSum * 0.18 : 0;
-                const deliverySum = Number(newDocDeliveryCost) || 0;
-                const grandTotal = subSum + taxSum + deliverySum;
-                return (
-                  <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              {newDocItems.length > 0 && (
+                  <div key={`${newDocItems.length}-${newDocSubtotal}-${newDocDiscountAmount}-${newDocTaxAmount}-${newDocDeliveryCost}`} className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                     {[
-                      ['Subtotal', `${currency}${subSum.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}`, false],
-                      ...(newDocHasVat ? [['VAT 18%', `+${currency}${taxSum.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}`, false]] : []),
-                      ...(deliverySum > 0 ? [['Delivery', `+${currency}${deliverySum.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}`, false]] : []),
-                      ['Grand Total', `${currency}${grandTotal.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}`, true],
+                      ['Subtotal', `${currency}${newDocSubtotal.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}`, false],
+                      ...(newDocDiscountAmount > 0 ? [[`Order Discount${newDocDiscountType === 'percent' ? ` (${cappedDiscountValue}%)` : ''}`, `-${currency}${newDocDiscountAmount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}`, false]] : []),
+                      ...(newDocHasVat ? [[`VAT ${Math.round(newDocTaxRate * 100)}%`, `+${currency}${newDocTaxAmount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}`, false]] : []),
+                      ...(newDocDeliveryCost > 0 ? [['Delivery', `+${currency}${newDocDeliveryCost.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}`, false]] : []),
+                      ['Grand Total', `${currency}${newDocGrandTotal.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}`, true],
                     ].map(([label, value, bold], i) => (
                       <div key={i} className={`flex justify-between items-center px-4 py-2.5 ${i > 0 ? 'border-t border-slate-200 dark:border-slate-700' : ''} ${bold ? 'bg-white dark:bg-slate-900' : ''}`}>
                         <span className={`text-sm ${bold ? 'font-black text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 font-medium'}`}>{label as string}</span>
@@ -4615,8 +4665,7 @@ export default function DashboardSalesList({
                       </div>
                     ))}
                   </div>
-                );
-              })()}
+              )}
             </div>
 
             {/* ── Footer ── */}
@@ -4631,18 +4680,20 @@ export default function DashboardSalesList({
                   const prefixMap = { 'price quote': 'QUO', 'proforma invoice': 'PFI' };
                   const prefix = prefixMap[newDocType] || 'DOC';
                   const nextNum = `${prefix}-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-                  const subSum = newDocItems.reduce((sum, item) => sum + (item.qty * item.price * (1 - item.discount / 100)), 0);
-                  const taxSum = newDocHasVat ? subSum * 0.18 : 0;
                   const deliverySum = Number(newDocDeliveryCost) || 0;
-                  const grandTotal = subSum + taxSum + deliverySum;
                   const newDoc: SalesDocument = {
                     id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                     type: newDocType,
                     documentNumber: nextNum,
                     customerName: newDocCustomerName || 'General Customer',
                     customerPhone: newDocCustomerPhone || '',
-                    items: newDocItems,
-                    total: grandTotal,
+                    customerAddress: newDocCustomerAddress || '',
+                    items: newDocItems.map(item => ({ ...item, discount: 0, discountType: 'percent' })),
+                    total: newDocGrandTotal,
+                    tax: newDocTaxAmount,
+                    discountAmount: newDocDiscountAmount,
+                    discountValue: cappedDiscountValue,
+                    discountType: newDocDiscountType,
                     hasVat: newDocHasVat,
                     deliveryCost: deliverySum,
                     paymentMethod: newDocPaymentMethod,
@@ -4652,6 +4703,11 @@ export default function DashboardSalesList({
                     updatedAt: new Date().toISOString(),
                   };
                   onAddDocument?.(newDoc);
+                  setNewDocItems([]);
+                  setNewDocCustomerName('');
+                  setNewDocCustomerPhone('');
+                  setNewDocCustomerAddress('');
+                  setNewDocDiscountValue(0);
                   setShowNewDocModal(false);
                 }}
                 className="flex-[2] py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-black text-sm cursor-pointer transition-colors border-none">
@@ -4661,7 +4717,7 @@ export default function DashboardSalesList({
 
           </div>
         </div>
-      )}
+      ), document.body)}
 
       {/* DIALOG: VIEW & PRINT A4 COMMERCIAL DOCUMENT LAYOUT */}
       {viewingDocument && (() => {
@@ -4918,7 +4974,6 @@ export default function DashboardSalesList({
                             <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px]">Description</th>
                             <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-center">Qty</th>
                             <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right">Unit Price</th>
-                            {viewingDocument.items.some(i => i.discount > 0) && <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right">Disc.</th>}
                             <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right rounded-r-xl">Total</th>
                           </tr>
                         </thead>
@@ -4929,7 +4984,6 @@ export default function DashboardSalesList({
                             const itemDescription = (item as any).description || (item as any).item_description;
                             const unitPrice = toNumber(item.price);
                             const qty = toNumber(item.qty);
-                            const discount = toNumber(item.discount);
                             return (
                               <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
                                 <td className="py-3 px-4 text-slate-400 font-mono">{idx + 1}</td>
@@ -4939,11 +4993,6 @@ export default function DashboardSalesList({
                                 </td>
                                 <td className="py-3 px-4 text-center font-mono text-slate-700">{qty} {getDocumentItemUnit(item)}</td>
                                 <td className="py-3 px-4 text-right font-mono text-slate-700">{money(unitPrice)}</td>
-                                {viewingDocument.items.some(i => toNumber(i.discount) > 0) && (
-                                  <td className="py-3 px-4 text-right font-mono text-amber-600 text-[10px]">
-                                    {discount > 0 ? (item.discountType === 'cash' ? `-${money(discount)}` : `-${discount}%`) : '—'}
-                                  </td>
-                                )}
                                 <td className="py-3 px-4 text-right font-black font-mono text-slate-900">{money(lineTotal)}</td>
                               </tr>
                             );

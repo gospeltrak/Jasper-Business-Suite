@@ -610,6 +610,9 @@ export interface SalesDocument {
   items: SaleItem[];
   total: number;
   tax: number;
+  discountAmount?: number;
+  discountValue?: number;
+  discountType?: 'percent' | 'cash';
   deliveryCost?: number;
   paymentMethod?: string;
   hasVat?: boolean;
