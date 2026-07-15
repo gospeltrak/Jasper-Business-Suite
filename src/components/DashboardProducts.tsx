@@ -423,6 +423,13 @@ export default function DashboardProducts({
     setEditForm({});
   };
 
+  const handleGenerateEditBarcode = () => {
+    const generatedBarcode = generateUniqueEan13Barcode(
+      products.flatMap(product => [product.barcode, product.sku]),
+    );
+    setEditForm(prev => ({ ...prev, barcode: generatedBarcode }));
+  };
+
   const getReplenishPricingPreview = (
     product: Product,
     qtyReceived: number,
@@ -4390,14 +4397,25 @@ export default function DashboardProducts({
                   
                   <div className="space-y-1.5 font-mono">
                     <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Retail barcode (SKU)</label>
-                    <input 
-                      type="text" 
-                      value={editForm.barcode || ''}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, barcode: e.target.value }))}
-                      placeholder="Leave blank to generate automatically"
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none font-mono tracking-wide"
-                    />
-                    <p className="text-[9.5px] text-slate-400 font-sans">Leave this blank and Save. The system will create a unique barcode.</p>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="text"
+                        value={editForm.barcode || ''}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, barcode: e.target.value }))}
+                        placeholder="Enter or generate barcode"
+                        aria-label="Retail barcode"
+                        className="min-w-0 flex-1 bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none font-mono tracking-wide"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleGenerateEditBarcode}
+                        className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[10px] font-black text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-200"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        <span>Generate Barcode</span>
+                      </button>
+                    </div>
+                    <p className="text-[9.5px] text-slate-400 font-sans">Enter a barcode, or tap Generate Barcode to create one.</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 pb-1 font-mono">
