@@ -828,28 +828,6 @@ export default function DashboardOverview({
           </div>
         </div>
 
-        {/* Card 2: Cost of Goods */}
-        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-gradient-to-tr from-amber-500 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-amber-100">
-              <Receipt className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-full border border-amber-100/40 dark:border-amber-800/40">
-              Credit Dues
-            </span>
-          </div>
-          <div className="mt-4 text-left">
-            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Dues Owed</p>
-            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
-              {currency} {Math.round(filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').reduce((sum:number,s:any)=>sum+(s.dueAmount||s.amountDue||0),0)).toLocaleString()}
-            </p>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              {filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').length} unpaid orders
-            </p>
-          </div>
-        </div>
-
         {/* Card 3: Total Sales */}
         <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
@@ -879,6 +857,28 @@ export default function DashboardOverview({
           </div>
         </div>
 
+        {/* Card 5: Expenses */}
+        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <div className="w-10 h-10 bg-gradient-to-tr from-blue-500 to-cyan-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-blue-100">
+              <TrendingDown className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100/40">
+              Opex Cash
+            </span>
+          </div>
+          <div className="mt-4 text-left">
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Expenses</p>
+            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
+              {currency} {Math.round(totalExpensesAmt).toLocaleString()}
+            </p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+              Operating outlays
+            </p>
+          </div>
+        </div>
+
         {/* Card 4: Purchases */}
         <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
@@ -901,24 +901,24 @@ export default function DashboardOverview({
           </div>
         </div>
 
-        {/* Card 5: Expenses */}
+        {/* Card 2: Cost of Goods */}
         <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-gradient-to-tr from-blue-500 to-cyan-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-blue-100">
-              <TrendingDown className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 bg-gradient-to-tr from-amber-500 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-amber-100">
+              <Receipt className="w-5 h-5 text-white" />
             </div>
-            <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100/40">
-              Opex Cash
+            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-full border border-amber-100/40 dark:border-amber-800/40">
+              Credit Dues
             </span>
           </div>
           <div className="mt-4 text-left">
-            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Expenses</p>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Dues Owed</p>
             <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
-              {currency} {Math.round(totalExpensesAmt).toLocaleString()}
+              {currency} {Math.round(filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').reduce((sum:number,s:any)=>sum+(s.dueAmount||s.amountDue||0),0)).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-              Operating outlays
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              {filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').length} unpaid orders
             </p>
           </div>
         </div>
@@ -946,7 +946,6 @@ export default function DashboardOverview({
             </p>
           </div>
         </div>
-
       </div>
 
       {/* 4. MIDDLE ROW (two columns) */}
