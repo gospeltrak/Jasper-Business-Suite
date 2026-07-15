@@ -843,17 +843,22 @@ export default function DashboardSalesList({
 
   const downloadSalePdf = async (sale: Sale) => {
     try {
-      setPdfShareStatus('Preparing download...');
+      setPdfShareStatus('📄 Generating PDF...');
+      const el = document.getElementById('sales-invoice-a4-pdf-template');
+      if (!el) {
+        setPdfShareStatus('Invoice preview not found. Please keep the invoice open.');
+        return;
+      }
       await downloadPdfFromElement({
         elementId: 'sales-invoice-a4-pdf-template',
         fileName: buildInvoiceFileName(sale),
         format: 'a4'
       });
-      setPdfShareStatus('Invoice downloaded.');
+      setPdfShareStatus('✅ Invoice downloaded.');
     } catch (err: any) {
-      setPdfShareStatus(err?.message || 'Could not download PDF.');
+      setPdfShareStatus('Download failed: ' + (err?.message || 'Please try again.'));
     } finally {
-      setTimeout(() => setPdfShareStatus(null), 4000);
+      setTimeout(() => setPdfShareStatus(null), 5000);
     }
   };
 
@@ -2795,13 +2800,9 @@ export default function DashboardSalesList({
 
               {/* ── BOTTOM ACTION BAR — minimal, mobile-friendly ── */}
               <div className="shrink-0 bg-[#1e1e1e] border-t border-[#2a2a2a] px-4 py-3 flex items-center justify-center gap-2 print:hidden">
-                <button onClick={() => printThermalReceipt(selectedSale)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
-                  <Receipt className="w-3.5 h-3.5" /><span>Thermal</span>
-                </button>
                 <button onClick={() => downloadSalePdf(selectedSale)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
-                  <Download className="w-3.5 h-3.5" /><span>Download</span>
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-colors">
+                  <Download className="w-3.5 h-3.5" /><span>Download PDF</span>
                 </button>
                 <button onClick={() => shareSalePdf(selectedSale, selectedSale.customerPhone, 'a4')}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors">
