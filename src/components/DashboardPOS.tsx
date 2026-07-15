@@ -70,33 +70,63 @@ const playBeep = (frequency = 800, duration = 80) => {
 };
 
 // Keep audible feedback outside the cart update's critical render path.
-// The basket and totals paint first; the short beep follows immediately after.
 const playCartSuccessBeepAfterPaint = () => {
   window.requestAnimationFrame(() => {
     window.setTimeout(() => playBeep(800, 80), 0);
   });
 };
 
-const playErrorBeep = () => {
+// ── BUZZ SOUNDS — supermarket / security gate style ──────────────────────
+// Square wave at low frequency = harsh buzz like a real till error
+
+// Out of stock: single long BUZZZZ (like when item can't be sold)
+const playOutOfStockBeep = () => {
   try {
     const ctx = getAudioCtx(); if (!ctx) return;
+    const t = ctx.currentTime;
+
+    // Main buzz — square wave, low pitch, ~500ms
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(200, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.4);
-    gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.02);
-    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
-    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.4);
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(120, t);
+    osc.frequency.linearRampToValueAtTime(90, t + 0.5);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.35, t + 0.02);
+    gain.gain.setValueAtTime(0.35, t + 0.42);
+    gain.gain.linearRampToValueAtTime(0, t + 0.5);
+    osc.start(t); osc.stop(t + 0.5);
   } catch (e) {}
 };
 
+// Barcode not found / product not found: double buzz "BUZZ BUZZ"
+// Classic supermarket scanner error
+const playErrorBeep = () => {
+  try {
+    const ctx = getAudioCtx(); if (!ctx) return;
+    const t = ctx.currentTime;
+
+    [0, 0.32].forEach(startAt => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(110, t + startAt);
+      gain.gain.setValueAtTime(0, t + startAt);
+      gain.gain.linearRampToValueAtTime(0.3, t + startAt + 0.02);
+      gain.gain.setValueAtTime(0.3, t + startAt + 0.22);
+      gain.gain.linearRampToValueAtTime(0, t + startAt + 0.28);
+      osc.start(t + startAt); osc.stop(t + startAt + 0.3);
+    });
+  } catch (e) {}
+};
+
+// Warning: two short high beeps (low stock alert — less harsh than error)
 const playWarningBeep = () => {
   try {
     const ctx = getAudioCtx(); if (!ctx) return;
-    [0, 0.18].forEach((startAt, i) => {
+    [0, 0.18].forEach((startAt) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
@@ -106,22 +136,6 @@ const playWarningBeep = () => {
       gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + startAt + 0.01);
       gain.gain.linearRampToValueAtTime(0, ctx.currentTime + startAt + 0.12);
       osc.start(ctx.currentTime + startAt); osc.stop(ctx.currentTime + startAt + 0.12);
-    });
-  } catch (e) {}
-};
-
-const playOutOfStockBeep = () => {
-  try {
-    const ctx = getAudioCtx(); if (!ctx) return;
-    [[400, 0, 0.15], [250, 0.15, 0.15]].forEach(([freq, start, dur]) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.frequency.value = freq; osc.type = 'sine';
-      gain.gain.setValueAtTime(0, ctx.currentTime + start);
-      gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + start + 0.01);
-      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + start + dur);
-      osc.start(ctx.currentTime + start); osc.stop(ctx.currentTime + start + dur);
     });
   } catch (e) {}
 };
