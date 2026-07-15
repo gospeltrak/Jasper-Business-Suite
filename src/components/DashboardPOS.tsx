@@ -1328,7 +1328,7 @@ export default function DashboardPOS({
         </div>
 
         {/* Product listing grid */}
-        <div className={`${showProductImages ? 'grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6' : 'flex flex-col gap-2'} px-2 md:px-0 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200`}>
+        <div className={`${showProductImages ? 'grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 md:gap-6' : 'grid grid-cols-2 sm:grid-cols-2 xl:flex xl:flex-col gap-2 xl:gap-2'} px-2 md:px-0 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200`}>
           {filteredProducts.length === 0 ? (
             <div className="sm:col-span-3 text-center py-16 text-sm font-mono text-slate-500 bg-white border border-slate-200 rounded-3xl shadow-sm">
               No matching {activeTenant.businessType === 'pharmacy' ? 'pharmaceutical products' : 'retail items'} in stock.
@@ -1354,7 +1354,7 @@ export default function DashboardPOS({
                   className={`bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${
                     showProductImages
                       ? 'p-0 md:p-5 flex flex-col justify-between overflow-hidden xl:overflow-visible md:rounded-3xl'
-                      : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'
+                      : 'p-2.5 md:p-4 flex flex-col xl:flex-row xl:items-center xl:gap-3 overflow-hidden gap-1'
                   } ${
                     isOut 
                       ? 'border-slate-200 opacity-55 cursor-not-allowed bg-slate-50' 
@@ -1384,7 +1384,7 @@ export default function DashboardPOS({
                   )}
 
                   {/* Text details and bottom panel wrapper */}
-                  <div className={`${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-2 px-3 pb-3 md:px-0 md:pb-0' : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'}`}>
+                  <div className={`${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-2 px-3 pb-3 md:px-0 md:pb-0' : 'flex-1 min-w-0 flex flex-col xl:grid xl:grid-cols-[1fr_auto_auto] xl:items-center gap-1 xl:gap-3'}`}>
                     {/* Product Metadata & Text layout */}
                     <div className="space-y-1 min-w-0">
                       <div className={`${showProductImages ? 'hidden xl:flex' : 'flex'} items-center justify-between gap-2`}>
@@ -1402,7 +1402,7 @@ export default function DashboardPOS({
                     </div>
 
                     {/* Pricing and Select CTA trigger */}
-                    <div className={`${showProductImages ? 'flex items-center justify-between pt-2 border-t border-slate-100 mt-2' : 'contents md:flex md:items-center md:gap-3 md:justify-end'} shrink-0`}>
+                    <div className={`${showProductImages ? 'flex items-center justify-between pt-2 border-t border-slate-100 mt-2' : 'flex items-center justify-between xl:contents xl:flex xl:items-center xl:gap-3 xl:justify-end pt-1'} shrink-0`}>
                       <div className="space-y-0.5">
                         <p className="hidden xl:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
                         <span className="text-sm md:text-[14px] font-black text-emerald-700 md:text-slate-900 leading-none whitespace-nowrap">{currency}{Math.round(displayPrice).toLocaleString()}</span>
