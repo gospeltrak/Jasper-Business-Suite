@@ -43,22 +43,39 @@ export default function DashboardBarcodeScanner({
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
-      
       oscillator.connect(gainNode);
       gainNode.connect(audioCtx.destination);
-      
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(950, audioCtx.currentTime); // Quick sleek POS beep
+      oscillator.frequency.setValueAtTime(950, audioCtx.currentTime);
       gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
-      
       oscillator.start();
-      setTimeout(() => {
-        oscillator.stop();
-        audioCtx.close();
-      }, 100);
+      setTimeout(() => { oscillator.stop(); audioCtx.close(); }, 100);
     } catch (e) {
       console.warn('Web Audio output failed or is blocked by browser policies.', e);
     }
+  };
+
+  // Buzz sound for not-found / out-of-stock — square wave like a supermarket error
+  const playBuzzError = (double = false) => {
+    if (!useBeep) return;
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const bursts = double ? [0, 0.32] : [0];
+      bursts.forEach(startAt => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(110, audioCtx.currentTime + startAt);
+        gain.gain.setValueAtTime(0, audioCtx.currentTime + startAt);
+        gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + startAt + 0.02);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime + startAt + 0.22);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + startAt + 0.28);
+        osc.start(audioCtx.currentTime + startAt);
+        osc.stop(audioCtx.currentTime + startAt + 0.3);
+      });
+      setTimeout(() => audioCtx.close(), double ? 800 : 400);
+    } catch (e) {}
   };
 
   // Start webcam feed when modal opens
@@ -103,14 +120,30 @@ export default function DashboardBarcodeScanner({
     const trimmed = codeHex.trim();
     if (!trimmed) return;
 
-    // Find if it matches a catalog product (by barcode or sku)
-    const foundProduct = products.find(
-      p => p.barcode === trimmed || p.sku.toUpperCase() === trimmed.toUpperCase()
+    // Flexible matching — barcode or SKU, case-insensitive, trimmed
+    const normalize = (s: string) => s.trim().toLowerCase().replace(/^0+/, '');
+    const tNorm = normalize(trimmed);
+
+    const foundProduct = products.find(p =>
+      (p.barcode && normalize(p.barcode) === tNorm) ||
+      (p.sku && normalize(p.sku) === tNorm) ||
+      (p.barcode && p.barcode.trim() === trimmed) ||
+      (p.sku && p.sku.trim() === trimmed)
     ) || null;
 
-    // Set interactive visual flash state
-    setScanSuccessAnim(foundProduct ? foundProduct.name : `Barcode: ${trimmed}`);
-    playBeep();
+    const isOOS = foundProduct && ((foundProduct.shopStockQty ?? 0) <= 0);
+
+    // Visual flash
+    setScanSuccessAnim(foundProduct ? foundProduct.name : `Not found: ${trimmed}`);
+
+    // Sound — success beep if found & in stock, buzz if OOS or not found
+    if (foundProduct && !isOOS) {
+      playBeep();
+    } else if (foundProduct && isOOS) {
+      playBuzzError(false); // single buzz — out of stock
+    } else {
+      playBuzzError(true); // double buzz — not found
+    }
 
     setTimeout(() => {
       setScanSuccessAnim(null);

@@ -280,7 +280,7 @@ export default function DashboardPOS({
     if (matchedProduct) {
       const isOOS = (matchedProduct.shopStockQty ?? 0) <= 0 || (matchedProduct.stockQty ?? 0) <= 0;
       if (isOOS) {
-        playWarningBeep();
+        playOutOfStockBeep(); // single buzz
         addScanToast('warning', `📦 Out of stock — ${matchedProduct.name}`);
       } else {
         addToCart(matchedProduct);
@@ -288,7 +288,7 @@ export default function DashboardPOS({
         playCartSuccessBeepAfterPaint();
       }
     } else {
-      playErrorBeep();
+      playErrorBeep(); // double buzz
       addScanToast('error', `⚠️ Not found — ${scannedCode}`);
     }
     // Keep scanner open for next scan — supermarket multi-scan
