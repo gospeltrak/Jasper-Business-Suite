@@ -794,7 +794,97 @@ export default function DashboardSalesList({
     return `${firstWord}-${suffix}.pdf`;
   };
 
-  const downloadSalePdf = async (sale: Sale) => {
+  // Print thermal receipt — works with USB and Bluetooth thermal printers
+  // The printer must be set as default printer in OS, or user selects it in print dialog
+  const printThermalReceipt = (sale: Sale) => {
+    const el = document.getElementById('sales-receipt-pdf-template');
+    if (!el) return;
+
+    const content = el.innerHTML;
+    const win = window.open('', '_blank', 'width=400,height=700');
+    if (!win) { alert('Please allow popups for this site to print thermal receipts.'); return; }
+
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Receipt ${sale.reference || sale.id}</title>
+        <style>
+          /* ── Thermal paper size ── 80mm wide is standard */
+          @page {
+            size: 80mm auto;   /* width fixed, height auto = cuts at content end */
+            margin: 4mm 4mm;
+          }
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          body {
+            width: 72mm;          /* 80mm - 4mm margins each side */
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11px;
+            color: #000;
+            background: #fff;
+            margin: 0;
+            padding: 0;
+          }
+          img { max-width: 100%; height: auto; }
+          /* Keep all text black for thermal printing */
+          * { color: #000 !important; background: transparent !important;
+              border-color: #000 !important; }
+          /* Dashed separators look good on thermal */
+          .border-dashed { border-style: dashed !important; }
+          /* Remove shadows, rounded corners */
+          * { box-shadow: none !important; border-radius: 0 !important; }
+          /* Font sizes */
+          .text-sm { font-size: 12px; }
+          .text-xs { font-size: 11px; }
+          .text-\\[10px\\], .text-\\[10\\.5px\\] { font-size: 10px; }
+          .text-\\[9\\.5px\\] { font-size: 9px; }
+          .font-black, .font-bold, .font-extrabold { font-weight: bold; }
+          /* Layout helpers */
+          .flex { display: flex; }
+          .justify-between { justify-content: space-between; }
+          .justify-center { justify-content: center; }
+          .items-center { align-items: center; }
+          .items-start { align-items: flex-start; }
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .space-y-1 > * + * { margin-top: 2px; }
+          .space-y-1\\.5 > * + * { margin-top: 3px; }
+          .space-y-2 > * + * { margin-top: 4px; }
+          .space-y-3 > * + * { margin-top: 6px; }
+          .space-y-6 > * + * { margin-top: 12px; }
+          .pt-1 { padding-top: 2px; } .pt-4 { padding-top: 8px; }
+          .pb-4 { padding-bottom: 8px; } .py-4 { padding: 8px 0; }
+          .py-2 { padding: 4px 0; } .py-1 { padding: 2px 0; }
+          .px-1 { padding: 0 2px; } .p-6 { padding: 12px; }
+          .mt-1 { margin-top: 2px; } .mt-1\\.5 { margin-top: 3px; }
+          .mt-2 { margin-top: 4px; } .mt-4 { margin-top: 8px; }
+          .mb-2 { margin-bottom: 4px; }
+          .max-w-\\[70\\%\\] { max-width: 70%; }
+          .max-w-\\[30\\%\\] { max-width: 30%; }
+          .w-full { width: 100%; }
+          .uppercase { text-transform: uppercase; }
+          .tracking-tight { letter-spacing: -0.01em; }
+          .tracking-wider { letter-spacing: 0.05em; }
+          .leading-tight { line-height: 1.2; }
+          .leading-normal { line-height: 1.4; }
+          .border-b { border-bottom: 1px solid #000; }
+          .border-t { border-top: 1px solid #000; }
+          .flex-col { flex-direction: column; }
+          /* Hide badges/colors — just show text */
+          .bg-emerald-50, .border-emerald-100, .rounded { background: transparent !important; border: none !important; }
+        </style>
+      </head>
+      <body>${content}</body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+      setTimeout(() => win.close(), 1000);
+    }, 500);
+  };
     try {
       setPdfShareStatus('Preparing download...');
       await downloadPdfFromElement({
@@ -1394,6 +1484,10 @@ export default function DashboardSalesList({
                                 </button>
 
                                 <div className="border-t border-slate-100 mt-1 pt-1">
+                                  <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(false); setTimeout(() => printThermalReceipt(sale), 100); setActiveMenuId(null); setMenuPos(null); }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                                    <Receipt className="w-3.5 h-3.5 text-slate-400 shrink-0" /> Thermal Receipt
+                                  </button>
                                   <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(false); setActiveMenuId(null); setMenuPos(null); }}
                                     className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                     <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" /> POS Receipt
@@ -2744,6 +2838,10 @@ export default function DashboardSalesList({
 
               {/* ── BOTTOM ACTION BAR — minimal, mobile-friendly ── */}
               <div className="shrink-0 bg-[#1e1e1e] border-t border-[#2a2a2a] px-4 py-3 flex items-center justify-center gap-2 print:hidden">
+                <button onClick={() => printThermalReceipt(selectedSale)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
+                  <Receipt className="w-3.5 h-3.5" /><span>Thermal</span>
+                </button>
                 <button onClick={() => downloadSalePdf(selectedSale)}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
                   <Download className="w-3.5 h-3.5" /><span>Download</span>
