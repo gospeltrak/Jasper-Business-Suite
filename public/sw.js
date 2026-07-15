@@ -1,6 +1,6 @@
 // Jasper Business Suite Service Worker (online-only business writes)
-const CACHE_NAME = 'jasper-pos-cache-v17-device-id-fallback';
-const SW_VERSION = '2026-07-15-device-id-fallback-v1';
+const CACHE_NAME = 'jasper-pos-cache-v18-session-id-fallback';
+const SW_VERSION = '2026-07-15-session-id-fallback-v1';
 const NAVIGATION_CACHE_KEY = '/__jasper-navigation-shell__';
 
 // Assets to cache immediately on SW install
