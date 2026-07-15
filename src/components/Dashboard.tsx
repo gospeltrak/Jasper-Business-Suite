@@ -1992,7 +1992,14 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     <div id="dashboard-scaffold" className="w-full h-dvh bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
       
       {/* PWA install banner — shows after login, not on login page */}
-      <PWAInstallBanner />
+      {user.role !== 'SuperAdmin' && activeTenant.id ? (
+        <PWAInstallBanner
+          tenantId={activeTenant.id}
+          businessName={systemSettings.business?.businessName || activeTenant.businessName || activeTenant.name || 'My Business'}
+          businessLogo={customBrandingLogo || null}
+          enabled={workspaceReady}
+        />
+      ) : null}
 
       {/* 0. HIGH-FIDELITY FLOATING TOAST STACK (Centered at top on mobile, max 3 stacked) */}
       <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center space-y-2 w-full max-w-sm px-4 pointer-events-none">
