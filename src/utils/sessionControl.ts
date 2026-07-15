@@ -67,32 +67,30 @@ const sessionRequest = async (path: 'start' | 'touch' | 'end', token: string, bo
 };
 
 export async function startCloudSession(accessToken?: string): Promise<{ allowed: boolean; reason?: string; reasonCode?: string }> {
-  let token = '';
+  // Record the session in background (fire-and-forget) — never block login
   try {
-    token = await getAccessToken(accessToken);
-  } catch {
-    return { allowed: false, reasonCode: 'service_unavailable', reason: 'Could not check active devices. Please try again.' };
-  }
-  if (!token) return { allowed: false, reasonCode: 'not_authenticated', reason: 'Please sign in again.' };
+    let token = '';
+    try { token = await getAccessToken(accessToken); } catch { /* ignore */ }
 
-  const previousSessionId = getStoredSessionId();
-  if (previousSessionId) {
-    await sessionRequest('end', token, { sessionId: previousSessionId }).catch(() => null);
-    clearSessionId();
-  }
+    if (token) {
+      const previousSessionId = getStoredSessionId();
+      if (previousSessionId) {
+        sessionRequest('end', token, { sessionId: previousSessionId }).catch(() => null);
+        clearSessionId();
+      }
 
-  try {
-    const data = await sessionRequest('start', token, {
-      deviceId: getDeviceId(),
-      deviceLabel: getDeviceLabel(),
-      userAgent: navigator.userAgent.slice(0, 500)
-    });
-    if (!data?.allowed) return { allowed: false, reasonCode: data?.reasonCode, reason: data?.reason || 'Unable to start this session.' };
-    saveSessionId(data.sessionId);
-    return { allowed: true };
-  } catch {
-    return { allowed: false, reasonCode: 'service_unavailable', reason: 'Could not check active devices. Please try again.' };
-  }
+      sessionRequest('start', token, {
+        deviceId: getDeviceId(),
+        deviceLabel: getDeviceLabel(),
+        userAgent: navigator.userAgent.slice(0, 500)
+      }).then(data => {
+        if (data?.sessionId) saveSessionId(data.sessionId);
+      }).catch(() => null);
+    }
+  } catch { /* never block login due to session errors */ }
+
+  // Always allow login — no device limit
+  return { allowed: true };
 }
 
 export async function touchCloudSession() {
