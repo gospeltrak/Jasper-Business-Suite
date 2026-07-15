@@ -1,8 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Download, Share, Plus } from 'lucide-react';
 
-// ── Detect platform ────────────────────────────────────────────────────────
-const isIOS = () => /ipad|iphone|ipod/i.test(navigator.userAgent) && !(window as any).MSStream;
+// ── Platform & browser detection ─────────────────────────────────────────────
+const isIOS = () =>
+  /ipad|iphone|ipod/i.test(navigator.userAgent) && !(window as any).MSStream;
+
+const isAndroid = () => /android/i.test(navigator.userAgent);
+
+const isSupportedMobileBrowser = () => {
+  const ua = navigator.userAgent;
+  // Must be mobile
+  if (!isIOS() && !isAndroid()) return false;
+  // iOS — must be Safari (not Chrome/Firefox on iOS which can't install PWA)
+  if (isIOS()) {
+    const isChromeiOS = /CriOS/i.test(ua);
+    const isFirefoxiOS = /FxiOS/i.test(ua);
+    return !isChromeiOS && !isFirefoxiOS; // Safari only on iOS
+  }
+  // Android — Chrome or Samsung Browser support beforeinstallprompt
+  return true;
+};
+
 const isInStandaloneMode = () =>
   (window.navigator as any).standalone === true ||
   window.matchMedia('(display-mode: standalone)').matches ||
@@ -13,32 +31,32 @@ export default function PWAInstallBanner() {
   const [show, setShow] = useState(false);
   const [platform, setPlatform] = useState<'android' | 'ios' | null>(null);
   const [iosStep, setIosStep] = useState<'initial' | 'steps'>('initial');
-  const [dismissed, setDismissed] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Already installed — never show
+    // Already installed as app — never show
     if (isInStandaloneMode()) return;
+    // Unsupported browser/desktop — don't show
+    if (!isSupportedMobileBrowser()) return;
+    // Already dismissed today
+    const dismissed = localStorage.getItem('pwa-install-dismissed-date');
+    if (dismissed === new Date().toDateString()) return;
 
-    // Already dismissed in this session
-    if (sessionStorage.getItem('pwa-install-dismissed')) return;
-
-    // ── Android / Chrome: use beforeinstallprompt ──────────────────────────
+    // ── Android / Chrome ──────────────────────────────────────────────────
     const onBeforeInstall = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
       setPlatform('android');
-      // Show after 3s so it doesn't feel intrusive on first load
-      timerRef.current = setTimeout(() => setShow(true), 3000);
+      timerRef.current = setTimeout(() => setShow(true), 8000); // 8s after dashboard loads
     };
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
 
-    // ── iOS Safari: show manual steps guide ───────────────────────────────
+    // ── iOS Safari ────────────────────────────────────────────────────────
     if (isIOS()) {
       timerRef.current = setTimeout(() => {
         setPlatform('ios');
         setShow(true);
-      }, 4000);
+      }, 8000);
     }
 
     return () => {
@@ -49,8 +67,8 @@ export default function PWAInstallBanner() {
 
   const dismiss = () => {
     setShow(false);
-    setDismissed(true);
-    sessionStorage.setItem('pwa-install-dismissed', '1');
+    // Remember for today — show again tomorrow
+    localStorage.setItem('pwa-install-dismissed-date', new Date().toDateString());
   };
 
   const handleAndroidInstall = async () => {
@@ -60,10 +78,13 @@ export default function PWAInstallBanner() {
     if (outcome === 'accepted') {
       setShow(false);
       setDeferredPrompt(null);
+      localStorage.setItem('pwa-install-dismissed-date', 'installed');
+    } else {
+      dismiss();
     }
   };
 
-  if (!show || dismissed) return null;
+  if (!show) return null;
 
   // ── Android prompt ────────────────────────────────────────────────────────
   if (platform === 'android') {

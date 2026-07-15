@@ -893,10 +893,16 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
     try {
       const { data: profile } = await supabaseAdmin.from('users').select('id,tenant_id,account_type,role_key,role,is_active').eq('id', authUser.id).maybeSingle();
-      if (!profile?.is_active) return res.json({ allowed: false, reasonCode: 'account_inactive', reason: 'This account is not active.' });
+
+      // If no profile row exists yet, allow login (new user or staff without profile row)
+      // If profile exists but is_active is explicitly false, block
+      if (profile && profile.is_active === false) {
+        return res.json({ allowed: false, reasonCode: 'account_inactive', reason: 'This account is not active.' });
+      }
 
       const now = new Date().toISOString();
 
+      // Check if this exact device already has an active session → reuse it
       const { data: sameDevice } = await supabaseAdmin.from('user_sessions').select('id')
         .eq('user_id', authUser.id).eq('device_id', String(deviceId)).eq('is_active', true).maybeSingle();
       if (sameDevice?.id) {
@@ -904,24 +910,40 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         return res.json({ allowed: true, sessionId: sameDevice.id });
       }
 
+      // Count active sessions for this user
       const { count } = await supabaseAdmin.from('user_sessions').select('id', { count: 'exact', head: true })
         .eq('user_id', authUser.id).eq('is_active', true);
+
       if ((count || 0) >= 2) {
-        return res.json({
-          allowed: false,
-          reasonCode: 'device_limit',
-          reason: 'This account is open on two devices. Log out from one device, then try again.'
-        });
+        // Auto-clean stale sessions older than 24h before blocking
+        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        await supabaseAdmin.from('user_sessions')
+          .update({ is_active: false, updated_at: now })
+          .eq('user_id', authUser.id)
+          .eq('is_active', true)
+          .lt('last_activity_at', cutoff);
+
+        // Recount after cleanup
+        const { count: countAfter } = await supabaseAdmin.from('user_sessions').select('id', { count: 'exact', head: true })
+          .eq('user_id', authUser.id).eq('is_active', true);
+
+        if ((countAfter || 0) >= 2) {
+          return res.json({
+            allowed: false,
+            reasonCode: 'device_limit',
+            reason: 'This account is open on two devices. Log out from one device, then try again.'
+          });
+        }
       }
 
       const { data: created, error: createError } = await supabaseAdmin.from('user_sessions').insert({
         user_id: authUser.id,
-        tenant_id: profile.tenant_id,
+        tenant_id: profile?.tenant_id || null,
         device_id: String(deviceId),
         device_label: deviceLabel || null,
         user_agent: String(userAgent || '').slice(0, 500),
-        account_type: profile.account_type || 'business_user',
-        role_key: profile.role_key || profile.role || 'business_user',
+        account_type: profile?.account_type || 'business_user',
+        role_key: profile?.role_key || profile?.role || 'business_user',
         is_active: true,
         last_activity_at: now
       }).select('id').single();
