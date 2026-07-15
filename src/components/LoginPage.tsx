@@ -250,7 +250,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   // SaaS Dynamic Niche Launch State
   const [launchedNiches, setLaunchedNiches] = useState<string[]>(() => {
-    const raw = localStorage.getItem('saas_launched_niches');
+    const raw = onlineStorage.getItem('saas_launched_niches');
     return raw ? JSON.parse(raw) : ['retail', 'pharmacy']; // Matches the user's wish: retail & pharmacy active first!
   });
 
@@ -275,7 +275,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
 
     const handleUpdate = () => {
-      const raw = localStorage.getItem('saas_launched_niches');
+      const raw = onlineStorage.getItem('saas_launched_niches');
       if (raw) setLaunchedNiches(JSON.parse(raw));
     };
     window.addEventListener('saas_niches_updated', handleUpdate);
@@ -406,9 +406,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   }, []);
 
   const getAllSystemUsers = () => {
-    const customUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
-    const saasStaffs = JSON.parse(localStorage.getItem('jasper_saas_staffs') || '[]');
-    const passwordOverrides = JSON.parse(localStorage.getItem('jasper_password_overrides') || '{}');
+    const customUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
+    const saasStaffs = JSON.parse(onlineStorage.getItem('jasper_saas_staffs') || '[]');
+    const passwordOverrides = JSON.parse(onlineStorage.getItem('jasper_password_overrides') || '{}');
     const withPasswordOverride = (user: any) => {
       const overrideKey = user.email || user.phone || user.id;
       return overrideKey && passwordOverrides[overrideKey]
@@ -424,12 +424,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     };
 
     // Scan all cached tenants settings for staffs
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
+    for (let i = 0; i < onlineStorage.length; i++) {
+        const key = onlineStorage.key(i);
         if (key && key.startsWith('jasper_settings_')) {
           const tenantId = key.replace('jasper_settings_', '');
           try {
-            const settings = JSON.parse(localStorage.getItem(key) || '{}');
+            const settings = JSON.parse(onlineStorage.getItem(key) || '{}');
             if (settings.staffs && Array.isArray(settings.staffs)) {
               settings.staffs.forEach((staff: any) => {
                  const staffRole = staff.role || 'Cashier';
@@ -585,12 +585,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   const persistRecoveredPassword = (user: any, newPassword: string) => {
     const updateList = (key: string) => {
-      const list = JSON.parse(localStorage.getItem(key) || '[]');
+      const list = JSON.parse(onlineStorage.getItem(key) || '[]');
       const updated = list.map((entry: any) => {
         const sameUser = (entry.email && user.email && entry.email === user.email) || (entry.id && user.id && entry.id === user.id) || (entry.phone && user.phone && entry.phone === user.phone);
         return sameUser ? { ...entry, password: newPassword } : entry;
       });
-      localStorage.setItem(key, JSON.stringify(updated));
+      onlineStorage.setItem(key, JSON.stringify(updated));
     };
 
     updateList('jasper_custom_users');
@@ -598,21 +598,21 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
     if (user.activeTenant || user.tenantId) {
       const settingsKey = `jasper_settings_${user.activeTenant || user.tenantId}`;
-      const settings = JSON.parse(localStorage.getItem(settingsKey) || '{}');
+      const settings = JSON.parse(onlineStorage.getItem(settingsKey) || '{}');
       if (Array.isArray(settings.staffs)) {
         settings.staffs = settings.staffs.map((staff: any) => {
           const sameStaff = (staff.id && user.id && staff.id === user.id) || (staff.phone && user.phone && staff.phone === user.phone);
           return sameStaff ? { ...staff, password: newPassword } : staff;
         });
-        localStorage.setItem(settingsKey, JSON.stringify(settings));
+        onlineStorage.setItem(settingsKey, JSON.stringify(settings));
       }
     }
 
-    const overrides = JSON.parse(localStorage.getItem('jasper_password_overrides') || '{}');
+    const overrides = JSON.parse(onlineStorage.getItem('jasper_password_overrides') || '{}');
     if (user.email) overrides[user.email] = newPassword;
     if (user.phone) overrides[user.phone] = newPassword;
     if (user.id) overrides[user.id] = newPassword;
-    localStorage.setItem('jasper_password_overrides', JSON.stringify(overrides));
+    onlineStorage.setItem('jasper_password_overrides', JSON.stringify(overrides));
   };
 
   const handleFinishRecovery = (e: FormEvent) => {
@@ -732,11 +732,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       };
 
       // Store locally so cached components load instantly
-      const savedCustomTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
-      localStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, newTenant]));
+      const savedCustomTenants = JSON.parse(onlineStorage.getItem('jasper_custom_tenants') || '[]');
+      onlineStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, newTenant]));
 
-      const savedCustomUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
-      localStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, updatedUser]));
+      const savedCustomUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
+      onlineStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, updatedUser]));
 
       setIsLoading(false);
       setOnboardingUser(null);
@@ -766,11 +766,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         role: 'Admin'
       };
 
-      const savedCustomTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
-      localStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, fallbackTenant]));
+      const savedCustomTenants = JSON.parse(onlineStorage.getItem('jasper_custom_tenants') || '[]');
+      onlineStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, fallbackTenant]));
 
-      const savedCustomUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
-      localStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, updatedUser]));
+      const savedCustomUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
+      onlineStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, updatedUser]));
 
       setIsLoading(false);
       setOnboardingUser(null);
@@ -789,14 +789,14 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       return;
     }
 
-    const cachedCustom = localStorage.getItem('jasper_custom_tenants');
+    const cachedCustom = onlineStorage.getItem('jasper_custom_tenants');
     const parsedCustom: Tenant[] = cachedCustom ? JSON.parse(cachedCustom) : [];
     const matchedTenant = parsedCustom.find(t => t.id === tenantId) || DEFAULT_TENANTS.find(t => t.id === tenantId) || DEFAULT_TENANTS[0];
     
     // Check if corporate logo got uploaded under key
-    let uploadedLogo = localStorage.getItem(`jasper_tenant_logo_${tenantId}`) || matchedTenant.company_settings?.logo_url || null;
+    let uploadedLogo = onlineStorage.getItem(`jasper_tenant_logo_${tenantId}`) || matchedTenant.company_settings?.logo_url || null;
     if (!uploadedLogo) {
-      const cachedSet = localStorage.getItem(`jasper_settings_${tenantId}`);
+      const cachedSet = onlineStorage.getItem(`jasper_settings_${tenantId}`);
       if (cachedSet) {
         try {
           const pSet = JSON.parse(cachedSet);
@@ -1069,7 +1069,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               } else {
                 safeSetJsonItem(cacheKey, ws.payload, { tenantId, dataKey: 'tenant_workspaces', logLabel: `${tenantId}/workspace-cache` });
               }
-              localStorage.setItem(`${cacheKey}_synced_at`, new Date().toISOString());
+              onlineStorage.setItem(`${cacheKey}_synced_at`, new Date().toISOString());
             }
           } catch (_) { /* non-fatal — dashboard will load from DB directly */ }
         }
@@ -1162,8 +1162,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const registerAffiliateReferral = async (code: string, subscriberName: string, tenantId?: string) => {
     const upperCode = code.toUpperCase();
 
-    // ── 1. Update localStorage (immediate, offline-safe) ──────────
-    const raw = localStorage.getItem('saas_immersive_affiliates');
+    // ── 1. Update onlineStorage (immediate, offline-safe) ──────────
+    const raw = onlineStorage.getItem('saas_immersive_affiliates');
     let affiliates: any[] = [];
     if (raw) {
       try { affiliates = JSON.parse(raw); } catch {}
@@ -1183,7 +1183,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           affiliates[superIndex].conversionsPromo = (affiliates[superIndex].conversionsPromo || 0) + 1;
         }
       }
-      localStorage.setItem('saas_immersive_affiliates', JSON.stringify(affiliates));
+      onlineStorage.setItem('saas_immersive_affiliates', JSON.stringify(affiliates));
       window.dispatchEvent(new Event('saas_logs_updated'));
     }
 
@@ -1280,7 +1280,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       }
 
     } catch (dbErr) {
-      console.warn('[referral] secure database tracking failed — localStorage tracking active:', dbErr);
+      console.warn('[referral] secure database tracking failed — onlineStorage tracking active:', dbErr);
     }
   };
 
@@ -1383,21 +1383,21 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         referral_code_used: hasPromoCode ? affiliateCode.trim() : ''
       };
 
-      // Store custom tenants dynamically in localStorage
-      const savedCustomTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
-      localStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, newTenant]));
+      // Store custom tenants dynamically in onlineStorage
+      const savedCustomTenants = JSON.parse(onlineStorage.getItem('jasper_custom_tenants') || '[]');
+      onlineStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, newTenant]));
       initializeCleanTenantWorkspace(newTenant);
 
-      // Store custom users dynamically in localStorage
-      const savedCustomUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
-      localStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, {
+      // Store custom users dynamically in onlineStorage
+      const savedCustomUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
+      onlineStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, {
         ...registeredUser,
         password: regPassword,
         securityQuestion: regSecurityQuestion.trim(),
         securityAnswer: normalizeSecurityAnswer(regSecurityAnswer)
       }]));
 
-      localStorage.setItem('jasper_subscription_state', JSON.stringify({
+      onlineStorage.setItem('jasper_subscription_state', JSON.stringify({
         planId: 'trial',
         trialStartedAt: trialStartDate.toISOString(),
         isSubscribedPaid: false,
@@ -1463,7 +1463,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setIsLoading(true);
     
     // Check if user exists
-    const customUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
+    const customUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
     const combinedUsers = [...DEMO_USERS, ...customUsers];
     const match = combinedUsers.find(u => u.email.toLowerCase() === emailAddress.toLowerCase());
 
@@ -1550,18 +1550,18 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       referral_code_used: hasReferral ? affiliateCode.trim() : ''
     };
 
-    // Store custom tenants dynamically in localStorage
-    const savedCustomTenants = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
-    localStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, newTenant]));
+    // Store custom tenants dynamically in onlineStorage
+    const savedCustomTenants = JSON.parse(onlineStorage.getItem('jasper_custom_tenants') || '[]');
+    onlineStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, newTenant]));
 
-    // Store custom users dynamically in localStorage
-    const savedCustomUsers = JSON.parse(localStorage.getItem('jasper_custom_users') || '[]');
-    localStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, newDynamicUser]));
+    // Store custom users dynamically in onlineStorage
+    const savedCustomUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
+    onlineStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, newDynamicUser]));
 
     // Affiliate referral promo coupon registered if code was applied (optional config)
     if (affiliateCode.trim()) {
       const code = affiliateCode.trim().toUpperCase();
-      const referralLedger = JSON.parse(localStorage.getItem('jasper_referral_ledger') || '[]');
+      const referralLedger = JSON.parse(onlineStorage.getItem('jasper_referral_ledger') || '[]');
       referralLedger.push({
         id: 'ref-dyn-google-' + Math.floor(1000 + Math.random() * 9000),
         affiliateCode: code,
@@ -1571,7 +1571,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         registeredAt: new Date().toISOString().split('T')[0],
         commission: 0
       });
-      localStorage.setItem('jasper_referral_ledger', JSON.stringify(referralLedger));
+      onlineStorage.setItem('jasper_referral_ledger', JSON.stringify(referralLedger));
 
       const initialSubState = {
         planId: 'trial' as const,
@@ -1582,7 +1582,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         autoRenewEnabled: true,
         paymentStatus: 'active' as const
       };
-      localStorage.setItem('jasper_subscription_state', JSON.stringify(initialSubState));
+      onlineStorage.setItem('jasper_subscription_state', JSON.stringify(initialSubState));
       registerAffiliateReferral(code, googleOrgName, newTenantId);
     } else {
       const initialSubState = {
@@ -1593,7 +1593,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         autoRenewEnabled: true,
         paymentStatus: 'active' as const
       };
-      localStorage.setItem('jasper_subscription_state', JSON.stringify(initialSubState));
+      onlineStorage.setItem('jasper_subscription_state', JSON.stringify(initialSubState));
     }
 
     setTimeout(() => {

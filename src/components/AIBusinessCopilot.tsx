@@ -65,7 +65,7 @@ const LUCY_FEMALE_VOICE_HINTS = [
 
 const pickLucyVoice = (voices: SpeechSynthesisVoice[]) => {
   if (!voices.length) return null;
-  const saved = localStorage.getItem(LUCY_VOICE_KEY);
+  const saved = onlineStorage.getItem(LUCY_VOICE_KEY);
   if (saved) {
     const savedVoice = voices.find((voice) => voice.name === saved);
     if (savedVoice) return savedVoice;
@@ -84,7 +84,7 @@ const pickLucyVoice = (voices: SpeechSynthesisVoice[]) => {
     .sort((a, b) => b.score - a.score);
 
   const selected = scored[0]?.voice || voices[0];
-  if (selected) localStorage.setItem(LUCY_VOICE_KEY, selected.name);
+  if (selected) onlineStorage.setItem(LUCY_VOICE_KEY, selected.name);
   return selected;
 };
 

@@ -33,12 +33,12 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
 
   // Token quota: users have a daily quota of 2 free tokens
   const [tokens, setTokens] = useState<number>(() => {
-    const cached = localStorage.getItem('jasper_tools_tokens');
+    const cached = onlineStorage.getItem('jasper_tools_tokens');
     return cached ? parseInt(cached, 10) : 2;
   });
 
   useEffect(() => {
-    localStorage.setItem('jasper_tools_tokens', tokens.toString());
+    onlineStorage.setItem('jasper_tools_tokens', tokens.toString());
   }, [tokens]);
 
   // Active Tool Selection

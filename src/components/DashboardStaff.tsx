@@ -292,11 +292,11 @@ export default function DashboardStaff({
   useEffect(() => {
     const loadSessions = () => {
       try {
-        const storedSessions = localStorage.getItem(`jasper_staff_sessions_${activeTenant.id}`);
+        const storedSessions = onlineStorage.getItem(`jasper_staff_sessions_${activeTenant.id}`);
         const parsedSessions: StaffSessionRecord[] = storedSessions ? JSON.parse(storedSessions) : [];
         setSessionLogs(parsedSessions);
 
-        const storedMap = localStorage.getItem(`jasper_staff_statuses_${activeTenant.id}`);
+        const storedMap = onlineStorage.getItem(`jasper_staff_statuses_${activeTenant.id}`);
         const persistedStatuses: Record<string, boolean> = storedMap ? JSON.parse(storedMap) : {};
         const liveStatuses = parsedSessions.reduce<Record<string, boolean>>((acc, session) => {
           if (session.status === 'online' || !session.logoutAt) {

@@ -2,10 +2,10 @@
  * dbSync.ts — Central database synchronisation layer
  *
  * Strategy: Supabase/cloud is the source of truth for business data.
- * localStorage is a read/cache layer only; offline business writes are blocked.
+ * Browser persistence is not used. Business data lives in Supabase only.
  *
- * On login:      Pull from Supabase → write to localStorage
- * On save:       Require internet → push to Supabase → refresh local cache
+ * On login:      Pull from Supabase
+ * On save:       Require internet → push to Supabase
  * On conflict:   Supabase wins (server-side timestamp comparison)
  */
 
@@ -15,7 +15,6 @@ import {
   isProtectedDataKey,
   payloadHasRecords,
   protectTenantPayload,
-  safeSetJsonItem,
 } from './dataSafety';
 import {
   attachPayloadProductTombstones,
@@ -42,10 +41,6 @@ interface SyncRecord {
 
 function now(): string {
   return new Date().toISOString();
-}
-
-function localKey(tenantId: string, dataKey: string): string {
-  return `jasper_${dataKey}_${tenantId}`;
 }
 
 const isProductDataKey = (dataKey: string) => dataKey === 'products' || dataKey === 'products_map';
@@ -90,11 +85,13 @@ export async function pushToCloud(tenantId: string, dataKey: string, payload: an
     let payloadToPush = payload;
 
     if (isProtectedDataKey(dataKey)) {
-      // Local cache catches same-device destructive writes immediately.
-      // Product payloads also compare against cloud below to stop stale devices.
-      const localRaw = localStorage.getItem(localKey(tenantId, dataKey));
-      let currentPayload: any = null;
-      try { if (localRaw) currentPayload = JSON.parse(localRaw); } catch {}
+      const { data: currentRow } = await client
+        .from('tenant_data')
+        .select('payload')
+        .eq('tenant_id', tenantId)
+        .eq('data_key', dataKey)
+        .maybeSingle();
+      const currentPayload = currentRow?.payload || null;
 
       const protection = protectTenantPayload(tenantId, dataKey, payload, currentPayload);
       payloadToPush = protection.payload;
@@ -241,11 +238,11 @@ export async function pullAllFromCloud(tenantId: string): Promise<Record<string,
   }
 }
 
-// ─── Save helpers (localStorage + cloud) ─────────────────────────────────────
+// ─── Save helpers (database only) ────────────────────────────────────────────
 
 /**
  * Save any data blob — online-only for business data.
- * Existing local cache is preserved when offline; no new offline mutation is stored.
+ * No offline browser copy is created.
  */
 export function saveData(tenantId: string, dataKey: string, payload: any): void {
   if (!tenantId) return;
@@ -255,78 +252,33 @@ export function saveData(tenantId: string, dataKey: string, payload: any): void 
   }
 
   pushToCloud(tenantId, dataKey, payload)
-    .then((cloudPayload) => {
-      safeSetJsonItem(localKey(tenantId, dataKey), cloudPayload, {
-        tenantId,
-        dataKey,
-        logLabel: `${tenantId}/${dataKey}`,
-      });
-    })
     .catch((error) => {
       console.warn(`[dbSync] online-only save failed for ${tenantId}/${dataKey}:`, error);
     });
 }
 
 /**
- * Load data — reads cloud first when online, localStorage only as fallback/cache.
+ * Load data directly from the database.
  */
 export async function loadData(tenantId: string, dataKey: string): Promise<any | null> {
   if (!tenantId) return null;
-  if (canWriteBusinessDataOnline()) {
-    const cloudPayload = await pullFromCloud(tenantId, dataKey);
-    if (cloudPayload !== null && cloudPayload !== undefined) {
-      safeSetJsonItem(localKey(tenantId, dataKey), cloudPayload, {
-        tenantId,
-        dataKey,
-        logLabel: `${tenantId}/${dataKey}`,
-      });
-      return cloudPayload;
-    }
-  }
-
-  // Offline/unavailable fallback: cache is read-only and must not be pushed.
-  try {
-    const raw = localStorage.getItem(localKey(tenantId, dataKey));
-    if (raw) return JSON.parse(raw);
-  } catch (e) {}
-  return null;
+  if (!canWriteBusinessDataOnline()) return null;
+  return pullFromCloud(tenantId, dataKey);
 }
 
 // ─── Sync on login ───────────────────────────────────────────────────────────
 
 /**
  * Called immediately after the user logs in.
- * Pulls all tenant data from Supabase and writes it to localStorage.
- * This ensures data is available even after cache clear.
+ * Confirms tenant data can be read from Supabase. The caller owns screen state.
  */
 export async function syncOnLogin(tenantId: string): Promise<void> {
   if (!tenantId) return;
-  const cloudData = await pullAllFromCloud(tenantId);
-  if (!cloudData || Object.keys(cloudData).length === 0) {
-    // tenant_workspaces is the canonical workspace store. Never push browser
-    // cache over cloud automatically; stale devices must not recreate old state.
-    return;
-  }
-  // Write all cloud data to localStorage
-  for (const [dataKey, payload] of Object.entries(cloudData)) {
-    try {
-      const key = localKey(tenantId, dataKey);
-      const existingRaw = localStorage.getItem(key);
-      if (!payloadHasRecords(payload, tenantId) && existingRaw) {
-        try {
-          const existingPayload = JSON.parse(existingRaw);
-          if (payloadHasRecords(existingPayload, tenantId)) continue;
-        } catch {
-          // If the local value is corrupt, let the cloud value replace it.
-        }
-      }
-      safeSetJsonItem(key, payload, { tenantId, dataKey, logLabel: `${tenantId}/${dataKey}` });
-    } catch (e) {}
-  }
+  await pullAllFromCloud(tenantId);
 }
 
 /**
- * Pushes all local data to cloud (used when user has local data but no cloud data yet).
+ * Legacy entry point retained as a no-op. Browser data is never pushed.
  */
 async function syncLocalToCloud(tenantId: string, options: { onlyMeaningfulPayloads?: boolean } = {}): Promise<void> {
   if (!canWriteBusinessDataOnline()) {
@@ -334,20 +286,7 @@ async function syncLocalToCloud(tenantId: string, options: { onlyMeaningfulPaylo
     return;
   }
 
-  const dataKeys = [
-    'settings', 'products_map', 'sales_map', 'expenses_map',
-    'channels', 'pending_delivery_notes_map', 'purchases_map'
-  ];
-  for (const dataKey of dataKeys) {
-    try {
-      const raw = localStorage.getItem(localKey(tenantId, dataKey));
-      if (raw) {
-        const payload = JSON.parse(raw);
-        if (options.onlyMeaningfulPayloads && !payloadHasRecords(payload, tenantId)) continue;
-        await pushToCloud(tenantId, dataKey, payload);
-      }
-    } catch (e) {}
-  }
+  void options;
 }
 
 // ─── SQL to create the table ─────────────────────────────────────────────────

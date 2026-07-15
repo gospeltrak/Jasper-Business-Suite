@@ -6,7 +6,7 @@
  *    Super Admin reads who is currently online (last heartbeat < 90s ago)
  * 
  * 2. DAILY VISIT LOG — once per session per day, logs a visit record to
- *    localStorage under 'jasper_visit_log'. Super Admin reads this for
+ *    onlineStorage under 'jasper_visit_log'. Super Admin reads this for
  *    historical daily visitor reports.
  * 
  * User types: 'tenant' | 'affiliate' | 'partner'
@@ -48,7 +48,7 @@ function getTodayStr(): string {
 
 function getVisitLog(): VisitLogEntry[] {
   try {
-    const raw = localStorage.getItem(VISIT_LOG_KEY);
+    const raw = onlineStorage.getItem(VISIT_LOG_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -62,9 +62,9 @@ function saveVisitLog(log: VisitLogEntry[]): void {
     cutoff.setDate(cutoff.getDate() - 90);
     const cutoffStr = cutoff.toISOString().split('T')[0];
     const trimmed = log.filter(e => e.date >= cutoffStr);
-    localStorage.setItem(VISIT_LOG_KEY, JSON.stringify(trimmed));
+    onlineStorage.setItem(VISIT_LOG_KEY, JSON.stringify(trimmed));
   } catch {
-    // localStorage full — skip silently
+    // onlineStorage full — skip silently
   }
 }
 
@@ -89,7 +89,7 @@ function recordVisit(userId: string, userType: PresenceUserType, userName: strin
 
 function getPresenceMap(): Record<string, OnlinePresenceEntry> {
   try {
-    const raw = localStorage.getItem(PRESENCE_KEY);
+    const raw = onlineStorage.getItem(PRESENCE_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -98,7 +98,7 @@ function getPresenceMap(): Record<string, OnlinePresenceEntry> {
 
 function savePresenceMap(map: Record<string, OnlinePresenceEntry>): void {
   try {
-    localStorage.setItem(PRESENCE_KEY, JSON.stringify(map));
+    onlineStorage.setItem(PRESENCE_KEY, JSON.stringify(map));
   } catch {}
 }
 

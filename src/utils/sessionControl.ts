@@ -14,19 +14,14 @@ const withSessionTimeout = <T>(operation: PromiseLike<T>, timeoutMs: number): Pr
 const getDeviceId = () => {
   let deviceId = memoryDeviceId;
   try {
-    deviceId = deviceId || localStorage.getItem(deviceStorageKey) || sessionStorage.getItem(deviceStorageKey);
+    deviceId = deviceId || sessionStorage.getItem(deviceStorageKey);
   } catch { /* use the in-memory ID below */ }
   if (!deviceId) {
     deviceId = crypto.randomUUID();
     memoryDeviceId = deviceId;
     try {
-      localStorage.setItem(deviceStorageKey, deviceId);
-    } catch (error) {
-      // A large tenant workspace can fill localStorage. The device check must
-      // still work, so keep this tab's ID in sessionStorage without deleting data.
-      console.warn('Local storage is full; using a tab device ID.', error);
-      try { sessionStorage.setItem(deviceStorageKey, deviceId); } catch { /* memory ID remains valid for this tab */ }
-    }
+      sessionStorage.setItem(deviceStorageKey, deviceId);
+    } catch { /* memory ID remains valid for this tab */ }
   }
   memoryDeviceId = deviceId;
   return deviceId;

@@ -77,9 +77,9 @@ export default function DashboardExpenses({
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
 
-  // Load custom categories from localStorage or set defaults
+  // Load custom categories from onlineStorage or set defaults
   const [categories, setCategories] = useState<string[]>(() => {
-    const saved = localStorage.getItem(`jasper_expense_cats_${activeTenant.id}`);
+    const saved = onlineStorage.getItem(`jasper_expense_cats_${activeTenant.id}`);
     if (saved) {
       try {
         return JSON.parse(saved);

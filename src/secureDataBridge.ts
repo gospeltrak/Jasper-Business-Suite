@@ -4,8 +4,8 @@ let secureDataBridgeInstance: ReturnType<typeof createClient> | null = null;
 const PLACEHOLDER_DATA_URL = 'https://placeholder-url.supabase.co';
 const PLACEHOLDER_DATA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy';
 
-// Keep authentication outside localStorage. Large tenant workspaces can fill
-// localStorage; auth must still be able to save its token and complete login.
+// Keep authentication outside onlineStorage. Large tenant workspaces can fill
+// onlineStorage; auth must still be able to save its token and complete login.
 const browserAuthStorage = {
   getItem: (key: string) => typeof window === 'undefined' ? null : window.sessionStorage.getItem(key),
   setItem: (key: string, value: string) => {

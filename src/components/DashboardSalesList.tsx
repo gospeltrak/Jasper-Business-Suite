@@ -315,9 +315,9 @@ export default function DashboardSalesList({
     return { mainMessage, businessName, poweredBy };
   };
 
-  // Load documents from localStorage on mount
+  // Load documents from onlineStorage on mount
   const [documents, setDocuments] = useState<SalesDocument[]>(() => {
-    const cached = localStorage.getItem(`jasper_docs_${activeTenant.id}`);
+    const cached = onlineStorage.getItem(`jasper_docs_${activeTenant.id}`);
     if (cached) {
       try {
         const parsed = JSON.parse(cached) as SalesDocument[];
@@ -376,7 +376,7 @@ export default function DashboardSalesList({
     return defaultDocs;
   });
 
-  // Save documents back to localStorage whenever they change
+  // Save documents back to onlineStorage whenever they change
   useEffect(() => {
     safeSetJsonItem(`jasper_docs_${activeTenant.id}`, documents, {
       tenantId: activeTenant.id,
@@ -395,7 +395,7 @@ export default function DashboardSalesList({
 
   // Settle shift / Pay-In list states
   const [tillSettlements, setTillSettlements] = useState<TillSettlement[]>(() => {
-    const saved = localStorage.getItem(`till_settlements_${activeTenant.id}`);
+    const saved = onlineStorage.getItem(`till_settlements_${activeTenant.id}`);
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -567,10 +567,10 @@ export default function DashboardSalesList({
 
   // Real-world Settle Drawer updates
   const [openingFloatVerified, setOpeningFloatVerified] = useState(() => {
-    return localStorage.getItem(`float_verified_${activeTenant.id}`) === 'true';
+    return onlineStorage.getItem(`float_verified_${activeTenant.id}`) === 'true';
   });
   const [verifiedFloatTimestamp, setVerifiedFloatTimestamp] = useState(() => {
-    return localStorage.getItem(`float_verified_time_${activeTenant.id}`) || '';
+    return onlineStorage.getItem(`float_verified_time_${activeTenant.id}`) || '';
   });
   const [settleReceiptFile, setSettleReceiptFile] = useState<{name: string, size: string} | null>(null);
   const [settleSmsPasteText, setSettleSmsPasteText] = useState('');
@@ -589,7 +589,7 @@ export default function DashboardSalesList({
     reference: string;
     cashierName: string;
   }[]>(() => {
-    const saved = localStorage.getItem(`double_entry_ledgers_${activeTenant.id}`);
+    const saved = onlineStorage.getItem(`double_entry_ledgers_${activeTenant.id}`);
     return saved ? JSON.parse(saved) : [];
   });
 
@@ -1741,7 +1741,7 @@ export default function DashboardSalesList({
           setSettleReceiptFile(null);
           setSettleSmsPasteText('');
           setOpeningFloatVerified(false);
-          localStorage.removeItem(`float_verified_${activeTenant.id}`);
+          onlineStorage.removeItem(`float_verified_${activeTenant.id}`);
 
           setTimeout(() => {
             setSettleSuccessMsg(null);
@@ -1835,7 +1835,7 @@ export default function DashboardSalesList({
                             type="button"
                             onClick={() => {
                               setOpeningFloatVerified(false);
-                              localStorage.setItem(`float_verified_${activeTenant.id}`, 'false');
+                              onlineStorage.setItem(`float_verified_${activeTenant.id}`, 'false');
                             }}
                             className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 text-[10px] font-mono font-black uppercase rounded-lg transition-all border-none cursor-pointer"
                           >
@@ -1848,8 +1848,8 @@ export default function DashboardSalesList({
                               setOpeningFloatVerified(true);
                               const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                               setVerifiedFloatTimestamp(nowTime);
-                              localStorage.setItem(`float_verified_${activeTenant.id}`, 'true');
-                              localStorage.setItem(`float_verified_time_${activeTenant.id}`, nowTime);
+                              onlineStorage.setItem(`float_verified_${activeTenant.id}`, 'true');
+                              onlineStorage.setItem(`float_verified_time_${activeTenant.id}`, nowTime);
                             }}
                             className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 text-[10px] font-mono font-black uppercase rounded-lg transition-all border-none cursor-pointer"
                           >

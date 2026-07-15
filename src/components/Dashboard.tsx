@@ -23,7 +23,7 @@ import DashboardExpenses from './DashboardExpenses';
 import DashboardSalesList from './DashboardSalesList';
 import DashboardForecasting from './DashboardForecasting';
 import DashboardCashBank from './DashboardCashBank';
-import { saveData, syncOnLogin } from '../utils/dbSync';
+import { saveData } from '../utils/dbSync';
 import DashboardPurchases from './DashboardPurchases';
 import DashboardDeliveries from './DashboardDeliveries';
 import DashboardHotelPMS from './DashboardHotelPMS';
@@ -179,18 +179,6 @@ interface DashboardProps {
 
 import { NotificationCenterModal } from './NotificationCenterModal';
 
-const loadStoredRecord = <T,>(key: string, fallback: Record<string, T[]>): Record<string, T[]> => {
-  try {
-    const cached = localStorage.getItem(key);
-    if (!cached) return fallback;
-    const parsed = JSON.parse(cached);
-    return parsed && typeof parsed === 'object' ? { ...fallback, ...parsed } : fallback;
-  } catch (error) {
-    console.warn(`Failed to load ${key} from local storage`, error);
-    return fallback;
-  }
-};
-
 const getInitialSystemSettings = (tenant: Tenant): SystemSettings => {
   if (!isDemoTenant(tenant.id)) return createCleanTenantSettings(tenant);
 
@@ -238,7 +226,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   // Load standard + custom registered tenants dynamically
   const [tenantsList] = useState<Tenant[]>(() => {
-    const cached = localStorage.getItem('jasper_custom_tenants');
+    const cached = onlineStorage.getItem('jasper_custom_tenants');
     const parsed = cached ? JSON.parse(cached) : [];
     return [...DEFAULT_TENANTS, ...parsed];
   });
@@ -347,62 +335,24 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   const [activeTab, setActiveTab ] = useState<string>(() => {
     if (initialTab && knownDashboardTabs.has(initialTab)) return initialTab;
-    const cachedTab = localStorage.getItem(`jasper_active_dashboard_tab_${user.id}_${activeTenant.id}`);
+    const cachedTab = sessionStorage.getItem(`jasper_active_dashboard_tab_${user.id}_${activeTenant.id}`);
     if (cachedTab && knownDashboardTabs.has(cachedTab)) return cachedTab;
     return getDefaultDashboardTab();
   });
 
   useEffect(() => {
-    localStorage.setItem(`jasper_active_dashboard_tab_${user.id}_${activeTenant.id}`, activeTab);
+    sessionStorage.setItem(`jasper_active_dashboard_tab_${user.id}_${activeTenant.id}`, activeTab);
   }, [activeTab, activeTenant.id, user.id]);
 
-  // ── SYNC ON LOGIN ── Pull all data from encrypted database to localStorage on mount
-  useEffect(() => {
-    if (!activeTenant.id) return;
-    syncOnLogin(activeTenant.id).then(() => {
-      // After sync, reload data maps from localStorage (which now has database data)
-      let workspaceHasProducts = false;
-      try {
-        const workspaceCache = localStorage.getItem(`jasper_workspace_cache_${activeTenant.id}`);
-        const workspace = workspaceCache ? JSON.parse(workspaceCache) : null;
-        workspaceHasProducts = Array.isArray(workspace?.products) && workspace.products.length > 0;
-      } catch {
-        workspaceHasProducts = false;
-      }
-      const freshProducts = localStorage.getItem('jasper_products_map');
-      if (freshProducts && !workspaceHasProducts) {
-        try { setProductsMap(prev => ({ ...prev, ...JSON.parse(freshProducts) })); } catch (e) {}
-      }
-      const freshSales = localStorage.getItem('jasper_sales_map');
-      if (freshSales) {
-        try { setSalesMap(prev => ({ ...prev, ...JSON.parse(freshSales) })); } catch (e) {}
-      }
-      const freshExpenses = localStorage.getItem('jasper_expenses_map');
-      if (freshExpenses) {
-        try { setExpensesMap(prev => ({ ...prev, ...JSON.parse(freshExpenses) })); } catch (e) {}
-      }
-      const freshSettings = localStorage.getItem(`jasper_settings_${activeTenant.id}`);
-      if (freshSettings) {
-        try {
-          const parsedSettings = JSON.parse(freshSettings);
-          setSystemSettings(prev => mergeSettingsForSync(parsedSettings, prev));
-        } catch (e) {}
-      }
-    }).catch(() => {}); // Always fails gracefully — localStorage still works
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTenant.id]);
   const [actingStaffId, setActingStaffId] = useState<string>('logged-in-user');
-  const [productsMap, setProductsMap] = useState<Record<string, Product[]>>(() => loadStoredRecord<Product>('jasper_products_map', DEFAULT_PRODUCTS));
-  const [salesMap, setSalesMap] = useState<Record<string, Sale[]>>(() => loadStoredRecord<Sale>('jasper_sales_map', MOCK_SALES_HISTORY));
-  const [expensesMap, setExpensesMap] = useState<Record<string, Expense[]>>(() => loadStoredRecord<Expense>('jasper_expenses_map', MOCK_EXPENSES_HISTORY));
-  const [branchesMap, setBranchesMap] = useState<Record<string, Branch[]>>(() => loadStoredRecord<Branch>('jasper_branches_map', {}));
-  const [branchStocksMap, setBranchStocksMap] = useState<Record<string, BranchStock[]>>(() => loadStoredRecord<BranchStock>('jasper_branch_stocks_map', {}));
-  const [branchStaffAssignmentsMap, setBranchStaffAssignmentsMap] = useState<Record<string, BranchStaffAssignment[]>>(() => loadStoredRecord<BranchStaffAssignment>('jasper_branch_staff_assignments_map', {}));
+  const [productsMap, setProductsMap] = useState<Record<string, Product[]>>(() => isDemoTenant(activeTenant.id) ? DEFAULT_PRODUCTS : {});
+  const [salesMap, setSalesMap] = useState<Record<string, Sale[]>>(() => isDemoTenant(activeTenant.id) ? MOCK_SALES_HISTORY : {});
+  const [expensesMap, setExpensesMap] = useState<Record<string, Expense[]>>(() => isDemoTenant(activeTenant.id) ? MOCK_EXPENSES_HISTORY : {});
+  const [branchesMap, setBranchesMap] = useState<Record<string, Branch[]>>({});
+  const [branchStocksMap, setBranchStocksMap] = useState<Record<string, BranchStock[]>>({});
+  const [branchStaffAssignmentsMap, setBranchStaffAssignmentsMap] = useState<Record<string, BranchStaffAssignment[]>>({});
   
-  const [pendingDeliveryNotesMap, setPendingDeliveryNotesMap] = useState<Record<string, any[]>>(() => {
-    const cached = localStorage.getItem('jasper_pending_delivery_notes_map');
-    return cached ? JSON.parse(cached) : {};
-  });
+  const [pendingDeliveryNotesMap, setPendingDeliveryNotesMap] = useState<Record<string, any[]>>({});
   const [deliveriesSubTab, setDeliveriesSubTab] = useState<'queue' | 'riders' | 'notes'>('queue');
 
   const [deliveriesMap, setDeliveriesMap] = useState<Record<string, Delivery[]>>(() => ({
@@ -570,17 +520,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   }, [logs]);
 
   // Load and cache branch specific Settings
-  const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => {
-    const cached = localStorage.getItem(`jasper_settings_${activeTenant.id}`);
-    if (cached) {
-      try {
-        return JSON.parse(cached);
-      } catch (e) {
-        // Fallback below
-      }
-    }
-    return getInitialSystemSettings(activeTenant);
-  });
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => getInitialSystemSettings(activeTenant));
 
   const [preloadedCart, setPreloadedCart] = useState<{
     items: SaleItem[];
@@ -597,30 +537,13 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const skipNextWorkspaceSaveRef = useRef(false);
   const LOCAL_WORKSPACE_PROTECTION_MS = 10000; // 10s — save completes in < 5s normally
 
-  // Automatically refresh settings when pivot branch (activeTenant) updates
+  // Set safe defaults while the selected tenant workspace loads from Supabase.
   useEffect(() => {
-    const cached = localStorage.getItem(`jasper_settings_${activeTenant.id}`);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        setSystemSettings(parsed);
-        if (parsed.company?.themeMode === 'dark') {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      } catch (e) {
-        // Fallback
-      }
-    } else {
-      const freshDefaults = getInitialSystemSettings(activeTenant);
-      setSystemSettings(freshDefaults);
-      document.documentElement.classList.remove('dark');
-    }
+    setSystemSettings(getInitialSystemSettings(activeTenant));
+    document.documentElement.classList.remove('dark');
   }, [activeTenant]);
 
-  // The encrypted database is the tenant source of truth. Local storage is used
-  // only as a read cache/recovery copy and is never replayed automatically.
+  // The encrypted database is the only durable tenant source of truth.
   useEffect(() => {
     let active = true;
     let unsubscribe = () => undefined;
@@ -645,26 +568,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
       setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
       if (workspace.settings) {
-        const localSettingsRaw = localStorage.getItem(`jasper_settings_${activeTenant.id}`);
-        let settingsToApply = workspace.settings;
-        if (localSettingsRaw) {
-          try {
-            const localSettings = JSON.parse(localSettingsRaw);
-            settingsToApply = mergeSettingsForSync(localSettings, workspace.settings);
-          } catch {
-            settingsToApply = workspace.settings;
-          }
-        }
-        setSystemSettings(settingsToApply);
-        try {
-          safeSetJsonItem(`jasper_settings_${activeTenant.id}`, settingsToApply, {
-            tenantId: activeTenant.id,
-            dataKey: 'settings',
-            logLabel: `${activeTenant.id}/settings`,
-          });
-        } catch (e) {
-          // Cache write failure should not block live DB state.
-        }
+        setSystemSettings(workspace.settings);
       }
     };
 
@@ -835,7 +739,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           markTenantProductsUpdated(tid, syncUpdatedAt);
           setProductsMap(prev => ({ ...prev, [tid]: syncedProducts }));
           try {
-            const currentMap = JSON.parse(localStorage.getItem('jasper_products_map') || '{}');
+            const currentMap = JSON.parse(onlineStorage.getItem('jasper_products_map') || '{}');
             currentMap[tid] = syncedProducts;
             safeSetTenantMapItem('jasper_products_map', 'products_map', currentMap);
           } catch { /* quota */ }
@@ -903,7 +807,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   useEffect(() => {
     const fetchHotlineAssets = () => {
       // 1. Load bulletins
-      const rawBulletins = localStorage.getItem('jasper_super_admin_bulletins');
+      const rawBulletins = onlineStorage.getItem('jasper_super_admin_bulletins');
       if (rawBulletins) {
         setLocalBulletins(JSON.parse(rawBulletins));
       } else {
@@ -914,7 +818,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       }
 
       // 2. Load Offers
-      const rawOffers = localStorage.getItem('jasper_super_admin_broadcast_offers');
+      const rawOffers = onlineStorage.getItem('jasper_super_admin_broadcast_offers');
       if (rawOffers) {
         setLocalOffers(JSON.parse(rawOffers));
       } else {
@@ -925,7 +829,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       }
 
       // 3. Load Chat messages
-      const rawChats = localStorage.getItem('jasper_super_admin_hotline_chats');
+      const rawChats = onlineStorage.getItem('jasper_super_admin_hotline_chats');
       if (rawChats) {
         setConsoleChats(JSON.parse(rawChats));
       } else {
@@ -957,9 +861,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       isRead: false
     };
 
-    const currentSaved = JSON.parse(localStorage.getItem('jasper_super_admin_hotline_chats') || '[]');
+    const currentSaved = JSON.parse(onlineStorage.getItem('jasper_super_admin_hotline_chats') || '[]');
     const updated = [...currentSaved, newMsg];
-    localStorage.setItem('jasper_super_admin_hotline_chats', JSON.stringify(updated));
+    onlineStorage.setItem('jasper_super_admin_hotline_chats', JSON.stringify(updated));
     setConsoleChats(updated);
     setUserChatInput('');
   };
@@ -1150,7 +1054,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   }, [activeTenant.id]);
 
   // ── LOAD SUBSCRIPTION FROM DB ON LOGIN ──────────────────────────────────
-  // This is the source of truth — overrides localStorage with DB plan
+  // This is the source of truth — overrides onlineStorage with DB plan
   useEffect(() => {
     if (!activeTenant.id) return;
     loadSubscriptionFromDB(activeTenant.id).then(dbState => {
@@ -1158,7 +1062,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         setSubState(dbState);
       }
     }).catch(() => {
-      // Silently fall back to localStorage state — system still works offline
+      // Silently fall back to onlineStorage state — system still works offline
     });
   }, [activeTenant.id]);
 
@@ -1244,37 +1148,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   useEffect(() => {
     if (!canWriteBusinessDataOnline()) return;
-    try {
-      safeSetTenantMapItem('jasper_products_map', 'products_map', productsMap);
-    } catch (e: any) {
-      // localStorage quota exceeded — this should be rare now that product images
-      // are stored in Supabase Storage (URLs) rather than base64 in localStorage.
-      // If it still happens, log a warning but do NOT strip any data.
-      console.warn('[Jasper] localStorage quota exceeded saving products map. Consider clearing old data.', e);
-    }
-    // Keep this as a local cache write only. Product mutations call
-    // persistTenantProductsNow(...) so stale device caches cannot overwrite
-    // newer cloud products during startup/hydration.
-  }, [productsMap]);
-
-  useEffect(() => {
-    if (!canWriteBusinessDataOnline()) return;
-    safeSetTenantMapItem('jasper_branches_map', 'branches_map', branchesMap);
-  }, [branchesMap]);
-
-  useEffect(() => {
-    if (!canWriteBusinessDataOnline()) return;
-    safeSetTenantMapItem('jasper_branch_stocks_map', 'branch_stocks_map', branchStocksMap);
-  }, [branchStocksMap]);
-
-  useEffect(() => {
-    if (!canWriteBusinessDataOnline()) return;
-    safeSetTenantMapItem('jasper_branch_staff_assignments_map', 'branch_staff_assignments_map', branchStaffAssignmentsMap);
-  }, [branchStaffAssignmentsMap]);
-
-  useEffect(() => {
-    if (!canWriteBusinessDataOnline()) return;
-    safeSetTenantMapItem('jasper_sales_map', 'sales_map', salesMap);
     Object.entries(salesMap).forEach(([tid, data]) => {
       saveData(tid, 'sales_map', { [tid]: data });
     });
@@ -1282,7 +1155,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   useEffect(() => {
     if (!canWriteBusinessDataOnline()) return;
-    safeSetTenantMapItem('jasper_expenses_map', 'expenses_map', expensesMap);
     Object.entries(expensesMap).forEach(([tid, data]) => {
       saveData(tid, 'expenses_map', { [tid]: data });
     });
@@ -1434,12 +1306,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       [activeTenant.id]: syncedProducts,
     };
 
-    try {
-      safeSetTenantMapItem('jasper_products_map', 'products_map', updatedProductsMap);
-    } catch (error) {
-      console.warn('[Dashboard] Unable to cache updated products map:', error);
-    }
-
     markTenantProductsUpdated(activeTenant.id, syncUpdatedAt);
     saveData(activeTenant.id, 'products_map', { [activeTenant.id]: syncedProducts });
     localWorkspaceChangedAtRef.current = Date.now();
@@ -1475,11 +1341,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     setSystemSettings(syncedSettings);
-    safeSetJsonItem(`jasper_settings_${activeTenant.id}`, syncedSettings, {
-      tenantId: activeTenant.id,
-      dataKey: 'settings',
-      logLabel: `${activeTenant.id}/settings`,
-    });
     saveData(activeTenant.id, 'settings', syncedSettings);
     return syncedSettings;
   };
@@ -2347,7 +2208,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   if (!logo) {
                     // Check cached settings for business logo (offline fallback)
                     try {
-                      const pSet = JSON.parse(localStorage.getItem(`jasper_settings_${activeTenant.id}`) || 'null');
+                      const pSet = JSON.parse(onlineStorage.getItem(`jasper_settings_${activeTenant.id}`) || 'null');
                       if (pSet) {
                         logo = isDark
                           ? (pSet?.business?.businessLogoDark || pSet?.business?.businessLogoLight || pSet?.business?.businessLogo || null)
@@ -2545,7 +2406,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   if (!logo) {
                     // Check cached settings for business logo (offline fallback)
                     try {
-                      const pSet = JSON.parse(localStorage.getItem(`jasper_settings_${activeTenant.id}`) || 'null');
+                      const pSet = JSON.parse(onlineStorage.getItem(`jasper_settings_${activeTenant.id}`) || 'null');
                       if (pSet) {
                         logo = isDark
                           ? (pSet?.business?.businessLogoDark || pSet?.business?.businessLogoLight || pSet?.business?.businessLogo || null)
@@ -3067,7 +2928,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   logoToSave = syncedSettings.business.businessLogo;
                 }
                 if (logoToSave) {
-                  localStorage.setItem(`jasper_tenant_logo_${activeTenant.id}`, logoToSave);
+                  onlineStorage.setItem(`jasper_tenant_logo_${activeTenant.id}`, logoToSave);
                   setActiveTenant(prev => ({
                     ...prev,
                     company_settings: {

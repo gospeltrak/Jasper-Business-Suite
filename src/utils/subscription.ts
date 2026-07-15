@@ -231,7 +231,7 @@ export async function loadSubscriptionFromDB(tenantId: string): Promise<Subscrip
 
 
 export function getSubscriptionState(): SubscriptionState {
-  const cached = localStorage.getItem('jasper_subscription_state');
+  const cached = onlineStorage.getItem('jasper_subscription_state');
   if (cached) {
     try {
       const parsed = JSON.parse(cached);
@@ -248,12 +248,12 @@ export function getSubscriptionState(): SubscriptionState {
     autoRenewEnabled: true,
     paymentStatus: 'active'
   };
-  localStorage.setItem('jasper_subscription_state', JSON.stringify(defaultState));
+  onlineStorage.setItem('jasper_subscription_state', JSON.stringify(defaultState));
   return defaultState;
 }
 
 export function saveSubscriptionState(state: SubscriptionState) {
-  localStorage.setItem('jasper_subscription_state', JSON.stringify({
+  onlineStorage.setItem('jasper_subscription_state', JSON.stringify({
     ...state,
     planId: normalizeSubscriptionPlanId(state.planId)
   }));

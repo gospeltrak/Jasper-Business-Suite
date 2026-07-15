@@ -3,7 +3,7 @@
  * 
  * Stores SaaS platform data (hardware inventory, POS products, sales, etc.)
  * directly in Supabase tenant_data table using 'saas-global' as the tenant_id.
- * Online-only writes: localStorage is read/cache only and offline queues are
+ * Online-only writes: onlineStorage is read/cache only and offline queues are
  * preserved for manual audit instead of replayed automatically.
  */
 
@@ -12,7 +12,7 @@ import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline, warnOfflineWrite
 
 const GLOBAL_SCOPE = 'saas-global';
 
-// ─── localStorage cache key ─────────────────────────────────────────────────
+// ─── onlineStorage cache key ─────────────────────────────────────────────────
 function localKey(recordType: string, scopeId: string): string {
   return `jasper_platform_${recordType}_${scopeId}`;
 }
@@ -64,7 +64,7 @@ async function fetchSuperAdminPlatformRecord<T>(recordType: string, scopeId: str
   }
 }
 
-// ─── Load from Supabase, fallback to localStorage cache ─────────────────────
+// ─── Load from Supabase, fallback to onlineStorage cache ─────────────────────
 export async function loadPlatformRecord<T>(
   recordType: string,
   scopeId = GLOBAL_SCOPE,
@@ -76,7 +76,7 @@ export async function loadPlatformRecord<T>(
     ?? await fetchSuperAdminPlatformRecord<T>(recordType, scope);
   if (serverRecord !== undefined && serverRecord !== null) {
     try {
-      localStorage.setItem(localKey(recordType, scope), JSON.stringify(serverRecord));
+      onlineStorage.setItem(localKey(recordType, scope), JSON.stringify(serverRecord));
     } catch { /* storage full */ }
     return serverRecord as T;
   }
@@ -93,24 +93,24 @@ export async function loadPlatformRecord<T>(
       .maybeSingle();
 
     if (!error && data?.payload !== undefined) {
-      // Cache to localStorage for fast reads only.
+      // Cache to onlineStorage for fast reads only.
       try {
-        localStorage.setItem(localKey(recordType, scope), JSON.stringify(data.payload));
+        onlineStorage.setItem(localKey(recordType, scope), JSON.stringify(data.payload));
       } catch { /* storage full */ }
       return data.payload as T;
     }
   } catch { /* offline */ }
 
-  // Read-only fallback to existing localStorage cache.
+  // Read-only fallback to existing onlineStorage cache.
   try {
-    const cached = localStorage.getItem(localKey(recordType, scope));
+    const cached = onlineStorage.getItem(localKey(recordType, scope));
     if (cached) return JSON.parse(cached) as T;
   } catch { /* parse error */ }
 
   return fallback;
 }
 
-// ─── Save to Supabase, then refresh localStorage cache ──────────────────────
+// ─── Save to Supabase, then refresh onlineStorage cache ──────────────────────
 export async function savePlatformRecord<T>(
   recordType: string,
   scopeId: string,
@@ -143,7 +143,7 @@ export async function savePlatformRecord<T>(
     if (!res.ok) throw new Error(data?.error || 'Platform record could not be saved.');
     const saved = (data?.record?.payload ?? value) as T;
     try {
-      localStorage.setItem(localKey(recordType, scope), JSON.stringify(saved));
+      onlineStorage.setItem(localKey(recordType, scope), JSON.stringify(saved));
     } catch { /* storage full */ }
     return saved;
   } catch (error) {
@@ -154,7 +154,7 @@ export async function savePlatformRecord<T>(
   return value;
 }
 
-// ─── Delete from Supabase and localStorage ────────────────────────────────
+// ─── Delete from Supabase and onlineStorage ────────────────────────────────
 export async function deletePlatformRecord(
   recordType: string,
   scopeId = GLOBAL_SCOPE
@@ -175,7 +175,7 @@ export async function deletePlatformRecord(
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!res.ok) throw new Error('Platform record could not be deleted securely.');
-    localStorage.removeItem(localKey(recordType, scopeId));
+    onlineStorage.removeItem(localKey(recordType, scopeId));
   } catch (error) {
     console.warn('[platform-records] secure delete failed:', error);
     throw error instanceof Error ? error : new Error('Platform record could not be deleted securely.');

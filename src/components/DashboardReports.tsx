@@ -2642,7 +2642,7 @@ export default function DashboardReports({
               )}
 
               {reportTab === 'stock-adjustment' && (() => {
-                const allAdjustments: any[] = JSON.parse(localStorage.getItem('jasper_stock_adjustments') || '[]');
+                const allAdjustments: any[] = JSON.parse(onlineStorage.getItem('jasper_stock_adjustments') || '[]');
                 const startTs = new Date(startDateStr).setHours(0,0,0,0);
                 const endTs = new Date(endDateStr).setHours(23,59,59,999);
                 const adjustments = allAdjustments.filter((a: any) => {

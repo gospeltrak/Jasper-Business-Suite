@@ -669,7 +669,7 @@ export default function DashboardOverview({
               : (biz?.businessLogoLight || biz?.businessLogoDark || biz?.businessLogo || null);
             if (!logo) {
               try {
-                const pSet = JSON.parse(localStorage.getItem(`jasper_settings_${tenantId}`) || 'null');
+                const pSet = JSON.parse(onlineStorage.getItem(`jasper_settings_${tenantId}`) || 'null');
                 if (pSet) {
                   logo = isDark
                     ? (pSet?.business?.businessLogoDark || pSet?.business?.businessLogoLight || pSet?.business?.businessLogo || null)

@@ -189,7 +189,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     // On mount: purge any demo/test entries from saas_immersive_affiliates.
     // These accumulate from AffiliatePortal admin forms during testing/demo sessions
     // (e.g. Ema Tunde, John Tunde, Sarah Tunde, Jane Tunde).
-    // The real source of truth is Supabase — localStorage is not used for sub-affiliates.
+    // The real source of truth is Supabase — onlineStorage is not used for sub-affiliates.
     initOfflineSync();
     const up   = () => { setIsNetworkOnline(true);  flushSyncQueue(); };
     const down = () => setIsNetworkOnline(false);
@@ -213,7 +213,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     }
     const cleaned = newCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     if (!cleaned) { setCodeError('Code must contain letters or numbers only.'); return; }
-    const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
+    const all: any[] = JSON.parse(onlineStorage.getItem('saas_immersive_affiliates') || '[]');
     const taken = all.some((a: any) => a.promoCode?.toUpperCase() === cleaned && a.id !== partnerId);
     if (taken) {
       const sugg: string[] = [];
@@ -261,13 +261,13 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         return;
       }
     }
-    // Update localStorage — both stores
+    // Update onlineStorage — both stores
     const updated = all.map((a: any) => a.id === partnerId ? { ...a, promoCode: cleaned, promoCodeLocked: true } : a);
-    localStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
-    const savedAff = JSON.parse(localStorage.getItem('jasper_logged_affiliate') || '{}');
+    onlineStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
+    const savedAff = JSON.parse(onlineStorage.getItem('jasper_logged_affiliate') || '{}');
     savedAff.promoCode = cleaned;
     savedAff.promoCodeLocked = true;
-    localStorage.setItem('jasper_logged_affiliate', JSON.stringify(savedAff));
+    onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(savedAff));
     // Update React state immediately — no refresh needed
     setPartnerInfo({ ...savedAff });
     setNotice(`✅ Partner code updated to ${cleaned}. This was your one-time edit — it is now locked.`);
@@ -276,7 +276,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     setCodeSuggestions([]);
   };
 
-  // Sub-affiliates from localStorage (real data)
+  // Sub-affiliates from onlineStorage (real data)
   const [subAffiliates, setSubAffiliates] = useState<SubAffiliateProfile[]>([]);
   const [customers, setCustomers] = useState<ReferredTenantRow[]>([]);
   const [recon, setRecon] = useState<MonthlyReconciliationRow[]>([]);
@@ -312,7 +312,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   // Partner identity — useState so it updates immediately after code change
   const [partnerInfo, setPartnerInfo] = useState<any>(() => {
     try {
-      const s = localStorage.getItem('jasper_logged_affiliate');
+      const s = onlineStorage.getItem('jasper_logged_affiliate');
       if (s) return JSON.parse(s);
     } catch {}
     return {};
@@ -324,7 +324,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     const prefsKey = `jasper_partner_preferences_${partnerInfo?.id || 'local'}`;
     let savedPrefs = partnerPrefs;
     try {
-      savedPrefs = { ...partnerPrefs, ...JSON.parse(localStorage.getItem(prefsKey) || '{}') };
+      savedPrefs = { ...partnerPrefs, ...JSON.parse(onlineStorage.getItem(prefsKey) || '{}') };
     } catch {}
     setPartnerProfileDraft({
       name: partnerInfo?.name || '',
@@ -356,7 +356,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           profile = data;
         }
 
-        // Try 2: Match by promo_code saved in localStorage (after localStorage login)
+        // Try 2: Match by promo_code saved in onlineStorage (after onlineStorage login)
         if (!profile && partnerInfo?.promoCode) {
           const { data } = await client.from('affiliate_partners')
             .select(cols)
@@ -389,7 +389,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             paymentMethod: profile.payout_method,
           };
           setPartnerInfo(updated);
-          localStorage.setItem('jasper_logged_affiliate', JSON.stringify(updated));
+          onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(updated));
         }
       } catch { /* Cloud profile unavailable; keep the last confirmed session cache. */ }
     };
@@ -439,8 +439,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       }
     }
     setPartnerInfo(updated);
-    localStorage.setItem('jasper_logged_affiliate', JSON.stringify(updated));
-    localStorage.setItem(`jasper_partner_preferences_${partnerId}`, JSON.stringify(partnerPrefs));
+    onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(updated));
+    onlineStorage.setItem(`jasper_partner_preferences_${partnerId}`, JSON.stringify(partnerPrefs));
     setNotice(partnerId && partnerId !== 'partner-local' ? 'Profile settings saved.' : 'Profile settings saved on this device.');
   };
 
@@ -552,8 +552,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       mapped = uniqueBySubAffiliate(dbRows.map(mapDbAffiliate));
     } catch { /* offline — DB unavailable, show empty state */ }
 
-    // localStorage is intentionally NOT used as a sub-affiliate source.
-    // localStorage may contain old demo/test entries (Ema Tunde, John Tunde,
+    // onlineStorage is intentionally NOT used as a sub-affiliate source.
+    // onlineStorage may contain old demo/test entries (Ema Tunde, John Tunde,
     // Sarah Tunde, Jane Tunde, etc.) written by AffiliatePortal during demos.
     // Only Supabase DB data is trusted. If DB returns zero rows, show empty state.
 
@@ -803,13 +803,13 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
     // Confirmed in Supabase; local cache can now follow.
     try {
-      const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
+      const all: any[] = JSON.parse(onlineStorage.getItem('saas_immersive_affiliates') || '[]');
       const updated = all.map(a =>
         a.id === aff.id
           ? { ...a, isDisabled: newIsDisabled, status: action === 'activate' ? 'Active' : action }
           : a
       );
-      localStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
+      onlineStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
     } catch {}
 
     setSubAffiliates(prev =>
@@ -852,13 +852,13 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
     // Confirmed in Supabase; local cache can now follow.
     try {
-      const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
+      const all: any[] = JSON.parse(onlineStorage.getItem('saas_immersive_affiliates') || '[]');
       const updated = all.map(a =>
         a.id === editModal.id
           ? { ...a, name: editName, phone: editPhone, payoutPhone: editPayoutPhone, paymentMethod: editPayoutMethod }
           : a
       );
-      localStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
+      onlineStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
     } catch {}
     setSubAffiliates(prev =>
       prev.map(a => a.id === editModal.id
@@ -896,9 +896,9 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
     // Confirmed in Supabase; keep a local copy for quick reference.
     try {
-      const logs: any[] = JSON.parse(localStorage.getItem('mirror_access_logs') || '[]');
+      const logs: any[] = JSON.parse(onlineStorage.getItem('mirror_access_logs') || '[]');
       logs.unshift(logEntry);
-      localStorage.setItem('mirror_access_logs', JSON.stringify(logs.slice(0, 500)));
+      onlineStorage.setItem('mirror_access_logs', JSON.stringify(logs.slice(0, 500)));
     } catch {}
     setMirrorTarget(aff);
   };

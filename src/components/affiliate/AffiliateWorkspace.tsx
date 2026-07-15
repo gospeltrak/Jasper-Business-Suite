@@ -172,13 +172,13 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
       return;
     }
     // Confirmed in Supabase; local cache can now follow.
-    const all: any[] = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
+    const all: any[] = JSON.parse(onlineStorage.getItem('saas_immersive_affiliates') || '[]');
     const updated = all.map((a: any) => a.id === workspace.profile.id ? { ...a, promoCode: cleaned } : a);
-    localStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
-    const savedAff = JSON.parse(localStorage.getItem('jasper_logged_affiliate') || '{}');
+    onlineStorage.setItem('saas_immersive_affiliates', JSON.stringify(updated));
+    const savedAff = JSON.parse(onlineStorage.getItem('jasper_logged_affiliate') || '{}');
     if (savedAff.id === workspace.profile.id) {
       savedAff.promoCode = cleaned;
-      localStorage.setItem('jasper_logged_affiliate', JSON.stringify(savedAff));
+      onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(savedAff));
     }
     setSavedCode(cleaned); // update display immediately
     setNotice(`✅ Promo code updated to ${cleaned}`);
@@ -208,7 +208,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
     const prefsKey = `jasper_affiliate_preferences_${workspace.profile.id}`;
     let savedPrefs = profilePrefs;
     try {
-      savedPrefs = { ...profilePrefs, ...JSON.parse(localStorage.getItem(prefsKey) || '{}') };
+      savedPrefs = { ...profilePrefs, ...JSON.parse(onlineStorage.getItem(prefsKey) || '{}') };
     } catch {}
     setProfileDraft({
       displayName: workspace.profile.display_name || '',
@@ -373,7 +373,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
       setNotice(result.error || ONLINE_ONLY_WRITE_MESSAGE);
       return;
     }
-    localStorage.setItem(prefsKey, JSON.stringify(profilePrefs));
+    onlineStorage.setItem(prefsKey, JSON.stringify(profilePrefs));
     setWorkspace({
       ...workspace,
       profile: {

@@ -28,48 +28,17 @@ export interface TenantWorkspace {
   productTombstones?: Record<string, string>;
 }
 
-// ─── Local cache helpers ────────────────────────────────────────────────────
+// ─── Runtime state helpers ──────────────────────────────────────────────────
 
-const cacheKey   = (tid: string) => `jasper_workspace_cache_${tid}`;
-const pendingKey = (tid: string) => `jasper_workspace_pending_sync_${tid}`;
-const productsUpdatedAtKey = (tid: string) => `jasper_products_map_updated_at_${tid}`;
-const backupIndexKey = (tid: string) => `jasper_workspace_backups_${tid}`;
-const backupItemKey = (tid: string, stamp: string) => `jasper_workspace_backup_${tid}_${stamp}`;
-const backupLastKey = (tid: string, reason: string) => `jasper_workspace_backup_last_${tid}_${reason}`;
+const runtimeWorkspaces = new Map<string, TenantWorkspace>();
+const runtimeProductsUpdatedAt = new Map<string, string>();
 
 export const readCachedWorkspace = (tenantId: string): TenantWorkspace | null => {
-  try {
-    const stored = localStorage.getItem(cacheKey(tenantId));
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
+  return runtimeWorkspaces.get(tenantId) || null;
 };
 
 const cacheWorkspace = (tenantId: string, workspace: TenantWorkspace) => {
-  try {
-    const current = readCachedWorkspace(tenantId);
-    if (workspaceHasBusinessData(current)) writeLocalWorkspaceBackup(tenantId, current as TenantWorkspace, 'local-cache');
-    localStorage.setItem(cacheKey(tenantId), JSON.stringify(workspace));
-  } catch { /* storage full — ignore */ }
-};
-
-const writeLocalWorkspaceBackup = (tenantId: string, workspace: TenantWorkspace, reason: string) => {
-  try {
-    const lastKey = backupLastKey(tenantId, reason);
-    const last = Number(localStorage.getItem(lastKey) || 0);
-    if (Date.now() - last < 10 * 60 * 1000) return;
-
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const key = backupItemKey(tenantId, stamp);
-    localStorage.setItem(key, JSON.stringify({ reason, createdAt: new Date().toISOString(), workspace }));
-    localStorage.setItem(lastKey, String(Date.now()));
-
-    const rawIndex = localStorage.getItem(backupIndexKey(tenantId));
-    const index: string[] = rawIndex ? JSON.parse(rawIndex) : [];
-    const next = [key, ...index.filter((entry) => entry !== key)];
-    localStorage.setItem(backupIndexKey(tenantId), JSON.stringify(next));
-  } catch { /* storage full or unavailable — skip backup */ }
+  runtimeWorkspaces.set(tenantId, workspace);
 };
 
 const normalizeWorkspace = (workspace: Partial<TenantWorkspace> | null | undefined): TenantWorkspace | null => {
@@ -95,31 +64,13 @@ const scopedArray = (payload: any, tenantId: string): any[] => {
   return [];
 };
 
-const readLocalProductsMap = (tenantId: string): Product[] => {
-  try {
-    const raw = localStorage.getItem('jasper_products_map');
-    const parsed = raw ? JSON.parse(raw) : null;
-    return Array.isArray(parsed?.[tenantId]) ? parsed[tenantId] : [];
-  } catch {
-    return [];
-  }
-};
-
 const readLocalProductsUpdatedAt = (tenantId: string): string | null => {
-  try {
-    return localStorage.getItem(productsUpdatedAtKey(tenantId));
-  } catch {
-    return null;
-  }
+  return runtimeProductsUpdatedAt.get(tenantId) || null;
 };
 
 export const markTenantProductsUpdated = (tenantId: string, updatedAt = new Date().toISOString()) => {
   if (!tenantId) return;
-  try {
-    localStorage.setItem(productsUpdatedAtKey(tenantId), updatedAt);
-  } catch {
-    // Local metadata must never block the actual product save.
-  }
+  runtimeProductsUpdatedAt.set(tenantId, updatedAt);
 };
 
 const isNewerTimestamp = (candidate?: string | null, baseline?: string | null): boolean => {
@@ -128,34 +79,6 @@ const isNewerTimestamp = (candidate?: string | null, baseline?: string | null): 
   const candidateTime = new Date(candidate).getTime();
   const baselineTime = new Date(baseline).getTime();
   return Number.isFinite(candidateTime) && (!Number.isFinite(baselineTime) || candidateTime > baselineTime);
-};
-
-const reconcileLocalProductCache = (
-  tenantId: string,
-  workspace: TenantWorkspace,
-  cloudUpdatedAt?: string | null,
-): TenantWorkspace => {
-  const localProducts = readLocalProductsMap(tenantId);
-  const localProductsUpdatedAt = readLocalProductsUpdatedAt(tenantId);
-  const tombstones = mergeProductTombstones(workspace.productTombstones, readLocalProductTombstones(tenantId));
-  const mergedProducts = mergeProductsForSync(localProducts, workspace.products || [], tombstones);
-  const productsChanged = JSON.stringify(mergedProducts) !== JSON.stringify(workspace.products || []);
-  const tombstonesChanged = JSON.stringify(tombstones) !== JSON.stringify(workspace.productTombstones || {});
-  if (!productsChanged && !tombstonesChanged) return workspace;
-
-  if (
-    localProducts.length > 0
-    && isNewerTimestamp(localProductsUpdatedAt, cloudUpdatedAt)
-    && !isProductPayloadQualityDowngrade(localProducts, workspace.products || [])
-    && !isProductPayloadDestructiveShrink(localProducts, workspace.products || [])
-  ) {
-    return {
-      ...workspace,
-      products: mergedProducts,
-      productTombstones: tombstones,
-    };
-  }
-  return { ...workspace, products: mergedProducts, productTombstones: tombstones };
 };
 
 export const workspaceHasBusinessData = (workspace: Partial<TenantWorkspace> | null | undefined): boolean => {
@@ -360,12 +283,10 @@ async function saveRemoteWorkspaceBackup(
 
 export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorkspace | null> {
   if (!tenantId) return null;
-  const fallback = readCachedWorkspace(tenantId);
-
-  if (!isBrowserOnline()) return fallback;
+  if (!isBrowserOnline()) return null;
 
   const client = await getConfiguredClient();
-  if (!client) return fallback;
+  if (!client) return null;
 
   try {
     const { data, error } = await client
@@ -376,7 +297,7 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 
     if (error) {
       console.warn('[workspace] load error:', error.message);
-      return fallback;
+      return null;
     }
 
     if (!data?.payload) {
@@ -391,11 +312,11 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
         cacheWorkspace(tenantId, legacy);
         return legacy;
       }
-      return fallback;
+      return null;
     }
 
     const safe = normalizeWorkspace(data.payload as TenantWorkspace);
-    if (!safe) return fallback;
+    if (!safe) return null;
     // Online-only mode: do not push browser-local product cache into the
     // canonical cloud workspace during load. Cloud remains the source of truth.
     if (!workspaceHasBusinessData(safe)) {
@@ -436,15 +357,11 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
         return reconciled;
       }
     }
-    if (!workspaceHasBusinessData(safe) && workspaceHasBusinessData(fallback)) {
-      console.warn('[workspace] cloud workspace is empty; showing local cache read-only without pushing it to cloud');
-      return fallback;
-    }
     cacheWorkspace(tenantId, safe);
     return safe;
   } catch (e) {
     console.warn('[workspace] load exception:', e);
-    return fallback;
+    return null;
   }
 }
 
@@ -569,11 +486,7 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
 // ─── Flush pending (called when going online) ──────────────────────────────
 
 export async function flushPendingTenantWorkspace(tenantId: string): Promise<void> {
-  if (!tenantId) return;
-  if (!canWriteBusinessDataOnline()) return;
-  const pendingRaw = localStorage.getItem(pendingKey(tenantId));
-  if (!pendingRaw) return;
-  warnOfflineWriteBlocked(`flushPendingTenantWorkspace:legacy-queue:${tenantId}`);
+  void tenantId;
 }
 
 // ─── Real-time subscription ─────────────────────────────────────────────────

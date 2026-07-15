@@ -174,8 +174,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   useEffect(() => {
     // Load dynamic SSP banners from admin platform
     const savedBanners =
-      localStorage.getItem("saas_promotional_banners") ||
-      localStorage.getItem("saas_ops_banners");
+      onlineStorage.getItem("saas_promotional_banners") ||
+      onlineStorage.getItem("saas_ops_banners");
     if (savedBanners) {
       try {
         const parsed = JSON.parse(savedBanners);
@@ -187,8 +187,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     }
 
     try {
-      const savedTutorials = localStorage.getItem("saas_training_tutorials");
-      const savedAssignments = localStorage.getItem("saas_tutorial_assignments");
+      const savedTutorials = onlineStorage.getItem("saas_training_tutorials");
+      const savedAssignments = onlineStorage.getItem("saas_tutorial_assignments");
       setTutorialLibrary(savedTutorials ? JSON.parse(savedTutorials) : []);
       setTutorialAssignments(savedAssignments ? JSON.parse(savedAssignments) : []);
     } catch (error) {
@@ -249,7 +249,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
   const getPartnersCount = () => {
     try {
-      const raw = localStorage.getItem("saas_immersive_affiliates") || "[]";
+      const raw = onlineStorage.getItem("saas_immersive_affiliates") || "[]";
       const list = JSON.parse(raw);
       return list.filter((a: any) => a.isSuper === true || a.isSuper === "true").length;
     } catch (e) {
@@ -258,7 +258,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   };
 
   const getPartnerCapacity = () => {
-    const saved = localStorage.getItem('jasper_partner_capacity');
+    const saved = onlineStorage.getItem('jasper_partner_capacity');
     return saved ? parseInt(saved, 10) : 5;
   };
 
@@ -279,14 +279,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       return;
     }
 
-    const currentWaitlist = JSON.parse(localStorage.getItem('jasper_partner_waitlist') || '[]');
+    const currentWaitlist = JSON.parse(onlineStorage.getItem('jasper_partner_waitlist') || '[]');
     const newEntry = {
       fullName: waitlistName.trim(),
       phoneNumber: phoneNo,
       addedAt: new Date().toISOString().split('T')[0]
     };
     currentWaitlist.push(newEntry);
-    localStorage.setItem('jasper_partner_waitlist', JSON.stringify(currentWaitlist));
+    onlineStorage.setItem('jasper_partner_waitlist', JSON.stringify(currentWaitlist));
 
     // Dispatch update notification so active admin views refresh immediately!
     window.dispatchEvent(new Event('jasper_partner_waitlist_updated'));
@@ -348,7 +348,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [sublineMessagesHistory, setSublineMessagesHistory] = useState<any[]>(
     () => {
       try {
-        const cached = localStorage.getItem("saas_subline_messages");
+        const cached = onlineStorage.getItem("saas_subline_messages");
         return cached ? JSON.parse(cached) : [];
       } catch {
         return [];
@@ -375,7 +375,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     };
     const nextAssignments = [assignment, ...tutorialAssignments];
     setTutorialAssignments(nextAssignments);
-    localStorage.setItem("saas_tutorial_assignments", JSON.stringify(nextAssignments));
+    onlineStorage.setItem("saas_tutorial_assignments", JSON.stringify(nextAssignments));
     alert(`Tutorial sent to ${child.name}.`);
   };
 
@@ -471,12 +471,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   // Click counter — real data only, no demo fallback
   const [clicksCount, setClicksCount] = useState<number>(() => {
     try {
-      const cached = localStorage.getItem("jasper_logged_affiliate");
+      const cached = onlineStorage.getItem("jasper_logged_affiliate");
       if (cached) {
         const aff = JSON.parse(cached);
         const code = aff.promoCode || "";
         const storageKey = `jasper_clicks_${code}`;
-        const savedClicks = localStorage.getItem(storageKey);
+        const savedClicks = onlineStorage.getItem(storageKey);
         if (savedClicks !== null) {
           return Number(savedClicks);
         }
@@ -489,7 +489,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [claimsReloader, setClaimsReloader] = useState(0);
   const [subscribers, setSubscribers] = useState(() => {
     try {
-      const referralLedger = JSON.parse(localStorage.getItem("jasper_referral_ledger") || "[]");
+      const referralLedger = JSON.parse(onlineStorage.getItem("jasper_referral_ledger") || "[]");
       const mappedLedger = referralLedger.map((r: any) => ({
         id: r.id,
         storeName: r.subscriberName,
@@ -512,7 +512,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       alert(ONLINE_ONLY_WRITE_MESSAGE);
       return false;
     }
-    localStorage.setItem("saas_immersive_affiliates", JSON.stringify(nextList));
+    onlineStorage.setItem("saas_immersive_affiliates", JSON.stringify(nextList));
     // Trigger internal dispatch to update claims/counts
     window.dispatchEvent(new CustomEvent("saas_claims_reload"));
     return true;
@@ -527,7 +527,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       return;
     }
 
-    const raw = localStorage.getItem("saas_immersive_affiliates");
+    const raw = onlineStorage.getItem("saas_immersive_affiliates");
     let list: any[] = [];
     if (raw) {
       try {
@@ -590,7 +590,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       return;
     }
 
-    const raw = localStorage.getItem("saas_immersive_affiliates");
+    const raw = onlineStorage.getItem("saas_immersive_affiliates");
     let list: any[] = [];
     if (raw) {
       try {
@@ -643,7 +643,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       return;
     }
 
-    const raw = localStorage.getItem("saas_immersive_affiliates");
+    const raw = onlineStorage.getItem("saas_immersive_affiliates");
     let list: any[] = [];
     if (raw) {
       try {
@@ -660,7 +660,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     const action = currentlyDisabled ? 'enable' : 'disable';
     if (!confirm(`Are you sure you want to ${action} ${name}? ${currentlyDisabled ? 'They will be able to use their promo code again.' : 'Their promo code will be deactivated and they will not be able to earn commissions.'}`)) return;
 
-    const raw = localStorage.getItem("saas_immersive_affiliates");
+    const raw = onlineStorage.getItem("saas_immersive_affiliates");
     let list: any[] = [];
     if (raw) { try { list = JSON.parse(raw); } catch {} }
 
@@ -696,7 +696,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
     const nextHistory = [newMsg, ...sublineMessagesHistory];
     setSublineMessagesHistory(nextHistory);
-    localStorage.setItem("saas_subline_messages", JSON.stringify(nextHistory));
+    onlineStorage.setItem("saas_subline_messages", JSON.stringify(nextHistory));
 
     setSublineDirectMessage("");
     setShowSendMessageModal(false);
@@ -733,7 +733,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     };
   }, [isConferenceActive, videoHostMutedAll, conferenceMembers]);
 
-  // Read/Write affiliates to localStorage to make it 100% active and integrated
+  // Read/Write affiliates to onlineStorage to make it 100% active and integrated
   useEffect(() => {
     const handleClaimsReload = () => {
       setClaimsReloader((prev) => prev + 1);
@@ -746,7 +746,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   useEffect(() => {
     // Affiliate dashboards are database-backed. Old browser-only demo sessions
     // must not reopen the legacy dashboard or show disconnected affiliate data.
-    localStorage.removeItem("jasper_logged_affiliate");
+    onlineStorage.removeItem("jasper_logged_affiliate");
   }, []);
 
 	  const handleUpdatePromoCode = async (e: React.FormEvent) => {
@@ -762,8 +762,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 	    }
 
     // Check all existing promo codes across both stores
-    const existingAffs = JSON.parse(localStorage.getItem("jasper_affiliates") || "[]");
-    const immersiveList = JSON.parse(localStorage.getItem("saas_immersive_affiliates") || "[]");
+    const existingAffs = JSON.parse(onlineStorage.getItem("jasper_affiliates") || "[]");
+    const immersiveList = JSON.parse(onlineStorage.getItem("saas_immersive_affiliates") || "[]");
     const allCodes = new Set([
       ...existingAffs.map((a: any) => a.promoCode?.toUpperCase()),
       ...immersiveList.map((a: any) => a.promoCode?.toUpperCase()),
@@ -819,7 +819,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       promoCode: cleaned
     };
     setActiveAffiliate(updatedAffiliate);
-    localStorage.setItem("jasper_logged_affiliate", JSON.stringify(updatedAffiliate));
+    onlineStorage.setItem("jasper_logged_affiliate", JSON.stringify(updatedAffiliate));
 
     // Update in jasper_affiliates
     const nextAffiliates = existingAffs.map((a: any) => {
@@ -828,10 +828,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       }
       return a;
     });
-    localStorage.setItem("jasper_affiliates", JSON.stringify(nextAffiliates));
+    onlineStorage.setItem("jasper_affiliates", JSON.stringify(nextAffiliates));
 
     // Update in saas_immersive_affiliates
-    const immersiveCached = localStorage.getItem("saas_immersive_affiliates");
+    const immersiveCached = onlineStorage.getItem("saas_immersive_affiliates");
     if (immersiveCached) {
       try {
         const list = JSON.parse(immersiveCached);
@@ -845,7 +845,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           }
           return a;
         });
-        localStorage.setItem("saas_immersive_affiliates", JSON.stringify(updatedList));
+        onlineStorage.setItem("saas_immersive_affiliates", JSON.stringify(updatedList));
       } catch (err) {}
     }
 
@@ -859,14 +859,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     }));
 
     try {
-      const referralLedger = JSON.parse(localStorage.getItem("jasper_referral_ledger") || "[]");
+      const referralLedger = JSON.parse(onlineStorage.getItem("jasper_referral_ledger") || "[]");
       const updatedLedger = referralLedger.map((r: any) => {
         if (r.affiliateCode && r.affiliateCode.trim().toUpperCase() === oldCode.trim().toUpperCase()) {
           return { ...r, affiliateCode: cleaned };
         }
         return r;
       });
-      localStorage.setItem("jasper_referral_ledger", JSON.stringify(updatedLedger));
+      onlineStorage.setItem("jasper_referral_ledger", JSON.stringify(updatedLedger));
     } catch (err) {}
 
 	    setIsEditingPromo(false);
@@ -959,10 +959,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         tinNumber: tinNumber || '',
         payoutPhone: payoutPhone || phone,
       };
-      const existing = JSON.parse(localStorage.getItem("jasper_affiliates") || "[]").filter((item: any) => item.id !== mappedAffiliate.id);
-      localStorage.setItem("jasper_affiliates", JSON.stringify([mappedAffiliate, ...existing]));
-      const immersive = JSON.parse(localStorage.getItem("saas_immersive_affiliates") || "[]").filter((item: any) => item.id !== mappedAffiliate.id);
-      localStorage.setItem("saas_immersive_affiliates", JSON.stringify([{
+      const existing = JSON.parse(onlineStorage.getItem("jasper_affiliates") || "[]").filter((item: any) => item.id !== mappedAffiliate.id);
+      onlineStorage.setItem("jasper_affiliates", JSON.stringify([mappedAffiliate, ...existing]));
+      const immersive = JSON.parse(onlineStorage.getItem("saas_immersive_affiliates") || "[]").filter((item: any) => item.id !== mappedAffiliate.id);
+      onlineStorage.setItem("saas_immersive_affiliates", JSON.stringify([{
         ...mappedAffiliate,
         status: 'Active',
         joinedDate: new Date().toISOString().split('T')[0],
@@ -1013,7 +1013,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     let parentSuperId: string | undefined = undefined;
     const cleanParentCode = parentSuperCode.trim().toUpperCase();
 
-    const immersiveCached = localStorage.getItem("saas_immersive_affiliates");
+    const immersiveCached = onlineStorage.getItem("saas_immersive_affiliates");
     let immersiveList: any[] = [];
     if (immersiveCached) {
       try {
@@ -1033,7 +1033,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         (a: any) => a.promoCode?.toUpperCase() === cleanParentCode && a.isSuper && !a.isDisabled,
       );
 
-      // Also check Supabase in case the partner isn't cached in this browser's localStorage
+      // Also check Supabase in case the partner isn't cached in this browser's onlineStorage
       if (!parentMatch) {
         try {
           const client: any = await getSecureDataBridgeClient();
@@ -1210,14 +1210,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         }
 
         // Refresh local session cache only after the cloud profile is confirmed.
-        const existing = JSON.parse(localStorage.getItem("jasper_affiliates") || "[]")
+        const existing = JSON.parse(onlineStorage.getItem("jasper_affiliates") || "[]")
           .filter((item: any) => item.id !== newAff.id);
-        localStorage.setItem("jasper_affiliates", JSON.stringify([newAff, ...existing]));
+        onlineStorage.setItem("jasper_affiliates", JSON.stringify([newAff, ...existing]));
         const nextImmersive = [
           { ...newImmersiveRecord, id: newAff.id, supabaseUserId: authData.user.id },
           ...immersiveList.filter((item: any) => item.id !== newAff.id && item.promoCode !== cleanCode),
         ];
-        localStorage.setItem("saas_immersive_affiliates", JSON.stringify(nextImmersive));
+        onlineStorage.setItem("saas_immersive_affiliates", JSON.stringify(nextImmersive));
       }
     } catch (dbErr: any) {
       console.error("[affiliate] Supabase save failed:", dbErr);
@@ -1232,7 +1232,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     alert(promoMsg);
 
     // Save active session
-    localStorage.setItem("jasper_logged_affiliate", JSON.stringify(newAff));
+    onlineStorage.setItem("jasper_logged_affiliate", JSON.stringify(newAff));
     setActiveAffiliate(newAff);
     setAuthMode("dashboard");
     if (portalRole === 'partner') {
@@ -1314,12 +1314,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
             payoutPhone: profile.payout_account || '',
           };
           // Cache the authenticated profile for session continuity only.
-          localStorage.setItem('jasper_logged_affiliate', JSON.stringify(mappedAff));
-          const immersive = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
+          onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(mappedAff));
+          const immersive = JSON.parse(onlineStorage.getItem('saas_immersive_affiliates') || '[]');
           const exists = immersive.find((a: any) => a.id === profile.id);
           if (!exists) {
             immersive.unshift({ ...mappedAff, status: 'Active', joinedDate: new Date().toISOString().split('T')[0] });
-            localStorage.setItem('saas_immersive_affiliates', JSON.stringify(immersive));
+            onlineStorage.setItem('saas_immersive_affiliates', JSON.stringify(immersive));
           }
           setActiveAffiliate(mappedAff);
           if (isPartnerAccount) {
@@ -1361,11 +1361,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       await client.auth.signOut();
     } catch { /* Local cleanup still runs if the network is unavailable. */ }
     // Belt-and-suspenders: forcibly remove any Supabase-persisted session
-    // token from localStorage even if signOut() above failed silently.
+    // token from onlineStorage even if signOut() above failed silently.
     try {
-      Object.keys(localStorage)
+      Object.keys(onlineStorage)
         .filter((k) => k.startsWith('sb-') && k.includes('-auth-token'))
-        .forEach((k) => localStorage.removeItem(k));
+        .forEach((k) => onlineStorage.removeItem(k));
     } catch { /* ignore */ }
     clearAffiliateSession(); // properly clears jasper_logged_affiliate
     setActiveAffiliate(null);
@@ -1574,7 +1574,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   };
 
   // Read managed affiliates — real DB-sourced entries only, no demo data
-  const rawImmersiveGlobal = localStorage.getItem("saas_immersive_affiliates");
+  const rawImmersiveGlobal = onlineStorage.getItem("saas_immersive_affiliates");
   let managedKids: any[] = [];
   if (rawImmersiveGlobal) {
     try {
@@ -2148,7 +2148,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
               <div className="flex-1 min-w-0 w-full">
                 {(() => {
               // Retrieve child partners registered under this Super Recruiter
-              const rawImmersive = localStorage.getItem(
+              const rawImmersive = onlineStorage.getItem(
                 "saas_immersive_affiliates",
               );
               let managedKids: any[] = [];
@@ -2414,7 +2414,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                       {(() => {
                         const claims = JSON.parse(
-                          localStorage.getItem("saas_affiliate_claims") || "[]",
+                          onlineStorage.getItem("saas_affiliate_claims") || "[]",
                         );
                         const filteredClaims = claims.filter(
                           (c: any) => c.parentSuperId === activeAffiliate?.id,
@@ -2499,7 +2499,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 	                                          return alert(ONLINE_ONLY_WRITE_MESSAGE);
 
 	                                        const centralClaims = JSON.parse(
-                                          localStorage.getItem(
+                                          onlineStorage.getItem(
                                             "saas_affiliate_claims",
                                           ) || "[]",
                                         );
@@ -2510,7 +2510,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                           centralClaims[idx].status =
                                             "Resolved";
                                           centralClaims[idx].reply = replyVal;
-                                          localStorage.setItem(
+                                          onlineStorage.setItem(
                                             "saas_affiliate_claims",
                                             JSON.stringify(centralClaims),
                                           );
@@ -4958,7 +4958,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         const promoToken =
                           activeAffiliate?.promoCode || "";
                         const referralLedger = JSON.parse(
-                          localStorage.getItem("jasper_referral_ledger") ||
+                          onlineStorage.getItem("jasper_referral_ledger") ||
                             "[]",
                         );
                         referralLedger.push({
@@ -4970,7 +4970,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           registeredAt: newReg.registeredAt,
                           commission: newReg.commission,
                         });
-                        localStorage.setItem(
+                        onlineStorage.setItem(
                           "jasper_referral_ledger",
                           JSON.stringify(referralLedger),
                         );
@@ -5037,7 +5037,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 	                          return alert(ONLINE_ONLY_WRITE_MESSAGE);
 	                        const targetSuperMatch = activeAffiliate?.parentSuperId;
                         const claims = JSON.parse(
-                          localStorage.getItem("saas_affiliate_claims") || "[]",
+                          onlineStorage.getItem("saas_affiliate_claims") || "[]",
                         );
                         const category =
                           (
@@ -5064,7 +5064,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         };
 
                         claims.push(newClaim);
-                        localStorage.setItem(
+                        onlineStorage.setItem(
                           "saas_affiliate_claims",
                           JSON.stringify(claims),
                         );
@@ -5138,7 +5138,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     Logged Reconciliation Tickets (
                     {
                       JSON.parse(
-                        localStorage.getItem("saas_affiliate_claims") || "[]",
+                        onlineStorage.getItem("saas_affiliate_claims") || "[]",
                       ).filter(
                         (c: any) => c.affiliateId === activeAffiliate?.id,
                       ).length
@@ -5149,7 +5149,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
                     {(() => {
                       const list = JSON.parse(
-                        localStorage.getItem("saas_affiliate_claims") || "[]",
+                        onlineStorage.getItem("saas_affiliate_claims") || "[]",
                       ).filter(
                         (c: any) => c.affiliateId === activeAffiliate?.id,
                       );

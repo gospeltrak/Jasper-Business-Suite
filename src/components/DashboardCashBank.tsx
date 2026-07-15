@@ -58,13 +58,13 @@ export default function DashboardCashBank({
   // Mobile-only section tabs
   const [mobileSectionTab, setMobileSectionTab] = useState<'overview' | 'accounts' | 'transfer' | 'audit'>('overview');
 
-  // On mount: migrate any existing channels from dedicated localStorage key into systemSettings
+  // On mount: migrate any existing channels from dedicated onlineStorage key into systemSettings
   // This ensures existing user data is not lost when moving to new persistence model
   useEffect(() => {
     if (!onUpdateSystemSettings || !systemSettings) return;
     // Only migrate if systemSettings doesn't already have channels saved
     if (systemSettings.paymentChannels && systemSettings.paymentChannels.length > 0) return;
-    const cached = localStorage.getItem(`jasper_channels_${activeTenant.id}`);
+    const cached = onlineStorage.getItem(`jasper_channels_${activeTenant.id}`);
     if (!cached) return;
     try {
       const parsed = JSON.parse(cached);
@@ -160,8 +160,8 @@ export default function DashboardCashBank({
     if (systemSettings?.paymentChannels && systemSettings.paymentChannels.length > 0) {
       return systemSettings.paymentChannels;
     }
-    // Priority 2: dedicated localStorage key (backward compat)
-    const cached = localStorage.getItem(`jasper_channels_${activeTenant.id}`);
+    // Priority 2: dedicated onlineStorage key (backward compat)
+    const cached = onlineStorage.getItem(`jasper_channels_${activeTenant.id}`);
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
@@ -219,7 +219,7 @@ export default function DashboardCashBank({
   // Read transactions, seeded balances, and link them to accounts
   useEffect(() => {
     const storageKey = `jasper_cash_bank_matrix_${activeTenant.id}`;
-    const cached = localStorage.getItem(storageKey);
+    const cached = onlineStorage.getItem(storageKey);
     const generated: LedgerEntry[] = [];
 
     // Base funds in each account at startup
@@ -509,7 +509,7 @@ export default function DashboardCashBank({
 
     const updated = [...channels, newChan];
     setChannels(updated);
-    // Save to dedicated localStorage key (for fast init)
+    // Save to dedicated onlineStorage key (for fast init)
     safeSetJsonItem(`jasper_channels_${activeTenant.id}`, updated, {
       tenantId: activeTenant.id,
       dataKey: 'channels',

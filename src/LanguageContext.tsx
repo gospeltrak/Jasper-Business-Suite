@@ -1746,22 +1746,22 @@ function translateNode(node: Node, language: LanguageType) {
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<LanguageType>(() => {
-    const cached = localStorage.getItem('jasper_lang');
+    const cached = onlineStorage.getItem('jasper_lang');
     return (cached && ['en', 'sw', 'fr'].includes(cached))
       ? (cached as LanguageType)
       : 'en';
   });
 
   useEffect(() => {
-    const saved = localStorage.getItem('jasper_lang');
+    const saved = onlineStorage.getItem('jasper_lang');
     if (!saved || !['en', 'sw', 'fr'].includes(saved)) {
-      localStorage.setItem('jasper_lang', 'en');
+      onlineStorage.setItem('jasper_lang', 'en');
     }
   }, []);
 
   const setLang = (newLang: LanguageType) => {
     setLangState(newLang);
-    localStorage.setItem('jasper_lang', newLang);
+    onlineStorage.setItem('jasper_lang', newLang);
     window.dispatchEvent(new CustomEvent('jasper_lang_changed', { detail: newLang }));
   };
 

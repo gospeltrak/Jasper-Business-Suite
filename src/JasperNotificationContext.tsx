@@ -103,10 +103,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [scheduledReports, setScheduledReports] = useState<JasperScheduledReport[]>([]);
 
   useEffect(() => {
-    const rawSettings = localStorage.getItem('jasper_notification_settings');
-    const rawModuleSettings = localStorage.getItem('jasper_module_notification_settings');
-    const rawNotifs = localStorage.getItem('jasper_notifications');
-    const rawReports = localStorage.getItem('jasper_scheduled_reports');
+    const rawSettings = onlineStorage.getItem('jasper_notification_settings');
+    const rawModuleSettings = onlineStorage.getItem('jasper_module_notification_settings');
+    const rawNotifs = onlineStorage.getItem('jasper_notifications');
+    const rawReports = onlineStorage.getItem('jasper_scheduled_reports');
 
     if (rawSettings) setSettings(JSON.parse(rawSettings));
     if (rawModuleSettings) setModuleSettings(JSON.parse(rawModuleSettings));
@@ -116,17 +116,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const saveSettings = (newSettings: JasperNotificationSettings) => {
     setSettings(newSettings);
-    localStorage.setItem('jasper_notification_settings', JSON.stringify(newSettings));
+    onlineStorage.setItem('jasper_notification_settings', JSON.stringify(newSettings));
   };
 
   const saveModuleSettings = (newSettings: JasperModuleNotificationSettings[]) => {
     setModuleSettings(newSettings);
-    localStorage.setItem('jasper_module_notification_settings', JSON.stringify(newSettings));
+    onlineStorage.setItem('jasper_module_notification_settings', JSON.stringify(newSettings));
   };
 
   const saveNotifications = (newNotifs: JasperNotification[]) => {
     setNotifications(newNotifs);
-    localStorage.setItem('jasper_notifications', JSON.stringify(newNotifs));
+    onlineStorage.setItem('jasper_notifications', JSON.stringify(newNotifs));
   };
 
   const updateSettings = (updates: Partial<JasperNotificationSettings>) => {
@@ -162,7 +162,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
 
     const message = 'Module: ' + moduleLabel + '\nThis WhatsApp number is ready to receive ' + moduleLabel + ' reports.';
-    const providerConfigured = localStorage.getItem('jasper_whatsapp_provider_configured') === 'true';
+    const providerConfigured = onlineStorage.getItem('jasper_whatsapp_provider_configured') === 'true';
     const newNotif: JasperNotification = {
       id: Math.random().toString(36).substr(2, 9),
       tenantId,

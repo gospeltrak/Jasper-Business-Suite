@@ -35,7 +35,7 @@ export default function DashboardLogsAndSync({
 
   const refreshQueuedJobs = () => {
     try {
-      setQueuedSystemJobs(JSON.parse(localStorage.getItem('jasper_offline_sync_queue') || '[]'));
+      setQueuedSystemJobs(JSON.parse(onlineStorage.getItem('jasper_offline_sync_queue') || '[]'));
     } catch {
       setQueuedSystemJobs([]);
     }

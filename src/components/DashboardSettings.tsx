@@ -695,7 +695,7 @@ export default function DashboardSettings({
       setLogoSaveStatus({ type: 'success', msg: 'Nembo imehifadhiwa kikamilifu! / Logo saved successfully!' });
       
       // Update local storage in real-time
-      localStorage.setItem(`jasper_tenant_logo_${activeTenant.id}`, savedLogoUrl);
+      onlineStorage.setItem(`jasper_tenant_logo_${activeTenant.id}`, savedLogoUrl);
       setLogoUrl(savedLogoUrl);
       
       // Also save general settings
@@ -990,7 +990,7 @@ export default function DashboardSettings({
             const nextCompanyForm = { ...companyForm, logo: urlToUse };
             setCompanyForm(nextCompanyForm);
             setHasNewLogoToSave(true);
-            localStorage.setItem(`jasper_tenant_logo_${activeTenant.id}`, urlToUse);
+            onlineStorage.setItem(`jasper_tenant_logo_${activeTenant.id}`, urlToUse);
             setLogoUrl(urlToUse);
             persistCompanySettings(nextCompanyForm);
           } else if (target === 'business_light') {

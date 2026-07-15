@@ -110,7 +110,7 @@ export default function SaaSWebEditor() {
   // Sections order state
   const [sectionsOrder, setSectionsOrder] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('jasper_landing_sections_order');
+      const saved = onlineStorage.getItem('jasper_landing_sections_order');
       return saved ? JSON.parse(saved) : DEFAULT_SECTIONS.map(s => s.id);
     } catch {
       return DEFAULT_SECTIONS.map(s => s.id);
@@ -120,7 +120,7 @@ export default function SaaSWebEditor() {
   // Hidden sections tracker
   const [hiddenSections, setHiddenSections] = useState<Record<string, boolean>>(() => {
     try {
-      const saved = localStorage.getItem('jasper_landing_hidden_sections');
+      const saved = onlineStorage.getItem('jasper_landing_hidden_sections');
       return saved ? JSON.parse(saved) : {};
     } catch {
       return {};
@@ -130,7 +130,7 @@ export default function SaaSWebEditor() {
   // Form custom text override values
   const [customValues, setCustomValues] = useState<Record<string, string>>(() => {
     try {
-      const saved = localStorage.getItem('jasper_landing_custom_values');
+      const saved = onlineStorage.getItem('jasper_landing_custom_values');
       return saved ? JSON.parse(saved) : DEFAULT_TRANSLATIONS;
     } catch {
       return DEFAULT_TRANSLATIONS;
@@ -141,23 +141,23 @@ export default function SaaSWebEditor() {
   const logoCandidates: FeaturedLogo[] = DEFAULT_TENANTS.map((tenant) => ({
     id: tenant.id,
     name: tenant.name,
-    logoUrl: localStorage.getItem(`jasper_tenant_logo_${tenant.id}`) || tenant.company_settings?.logo_url || "",
+    logoUrl: onlineStorage.getItem(`jasper_tenant_logo_${tenant.id}`) || tenant.company_settings?.logo_url || "",
     initials: getInitials(tenant.name),
   }));
   const [featuredLogos, setFeaturedLogos] = useState<FeaturedLogo[]>(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('jasper_featured_logos') || '[]');
+      const saved = JSON.parse(onlineStorage.getItem('jasper_featured_logos') || '[]');
       return normalizeFeaturedLogos(saved);
     } catch {
       return [];
     }
   });
   const [partnerCapacity, setPartnerCapacity] = useState<number>(() => {
-    const saved = localStorage.getItem('jasper_partner_capacity');
+    const saved = onlineStorage.getItem('jasper_partner_capacity');
     return saved ? parseInt(saved, 10) : 5;
   });
   const [partnerWaitlist, setPartnerWaitlist] = useState<any[]>(() => {
-    const saved = localStorage.getItem('jasper_partner_waitlist');
+    const saved = onlineStorage.getItem('jasper_partner_waitlist');
     return saved ? JSON.parse(saved) : [];
   });
   const [saveNotification, setSaveNotification] = useState<string | null>(null);
@@ -165,7 +165,7 @@ export default function SaaSWebEditor() {
 
   useEffect(() => {
     const handleWaitlistReload = () => {
-      const saved = localStorage.getItem('jasper_partner_waitlist');
+      const saved = onlineStorage.getItem('jasper_partner_waitlist');
       setPartnerWaitlist(saved ? JSON.parse(saved) : []);
     };
     window.addEventListener('jasper_partner_waitlist_updated', handleWaitlistReload);
@@ -1074,7 +1074,7 @@ export default function SaaSWebEditor() {
                     <span className="text-2xl font-black font-mono text-white">
                       {(() => {
                         try {
-                          const list = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
+                          const list = JSON.parse(onlineStorage.getItem('saas_immersive_affiliates') || '[]');
                           return list.filter((a: any) => a.isSuper === true || a.isSuper === 'true').length;
                         } catch (e) {
                           return 0;
@@ -1085,7 +1085,7 @@ export default function SaaSWebEditor() {
                     <span className="text-[9.5px] uppercase font-mono font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded self-start mt-1">
                       {(() => {
                         try {
-                          const list = JSON.parse(localStorage.getItem('saas_immersive_affiliates') || '[]');
+                          const list = JSON.parse(onlineStorage.getItem('saas_immersive_affiliates') || '[]');
                           const count = list.filter((a: any) => a.isSuper === true || a.isSuper === 'true').length;
                           return count >= partnerCapacity ? "WAITLIST ACTIVE" : "SLOTS OPEN";
                         } catch (e) {

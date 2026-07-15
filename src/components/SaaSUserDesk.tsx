@@ -116,7 +116,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   // Pager settings for live logs
   useEffect(() => {
     loadUsersData();
-    const lockedUntil = localStorage.getItem('saas_admin_lockout_until');
+    const lockedUntil = onlineStorage.getItem('saas_admin_lockout_until');
     if (lockedUntil) {
       const remaining = Math.ceil((parseInt(lockedUntil) - Date.now()) / 1000);
       if (remaining > 0) {
@@ -134,7 +134,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
           if (prev <= 1) {
             clearInterval(timer);
             setIsActionLocked(false);
-            localStorage.removeItem('saas_admin_lockout_until');
+            onlineStorage.removeItem('saas_admin_lockout_until');
             setFailedAttempts(0);
             return 0;
           }
@@ -191,7 +191,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       return false;
     }
 
-    const savedEncryptedKey = localStorage.getItem('saas_encrypted_master_key');
+    const savedEncryptedKey = onlineStorage.getItem('saas_encrypted_master_key');
     const actualSecret = savedEncryptedKey ? decryptValue(savedEncryptedKey) : expectedKey;
 
     if (secureKeyInput === actualSecret || secureKeyInput === '3698' || secureKeyInput === 'saas-secure-2026') {
@@ -205,7 +205,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       
       if (nextFail >= 3) {
         const lockDuration = Date.now() + 10 * 60 * 1000; // 10 minutes lock
-        localStorage.setItem('saas_admin_lockout_until', lockDuration.toString());
+        onlineStorage.setItem('saas_admin_lockout_until', lockDuration.toString());
         setIsActionLocked(true);
         setLockoutTimeLeft(600);
         alert('❌ Security breach restriction triggered! Red-alert lockout initiated. All admin change commands locked for 10 minutes.');

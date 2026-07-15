@@ -845,7 +845,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
   // Custom landing values state loaded from localstorage
   const [customValues, setCustomValues] = useState<Record<string, string>>(() => {
     try {
-      const saved = localStorage.getItem('jasper_landing_custom_values');
+      const saved = onlineStorage.getItem('jasper_landing_custom_values');
       return saved ? JSON.parse(saved) : {};
     } catch {
       return {};
@@ -854,7 +854,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
 
   const [sectionsOrder, setSectionsOrder] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('jasper_landing_sections_order');
+      const saved = onlineStorage.getItem('jasper_landing_sections_order');
       return saved ? JSON.parse(saved) : ['landing-hero', 'about', 'features', 'marquee-partners', 'testimonials', 'pricing', 'faqs', 'contact'];
     } catch {
       return ['landing-hero', 'about', 'features', 'marquee-partners', 'testimonials', 'pricing', 'faqs', 'contact'];
@@ -863,7 +863,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
 
   const [hiddenSections, setHiddenSections] = useState<Record<string, boolean>>(() => {
     try {
-      const saved = localStorage.getItem('jasper_landing_hidden_sections');
+      const saved = onlineStorage.getItem('jasper_landing_hidden_sections');
       return saved ? JSON.parse(saved) : {};
     } catch {
       return {};
@@ -872,7 +872,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
 
   const [customTestimonials, setCustomTestimonials] = useState<any[]>(() => {
     try {
-      const saved = localStorage.getItem('jasper_custom_testimonials');
+      const saved = onlineStorage.getItem('jasper_custom_testimonials');
       return saved ? JSON.parse(saved) : [
         {
           quote: "We needed cleaner checkout logs across devices during peak hours inside Mwenge food court. With Ndiva's cloud-first saving, our cashier records stay aligned.",
@@ -903,7 +903,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
 
   const [customFaqs, setCustomFaqs] = useState<any[]>(() => {
     try {
-      const saved = localStorage.getItem('jasper_custom_faqs');
+      const saved = onlineStorage.getItem('jasper_custom_faqs');
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -913,22 +913,22 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
   useEffect(() => {
     const handleUpdate = () => {
       try {
-        const savedOrder = localStorage.getItem('jasper_landing_sections_order');
+        const savedOrder = onlineStorage.getItem('jasper_landing_sections_order');
         if (savedOrder) setSectionsOrder(JSON.parse(savedOrder));
         
-        const savedHidden = localStorage.getItem('jasper_landing_hidden_sections');
+        const savedHidden = onlineStorage.getItem('jasper_landing_hidden_sections');
         if (savedHidden) setHiddenSections(JSON.parse(savedHidden));
         
-        const savedValues = localStorage.getItem('jasper_landing_custom_values');
+        const savedValues = onlineStorage.getItem('jasper_landing_custom_values');
         if (savedValues) setCustomValues(JSON.parse(savedValues));
 
-        const savedTestimonials = localStorage.getItem('jasper_custom_testimonials');
+        const savedTestimonials = onlineStorage.getItem('jasper_custom_testimonials');
         if (savedTestimonials) setCustomTestimonials(JSON.parse(savedTestimonials));
 
-        const savedFaqs = localStorage.getItem('jasper_custom_faqs');
+        const savedFaqs = onlineStorage.getItem('jasper_custom_faqs');
         if (savedFaqs) setCustomFaqs(JSON.parse(savedFaqs));
 
-        const savedLogos = localStorage.getItem('jasper_featured_logos');
+        const savedLogos = onlineStorage.getItem('jasper_featured_logos');
         if (savedLogos) {
           const parsedLogos = normalizeFeaturedLogos(JSON.parse(savedLogos));
           setFeaturedLogos(parsedLogos);
@@ -975,7 +975,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
 
   useEffect(() => {
     // Read featured logos from local storage
-    const savedLogos = normalizeFeaturedLogos(JSON.parse(localStorage.getItem('jasper_featured_logos') || '[]'));
+    const savedLogos = normalizeFeaturedLogos(JSON.parse(onlineStorage.getItem('jasper_featured_logos') || '[]'));
     const defaultLogos = [
       "Bakhresa Group",
       "Kariakoo Wholesalers",
@@ -1031,7 +1031,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       setLucyMessages(prev => [...prev, { sender: 'lucy', text: lucy.text, time: timestamp }]);
       setIsLucyThinking(false);
 
-      const selfLearnings = JSON.parse(localStorage.getItem('jasper_lucy_self_learnings') || '[]');
+      const selfLearnings = JSON.parse(onlineStorage.getItem('jasper_lucy_self_learnings') || '[]');
       selfLearnings.push({
         id: 'ln-' + Math.floor(1000 + Math.random() * 9000),
         timestamp: new Date().toISOString(),
@@ -1041,7 +1041,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
         sentiment: userMsg.length > 25 ? 'highly interested' : 'neutral',
         detectedBusinessType: matchedNiche
       });
-      localStorage.setItem('jasper_lucy_self_learnings', JSON.stringify(selfLearnings));
+      onlineStorage.setItem('jasper_lucy_self_learnings', JSON.stringify(selfLearnings));
 
     }, 1100);
   };

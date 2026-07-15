@@ -47,10 +47,10 @@ const LEGACY_KEYS = {
 };
 
 function readLegacySettings(): GlobalAdPlacementSettings {
-  const dashboardAdCode = localStorage.getItem(LEGACY_KEYS.dashboardAdCode);
-  const dashboardAdEnabled = localStorage.getItem(LEGACY_KEYS.dashboardAdEnabled);
-  const bottomAdCode = localStorage.getItem(LEGACY_KEYS.bottomAdCode);
-  const bottomAdEnabled = localStorage.getItem(LEGACY_KEYS.bottomAdEnabled);
+  const dashboardAdCode = onlineStorage.getItem(LEGACY_KEYS.dashboardAdCode);
+  const dashboardAdEnabled = onlineStorage.getItem(LEGACY_KEYS.dashboardAdEnabled);
+  const bottomAdCode = onlineStorage.getItem(LEGACY_KEYS.bottomAdCode);
+  const bottomAdEnabled = onlineStorage.getItem(LEGACY_KEYS.bottomAdEnabled);
 
   return {
     dashboardAdCode: dashboardAdCode === null ? DEFAULT_AD_SETTINGS.dashboardAdCode : dashboardAdCode,
@@ -61,10 +61,10 @@ function readLegacySettings(): GlobalAdPlacementSettings {
 }
 
 function cacheLegacySettings(settings: GlobalAdPlacementSettings) {
-  localStorage.setItem(LEGACY_KEYS.dashboardAdCode, settings.dashboardAdCode || '');
-  localStorage.setItem(LEGACY_KEYS.dashboardAdEnabled, String(settings.dashboardAdEnabled));
-  localStorage.setItem(LEGACY_KEYS.bottomAdCode, settings.bottomAdCode || '');
-  localStorage.setItem(LEGACY_KEYS.bottomAdEnabled, String(settings.bottomAdEnabled));
+  onlineStorage.setItem(LEGACY_KEYS.dashboardAdCode, settings.dashboardAdCode || '');
+  onlineStorage.setItem(LEGACY_KEYS.dashboardAdEnabled, String(settings.dashboardAdEnabled));
+  onlineStorage.setItem(LEGACY_KEYS.bottomAdCode, settings.bottomAdCode || '');
+  onlineStorage.setItem(LEGACY_KEYS.bottomAdEnabled, String(settings.bottomAdEnabled));
 }
 
 export async function loadGlobalAdSettings(): Promise<GlobalAdPlacementSettings> {

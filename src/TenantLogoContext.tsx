@@ -29,8 +29,8 @@ export function TenantLogoProvider({ children }: { children: ReactNode }) {
   const fetchLogoUrl = async (tenantId: string): Promise<string | null> => {
     if (!tenantId) return null;
     
-    // First try localStorage
-    const local = localStorage.getItem(`jasper_tenant_logo_${tenantId}`);
+    // First try onlineStorage
+    const local = onlineStorage.getItem(`jasper_tenant_logo_${tenantId}`);
     if (local) {
       setLogoState(local);
       return local;
@@ -45,7 +45,7 @@ export function TenantLogoProvider({ children }: { children: ReactNode }) {
       }
       const data = await response.json();
       if (data && data.logoUrl) {
-        localStorage.setItem(`jasper_tenant_logo_${tenantId}`, data.logoUrl);
+        onlineStorage.setItem(`jasper_tenant_logo_${tenantId}`, data.logoUrl);
         setLogoState(data.logoUrl);
         return data.logoUrl;
       }

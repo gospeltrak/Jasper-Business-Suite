@@ -12,7 +12,9 @@ const SYNC_METADATA_KEYS = new Set([
   'lastModifiedAt',
 ]);
 
-const tombstonesKey = (tenantId: string) => `jasper_product_tombstones_${tenantId}`;
+// Runtime-only mirror. The durable copy is stored inside the tenant workspace
+// payload in Supabase; no business metadata is persisted in the browser.
+const runtimeTombstones = new Map<string, ProductTombstones>();
 
 const parseTime = (value?: string | null): number => {
   if (!value) return 0;
@@ -45,21 +47,11 @@ const meaningfulProductSignature = (product: any): string => {
 };
 
 export const readLocalProductTombstones = (tenantId: string): ProductTombstones => {
-  try {
-    const raw = localStorage.getItem(tombstonesKey(tenantId));
-    const parsed = raw ? JSON.parse(raw) : {};
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
+  return { ...(runtimeTombstones.get(tenantId) || {}) };
 };
 
 export const writeLocalProductTombstones = (tenantId: string, tombstones: ProductTombstones): void => {
-  try {
-    localStorage.setItem(tombstonesKey(tenantId), JSON.stringify(tombstones || {}));
-  } catch {
-    // Tombstones are protective metadata; failure must not block product saves.
-  }
+  runtimeTombstones.set(tenantId, { ...(tombstones || {}) });
 };
 
 export const markLocalProductTombstones = (

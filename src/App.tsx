@@ -10,6 +10,8 @@ import { useTheme } from './ThemeContext';
 import { useTenantLogo } from './TenantLogoContext';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from './secureDataBridge';
 import { endCloudSession, touchCloudSession } from './utils/sessionControl';
+import { pullFromCloud, pushToCloud } from './utils/dbSync';
+import { configureOnlineStorage, resetOnlineStorage } from './utils/onlineStorage';
 
 type TenantDomainContext = {
   kind: 'loading' | 'landing' | 'app' | 'tenant' | 'tenant-not-found' | 'tenant-inactive' | 'error';
@@ -64,11 +66,11 @@ export default function App() {
   const [currentPath, setCurrentPath] = useState<string>(() => normalizePath(window.location.pathname || '/'));
   const [user, setUser] = useState<User | null>(() => {
     try {
-      const cached = localStorage.getItem('jasper_cashier_user') || sessionStorage.getItem('jasper_cashier_user');
+      const cached = sessionStorage.getItem('jasper_cashier_user');
       return cached ? JSON.parse(cached) : null;
     } catch (err) {
       console.error('Failed to load saved user session', err);
-      localStorage.removeItem('jasper_cashier_user');
+      sessionStorage.removeItem('jasper_cashier_user');
       return null;
     }
   });
@@ -82,19 +84,14 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(false);
   const splashShownRef = useRef(false);
   const logoutInProgressRef = useRef(false);
+  const staffSessionIdRef = useRef<string | null>(null);
   const publicLandingUrl = tenantDomainContext.baseDomain ? `https://${tenantDomainContext.baseDomain}/` : undefined;
 
   const persistSignedInUser = (sessionUser: User) => {
     const serialized = JSON.stringify(sessionUser);
     try {
-      localStorage.setItem('jasper_cashier_user', serialized);
-      sessionStorage.removeItem('jasper_cashier_user');
-    } catch (error) {
-      // Tenant workspace data may fill localStorage. Keep it untouched and use
-      // this tab's sessionStorage for the small signed-in user record.
-      console.warn('Local storage is full; using tab session for login.', error);
       sessionStorage.setItem('jasper_cashier_user', serialized);
-    }
+    } catch { /* Supabase auth remains the source of truth */ }
   };
 
   useEffect(() => {
@@ -102,12 +99,6 @@ export default function App() {
       fetchLogoUrl(user.activeTenant);
     }
   }, [user, fetchLogoUrl]);
-
-  useEffect(() => {
-    if (!localStorage.getItem('jasper_lang')) {
-      localStorage.setItem('jasper_lang', 'en');
-    }
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,15 +158,16 @@ export default function App() {
     return 'Desktop';
   };
 
-  const recordStaffLogin = (sessionUser: User) => {
+  const recordStaffLogin = async (sessionUser: User) => {
     const tenantId = getSessionTenantId(sessionUser);
     const userKey = getSessionUserKey(sessionUser);
     const sessionsKey = `jasper_staff_sessions_${tenantId}`;
-    const activeSessionKey = `jasper_active_staff_session_${tenantId}_${userKey}`;
     const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    staffSessionIdRef.current = sessionId;
 
     try {
-      const existingSessions = JSON.parse(localStorage.getItem(sessionsKey) || '[]');
+      const savedSessions = await pullFromCloud(tenantId, sessionsKey);
+      const existingSessions = Array.isArray(savedSessions) ? savedSessions : [];
       const cleanedSessions = existingSessions.map((session: any) => {
         const sameUser = session.staffId === sessionUser.id || session.userId === userKey;
         if (!sameUser || session.logoutAt) return session;
@@ -204,28 +196,28 @@ export default function App() {
         device: getDeviceLabel()
       };
 
-      localStorage.setItem(sessionsKey, JSON.stringify([nextSession, ...cleanedSessions].slice(0, 500)));
-      localStorage.setItem(activeSessionKey, sessionId);
+      await pushToCloud(tenantId, sessionsKey, [nextSession, ...cleanedSessions].slice(0, 500));
       const statusKey = `jasper_staff_statuses_${tenantId}`;
-      const statusMap = JSON.parse(localStorage.getItem(statusKey) || '{}');
+      const savedStatuses = await pullFromCloud(tenantId, statusKey);
+      const statusMap = savedStatuses && typeof savedStatuses === 'object' ? savedStatuses : {};
       statusMap[sessionUser.id] = true;
-      localStorage.setItem(statusKey, JSON.stringify(statusMap));
+      await pushToCloud(tenantId, statusKey, statusMap);
     } catch (error) {
       console.warn('Failed to record staff login session', error);
     }
   };
 
-  const recordStaffLogout = (sessionUser: User | null) => {
+  const recordStaffLogout = async (sessionUser: User | null) => {
     if (!sessionUser) return;
     const tenantId = getSessionTenantId(sessionUser);
     const userKey = getSessionUserKey(sessionUser);
     const sessionsKey = `jasper_staff_sessions_${tenantId}`;
-    const activeSessionKey = `jasper_active_staff_session_${tenantId}_${userKey}`;
 
     try {
-      const activeSessionId = localStorage.getItem(activeSessionKey);
+      const activeSessionId = staffSessionIdRef.current;
       const logoutAt = new Date().toISOString();
-      const sessions = JSON.parse(localStorage.getItem(sessionsKey) || '[]');
+      const savedSessions = await pullFromCloud(tenantId, sessionsKey);
+      const sessions = Array.isArray(savedSessions) ? savedSessions : [];
       const updatedSessions = sessions.map((session: any) => {
         const sameSession = activeSessionId ? session.id === activeSessionId : session.userId === userKey && !session.logoutAt;
         if (!sameSession) return session;
@@ -236,13 +228,14 @@ export default function App() {
           status: 'offline'
         };
       });
-      localStorage.setItem(sessionsKey, JSON.stringify(updatedSessions));
-      localStorage.removeItem(activeSessionKey);
+      await pushToCloud(tenantId, sessionsKey, updatedSessions);
+      staffSessionIdRef.current = null;
 
       const statusKey = `jasper_staff_statuses_${tenantId}`;
-      const statusMap = JSON.parse(localStorage.getItem(statusKey) || '{}');
+      const savedStatuses = await pullFromCloud(tenantId, statusKey);
+      const statusMap = savedStatuses && typeof savedStatuses === 'object' ? savedStatuses : {};
       statusMap[sessionUser.id] = false;
-      localStorage.setItem(statusKey, JSON.stringify(statusMap));
+      await pushToCloud(tenantId, statusKey, statusMap);
     } catch (error) {
       console.warn('Failed to record staff logout session', error);
     }
@@ -263,7 +256,7 @@ export default function App() {
       if (!isPlatformAdmin && userTenantId !== tenantDomainContext.tenant?.id) {
         recordStaffLogout(user);
         setUser(null);
-        localStorage.removeItem('jasper_cashier_user');
+        sessionStorage.removeItem('jasper_cashier_user');
         setRedirectMessage(`Please log in with an account for ${tenantDomainContext.tenant?.name || 'this business'}.`);
         window.history.replaceState({}, '', '/login');
         setCurrentPath('/login');
@@ -328,6 +321,7 @@ export default function App() {
           profileImage: userProfile.profile_image_url || undefined
         };
 
+        await configureOnlineStorage(restoredUser.activeTenant || restoredUser.tenantId);
         setUser(restoredUser);
         persistSignedInUser(restoredUser);
 
@@ -345,7 +339,7 @@ export default function App() {
     return () => { cancelled = true; };
   }, [currentPath, tenantDomainContext.kind, user]);
 
-  const handleLoginSuccess = (authenticatedUser: User) => {
+  const handleLoginSuccess = async (authenticatedUser: User) => {
     logoutInProgressRef.current = false;
     const domainTenantId = tenantDomainContext.kind === 'tenant' ? tenantDomainContext.tenant?.id : null;
     const userTenantId = authenticatedUser.tenantId || authenticatedUser.activeTenant;
@@ -354,6 +348,7 @@ export default function App() {
       setRedirectMessage(`This account does not belong to ${tenantDomainContext.tenant?.name || 'this business'}. Please use the correct business login.`);
       return;
     }
+    await configureOnlineStorage(authenticatedUser.activeTenant || authenticatedUser.tenantId);
     recordStaffLogin(authenticatedUser);
     setUser(authenticatedUser);
     persistSignedInUser(authenticatedUser);
@@ -399,8 +394,8 @@ export default function App() {
       console.warn('Browser auth session could not be closed during logout', error);
     } finally {
       setUser(null);
-      localStorage.removeItem('jasper_cashier_user');
       sessionStorage.removeItem('jasper_cashier_user');
+      resetOnlineStorage();
       splashShownRef.current = false;
       navigateTo('/');
     }

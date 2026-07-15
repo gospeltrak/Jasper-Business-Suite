@@ -253,7 +253,7 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
   if (profileError) throw profileError;
   if (!profile) {
     try {
-      const cached = JSON.parse(localStorage.getItem('jasper_logged_affiliate') || 'null');
+      const cached = JSON.parse(onlineStorage.getItem('jasper_logged_affiliate') || 'null');
       const authPhone = String(authData.user.email || '').replace(/^affiliate-/, '').replace(/@jasper\.local$/, '');
       const cachedPhone = String(cached?.phone || '').replace(/\D/g, '');
       if (cached?.id && cached?.promoCode && (!authPhone || !cachedPhone || authPhone === cachedPhone)) {

@@ -9,12 +9,12 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [isDark, setIsDark] = useState<boolean>(() => {
-    const cached = localStorage.getItem('jasper_landing_theme');
+    const cached = onlineStorage.getItem('jasper_landing_theme');
     return cached ? cached === 'dark' : false;
   });
 
   useEffect(() => {
-    localStorage.setItem('jasper_landing_theme', isDark ? 'dark' : 'light');
+    onlineStorage.setItem('jasper_landing_theme', isDark ? 'dark' : 'light');
     const root = document.documentElement;
     if (isDark) {
       root.classList.add('dark');

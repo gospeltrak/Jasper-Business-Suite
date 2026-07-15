@@ -145,7 +145,7 @@ export default function SuperSaaSAdminView({
 
   // SaaS Dynamic Niche Launch State Engine
   const [launchedNiches, setLaunchedNiches] = useState<string[]>(() => {
-    const raw = localStorage.getItem('saas_launched_niches');
+    const raw = onlineStorage.getItem('saas_launched_niches');
     return raw ? JSON.parse(raw) : ['retail', 'pharmacy']; // Defaults to Retail/Wholesale + Pharmacy launched!
   });
 
@@ -170,7 +170,7 @@ export default function SuperSaaSAdminView({
     try {
       await savePlatformRecord('saas_launched_niches', 'global', updated);
       setLaunchedNiches(updated);
-      localStorage.setItem('saas_launched_niches', JSON.stringify(updated));
+      onlineStorage.setItem('saas_launched_niches', JSON.stringify(updated));
     } catch (error: any) {
       alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
       return;
@@ -197,7 +197,7 @@ export default function SuperSaaSAdminView({
   }, []);
 
   const handleAuditLog = (actionTaken: string, targetUser: string) => {
-    const current = localStorage.getItem('saas_ops_admin_logs') ? JSON.parse(localStorage.getItem('saas_ops_admin_logs')!) : [];
+    const current = onlineStorage.getItem('saas_ops_admin_logs') ? JSON.parse(onlineStorage.getItem('saas_ops_admin_logs')!) : [];
     const newLog = {
       id: 'log-' + Math.floor(Math.random() * 1000000),
       actionTaken,
@@ -288,7 +288,7 @@ export default function SuperSaaSAdminView({
   };
 
   const handleVerifyPassword = () => {
-    const savedKey = localStorage.getItem('saas_encrypted_master_key');
+    const savedKey = onlineStorage.getItem('saas_encrypted_master_key');
     const actualSecret = savedKey ? atob(savedKey) : '3698';
 
     if (enteredPassword === actualSecret || enteredPassword === '3698' || enteredPassword === 'saas-secure-2026') {
@@ -536,7 +536,7 @@ export default function SuperSaaSAdminView({
     const nextList = [newAffRecord, ...existingAffs];
     try {
       await savePlatformRecord('saas_immersive_affiliates', 'global', nextList);
-      localStorage.setItem('saas_immersive_affiliates', JSON.stringify(nextList));
+      onlineStorage.setItem('saas_immersive_affiliates', JSON.stringify(nextList));
     } catch (error: any) {
       alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
       return;

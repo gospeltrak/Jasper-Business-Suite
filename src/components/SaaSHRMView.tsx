@@ -28,7 +28,7 @@ export default function SaaSHRMView() {
 
   useEffect(() => {
     // Fetch recruited staff from local storage
-    const rawStaff = localStorage.getItem('saas_staff_ledger');
+    const rawStaff = onlineStorage.getItem('saas_staff_ledger');
     if (rawStaff) {
       try {
         setStaff(JSON.parse(rawStaff));
@@ -39,7 +39,7 @@ export default function SaaSHRMView() {
         { id: 'STF-01', name: 'Juma Ramadhani', role: 'General Manager', monthlySalary: 750000, status: 'Active', joinedDate: '2026-04-10', notes: 'Oversees daily digital banner postings and handles direct TRA compliance briefs.' },
         { id: 'STF-02', name: 'Zainab Salum', role: 'Customer Success & Support Desk', monthlySalary: 450000, status: 'Active', joinedDate: '2026-05-02', notes: 'Speaks with organic and super affiliates on live mobile complaints.' }
       ];
-      localStorage.setItem('saas_staff_ledger', JSON.stringify(initialStaff));
+      onlineStorage.setItem('saas_staff_ledger', JSON.stringify(initialStaff));
       setStaff(initialStaff);
     }
   }, []);
@@ -65,7 +65,7 @@ export default function SaaSHRMView() {
     };
 
     const updated = [...staff, newSTF];
-    localStorage.setItem('saas_staff_ledger', JSON.stringify(updated));
+    onlineStorage.setItem('saas_staff_ledger', JSON.stringify(updated));
     setStaff(updated);
 
     // Reset inputs
@@ -79,7 +79,7 @@ export default function SaaSHRMView() {
   const handleTerminateStaff = (id: string, name: string) => {
     if (!window.confirm(`Are you absolutely sure you want to terminate the employment contract for ${name}? This action removes their active credentials and is irreversible.`)) return;
     const filtered = staff.filter(s => s.id !== id);
-    localStorage.setItem('saas_staff_ledger', JSON.stringify(filtered));
+    onlineStorage.setItem('saas_staff_ledger', JSON.stringify(filtered));
     setStaff(filtered);
   };
 
@@ -90,7 +90,7 @@ export default function SaaSHRMView() {
       }
       return s;
     });
-    localStorage.setItem('saas_staff_ledger', JSON.stringify(updated));
+    onlineStorage.setItem('saas_staff_ledger', JSON.stringify(updated));
     setStaff(updated);
   };
 
@@ -108,7 +108,7 @@ export default function SaaSHRMView() {
       return s;
     });
 
-    localStorage.setItem('saas_staff_ledger', JSON.stringify(updated));
+    onlineStorage.setItem('saas_staff_ledger', JSON.stringify(updated));
     setStaff(updated);
     setEditingId(null);
     setEditSalaryVal('');

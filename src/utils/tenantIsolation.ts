@@ -48,7 +48,7 @@ export const createCleanTenantSettings = (tenant: Tenant): SystemSettings => ({
 
 const clearTenantEntry = (storageKey: string, tenantId: string) => {
   try {
-    const raw = localStorage.getItem(storageKey);
+    const raw = onlineStorage.getItem(storageKey);
     const value = raw ? JSON.parse(raw) : {};
     if (Array.isArray(value?.[tenantId]) && value[tenantId].length > 0) return;
     safeSetTenantMapItem(storageKey, storageKey.replace(/^jasper_/, ''), { ...value, [tenantId]: [] });

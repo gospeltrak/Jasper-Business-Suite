@@ -301,7 +301,7 @@ export async function updateSuperAffiliate(id: string, updates: Record<string, u
  * if the supplied password matches; never throws on a wrong password.
  */
 export function verifyAdminOverridePassword(entered: string): boolean {
-  const savedKey = localStorage.getItem('saas_encrypted_master_key');
+  const savedKey = onlineStorage.getItem('saas_encrypted_master_key');
   const actualSecret = savedKey ? atob(savedKey) : '3698';
   return entered === actualSecret || entered === '3698' || entered === 'saas-secure-2026';
 }

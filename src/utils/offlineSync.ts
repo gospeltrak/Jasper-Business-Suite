@@ -5,7 +5,7 @@
  * 1. ALL registrations must go online first (block if offline)
  * 2. Offline business mutations are preserved only for manual audit/recovery
  *    and are never replayed automatically.
- * 3. localStorage is keyed per-account to prevent data mixing
+ * 3. onlineStorage is keyed per-account to prevent data mixing
  * 4. Sensitive data is namespaced so different accounts on the
  *    same browser never see each other's data
  */
@@ -36,14 +36,14 @@ export function accountKey(accountId: string, dataType: string): string {
 
 export function getAccountData<T>(accountId: string, dataType: string): T | null {
   try {
-    const raw = localStorage.getItem(accountKey(accountId, dataType));
+    const raw = onlineStorage.getItem(accountKey(accountId, dataType));
     return raw ? JSON.parse(raw) : null;
   } catch { return null; }
 }
 
 export function setAccountData(accountId: string, dataType: string, data: any): void {
   try {
-    localStorage.setItem(accountKey(accountId, dataType), JSON.stringify(data));
+    onlineStorage.setItem(accountKey(accountId, dataType), JSON.stringify(data));
   } catch { /* storage full */ }
 }
 
@@ -51,11 +51,11 @@ export function clearAccountData(accountId: string): void {
   // Clear only this account's data — leave other accounts untouched
   const prefix = `aff_data_${accountId}_`;
   const keysToRemove: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
+  for (let i = 0; i < onlineStorage.length; i++) {
+    const key = onlineStorage.key(i);
     if (key?.startsWith(prefix)) keysToRemove.push(key);
   }
-  keysToRemove.forEach(k => localStorage.removeItem(k));
+  keysToRemove.forEach(k => onlineStorage.removeItem(k));
 }
 
 // ─── Legacy offline sync queue ──────────────────────────────────────────────
@@ -157,7 +157,7 @@ export interface AffiliateSession {
 /** Save the currently logged-in affiliate session — isolated by account ID */
 export function saveAffiliateSession(session: AffiliateSession): void {
   // Global key for "who is logged in"
-  localStorage.setItem('jasper_logged_affiliate', JSON.stringify(session));
+  onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(session));
   // Per-account key for isolation
   setAccountData(session.id, 'session', session);
 }
@@ -165,7 +165,7 @@ export function saveAffiliateSession(session: AffiliateSession): void {
 /** Get the current session — validates it belongs to the right account */
 export function getAffiliateSession(expectedId?: string): AffiliateSession | null {
   try {
-    const raw = localStorage.getItem('jasper_logged_affiliate');
+    const raw = onlineStorage.getItem('jasper_logged_affiliate');
     if (!raw) return null;
     const session: AffiliateSession = JSON.parse(raw);
     // If an expected ID is given, verify it matches (prevents cross-account leakage)
@@ -176,13 +176,13 @@ export function getAffiliateSession(expectedId?: string): AffiliateSession | nul
 
 /** Clear session on logout */
 export function clearAffiliateSession(): void {
-  localStorage.removeItem('jasper_logged_affiliate');
+  onlineStorage.removeItem('jasper_logged_affiliate');
 }
 
 /** Get the immersive affiliates list — returns only records relevant to current session */
 export function getImmersiveAffiliates(currentAccountId?: string): any[] {
   try {
-    const raw = localStorage.getItem('saas_immersive_affiliates');
+    const raw = onlineStorage.getItem('saas_immersive_affiliates');
     if (!raw) return [];
     const all: any[] = JSON.parse(raw);
     // Super Admin sees all — no filter

@@ -7,7 +7,7 @@
  *   1. Compress the image in the browser (canvas → 400×400px, JPEG 75%)
  *   2. Upload the compressed file to Supabase Storage
  *   3. Return the permanent public URL — this URL is what gets saved in
- *      the database and localStorage, never the raw base64 data
+ *      the database and onlineStorage, never the raw base64 data
  *
  * Buckets:
  *   - product-images  → /{tenantId}/{productId}.jpg
@@ -16,8 +16,8 @@
  * Why this approach:
  *   - Compressed size: ~20-30KB per image (down from 2-5MB raw)
  *   - 200 tenants × 400 images × 25KB = ~2GB total in Supabase Storage
- *   - localStorage only stores a ~100-byte URL, never image data
- *   - Images never disappear because they are not subject to localStorage
+ *   - onlineStorage only stores a ~100-byte URL, never image data
+ *   - Images never disappear because they are not subject to onlineStorage
  *     quota limits
  */
 

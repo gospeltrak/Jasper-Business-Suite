@@ -47,7 +47,7 @@ export function isProtectedDataKey(dataKey: string): boolean {
 
 export function readJsonValue<T = any>(key: string): T | null {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = onlineStorage.getItem(key);
     return raw ? JSON.parse(raw) as T : null;
   } catch {
     return null;
@@ -130,18 +130,18 @@ export function writeDataSafetyBackup(scope: string, value: any, reason: DataSaf
   try {
     const safeScope = sanitizeScope(scope);
     const lastKey = backupLastKey(safeScope, reason);
-    const last = Number(localStorage.getItem(lastKey) || 0);
+    const last = Number(onlineStorage.getItem(lastKey) || 0);
     if (Date.now() - last < 10 * 60 * 1000) return;
 
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const key = backupItemKey(safeScope, stamp);
-    localStorage.setItem(key, JSON.stringify({ reason, createdAt: new Date().toISOString(), value }));
-    localStorage.setItem(lastKey, String(Date.now()));
+    onlineStorage.setItem(key, JSON.stringify({ reason, createdAt: new Date().toISOString(), value }));
+    onlineStorage.setItem(lastKey, String(Date.now()));
 
-    const indexRaw = localStorage.getItem(backupIndexKey(safeScope));
+    const indexRaw = onlineStorage.getItem(backupIndexKey(safeScope));
     const index: string[] = indexRaw ? JSON.parse(indexRaw) : [];
     const next = [key, ...index.filter((entry) => entry !== key)];
-    localStorage.setItem(backupIndexKey(safeScope), JSON.stringify(next));
+    onlineStorage.setItem(backupIndexKey(safeScope), JSON.stringify(next));
   } catch {
     // Storage may be full or unavailable; backup must never block a user action.
   }
@@ -209,9 +209,9 @@ export function safeSetJsonItem<T>(
     writeDataSafetyBackup(`${storageKey}_${options.tenantId || 'global'}`, current, 'empty-overwrite');
     console.warn(`[dataSafety] prevented empty overwrite for ${options.logLabel || storageKey}`);
     try {
-      localStorage.setItem(storageKey, JSON.stringify(current));
+      onlineStorage.setItem(storageKey, JSON.stringify(current));
     } catch (error) {
-      console.warn(`[dataSafety] localStorage write failed for ${options.logLabel || storageKey}:`, error);
+      console.warn(`[dataSafety] onlineStorage write failed for ${options.logLabel || storageKey}:`, error);
     }
     return current as T;
   }
@@ -226,9 +226,9 @@ export function safeSetJsonItem<T>(
   }
 
   try {
-    localStorage.setItem(storageKey, JSON.stringify(protectedValue.payload));
+    onlineStorage.setItem(storageKey, JSON.stringify(protectedValue.payload));
   } catch (error) {
-    console.warn(`[dataSafety] localStorage write failed for ${options.logLabel || storageKey}:`, error);
+    console.warn(`[dataSafety] onlineStorage write failed for ${options.logLabel || storageKey}:`, error);
   }
   return protectedValue.payload;
 }
@@ -283,9 +283,9 @@ export function safeSetTenantMapItem<T extends Record<string, any[]>>(
   }
 
   try {
-    localStorage.setItem(storageKey, JSON.stringify(next));
+    onlineStorage.setItem(storageKey, JSON.stringify(next));
   } catch (error) {
-    console.warn(`[dataSafety] localStorage write failed for ${storageKey}:`, error);
+    console.warn(`[dataSafety] onlineStorage write failed for ${storageKey}:`, error);
   }
 
   return next as T;

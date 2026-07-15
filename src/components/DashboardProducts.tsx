@@ -576,7 +576,7 @@ export default function DashboardProducts({
       adjustedAt: new Date().toISOString(),
       tenantId: (activeTenant as any)?.id || '',
     };
-    const existing = JSON.parse(localStorage.getItem('jasper_stock_adjustments') || '[]');
+    const existing = JSON.parse(onlineStorage.getItem('jasper_stock_adjustments') || '[]');
     existing.unshift(log);
     safeSetJsonItem('jasper_stock_adjustments', existing.slice(0, 1000), {
       tenantId: (activeTenant as any)?.id || '',

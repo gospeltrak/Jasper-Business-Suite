@@ -35,9 +35,9 @@ async function loadSubscribersForPOS(): Promise<any[]> {
       .limit(200);
     if (data?.length) return data.map((t: any) => ({ id: t.id, name: t.name, business: t.name }));
   } catch { /* offline */ }
-  // Fallback to localStorage
+  // Fallback to onlineStorage
   try {
-    const local: any[] = JSON.parse(localStorage.getItem('jasper_custom_tenants') || '[]');
+    const local: any[] = JSON.parse(onlineStorage.getItem('jasper_custom_tenants') || '[]');
     return local.map((t: any) => ({ id: t.id, name: t.name || t.businessName, business: t.name || t.businessName }));
   } catch { return []; }
 }
