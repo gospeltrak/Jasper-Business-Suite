@@ -1530,9 +1530,12 @@ export default function DashboardSalesList({
                                 setMenuPos(null);
                               } else {
                                 const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                const estimatedMenuHeight = calculatedDue > 0 ? 360 : 330;
+                                const viewportPadding = 12;
+                                const highestSafeTop = Math.max(viewportPadding, window.innerHeight - estimatedMenuHeight - viewportPadding);
                                 setMenuPos({
-                                  top: rect.bottom + 6,
-                                  right: window.innerWidth - rect.right,
+                                  top: Math.min(rect.bottom + 6, highestSafeTop),
+                                  right: Math.max(12, window.innerWidth - rect.right),
                                 });
                                 setActiveMenuId(sale.id);
                               }
@@ -1543,12 +1546,13 @@ export default function DashboardSalesList({
                             <span>Actions</span>
                           </button>
 
-                          {activeMenuId === sale.id && menuPos && (
+                          {activeMenuId === sale.id && menuPos && createPortal(
                             <>
-                              <div className="fixed z-40 inset-0" onClick={() => { setActiveMenuId(null); setMenuPos(null); }} />
+                              <div className="fixed z-[999] inset-0" onClick={() => { setActiveMenuId(null); setMenuPos(null); }} />
                               <div
-                                className="fixed w-52 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 py-1.5 overflow-hidden"
-                                style={{ top: menuPos.top, right: menuPos.right, boxShadow: '0 8px 32px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.04)' }}
+                                data-testid="desktop-sale-actions-menu"
+                                className="fixed w-52 bg-white border border-slate-100 rounded-2xl shadow-xl z-[1000] py-1.5 overflow-y-auto overscroll-contain"
+                                style={{ top: menuPos.top, right: menuPos.right, maxHeight: 'calc(100dvh - 24px)', boxShadow: '0 8px 32px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.04)' }}
                               >
                                 <div className="px-3 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Sale Actions</div>
 
@@ -1599,7 +1603,8 @@ export default function DashboardSalesList({
                                   </div>
                                 )}
                               </div>
-                            </>
+                            </>,
+                            document.body
                           )}
                         </div>
                       </td>
