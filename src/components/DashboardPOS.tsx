@@ -69,6 +69,14 @@ const playBeep = (frequency = 800, duration = 80) => {
   } catch (e) {}
 };
 
+// Keep audible feedback outside the cart update's critical render path.
+// The basket and totals paint first; the short beep follows immediately after.
+const playCartSuccessBeepAfterPaint = () => {
+  window.requestAnimationFrame(() => {
+    window.setTimeout(() => playBeep(800, 80), 0);
+  });
+};
+
 const playErrorBeep = () => {
   try {
     const ctx = getAudioCtx(); if (!ctx) return;
@@ -261,9 +269,9 @@ export default function DashboardPOS({
         playWarningBeep();
         addScanToast('warning', `📦 Out of stock — ${matchedProduct.name}`);
       } else {
-        playBeep(800, 80);
         addToCart(matchedProduct);
         addScanToast('success', `✓ ${matchedProduct.name} added`);
+        playCartSuccessBeepAfterPaint();
       }
     } else {
       playErrorBeep();
@@ -1337,8 +1345,8 @@ export default function DashboardPOS({
                   key={prod.id}
                   onClick={() => {
                     if (!isOut) {
-                      playBeep(800, 80);
                       addToCart(prod);
+                      playCartSuccessBeepAfterPaint();
                     } else {
                       playOutOfStockBeep();
                     }
@@ -1674,11 +1682,15 @@ export default function DashboardPOS({
         </div>
 
         {/* Totals and checkout */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200/80 space-y-4">
+        <div
+          key={`pos-totals-${cart.length}-${subtotal}-${grandTotal}`}
+          data-testid="pos-totals"
+          className="p-4 bg-slate-50 border-t border-slate-200/80 space-y-4"
+        >
           <div className="space-y-1.5 text-xs font-bold font-sans">
             <div className="flex justify-between text-slate-500">
               <span>Till Subtotal</span>
-              <span className="font-mono">{currency}{Math.round(subtotal).toLocaleString()}</span>
+              <span data-testid="pos-subtotal" className="font-mono">{currency}{Math.round(subtotal).toLocaleString()}</span>
             </div>
 
             {/* Global Order level Discount manual input with toggle */}
@@ -1773,7 +1785,7 @@ export default function DashboardPOS({
 
             <div className="flex justify-between text-base font-black text-slate-900 pt-1">
               <span>ORDER TOTAL</span>
-              <span className="font-mono text-emerald-600 text-lg">{currency}{Math.round(grandTotal).toLocaleString()}</span>
+              <span data-testid="pos-grand-total" className="font-mono text-emerald-600 text-lg">{currency}{Math.round(grandTotal).toLocaleString()}</span>
             </div>
           </div>
 
@@ -1789,7 +1801,10 @@ export default function DashboardPOS({
       </div>
 
       {/* Mobile Sticky Cart Summary */}
-      <div className="xl:hidden fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]">
+      <div
+        key={`pos-mobile-total-${cart.length}-${grandTotal}`}
+        className="xl:hidden fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]"
+      >
         <div className="flex flex-col space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -1803,7 +1818,7 @@ export default function DashboardPOS({
               </div>
               <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">Cart Total</span>
             </div>
-            <span className="text-emerald-700 font-black font-mono text-base">{currency}{Math.round(grandTotal).toLocaleString()}</span>
+            <span data-testid="pos-mobile-grand-total" className="text-emerald-700 font-black font-mono text-base">{currency}{Math.round(grandTotal).toLocaleString()}</span>
           </div>
           <button
             disabled={cart.length === 0}
