@@ -6,6 +6,7 @@ import AffiliatePortal from './components/AffiliatePortal';
 import ToolsHub from './components/ToolsHub';
 import JasperSplashScreen from './components/JasperSplashScreen';
 import { User, Tenant } from './types';
+import PWAInstallBanner from './components/PWAInstallBanner';
 import { useTheme } from './ThemeContext';
 import { useTenantLogo } from './TenantLogoContext';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from './secureDataBridge';
@@ -606,6 +607,8 @@ export default function App() {
 
   return (
     <div id="jasper-app-root" className="app-shell min-h-[100dvh] bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-emerald-100 selection:text-emerald-900 transition-colors duration-300">
+      {/* PWA install banner — Android native prompt / iOS step guide */}
+      <PWAInstallBanner />
       {/* Premium animated splash — shown only on fresh dashboard login */}
       {showSplash && (
         <JasperSplashScreen
