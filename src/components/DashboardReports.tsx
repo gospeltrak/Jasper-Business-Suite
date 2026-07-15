@@ -4974,12 +4974,16 @@ export default function DashboardReports({
                             const velocityPerDay = (item.qty / 30).toFixed(2);
                             return (
                               <div key={idx} className={`flex items-center bg-white dark:bg-slate-900 border rounded-2xl overflow-hidden shadow-sm ${isFastMode ? 'border-emerald-100 dark:border-emerald-900/40' : 'border-rose-100 dark:border-rose-900/40'}`}>
-                                {/* Left: rank */}
-                                <div className={`w-8 shrink-0 flex items-center justify-center py-4 text-[10px] font-black ${isFastMode ? 'text-emerald-600' : 'text-rose-500'}`}>
-                                  {idx + 1}
+                                {/* Left: product image */}
+                                <div className="w-[56px] h-[56px] shrink-0 bg-slate-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+                                  {thumbSrc ? (
+                                    <CachedImage src={thumbSrc} alt={item.name} className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
+                                  ) : (
+                                    <span className="text-[11px] font-black text-slate-300 dark:text-slate-600">{item.name.slice(0,2).toUpperCase()}</span>
+                                  )}
                                 </div>
                                 {/* Middle: info */}
-                                <div className="flex-1 min-w-0 py-3 pr-2">
+                                <div className="flex-1 min-w-0 py-3 px-3">
                                   <p className="text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate">{item.name}</p>
                                   <p className="text-[9px] text-slate-400 mt-0.5">{item.cat || 'Uncategorized'}</p>
                                   <div className="flex items-center gap-2 mt-1">
@@ -4987,13 +4991,9 @@ export default function DashboardReports({
                                     <span className={`text-[10px] font-bold font-mono ${isFastMode ? 'text-emerald-600' : 'text-rose-500'}`}>{velocityPerDay}/day</span>
                                   </div>
                                 </div>
-                                {/* Right: product image */}
-                                <div className="w-[56px] h-[56px] shrink-0 bg-slate-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden mr-2 rounded-xl">
-                                  {thumbSrc ? (
-                                    <CachedImage src={thumbSrc} alt={item.name} className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
-                                  ) : (
-                                    <span className="text-[11px] font-black text-slate-300 dark:text-slate-600">{item.name.slice(0,2).toUpperCase()}</span>
-                                  )}
+                                {/* Right: rank */}
+                                <div className={`w-8 shrink-0 flex items-center justify-center py-4 text-[10px] font-black ${isFastMode ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                  {idx + 1}
                                 </div>
                               </div>
                             );
