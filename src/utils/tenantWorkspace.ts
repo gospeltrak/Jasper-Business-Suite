@@ -382,84 +382,57 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
   }
 
   try {
+    // Use in-memory cache only — no remote SELECT pre-read.
+    // Cache is the source of truth for this session.
+    // A remote SELECT causes race conditions: session A reads stale DB,
+    // session B saves new data, session A overwrites with stale data.
     const currentSafe = readCachedWorkspace(tenantId);
-    let remoteSafe: TenantWorkspace | null = null;
-    try {
-      const { data: remoteData, error: remoteError } = await client
-        .from('tenant_workspaces')
-        .select('payload, updated_at')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
-      if (!remoteError && remoteData?.payload) {
-        remoteSafe = normalizeWorkspace(remoteData.payload as TenantWorkspace);
-      }
-    } catch (error: any) {
-      console.warn('[workspace] remote guard load exception:', error?.message || error);
-    }
 
     if (!workspaceHasBusinessData(workspace)) {
       if (workspaceHasBusinessData(currentSafe)) {
         cacheWorkspace(tenantId, currentSafe as TenantWorkspace);
         return false;
       }
-      const legacy = await loadLegacyTenantWorkspace(client, tenantId);
-      if (legacy && workspaceHasBusinessData(legacy)) {
-        cacheWorkspace(tenantId, legacy);
-        await client
-          .from('tenant_workspaces')
-          .upsert(
-            { tenant_id: tenantId, payload: legacy, updated_at: new Date().toISOString() },
-            { onConflict: 'tenant_id' }
-          );
-        return true;
-      }
     }
 
-    const protection = reconcileProtectedWorkspace(workspace, remoteSafe || currentSafe);
-    let workspaceToSave = protection.workspace;
+    // Merge products using timestamps (updatedAt/syncUpdatedAt picks newer)
     const mergedTombstones = mergeProductTombstones(
-      remoteSafe?.productTombstones,
       currentSafe?.productTombstones,
-      workspaceToSave.productTombstones,
+      workspace.productTombstones,
       readLocalProductTombstones(tenantId),
     );
     const mergedProducts = mergeProductsForSync(
-      workspaceToSave.products || [],
-      remoteSafe?.products || currentSafe?.products || [],
+      workspace.products || [],
+      currentSafe?.products || [],
       mergedTombstones,
     );
-    workspaceToSave = {
-      ...workspaceToSave,
+
+    let workspaceToSave: TenantWorkspace = {
+      ...workspace,
       products: mergedProducts,
       productTombstones: mergedTombstones,
     };
 
-    const mergeBase = remoteSafe || currentSafe;
-    if (mergeBase) {
+    // Merge append-only keys (sales, expenses, deliveries) with cache
+    if (currentSafe) {
       for (const key of appendMergeWorkspaceKeys) {
         (workspaceToSave as any)[key] = mergeRecordsById(
           (workspaceToSave as any)[key],
-          (mergeBase as any)[key],
+          (currentSafe as any)[key],
         );
       }
-      workspaceToSave.settings = mergeSettingsForSync(workspaceToSave.settings, mergeBase.settings);
+      workspaceToSave.settings = mergeSettingsForSync(workspaceToSave.settings, currentSafe.settings);
     }
+
+    // Protection: never wipe arrays that exist in cache but are empty in incoming
+    const protection = reconcileProtectedWorkspace(workspaceToSave, currentSafe);
+    workspaceToSave = protection.workspace;
 
     if (protection.protectedKeys.length > 0) {
-      console.warn(
-        '[workspace] prevented destructive workspace overwrite for:',
-        protection.protectedKeys.join(', ')
-      );
-      const backupSource = remoteSafe || currentSafe;
-      if (backupSource) {
-        saveRemoteWorkspaceBackup(client, tenantId, backupSource, `prevented-empty-overwrite:${protection.protectedKeys.join(',')}`).catch(() => {});
-      }
-      cacheWorkspace(tenantId, workspaceToSave);
-    } else if (protection.shrank) {
-      const backupSource = remoteSafe || currentSafe;
-      if (backupSource) saveRemoteWorkspaceBackup(client, tenantId, backupSource, 'pre-shrink-save').catch(() => {});
+      console.warn('[workspace] prevented destructive overwrite for:', protection.protectedKeys.join(', '));
     }
 
+    // Direct upsert — no pre-read, instant DB write
     const { error } = await client
       .from('tenant_workspaces')
       .upsert(
@@ -471,9 +444,7 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
       console.warn('[workspace] save error:', error.message, '| code:', (error as any).code);
       return false;
     }
-    // Preserve any legacy pending workspace payloads for manual audit/recovery.
-    // Online-only mode must not silently delete local records, even after a
-    // successful cloud save.
+
     writeLocalProductTombstones(tenantId, mergedTombstones);
     cacheWorkspace(tenantId, workspaceToSave);
     return true;
@@ -482,7 +453,6 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
     return false;
   }
 }
-
 // ─── Flush pending (called when going online) ──────────────────────────────
 
 export async function flushPendingTenantWorkspace(tenantId: string): Promise<void> {
