@@ -1873,7 +1873,7 @@ export default function DashboardReports({
               </div>
 
               {/* Filtering summary stats metrics grid */}
-              <div className="mobile-tablet-kpi-grid gap-3 lg:gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(5, minmax(0, 1fr))' }}>
+              <div className="grid grid-cols-2 xl:grid-cols-5 gap-3 lg:gap-4">
                 {/* Total Sales Orders */}
                 <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.05)] flex flex-col justify-between min-h-[108px] text-left min-w-0">
                   <div className="flex items-start space-x-2">

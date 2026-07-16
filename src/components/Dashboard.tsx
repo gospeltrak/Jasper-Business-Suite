@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import PWAInstallBanner from './PWAInstallBanner';
 import { getBusinessDisplayName } from '../utils/businessBranding';
 import { useTranslation } from '../LanguageContext';
 import { useTenantLogo } from '../TenantLogoContext';
-import { useJasperNotifications } from '../JasperNotificationContext';
 import { Branch, BranchStaffAssignment, BranchStock, User, Tenant, Product, Sale, SyncLog, Supplier, Expense, Purchase, Delivery, DeliveryRider, SystemSettings, CustomRole, SaleItem } from '../types';
 import { 
   DEFAULT_TENANTS, 
@@ -179,7 +177,6 @@ interface DashboardProps {
   initialTab?: string;
 }
 
-import { NotificationCenterModal } from './NotificationCenterModal';
 
 const getInitialSystemSettings = (tenant: Tenant): SystemSettings => {
   if (!isDemoTenant(tenant.id)) return createCleanTenantSettings(tenant);
@@ -222,9 +219,7 @@ const getInitialSystemSettings = (tenant: Tenant): SystemSettings => {
 export default function Dashboard({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
   const { logoUrl, businessName: databaseBrandBusinessName, getFallbackInitials } = useTenantLogo();
-  const { addSaleNotification, unreadCount } = useJasperNotifications();
   const [showDashLangMenu, setShowDashLangMenu] = useState(false);
-  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
 
   // Load standard + custom registered tenants dynamically
   const [tenantsList] = useState<Tenant[]>(() => {
@@ -763,43 +758,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     };
   }, [workspaceReady, activeTenant.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      const handleServiceWorkerMessage = (event: MessageEvent) => {
-        if (event.data && event.data.type === 'OFFLINE_BACKGROUND_SYNC_SUCCESS') {
-          const newLog: SyncLog = {
-            id: 'ONLINE-ONLY-SW-' + Math.random().toString(36).slice(2, 8),
-            type: 'sale',
-            status: 'warning',
-            message: 'Ignored legacy background sync success event. Online-only mode will not mark local pending sales as synced automatically.',
-            timestamp: new Date().toISOString()
-          };
-          setLogs(prev => [newLog, ...prev]);
-        }
-      };
-
-      navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
-
-      // Handle standard browser offline -> online transition
-      const handleOnlineStatus = () => {
-        const newLog: SyncLog = {
-          id: 'l-' + Math.random().toString(36).substr(2, 9),
-          type: 'inventory_audit',
-          status: 'warning',
-          message: 'Network connectivity restored. Offline queue replay remains disabled to protect tenant data.',
-          timestamp: new Date().toISOString()
-        };
-        setLogs(prev => [newLog, ...prev]);
-      };
-
-      window.addEventListener('online', handleOnlineStatus);
-
-      return () => {
-        navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
-        window.removeEventListener('online', handleOnlineStatus);
-      };
-    }
-  }, []);
 
   // Floating support hotline and broadcast tracker
   const [isSupportConsoleOpen, setIsSupportConsoleOpen] = useState(false);
@@ -1462,17 +1420,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           summaryStrings.push(`${item.qty}x ${item.productName}`);
        });
        const estimatedProfit = sale.total - totalCost;
-
-       addSaleNotification({
-          tenantId: sale.tenantId,
-          moduleName: activeTenant.businessType === 'pharmacy' ? 'pharmacy' : (sale.channel === 'wholesale' ? 'wholesale' : 'retail'),
-          amount: sale.total,
-          profit: estimatedProfit,
-          paymentMethod: sale.paymentMethod,
-          cashierName: sale.cashierName || user.name,
-          itemsSummary: summaryStrings.join(', ')
-       });
-    } catch(e) {
+      } catch(e) {
        console.error("Failed to parse sale notification event", e);
     }
 
@@ -2010,15 +1958,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   return (
     <div id="dashboard-scaffold" className="w-full h-dvh bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
       
-      {/* PWA install banner — shows after login, not on login page */}
-      {user.role !== 'SuperAdmin' && activeTenant.id ? (
-        <PWAInstallBanner
-          tenantId={activeTenant.id}
-          businessName={businessDisplayName}
-          businessLogo={customBrandingLogo || null}
-          enabled={workspaceReady && Boolean(onlineBusinessName)}
-        />
-      ) : null}
+      
 
       {/* 0. HIGH-FIDELITY FLOATING TOAST STACK (Centered at top on mobile, max 3 stacked) */}
       <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center space-y-2 w-full max-w-sm px-4 pointer-events-none">
@@ -2347,18 +2287,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 )}
               </div>
 
-              {/* Notification bell desk pivot */}
-              <div 
-                className="relative p-2 text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800"
-                onClick={() => {
-                  setIsNotificationCenterOpen(true);
-                  setMoreMenuOpen(false);
-                }}
-              >
-                <Bell className="w-4 h-4" />
-                {unreadCount > 0 && <div className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full border border-white" />}
-                {offlinePendingCount > 0 && unreadCount === 0 && <div className="absolute top-1 right-1 w-2 h-2 bg-[#ef4444] rounded-full border border-white" />}
-              </div>
+              
 
               {/* User Avatar Circle with dropdown */}
               <div className="relative">
@@ -2538,14 +2467,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 )}
               </div>
 
-              <div 
-                className="relative p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer"
-                onClick={() => setIsNotificationCenterOpen(true)}
-              >
-                <Bell className="w-5 h-5" />
-                {unreadCount > 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900" />}
-                {offlinePendingCount > 0 && unreadCount === 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#ef4444] rounded-full border-2 border-white dark:border-slate-900" />}
-              </div>
+
             </div>
           </header>
 
@@ -3460,14 +3382,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         </div>
       )}
       
-      <NotificationCenterModal 
-        isOpen={isNotificationCenterOpen} 
-        onClose={() => setIsNotificationCenterOpen(false)} 
-        onNavigateToReports={() => {
-           setActiveTab('reports');
-           setIsNotificationCenterOpen(false);
-        }} 
-      />
     </div>
   );
 }

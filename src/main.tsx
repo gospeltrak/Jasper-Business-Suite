@@ -1,5 +1,4 @@
 import './utils/onlineStorage';
-import './utils/pwaInstallPrompt';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App';
@@ -7,7 +6,6 @@ import './index.css';
 import { ThemeProvider } from './ThemeContext';
 import { LanguageProvider } from './LanguageContext';
 import { TenantLogoProvider } from './TenantLogoContext';
-import { NotificationProvider } from './JasperNotificationContext';
 
 function syncViewportVars() {
   const viewport = window.visualViewport;
@@ -30,9 +28,7 @@ createRoot(document.getElementById('root')!).render(
     <ThemeProvider>
       <LanguageProvider>
         <TenantLogoProvider>
-          <NotificationProvider>
             <App />
-          </NotificationProvider>
         </TenantLogoProvider>
       </LanguageProvider>
     </ThemeProvider>

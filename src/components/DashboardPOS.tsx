@@ -1375,15 +1375,23 @@ export default function DashboardPOS({
                       : 'border-slate-200 hover:border-slate-350 cursor-pointer'
                   }`}
                 >
-                  {/* Product image — only shown if user uploaded one */}
-                  {showProductImages && getProductImage(prod) !== '' && (
-                    <div className="w-full h-[120px] md:h-36 bg-slate-50 border-b md:border border-slate-100 rounded-t-xl md:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
-                      <CachedImage 
-                        src={getProductImage(prod)} 
-                        alt={prod.name} 
-                        className="w-full h-full group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
-                        referrerPolicy="no-referrer"
-                      />
+                  {/* Product image — shown if uploaded, placeholder if not */}
+                  {showProductImages && (
+                    <div className="w-full h-[110px] md:h-36 bg-slate-50 border-b md:border border-slate-100 rounded-t-xl md:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
+                      {getProductImage(prod) !== '' ? (
+                        <CachedImage 
+                          src={getProductImage(prod)} 
+                          alt={prod.name} 
+                          className="w-full h-full group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center gap-1 opacity-30">
+                          <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center">
+                            <span className="text-slate-400 text-xs font-black">{prod.name.charAt(0).toUpperCase()}</span>
+                          </div>
+                        </div>
+                      )}
                       {isLow && !isOut && (
                         <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-amber-500 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs">
                           LOW ({shopQty})
