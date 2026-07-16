@@ -629,6 +629,12 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       skipNextWorkspaceSaveRef.current = false;
       return;
     }
+    // CRITICAL: Never save until we have confirmed the cloud workspace is loaded.
+    // Without this, a new device login fires this effect with empty state maps
+    // (products=[], sales=[], etc.) before loadTenantWorkspace finishes —
+    // and overwrites the real data in DB with empty arrays.
+    if (!cloudWorkspaceLoadedRef.current) return;
+
     localWorkspaceChangedAtRef.current = Date.now();
     const workspace: TenantWorkspace = {
       branches:             branchesMap[activeTenant.id]             || [],
@@ -643,11 +649,13 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       purchases:            purchasesMap[activeTenant.id]            || [],
       productTombstones:    readLocalProductTombstones(activeTenant.id),
     };
-    if (!cloudWorkspaceLoadedRef.current && !workspaceHasBusinessData(workspace)) {
+
+    // Secondary guard: if workspace is empty AND cloud has data, something
+    // went wrong — do not overwrite DB with empty state.
+    if (!workspaceHasBusinessData(workspace)) {
       return;
     }
-    // Save immediately — no debounce. Protection window (30s) prevents
-    // the live refresh from overwriting while save is in flight.
+
     saveTenantWorkspace(activeTenant.id, workspace);
   }, [workspaceReady, activeTenant.id, branchesMap, branchStocksMap, branchStaffAssignmentsMap, productsMap, salesMap, expensesMap, systemSettings, deliveriesMap, pendingDeliveryNotesMap, purchasesMap]);
 

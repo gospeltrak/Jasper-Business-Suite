@@ -388,11 +388,15 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
     // session B saves new data, session A overwrites with stale data.
     const currentSafe = readCachedWorkspace(tenantId);
 
+    // Secondary protection: if incoming workspace has no business data
+    // but cache has data, something is wrong — refuse to save.
     if (!workspaceHasBusinessData(workspace)) {
       if (workspaceHasBusinessData(currentSafe)) {
-        cacheWorkspace(tenantId, currentSafe as TenantWorkspace);
+        console.warn('[workspace] blocked: incoming workspace is empty but cache has data');
         return false;
       }
+      // Both empty — nothing to save
+      return false;
     }
 
     // Merge products using timestamps (updatedAt/syncUpdatedAt picks newer)
