@@ -1255,19 +1255,53 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
 
-    setExpensesMap(prev => ({
-      ...prev,
-      [activeTenant.id]: (prev[activeTenant.id] || []).filter(e => e.id !== expenseId)
-    }));
+    const updatedExpenses = (expensesMap[activeTenant.id] || []).filter(e => e.id !== expenseId);
+    setExpensesMap(prev => ({ ...prev, [activeTenant.id]: updatedExpenses }));
+
+    // Save directly to DB so staff reports reflect deletion immediately
+    skipNextWorkspaceSaveRef.current = true;
+    const workspace: TenantWorkspace = {
+      branches:             branchesMap[activeTenant.id]             || [],
+      branchStocks:         branchStocksMap[activeTenant.id]         || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+      products:             productsMap[activeTenant.id]             || [],
+      sales:                salesMap[activeTenant.id]                || [],
+      expenses:             updatedExpenses,
+      settings:             systemSettings,
+      deliveries:           deliveriesMap[activeTenant.id]           || [],
+      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+      purchases:            purchasesMap[activeTenant.id]            || [],
+      productTombstones:    readLocalProductTombstones(activeTenant.id),
+    };
+    saveTenantWorkspace(activeTenant.id, workspace).catch(() => {});
   };
 
   const handleUpdateExpense = (updatedExpense: Expense) => {
     if (blockOfflineBusinessWrite('expense update')) return;
 
-    setExpensesMap(prev => ({
-      ...prev,
-      [activeTenant.id]: (prev[activeTenant.id] || []).map(e => e.id === updatedExpense.id ? updatedExpense : e)
-    }));
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
+
+    const updatedExpenses = (expensesMap[activeTenant.id] || []).map(
+      e => e.id === updatedExpense.id ? updatedExpense : e
+    );
+    setExpensesMap(prev => ({ ...prev, [activeTenant.id]: updatedExpenses }));
+
+    skipNextWorkspaceSaveRef.current = true;
+    const workspace: TenantWorkspace = {
+      branches:             branchesMap[activeTenant.id]             || [],
+      branchStocks:         branchStocksMap[activeTenant.id]         || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+      products:             productsMap[activeTenant.id]             || [],
+      sales:                salesMap[activeTenant.id]                || [],
+      expenses:             updatedExpenses,
+      settings:             systemSettings,
+      deliveries:           deliveriesMap[activeTenant.id]           || [],
+      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+      purchases:            purchasesMap[activeTenant.id]            || [],
+      productTombstones:    readLocalProductTombstones(activeTenant.id),
+    };
+    saveTenantWorkspace(activeTenant.id, workspace).catch(() => {});
   };
 
   const persistTenantProductsNow = (updatedProducts: Product[]) => {
@@ -1359,11 +1393,34 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     const syncUpdatedAt = new Date().toISOString();
-    setSalesMap(prev => ({
-      ...prev,
-      [activeTenant.id]: updatedSales.map((sale) => ({ ...sale, syncUpdatedAt: (sale as any).syncUpdatedAt || syncUpdatedAt }) as Sale)
-    }));
-    
+
+    const syncedSales = updatedSales.map(
+      (sale) => ({ ...sale, syncUpdatedAt: (sale as any).syncUpdatedAt || syncUpdatedAt }) as Sale
+    );
+
+    setSalesMap(prev => ({ ...prev, [activeTenant.id]: syncedSales }));
+
+    // Save directly to DB immediately — do not wait for useEffect.
+    // This ensures the deleted sale is removed from DB before the 5s
+    // live refresh can re-load it and resurrect it in staff reports.
+    skipNextWorkspaceSaveRef.current = true;
+    const workspace: TenantWorkspace = {
+      branches:             branchesMap[activeTenant.id]             || [],
+      branchStocks:         branchStocksMap[activeTenant.id]         || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+      products:             productsMap[activeTenant.id]             || [],
+      sales:                syncedSales,
+      expenses:             expensesMap[activeTenant.id]             || [],
+      settings:             systemSettings,
+      deliveries:           deliveriesMap[activeTenant.id]           || [],
+      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+      purchases:            purchasesMap[activeTenant.id]            || [],
+      productTombstones:    readLocalProductTombstones(activeTenant.id),
+    };
+    saveTenantWorkspace(activeTenant.id, workspace).catch((error) => {
+      console.warn('[Dashboard] Unable to immediately sync updated sales workspace:', error);
+    });
+
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
       type: 'sale',
