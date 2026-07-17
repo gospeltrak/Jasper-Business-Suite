@@ -4282,13 +4282,28 @@ export default function DashboardProducts({
             onSubmit={handleSaveProductEdit}
             className="tenant-form-screen bg-white border border-slate-200 shadow-2xl w-full h-full max-h-[100dvh] overflow-hidden flex flex-col uppercase text-xs lg:h-auto lg:max-w-4xl lg:max-h-[calc(100dvh_-_2rem)] lg:rounded-3xl"
           >
-            {/* Header */}
-            <div className="tenant-form-header sticky top-0 z-10 px-4 py-3 sm:px-6 sm:py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+            {/* Header — modern mobile */}
+            <div className="xl:hidden sticky top-0 z-10 flex items-center justify-between px-4 py-3.5 bg-white border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center">
+                  <Edit className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-black text-slate-900 leading-none">Edit Product</p>
+                  <p className="text-[9px] text-slate-400 font-medium mt-0.5 truncate max-w-[180px]">{editForm.name || 'Product details'}</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setEditingProduct(null)} className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center cursor-pointer active:bg-slate-200 transition-colors">
+                <X className="w-4 h-4 text-slate-600" />
+              </button>
+            </div>
+            {/* Header — desktop */}
+            <div className="hidden xl:flex sticky top-0 z-10 px-6 py-4 bg-slate-50 border-b border-slate-200 items-center justify-between shrink-0">
               <div className="flex items-center space-x-2 min-w-0">
                 <Edit className="w-4 h-4 text-emerald-600 animate-pulse" />
                 <h4 className="flex-1 min-w-0 font-bold text-slate-800 text-[11px] sm:text-xs uppercase tracking-wider font-mono truncate">Adjust Product details desk</h4>
               </div>
-              <button type="button" onClick={() => setEditingProduct(null)} className="w-10 h-10 lg:w-auto lg:h-auto rounded-full bg-white lg:bg-transparent border border-slate-200 lg:border-0 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer shrink-0">
+              <button type="button" onClick={() => setEditingProduct(null)} className="w-auto h-auto flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -4868,20 +4883,29 @@ export default function DashboardProducts({
               </div>
             </div>
 
-            <div className="tenant-form-footer sticky bottom-0 z-10 bg-slate-50 p-3 sm:p-4 flex gap-2 border-t border-slate-200 shrink-0">
-              <button 
-                type="button" 
-                onClick={() => setEditingProduct(null)} 
-                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
-              >
-                Cancel Adjustments
-              </button>
-              <button 
-                type="submit" 
-                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-505 text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
-              >
-                Save Changes
-              </button>
+            <div className="tenant-form-footer sticky bottom-0 z-10 bg-white border-t border-slate-100 shrink-0" style={{paddingBottom:'env(safe-area-inset-bottom)'}}>
+              {/* Mobile/tablet footer */}
+              <div className="xl:hidden flex gap-2.5 p-3.5">
+                <button 
+                  type="button" 
+                  onClick={() => setEditingProduct(null)} 
+                  className="flex-1 h-12 bg-slate-100 text-slate-700 font-bold rounded-2xl text-xs cursor-pointer active:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-[2] h-12 bg-emerald-600 text-white font-bold rounded-2xl text-xs cursor-pointer active:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200 flex items-center justify-center gap-2"
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l4 4 6-7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Save Changes
+                </button>
+              </div>
+              {/* Desktop footer */}
+              <div className="hidden xl:flex gap-2 p-4">
+                <button type="button" onClick={() => setEditingProduct(null)} className="flex-none px-5 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer">Cancel Adjustments</button>
+                <button type="submit" className="flex-none px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer">Save Changes</button>
+              </div>
             </div>
           </form>
         </div>

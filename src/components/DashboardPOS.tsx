@@ -1343,12 +1343,13 @@ export default function DashboardPOS({
 
         {/* Product listing grid — ALWAYS 2 columns on mobile/tablet, 3 on desktop */}
         <div
-          className={`px-2 md:px-0 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200 ${showProductImages ? '' : 'flex flex-col gap-1.5'}`}
+          className={`min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200 ${showProductImages ? '' : 'flex flex-col gap-1.5'}`}
           style={showProductImages ? {
             display: 'grid',
-            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-            gap: '8px',
-          } : undefined}
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+            gap: '6px',
+            padding: '6px 8px',
+          } : { padding: '0 8px' }}
         >
           {filteredProducts.length === 0 ? (
             <div className="sm:col-span-3 text-center py-16 text-sm font-mono text-slate-500 bg-white border border-slate-200 rounded-3xl shadow-sm">
@@ -1372,61 +1373,64 @@ export default function DashboardPOS({
                       playOutOfStockBeep();
                     }
                   }}
-                  className={`bg-white border border-slate-200 select-none relative active:scale-95 transition-transform group cursor-pointer ${
-                    showProductImages
-                      ? 'rounded-xl overflow-hidden flex flex-col'
-                      : 'rounded-xl flex items-center gap-2 p-2.5 overflow-hidden'
-                  } ${isOut ? 'opacity-55 cursor-not-allowed bg-slate-50' : 'hover:border-emerald-300 hover:shadow-sm'}`}
+                  className="select-none relative cursor-pointer"
+                  style={{
+                    opacity: isOut ? 0.5 : 1,
+                    borderRadius: 14,
+                    overflow: 'hidden',
+                    background: '#fff',
+                    border: '1px solid #f0f0f0',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                    display: showProductImages ? 'flex' : 'flex',
+                    flexDirection: showProductImages ? 'column' : 'row',
+                    alignItems: showProductImages ? 'stretch' : 'center',
+                    gap: showProductImages ? 0 : 8,
+                    padding: showProductImages ? 0 : '8px 10px',
+                    transition: 'transform 0.1s, box-shadow 0.15s',
+                  }}
+                  onTouchStart={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.97)'; }}
+                  onTouchEnd={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
                 >
-                  {/* IMAGE — square aspect ratio, never cropped */}
+                  {/* IMAGE */}
                   {showProductImages && (
-                    <div className="relative w-full bg-slate-50 border-b border-slate-100" style={{ aspectRatio: '1/1' }}>
+                    <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', background: '#f8fafc', borderBottom: '1px solid #f0f0f0' }}>
                       {getProductImage(prod) !== '' ? (
                         <img
                           src={getProductImage(prod)}
                           alt={prod.name}
-                          className="absolute inset-0 w-full h-full object-contain p-1.5"
+                          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', padding: 6 }}
+                          referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-2xl font-black text-slate-200 select-none">
-                            {prod.name.charAt(0).toUpperCase()}
-                          </span>
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontSize: 22, fontWeight: 900, color: '#e2e8f0' }}>{prod.name.charAt(0).toUpperCase()}</span>
                         </div>
                       )}
                       {isLow && !isOut && (
-                        <span className="absolute top-1 left-1 bg-amber-500 text-white px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wide">
-                          LOW
-                        </span>
+                        <span style={{ position: 'absolute', top: 4, left: 4, background: '#f59e0b', color: '#fff', fontSize: 7, fontWeight: 800, padding: '1px 5px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>LOW</span>
                       )}
                       {isOut && (
-                        <span className="absolute top-1 left-1 bg-red-500 text-white px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wide animate-pulse">
-                          OUT
-                        </span>
+                        <span style={{ position: 'absolute', top: 4, left: 4, background: '#ef4444', color: '#fff', fontSize: 7, fontWeight: 800, padding: '1px 5px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>OUT</span>
                       )}
                     </div>
                   )}
-
                   {/* BODY */}
-                  <div className={`${showProductImages ? 'p-2 flex flex-col gap-1.5' : 'flex-1 min-w-0 flex items-center justify-between gap-2'}`}>
-                    {/* Name */}
-                    <p className={`font-bold text-slate-800 leading-tight select-none ${showProductImages ? 'text-[11px] line-clamp-2' : 'text-xs flex-1 truncate'}`}>
+                  <div style={{ padding: showProductImages ? '7px 7px 7px' : 0, flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <p style={{ fontSize: showProductImages ? 10 : 12, fontWeight: 700, color: '#1e293b', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                       {prod.name}
                     </p>
-
-                    {/* Price + Add */}
-                    <div className="flex items-center justify-between gap-1">
-                      <span className={`font-black text-slate-900 whitespace-nowrap ${showProductImages ? 'text-[12px]' : 'text-sm'}`}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginTop: showProductImages ? 2 : 0 }}>
+                      <span style={{ fontSize: showProductImages ? 11 : 13, fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap' }}>
                         {currency}{Math.round(displayPrice).toLocaleString()}
                       </span>
                       {!isOut ? (
-                        <div className="w-6 h-6 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0">
-                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                            <path d="M5 2v6M2 5h6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+                        <div style={{ width: showProductImages ? 22 : 28, height: showProductImages ? 22 : 28, borderRadius: showProductImages ? 7 : 9, background: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                            <path d="M4.5 1.5v6M1.5 4.5h6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
                           </svg>
                         </div>
                       ) : (
-                        <span className="text-[8px] text-slate-400 font-bold shrink-0">Out</span>
+                        <span style={{ fontSize: 7, color: '#94a3b8', fontWeight: 700 }}>OUT</span>
                       )}
                     </div>
                   </div>
@@ -1890,7 +1894,7 @@ export default function DashboardPOS({
                 {/* Payment Method — 2-col grid with logos */}
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Payment Method</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
                     {(() => {
                       const rawModes = systemSettings?.business?.paymentModes || [];
                       const modes: Array<{name: string; logoUrl?: string}> = (rawModes as any[]).map((m: any) =>
@@ -1917,41 +1921,54 @@ export default function DashboardPOS({
                                 setMultiBankAmount(grandTotal - Math.round(grandTotal / 2));
                               }
                             }}
-                            className={`relative flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 transition-all cursor-pointer text-left ${
-                              isSelected
-                                ? 'border-emerald-500 bg-emerald-500 shadow-md scale-[1.01]'
-                                : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
-                            }`}
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 5,
+                              padding: '10px 6px',
+                              borderRadius: 14,
+                              border: isSelected ? '2px solid #16a34a' : '1.5px solid #e2e8f0',
+                              background: isSelected ? '#16a34a' : '#fff',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s',
+                              boxShadow: isSelected ? '0 2px 10px rgba(22,163,74,0.25)' : '0 1px 3px rgba(0,0,0,0.04)',
+                              transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                              position: 'relative',
+                              overflow: 'hidden',
+                              minHeight: 68,
+                            }}
                           >
-                            {/* Logo or abbrev */}
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden ${
-                              isSelected ? 'bg-white/20' : 'bg-slate-100'
-                            }`}>
+                            {/* Logo or abbrev circle */}
+                            <div style={{
+                              width: 32, height: 32, borderRadius: 10,
+                              background: isSelected ? 'rgba(255,255,255,0.22)' : '#f1f5f9',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              overflow: 'hidden', flexShrink: 0,
+                            }}>
                               {hasLogo ? (
-                                <img
-                                  src={mode.logoUrl}
-                                  alt={mode.name}
-                                  className="w-full h-full object-contain p-0.5"
-                                />
+                                <img src={mode.logoUrl} alt={mode.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />
                               ) : (
-                                <span className={`text-[10px] font-black uppercase ${isSelected ? 'text-white' : 'text-slate-500'}`}>
+                                <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: isSelected ? '#fff' : '#64748b' }}>
                                   {mode.name.slice(0, 3)}
                                 </span>
                               )}
                             </div>
-
                             {/* Name */}
-                            <span className={`text-xs font-bold leading-tight flex-1 min-w-0 truncate ${
-                              isSelected ? 'text-white' : 'text-slate-700'
-                            }`}>
+                            <span style={{
+                              fontSize: 9.5, fontWeight: 700, lineHeight: 1.2, textAlign: 'center',
+                              color: isSelected ? '#fff' : '#334155',
+                              overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical', maxWidth: '100%',
+                            }}>
                               {mode.name}
                             </span>
-
-                            {/* Selected check */}
+                            {/* Check badge */}
                             {isSelected && (
-                              <div className="w-4 h-4 rounded-full bg-white/25 flex items-center justify-center shrink-0">
-                                <svg width="8" height="7" viewBox="0 0 8 7" fill="none">
-                                  <path d="M1 3.5L3 5.5L7 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                              <div style={{ position: 'absolute', top: 4, right: 4, width: 14, height: 14, borderRadius: '50%', background: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <svg width="7" height="6" viewBox="0 0 7 6" fill="none">
+                                  <path d="M1 3L2.8 4.8L6 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                                 </svg>
                               </div>
                             )}
