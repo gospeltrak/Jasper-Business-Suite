@@ -74,6 +74,7 @@ interface DashboardReportsProps {
   purchases?: any[];
   deliveries?: any[];
   systemSettings?: any;
+  headerSearchQuery?: string;
 }
 
 export default function DashboardReports({
@@ -89,6 +90,7 @@ export default function DashboardReports({
   purchases = [],
   deliveries = [],
   systemSettings,
+  headerSearchQuery = '',
 }: DashboardReportsProps) {
   const currency = activeTenant.currency;
   const printActiveReportPdf = async () => {
@@ -177,6 +179,13 @@ export default function DashboardReports({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [velocitySortOrder, setVelocitySortOrder] = useState<'desc' | 'asc'>('desc');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Sync from header search — scoped to active report tab
+  useEffect(() => {
+    if (headerSearchQuery !== undefined) {
+      setSearchTerm(headerSearchQuery);
+    }
+  }, [headerSearchQuery, reportTab]);
   const [mobileSelectorOpen, setMobileSelectorOpen] = useState(false);
 
   // Additional Sales Report local filters

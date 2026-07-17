@@ -54,6 +54,7 @@ interface DashboardProductsProps {
   onAddProduct: (prod: Product) => void;
   onDeleteProduct: (id: string) => void;
   onUpdateProducts: (updatedProducts: Product[]) => void;
+  headerSearchQuery?: string;
   subscriptionStatus?: any;
   onTriggerUpgrade?: (limitType: 'products' | 'stores' | 'staff' | 'expired') => void;
 }
@@ -71,6 +72,7 @@ export default function DashboardProducts({
   onAddProduct,
   onDeleteProduct,
   onUpdateProducts,
+  headerSearchQuery = '',
   subscriptionStatus,
   onTriggerUpgrade
 }: DashboardProductsProps) {
@@ -618,6 +620,13 @@ export default function DashboardProducts({
 
   // Search filter
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Sync header search query into local searchTerm
+  useEffect(() => {
+    if (headerSearchQuery !== undefined) {
+      setSearchTerm(headerSearchQuery);
+    }
+  }, [headerSearchQuery]);
 
   // Add Product Panel state
   const [isOpen, setIsOpen] = useState(false);

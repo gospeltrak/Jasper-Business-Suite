@@ -179,6 +179,7 @@ interface DashboardSalesListProps {
   currentUser?: AppUser;
   subscriptionStatus?: any;
   onSendToDeliveryNote?: (sale: Sale) => void;
+  headerSearchQuery?: string;
 }
 
 export default function DashboardSalesList({ 
@@ -192,7 +193,8 @@ export default function DashboardSalesList({
   onPreloadCartForPOS,
   currentUser,
   subscriptionStatus,
-  onSendToDeliveryNote
+  onSendToDeliveryNote,
+  headerSearchQuery = ''
 }: DashboardSalesListProps) {
   const currency = activeTenant.currency;
 
@@ -404,6 +406,13 @@ export default function DashboardSalesList({
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Sync from header search bar
+  useEffect(() => {
+    if (headerSearchQuery !== undefined) {
+      setSearchTerm(headerSearchQuery);
+    }
+  }, [headerSearchQuery]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('All');
   const [selectedSyncStatus, setSelectedSyncStatus] = useState<string>('All');
 

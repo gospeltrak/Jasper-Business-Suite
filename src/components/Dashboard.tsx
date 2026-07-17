@@ -42,6 +42,7 @@ import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolatio
 import { flushPendingTenantWorkspace, loadTenantWorkspace, markTenantProductsUpdated, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
 import { markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
+import { useContextualSearch } from '../utils/contextualSearch';
 import { mergeSettingsForSync, stampSettingsForSync } from '../utils/settingsSync';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../utils/onlineOnly';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
@@ -220,6 +221,38 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const { t, lang, setLang } = useTranslation();
   const { logoUrl, businessName: databaseBrandBusinessName, getFallbackInitials } = useTenantLogo();
   const [showDashLangMenu, setShowDashLangMenu] = useState(false);
+
+  // ── Contextual search — tied to active tab, auto-clears on tab change ──
+  const {
+    rawQuery: headerSearchQuery,
+    setRawQuery: setHeaderSearchQuery,
+    debouncedQuery: headerSearchDebounced,
+    isSearching: headerSearchLoading,
+    clearSearch: clearHeaderSearch,
+    config: searchConfig,
+    hasQuery: headerHasQuery,
+  } = useContextualSearch(activeTab);
+
+  const headerSearchRef = useRef<HTMLInputElement>(null);
+
+  // Keyboard shortcut: / or Ctrl+K → focus search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && headerHasQuery) {
+        clearHeaderSearch();
+        headerSearchRef.current?.blur();
+        return;
+      }
+      if ((e.key === '/' || (e.key === 'k' && (e.ctrlKey || e.metaKey))) &&
+          document.activeElement?.tagName !== 'INPUT' &&
+          document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        headerSearchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [headerHasQuery, clearHeaderSearch]);
 
   // Load standard + custom registered tenants dynamically
   const [tenantsList] = useState<Tenant[]>(() => {
@@ -2482,11 +2515,47 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             {/* Center: Clean whitespace (nothing, per design) */}
             <div className="flex-1" />
 
-            {/* Right: Search icon + Dark Mode + Language + Notification bell */}
+            {/* Right: Contextual Search + Dark Mode + Language */}
             <div className="flex items-center space-x-1">
-              <button className="p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer">
-                <Search className="w-5 h-5" />
-              </button>
+
+              {/* ── Contextual Search Bar ── */}
+              {searchConfig.fields.length > 0 && (
+                <div className="relative flex items-center">
+                  <div className="relative flex items-center">
+                    <Search className="absolute left-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none z-10" />
+                    <input
+                      ref={headerSearchRef}
+                      type="text"
+                      value={headerSearchQuery}
+                      onChange={e => setHeaderSearchQuery(e.target.value)}
+                      placeholder={searchConfig.placeholder}
+                      className="w-44 md:w-56 lg:w-64 pl-8 pr-7 py-1.5 text-[11px] bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-emerald-400 dark:focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 rounded-lg outline-none transition-all text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500"
+                      style={{ fontWeight: 500 }}
+                    />
+                    {/* Loading indicator */}
+                    {headerSearchLoading && (
+                      <div className="absolute right-2 w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                    )}
+                    {/* Clear button */}
+                    {headerHasQuery && !headerSearchLoading && (
+                      <button
+                        type="button"
+                        onClick={clearHeaderSearch}
+                        className="absolute right-2 w-4 h-4 flex items-center justify-center rounded-full bg-slate-400 hover:bg-slate-500 transition-colors cursor-pointer"
+                      >
+                        <X className="w-2.5 h-2.5 text-white" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Search icon only — when tab has no search config */}
+              {searchConfig.fields.length === 0 && (
+                <button className="p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer">
+                  <Search className="w-5 h-5" />
+                </button>
+              )}
 
               {/* Dark / Light Mode Toggle */}
               {onToggleTheme && (
@@ -2742,6 +2811,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onDeleteProduct={handleDeleteProduct}
               onUpdateProducts={handleUpdateActiveStocks}
               subscriptionStatus={subStatus}
+              headerSearchQuery={headerSearchDebounced}
               onTriggerUpgrade={(type) => {
                 setSubModal({
                   show: true,
@@ -2828,6 +2898,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               purchases={purchasesMap[activeTenant.id] || []}
               deliveries={deliveriesMap[activeTenant.id] || []}
               systemSettings={systemSettings}
+              headerSearchQuery={headerSearchDebounced}
             />
           )}
 
@@ -2848,6 +2919,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               currentUser={user}
               subscriptionStatus={subStatus}
               onSendToDeliveryNote={handleSendToDeliveryNote}
+              headerSearchQuery={headerSearchDebounced}
             />
           )}
 
