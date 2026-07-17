@@ -341,13 +341,20 @@ export default function App() {
 
   const handleLoginSuccess = async (authenticatedUser: User) => {
     logoutInProgressRef.current = false;
-    const domainTenantId = tenantDomainContext.kind === 'tenant' ? tenantDomainContext.tenant?.id : null;
-    const userTenantId = authenticatedUser.tenantId || authenticatedUser.activeTenant;
-    const isPlatformAdmin = authenticatedUser.role === 'SuperAdmin' || authenticatedUser.isSaaSStaff;
-    if (domainTenantId && !isPlatformAdmin && userTenantId !== domainTenantId) {
-      setRedirectMessage(`This account does not belong to ${tenantDomainContext.tenant?.name || 'this business'}. Please use the correct business login.`);
-      return;
+
+    // Only enforce domain tenant check when context has fully resolved.
+    // If still loading, allow login to proceed — the check will be
+    // re-evaluated on next render when context is ready.
+    if (tenantDomainContext.kind !== 'loading') {
+      const domainTenantId = tenantDomainContext.kind === 'tenant' ? tenantDomainContext.tenant?.id : null;
+      const userTenantId = authenticatedUser.tenantId || authenticatedUser.activeTenant;
+      const isPlatformAdmin = authenticatedUser.role === 'SuperAdmin' || authenticatedUser.isSaaSStaff;
+      if (domainTenantId && !isPlatformAdmin && userTenantId !== domainTenantId) {
+        setRedirectMessage(`This account does not belong to ${tenantDomainContext.tenant?.name || 'this business'}. Please use the correct business login.`);
+        return;
+      }
     }
+
     await configureOnlineStorage(authenticatedUser.activeTenant || authenticatedUser.tenantId);
     recordStaffLogin(authenticatedUser);
     setUser(authenticatedUser);
@@ -404,6 +411,22 @@ export default function App() {
   // Dynamic Component switcher based on pathname
   const renderRoute = () => {
     if (tenantDomainContext.kind === 'loading') {
+      // If user is already authenticated (from sessionStorage or prior login),
+      // skip the loading spinner and show the dashboard immediately.
+      // This prevents the double-login issue where user sees LoginPage
+      // while tenantDomainContext is still resolving.
+      if (user) {
+        return (
+          <Dashboard
+            user={user}
+            onLogout={handleLogoutSuccess}
+            onNavigate={navigateTo}
+            isDark={isDark}
+            onToggleTheme={toggleTheme}
+            initialTab={getDashboardTab(currentPath)}
+          />
+        );
+      }
       return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-6 text-center">
           <div className="space-y-3">
