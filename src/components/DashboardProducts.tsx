@@ -1903,10 +1903,14 @@ export default function DashboardProducts({
                 </div>
 
                 <button onClick={() => setIsOpen(!isOpen)}
-                  className="h-9 px-4 flex items-center gap-1.5 rounded-xl text-white text-xs font-bold transition-colors shadow-sm"
+                  className="h-9 px-4 flex items-center gap-1.5 rounded-xl text-white text-xs font-bold transition-all shadow-sm"
                   style={{ background: isOpen ? '#ef4444' : '#22c55e' }}>
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{isOpen ? 'Cancel' : 'Add Product'}</span>
+                  {isOpen ? (
+                    <X className="w-3.5 h-3.5" />
+                  ) : (
+                    <Plus className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isOpen ? 'Close' : 'Add Product'}</span>
                 </button>
               </div>
             </div>
