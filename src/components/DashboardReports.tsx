@@ -1234,39 +1234,33 @@ export default function DashboardReports({
       </div>
 
       {/* ============================================================= */}
-      {/* ── MOBILE HEADER — premium native hero ── */}
+      {/* ── MOBILE HEADER — clean, no dark background ── */}
       <div className="xl:hidden space-y-3">
-        {/* Dark hero banner */}
-        <div className="rounded-2xl overflow-hidden relative" style={{background:'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)',boxShadow:'0 4px 20px rgba(15,23,42,0.2)'}}>
-          <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full opacity-5" style={{background:'white'}}/>
-          <div className="px-4 pt-4 pb-4 relative">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Reports & Analytics</p>
-                {(()=>{ const m=getTabMeta(reportTab); const Icon=m.icon; return(
-                  <h1 className="text-white font-black text-[20px] leading-tight mt-0.5">{m.label}</h1>
-                );})()}
-              </div>
-              <div className="flex gap-1.5">
-                <button onClick={printActiveReportPdf} type="button"
-                  className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:'rgba(255,255,255,0.1)'}}>
-                  <Printer className="w-4 h-4 text-white"/>
-                </button>
-              </div>
-            </div>
-            {/* Date quick chips */}
-            <div className="grid grid-cols-4 gap-1.5">
-              {[
-                {l:'Today',   f:()=>{const t=getTodayRange();setStartDateStr(t);setEndDateStr(t);}},
-                {l:'7 Days',  f:()=>{setStartDateStr(getLast7DaysRange());setEndDateStr(getTodayRange());}},
-                {l:'30 Days', f:()=>{const d=new Date();d.setDate(d.getDate()-29);setStartDateStr(d.toISOString().split('T')[0]);setEndDateStr(getTodayRange());}},
-                {l:'All',     f:()=>{setStartDateStr('2020-01-01');setEndDateStr(getTodayRange());}},
-              ].map(p=>(
-                <button key={p.l} type="button" onClick={p.f}
-                  className="px-2 py-1.5 rounded-xl text-[10px] font-bold text-center" style={{background:'rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.75)'}}>{p.l}</button>
-              ))}
-            </div>
+        {/* Clean header — no dark hero, no background color */}
+        <div className="flex items-center justify-between px-1">
+          <div>
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Reports & Analytics</p>
+            {(()=>{ const m=getTabMeta(reportTab); const Icon=m.icon; return(
+              <h1 className="text-slate-900 font-black text-[20px] leading-tight mt-0.5">{m.label}</h1>
+            );})()}
           </div>
+          <button onClick={printActiveReportPdf} type="button"
+            className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+            <Printer className="w-4 h-4 text-slate-600"/>
+          </button>
+        </div>
+
+        {/* Date quick chips */}
+        <div className="grid grid-cols-4 gap-1.5">
+          {[
+            {l:'Today',   f:()=>{const t=getTodayRange();setStartDateStr(t);setEndDateStr(t);}},
+            {l:'7 Days',  f:()=>{setStartDateStr(getLast7DaysRange());setEndDateStr(getTodayRange());}},
+            {l:'30 Days', f:()=>{const d=new Date();d.setDate(d.getDate()-29);setStartDateStr(d.toISOString().split('T')[0]);setEndDateStr(getTodayRange());}},
+            {l:'All',     f:()=>{setStartDateStr('2020-01-01');setEndDateStr(getTodayRange());}},
+          ].map(p=>(
+            <button key={p.l} type="button" onClick={p.f}
+              className="px-2 py-1.5 rounded-xl text-[10px] font-bold text-center bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 transition-colors">{p.l}</button>
+          ))}
         </div>
 
         {/* KPI mini cards 2×2 — clean elegant cards */}

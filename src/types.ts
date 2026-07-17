@@ -449,6 +449,11 @@ export interface BranchBranding {
   businessName?: string;
 }
 
+export interface PaymentModeConfig {
+  name: string;
+  logoUrl?: string; // transparent PNG or white-bg image uploaded by user
+}
+
 export interface BusinessSettings {
   businessName: string;
   businessPhone: string;
@@ -456,7 +461,7 @@ export interface BusinessSettings {
   businessLogo: string; // base64 or placeholder URL
   businessLogoLight?: string; // Day mode branding logo
   businessLogoDark?: string;  // Dark mode branding logo
-  paymentModes: string[];
+  paymentModes: string[] | PaymentModeConfig[];
   deliveryPaymentModes?: string[];
   registeredStores: string[];
   tagline?: string;

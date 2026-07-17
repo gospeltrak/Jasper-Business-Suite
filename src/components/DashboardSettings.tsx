@@ -41,6 +41,14 @@ import { DashboardNotificationsSettings } from './DashboardNotificationsSettings
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { compressImageFile } from '../utils/imageCompression';
 
+// Normalize payment modes — handles both legacy string[] and new {name,logoUrl}[]
+const normalizePaymentModes = (modes: any[]): PaymentModeConfig[] =>
+  (modes || []).map(m => typeof m === 'string' ? { name: m } : m);
+
+const paymentModesToStrings = (modes: PaymentModeConfig[]): string[] =>
+  modes.map(m => m.name);
+
+
 export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
   {
     id: 'role-seller',
@@ -1061,27 +1069,57 @@ export default function DashboardSettings({
 
   // Payment Mode management states
   const [newPaymentMode, setNewPaymentMode] = useState('');
+  const [newPaymentModeLogo, setNewPaymentModeLogo] = useState('');
+  const [uploadingPaymentLogo, setUploadingPaymentLogo] = useState(false);
+
+  const getPaymentModes = (): PaymentModeConfig[] =>
+    normalizePaymentModes(businessForm.paymentModes as any[]);
+
   const handleAddPaymentMode = () => {
-    const paymentMode = newPaymentMode.trim();
-    if (!paymentMode) return;
-    const currentPaymentModes = businessForm.paymentModes || [];
-    if (!currentPaymentModes.includes(paymentMode)) {
-      const nextBusinessForm = {
-        ...businessForm,
-        paymentModes: [...currentPaymentModes, paymentMode]
-      };
-      setBusinessForm(nextBusinessForm);
-      persistBusinessSettings(nextBusinessForm);
+    const name = newPaymentMode.trim();
+    if (!name) return;
+    const current = getPaymentModes();
+    if (!current.find(m => m.name === name)) {
+      const updated = [...current, { name, logoUrl: newPaymentModeLogo || undefined }];
+      const next = { ...businessForm, paymentModes: updated as any };
+      setBusinessForm(next);
+      persistBusinessSettings(next);
     }
     setNewPaymentMode('');
+    setNewPaymentModeLogo('');
   };
-  const handleRemovePaymentMode = (mode: string) => {
-    const nextBusinessForm = {
-      ...businessForm,
-      paymentModes: (businessForm.paymentModes || []).filter(m => m !== mode)
+
+  const handleRemovePaymentMode = (name: string) => {
+    const updated = getPaymentModes().filter(m => m.name !== name);
+    const next = { ...businessForm, paymentModes: updated as any };
+    setBusinessForm(next);
+    persistBusinessSettings(next);
+  };
+
+  const handlePaymentModeLogoUpload = (name: string, file: File) => {
+    setUploadingPaymentLogo(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const logoUrl = reader.result as string;
+      const updated = getPaymentModes().map(m =>
+        m.name === name ? { ...m, logoUrl } : m
+      );
+      const next = { ...businessForm, paymentModes: updated as any };
+      setBusinessForm(next);
+      persistBusinessSettings(next);
+      setUploadingPaymentLogo(false);
     };
-    setBusinessForm(nextBusinessForm);
-    persistBusinessSettings(nextBusinessForm);
+    reader.readAsDataURL(file);
+  };
+
+  const handlePaymentModeNewLogoUpload = (file: File) => {
+    setUploadingPaymentLogo(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setNewPaymentModeLogo(reader.result as string);
+      setUploadingPaymentLogo(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   // Store management states
@@ -2005,54 +2043,118 @@ export default function DashboardSettings({
               </div>
 
               {/* Payment modes register */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
                     <CreditCard className="w-4 h-4 text-slate-500" />
                     <span>Payment Methods</span>
                   </h4>
-                  <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans mt-0.5">
-                    Add payment methods.
+                  <p className="text-[10.5px] text-slate-400 leading-relaxed font-sans mt-1">
+                    Add your payment methods. Optionally upload a logo for each — it will appear on the POS checkout screen.
+                  </p>
+                  <p className="text-[10px] text-emerald-600 font-bold mt-1">
+                    💡 Logo tip: use a transparent PNG or white background image for best results.
                   </p>
                 </div>
 
-                <div className="space-y-3 font-sans">
-                  <div className="flex flex-wrap gap-2">
-                    {(businessForm.paymentModes || []).map(mode => (
-                      <span 
-                        key={mode} 
-                        className="inline-flex items-center space-x-1 px-3 py-1.5 bg-white border border-slate-220 rounded-xl text-xs font-bold text-slate-700 select-none shadow-xs"
-                      >
-                        <span>{mode}</span>
-                        <button 
-                          type="button" 
-                          onClick={() => handleRemovePaymentMode(mode)}
-                          className="hover:text-rose-600 cursor-pointer p-0.5"
-                          title="Click to remove"
-                        >
-                          <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
+                {/* Existing payment modes */}
+                <div className="space-y-2">
+                  {getPaymentModes().map(mode => (
+                    <div key={mode.name} className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+                      {/* Logo preview or placeholder */}
+                      <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 relative group/logo">
+                        {mode.logoUrl ? (
+                          <img src={mode.logoUrl} alt={mode.name} className="w-full h-full object-contain p-1" />
+                        ) : (
+                          <span className="text-[11px] font-black text-slate-400 uppercase">{mode.name.slice(0,3)}</span>
+                        )}
+                        {/* Upload overlay on hover */}
+                        <label className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover/logo:opacity-100 transition-opacity cursor-pointer">
+                          <Upload className="w-3.5 h-3.5 text-white" />
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                            className="hidden"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) handlePaymentModeLogoUpload(mode.name, file);
+                            }}
+                          />
+                        </label>
+                      </div>
 
-                  <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden max-w-sm">
-                    <input
-                      type="text"
-                      value={newPaymentMode}
-                      onChange={(e) => setNewPaymentMode(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddPaymentMode()}
-                      placeholder="Add custom method (e.g., Yas, Paypal)..."
-                      className="flex-1 px-3.5 py-1.5 text-xs outline-none bg-transparent"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddPaymentMode}
-                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase cursor-pointer"
-                    >
-                      Add
-                    </button>
+                      {/* Name */}
+                      <span className="flex-1 text-xs font-bold text-slate-700">{mode.name}</span>
+
+                      {/* Upload logo button */}
+                      <label className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 cursor-pointer flex items-center gap-1 transition-colors">
+                        <Upload className="w-3 h-3" />
+                        <span>{mode.logoUrl ? 'Change' : 'Logo'}</span>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                          className="hidden"
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) handlePaymentModeLogoUpload(mode.name, file);
+                          }}
+                        />
+                      </label>
+
+                      {/* Remove */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePaymentMode(mode.name)}
+                        className="hover:text-rose-600 cursor-pointer p-1 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-slate-300 hover:text-rose-500" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add new payment mode */}
+                <div className="border-t border-slate-100 pt-4 space-y-3">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Add new method</p>
+                  <div className="flex gap-2 items-center">
+                    {/* Optional logo for new method */}
+                    <label className="w-10 h-10 rounded-lg bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-colors shrink-0 overflow-hidden">
+                      {newPaymentModeLogo ? (
+                        <img src={newPaymentModeLogo} alt="logo" className="w-full h-full object-contain p-1" />
+                      ) : (
+                        <Upload className="w-3.5 h-3.5 text-slate-400" />
+                      )}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                        className="hidden"
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) handlePaymentModeNewLogoUpload(file);
+                        }}
+                      />
+                    </label>
+
+                    {/* Name input */}
+                    <div className="flex flex-1 bg-white border border-slate-200 rounded-xl overflow-hidden">
+                      <input
+                        type="text"
+                        value={newPaymentMode}
+                        onChange={e => setNewPaymentMode(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddPaymentMode()}
+                        placeholder="e.g. M-Pesa, CRDB, Airtel..."
+                        className="flex-1 px-3.5 py-2 text-xs outline-none bg-transparent"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddPaymentMode}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase cursor-pointer transition-colors"
+                      >
+                        Add
+                      </button>
+                    </div>
                   </div>
+                  <p className="text-[9.5px] text-slate-400">Click the image icon to upload logo (optional). Transparent PNG recommended.</p>
                 </div>
 
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 hover:border-slate-300 transition-colors mt-6">
