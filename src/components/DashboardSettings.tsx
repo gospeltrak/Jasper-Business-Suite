@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CompanySettings, BusinessSettings, ProductStoreSettings, StaffSettings, SystemSettings, Tenant, CustomRole, RolePermission, InvoiceSettings, Sale, Expense, Delivery } from '../types';
+import { CompanySettings, BusinessSettings, ProductStoreSettings, StaffSettings, SystemSettings, Tenant, CustomRole, RolePermission, InvoiceSettings, Sale, Expense, Delivery, PaymentModeConfig } from '../types';
 import { useTheme } from '../ThemeContext';
 import { useTenantLogo } from '../TenantLogoContext';
 import { DEFAULT_TENANTS } from '../data';
