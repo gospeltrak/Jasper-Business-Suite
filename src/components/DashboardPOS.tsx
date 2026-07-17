@@ -1907,132 +1907,162 @@ export default function DashboardPOS({
                 </div>
 
                 {/* Manual payment recording selectors */}
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Choose Payment Method</label>
-                  <div className="grid grid-cols-1 gap-2">
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Payment Method</label>
+                  <div className="grid grid-cols-2 gap-2.5">
                     {(() => {
-                      const baseModes = systemSettings?.business?.paymentModes && systemSettings.business.paymentModes.length > 0
+                      const baseModes = systemSettings?.business?.paymentModes?.length
                         ? systemSettings.business.paymentModes
                         : ['Cash', 'Mobile Money', 'Bank'];
                       const enabledModes = [...baseModes, 'Multi-Channel'];
-                      
+
+                      // ── Smart icon + color mapping ─────────────────────────
+                      const getPaymentStyle = (mode: string) => {
+                        const m = mode.toLowerCase();
+                        // Cash
+                        if (m.includes('cash') || m === 'cash')
+                          return { bg: '#f0fdf4', border: '#bbf7d0', iconBg: '#16a34a', label: 'CASH', color: '#15803d', emoji: '💵' };
+                        // M-Pesa / Mpesa
+                        if (m.includes('m-pesa') || m.includes('mpesa'))
+                          return { bg: '#f0fdf4', border: '#86efac', iconBg: '#16a34a', label: 'M-PESA', color: '#15803d', emoji: '🟢', logo: 'mpesa' };
+                        // Airtel Money
+                        if (m.includes('airtel'))
+                          return { bg: '#fff1f2', border: '#fecdd3', iconBg: '#dc2626', label: 'AIRTEL', color: '#dc2626', emoji: '🔴', logo: 'airtel' };
+                        // Vodacom / Vodafone
+                        if (m.includes('voda'))
+                          return { bg: '#fff1f2', border: '#fecdd3', iconBg: '#dc2626', label: 'VODA', color: '#dc2626', emoji: '🔴' };
+                        // Tigo Pesa
+                        if (m.includes('tigo'))
+                          return { bg: '#fef3c7', border: '#fde68a', iconBg: '#d97706', label: 'TIGO', color: '#b45309', emoji: '🟡' };
+                        // Halopesa
+                        if (m.includes('halo'))
+                          return { bg: '#fef3c7', border: '#fde68a', iconBg: '#d97706', label: 'HALO', color: '#b45309', emoji: '🟡' };
+                        // MTN Mobile Money
+                        if (m.includes('mtn'))
+                          return { bg: '#fef9c3', border: '#fef08a', iconBg: '#ca8a04', label: 'MTN', color: '#854d0e', emoji: '🟡', logo: 'mtn' };
+                        // Safaricom
+                        if (m.includes('safaricom'))
+                          return { bg: '#f0fdf4', border: '#86efac', iconBg: '#16a34a', label: 'SAFA', color: '#15803d', emoji: '🟢' };
+                        // CRDB
+                        if (m.includes('crdb'))
+                          return { bg: '#fff7ed', border: '#fed7aa', iconBg: '#ea580c', label: 'CRDB', color: '#c2410c', emoji: '🏦', logo: 'crdb' };
+                        // NMB
+                        if (m.includes('nmb'))
+                          return { bg: '#eff6ff', border: '#bfdbfe', iconBg: '#2563eb', label: 'NMB', color: '#1d4ed8', emoji: '🏦', logo: 'nmb' };
+                        // NBC
+                        if (m.includes('nbc'))
+                          return { bg: '#faf5ff', border: '#e9d5ff', iconBg: '#7c3aed', label: 'NBC', color: '#6d28d9', emoji: '🏦' };
+                        // KCB
+                        if (m.includes('kcb'))
+                          return { bg: '#f0fdf4', border: '#bbf7d0', iconBg: '#15803d', label: 'KCB', color: '#166534', emoji: '🏦' };
+                        // Equity
+                        if (m.includes('equity'))
+                          return { bg: '#fff1f2', border: '#fecdd3', iconBg: '#dc2626', label: 'EQT', color: '#dc2626', emoji: '🏦' };
+                        // ABSA
+                        if (m.includes('absa'))
+                          return { bg: '#fff1f2', border: '#fecdd3', iconBg: '#dc2626', label: 'ABSA', color: '#dc2626', emoji: '🏦' };
+                        // Stanbic
+                        if (m.includes('stanbic') || m.includes('standard'))
+                          return { bg: '#fef3c7', border: '#fde68a', iconBg: '#d97706', label: 'STD', color: '#b45309', emoji: '🏦' };
+                        // Flutterwave
+                        if (m.includes('flutter'))
+                          return { bg: '#fff7ed', border: '#fed7aa', iconBg: '#ea580c', label: 'FLW', color: '#c2410c', emoji: '💳' };
+                        // Paystack
+                        if (m.includes('paystack'))
+                          return { bg: '#f0fdf4', border: '#86efac', iconBg: '#16a34a', label: 'PAYS', color: '#15803d', emoji: '💳' };
+                        // Pesapal
+                        if (m.includes('pesapal'))
+                          return { bg: '#faf5ff', border: '#e9d5ff', iconBg: '#7c3aed', label: 'PPAL', color: '#6d28d9', emoji: '💳' };
+                        // PayPal
+                        if (m.includes('paypal'))
+                          return { bg: '#eff6ff', border: '#bfdbfe', iconBg: '#1d4ed8', label: 'PYPL', color: '#1e40af', emoji: '🅿️' };
+                        // iZyPay / ixxbyyas / custom
+                        if (m.includes('izy') || m.includes('ixx'))
+                          return { bg: '#faf5ff', border: '#e9d5ff', iconBg: '#7c3aed', label: 'IZY', color: '#6d28d9', emoji: '💜' };
+                        // Credit / Debt / Due
+                        if (m.includes('credit') || m.includes('debt') || m.includes('due') || m.includes('mkopo'))
+                          return { bg: '#fff1f2', border: '#fecdd3', iconBg: '#dc2626', label: 'MKOPO', color: '#b91c1c', emoji: '📋' };
+                        // Bank / Transfer generic
+                        if (m.includes('bank') || m.includes('transfer') || m.includes('uhawilisho'))
+                          return { bg: '#eff6ff', border: '#bfdbfe', iconBg: '#2563eb', label: 'BANK', color: '#1d4ed8', emoji: '🏦' };
+                        // Mobile money generic
+                        if (m.includes('mobile') || m.includes('momo') || m.includes('pesa') || m.includes('wallet'))
+                          return { bg: '#f0fdf4', border: '#bbf7d0', iconBg: '#16a34a', label: 'MOMO', color: '#15803d', emoji: '📱' };
+                        // Card / Visa / Mastercard
+                        if (m.includes('card') || m.includes('visa') || m.includes('master'))
+                          return { bg: '#eff6ff', border: '#bfdbfe', iconBg: '#1d4ed8', label: 'CARD', color: '#1d4ed8', emoji: '💳' };
+                        // Multi-channel split
+                        if (m === 'multi-channel' || m.includes('split') || m.includes('multi'))
+                          return { bg: '#f5f3ff', border: '#ddd6fe', iconBg: '#7c3aed', label: 'SPLIT', color: '#6d28d9', emoji: '⚡' };
+                        // Default
+                        return { bg: '#f8fafc', border: '#e2e8f0', iconBg: '#475569', label: mode.slice(0,4).toUpperCase(), color: '#334155', emoji: '💰' };
+                      };
+
                       return enabledModes.map(mode => {
                         const isSelected = paymentMethod === mode;
-                        const isCash = mode.toLowerCase().includes('cash');
-                        const isMomo = mode.toLowerCase().includes('pesa') || mode.toLowerCase().includes('momo') || mode.toLowerCase().includes('mobile') || mode.toLowerCase().includes('mtn') || mode.toLowerCase().includes('paystack');
-                        const isMulti = mode === 'Multi-Channel';
-                        
-                        return (
-                          <div key={mode} className="space-y-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPaymentMethod(mode);
-                                const isCreditMode = mode.toLowerCase().includes('credit');
-                                setAmountPaid(isCreditMode ? 0 : Number(grandTotal.toFixed(2)));
-                                setReferenceCode('');
-                                setPaymentNote('');
-                                if (mode === 'Multi-Channel') {
-                                  setMultiCashAmount(Math.round(grandTotal / 2));
-                                  setMultiBankAmount(grandTotal - Math.round(grandTotal / 2));
-                                }
-                              }}
-                              className={`p-3 rounded-2xl border flex items-center justify-between transition-all cursor-pointer text-left w-full ${
-                                isSelected 
-                                  ? 'bg-emerald-50 text-emerald-755 border-emerald-450' 
-                                  : 'bg-slate-50 text-slate-600 border-slate-250 hover:border-slate-350'
-                              }`}
-                            >
-                              <div className="flex items-center space-x-3 text-xs">
-                                {isCash ? (
-                                  <Receipt className={`w-4 h-4 ${isSelected ? 'text-emerald-600' : 'text-slate-405'}`} />
-                                ) : isMomo ? (
-                                  <Smartphone className={`w-4 h-4 ${isSelected ? 'text-emerald-600' : 'text-slate-405'}`} />
-                                ) : isMulti ? (
-                                  <Coins className={`w-4 h-4 ${isSelected ? 'text-indigo-600 animate-pulse' : 'text-slate-405'}`} />
-                                ) : (
-                                  <CreditCard className={`w-4 h-4 ${isSelected ? 'text-emerald-600' : 'text-slate-405'}`} />
-                                )}
-                                <div>
-                                  <p className="font-bold text-slate-800">{mode}</p>
-                                  <p className="text-[10px] text-slate-500 font-light mt-0.5">
-                                    {isCash ? 'Collect paper currency, log to system till vault' : 
-                                     isMomo ? 'Record manual wallet payment received outside the system' :
-                                     isMulti ? 'Split manually received cash and bank/card amounts' :
-                                     'Record manual bank/card transfer for reports'}
-                                  </p>
-                                </div>
-                              </div>
-                              <span className="text-[9px] font-bold tracking-widest bg-slate-250 border border-slate-300 px-2 py-0.5 rounded font-mono uppercase text-slate-700">
-                                {isCash ? 'CASH' : isMomo ? 'MOMO' : isMulti ? 'SPLIT' : 'BANK'}
-                              </span>
-                            </button>
+                        const style = getPaymentStyle(mode);
+                        const isCreditMode = mode.toLowerCase().includes('credit') || mode.toLowerCase().includes('mkopo') || mode.toLowerCase().includes('due');
 
-                            {isMulti && isSelected && (
-                              <div className="bg-white border border-slate-200 rounded-2xl p-4.5 space-y-3 shadow-xs">
-                                <p className="text-[10px] font-mono font-black text-indigo-700 uppercase tracking-wider">Split Payment</p>
-                                <div className="grid grid-cols-2 gap-3.5">
-                                  <div>
-                                    <label className="block text-[9.5px] uppercase font-bold text-slate-500 mb-1">Cash In ({currency})</label>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max={grandTotal}
-                                      value={multiCashAmount}
-                                      onChange={(e) => {
-                                        const val = parseFloat(e.target.value) || 0;
-                                        const boundedVal = Math.min(grandTotal, val);
-                                        setMultiCashAmount(boundedVal);
-                                        setMultiBankAmount(grandTotal - boundedVal);
-                                      }}
-                                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 font-mono font-bold text-xs"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[9.5px] uppercase font-bold text-slate-500 mb-1">Bank / Card ({currency})</label>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max={grandTotal}
-                                      value={multiBankAmount}
-                                      onChange={(e) => {
-                                        const val = parseFloat(e.target.value) || 0;
-                                        const boundedVal = Math.min(grandTotal, val);
-                                        setMultiBankAmount(boundedVal);
-                                        setMultiCashAmount(grandTotal - boundedVal);
-                                      }}
-                                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 font-mono font-bold text-xs"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="text-[10px] uppercase font-black text-emerald-800 text-center bg-emerald-50 py-1.5 rounded-xl border border-emerald-100 font-sans">
-                                  Combined: {currency}{multiCashAmount.toLocaleString()} Cash + {currency}{multiBankAmount.toLocaleString()} Bank = {currency}{(multiCashAmount + multiBankAmount).toLocaleString()}
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  <label className="block">
-                                    <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Transaction Ref (optional)</span>
-                                    <input
-                                      type="text"
-                                      value={referenceCode}
-                                      onChange={(e) => setReferenceCode(e.target.value)}
-                                      placeholder="Bank/card/mobile ref"
-                                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 font-mono text-xs text-slate-800"
-                                    />
-                                  </label>
-                                  <label className="block">
-                                    <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Payment Note (optional)</span>
-                                    <input
-                                      type="text"
-                                      value={paymentNote}
-                                      onChange={(e) => setPaymentNote(e.target.value)}
-                                      placeholder="Manual split confirmation"
-                                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 text-xs text-slate-800"
-                                    />
-                                  </label>
-                                </div>
+                        return (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => {
+                              setPaymentMethod(mode);
+                              setAmountPaid(isCreditMode ? 0 : Number(grandTotal.toFixed(2)));
+                              setReferenceCode('');
+                              setPaymentNote('');
+                              if (mode === 'Multi-Channel') {
+                                setMultiCashAmount(Math.round(grandTotal / 2));
+                                setMultiBankAmount(grandTotal - Math.round(grandTotal / 2));
+                              }
+                            }}
+                            className={`relative flex flex-col items-center gap-2 p-3.5 rounded-2xl border-2 transition-all cursor-pointer text-center ${
+                              isSelected
+                                ? 'shadow-md scale-[1.02]'
+                                : 'hover:scale-[1.01] active:scale-95'
+                            }`}
+                            style={{
+                              backgroundColor: isSelected ? style.iconBg : style.bg,
+                              borderColor: isSelected ? style.iconBg : style.border,
+                            }}
+                          >
+                            {/* Selected checkmark */}
+                            {isSelected && (
+                              <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-white/30 rounded-full flex items-center justify-center">
+                                <svg width="8" height="8" viewBox="0 0 10 8" fill="none">
+                                  <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
                               </div>
                             )}
-                          </div>
+
+                            {/* Icon circle */}
+                            <div
+                              className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+                              style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : style.iconBg }}
+                            >
+                              <span style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.15))' }}>{style.emoji}</span>
+                            </div>
+
+                            {/* Name */}
+                            <div className="min-w-0 w-full">
+                              <p
+                                className="text-[11px] font-black leading-tight truncate"
+                                style={{ color: isSelected ? '#fff' : '#0f172a' }}
+                              >
+                                {mode}
+                              </p>
+                              <span
+                                className="text-[9px] font-bold px-1.5 py-0.5 rounded-md mt-0.5 inline-block"
+                                style={{
+                                  backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : style.iconBg + '22',
+                                  color: isSelected ? '#fff' : style.color,
+                                }}
+                              >
+                                {style.label}
+                              </span>
+                            </div>
+                          </button>
                         );
                       });
                     })()}
