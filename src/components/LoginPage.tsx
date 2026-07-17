@@ -1084,8 +1084,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       return;
     }
 
-    // Default Fallback
-    setTimeout(() => {
+    // Default Fallback — try local staff list first, then DB lookup
+    const tryStaffLogin = async () => {
+      // 1. Try local cached staff (fast path — works if device has settings cached)
       const combinedUsers = getAllSystemUsers();
 
       if (sameLoginIdentifier(cleanIdentifier, 'saas.admin@jasper.com') && cleanPassword !== 'password123') {
@@ -1101,33 +1102,93 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         return;
       }
 
-      const match = combinedUsers.find(
+      const localMatch = combinedUsers.find(
         (u: any) => (sameLoginIdentifier(u.phone, cleanIdentifier) || sameLoginIdentifier(u.email, cleanIdentifier)) && String(u.password || '').trim() === cleanPassword
       );
 
-      if (match) {
+      if (localMatch) {
         triggerOnLoginWithSplash({
-          id: match.id || 'u-' + Math.random().toString(36).substr(2, 9),
-          email: match.email,
-          name: match.name,
-          role: match.role as any,
-          tenantId: match.tenantId,
-          activeTenant: match.activeTenant,
-          profileImage: match.profileImage,
-          phone: match.phone,
-          isSaaSStaff: match.isSaaSStaff || false,
-          rolePermissions: match.rolePermissions,
-          trial_start_date: match.trial_start_date || new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          trial_end_date: match.trial_end_date || new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
-          is_affiliate_lead: match.is_affiliate_lead || false,
-          referral_code_used: match.referral_code_used || ''
+          id: localMatch.id || 'u-' + Math.random().toString(36).substr(2, 9),
+          email: localMatch.email,
+          name: localMatch.name,
+          role: localMatch.role as any,
+          tenantId: localMatch.tenantId,
+          activeTenant: localMatch.activeTenant,
+          profileImage: localMatch.profileImage,
+          phone: localMatch.phone,
+          isSaaSStaff: localMatch.isSaaSStaff || false,
+          rolePermissions: localMatch.rolePermissions,
+          trial_start_date: localMatch.trial_start_date || new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+          trial_end_date: localMatch.trial_end_date || new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+          is_affiliate_lead: localMatch.is_affiliate_lead || false,
+          referral_code_used: localMatch.referral_code_used || ''
         });
-      } else {
-        setHasActiveLoginAttempt(true);
-        setError('Invalid login details. Please check your email or phone number and password, then try again.');
-        setIsLoading(false);
+        return;
       }
-    }, 600);
+
+      // 2. DB fallback — scan all tenant_workspaces for matching staff
+      // This is needed on new devices where jasper_settings_* is not yet cached
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        if (!isPlaceholderSecureDataBridgeClient(client)) {
+          const { data: workspaces } = await client
+            .from('tenant_workspaces')
+            .select('tenant_id, payload');
+
+          if (workspaces && Array.isArray(workspaces)) {
+            const resolveStaffPermissions = (settings: any, roleName: string) => {
+              const roles = settings?.customRoles?.length ? settings.customRoles : [];
+              const normalizedRole = (roleName || '').toLowerCase();
+              return roles.find((role: any) => role.name.toLowerCase() === normalizedRole)?.permissions || {};
+            };
+
+            for (const ws of workspaces) {
+              const staffs: any[] = ws.payload?.settings?.staffs || [];
+              const settings = ws.payload?.settings || {};
+              const match = staffs.find((s: any) =>
+                (sameLoginIdentifier(s.phone, cleanIdentifier) ||
+                 sameLoginIdentifier(s.name?.toLowerCase().replace(/\s+/g,'') + '@jasper.com', cleanIdentifier)) &&
+                String(s.password || '').trim() === cleanPassword
+              );
+
+              if (match) {
+                // Cache settings so future logins are fast
+                try {
+                  onlineStorage.setItem(`jasper_settings_${ws.tenant_id}`, JSON.stringify(settings));
+                } catch {}
+
+                triggerOnLoginWithSplash({
+                  id: match.id || 'u-' + Math.random().toString(36).substr(2, 9),
+                  email: match.phone || match.name?.toLowerCase().replace(/\s+/g,'') + '@jasper.com',
+                  name: match.name,
+                  role: match.role as any,
+                  tenantId: ws.tenant_id,
+                  activeTenant: ws.tenant_id,
+                  profileImage: match.profileImage,
+                  phone: match.phone || '',
+                  isSaaSStaff: true,
+                  rolePermissions: resolveStaffPermissions(settings, match.role),
+                  trial_start_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+                  trial_end_date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+                  is_affiliate_lead: false,
+                  referral_code_used: ''
+                });
+                return;
+              }
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.warn('[staff-login] DB fallback failed:', dbErr);
+      }
+
+      // 3. No match found anywhere
+      setHasActiveLoginAttempt(true);
+      setError('Invalid login details. Please check your phone number and password, then try again.');
+      setIsLoading(false);
+    };
+
+    setTimeout(() => { tryStaffLogin(); }, 300);
   };
 
   const handleQuickFill = (userObj: typeof DEMO_USERS[0]) => {
