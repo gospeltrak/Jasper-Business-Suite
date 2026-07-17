@@ -149,30 +149,27 @@ const reconcileProtectedWorkspace = (
 
   for (const key of protectedArrayKeys) {
     const incomingItems = Array.isArray(incoming[key]) ? incoming[key] as any[] : [];
-    const currentItems = Array.isArray(current[key]) ? current[key] as any[] : [];
+    const currentItems  = Array.isArray(current[key])  ? current[key]  as any[] : [];
 
     if (currentItems.length > 0 && incomingItems.length === 0) {
-      // Incoming is completely empty but DB has data — protect DB data
+      // Incoming is completely empty — something went wrong upstream.
+      // Protect existing data. This is the only case we restore from cache.
       (merged as any)[key] = currentItems;
       protectedKeys.push(key);
-    } else if (
-      key === 'products'
-      && (
-        isProductPayloadQualityDowngrade(incomingItems, currentItems)
-        || isProductPayloadDestructiveShrink(incomingItems, currentItems)
-      )
-    ) {
-      // Product payloads restored from stale caches can have the same count but
-      // lose prices, categories, or real names. Keep the richer local/cloud copy.
-      (merged as any)[key] = currentItems;
-      protectedKeys.push(key);
-      shrank = true;
-    } else if (incomingItems.length > 0 && incomingItems.length < currentItems.length) {
-      // Incoming has some data but fewer than DB — flag as shrunk for backup,
-      // but STILL save incoming (user may have deleted items intentionally)
-      shrank = true;
+      continue;
     }
-    // If incoming has MORE data than DB → user just added items → always save
+
+    // IMPORTANT: Do NOT replace incoming with cache for any other reason.
+    // - Quality downgrade checks removed: a legitimate edit (e.g. changing
+    //   one product's price) can lower aggregate quality score. We must not
+    //   silently discard that edit.
+    // - mergeProductsForSync already handles per-product timestamp comparison.
+    //   Trust its result — do not override it here.
+    // - Shrink is allowed: user may intentionally delete products.
+
+    if (incomingItems.length > 0 && incomingItems.length < currentItems.length) {
+      shrank = true; // flag only — do not restore
+    }
   }
 
   return { workspace: merged, protectedKeys, shrank };

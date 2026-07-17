@@ -110,18 +110,22 @@ export const stampProductsForSync = (
   return (nextProducts || []).map((product: any) => {
     const current = currentById.get(product.id);
     const changed = !current || meaningfulProductSignature(product) !== meaningfulProductSignature(current);
+
     if (!changed) {
-      return {
-        ...product,
-        syncUpdatedAt: product.syncUpdatedAt || current?.syncUpdatedAt || current?.updatedAt || current?.updated_at,
-        updatedAt: product.updatedAt || current?.updatedAt || current?.syncUpdatedAt || current?.updated_at,
-      };
+      // Product data unchanged — preserve existing timestamp, never go backwards
+      const existingTs =
+        product.syncUpdatedAt || product.updatedAt ||
+        current?.syncUpdatedAt || current?.updatedAt || current?.updated_at;
+      return { ...product, syncUpdatedAt: existingTs, updatedAt: existingTs };
     }
-    return {
-      ...product,
-      syncUpdatedAt: updatedAt,
-      updatedAt,
-    };
+
+    // Product changed — use the timestamp that was explicitly set on the product
+    // (set by the edit handler in DashboardProducts.tsx to new Date().toISOString())
+    // or fall back to the updatedAt param (also new Date().toISOString()).
+    // Always pick the LARGEST (newest) timestamp — never overwrite a newer one.
+    const productTs = product.syncUpdatedAt || product.updatedAt;
+    const finalTs = productTs && productTs > updatedAt ? productTs : updatedAt;
+    return { ...product, syncUpdatedAt: finalTs, updatedAt: finalTs };
   }) as Product[];
 };
 
@@ -150,12 +154,24 @@ export const mergeProductsForSync = (
 
     if (incomingProduct && currentProduct) {
       if (incomingTime > currentTime) {
+        // Incoming is newer — user's edit wins
         chosen.set(id, incomingProduct);
       } else if (currentTime > incomingTime) {
-        chosen.set(id, currentProduct);
+        // Cache is newer — only possible if another device saved more recently
+        // BUT: if incoming has explicit user edit markers, it still wins
+        const incomingWasExplicitlyEdited =
+          (incomingProduct as any).syncUpdatedAt || (incomingProduct as any).updatedAt;
+        if (incomingWasExplicitlyEdited) {
+          // User explicitly edited this product in this session — their edit wins
+          // regardless of timestamp comparison (timestamp may be clock skew)
+          chosen.set(id, incomingProduct);
+        } else {
+          chosen.set(id, currentProduct);
+        }
       } else {
-        // Timestamps are equal (both 0 or same time) — incoming is always
-        // the user's latest edit from the current session, so it wins.
+        // Timestamps equal or both zero — incoming is always the user's
+        // current session data and wins. Spread current first so incoming
+        // fields (the edits) override cached fields.
         chosen.set(id, { ...currentProduct, ...incomingProduct });
       }
       continue;
