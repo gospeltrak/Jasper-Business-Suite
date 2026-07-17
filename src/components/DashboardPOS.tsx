@@ -1342,7 +1342,7 @@ export default function DashboardPOS({
         </div>
 
         {/* Product listing grid */}
-        <div className={`${showProductImages ? 'grid grid-cols-2 xl:grid-cols-3 gap-2.5 md:gap-4 xl:gap-6' : 'flex flex-col gap-2'} px-2 md:px-0 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200`}>
+        <div className={`${showProductImages ? 'grid grid-cols-2 xl:grid-cols-3 gap-2 md:gap-3 xl:gap-6' : 'flex flex-col gap-1.5'} px-2 md:px-0 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200`}>
           {filteredProducts.length === 0 ? (
             <div className="sm:col-span-3 text-center py-16 text-sm font-mono text-slate-500 bg-white border border-slate-200 rounded-3xl shadow-sm">
               No matching {activeTenant.businessType === 'pharmacy' ? 'pharmaceutical products' : 'retail items'} in stock.
@@ -1365,85 +1365,110 @@ export default function DashboardPOS({
                       playOutOfStockBeep();
                     }
                   }}
-                  className={`bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${
+                  className={`bg-white border select-none relative active:scale-95 transition-transform group ${
                     showProductImages
-                      ? 'p-0 md:p-5 flex flex-col justify-between overflow-hidden xl:overflow-visible md:rounded-3xl'
-                      : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'
+                      ? 'rounded-2xl overflow-hidden flex flex-col p-0 md:p-5 md:rounded-3xl xl:overflow-visible'
+                      : 'rounded-xl flex items-center gap-3 p-3 md:p-4 overflow-hidden'
                   } ${
                     isOut 
                       ? 'border-slate-200 opacity-55 cursor-not-allowed bg-slate-50' 
-                      : 'border-slate-200 hover:border-slate-350 cursor-pointer'
+                      : 'border-slate-200 hover:border-emerald-300 hover:shadow-sm cursor-pointer'
                   }`}
                 >
-                  {/* Product image — shown if uploaded, placeholder if not */}
+                  {/* ── IMAGE BLOCK (mobile: square-ish, desktop: taller) ── */}
                   {showProductImages && (
-                    <div className="w-full h-[110px] md:h-36 bg-slate-50 border-b md:border border-slate-100 rounded-t-xl md:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
+                    <div className="relative w-full bg-slate-50 border-b border-slate-100 rounded-t-2xl md:rounded-2xl overflow-hidden shrink-0"
+                      style={{ aspectRatio: '1 / 1' }}>
                       {getProductImage(prod) !== '' ? (
                         <CachedImage 
                           src={getProductImage(prod)} 
                           alt={prod.name} 
-                          className="w-full h-full group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
+                          className="absolute inset-0 w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-200 select-none pointer-events-none"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className="flex flex-col items-center justify-center gap-1 opacity-30">
-                          <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center">
-                            <span className="text-slate-400 text-xs font-black">{prod.name.charAt(0).toUpperCase()}</span>
-                          </div>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-3xl font-black text-slate-200 select-none">
+                            {prod.name.charAt(0).toUpperCase()}
+                          </span>
                         </div>
                       )}
+                      {/* Stock badges */}
                       {isLow && !isOut && (
-                        <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-amber-500 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs">
-                          LOW ({shopQty})
+                        <span className="absolute top-1.5 left-1.5 bg-amber-500 text-white px-1.5 py-0.5 rounded-md text-[7px] font-black tracking-wider uppercase shadow-sm">
+                          LOW {shopQty}
                         </span>
                       )}
                       {isOut && (
-                        <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-red-600 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs animate-pulse">
+                        <span className="absolute top-1.5 left-1.5 bg-red-500 text-white px-1.5 py-0.5 rounded-md text-[7px] font-black tracking-wider uppercase animate-pulse shadow-sm">
                           OUT
                         </span>
                       )}
                     </div>
                   )}
 
-                  {/* Text details and bottom panel wrapper */}
-                  <div className={`${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-2 px-3 pb-3 md:px-0 md:pb-0' : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'}`}>
-                    {/* Product Metadata & Text layout */}
-                    <div className="space-y-1 min-w-0">
-                      <div className={`${showProductImages ? 'hidden xl:flex' : 'flex'} items-center justify-between gap-2`}>
-                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded-xs leading-none">
+                  {/* ── CARD BODY ── */}
+                  <div className={`${
+                    showProductImages
+                      ? 'flex flex-col gap-1.5 p-2 md:p-0 md:mt-2'
+                      : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'
+                  } min-w-0`}>
+
+                    {/* Name + meta */}
+                    <div className="min-w-0">
+                      {/* Category — only on desktop in image mode */}
+                      <div className={`${showProductImages ? 'hidden xl:flex' : 'flex'} items-center justify-between gap-1 mb-0.5`}>
+                        <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded leading-none truncate">
                           {prod.category}
                         </span>
-                        <span className="text-[9px] font-mono text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded-xs leading-none">
+                        <span className="text-[8px] font-mono text-slate-400 font-bold bg-slate-100 px-1.5 py-0.5 rounded leading-none shrink-0">
                           {remainingLabel}
                         </span>
                       </div>
-                      <h5 className={`font-extrabold text-xs text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 md:min-h-[2.25rem]' : 'truncate md:text-sm'}`} title={prod.name}>
+
+                      {/* Product name */}
+                      <h5 className={`font-extrabold text-slate-800 leading-tight select-all ${
+                        showProductImages
+                          ? 'text-[11px] line-clamp-2'
+                          : 'text-xs truncate md:text-sm'
+                      }`} title={prod.name}>
                         {prod.name}
                       </h5>
-                      <p className={`${showProductImages ? 'hidden xl:block' : 'block'} text-[9.5px] text-slate-400 font-mono font-medium truncate`}>SKU: {prod.sku || prod.barcode || 'N/A'}</p>
+
+                      {/* SKU — desktop only */}
+                      <p className={`${showProductImages ? 'hidden xl:block' : 'block'} text-[9px] text-slate-400 font-mono truncate mt-0.5`}>
+                        {prod.sku || prod.barcode || ''}
+                      </p>
                     </div>
 
-                    {/* Pricing and Select CTA trigger */}
-                    <div className={`${showProductImages ? 'flex items-center justify-between pt-2 border-t border-slate-100 mt-2' : 'contents md:flex md:items-center md:gap-3 md:justify-end'} shrink-0`}>
-                      <div className="space-y-0.5">
-                        <p className="hidden xl:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
-                        <span className="text-sm md:text-[14px] font-black text-emerald-700 md:text-slate-900 leading-none whitespace-nowrap">{currency}{Math.round(displayPrice).toLocaleString()}</span>
-                        {prod.batches && prod.batches.some(batch => batch.status === 'active') && (
-                          <span className={`${showProductImages ? 'block' : 'hidden xl:block'} text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5`}>
-                            {getProductCostingMethod(prod).replace('_', ' ')}
-                          </span>
-                        )}
+                    {/* Price + Add button */}
+                    <div className={`${
+                      showProductImages
+                        ? 'flex items-center justify-between border-t border-slate-100 pt-1.5 mt-0.5'
+                        : 'contents md:flex md:items-center md:gap-3 md:justify-end'
+                    } shrink-0`}>
+                      {/* Price */}
+                      <div className="leading-none">
+                        <span className={`font-black text-slate-900 whitespace-nowrap ${
+                          showProductImages ? 'text-[12px]' : 'text-sm md:text-[14px]'
+                        }`}>
+                          {currency}{Math.round(displayPrice).toLocaleString()}
+                        </span>
                       </div>
+
+                      {/* Add / Out button */}
                       {!isOut ? (
-                        <div className="text-right">
-                          <span className="bg-emerald-600 hover:bg-emerald-700 group-hover:bg-emerald-700 text-white text-[9px] md:text-[9.5px] font-black px-2 md:px-2.5 py-1 md:py-1.5 rounded-lg md:rounded-xl uppercase tracking-wider transition-all shadow-xs inline-flex items-center space-x-1">
-                            <span>+ Add</span>
-                          </span>
+                        <div className={`${showProductImages ? 'w-7 h-7 rounded-lg' : 'rounded-xl px-2.5 py-1.5'} bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center shrink-0 transition-colors shadow-sm`}>
+                          {showProductImages ? (
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                              <path d="M6 2v8M2 6h8" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                            </svg>
+                          ) : (
+                            <span className="text-white text-[9px] font-black uppercase tracking-wider">+ Add</span>
+                          )}
                         </div>
                       ) : (
-                        <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
-                          Out
-                        </span>
+                        <span className="text-slate-400 text-[8px] font-bold uppercase tracking-wider shrink-0">Out</span>
                       )}
                     </div>
                   </div>
