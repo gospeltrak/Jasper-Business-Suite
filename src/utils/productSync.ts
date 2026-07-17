@@ -153,10 +153,10 @@ export const mergeProductsForSync = (
         chosen.set(id, incomingProduct);
       } else if (currentTime > incomingTime) {
         chosen.set(id, currentProduct);
-      } else if (meaningfulProductSignature(incomingProduct) === meaningfulProductSignature(currentProduct)) {
-        chosen.set(id, { ...currentProduct, ...incomingProduct });
       } else {
-        chosen.set(id, currentProduct);
+        // Timestamps are equal (both 0 or same time) — incoming is always
+        // the user's latest edit from the current session, so it wins.
+        chosen.set(id, { ...currentProduct, ...incomingProduct });
       }
       continue;
     }

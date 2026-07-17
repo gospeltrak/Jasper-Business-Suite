@@ -1312,6 +1312,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     saveTenantWorkspace(activeTenant.id, workspace).catch((error) => {
       console.warn('[Dashboard] Unable to immediately sync updated products workspace:', error);
     });
+    // Skip the next save useEffect trigger — we already saved directly above.
+    // Without this, setProductsMap below triggers another save useEffect
+    // which could race with the direct save above.
+    skipNextWorkspaceSaveRef.current = true;
     return syncedProducts;
   };
 
