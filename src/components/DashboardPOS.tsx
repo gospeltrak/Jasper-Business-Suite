@@ -1375,30 +1375,33 @@ export default function DashboardPOS({
                     isOut ? 'opacity-55 cursor-not-allowed' : 'hover:border-emerald-300 hover:shadow-md'
                   } ${showProductImages ? 'flex flex-col' : 'flex items-center gap-2 p-2.5'}`}
                 >
-                  {/* IMAGE — mobile: compact square, desktop: original taller card */}
+                  {/* IMAGE */}
                   {showProductImages && (
-                    <div className="relative w-full bg-slate-50 border-b border-slate-100 overflow-hidden" style={{ aspectRatio: '1/1' }}>
+                    <div
+                      className="relative w-full bg-slate-50 border-b border-slate-100 overflow-hidden"
+                      style={{ aspectRatio: '1/1' }}
+                    >
                       {getProductImage(prod) !== '' ? (
                         <img
                           src={getProductImage(prod)}
                           alt={prod.name}
-                          className="absolute inset-0 w-full h-full object-contain p-1.5 lg:p-2 group-hover:scale-105 transition-transform duration-200"
+                          className="absolute inset-0 w-full h-full object-contain p-2 lg:p-3 group-hover:scale-105 transition-transform duration-200"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-2xl lg:text-3xl font-black text-slate-200 select-none">
+                          <span className="text-3xl lg:text-4xl font-black text-slate-200 select-none">
                             {prod.name.charAt(0).toUpperCase()}
                           </span>
                         </div>
                       )}
                       {isLow && !isOut && (
-                        <span className="absolute top-1 left-1 lg:top-2 lg:left-2 bg-amber-500 text-white px-1.5 py-0.5 rounded-md text-[7px] lg:text-[8px] font-black tracking-wider uppercase shadow-sm">
+                        <span className="absolute top-1.5 left-1.5 bg-amber-500 text-white px-2 py-0.5 rounded-md text-[8px] font-black tracking-wider uppercase shadow-sm">
                           LOW ({shopQty})
                         </span>
                       )}
                       {isOut && (
-                        <span className="absolute top-1 left-1 lg:top-2 lg:left-2 bg-red-600 text-white px-1.5 py-0.5 rounded-md text-[7px] lg:text-[8px] font-black tracking-wider uppercase animate-pulse shadow-sm">
+                        <span className="absolute top-1.5 left-1.5 bg-red-600 text-white px-2 py-0.5 rounded-md text-[8px] font-black tracking-wider uppercase animate-pulse shadow-sm">
                           OUT
                         </span>
                       )}
@@ -1408,10 +1411,10 @@ export default function DashboardPOS({
                   {/* CARD BODY */}
                   <div className={`${
                     showProductImages
-                      ? 'flex flex-col gap-1 p-2 lg:p-3'
+                      ? 'flex flex-col gap-1.5 p-2 lg:p-4'
                       : 'flex-1 min-w-0 flex items-center justify-between gap-2'
                   }`}>
-                    {/* Category + stock — desktop only in image mode */}
+                    {/* Category + stock — desktop */}
                     {showProductImages && (
                       <div className="hidden lg:flex items-center justify-between gap-1">
                         <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded leading-none truncate">
@@ -1426,13 +1429,13 @@ export default function DashboardPOS({
                     {/* Product name */}
                     <p className={`font-bold text-slate-800 leading-tight ${
                       showProductImages
-                        ? 'text-[10px] lg:text-xs line-clamp-2'
+                        ? 'text-[10px] lg:text-sm line-clamp-2'
                         : 'text-xs flex-1 truncate'
                     }`}>
                       {prod.name}
                     </p>
 
-                    {/* Stock remaining — mobile/tablet only (desktop shows in header above) */}
+                    {/* Stock — mobile/tablet only */}
                     {showProductImages && remainingLabel && (
                       <span className="lg:hidden text-[8px] font-bold text-slate-400 font-mono">
                         {remainingLabel}
@@ -1442,18 +1445,18 @@ export default function DashboardPOS({
                     {/* Price + Add */}
                     <div className="flex items-center justify-between gap-1 mt-auto">
                       <span className={`font-black text-slate-900 whitespace-nowrap ${
-                        showProductImages ? 'text-[11px] lg:text-sm' : 'text-sm'
+                        showProductImages ? 'text-[11px] lg:text-base' : 'text-sm'
                       }`}>
                         {currency}{Math.round(displayPrice).toLocaleString()}
                       </span>
                       {!isOut ? (
                         <div className={`${
                           showProductImages
-                            ? 'w-6 h-6 lg:w-7 lg:h-7 rounded-lg lg:rounded-xl'
+                            ? 'w-6 h-6 lg:w-9 lg:h-9 rounded-lg lg:rounded-xl'
                             : 'rounded-xl px-2 py-1'
                         } bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center shrink-0 transition-colors shadow-sm`}>
                           {showProductImages ? (
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                            <svg className="w-2.5 h-2.5 lg:w-4 lg:h-4" viewBox="0 0 10 10" fill="none">
                               <path d="M5 1.5v7M1.5 5h7" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
                             </svg>
                           ) : (
@@ -1461,7 +1464,7 @@ export default function DashboardPOS({
                           )}
                         </div>
                       ) : (
-                        <span className="text-slate-400 text-[8px] font-bold shrink-0">Out</span>
+                        <span className="text-slate-400 text-[8px] lg:text-xs font-bold shrink-0">Out</span>
                       )}
                     </div>
                   </div>
