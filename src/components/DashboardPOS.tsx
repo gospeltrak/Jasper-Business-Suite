@@ -1345,7 +1345,7 @@ export default function DashboardPOS({
         <div
           className={`min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200 ${
             showProductImages
-              ? 'grid grid-cols-3 lg:grid-cols-4 gap-1.5 lg:gap-4 p-2 lg:p-3'
+              ? 'grid grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-1.5 lg:gap-3 p-2 lg:p-3'
               : 'flex flex-col gap-1.5 p-2'
           }`}
         >
@@ -1378,7 +1378,7 @@ export default function DashboardPOS({
                   {/* IMAGE */}
                   {showProductImages && (
                     <div
-                      className="relative w-full bg-slate-50 border-b border-slate-100 overflow-hidden pos-card-img"
+                      className="relative w-full bg-slate-50 border-b border-slate-100 overflow-hidden"
                       style={{ aspectRatio: '1/1' }}
                     >
                       {getProductImage(prod) !== '' ? (
