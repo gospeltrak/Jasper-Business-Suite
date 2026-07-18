@@ -1412,9 +1412,10 @@ export default function DashboardPOS({
                   {/* CARD BODY */}
                   <div className={`${
                     showProductImages
-                      ? 'flex flex-col gap-1.5 p-2 lg:p-4'
+                      ? 'flex flex-col gap-2 p-2.5 flex-1'
                       : 'flex-1 min-w-0 flex items-center justify-between gap-2'
                   }`}>
+
                     {/* Category + stock — desktop */}
                     {showProductImages && (
                       <div className="hidden lg:flex items-center justify-between gap-1">
@@ -1428,44 +1429,41 @@ export default function DashboardPOS({
                     )}
 
                     {/* Product name */}
-                    <p className={`font-bold text-slate-800 leading-tight ${
+                    <p className={`font-bold text-slate-800 leading-snug flex-1 ${
                       showProductImages
-                        ? 'text-[10px] lg:text-sm line-clamp-2'
-                        : 'text-xs flex-1 truncate'
+                        ? 'text-[11px] lg:text-sm line-clamp-2'
+                        : 'text-xs truncate'
                     }`}>
                       {prod.name}
                     </p>
 
-                    {/* Stock — mobile/tablet only */}
+                    {/* Stock — mobile/tablet */}
                     {showProductImages && remainingLabel && (
                       <span className="lg:hidden text-[8px] font-bold text-slate-400 font-mono">
                         {remainingLabel}
                       </span>
                     )}
 
-                    {/* Price + Add */}
-                    <div className="flex items-center justify-between gap-1 mt-auto">
-                      <span className={`font-black text-slate-900 whitespace-nowrap ${
-                        showProductImages ? 'text-[11px] lg:text-base' : 'text-sm'
+                    {/* Price + Add button */}
+                    <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-slate-100">
+                      <span className={`font-black text-slate-900 whitespace-nowrap leading-none ${
+                        showProductImages ? 'text-[12px] lg:text-base' : 'text-sm'
                       }`}>
                         {currency}{Math.round(displayPrice).toLocaleString()}
                       </span>
+
                       {!isOut ? (
-                        <div className={`${
-                          showProductImages
-                            ? 'w-6 h-6 lg:w-9 lg:h-9 rounded-lg lg:rounded-xl'
-                            : 'rounded-xl px-2 py-1'
-                        } bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center shrink-0 transition-colors shadow-sm`}>
-                          {showProductImages ? (
-                            <svg className="w-2.5 h-2.5 lg:w-4 lg:h-4" viewBox="0 0 10 10" fill="none">
-                              <path d="M5 1.5v7M1.5 5h7" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-                            </svg>
-                          ) : (
-                            <span className="text-white text-[9px] font-black">+</span>
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); addToCart(prod); playCartSuccessBeepAfterPaint(); }}
+                          className="w-7 h-7 lg:w-9 lg:h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-90 flex items-center justify-center shrink-0 transition-all shadow-sm shadow-emerald-200"
+                        >
+                          <svg className="w-3.5 h-3.5 lg:w-4 lg:h-4" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 3v10M3 8h10" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+                          </svg>
+                        </button>
                       ) : (
-                        <span className="text-slate-400 text-[8px] lg:text-xs font-bold shrink-0">Out</span>
+                        <span className="text-[9px] lg:text-xs font-bold text-red-400 bg-red-50 px-2 py-1 rounded-lg">Out</span>
                       )}
                     </div>
                   </div>
