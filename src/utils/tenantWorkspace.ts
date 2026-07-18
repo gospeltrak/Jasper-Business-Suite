@@ -149,27 +149,30 @@ const reconcileProtectedWorkspace = (
 
   for (const key of protectedArrayKeys) {
     const incomingItems = Array.isArray(incoming[key]) ? incoming[key] as any[] : [];
-    const currentItems  = Array.isArray(current[key])  ? current[key]  as any[] : [];
+    const currentItems = Array.isArray(current[key]) ? current[key] as any[] : [];
 
     if (currentItems.length > 0 && incomingItems.length === 0) {
-      // Incoming is completely empty — something went wrong upstream.
-      // Protect existing data. This is the only case we restore from cache.
+      // Incoming is completely empty but DB has data — protect DB data
       (merged as any)[key] = currentItems;
       protectedKeys.push(key);
-      continue;
+    } else if (
+      key === 'products'
+      && (
+        isProductPayloadQualityDowngrade(incomingItems, currentItems)
+        || isProductPayloadDestructiveShrink(incomingItems, currentItems)
+      )
+    ) {
+      // Product payloads restored from stale caches can have the same count but
+      // lose prices, categories, or real names. Keep the richer local/cloud copy.
+      (merged as any)[key] = currentItems;
+      protectedKeys.push(key);
+      shrank = true;
+    } else if (incomingItems.length > 0 && incomingItems.length < currentItems.length) {
+      // Incoming has some data but fewer than DB — flag as shrunk for backup,
+      // but STILL save incoming (user may have deleted items intentionally)
+      shrank = true;
     }
-
-    // IMPORTANT: Do NOT replace incoming with cache for any other reason.
-    // - Quality downgrade checks removed: a legitimate edit (e.g. changing
-    //   one product's price) can lower aggregate quality score. We must not
-    //   silently discard that edit.
-    // - mergeProductsForSync already handles per-product timestamp comparison.
-    //   Trust its result — do not override it here.
-    // - Shrink is allowed: user may intentionally delete products.
-
-    if (incomingItems.length > 0 && incomingItems.length < currentItems.length) {
-      shrank = true; // flag only — do not restore
-    }
+    // If incoming has MORE data than DB → user just added items → always save
   }
 
   return { workspace: merged, protectedKeys, shrank };
@@ -414,23 +417,13 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
       productTombstones: mergedTombstones,
     };
 
-    // Merge arrays with cache — but ONLY to fill gaps, never to restore deleted records.
-    // Rule: if incoming has data, it is the source of truth (deletions must be respected).
-    //       if incoming is empty AND cache has data, something went wrong — keep cache.
+    // Merge append-only keys (sales, expenses, deliveries) with cache
     if (currentSafe) {
       for (const key of appendMergeWorkspaceKeys) {
-        const incomingArr = Array.isArray((workspaceToSave as any)[key]) ? (workspaceToSave as any)[key] : [];
-        const currentArr  = Array.isArray((currentSafe as any)[key])      ? (currentSafe as any)[key]      : [];
-
-        if (incomingArr.length > 0) {
-          // Incoming has data — trust it completely. Do NOT merge with cache.
-          // This ensures deleted records (sales, expenses) stay deleted.
-          (workspaceToSave as any)[key] = incomingArr;
-        } else if (currentArr.length > 0) {
-          // Incoming is empty but cache has data — protect against blank saves.
-          (workspaceToSave as any)[key] = currentArr;
-        }
-        // Both empty → leave as empty array
+        (workspaceToSave as any)[key] = mergeRecordsById(
+          (workspaceToSave as any)[key],
+          (currentSafe as any)[key],
+        );
       }
       workspaceToSave.settings = mergeSettingsForSync(workspaceToSave.settings, currentSafe.settings);
     }
