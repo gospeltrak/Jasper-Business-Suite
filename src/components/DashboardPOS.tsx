@@ -1411,42 +1411,33 @@ export default function DashboardPOS({
                   {/* CARD BODY */}
                   <div className={`${
                     showProductImages
-                      ? 'flex flex-col gap-2 p-2.5 flex-1'
+                      ? 'flex flex-col gap-1 p-2 flex-1'
                       : 'flex-1 min-w-0 flex items-center justify-between gap-2'
                   }`}>
 
                     {/* Category + stock — desktop */}
                     {showProductImages && (
-                      <div className="hidden lg:flex items-center justify-between gap-1">
-                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded leading-none truncate">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded-md leading-none truncate">
                           {prod.category}
                         </span>
-                        <span className="text-[9px] font-mono text-slate-400 font-bold bg-slate-100 px-1.5 py-0.5 rounded leading-none shrink-0">
+                        <span className="text-[8px] font-mono text-slate-400 font-semibold leading-none shrink-0">
                           {remainingLabel}
                         </span>
                       </div>
                     )}
 
                     {/* Product name */}
-                    <p className={`font-bold text-slate-800 leading-snug flex-1 ${
-                      showProductImages
-                        ? 'text-[11px] lg:text-sm line-clamp-2'
-                        : 'text-xs truncate'
+                    <p className={`font-semibold text-slate-800 leading-tight line-clamp-2 ${
+                      showProductImages ? 'text-[10px] lg:text-[11px]' : 'text-xs truncate flex-1'
                     }`}>
                       {prod.name}
                     </p>
 
-                    {/* Stock — mobile/tablet */}
-                    {showProductImages && remainingLabel && (
-                      <span className="lg:hidden text-[8px] font-bold text-slate-400 font-mono">
-                        {remainingLabel}
-                      </span>
-                    )}
-
                     {/* Price + Add button */}
-                    <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-slate-100">
+                    <div className="flex items-center justify-between gap-1 mt-auto">
                       <span className={`font-black text-slate-900 whitespace-nowrap leading-none ${
-                        showProductImages ? 'text-[12px] lg:text-base' : 'text-sm'
+                        showProductImages ? 'text-[11px] lg:text-[13px]' : 'text-sm'
                       }`}>
                         {currency}{Math.round(displayPrice).toLocaleString()}
                       </span>
@@ -1455,14 +1446,14 @@ export default function DashboardPOS({
                         <button
                           type="button"
                           onClick={e => { e.stopPropagation(); addToCart(prod); playCartSuccessBeepAfterPaint(); }}
-                          className="w-7 h-7 lg:w-9 lg:h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-90 flex items-center justify-center shrink-0 transition-all shadow-sm shadow-emerald-200"
+                          className="w-6 h-6 lg:w-7 lg:h-7 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-90 flex items-center justify-center shrink-0 transition-all"
                         >
-                          <svg className="w-3.5 h-3.5 lg:w-4 lg:h-4" viewBox="0 0 16 16" fill="none">
-                            <path d="M8 3v10M3 8h10" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+                          <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                            <path d="M6 2v8M2 6h8" stroke="white" strokeWidth="2" strokeLinecap="round"/>
                           </svg>
                         </button>
                       ) : (
-                        <span className="text-[9px] lg:text-xs font-bold text-red-400 bg-red-50 px-2 py-1 rounded-lg">Out</span>
+                        <span className="text-[8px] font-bold text-red-400 bg-red-50 px-1.5 py-0.5 rounded-md">Out</span>
                       )}
                     </div>
                   </div>
