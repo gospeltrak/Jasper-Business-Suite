@@ -1371,16 +1371,15 @@ export default function DashboardPOS({
                       playOutOfStockBeep();
                     }
                   }}
-                  className={`select-none relative cursor-pointer bg-white border border-slate-100 rounded-xl overflow-hidden transition-all active:scale-95 group ${
+                  className={`select-none relative cursor-pointer bg-white border border-slate-100 rounded-xl transition-all active:scale-95 group ${
                     isOut ? 'opacity-55 cursor-not-allowed' : 'hover:border-emerald-300 hover:shadow-md'
                   } ${showProductImages ? 'flex flex-col' : 'flex items-center gap-2 p-2.5'}`}
-                  style={showProductImages ? { minHeight: 160 } : undefined}
                 >
                   {/* IMAGE */}
                   {showProductImages && (
                     <div
                       className="relative w-full bg-slate-50 border-b border-slate-100 overflow-hidden flex-shrink-0"
-                      style={{ paddingTop: '75%' }}
+                      style={{ height: 120 }}
                     >
                       {getProductImage(prod) !== '' ? (
                         <img
