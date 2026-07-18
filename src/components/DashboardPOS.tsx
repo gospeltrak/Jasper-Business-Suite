@@ -1408,39 +1408,34 @@ export default function DashboardPOS({
                     </div>
                   )}
 
-                  {/* CARD BODY */}
+                  {/* CARD BODY — clean, minimal */}
                   <div className={`${
                     showProductImages
-                      ? 'flex flex-col gap-1 p-2 flex-1'
+                      ? 'flex flex-col p-2 flex-1 gap-1.5'
                       : 'flex-1 min-w-0 flex items-center justify-between gap-2'
                   }`}>
 
-                    {/* Category + stock — desktop */}
-                    {showProductImages && (
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded-md leading-none truncate">
-                          {prod.category}
-                        </span>
-                        <span className="text-[8px] font-mono text-slate-400 font-semibold leading-none shrink-0">
-                          {remainingLabel}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Product name */}
-                    <p className={`font-semibold text-slate-800 leading-tight line-clamp-2 ${
-                      showProductImages ? 'text-[10px] lg:text-[11px]' : 'text-xs truncate flex-1'
+                    {/* Product name — clear and readable */}
+                    <p className={`font-semibold text-slate-700 leading-tight line-clamp-2 flex-1 ${
+                      showProductImages ? 'text-[10px] lg:text-[12px]' : 'text-xs truncate'
                     }`}>
                       {prod.name}
                     </p>
 
-                    {/* Price + Add button */}
-                    <div className="flex items-center justify-between gap-1 mt-auto">
-                      <span className={`font-black text-slate-900 whitespace-nowrap leading-none ${
-                        showProductImages ? 'text-[11px] lg:text-[13px]' : 'text-sm'
-                      }`}>
-                        {currency}{Math.round(displayPrice).toLocaleString()}
-                      </span>
+                    {/* Price + Add button row */}
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex flex-col gap-0.5">
+                        <span className={`font-black text-slate-900 leading-none ${
+                          showProductImages ? 'text-[11px] lg:text-[13px]' : 'text-sm'
+                        }`}>
+                          {currency}{Math.round(displayPrice).toLocaleString()}
+                        </span>
+                        {remainingLabel && (
+                          <span className="text-[8px] text-slate-400 font-medium leading-none">
+                            {remainingLabel}
+                          </span>
+                        )}
+                      </div>
 
                       {!isOut ? (
                         <button
@@ -1453,7 +1448,7 @@ export default function DashboardPOS({
                           </svg>
                         </button>
                       ) : (
-                        <span className="text-[8px] font-bold text-red-400 bg-red-50 px-1.5 py-0.5 rounded-md">Out</span>
+                        <span className="text-[8px] font-bold text-red-400 bg-red-50 px-1.5 py-0.5 rounded-md leading-none">OUT</span>
                       )}
                     </div>
                   </div>
