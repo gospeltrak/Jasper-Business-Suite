@@ -1,6 +1,62 @@
 // Jasper Business Suite Service Worker (online-only business writes)
-const CACHE_NAME = 'jasper-pos-cache-v23-card-redesign';
-const SW_VERSION = '2026-07-19-card-redesign-v3';
+const CACHE_NAME = 'jasper-pos-cache-v24-nocache';
+const SW_VERSION = '2026-07-19-nocache-v1';
+const NAVIGATION_CACHE_KEY = '/__jasper-navigation-shell__';
+
+const ASSETS_TO_CACHE = [
+  '/manifest.json',
+  '/jb-logo.png',
+  '/jasper_logo_transparent.png',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE).catch(() => {});
+    })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          // Delete ALL old caches unconditionally
+          return caches.delete(cache);
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+// Never cache JS/CSS bundles — always fetch fresh from network
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Always pass JS bundles through to network — never serve from cache
+  if (url.pathname.startsWith('/assets/') && url.pathname.endsWith('.js')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // API calls — network only
+  if (event.request.method !== 'GET' || url.pathname.startsWith('/api/')) {
+    return;
+  }
+
+  // Everything else — network first, cache fallback
+  event.respondWith(
+    fetch(event.request).catch(async () => {
+      const cached = await caches.match(event.request);
+      return cached || new Response('Offline', { status: 503 });
+    })
+  );
+});
 const NAVIGATION_CACHE_KEY = '/__jasper-navigation-shell__';
 
 // Assets to cache immediately on SW install
