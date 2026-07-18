@@ -1432,6 +1432,13 @@ export default function DashboardPOS({
                       {prod.name}
                     </p>
 
+                    {/* Stock remaining — mobile/tablet only (desktop shows in header above) */}
+                    {showProductImages && remainingLabel && (
+                      <span className="lg:hidden text-[8px] font-bold text-slate-400 font-mono">
+                        {remainingLabel}
+                      </span>
+                    )}
+
                     {/* Price + Add */}
                     <div className="flex items-center justify-between gap-1 mt-auto">
                       <span className={`font-black text-slate-900 whitespace-nowrap ${
