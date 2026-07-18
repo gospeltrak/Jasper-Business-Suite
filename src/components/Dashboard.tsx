@@ -591,28 +591,19 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       if (Date.now() - localWorkspaceChangedAtRef.current < LOCAL_WORKSPACE_PROTECTION_MS) {
         return;
       }
-      // Mark that the NEXT save triggered by these setState calls should be skipped.
-      // React 18 batches all setState calls inside flushSync/startTransition but
-      // in async callbacks they may fire separately. Using unstable_batchedUpdates
-      // ensures all 9 setStates below produce ONE combined render → ONE save useEffect
-      // trigger → skipNextWorkspaceSaveRef blocks that one trigger.
       skipNextWorkspaceSaveRef.current = true;
-      import('react-dom').then(({ unstable_batchedUpdates }) => {
-        unstable_batchedUpdates(() => {
-          setProductsMap(prev => ({ ...prev, [activeTenant.id]: workspace.products || [] }));
-          setBranchesMap(prev => ({ ...prev, [activeTenant.id]: workspace.branches || [] }));
-          setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStocks || [] }));
-          setBranchStaffAssignmentsMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStaffAssignments || [] }));
-          setSalesMap(prev => ({ ...prev, [activeTenant.id]: workspace.sales || [] }));
-          setExpensesMap(prev => ({ ...prev, [activeTenant.id]: workspace.expenses || [] }));
-          setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: workspace.deliveries || [] }));
-          setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
-          setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
-          if (workspace.settings) {
-            setSystemSettings(workspace.settings);
-          }
-        });
-      });
+      setProductsMap(prev => ({ ...prev, [activeTenant.id]: workspace.products || [] }));
+      setBranchesMap(prev => ({ ...prev, [activeTenant.id]: workspace.branches || [] }));
+      setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStocks || [] }));
+      setBranchStaffAssignmentsMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStaffAssignments || [] }));
+      setSalesMap(prev => ({ ...prev, [activeTenant.id]: workspace.sales || [] }));
+      setExpensesMap(prev => ({ ...prev, [activeTenant.id]: workspace.expenses || [] }));
+      setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: workspace.deliveries || [] }));
+      setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
+      setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
+      if (workspace.settings) {
+        setSystemSettings(workspace.settings);
+      }
     };
 
     const refreshWorkspaceFromDatabase = async (force = false) => {
