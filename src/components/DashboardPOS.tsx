@@ -1374,29 +1374,30 @@ export default function DashboardPOS({
                   className={`select-none relative cursor-pointer bg-white border border-slate-100 rounded-xl overflow-hidden transition-all active:scale-95 group ${
                     isOut ? 'opacity-55 cursor-not-allowed' : 'hover:border-emerald-300 hover:shadow-md'
                   } ${showProductImages ? 'flex flex-col' : 'flex items-center gap-2 p-2.5'}`}
+                  style={showProductImages ? { minHeight: 160 } : undefined}
                 >
                   {/* IMAGE */}
                   {showProductImages && (
                     <div
-                      className="relative w-full bg-slate-50 border-b border-slate-100 overflow-hidden"
-                      style={{ aspectRatio: '1/1' }}
+                      className="relative w-full bg-slate-50 border-b border-slate-100 overflow-hidden flex-shrink-0"
+                      style={{ paddingTop: '75%' }}
                     >
                       {getProductImage(prod) !== '' ? (
                         <img
                           src={getProductImage(prod)}
                           alt={prod.name}
-                          className="absolute inset-0 w-full h-full object-contain p-2 lg:p-3 group-hover:scale-105 transition-transform duration-200"
+                          className="absolute inset-0 w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-200"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-3xl lg:text-4xl font-black text-slate-200 select-none">
+                          <span className="text-3xl font-black text-slate-200 select-none">
                             {prod.name.charAt(0).toUpperCase()}
                           </span>
                         </div>
                       )}
                       {isLow && !isOut && (
-                        <span className="absolute top-1.5 left-1.5 bg-amber-500 text-white px-2 py-0.5 rounded-md text-[8px] font-black tracking-wider uppercase shadow-sm">
+                        <span className="absolute top-1.5 left-1.5 bg-amber-500 text-white px-1.5 py-0.5 rounded-md text-[8px] font-black tracking-wider uppercase shadow-sm">
                           LOW ({shopQty})
                         </span>
                       )}
