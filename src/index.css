@@ -1525,3 +1525,10 @@ button:active:not(:disabled),
 .dark ::-webkit-scrollbar-thumb {
   background: #4b5563;
 }
+
+/* POS product card — taller image on desktop */
+@media (min-width: 1024px) {
+  .pos-card-img {
+    aspect-ratio: 4 / 3;
+  }
+}

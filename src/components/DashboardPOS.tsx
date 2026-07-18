@@ -1378,7 +1378,7 @@ export default function DashboardPOS({
                   {/* IMAGE */}
                   {showProductImages && (
                     <div
-                      className="relative w-full bg-slate-50 border-b border-slate-100 overflow-hidden"
+                      className="relative w-full bg-slate-50 border-b border-slate-100 overflow-hidden pos-card-img"
                       style={{ aspectRatio: '1/1' }}
                     >
                       {getProductImage(prod) !== '' ? (
