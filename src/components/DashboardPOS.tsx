@@ -1427,7 +1427,8 @@ export default function DashboardPOS({
                       }`}>
                         {prod.name}
                       </p>
-                      <p className={`font-black text-emerald-600 leading-tight mt-0.5 ${
+                      <div className="w-8 h-px bg-emerald-400 my-1 rounded-full" />
+                      <p className={`font-black text-emerald-600 leading-tight ${
                         showProductImages ? 'text-[11px] lg:text-[13px]' : 'text-sm'
                       }`}>
                         {currency}{Math.round(displayPrice).toLocaleString()}
