@@ -1371,10 +1371,82 @@ export default function DashboardPOS({
                       playOutOfStockBeep();
                     }
                   }}
-                  className={`select-none relative cursor-pointer bg-white border border-slate-100 rounded-xl transition-all active:scale-95 group ${
-                    isOut ? 'opacity-55 cursor-not-allowed' : 'hover:border-emerald-300 hover:shadow-md'
-                  } ${showProductImages ? 'flex flex-col' : 'flex items-center gap-2 p-2.5'}`}
+                  className={`select-none cursor-pointer bg-white rounded-2xl transition-all active:scale-95 group ${
+                    isOut ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-lg hover:-translate-y-0.5'
+                  } ${showProductImages ? 'flex flex-col overflow-hidden' : 'flex items-center gap-2 p-2.5 border border-slate-100'}`}
+                  style={showProductImages ? { boxShadow: '0 1px 6px rgba(0,0,0,0.08)' } : undefined}
                 >
+                  {/* IMAGE with overlay badges */}
+                  {showProductImages && (
+                    <div className="relative w-full bg-slate-50 overflow-hidden" style={{ height: 120 }}>
+                      {getProductImage(prod) !== '' ? (
+                        <img
+                          src={getProductImage(prod)}
+                          alt={prod.name}
+                          className="absolute inset-0 w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-3xl font-black text-slate-200">
+                            {prod.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Stock badge — top right on image */}
+                      {!isOut && remainingLabel && (
+                        <span className="absolute top-1.5 right-1.5 bg-white/90 backdrop-blur-sm text-slate-600 text-[7px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">
+                          {remainingLabel}
+                        </span>
+                      )}
+                      {isLow && !isOut && (
+                        <span className="absolute top-1.5 left-1.5 bg-amber-500 text-white text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase">
+                          Low
+                        </span>
+                      )}
+                      {isOut && (
+                        <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+                          <span className="bg-red-500 text-white text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-wide">
+                            Out of Stock
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* CARD BODY */}
+                  <div className={`${
+                    showProductImages
+                      ? 'flex items-center justify-between gap-1.5 px-2.5 py-2'
+                      : 'flex-1 min-w-0 flex items-center justify-between gap-2'
+                  }`}>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-semibold text-slate-800 leading-tight truncate ${
+                        showProductImages ? 'text-[11px] lg:text-[12px]' : 'text-xs'
+                      }`}>
+                        {prod.name}
+                      </p>
+                      <p className={`font-black text-emerald-600 leading-tight mt-0.5 ${
+                        showProductImages ? 'text-[11px] lg:text-[13px]' : 'text-sm'
+                      }`}>
+                        {currency}{Math.round(displayPrice).toLocaleString()}
+                      </p>
+                    </div>
+
+                    {!isOut ? (
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); addToCart(prod); playCartSuccessBeepAfterPaint(); }}
+                        className="w-7 h-7 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-90 flex items-center justify-center shrink-0 transition-all shadow-md shadow-emerald-100"
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 12 12" fill="none">
+                          <path d="M6 2v8M2 6h8" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+                        </svg>
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
                   {/* IMAGE */}
                   {showProductImages && (
                     <div
@@ -1408,50 +1480,6 @@ export default function DashboardPOS({
                     </div>
                   )}
 
-                  {/* CARD BODY — clean, minimal */}
-                  <div className={`${
-                    showProductImages
-                      ? 'flex flex-col p-2 flex-1 gap-1.5'
-                      : 'flex-1 min-w-0 flex items-center justify-between gap-2'
-                  }`}>
-
-                    {/* Product name — clear and readable */}
-                    <p className={`font-semibold text-slate-700 leading-tight line-clamp-2 flex-1 ${
-                      showProductImages ? 'text-[10px] lg:text-[12px]' : 'text-xs truncate'
-                    }`}>
-                      {prod.name}
-                    </p>
-
-                    {/* Price + Add button row */}
-                    <div className="flex items-center justify-between gap-1">
-                      <div className="flex flex-col gap-0.5">
-                        <span className={`font-black text-slate-900 leading-none ${
-                          showProductImages ? 'text-[11px] lg:text-[13px]' : 'text-sm'
-                        }`}>
-                          {currency}{Math.round(displayPrice).toLocaleString()}
-                        </span>
-                        {remainingLabel && (
-                          <span className="text-[8px] text-slate-400 font-medium leading-none">
-                            {remainingLabel}
-                          </span>
-                        )}
-                      </div>
-
-                      {!isOut ? (
-                        <button
-                          type="button"
-                          onClick={e => { e.stopPropagation(); addToCart(prod); playCartSuccessBeepAfterPaint(); }}
-                          className="w-6 h-6 lg:w-7 lg:h-7 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-90 flex items-center justify-center shrink-0 transition-all"
-                        >
-                          <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
-                            <path d="M6 2v8M2 6h8" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                          </svg>
-                        </button>
-                      ) : (
-                        <span className="text-[8px] font-bold text-red-400 bg-red-50 px-1.5 py-0.5 rounded-md leading-none">OUT</span>
-                      )}
-                    </div>
-                  </div>
                 </div>
               );
             })
