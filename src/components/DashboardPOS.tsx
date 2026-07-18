@@ -1203,7 +1203,7 @@ export default function DashboardPOS({
         {/* Product selection grid (8/12 scope) */}
         <div className="lg:col-span-7 xl:col-span-8 min-h-0 flex flex-col space-y-4 md:space-y-6">
           {/* Search and Categories controls */}
-          <div className="bg-white px-3 py-3 md:border border-slate-200 md:p-6 rounded-none md:rounded-3xl space-y-4 shadow-none md:shadow-sm">
+          <div className="bg-white px-3 py-2 md:border border-slate-200 md:p-4 rounded-none md:rounded-2xl space-y-3 shadow-none md:shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-100/70 border border-slate-200 rounded-2xl p-1.5 relative md:mx-0">
               <div className="relative flex-grow">
                 <input
@@ -1211,9 +1211,9 @@ export default function DashboardPOS({
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search Code, Barcode or Title..."
-                  className="w-full bg-transparent text-sm pl-10 pr-24 py-2.5 text-slate-800 placeholder-slate-400 font-sans font-medium outline-none border-none focus:ring-0"
+                  className="w-full bg-transparent text-[13px] pl-9 pr-24 py-1.5 text-slate-800 placeholder-slate-400 font-sans font-medium outline-none border-none focus:ring-0"
                 />
-                <Search className="absolute left-3.5 top-3 w-5 h-5 text-slate-400 pointer-events-none" />
+                <Search className="absolute left-3 top-2 w-4 h-4 text-slate-400 pointer-events-none" />
                 
                 {/* SCAN BARCODE ICON BUTTON IN THE RIGHT OF SEARCH BAR */}
                 <button 
@@ -1230,7 +1230,7 @@ export default function DashboardPOS({
             </div>
 
           {/* Selling Channel Selector and Warnings */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 bg-slate-50 p-2 rounded-xl border border-slate-100">
             <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner w-fit">
               <button
                 type="button"
@@ -1238,7 +1238,7 @@ export default function DashboardPOS({
                   setSellingChannel('retail');
                   setPosWarning('Selling channel switched to RETAIL. Standard checkout prices applied.');
                 }}
-                className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                className={`flex items-center space-x-2 px-3 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                   sellingChannel === 'retail'
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-800'
@@ -1252,7 +1252,7 @@ export default function DashboardPOS({
                   setSellingChannel('wholesale');
                   setPosWarning('Selling channel switched to WHOLESALE. wholesale prices & min-qty check active.');
                 }}
-                className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                className={`flex items-center space-x-2 px-3 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                   sellingChannel === 'wholesale'
                     ? 'bg-teal-650 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-800'
@@ -1311,7 +1311,7 @@ export default function DashboardPOS({
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat === 'All' ? null : cat)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all uppercase cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all uppercase cursor-pointer ${
                   (cat === 'All' && !selectedCategory) || (selectedCategory === cat)
                     ? 'bg-emerald-600 text-white font-bold shadow-xs' 
                     : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-800 hover:bg-slate-200'
@@ -1328,7 +1328,7 @@ export default function DashboardPOS({
               <select
                 value={selectedCategory || 'All'}
                 onChange={(e) => setSelectedCategory(e.target.value === 'All' ? null : e.target.value)}
-                className="w-full bg-white border border-emerald-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+                className="w-full bg-white border border-emerald-200 rounded-xl px-4 py-2 text-[13px] font-medium text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
               >
                 {categories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
