@@ -1343,7 +1343,7 @@ export default function DashboardPOS({
 
         {/* Product listing grid — 3 cols mobile/tablet, 4 cols desktop */}
         <div
-          className="lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200 w-full"
+          className="lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200 w-full pos-product-grid"
           style={showProductImages ? {
             display: 'grid',
             gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',

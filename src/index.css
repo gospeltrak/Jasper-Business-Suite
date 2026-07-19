@@ -1526,3 +1526,10 @@ button:active:not(:disabled),
   background: #4b5563;
 }
 
+
+/* POS product grid — 4 columns on desktop */
+@media (min-width: 1024px) {
+  .pos-product-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
