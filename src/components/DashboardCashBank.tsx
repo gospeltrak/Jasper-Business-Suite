@@ -1890,11 +1890,10 @@ export default function DashboardCashBank({
             )}
 
           </div>
-
         </div>
-
       </div>
 
     </div>
+
   );
 }
