@@ -1378,7 +1378,6 @@ export default function DashboardPOS({
                   style={{
                     background: '#fff',
                     borderRadius: 16,
-                    overflow: 'hidden',
                     cursor: isOut ? 'not-allowed' : 'pointer',
                     opacity: isOut ? 0.6 : 1,
                     display: 'flex',
@@ -1394,7 +1393,7 @@ export default function DashboardPOS({
                 >
                   {/* ── IMAGE ── */}
                   {showProductImages && (
-                    <div style={{ position: 'relative', width: '100%', height: 130, background: '#f8fafc', flexShrink: 0, overflow: 'hidden', display: 'block' }}>
+                    <div style={{ position: 'relative', width: '100%', height: 130, background: '#f8fafc', flexShrink: 0, overflow: 'hidden', display: 'block', borderRadius: '16px 16px 0 0' }}>
                       {getProductImage(prod) !== '' ? (
                         <img
                           src={getProductImage(prod)}
