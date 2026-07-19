@@ -3908,7 +3908,7 @@ export default function DashboardReports({
             {/* List of Reports Cards with Icons */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                { id: 'p&l', label: 'Profit & Loss', icon: BarChart3, desc: 'Gross & net margin statement', colorClass: 'bg-emerald-50 text-emerald-605 border border-emerald-100', reqPerm: 'reportsProfitCogs' },
+                { id: 'p&l', label: 'Profit & Loss', icon: BarChart3, desc: 'Gross & net margin statement', colorClass: 'bg-emerald-50 text-emerald-700 border border-emerald-100', reqPerm: 'reportsSalesExpenses' },
                 { id: 'sales-report', label: 'Sales Report', icon: TrendingUp, desc: 'Transactions & VAT audit', colorClass: 'bg-indigo-50 text-indigo-605 border border-indigo-100', reqPerm: 'reportsSalesExpenses' },
                 { id: 'dual-channel', label: 'Dual Channel Report', icon: ShieldAlert, desc: 'Retail vs wholesale pricing', colorClass: 'bg-teal-50 text-teal-605 border border-teal-100', reqPerm: 'reportsSalesExpenses' },
                 { id: 'inventory', label: 'Inventory Report', icon: Package, desc: 'Stock & asset valuations', colorClass: 'bg-amber-50 text-amber-605 border border-amber-100', reqPerm: 'reportsSalesExpenses' },
