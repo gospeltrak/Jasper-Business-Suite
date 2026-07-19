@@ -730,28 +730,77 @@ export default function DashboardCashBank({
             </div>
 
             {/* Big net figure */}
-            <div className="mb-4">
-              <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-0.5">Net Movement</p>
+            <div className="mb-3">
+              <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-0.5">Net Collected</p>
               <p className={`font-black text-[28px] leading-none ${combinedStats.netChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {combinedStats.netChange >= 0 ? '+' : ''}{formatCurrency(combinedStats.netChange)}
               </p>
             </div>
 
-            {/* KPI row — Money In | Money Out | Transactions — one row */}
+            {/* KPI row — full words, same font size */}
             <div className="flex gap-2 mt-2">
-              <div className="flex-1 rounded-xl px-3 py-2" style={{background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.2)'}}>
-                <p className="text-emerald-400 text-[8px] font-black uppercase tracking-wider">In</p>
+              <div className="flex-1 rounded-xl px-3 py-2.5" style={{background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.2)'}}>
+                <p className="text-emerald-400 text-[9px] font-black uppercase tracking-wider">Money In</p>
                 <p className="text-white font-black text-[12px] mt-0.5 leading-none">+{formatCurrency(combinedStats.totalMoneyIn)}</p>
               </div>
-              <div className="flex-1 rounded-xl px-3 py-2" style={{background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.2)'}}>
-                <p className="text-rose-400 text-[8px] font-black uppercase tracking-wider">Out</p>
+              <div className="flex-1 rounded-xl px-3 py-2.5" style={{background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.2)'}}>
+                <p className="text-rose-400 text-[9px] font-black uppercase tracking-wider">Money Out</p>
                 <p className="text-white font-black text-[12px] mt-0.5 leading-none">-{formatCurrency(combinedStats.totalMoneyOut)}</p>
               </div>
-              <div className="flex-1 rounded-xl px-3 py-2" style={{background:'rgba(99,102,241,0.15)', border:'1px solid rgba(99,102,241,0.2)'}}>
-                <p className="text-indigo-400 text-[8px] font-black uppercase tracking-wider">Txns</p>
+              <div className="flex-1 rounded-xl px-3 py-2.5" style={{background:'rgba(99,102,241,0.15)', border:'1px solid rgba(99,102,241,0.2)'}}>
+                <p className="text-indigo-400 text-[9px] font-black uppercase tracking-wider">Transactions</p>
                 <p className="text-white font-black text-[12px] mt-0.5 leading-none">{combinedStats.countMoneyIn + combinedStats.countMoneyOut}</p>
               </div>
             </div>
+
+            {/* Payment type breakdown — shows which mobile/bank per mode */}
+            {(() => {
+              const configModes = normalizePaymentModes(systemSettings?.business?.paymentModes || []);
+              if (configModes.length === 0) return null;
+              const { startIso, endIso } = getFilterBoundaries();
+              const salesInRange = sales.filter((s: any) => {
+                const t = s.timestamp || s.createdAt || '';
+                return t >= startIso && t <= endIso && s.paymentStatus !== 'Pending';
+              });
+              // Group by mode name
+              const byMode: Record<string, number> = {};
+              salesInRange.forEach((s: any) => {
+                const breakdown = Array.isArray(s.paymentBreakdown) && s.paymentBreakdown.length > 0
+                  ? s.paymentBreakdown
+                  : [{ method: s.paymentMethod || 'Cash', amount: s.total }];
+                breakdown.forEach((p: any) => {
+                  const m = p.method || s.paymentMethod || 'Cash';
+                  byMode[m] = (byMode[m] || 0) + Math.max(0, Number(p.amount || 0));
+                });
+              });
+              const total = Object.values(byMode).reduce((a, b) => a + b, 0);
+              if (total === 0) return null;
+              return (
+                <div className="mt-3 space-y-1.5">
+                  {Object.entries(byMode).filter(([, amt]) => amt > 0).map(([mode, amt]) => {
+                    const type = getPaymentType(mode, configModes);
+                    const colors = PAYMENT_TYPE_COLORS[type];
+                    const icon = PAYMENT_TYPE_ICONS[type];
+                    const pct = Math.round((amt / total) * 100);
+                    return (
+                      <div key={mode} className="flex items-center gap-2">
+                        <span className="text-[10px] shrink-0">{icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-center mb-0.5">
+                            <span className="text-white/80 text-[9px] font-bold truncate">{mode}</span>
+                            <span className="text-white/60 text-[9px] font-mono ml-2 shrink-0">{formatCurrency(amt)}</span>
+                          </div>
+                          <div className="h-1 rounded-full" style={{background:'rgba(255,255,255,0.1)'}}>
+                            <div className="h-full rounded-full" style={{width:`${pct}%`, background: colors.text}} />
+                          </div>
+                        </div>
+                        <span className="text-white/40 text-[8px] font-bold shrink-0 w-6 text-right">{pct}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Date preset chips */}
