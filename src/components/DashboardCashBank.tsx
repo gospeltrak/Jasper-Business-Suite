@@ -697,7 +697,7 @@ export default function DashboardCashBank({
         <div className="rounded-3xl overflow-hidden relative"
           style={{background:'linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#0f2027 100%)'}}>
           <div className="absolute top-0 right-0 w-36 h-36 rounded-full opacity-5" style={{background:'white'}}/>
-          <div className="px-5 pt-5 pb-4 relative">
+          <div className="px-5 pt-6 pb-5 relative">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Treasury</p>
@@ -713,8 +713,8 @@ export default function DashboardCashBank({
 
             {/* Big net figure */}
             <div className="mb-3">
-              <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-0.5">Net Collected</p>
-              <p className={`font-black text-[28px] leading-none ${combinedStats.netChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              <p className="text-white/50 text-[11px] font-bold uppercase tracking-widest mb-1">Net Collected</p>
+              <p className={`font-black text-[34px] leading-none ${combinedStats.netChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {combinedStats.netChange >= 0 ? '+' : ''}{formatCurrency(combinedStats.netChange)}
               </p>
             </div>
@@ -764,7 +764,7 @@ export default function DashboardCashBank({
               const total = Object.values(byMode).reduce((a, b) => a + b, 0);
               if (total === 0) return null;
               return (
-                <div className="mt-3 space-y-1.5">
+                <div className="mt-3 space-y-2.5">
                   {Object.entries(byMode).filter(([, amt]) => amt > 0).map(([mode, amt]) => {
                     const config = configModes.find(m => m.name === mode);
                     const type = getPaymentType(mode, configModes);
@@ -778,14 +778,14 @@ export default function DashboardCashBank({
                         }
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-center mb-0.5">
-                            <span className="text-white/80 text-[9px] font-bold truncate">{mode}</span>
-                            <span className="text-white/60 text-[9px] font-mono ml-2 shrink-0">{formatCurrency(amt)}</span>
+                            <span className="text-white/80 text-[11px] font-bold truncate">{mode}</span>
+                            <span className="text-white/60 text-[11px] font-mono ml-2 shrink-0">{formatCurrency(amt)}</span>
                           </div>
-                          <div className="h-1 rounded-full" style={{background:'rgba(255,255,255,0.1)'}}>
+                          <div className="h-1.5 rounded-full" style={{background:'rgba(255,255,255,0.1)'}}>
                             <div className="h-full rounded-full" style={{width:`${pct}%`, background: colors.text}} />
                           </div>
                         </div>
-                        <span className="text-white/40 text-[8px] font-bold shrink-0 w-6 text-right">{pct}%</span>
+                        <span className="text-white/50 text-[10px] font-bold shrink-0 w-8 text-right">{pct}%</span>
                       </div>
                     );
                   })}
@@ -930,39 +930,6 @@ export default function DashboardCashBank({
                       </div>
                     </div>
                   )}
-
-                  {/* Channel cards — Cash first, then registered modes, 2 per row */}
-                  <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
-                    <div className="px-4 py-3 border-b border-slate-100">
-                      <p className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Payment Channels</p>
-                    </div>
-                    <div className="p-3 grid grid-cols-2 gap-2.5">
-                      {channels.filter(c => c.category !== 'person').map(chan => {
-                        const bal = channelBalances[chan.id]?.current || 0;
-                        const type = getPaymentType(chan.name, configModes);
-                        const colors = PAYMENT_TYPE_COLORS[type];
-                        const icon = chan.category === 'physical' ? '💵'
-                          : chan.category === 'telco' ? '📱'
-                          : chan.category === 'bank' ? '🏦' : '💳';
-                        return (
-                          <div key={chan.id}
-                            className="rounded-xl p-3 cursor-pointer active:scale-95 transition-transform"
-                            style={{background: colors.bg, border:`1px solid ${colors.border}`}}
-                            onClick={() => { setSelectedChannelId(chan.id); setMobileSectionTab('accounts'); }}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-lg">{icon}</span>
-                              <p className="text-[10px] font-black text-slate-700 truncate flex-1">{chan.name}</p>
-                            </div>
-                            <p className={`text-[15px] font-black leading-none ${bal < 0 ? 'text-rose-600' : ''}`}
-                              style={{color: bal >= 0 ? colors.text : '#dc2626'}}>
-                              {formatCurrency(bal)}
-                            </p>
-                            <p className="text-[8px] font-bold opacity-60 mt-0.5 capitalize">{chan.category === 'telco' ? 'Mobile Money' : chan.category === 'physical' ? 'Cash' : chan.category}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
 
                   {/* Money Out summary with percentages */}
                   {(() => {
