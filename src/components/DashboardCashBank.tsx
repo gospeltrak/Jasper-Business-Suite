@@ -7,6 +7,7 @@ import {
   getChannelIdForPayment,
   groupSalesByPaymentType,
   normalizePaymentModes,
+  classifyPaymentMode,
   PAYMENT_TYPE_LABELS,
   PAYMENT_TYPE_COLORS,
   PAYMENT_TYPE_ICONS,
@@ -166,19 +167,36 @@ export default function DashboardCashBank({
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
   
   const [channels, setChannels] = useState<PaymentChannel[]>(() => {
-    // Priority 1: systemSettings.paymentChannels (most reliable — synced with all other settings)
+    // Priority 1: systemSettings.paymentChannels
     if (systemSettings?.paymentChannels && systemSettings.paymentChannels.length > 0) {
       return systemSettings.paymentChannels;
     }
-    // Priority 2: dedicated onlineStorage key (backward compat)
+    // Priority 2: onlineStorage cache
     const cached = onlineStorage.getItem(`jasper_channels_${activeTenant.id}`);
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
         if (parsed && parsed.length > 0) return parsed;
-      } catch (e) {
-        console.error("Failed to parse cached channels", e);
-      }
+      } catch (e) {}
+    }
+    // Priority 3: Auto-generate from user's registered payment modes
+    const rawModes = systemSettings?.business?.paymentModes || [];
+    const configModes = normalizePaymentModes(rawModes as any[]);
+    if (configModes.length > 0) {
+      return configModes.map((m, i) => {
+        const type = classifyPaymentMode(m.name);
+        const category: PaymentChannel['category'] =
+          type === 'mobile_money' ? 'telco' :
+          type === 'bank' || type === 'card' ? 'bank' :
+          type === 'credit' ? 'person' : 'physical';
+        return {
+          id: `auto-${i}-${m.name.toLowerCase().replace(/\s+/g, '-')}`,
+          name: m.name,
+          category,
+          provider: m.name,
+          accountNumber: '',
+        } as PaymentChannel;
+      });
     }
     return hasDemoSeedData ? defaultBaseChannels : [];
   });
@@ -719,19 +737,19 @@ export default function DashboardCashBank({
               </p>
             </div>
 
-            {/* 3 KPI pills */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-2xl px-3 py-2.5" style={{background:'rgba(255,255,255,0.07)'}}>
-                <p className="text-emerald-400 text-[9px] font-bold uppercase tracking-wider">Money In</p>
-                <p className="text-white font-black text-[13px] mt-0.5">+{formatCurrency(combinedStats.totalMoneyIn)}</p>
+            {/* KPI row — Money In | Money Out | Transactions — one row */}
+            <div className="flex gap-2 mt-2">
+              <div className="flex-1 rounded-xl px-3 py-2" style={{background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.2)'}}>
+                <p className="text-emerald-400 text-[8px] font-black uppercase tracking-wider">In</p>
+                <p className="text-white font-black text-[12px] mt-0.5 leading-none">+{formatCurrency(combinedStats.totalMoneyIn)}</p>
               </div>
-              <div className="rounded-2xl px-3 py-2.5" style={{background:'rgba(255,255,255,0.07)'}}>
-                <p className="text-rose-400 text-[9px] font-bold uppercase tracking-wider">Money Out</p>
-                <p className="text-white font-black text-[13px] mt-0.5">-{formatCurrency(combinedStats.totalMoneyOut)}</p>
+              <div className="flex-1 rounded-xl px-3 py-2" style={{background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.2)'}}>
+                <p className="text-rose-400 text-[8px] font-black uppercase tracking-wider">Out</p>
+                <p className="text-white font-black text-[12px] mt-0.5 leading-none">-{formatCurrency(combinedStats.totalMoneyOut)}</p>
               </div>
-              <div className="rounded-2xl px-3 py-2.5" style={{background:'rgba(255,255,255,0.07)'}}>
-                <p className="text-blue-400 text-[9px] font-bold uppercase tracking-wider">Transactions</p>
-                <p className="text-white font-black text-[13px] mt-0.5">{combinedStats.countMoneyIn + combinedStats.countMoneyOut}</p>
+              <div className="flex-1 rounded-xl px-3 py-2" style={{background:'rgba(99,102,241,0.15)', border:'1px solid rgba(99,102,241,0.2)'}}>
+                <p className="text-indigo-400 text-[8px] font-black uppercase tracking-wider">Txns</p>
+                <p className="text-white font-black text-[12px] mt-0.5 leading-none">{combinedStats.countMoneyIn + combinedStats.countMoneyOut}</p>
               </div>
             </div>
           </div>
@@ -771,10 +789,12 @@ export default function DashboardCashBank({
         {/* ── OVERVIEW SECTION ── */}
         {mobileSectionTab === 'overview' && (
           <div className="space-y-3">
-            {/* Treasury summary cards */}
+            {/* Treasury summary cards — 2 cols, last full width if odd */}
             <div className="grid grid-cols-2 gap-2.5">
-              {treasurySummaryCards.map(card => (
-                <div key={card.label} className={`rounded-2xl p-4 ${card.tone}`} style={{border:'1px solid rgba(0,0,0,0.06)'}}>
+              {treasurySummaryCards.map((card, idx) => (
+                <div key={card.label}
+                  className={`rounded-2xl p-4 ${card.tone} ${idx === treasurySummaryCards.length - 1 && treasurySummaryCards.length % 2 !== 0 ? 'col-span-2' : ''}`}
+                  style={{border:'1px solid rgba(0,0,0,0.06)'}}>
                   <p className="text-[9px] font-black uppercase tracking-widest opacity-70 font-mono">{card.label}</p>
                   <p className="text-[17px] font-black leading-tight mt-1.5">{card.value}</p>
                   <p className="text-[9px] font-bold opacity-60 mt-1">{card.helper}</p>

@@ -1111,9 +1111,9 @@ export default function DashboardSalesList({
         <div className="mobile-tablet-kpi-grid gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(4, minmax(0, 1fr))' }}>
           {[
             { label: 'Total Sales', value: `${currency}${Math.round(totalVolume).toLocaleString()}`, sub: `${filteredSales.length} sales`, icon: <TrendingUp className="w-5 h-5" />, color: '#059669', iconBg: '#dcfce7' },
-            { label: 'Credit Outstanding', value: `${currency}${Math.round(creditsVolume).toLocaleString()}`, sub: `${sales.filter(s=>s.paymentMethod==='Credit').length} credit sales`, icon: <CreditCard className="w-5 h-5" />, color: '#d97706', iconBg: '#fef3c7' },
-            { label: 'Cash Collected', value: `${currency}${Math.round(sales.filter(s=>s.paymentMethod==='Cash').reduce((sum,s)=>sum+(s.total||0),0)).toLocaleString()}`, sub: `${sales.filter(s=>s.paymentMethod==='Cash').length} cash sales`, icon: <Coins className="w-5 h-5" />, color: '#7c3aed', iconBg: '#ede9fe' },
-            { label: 'Amount Due', value: `${pendingCount}`, sub: 'outstanding bills', icon: <AlertCircle className="w-5 h-5" />, color: '#dc2626', iconBg: '#fee2e2' },
+            { label: 'Amount Received', value: `${currency}${Math.round(filteredSales.reduce((sum, s) => sum + (s.amountPaid !== undefined ? s.amountPaid : s.total), 0)).toLocaleString()}`, sub: 'collected via all payment modes', icon: <Coins className="w-5 h-5" />, color: '#7c3aed', iconBg: '#ede9fe' },
+            { label: 'Credit / Owed', value: `${currency}${Math.round(creditsVolume).toLocaleString()}`, sub: `${sales.filter(s => (s.total - (s.amountPaid ?? s.total)) > 0).length} pending payments`, icon: <CreditCard className="w-5 h-5" />, color: '#d97706', iconBg: '#fef3c7' },
+            { label: 'Unpaid Bills', value: `${pendingCount}`, sub: 'outstanding orders', icon: <AlertCircle className="w-5 h-5" />, color: '#dc2626', iconBg: '#fee2e2' },
           ].map((kpi, i) => (
             <div key={i} className="rounded-2xl p-4 flex items-center gap-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm">
               <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{background:kpi.iconBg,color:kpi.color}}>{kpi.icon}</div>
@@ -1327,7 +1327,7 @@ export default function DashboardSalesList({
                         {sale.customerName || 'Walk-in Customer'}
                       </p>
                       <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                        #{sale.reference || sale.id.substring(0,6)} · {sale.items.length} line item{sale.items.length === 1 ? '' : 's'}
+                        #{sale.reference || sale.id.substring(0,6)} · {sale.items.length} item{sale.items.length === 1 ? '' : 's'}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -1461,7 +1461,7 @@ export default function DashboardSalesList({
 
                       {/* Items */}
                       <td className="py-3.5 px-4 max-w-[160px]">
-                        <p className="font-bold text-slate-700 text-[12px]">{sale.items.length} line item{sale.items.length === 1 ? '' : 's'}</p>
+                        <p className="font-bold text-slate-700 text-[12px]">{sale.items.length} item{sale.items.length === 1 ? '' : 's'}</p>
                         <p className="text-[10px] text-slate-400 truncate">{sale.items.slice(0,2).map(i => i.productName).join(', ')}{sale.items.length > 2 ? ` +${sale.items.length-2}` : ''}</p>
                       </td>
 
