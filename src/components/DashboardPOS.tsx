@@ -307,6 +307,8 @@ export default function DashboardPOS({
   const [amountPaid, setAmountPaid] = useState<number>(0);
   const [referenceCode, setReferenceCode] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
+  const [multiPayment1Method, setMultiPayment1Method] = useState('Cash');
+  const [multiPayment2Method, setMultiPayment2Method] = useState('Mobile Money');
   const [receiptResult, setReceiptResult] = useState<Sale | null>(null);
   const [recipientWhatsApp, setRecipientWhatsApp] = useState('');
   const [receiptPdfStatus, setReceiptPdfStatus] = useState<string | null>(null);
@@ -1104,8 +1106,8 @@ export default function DashboardPOS({
       multiBankAmount: paymentMethod === 'Multi-Channel' ? multiBankAmount : undefined,
       paymentBreakdown: paymentMethod === 'Multi-Channel'
         ? [
-            { method: 'Cash', amount: Math.max(0, Number(multiCashAmount || 0)) },
-            { method: 'Bank', amount: Math.max(0, Number(multiBankAmount || 0)) },
+            { method: multiPayment1Method, amount: Math.max(0, Number(multiCashAmount || 0)) },
+            { method: multiPayment2Method, amount: Math.max(0, Number(multiBankAmount || 0)) },
           ].filter(part => part.amount > 0)
         : [{ method: paymentMethod, amount: normalizedAmountPaid }],
       channel: sellingChannel,
@@ -2022,52 +2024,128 @@ export default function DashboardPOS({
                 </div>
 
                 {paymentMethod !== 'Multi-Channel' && (
-                  <div className="space-y-3 bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <label className="block">
-                        <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Amount Paid ({currency})</span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={amountPaid}
-                          onChange={(e) => setAmountPaid(Math.max(0, parseFloat(e.target.value) || 0))}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono font-bold text-xs text-slate-800"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Transaction Ref (optional)</span>
-                        <input
-                          type="text"
-                          value={referenceCode}
-                          onChange={(e) => setReferenceCode(e.target.value)}
-                          placeholder="M-Pesa SMS, bank slip, card ref"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono text-xs text-slate-800"
-                        />
-                      </label>
-                    </div>
-                    <label className="block">
-                      <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Payment Note (optional)</span>
+                  <div style={{ background: '#f8fafc', borderRadius: 16, padding: '14px 16px', border: '1px solid #e2e8f0' }}>
+                    {/* Amount paid */}
+                    <div style={{ marginBottom: 10 }}>
+                      <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Amount Received ({currency})</p>
                       <input
-                        type="text"
-                        value={paymentNote}
-                        onChange={(e) => setPaymentNote(e.target.value)}
-                        placeholder="Manual confirmation note"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 text-xs text-slate-800"
+                        type="number"
+                        min="0"
+                        value={amountPaid}
+                        onChange={(e) => setAmountPaid(Math.max(0, parseFloat(e.target.value) || 0))}
+                        style={{ width: '100%', background: '#fff', border: '2px solid #e2e8f0', borderRadius: 12, padding: '10px 14px', fontSize: 18, fontWeight: 800, color: '#0f172a', fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
+                        onFocus={e => e.target.style.borderColor = '#10b981'}
+                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
                       />
-                    </label>
-                    <div className={`text-[10px] uppercase font-black text-center py-1.5 rounded-xl border font-sans ${
-                      amountPaid >= grandTotal
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
-                        : amountPaid > 0
-                          ? 'bg-amber-50 text-amber-800 border-amber-100'
-                          : 'bg-rose-50 text-rose-700 border-rose-100'
-                    }`}>
-                      {amountPaid >= grandTotal
-                        ? `Paid in full. Change: ${currency}${Math.max(0, amountPaid - grandTotal).toLocaleString()}`
-                        : amountPaid > 0
-                          ? `Partial payment. Due: ${currency}${Math.max(0, grandTotal - amountPaid).toLocaleString()}`
-                          : `Unpaid / credit. Due: ${currency}${grandTotal.toLocaleString()}`}
                     </div>
+                    {/* Status pill */}
+                    <div style={{
+                      textAlign: 'center', padding: '8px 12px', borderRadius: 10, fontSize: 11, fontWeight: 800,
+                      background: amountPaid >= grandTotal ? '#f0fdf4' : amountPaid > 0 ? '#fffbeb' : '#fff1f2',
+                      color: amountPaid >= grandTotal ? '#15803d' : amountPaid > 0 ? '#b45309' : '#be123c',
+                      border: `1px solid ${amountPaid >= grandTotal ? '#bbf7d0' : amountPaid > 0 ? '#fde68a' : '#fecdd3'}`,
+                    }}>
+                      {amountPaid >= grandTotal
+                        ? `✓ Paid in full — Change: ${currency}${Math.max(0, amountPaid - grandTotal).toLocaleString()}`
+                        : amountPaid > 0
+                          ? `Partial — Balance due: ${currency}${Math.max(0, grandTotal - amountPaid).toLocaleString()}`
+                          : `Credit / Unpaid — Due: ${currency}${grandTotal.toLocaleString()}`}
+                    </div>
+                  </div>
+                )}
+
+                {/* Multi-Channel Split Payment */}
+                {paymentMethod === 'Multi-Channel' && (
+                  <div style={{ background: '#f8fafc', borderRadius: 16, padding: '14px 16px', border: '1px solid #e2e8f0' }}>
+                    <p style={{ fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Split Payment</p>
+                    
+                    {/* Payment 1 */}
+                    <div style={{ background: '#fff', borderRadius: 12, padding: '12px 14px', marginBottom: 8, border: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#0f172a' }}>Payment 1</span>
+                        </div>
+                        <select
+                          value={multiPayment1Method}
+                          onChange={e => setMultiPayment1Method(e.target.value)}
+                          style={{ fontSize: 10, fontWeight: 700, color: '#475569', background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '4px 8px', outline: 'none', cursor: 'pointer' }}
+                        >
+                          {(() => {
+                            const rawModes = systemSettings?.business?.paymentModes || [];
+                            const modes = (rawModes as any[]).map((m: any) => typeof m === 'string' ? m : m.name);
+                            return modes.map((m: string) => <option key={m} value={m}>{m}</option>);
+                          })()}
+                        </select>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        value={multiCashAmount}
+                        onChange={e => {
+                          const val = Math.max(0, parseFloat(e.target.value) || 0);
+                          setMultiCashAmount(val);
+                          setMultiBankAmount(Math.max(0, grandTotal - val));
+                        }}
+                        style={{ width: '100%', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '8px 12px', fontSize: 16, fontWeight: 800, color: '#0f172a', fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
+                        onFocus={e => e.target.style.borderColor = '#10b981'}
+                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                      />
+                    </div>
+
+                    {/* Payment 2 */}
+                    <div style={{ background: '#fff', borderRadius: 12, padding: '12px 14px', marginBottom: 10, border: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366f1' }} />
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#0f172a' }}>Payment 2</span>
+                        </div>
+                        <select
+                          value={multiPayment2Method}
+                          onChange={e => setMultiPayment2Method(e.target.value)}
+                          style={{ fontSize: 10, fontWeight: 700, color: '#475569', background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '4px 8px', outline: 'none', cursor: 'pointer' }}
+                        >
+                          {(() => {
+                            const rawModes = systemSettings?.business?.paymentModes || [];
+                            const modes = (rawModes as any[]).map((m: any) => typeof m === 'string' ? m : m.name);
+                            return modes.map((m: string) => <option key={m} value={m}>{m}</option>);
+                          })()}
+                        </select>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        value={multiBankAmount}
+                        onChange={e => {
+                          const val = Math.max(0, parseFloat(e.target.value) || 0);
+                          setMultiBankAmount(val);
+                          setMultiCashAmount(Math.max(0, grandTotal - val));
+                        }}
+                        style={{ width: '100%', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '8px 12px', fontSize: 16, fontWeight: 800, color: '#0f172a', fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
+                        onFocus={e => e.target.style.borderColor = '#6366f1'}
+                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                      />
+                    </div>
+
+                    {/* Split total status */}
+                    {(() => {
+                      const splitTotal = multiCashAmount + multiBankAmount;
+                      const diff = splitTotal - grandTotal;
+                      return (
+                        <div style={{
+                          textAlign: 'center', padding: '8px 12px', borderRadius: 10, fontSize: 11, fontWeight: 800,
+                          background: Math.abs(diff) < 1 ? '#f0fdf4' : diff > 0 ? '#fffbeb' : '#fff1f2',
+                          color: Math.abs(diff) < 1 ? '#15803d' : diff > 0 ? '#b45309' : '#be123c',
+                          border: `1px solid ${Math.abs(diff) < 1 ? '#bbf7d0' : diff > 0 ? '#fde68a' : '#fecdd3'}`,
+                        }}>
+                          {Math.abs(diff) < 1
+                            ? `✓ Split balances — Total: ${currency}${splitTotal.toLocaleString()}`
+                            : diff > 0
+                              ? `Over by: ${currency}${Math.abs(diff).toLocaleString()} — Change to give`
+                              : `Short by: ${currency}${Math.abs(diff).toLocaleString()} — Adjust amounts`}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
