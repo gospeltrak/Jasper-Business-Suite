@@ -613,24 +613,6 @@ export default function DashboardCashBank({
       tone: 'bg-slate-950 text-white border-slate-900',
       helper: `${channels.filter(chan => chan.category !== 'person').length} active accounts`
     },
-    {
-      label: 'Cash',
-      value: formatCurrency(categoryTotals.physicalTotal),
-      tone: 'bg-emerald-50 text-emerald-900 border-emerald-100',
-      helper: 'Physical cash in hand'
-    },
-    {
-      label: 'Mobile Money',
-      value: formatCurrency(categoryTotals.telcoTotal),
-      tone: 'bg-indigo-50 text-indigo-900 border-indigo-100',
-      helper: normalizePaymentModes(systemSettings?.business?.paymentModes || []).filter(m => getPaymentType(m.name, normalizePaymentModes(systemSettings?.business?.paymentModes || [])) === 'mobile_money').map(m => m.name).join(', ') || 'Mobile payments'
-    },
-    {
-      label: 'Bank Accounts',
-      value: formatCurrency(categoryTotals.bankTotal),
-      tone: 'bg-blue-50 text-blue-900 border-blue-100',
-      helper: normalizePaymentModes(systemSettings?.business?.paymentModes || []).filter(m => getPaymentType(m.name, normalizePaymentModes(systemSettings?.business?.paymentModes || [])) === 'bank').map(m => m.name).join(', ') || 'Bank transfers'
-    }
   ];
 
   // Consolidated System Statistics (Responds to date range and links all payment modes)
@@ -847,18 +829,16 @@ export default function DashboardCashBank({
         {/* ── OVERVIEW SECTION ── */}
         {mobileSectionTab === 'overview' && (
           <div className="space-y-3">
-            {/* Treasury summary cards — 2 cols */}
-            <div className="grid grid-cols-2 gap-2.5">
-              {treasurySummaryCards.map((card, idx) => (
-                <div key={card.label}
-                  className={`rounded-2xl p-4 ${card.tone} ${idx === 0 ? 'col-span-2' : ''}`}
-                  style={{border:'1px solid rgba(0,0,0,0.06)'}}>
-                  <p className="text-[9px] font-black uppercase tracking-widest opacity-70 font-mono">{card.label}</p>
-                  <p className="text-[17px] font-black leading-tight mt-1.5">{card.value}</p>
-                  <p className="text-[9px] font-bold opacity-60 mt-1">{card.helper}</p>
-                </div>
-              ))}
-            </div>
+            {/* Available Balance card */}
+            {treasurySummaryCards.map((card) => (
+              <div key={card.label}
+                className={`rounded-2xl p-4 ${card.tone}`}
+                style={{border:'1px solid rgba(0,0,0,0.06)'}}>
+                <p className="text-[9px] font-black uppercase tracking-widest opacity-70 font-mono">{card.label}</p>
+                <p className="text-[17px] font-black leading-tight mt-1.5">{card.value}</p>
+                <p className="text-[9px] font-bold opacity-60 mt-1">{card.helper}</p>
+              </div>
+            ))}
 
             {/* Revenue by payment mode — only user's registered modes + Credit */}
             {(() => {
@@ -916,66 +896,6 @@ export default function DashboardCashBank({
 
               return (
                 <div className="space-y-3">
-                  {/* Revenue by registered payment mode */}
-                  <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
-                    <div className="px-4 py-3 border-b border-slate-100">
-                      <p className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Revenue by Payment Mode</p>
-                      <p className="text-[9px] text-slate-400 font-medium mt-0.5">Only your registered payment methods</p>
-                    </div>
-                    <div className="divide-y divide-slate-50">
-                      {Object.entries(byMode).map(([name, {amount, config}]) => {
-                        const type = getPaymentType(name, configModes);
-                        const colors = PAYMENT_TYPE_COLORS[type];
-                        const icon = config.logoUrl
-                          ? <img src={config.logoUrl} className="w-5 h-5 object-contain" alt={name}/>
-                          : <span className="text-base">{PAYMENT_TYPE_ICONS[type]}</span>;
-                        const pct = totalIn > 0 ? Math.round((amount / totalIn) * 100) : 0;
-                        return (
-                          <div key={name} className="flex items-center gap-3 px-4 py-3">
-                            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{background: colors.bg}}>
-                              {icon}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex justify-between items-center mb-1">
-                                <p className="text-[11px] font-bold text-slate-800 truncate">{name}</p>
-                                <p className="text-[11px] font-black text-slate-900 ml-2 shrink-0">{formatCurrency(amount)}</p>
-                              </div>
-                              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full rounded-full" style={{width:`${pct}%`, background: colors.text}} />
-                              </div>
-                            </div>
-                            <span className="text-[9px] font-bold text-slate-400 w-7 text-right shrink-0">{pct}%</span>
-                          </div>
-                        );
-                      })}
-                      {/* Credit always shown */}
-                      {(() => {
-                        const pct = totalIn > 0 ? Math.round((creditTotal / totalIn) * 100) : 0;
-                        return (
-                          <div className="flex items-center gap-3 px-4 py-3">
-                            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{background:'#fff1f2'}}>
-                              <span className="text-base">📋</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex justify-between items-center mb-1">
-                                <p className="text-[11px] font-bold text-slate-800">Credit / Mkopo</p>
-                                <p className="text-[11px] font-black text-slate-900 ml-2 shrink-0">{formatCurrency(creditTotal)}</p>
-                              </div>
-                              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full rounded-full" style={{width:`${pct}%`, background:'#be123c'}} />
-                              </div>
-                            </div>
-                            <span className="text-[9px] font-bold text-slate-400 w-7 text-right shrink-0">{pct}%</span>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                    <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
-                      <p className="text-[9px] font-bold text-slate-500 uppercase">Total Collected</p>
-                      <p className="text-[13px] font-black text-emerald-700">{formatCurrency(totalIn)}</p>
-                    </div>
-                  </div>
-
                   {/* Money Out summary */}
                   {totalOut > 0 && (
                     <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
