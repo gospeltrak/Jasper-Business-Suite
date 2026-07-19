@@ -1343,11 +1343,19 @@ export default function DashboardPOS({
 
         {/* Product listing grid — 3 cols mobile/tablet, 4 cols desktop */}
         <div
-          className={`min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200 w-full ${
-            showProductImages
-              ? 'grid grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-1.5 lg:gap-3 p-2 lg:p-3'
-              : 'flex flex-col gap-1.5 p-2'
-          }`}
+          className="lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200 w-full"
+          style={showProductImages ? {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+            gap: 10,
+            padding: '8px 10px',
+            alignItems: 'start',
+          } : {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            padding: '8px 10px',
+          }}
         >
           {filteredProducts.length === 0 ? (
             <div className="sm:col-span-3 text-center py-16 text-sm font-mono text-slate-500 bg-white border border-slate-200 rounded-3xl shadow-sm">
