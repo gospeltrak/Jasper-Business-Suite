@@ -472,14 +472,15 @@ export default function DashboardReports({
   const filteredExpenses = expenses.filter(e => isWithinDateRange(e.timestamp));
 
   // Expense Categories Presets
-  const EXPENSE_CATEGORIES = [
-    'Utilities & Power',
-    'Wages & Salary',
-    'Logistics',
-    'Packaging Materials',
-    'Rent & Logistics',
-    'Miscellaneous'
-  ];
+  // Use categories from localStorage (user-defined) or empty
+  const savedCats = (() => {
+    try {
+      const saved = localStorage.getItem(`jasper_expense_cats_${activeTenant.id}`);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  })();
+  const EXPENSE_CATEGORIES: string[] = savedCats;
 
   const handleImageChange = (file: File) => {
     if (file && file.type.startsWith('image/')) {
