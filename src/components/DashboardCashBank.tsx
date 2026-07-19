@@ -167,6 +167,43 @@ export default function DashboardCashBank({
     { id: 'office-safe', name: 'Main Office Safe', category: 'physical', provider: 'Locked Vault', accountNumber: 'SAFE-A2' }
   ];
 
+
+  
+  const [channels, setChannels] = useState<PaymentChannel[]>(() => {
+    // Priority 1: systemSettings.paymentChannels
+    if (systemSettings?.paymentChannels && systemSettings.paymentChannels.length > 0) {
+      return systemSettings.paymentChannels;
+    }
+    // Priority 2: onlineStorage cache
+    const cached = onlineStorage.getItem(`jasper_channels_${activeTenant.id}`);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    // Priority 3: Auto-generate from user's registered payment modes
+    const rawModes = systemSettings?.business?.paymentModes || [];
+    const configModes = normalizePaymentModes(rawModes as any[]);
+    if (configModes.length > 0) {
+      return configModes.map((m, i) => {
+        const type = classifyPaymentMode(m.name);
+        const category: PaymentChannel['category'] =
+          type === 'mobile_money' ? 'telco' :
+          type === 'bank' || type === 'card' ? 'bank' :
+          type === 'credit' ? 'person' : 'physical';
+        return {
+          id: `auto-${i}-${m.name.toLowerCase().replace(/\s+/g, '-')}`,
+          name: m.name,
+          category,
+          provider: m.name,
+          accountNumber: '',
+        } as PaymentChannel;
+      });
+    }
+    return hasDemoSeedData ? defaultBaseChannels : [];
+  });
+
   // Sync channels from payment modes whenever systemSettings loads/changes
   useEffect(() => {
     if (!systemSettings?.business?.paymentModes) return;
@@ -207,41 +244,6 @@ export default function DashboardCashBank({
     });
     setChannels(generated);
   }, [systemSettings?.business?.paymentModes, systemSettings?.paymentChannels, activeTenant.id]);
-  
-  const [channels, setChannels] = useState<PaymentChannel[]>(() => {
-    // Priority 1: systemSettings.paymentChannels
-    if (systemSettings?.paymentChannels && systemSettings.paymentChannels.length > 0) {
-      return systemSettings.paymentChannels;
-    }
-    // Priority 2: onlineStorage cache
-    const cached = onlineStorage.getItem(`jasper_channels_${activeTenant.id}`);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (parsed && parsed.length > 0) return parsed;
-      } catch (e) {}
-    }
-    // Priority 3: Auto-generate from user's registered payment modes
-    const rawModes = systemSettings?.business?.paymentModes || [];
-    const configModes = normalizePaymentModes(rawModes as any[]);
-    if (configModes.length > 0) {
-      return configModes.map((m, i) => {
-        const type = classifyPaymentMode(m.name);
-        const category: PaymentChannel['category'] =
-          type === 'mobile_money' ? 'telco' :
-          type === 'bank' || type === 'card' ? 'bank' :
-          type === 'credit' ? 'person' : 'physical';
-        return {
-          id: `auto-${i}-${m.name.toLowerCase().replace(/\s+/g, '-')}`,
-          name: m.name,
-          category,
-          provider: m.name,
-          accountNumber: '',
-        } as PaymentChannel;
-      });
-    }
-    return hasDemoSeedData ? defaultBaseChannels : [];
-  });
 
   // Custom accounts form states
   const [newAccType, setNewAccType] = useState<'bank' | 'telco' | 'person'>('bank');
