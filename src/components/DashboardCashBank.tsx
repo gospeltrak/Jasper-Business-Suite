@@ -1351,218 +1351,268 @@ export default function DashboardCashBank({
       ══════════════════════════════════════════════════════════════ */}
       <div className="hidden xl:block space-y-5">
 
-        {/* ── TOP ROW: Header + Date Controls ── */}
+        {/* TOP ROW: Dark header + Date controls */}
         <div className="grid grid-cols-[1fr_auto] gap-4 items-start">
-
-          {/* Dark header card */}
           <div className="rounded-2xl p-7 text-white" style={{background:'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)'}}>
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Treasury</p>
                 <h1 className="text-white font-black text-2xl leading-tight mt-0.5">Money & Bank</h1>
-                <p className="text-white/40 text-xs mt-1">
-                  {datePreset === 'today' ? 'Today' : datePreset === '1week' ? 'Last 7 days' : datePreset === '1month' ? 'Last 30 days' : `${startDateStr} → ${endDateStr}`}
-                </p>
               </div>
               <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{background:'rgba(255,255,255,0.08)'}}>
                 <Landmark className="w-5 h-5 text-emerald-400"/>
               </div>
             </div>
-
-            {/* Net Collected */}
             <div className="mb-4">
-              <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-0.5">Net Collected</p>
-              <p className={`font-black text-3xl leading-none ${combinedStats.netChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-1">Net Collected</p>
+              <p className={`font-black text-[38px] leading-none ${combinedStats.netChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {combinedStats.netChange >= 0 ? '+' : ''}{formatCurrency(combinedStats.netChange)}
               </p>
             </div>
-
-            {/* KPI row */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-3 gap-3">
               <div className="rounded-xl px-3 py-2.5" style={{background:'rgba(16,185,129,0.15)',border:'1px solid rgba(16,185,129,0.2)'}}>
                 <p className="text-emerald-400 text-[9px] font-black uppercase tracking-wider">Money In</p>
                 <p className="text-white font-black text-sm mt-0.5">+{formatCurrency(combinedStats.totalMoneyIn)}</p>
-                <p className="text-white/30 text-[9px] mt-0.5">{combinedStats.countMoneyIn} transactions</p>
               </div>
               <div className="rounded-xl px-3 py-2.5" style={{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.2)'}}>
                 <p className="text-rose-400 text-[9px] font-black uppercase tracking-wider">Money Out</p>
                 <p className="text-white font-black text-sm mt-0.5">-{formatCurrency(combinedStats.totalMoneyOut)}</p>
-                <p className="text-white/30 text-[9px] mt-0.5">{combinedStats.countMoneyOut} transactions</p>
               </div>
               <div className="rounded-xl px-3 py-2.5" style={{background:'rgba(99,102,241,0.15)',border:'1px solid rgba(99,102,241,0.2)'}}>
                 <p className="text-indigo-400 text-[9px] font-black uppercase tracking-wider">Transactions</p>
                 <p className="text-white font-black text-sm mt-0.5">{combinedStats.countMoneyIn + combinedStats.countMoneyOut}</p>
-                <p className="text-white/30 text-[9px] mt-0.5">total movements</p>
               </div>
             </div>
-
-            {/* Registered modes breakdown */}
-            {(() => {
-              const configModes = normalizePaymentModes(systemSettings?.business?.paymentModes || []);
-              if (configModes.length === 0) return null;
-              const { startIso, endIso } = getFilterBoundaries();
-              const salesInRange = sales.filter((s: any) => {
-                const t = s.timestamp || s.createdAt || '';
-                return t >= startIso && t <= endIso && s.paymentStatus !== 'Pending';
-              });
-              const byMode: Record<string, number> = {};
-              configModes.forEach(m => { byMode[m.name] = 0; });
-              salesInRange.forEach((s: any) => {
-                const breakdown = Array.isArray(s.paymentBreakdown) && s.paymentBreakdown.length > 0
-                  ? s.paymentBreakdown : [{ method: s.paymentMethod || 'Cash', amount: s.amountPaid ?? s.total }];
-                breakdown.forEach((p: any) => {
-                  const mName = (p.method || s.paymentMethod || 'Cash').trim();
-                  const match = configModes.find(m => m.name.toLowerCase().trim() === mName.toLowerCase() || mName.toLowerCase().includes(m.name.toLowerCase()) || m.name.toLowerCase().includes(mName.toLowerCase()));
-                  if (match) byMode[match.name] = (byMode[match.name] || 0) + Math.max(0, Number(p.amount || 0));
-                });
-              });
-              const total = Object.values(byMode).reduce((a, b) => a + b, 0);
-              if (total === 0) return null;
-              return (
-                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/10">
-                  {Object.entries(byMode).filter(([, amt]) => amt > 0).map(([mode, amt]) => {
-                    const config = configModes.find(m => m.name === mode);
-                    const type = getPaymentType(mode, configModes);
-                    const colors = PAYMENT_TYPE_COLORS[type];
-                    const pct = Math.round((amt / total) * 100);
-                    return (
-                      <div key={mode} className="flex items-center gap-2">
-                        {config?.logoUrl
-                          ? <img src={config.logoUrl} className="w-4 h-4 object-contain rounded shrink-0" alt={mode}/>
-                          : <span className="text-sm shrink-0">{PAYMENT_TYPE_ICONS[type]}</span>
-                        }
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-center">
-                            <span className="text-white/70 text-[9px] font-bold truncate">{mode}</span>
-                            <span className="text-white/50 text-[9px] font-mono ml-1 shrink-0">{pct}%</span>
-                          </div>
-                          <div className="h-1.5 rounded-full mt-1" style={{background:'rgba(255,255,255,0.1)'}}>
-                            <div className="h-full rounded-full" style={{width:`${pct}%`, background: colors.text}} />
-                          </div>
-                        </div>
-                        <span className="text-white/60 text-[10px] font-mono font-bold shrink-0">{formatCurrency(amt)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
           </div>
 
-          {/* Date controls */}
           <div className="w-72 space-y-3">
-            {/* Preset chips */}
             <div className="bg-white border border-slate-200 rounded-2xl p-1 grid grid-cols-3 gap-1">
               {(['today','1week','1month'] as const).map(p => (
                 <button key={p} type="button" onClick={() => setDatePreset(p)}
-                  className={`py-2 text-[11px] font-black rounded-xl transition-all cursor-pointer border-none outline-none ${
-                    datePreset === p ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-slate-100'
-                  }`}>
+                  className={`py-2 text-[11px] font-black rounded-xl transition-all cursor-pointer border-none outline-none ${datePreset === p ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
                   {p === 'today' ? 'Today' : p === '1week' ? '7 Days' : '30 Days'}
                 </button>
               ))}
             </div>
-            {/* Custom date range */}
             <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 space-y-2">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Custom Range</p>
-              <div className="space-y-1.5">
-                <input type="date" value={startDateStr}
-                  onChange={e => { setStartDateStr(e.target.value); setDatePreset('custom'); }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold font-mono text-slate-800 outline-none focus:border-emerald-400 cursor-pointer"/>
-                <input type="date" value={endDateStr}
-                  onChange={e => { setEndDateStr(e.target.value); setDatePreset('custom'); }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold font-mono text-slate-800 outline-none focus:border-emerald-400 cursor-pointer"/>
-              </div>
+              <input type="date" value={startDateStr} onChange={e => { setStartDateStr(e.target.value); setDatePreset('custom'); }}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold font-mono text-slate-800 outline-none focus:border-emerald-400 cursor-pointer"/>
+              <input type="date" value={endDateStr} onChange={e => { setEndDateStr(e.target.value); setDatePreset('custom'); }}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold font-mono text-slate-800 outline-none focus:border-emerald-400 cursor-pointer"/>
             </div>
-
-            {/* Available Balance */}
             <div className="bg-slate-950 text-white rounded-2xl p-4">
               <p className="text-[9px] font-black uppercase tracking-widest opacity-50">Available Balance</p>
               <p className="text-2xl font-black mt-1">
-                {formatCurrency(channels.filter(c => c.category !== 'person').reduce((s, c) => s + (channelBalances[c.id]?.current || 0), 0))}
+                {formatCurrency(channels.filter((c: any) => c.category !== 'person').reduce((s: number, c: any) => s + (channelBalances[c.id]?.current || 0), 0))}
               </p>
-              <p className="text-[9px] opacity-40 mt-1">{channels.filter(c => c.category !== 'person').length} active accounts</p>
             </div>
           </div>
         </div>
 
-        {/* ── MAIN CONTENT: 2 columns ── */}
-        <div className="grid grid-cols-[1fr_380px] gap-5 items-start">
+        {/* TAB NAV */}
+        <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1">
+          {([
+            { id: 'overview', label: 'Overview', icon: BarChart3 },
+            { id: 'accounts', label: 'Accounts', icon: Landmark },
+            { id: 'transfer', label: 'Transfer', icon: Send },
+            { id: 'history', label: 'History', icon: Clock },
+          ] as const).map(tab => {
+            const active = desktopTab === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button key={tab.id} type="button" onClick={() => setDesktopTab(tab.id)}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold transition-all cursor-pointer border-none outline-none ${active ? 'bg-slate-950 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <Icon className={`w-4 h-4 ${active ? 'text-emerald-400' : 'text-slate-400'}`}/>
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-          {/* LEFT: Tab nav + content */}
+        {/* MAIN 2-COL */}
+        <div className="grid grid-cols-[1fr_380px] gap-5 items-start">
           <div className="space-y-4">
 
-            {/* Desktop tab navigation */}
-            <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1">
-              {([
-                { id: 'overview',  label: 'Overview',  icon: <BarChart3 className="w-4 h-4"/> },
-                { id: 'accounts',  label: 'Accounts',  icon: <Landmark className="w-4 h-4"/> },
-                { id: 'transfer',  label: 'Transfer',  icon: <Send className="w-4 h-4"/> },
-                { id: 'history',   label: 'History',   icon: <Clock className="w-4 h-4"/> },
-              ] as const).map(tab => {
-                const active = desktopTab === tab.id;
-                return (
-                  <button key={tab.id} type="button" onClick={() => setDesktopTab(tab.id)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold transition-all cursor-pointer border-none outline-none ${
-                      active ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                    }`}>
-                    <span className={active ? 'text-emerald-400' : 'text-slate-400'}>{tab.icon}</span>
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* ── OVERVIEW TAB ── */}
             {desktopTab === 'overview' && (
               <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {channels.filter((c: any) => c.category !== 'person').map((chan: any) => {
+                    const bal = channelBalances[chan.id]?.current || 0;
+                    let pIn = 0, pOut = 0;
+                    activeTenantFilterLedger.forEach((e: any) => {
+                      if (e.channelId === chan.id) { if (e.amount >= 0) pIn += e.amount; else pOut += Math.abs(e.amount); }
+                    });
+                    const type = getPaymentType(chan.name, normalizePaymentModes(systemSettings?.business?.paymentModes || []));
+                    const colors = PAYMENT_TYPE_COLORS[type];
+                    const icon = chan.category === 'physical' ? '💵' : chan.category === 'telco' ? '📱' : '🏦';
+                    return (
+                      <div key={chan.id} className="rounded-2xl p-5 cursor-pointer hover:shadow-md transition-all"
+                        style={{background: colors.bg, border:`1.5px solid ${colors.border}`}}
+                        onClick={() => { setSelectedChannelId(chan.id); setDesktopTab('accounts'); }}>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-2xl">{icon}</span>
+                          <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-lg" style={{background: colors.text + '20', color: colors.text}}>
+                            {chan.category === 'telco' ? 'Mobile' : chan.category === 'physical' ? 'Cash' : 'Bank'}
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-slate-600 truncate mb-1">{chan.name}</p>
+                        <p className="text-2xl font-black" style={{color: bal < 0 ? '#dc2626' : colors.text}}>{formatCurrency(bal)}</p>
+                        <div className="flex gap-3 mt-3 pt-3 border-t" style={{borderColor: colors.border}}>
+                          <div>
+                            <p className="text-[8px] font-bold opacity-60">Period In</p>
+                            <p className="text-xs font-black text-emerald-600">+{formatCurrency(pIn)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-bold opacity-60">Period Out</p>
+                            <p className="text-xs font-black text-rose-500">-{formatCurrency(pOut)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <button type="button" onClick={() => setDesktopTab('transfer')}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-2xl text-sm flex items-center justify-center gap-2 cursor-pointer">
+                  <Send className="w-4 h-4 text-emerald-400"/>
+                  New Transfer
+                </button>
+              </div>
+            )}
 
-
-
-            {/* Account cards grid */}
-            <div className="grid grid-cols-2 gap-3">
-              {channels.filter(c => c.category !== 'person' && (selectedChannelId === 'all' || selectedChannelId === c.id)).map(chan => {
-                const bal = channelBalances[chan.id]?.current || 0;
-                const type = getPaymentType(chan.name, normalizePaymentModes(systemSettings?.business?.paymentModes || []));
-                const colors = PAYMENT_TYPE_COLORS[type];
-                let periodIn = 0, periodOut = 0;
-                activeTenantFilterLedger.forEach(e => {
-                  if (e.channelId === chan.id) { if (e.amount >= 0) periodIn += e.amount; else periodOut += Math.abs(e.amount); }
-                });
-                const icon = chan.category === 'physical' ? '💵' : chan.category === 'telco' ? '📱' : '🏦';
-                return (
-                  <div key={chan.id} className="rounded-2xl p-5 cursor-pointer transition-all hover:shadow-md"
-                    style={{background: colors.bg, border:`1.5px solid ${colors.border}`}}
-                    onClick={() => setSelectedChannelId(chan.id)}>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-2xl">{icon}</span>
-                      <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-lg"
-                        style={{background: colors.text + '20', color: colors.text}}>
-                        {chan.category === 'telco' ? 'Mobile' : chan.category === 'physical' ? 'Cash' : 'Bank'}
-                      </span>
+            {desktopTab === 'accounts' && (
+              <div className="grid grid-cols-2 gap-3">
+                {channels.filter((c: any) => c.category !== 'person').map((chan: any) => {
+                  const bal = channelBalances[chan.id]?.current || 0;
+                  let pIn = 0, pOut = 0;
+                  activeTenantFilterLedger.forEach((e: any) => {
+                    if (e.channelId === chan.id) { if (e.amount >= 0) pIn += e.amount; else pOut += Math.abs(e.amount); }
+                  });
+                  const grad = chan.category === 'bank' ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : chan.category === 'telco' ? 'linear-gradient(135deg,#7c3aed,#6d28d9)' : 'linear-gradient(135deg,#059669,#047857)';
+                  const icon = chan.category === 'bank' ? <Landmark className="w-5 h-5"/> : chan.category === 'telco' ? <Wallet className="w-5 h-5"/> : <Coins className="w-5 h-5"/>;
+                  return (
+                    <div key={chan.id} className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 2px 10px rgba(0,0,0,0.06)'}}>
+                      <div className="px-5 pt-5 pb-4 flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white shrink-0" style={{background:grad}}>{icon}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-extrabold text-slate-900 truncate">{chan.name}</p>
+                          <p className="text-[10px] text-slate-400 capitalize">{chan.provider || chan.category}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-lg font-black font-mono ${bal >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>{formatCurrency(bal)}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 border-t border-slate-100">
+                        <div className="px-5 py-3 border-r border-slate-100">
+                          <p className="text-[9px] text-emerald-600 font-bold uppercase">IN</p>
+                          <p className="text-sm font-black text-emerald-700 font-mono">+{formatCurrency(pIn)}</p>
+                        </div>
+                        <div className="px-5 py-3">
+                          <p className="text-[9px] text-rose-500 font-bold uppercase">OUT</p>
+                          <p className="text-sm font-black text-rose-600 font-mono">-{formatCurrency(pOut)}</p>
+                        </div>
+                      </div>
+                      <div className="border-t border-slate-100 flex">
+                        <button type="button" onClick={() => { setSettleSource(chan.id); setDesktopTab('transfer'); }}
+                          className="flex-1 py-3 flex items-center justify-center gap-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 border-r border-slate-100 cursor-pointer">
+                          <Send className="w-3.5 h-3.5"/> Transfer
+                        </button>
+                        <button type="button" onClick={() => { setSelectedChannelId(chan.id); setDesktopTab('history'); }}
+                          className="flex-1 py-3 flex items-center justify-center gap-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer">
+                          <Eye className="w-3.5 h-3.5"/> History
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-xs font-bold text-slate-600 truncate mb-1">{chan.name}</p>
-                    <p className="text-2xl font-black" style={{color: bal < 0 ? '#dc2626' : colors.text}}>
-                      {formatCurrency(bal)}
-                    </p>
-                    <div className="flex gap-3 mt-3 pt-3 border-t" style={{borderColor: colors.border}}>
-                      <div>
-                        <p className="text-[8px] font-bold opacity-60">Period In</p>
-                        <p className="text-xs font-black text-emerald-600">+{formatCurrency(periodIn)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[8px] font-bold opacity-60">Period Out</p>
-                        <p className="text-xs font-black text-rose-500">-{formatCurrency(periodOut)}</p>
-                      </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {desktopTab === 'transfer' && (
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+                <p className="text-sm font-black text-slate-900">Transfer / Settle Till</p>
+                {settleSuccessMsg && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                    <p className="text-xs text-emerald-800 font-medium">{settleSuccessMsg}</p>
+                  </div>
+                )}
+                <form onSubmit={handleExecuteSettleTill} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">From</label>
+                      <select value={settleSource} onChange={e => setSettleSource(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-semibold outline-none cursor-pointer">
+                        {channels.filter((c: any) => c.category !== 'person').map((c: any) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">To</label>
+                      <select value={settleTarget} onChange={e => setSettleTarget(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-semibold outline-none cursor-pointer">
+                        {channels.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Amount</label>
+                      <input type="number" placeholder="0" value={settleAmount} onChange={e => setSettleAmount(e.target.value)} required
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xl font-black font-mono outline-none"/>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Memo</label>
+                      <input type="text" placeholder="Note..." value={settleMemo} onChange={e => setSettleMemo(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none"/>
+                    </div>
+                  </div>
+                  <button type="submit" className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl flex items-center justify-center gap-2 cursor-pointer">
+                    <Send className="w-4 h-4"/> Execute Transfer
+                  </button>
+                </form>
+              </div>
+            )}
 
+            {desktopTab === 'history' && (
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+                  <div className="flex-1 flex items-center bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl gap-2">
+                    <Search className="w-4 h-4 text-slate-400 shrink-0"/>
+                    <input type="text" placeholder="Search..." value={auditSearch} onChange={e => setAuditSearch(e.target.value)}
+                      className="bg-transparent border-none outline-none text-sm flex-1"/>
+                  </div>
+                </div>
+                <div className="divide-y divide-slate-50 max-h-[500px] overflow-y-auto">
+                  {searchedAuditTrail.length > 0 ? searchedAuditTrail.map((entry: any) => {
+                    const chan = channels.find((c: any) => c.id === entry.channelId);
+                    const isPositive = entry.amount >= 0;
+                    return (
+                      <div key={entry.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isPositive ? 'bg-emerald-50' : 'bg-rose-50'}`}>
+                          {isPositive ? <ArrowUpRight className="w-4 h-4 text-emerald-500"/> : <ArrowDownRight className="w-4 h-4 text-rose-500"/>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">{entry.description || '-'}</p>
+                          <p className="text-[10px] text-slate-400 font-mono">{(chan as any)?.name || entry.channelId} · {new Date(entry.timestamp).toLocaleString()}</p>
+                        </div>
+                        <p className={`text-sm font-black shrink-0 ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {isPositive ? '+' : '-'}{formatCurrency(Math.abs(entry.amount))}
+                        </p>
+                      </div>
+                    );
+                  }) : (
+                    <div className="text-center py-12 text-slate-400">
+                      <p className="text-sm font-bold">No transactions found</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
+          </div>
 
-            {/* Revenue by registered mode */}
+          <div className="space-y-4">
             {(() => {
               const configModes = normalizePaymentModes(systemSettings?.business?.paymentModes || []);
               const { startIso, endIso } = getFilterBoundaries();
@@ -1585,312 +1635,84 @@ export default function DashboardCashBank({
                 });
               });
               const totalIn = Object.values(byMode).reduce((s, m) => s + m.amount, 0) + creditTotal;
-              return (
-                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                  <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                    <p className="text-sm font-black text-slate-800">Revenue by Mode</p>
-                    <p className="text-sm font-black text-emerald-600">{formatCurrency(totalIn)}</p>
-                  </div>
-                  <div className="divide-y divide-slate-50">
-                    {Object.entries(byMode).map(([name, {amount, config}]) => {
-                      const type = getPaymentType(name, configModes);
-                      const colors = PAYMENT_TYPE_COLORS[type];
-                      const pct = totalIn > 0 ? Math.round((amount / totalIn) * 100) : 0;
-                      return (
-                        <div key={name} className="flex items-center gap-3 px-5 py-3">
-                          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{background: colors.bg}}>
-                            {config.logoUrl ? <img src={config.logoUrl} className="w-5 h-5 object-contain" alt={name}/> : <span className="text-sm">{PAYMENT_TYPE_ICONS[type]}</span>}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-center mb-1">
-                              <p className="text-xs font-bold text-slate-700 truncate">{name}</p>
-                              <p className="text-xs font-black ml-2 shrink-0" style={{color: colors.text}}>{formatCurrency(amount)}</p>
-                            </div>
-                            <div className="h-1.5 rounded-full overflow-hidden" style={{background: colors.bg}}>
-                              <div className="h-full rounded-full" style={{width:`${pct}%`, background: colors.text}}/>
-                            </div>
-                          </div>
-                          <span className="text-[9px] font-bold text-slate-400 w-8 text-right shrink-0">{pct}%</span>
-                        </div>
-                      );
-                    })}
-                    <div className="flex items-center gap-3 px-5 py-3">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-rose-50"><span className="text-sm">📋</span></div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center mb-1">
-                          <p className="text-xs font-bold text-slate-700">Credit / Mkopo</p>
-                          <p className="text-xs font-black text-rose-600 ml-2">{formatCurrency(creditTotal)}</p>
-                        </div>
-                        <div className="h-1.5 bg-rose-50 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full bg-rose-400" style={{width:`${totalIn > 0 ? Math.round((creditTotal/totalIn)*100) : 0}%`}}/>
-                        </div>
-                      </div>
-                      <span className="text-[9px] font-bold text-slate-400 w-8 text-right shrink-0">{totalIn > 0 ? Math.round((creditTotal/totalIn)*100) : 0}%</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Money Out by category */}
-            {(() => {
-              const { startIso, endIso } = getFilterBoundaries();
               const expensesInRange = expenses.filter((e: any) => {
-                const t = e.date || e.timestamp || e.createdAt || '';
+                const t = (e as any).date || e.timestamp || '';
                 return t >= startIso && t <= endIso;
               });
               const totalOut = expensesInRange.reduce((s: number, e: any) => s + Math.max(0, Number(e.amount || 0)), 0);
-              if (totalOut === 0) return null;
               const byCategory: Record<string, number> = {};
               expensesInRange.forEach((e: any) => {
-                const cat = e.category || e.type || 'Other';
+                const cat = (e as any).category || 'Other';
                 byCategory[cat] = (byCategory[cat] || 0) + Math.max(0, Number(e.amount || 0));
               });
               return (
-                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                  <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                    <p className="text-sm font-black text-slate-800">Money Out</p>
-                    <p className="text-sm font-black text-rose-600">{formatCurrency(totalOut)}</p>
-                  </div>
-                  <div className="divide-y divide-slate-50">
-                    {Object.entries(byCategory).sort((a,b) => b[1]-a[1]).map(([cat, amt]) => {
-                      const pct = totalOut > 0 ? Math.round((amt / totalOut) * 100) : 0;
-                      return (
-                        <div key={cat} className="flex items-center gap-3 px-5 py-3">
-                          <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center shrink-0">
-                            <ArrowDownRight className="w-4 h-4 text-rose-500"/>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-center mb-1">
-                              <p className="text-xs font-bold text-slate-700 truncate">{cat}</p>
-                              <p className="text-xs font-black text-rose-600 ml-2 shrink-0">{formatCurrency(amt)}</p>
+                <div className="space-y-4">
+                  <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                    <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                      <p className="text-sm font-black text-slate-800">Revenue by Mode</p>
+                      <p className="text-sm font-black text-emerald-600">{formatCurrency(totalIn)}</p>
+                    </div>
+                    <div className="divide-y divide-slate-50">
+                      {Object.entries(byMode).map(([name, {amount, config}]) => {
+                        const type = getPaymentType(name, configModes);
+                        const colors = PAYMENT_TYPE_COLORS[type];
+                        const pct = totalIn > 0 ? Math.round((amount / totalIn) * 100) : 0;
+                        return (
+                          <div key={name} className="flex items-center gap-3 px-5 py-3">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{background: colors.bg}}>
+                              {config.logoUrl ? <img src={config.logoUrl} className="w-5 h-5 object-contain" alt={name}/> : <span className="text-sm">{PAYMENT_TYPE_ICONS[type]}</span>}
                             </div>
-                            <div className="h-1.5 bg-rose-50 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full bg-rose-400" style={{width:`${pct}%`}}/>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-center mb-1">
+                                <p className="text-xs font-bold text-slate-700 truncate">{name}</p>
+                                <p className="text-xs font-black ml-2 shrink-0" style={{color: colors.text}}>{formatCurrency(amount)}</p>
+                              </div>
+                              <div className="h-1.5 rounded-full overflow-hidden" style={{background: colors.bg}}>
+                                <div className="h-full rounded-full" style={{width:`${pct}%`, background: colors.text}}/>
+                              </div>
                             </div>
+                            <span className="text-[9px] font-bold text-slate-400 w-8 text-right shrink-0">{pct}%</span>
                           </div>
-                          <span className="text-[9px] font-bold text-slate-400 w-8 text-right shrink-0">{pct}%</span>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
+                  {totalOut > 0 && (
+                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <p className="text-sm font-black text-slate-800">Money Out</p>
+                        <p className="text-sm font-black text-rose-600">{formatCurrency(totalOut)}</p>
+                      </div>
+                      <div className="divide-y divide-slate-50">
+                        {Object.entries(byCategory).sort((a,b) => b[1]-a[1]).map(([cat, amt]) => {
+                          const pct = totalOut > 0 ? Math.round((amt / totalOut) * 100) : 0;
+                          return (
+                            <div key={cat} className="flex items-center gap-3 px-5 py-3">
+                              <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center shrink-0">
+                                <ArrowDownRight className="w-4 h-4 text-rose-500"/>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-center mb-1">
+                                  <p className="text-xs font-bold text-slate-700 truncate">{cat}</p>
+                                  <p className="text-xs font-black text-rose-600 ml-2 shrink-0">{formatCurrency(amt)}</p>
+                                </div>
+                                <div className="h-1.5 bg-rose-50 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full bg-rose-400" style={{width:`${pct}%`}}/>
+                                </div>
+                              </div>
+                              <span className="text-[9px] font-bold text-slate-400 w-8 text-right shrink-0">{pct}%</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}
-
-            {/* Quick transfer button */}
-            <button type="button" onClick={() => setDesktopTab('transfer')}
-              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-2xl text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer border border-slate-800">
-              <Send className="w-4 h-4 text-emerald-400"/>
-              New Transfer
-            </button>
-            </div>
-            )}
-
-            {/* ── ACCOUNTS TAB ── */}
-            {desktopTab === 'accounts' && (
-              <div className="space-y-3">
-                <div className="flex gap-2 flex-wrap">
-                  {(['all', ...channels.map((c: any) => c.id)] as string[]).map(id => {
-                    const chan = id === 'all' ? null : channels.find((c: any) => c.id === id);
-                    if ((chan as any)?.category === 'person') return null;
-                    const isSelected = selectedChannelId === id;
-                    const type = chan ? getPaymentType((chan as any).name, normalizePaymentModes(systemSettings?.business?.paymentModes || [])) : null;
-                    const colors = type ? PAYMENT_TYPE_COLORS[type] : null;
-                    return (
-                      <button key={id} type="button" onClick={() => setSelectedChannelId(id)}
-                        className="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border"
-                        style={{
-                          background: isSelected ? (colors?.text || '#0f172a') : (colors?.bg || '#f1f5f9'),
-                          borderColor: isSelected ? (colors?.text || '#0f172a') : (colors?.border || '#e2e8f0'),
-                          color: isSelected ? '#fff' : (colors?.text || '#475569'),
-                        }}>
-                        {id === 'all' ? 'All Accounts' : (chan as any)?.name || id}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {channels.filter((c: any) => c.category !== 'person' && (selectedChannelId === 'all' || selectedChannelId === c.id)).map((chan: any) => {
-                    const bal = channelBalances[chan.id]?.current || 0;
-                    let periodIn = 0, periodOut = 0;
-                    activeTenantFilterLedger.forEach((e: any) => {
-                      if (e.channelId === chan.id) { if (e.amount >= 0) periodIn += e.amount; else periodOut += Math.abs(e.amount); }
-                    });
-                    const grad = chan.category === 'bank' ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : chan.category === 'telco' ? 'linear-gradient(135deg,#7c3aed,#6d28d9)' : 'linear-gradient(135deg,#059669,#047857)';
-                    const icon = chan.category === 'bank' ? <Landmark className="w-5 h-5"/> : chan.category === 'telco' ? <Wallet className="w-5 h-5"/> : <Coins className="w-5 h-5"/>;
-                    return (
-                      <div key={chan.id} className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 2px 10px rgba(0,0,0,0.06)'}}>
-                        <div className="px-5 pt-5 pb-4 flex items-center gap-3">
-                          <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white shrink-0" style={{background:grad}}>{icon}</div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-extrabold text-slate-900 truncate">{chan.name}</p>
-                            <p className="text-[10px] text-slate-400 capitalize">{chan.provider || chan.category}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className={`text-lg font-black font-mono ${bal >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>{formatCurrency(bal)}</p>
-                            <p className="text-[9px] text-slate-400">Balance</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 border-t border-slate-100">
-                          <div className="px-5 py-3 border-r border-slate-100">
-                            <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider">IN</p>
-                            <p className="text-sm font-black text-emerald-700 font-mono mt-0.5">+{formatCurrency(periodIn)}</p>
-                          </div>
-                          <div className="px-5 py-3">
-                            <p className="text-[9px] text-rose-500 font-bold uppercase tracking-wider">OUT</p>
-                            <p className="text-sm font-black text-rose-600 font-mono mt-0.5">-{formatCurrency(periodOut)}</p>
-                          </div>
-                        </div>
-                        <div className="border-t border-slate-100 flex">
-                          <button type="button" onClick={() => { setSettleSource(chan.id); setDesktopTab('transfer'); }}
-                            className="flex-1 py-3 flex items-center justify-center gap-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 border-r border-slate-100 cursor-pointer">
-                            <Send className="w-3.5 h-3.5"/> Transfer
-                          </button>
-                          <button type="button" onClick={() => { setSelectedChannelId(chan.id); setDesktopTab('history'); }}
-                            className="flex-1 py-3 flex items-center justify-center gap-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer">
-                            <Eye className="w-3.5 h-3.5"/> History
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* ── TRANSFER TAB ── */}
-            {desktopTab === 'transfer' && (
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5">
-                <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
-                    <Send className="w-5 h-5 text-emerald-600"/>
-                  </div>
-                  <div>
-                    <p className="text-sm font-black text-slate-900">Transfer / Settle Till</p>
-                    <p className="text-xs text-slate-400 mt-0.5">Move money between accounts</p>
-                  </div>
-                </div>
-                {settleSuccessMsg && (
-                  <div className="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
-                    <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5"/>
-                    <p className="text-xs text-emerald-800 font-medium">{settleSuccessMsg}</p>
-                  </div>
-                )}
-                <form onSubmit={handleExecuteSettleTill} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">From</label>
-                      <select value={settleSource} onChange={e => setSettleSource(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500 cursor-pointer">
-                        {channels.filter((c: any) => c.category !== 'person').map((c: any) => (
-                          <option key={c.id} value={c.id}>{c.name} ({formatCurrency(channelBalances[c.id]?.current)})</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">To</label>
-                      <select value={settleTarget} onChange={e => setSettleTarget(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500 cursor-pointer">
-                        <optgroup label="Mobile Money">{channels.filter((c: any) => c.category === 'telco').map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
-                        <optgroup label="Bank Accounts">{channels.filter((c: any) => c.category === 'bank').map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
-                        <optgroup label="Cash / Physical">{channels.filter((c: any) => c.category === 'physical').map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
-                        <optgroup label="Send to Person">{channels.filter((c: any) => c.category === 'person').map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Amount</label>
-                      <input type="number" placeholder="0" value={settleAmount} onChange={e => setSettleAmount(e.target.value)} required
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xl font-black font-mono text-slate-900 outline-none focus:border-emerald-500"/>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Memo (optional)</label>
-                      <input type="text" placeholder="Note or reason" value={settleMemo} onChange={e => setSettleMemo(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500"/>
-                    </div>
-                  </div>
-                  {showRuleWarning && (
-                    <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-800 font-semibold">
-                      ⚠️ Large transfer — attach a receipt or proof of payment for audit trail.
-                    </div>
-                  )}
-                  <button type="submit"
-                    className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl flex items-center justify-center gap-2 cursor-pointer">
-                    <Send className="w-4 h-4"/> Execute Transfer
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {/* ── HISTORY TAB ── */}
-            {desktopTab === 'history' && (
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-                  <div className="flex-1 flex items-center bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl gap-2">
-                    <Search className="w-4 h-4 text-slate-400 shrink-0"/>
-                    <input type="text" placeholder="Search transactions..." value={auditSearch} onChange={e => setAuditSearch(e.target.value)}
-                      className="bg-transparent border-none outline-none text-sm text-slate-800 placeholder-slate-400 flex-1"/>
-                  </div>
-                  <select value={auditTypeFilter} onChange={e => setAuditTypeFilter(e.target.value as any)}
-                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none cursor-pointer">
-                    <option value="ALL">All Types</option>
-                    <option value="POS_CHECKOUT">Sales</option>
-                    <option value="SETTLE_TILL_DEPOSIT">Transfers</option>
-                    <option value="EXPENSE_WITHDRAWAL">Expenses</option>
-                  </select>
-                </div>
-                <div className="px-5 py-3 border-b border-slate-100 flex gap-2 flex-wrap">
-                  <button type="button" onClick={() => setSelectedChannelId('all')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all ${selectedChannelId === 'all' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>All</button>
-                  {channels.filter((c: any) => c.category !== 'person').map((c: any) => (
-                    <button key={c.id} type="button" onClick={() => setSelectedChannelId(c.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all ${selectedChannelId === c.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-                <div className="divide-y divide-slate-50 max-h-[500px] overflow-y-auto">
-                  {searchedAuditTrail.length > 0 ? searchedAuditTrail.map((entry: any) => {
-                    const chan = channels.find((c: any) => c.id === entry.channelId);
-                    const isPositive = entry.amount >= 0;
-                    const typeLabel = entry.sourceType === 'POS_CHECKOUT' ? 'Payment In' : entry.sourceType === 'SETTLE_TILL_DEPOSIT' ? 'Transfer' : entry.sourceType === 'EXPENSE_WITHDRAWAL' ? 'Expense' : 'Entry';
-                    const tc = entry.sourceType === 'POS_CHECKOUT' ? {bg:'#eff6ff',text:'#1d4ed8'} : entry.sourceType === 'SETTLE_TILL_DEPOSIT' ? {bg:'#f0fdf4',text:'#059669'} : entry.sourceType === 'EXPENSE_WITHDRAWAL' ? {bg:'#fff1f2',text:'#be123c'} : {bg:'#f8fafc',text:'#475569'};
-                    return (
-                      <div key={entry.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50">
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{background:tc.bg}}>
-                          {isPositive ? <ArrowUpRight className="w-4 h-4" style={{color:tc.text}}/> : <ArrowDownRight className="w-4 h-4" style={{color:tc.text}}/>}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg" style={{background:tc.bg,color:tc.text}}>{typeLabel}</span>
-                            <p className="text-xs text-slate-600 font-medium truncate">{entry.description || '-'}</p>
-                          </div>
-                          <p className="text-[10px] text-slate-400 font-mono">{(chan as any)?.name || entry.channelId} · {new Date(entry.timestamp).toLocaleString()}</p>
-                        </div>
-                        <p className={`text-sm font-black shrink-0 ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
-                          {isPositive ? '+' : '-'}{formatCurrency(Math.abs(entry.amount))}
-                        </p>
-                      </div>
-                    );
-                  }) : (
-                    <div className="text-center py-12 text-slate-400">
-                      <Clock className="w-8 h-8 mx-auto mb-2 opacity-30"/>
-                      <p className="text-sm font-bold">No transactions found</p>
-                    </div>
-                  )}
-                </div>
-                {searchedAuditTrail.length > 0 && (
-                  <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-between text-[10px] text-slate-400 font-mono">
-                    <span>{searchedAuditTrail.length} records</span><span>All systems normal</span>
-                  </div>
-                )}
-              </div>
-            )}
-
           </div>
         </div>
+
       </div>
 
     </div>
