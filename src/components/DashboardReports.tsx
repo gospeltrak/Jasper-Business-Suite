@@ -4116,6 +4116,34 @@ export default function DashboardReports({
                       </div>
                     ))}
                   </div>
+                  {/* Operations Charge Metrics */}
+                  {expensesBreakdown.length > 0 && (
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+                      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <span className="text-[10px] font-black tracking-widest uppercase text-slate-400">Operations Charge Metrics</span>
+                        <span className="text-sm font-black text-rose-600 font-mono">{currency}{Math.round(totalExpensesCharged).toLocaleString()}</span>
+                      </div>
+                      <div className="divide-y divide-slate-50 dark:divide-slate-800 px-4">
+                        {expensesBreakdown.map(cat => {
+                          const pct = totalExpensesCharged > 0 ? (cat.value / totalExpensesCharged) * 100 : 0;
+                          return (
+                            <div key={cat.name} className="py-3 space-y-1.5">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">{cat.name}</span>
+                                <span className="text-[11px] font-black text-rose-600 font-mono">
+                                  {currency}{Math.round(cat.value).toLocaleString()}
+                                  <span className="text-slate-400 font-normal ml-1">({Math.round(pct)}%)</span>
+                                </span>
+                              </div>
+                              <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-rose-500 transition-all" style={{ width: `${pct}%` }}/>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
