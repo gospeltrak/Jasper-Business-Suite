@@ -150,7 +150,7 @@ export default function DashboardCashBank({
   const defaultBaseChannels: PaymentChannel[] = [
     // Mobile Money
     { id: 'mpesa-till', name: 'M-Pesa Till (Lipa namba)', category: 'telco', provider: 'Vodacom Tanzania', accountNumber: '556677' },
-    { id: 'yas-merchant', name: 'Delivery Account (mixx by Yas Paybill)', category: 'telco', provider: 'Yas', accountNumber: '223399' },
+    { id: 'mobile-merchant', name: 'Mobile Money Account', category: 'telco', provider: 'Mobile', accountNumber: '' },
     { id: 'airtel-merchant', name: 'Airtel Money Paybill', category: 'telco', provider: 'Airtel', accountNumber: '881122' },
     
     // Bank Accounts
@@ -753,7 +753,7 @@ export default function DashboardCashBank({
               </div>
             </div>
 
-            {/* Payment type breakdown — shows which mobile/bank per mode */}
+            {/* Payment breakdown — registered modes only, no legacy modes */}
             {(() => {
               const configModes = normalizePaymentModes(systemSettings?.business?.paymentModes || []);
               if (configModes.length === 0) return null;
@@ -762,15 +762,21 @@ export default function DashboardCashBank({
                 const t = s.timestamp || s.createdAt || '';
                 return t >= startIso && t <= endIso && s.paymentStatus !== 'Pending';
               });
-              // Group by mode name
+              // Only count user's registered modes — ignore all others (Mixx by Yas, etc)
               const byMode: Record<string, number> = {};
+              configModes.forEach(m => { byMode[m.name] = 0; });
               salesInRange.forEach((s: any) => {
                 const breakdown = Array.isArray(s.paymentBreakdown) && s.paymentBreakdown.length > 0
                   ? s.paymentBreakdown
-                  : [{ method: s.paymentMethod || 'Cash', amount: s.total }];
+                  : [{ method: s.paymentMethod || 'Cash', amount: s.amountPaid ?? s.total }];
                 breakdown.forEach((p: any) => {
-                  const m = p.method || s.paymentMethod || 'Cash';
-                  byMode[m] = (byMode[m] || 0) + Math.max(0, Number(p.amount || 0));
+                  const mName = (p.method || s.paymentMethod || 'Cash').trim();
+                  const match = configModes.find(m =>
+                    m.name.toLowerCase().trim() === mName.toLowerCase() ||
+                    mName.toLowerCase().includes(m.name.toLowerCase()) ||
+                    m.name.toLowerCase().includes(mName.toLowerCase())
+                  );
+                  if (match) byMode[match.name] = (byMode[match.name] || 0) + Math.max(0, Number(p.amount || 0));
                 });
               });
               const total = Object.values(byMode).reduce((a, b) => a + b, 0);
@@ -778,13 +784,16 @@ export default function DashboardCashBank({
               return (
                 <div className="mt-3 space-y-1.5">
                   {Object.entries(byMode).filter(([, amt]) => amt > 0).map(([mode, amt]) => {
+                    const config = configModes.find(m => m.name === mode);
                     const type = getPaymentType(mode, configModes);
                     const colors = PAYMENT_TYPE_COLORS[type];
-                    const icon = PAYMENT_TYPE_ICONS[type];
                     const pct = Math.round((amt / total) * 100);
                     return (
                       <div key={mode} className="flex items-center gap-2">
-                        <span className="text-[10px] shrink-0">{icon}</span>
+                        {config?.logoUrl
+                          ? <img src={config.logoUrl} className="w-4 h-4 object-contain rounded shrink-0" alt={mode}/>
+                          : <span className="text-[10px] shrink-0">{PAYMENT_TYPE_ICONS[type]}</span>
+                        }
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-center mb-0.5">
                             <span className="text-white/80 text-[9px] font-bold truncate">{mode}</span>
@@ -838,11 +847,11 @@ export default function DashboardCashBank({
         {/* ── OVERVIEW SECTION ── */}
         {mobileSectionTab === 'overview' && (
           <div className="space-y-3">
-            {/* Treasury summary cards — 2 cols, last full width if odd */}
+            {/* Treasury summary cards — 2 cols */}
             <div className="grid grid-cols-2 gap-2.5">
               {treasurySummaryCards.map((card, idx) => (
                 <div key={card.label}
-                  className={`rounded-2xl p-4 ${card.tone} ${idx === treasurySummaryCards.length - 1 && treasurySummaryCards.length % 2 !== 0 ? 'col-span-2' : ''}`}
+                  className={`rounded-2xl p-4 ${card.tone} ${idx === 0 ? 'col-span-2' : ''}`}
                   style={{border:'1px solid rgba(0,0,0,0.06)'}}>
                   <p className="text-[9px] font-black uppercase tracking-widest opacity-70 font-mono">{card.label}</p>
                   <p className="text-[17px] font-black leading-tight mt-1.5">{card.value}</p>
