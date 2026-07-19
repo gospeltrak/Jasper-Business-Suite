@@ -417,13 +417,23 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
       productTombstones: mergedTombstones,
     };
 
-    // Merge append-only keys (sales, expenses, deliveries) with cache
+    // Merge arrays with cache.
+    // CRITICAL: sales and expenses support deletion — incoming array is the
+    // source of truth. Never union with cache (that would resurrect deleted records).
+    // Rule: incoming non-empty → use incoming only.
+    //       incoming empty AND cache has data → protect (blank-save guard).
     if (currentSafe) {
       for (const key of appendMergeWorkspaceKeys) {
-        (workspaceToSave as any)[key] = mergeRecordsById(
-          (workspaceToSave as any)[key],
-          (currentSafe as any)[key],
-        );
+        const incomingArr = Array.isArray((workspaceToSave as any)[key]) ? (workspaceToSave as any)[key] : [];
+        const currentArr  = Array.isArray((currentSafe as any)[key])      ? (currentSafe as any)[key]      : [];
+
+        if (incomingArr.length > 0) {
+          // Incoming has data — it is the truth. Do NOT merge with cache.
+          (workspaceToSave as any)[key] = incomingArr;
+        } else if (currentArr.length > 0) {
+          // Incoming is empty but cache has data — blank-save guard.
+          (workspaceToSave as any)[key] = currentArr;
+        }
       }
       workspaceToSave.settings = mergeSettingsForSync(workspaceToSave.settings, currentSafe.settings);
     }

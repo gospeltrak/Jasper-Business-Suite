@@ -533,7 +533,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const cloudWorkspaceLoadedRef = useRef(false);
   const localWorkspaceChangedAtRef = useRef(0);
   const skipNextWorkspaceSaveRef = useRef(false);
-  const LOCAL_WORKSPACE_PROTECTION_MS = 10000; // 10s — save completes in < 5s normally
+  const LOCAL_WORKSPACE_PROTECTION_MS = 30000; // 30s — covers DB save + realtime propagation
 
   // Set safe defaults while the selected tenant workspace loads from Supabase.
   useEffect(() => {
@@ -598,7 +598,12 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       setWorkspaceReady(true);
     });
 
-    subscribeToTenantWorkspace(activeTenant.id, applyWorkspace).then((cleanup) => {
+    subscribeToTenantWorkspace(activeTenant.id, (workspace) => {
+      // Do NOT apply realtime updates if user just made local changes —
+      // the save may still be in flight and the incoming data is stale.
+      if (Date.now() - localWorkspaceChangedAtRef.current < LOCAL_WORKSPACE_PROTECTION_MS) return;
+      applyWorkspace(workspace);
+    }).then((cleanup) => {
       unsubscribe = cleanup;
     });
 
