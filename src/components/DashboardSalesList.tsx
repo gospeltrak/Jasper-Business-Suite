@@ -670,11 +670,10 @@ export default function DashboardSalesList({
       (s.reference && s.reference.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesPayment = 
-      selectedPaymentMethod === 'All' || 
-      (selectedPaymentMethod === 'Mobile Money' && classifyPaymentMethod(s.paymentMethod) === 'Mobile Money') ||
-      (selectedPaymentMethod === 'Card' && classifyPaymentMethod(s.paymentMethod) === 'Card') ||
-      (selectedPaymentMethod === 'Cash' && classifyPaymentMethod(s.paymentMethod) === 'Cash') ||
-      (selectedPaymentMethod === 'Credit' && classifyPaymentMethod(s.paymentMethod) === 'Credit');
+      selectedPaymentMethod === 'All' ||
+      (selectedPaymentMethod === 'Credit' && classifyPaymentMethod(s.paymentMethod) === 'Credit') ||
+      (s.paymentMethod === selectedPaymentMethod) ||
+      (Array.isArray(s.paymentBreakdown) && s.paymentBreakdown.some((p: any) => p.method === selectedPaymentMethod));
     
     const matchesSync = 
       selectedSyncStatus === 'All' || 
@@ -1040,8 +1039,8 @@ export default function DashboardSalesList({
                 <p className="text-white font-black text-[13px] mt-0.5">{currency}{Math.round(creditsVolume).toLocaleString()}</p>
               </div>
               <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
-                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Cash</p>
-                <p className="text-white font-black text-[13px] mt-0.5">{currency}{Math.round(sales.filter(s=>s.paymentMethod==='Cash').reduce((sum,s)=>sum+(s.total||0),0)).toLocaleString()}</p>
+                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Income</p>
+                <p className="text-white font-black text-[13px] mt-0.5">{currency}{Math.round(filteredSales.reduce((sum, s) => sum + (s.amountPaid !== undefined ? s.amountPaid : s.total), 0)).toLocaleString()}</p>
               </div>
               <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
                 <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Pending</p>
@@ -1203,10 +1202,14 @@ export default function DashboardSalesList({
               className="bg-slate-100 border border-slate-200 px-2.5 py-1.5 rounded-xl font-bold text-slate-700 cursor-pointer outline-none focus:bg-white text-xs"
             >
               <option value="All">All Payments</option>
-              <option value="Cash">Cash Channel Only</option>
-              <option value="Card">Card & Online Tills</option>
-              <option value="Mobile Money">Smart MOMO Express</option>
-              <option value="Credit">Issued Credit Sales</option>
+              {(() => {
+                const rawModes = systemSettings?.business?.paymentModes || [];
+                const modes = (rawModes as any[]).map((m: any) => typeof m === 'string' ? m : m.name);
+                return modes.map((mode: string) => (
+                  <option key={mode} value={mode}>{mode}</option>
+                ));
+              })()}
+              <option value="Credit">Credit / Mkopo</option>
             </select>
           </div>
 
@@ -1281,9 +1284,13 @@ export default function DashboardSalesList({
           <select value={selectedPaymentMethod} onChange={e => setSelectedPaymentMethod(e.target.value)}
             className="bg-slate-900 border border-slate-800 text-white px-3 py-2.5 rounded-xl font-bold cursor-pointer outline-none text-xs shadow-xs shrink-0">
             <option value="All">All</option>
-            <option value="Cash">Cash</option>
-            <option value="Card">Card</option>
-            <option value="Mobile Money">MOMO</option>
+            {(() => {
+              const rawModes = systemSettings?.business?.paymentModes || [];
+              const modes = (rawModes as any[]).map((m: any) => typeof m === 'string' ? m : m.name);
+              return modes.map((mode: string) => (
+                <option key={mode} value={mode}>{mode}</option>
+              ));
+            })()}
             <option value="Credit">Credit</option>
           </select>
         </div>
@@ -1400,9 +1407,13 @@ export default function DashboardSalesList({
                 <select value={selectedPaymentMethod} onChange={e => setSelectedPaymentMethod(e.target.value)}
                   className="bg-white border border-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold outline-none cursor-pointer">
                   <option value="All">All Methods</option>
-                  <option value="Cash">Cash</option>
-                  <option value="Card">Card</option>
-                  <option value="Mobile Money">Mobile Money</option>
+                  {(() => {
+                    const rawModes = systemSettings?.business?.paymentModes || [];
+                    const modes = (rawModes as any[]).map((m: any) => typeof m === 'string' ? m : m.name);
+                    return modes.map((mode: string) => (
+                      <option key={mode} value={mode}>{mode}</option>
+                    ));
+                  })()}
                   <option value="Credit">Credit</option>
                 </select>
               </div>
