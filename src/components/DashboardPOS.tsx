@@ -357,7 +357,7 @@ export default function DashboardPOS({
         status: (receiptResult.amountPaid ?? receiptResult.total) >= receiptResult.total ? 'Paid' : 'Pending',
         preparedByRole: 'Cashier',
         terms,
-        footer: 'Powered by NDIVA',
+        footer: 'Powered by Jasper',
       };
   };
 
@@ -373,7 +373,7 @@ export default function DashboardPOS({
       const result = await sharePosReceiptPdf(
         receiptData,
         recipientWhatsApp,
-        `Hello ${receiptResult.customerName || 'valued customer'}, please find your receipt attached from ${systemSettings?.business?.businessName || activeTenant.name}. Thank you for your business!`
+        `Hello ${receiptResult.customerName || 'valued customer'}, please find your receipt attached from ${systemSettings?.business?.businessName || activeTenant.name}. Thank you for shopping with`
       );
 
       if (result.method === 'native-share') {
@@ -2319,8 +2319,8 @@ export default function DashboardPOS({
                   )}
 
                   <div className="text-center font-normal text-[9.5px] text-slate-500 border-t border-dashed border-slate-200 pt-3 space-y-1">
-                    <p className="font-sans font-medium">Thank you for shopping with us!</p>
-                    <p className="text-[8px] text-slate-400 font-mono">Powered by NDIVA</p>
+                    <p className="font-sans font-medium">Thank you for shopping with {systemSettings?.business?.businessName || activeTenant.name}!</p>
+                    <p className="text-[8px] text-slate-400 font-mono">Powered by Jasper</p>
                   </div>
                 </div>
 

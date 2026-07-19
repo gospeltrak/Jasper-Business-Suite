@@ -55,7 +55,7 @@ function decodeJwt(token: string) {
 
 const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
-    welcome: "Welcome to Ndiva Suite",
+    welcome: "Welcome to Jasper",
     welcomeSub: "Run sales, stock, money, and your business in one place",
     signinTab: "Sign In",
     registerTab: "Create Account",
@@ -80,7 +80,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     successReg: "Your business, \"{orgName}\", is ready."
   },
   sw: {
-    welcome: "Karibu Ndiva Suite",
+    welcome: "Karibu Jasper",
     welcomeSub: "Simamia mauzo, bidhaa, fedha na biashara sehemu moja",
     signinTab: "Ingia",
     registerTab: "Fungua Akaunti",
@@ -130,7 +130,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     successReg: "لقد تم بنجاح تسجيل \"{orgName}\" كمستأجر جديد للمنصة."
   },
   fr: {
-    welcome: "Bienvenue sur Ndiva Suite",
+    welcome: "Bienvenue sur Jasper",
     welcomeSub: "Gérez les ventes, le stock, l'argent et votre entreprise au même endroit",
     signinTab: "Connexion",
     registerTab: "Créer un Compte",
@@ -238,7 +238,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   const [loginScreenLogoUrl, setLoginScreenLogoUrl] = useState<string | null>(null);
   const tenantLogoFromContext = (resolvedTenant?.company_settings as any)?.logo_url || (resolvedTenant?.company_settings as any)?.logoUrl || null;
-  const tenantLoginTitle = resolvedTenant?.name || (domainMode === 'tenant' ? 'Business Login' : 'Ndiva Suite');
+  const tenantLoginTitle = resolvedTenant?.name || (domainMode === 'tenant' ? 'Business Login' : 'Jasper');
   const isTenantDomainLogin = domainMode === 'tenant' && !!resolvedTenant?.id;
   const handleBackToLandingHub = () => {
     if (landingUrl && domainMode !== 'root') {
@@ -579,7 +579,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setRecoveryStep('verify');
     setRecoveryMessage('Security answer verified. OTP prepared. Send it to the owner/admin WhatsApp, then enter it here.');
 
-    const message = `Ndiva Suite password reset OTP: ${otp}. Use this code to reset your admin account password. If you did not request this, please ignore it.`;
+    const message = `Jasper password reset OTP: ${otp}. Use this code to reset your admin account password. If you did not request this, please ignore it.`;
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
@@ -868,7 +868,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setPassword('');
     setLoginOtpMessage('OTP prepared. Send it through WhatsApp, then enter it here.');
 
-    const message = `Ndiva Suite login OTP: ${otp}. Use this code to sign in. If you did not request this, please ignore it.`;
+    const message = `Jasper login OTP: ${otp}. Use this code to sign in. If you did not request this, please ignore it.`;
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
@@ -1093,7 +1093,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         onLogin({
           id: 'u-saas-duress',
           email: 'saas.admin@jasper.com',
-          name: 'Ndiva Suite Controller',
+          name: 'Jasper Controller',
           role: 'SuperAdmin',
           tenantId: 't-lagos-01',
           activeTenant: 't-lagos-01',
@@ -1678,9 +1678,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             {isSaasAdminPortal ? (
               <Shield className="w-8 h-8 text-amber-600 stroke-[1.75]" />
             ) : loginScreenLogoUrl ? (
-              <img src={loginScreenLogoUrl} alt="Ndiva Suite Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
+              <img src={loginScreenLogoUrl} alt="Jasper Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
             ) : (
-              <img src="/jb-logo.png" alt="Ndiva Suite Logo" className="w-10 h-10 object-contain animate-pulse" />
+              <img src="/jb-logo.png" alt="Jasper Logo" className="w-10 h-10 object-contain animate-pulse" />
             )}
           </div>
           <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
@@ -2256,7 +2256,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600"
                   />
                   <span>
-                    I have read and agree to Ndiva Suite's{' '}
+                    I have read and agree to Jasper's{' '}
                     <button type="button" onClick={() => setTenantLegalModalType('terms')} className="font-black text-emerald-700 underline bg-transparent border-none p-0 cursor-pointer">
                       Terms & Conditions
                     </button>
@@ -2327,7 +2327,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               <div className="p-6 space-y-6">
                 <div className="text-center space-y-1.5">
                   <h3 className="text-base font-black text-slate-800 tracking-tight">Sign in with Google</h3>
-                  <p className="text-xs text-slate-500 font-medium">to continue securely to your Ndiva Suite cabin workspace</p>
+                  <p className="text-xs text-slate-500 font-medium">to continue securely to your Jasper cabin workspace</p>
                 </div>
 
                 <div className="space-y-2.5 font-sans">

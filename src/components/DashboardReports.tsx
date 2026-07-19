@@ -3589,7 +3589,7 @@ export default function DashboardReports({
 
           // Function to export to CSV
           const handleExportDualChannelCSV = () => {
-            let csv = "Ndiva Suite - Dual-Channel Profit Audit Report\r\n";
+            let csv = "Jasper - Dual-Channel Profit Audit Report\r\n";
             csv += `Generational Range: ${startDateStr} to ${endDateStr}\r\n\r\n`;
             
             csv += "CHANNEL LEVEL PERFORMANCE SUMMARY\r\n";
@@ -5350,8 +5350,8 @@ export default function DashboardReports({
 
                 {/* Footer Notes */}
                 <div className="text-center text-[9px] text-slate-400 border-t border-dashed border-slate-200 pt-3 leading-relaxed">
-                  <p>Thank you for shopping with us!</p>
-                  <p className="font-mono font-bold">Powered by NDIVA</p>
+                  <p>Thank you for shopping with</p>
+                  <p className="font-mono font-bold">Powered by Jasper</p>
                 </div>
 
               </div>

@@ -1194,7 +1194,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             title: isTrialAccount ? 'Subscribe to keep access' : 'Renew Subscription',
             limitType: 'expired',
             description: isTrialAccount
-              ? 'Your trial is ending soon. Choose a package to keep using Ndiva Suite without interruption.'
+              ? 'Your trial is ending soon. Choose a package to keep using Jasper without interruption.'
               : 'Your paid subscription is close to renewal. Choose a package and submit your receipt to avoid interruption.'
           });
         }}
@@ -1733,7 +1733,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   // Calculate size of offline sync queue
   const offlinePendingCount = activeSales.filter(s => s.syncStatus === 'pending').length;
 
-  // Dynamic branding selectors to personalize the user's Ndiva Suite
+  // Dynamic branding selectors to personalize the user's Jasper
   const currentThemeMode = systemSettings.company?.themeMode || 'light';
   const customBrandingLogo = currentThemeMode === 'dark'
     ? (systemSettings.business?.businessLogoDark || systemSettings.business?.businessLogoLight || systemSettings.business?.businessLogo)

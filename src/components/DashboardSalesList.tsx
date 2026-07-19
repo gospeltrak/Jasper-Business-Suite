@@ -330,7 +330,7 @@ export default function DashboardSalesList({
   const getInvoiceFooter = (doc?: SalesDocument) => {
     const businessName = systemSettings?.business?.businessName || systemSettings?.company?.companyName || activeTenant.name;
     const mainMessage = doc?.tagline || systemSettings?.invoiceSettings?.footerNote || 'Thank you for doing business with us.';
-    const poweredBy = (systemSettings as any)?.systemWebLink || (systemSettings as any)?.business?.website || 'Powered by NDIVA';
+    const poweredBy = (systemSettings as any)?.systemWebLink || (systemSettings as any)?.business?.website || 'Powered by Jasper';
     return { mainMessage, businessName, poweredBy };
   };
 
@@ -958,7 +958,7 @@ export default function DashboardSalesList({
       doc.text('TOTAL', pageW - margin - 60, y);
       doc.text(fmt(sale.total), pageW - margin, y, { align: 'right' }); line(10);
       doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(120);
-      doc.text('Powered by NDIVA', pageW / 2, y, { align: 'center' });
+      doc.text('Powered by Jasper', pageW / 2, y, { align: 'center' });
       const fileName = buildInvoiceFileName(sale);
       doc.save(fileName);
       setPdfShareStatus('✅ Invoice downloaded.');
@@ -3160,7 +3160,8 @@ export default function DashboardSalesList({
 
                   {/* Corporate Footer Badge */}
                   <div className="border-t border-slate-150 pt-6 text-center text-[10px] text-slate-400 font-mono leading-tight">
-                    Thank you for shopping with us! Powered by NDIVA
+                    Thank you for shopping with {systemSettings?.business?.businessName || activeTenant?.name}!<br/>
+                    Powered by Jasper
                   </div>
 
                 </div>
@@ -3264,7 +3265,7 @@ export default function DashboardSalesList({
                     if (!terms.length) return null;
                     return <div className="border-t border-slate-100 pt-4"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mb-2">Terms &amp; Conditions</p><ol className="list-decimal list-inside space-y-1">{terms.map((term: string, index: number) => <li key={index} className="text-[11px] text-slate-500">{term}</li>)}</ol></div>;
                   })()}
-                  <div className="text-center border-t border-slate-100 pt-3"><p className="text-[8px] text-slate-300 font-mono">Powered by NDIVA</p></div>
+                  <div className="text-center border-t border-slate-100 pt-3"><p className="text-[8px] text-slate-300 font-mono">Powered by Jasper</p></div>
                 </div>
               </div>
                 </div>
