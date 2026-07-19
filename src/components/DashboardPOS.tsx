@@ -1379,13 +1379,14 @@ export default function DashboardPOS({
                     boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                     transition: 'transform 0.15s, box-shadow 0.15s',
                     userSelect: 'none',
+                    minHeight: showProductImages ? 190 : 44,
                   }}
                   onMouseEnter={e => { if (!isOut) { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)'; }}}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'; }}
                 >
                   {/* ── IMAGE ── */}
                   {showProductImages && (
-                    <div style={{ position: 'relative', width: '100%', height: 120, background: '#f8fafc', flexShrink: 0, overflow: 'hidden' }}>
+                    <div style={{ position: 'relative', width: '100%', height: 130, background: '#f8fafc', flexShrink: 0, overflow: 'hidden', display: 'block' }}>
                       {getProductImage(prod) !== '' ? (
                         <img
                           src={getProductImage(prod)}
