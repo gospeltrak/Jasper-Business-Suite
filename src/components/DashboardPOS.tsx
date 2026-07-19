@@ -1361,53 +1361,62 @@ export default function DashboardPOS({
               const displayPrice = productPriceMap.get(prod.id) ?? prod.sellingPrice;
               const remainingLabel = productRemainingMap.get(prod.id) ?? '';
               return (
-                <div 
+                <div
                   key={prod.id}
                   onClick={() => {
-                    if (!isOut) {
-                      addToCart(prod);
-                      playCartSuccessBeepAfterPaint();
-                    } else {
-                      playOutOfStockBeep();
-                    }
+                    if (!isOut) { addToCart(prod); playCartSuccessBeepAfterPaint(); }
+                    else { playOutOfStockBeep(); }
                   }}
-                  className={`select-none cursor-pointer bg-white rounded-2xl transition-all active:scale-95 group ${
-                    isOut ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-lg hover:-translate-y-0.5'
-                  } ${showProductImages ? 'flex flex-col overflow-hidden' : 'flex items-center gap-2 p-2.5 border border-slate-100'}`}
-                  style={showProductImages ? { boxShadow: '0 1px 6px rgba(0,0,0,0.08)' } : undefined}
+                  style={{
+                    background: '#fff',
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    cursor: isOut ? 'not-allowed' : 'pointer',
+                    opacity: isOut ? 0.6 : 1,
+                    display: 'flex',
+                    flexDirection: showProductImages ? 'column' : 'row',
+                    alignItems: showProductImages ? 'stretch' : 'center',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                    transition: 'transform 0.15s, box-shadow 0.15s',
+                    userSelect: 'none',
+                  }}
+                  onMouseEnter={e => { if (!isOut) { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)'; }}}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'; }}
                 >
-                  {/* IMAGE with overlay badges */}
+                  {/* ── IMAGE ── */}
                   {showProductImages && (
-                    <div className="relative w-full bg-slate-50 overflow-hidden" style={{ height: 120 }}>
+                    <div style={{ position: 'relative', width: '100%', height: 120, background: '#f8fafc', flexShrink: 0, overflow: 'hidden' }}>
                       {getProductImage(prod) !== '' ? (
                         <img
                           src={getProductImage(prod)}
                           alt={prod.name}
-                          className="absolute inset-0 w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
                           referrerPolicy="no-referrer"
+                          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', padding: 8 }}
                         />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-3xl font-black text-slate-200">
-                            {prod.name.charAt(0).toUpperCase()}
-                          </span>
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontSize: 32, fontWeight: 900, color: '#e2e8f0' }}>{prod.name.charAt(0).toUpperCase()}</span>
                         </div>
                       )}
 
-                      {/* Stock badge — top right on image */}
+                      {/* Stock badge — top right */}
                       {!isOut && remainingLabel && (
-                        <span className="absolute top-1.5 right-1.5 bg-white/90 backdrop-blur-sm text-slate-600 text-[7px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">
+                        <span style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(255,255,255,0.92)', color: '#475569', fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 99, boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }}>
                           {remainingLabel}
                         </span>
                       )}
+
+                      {/* Low stock badge — top left */}
                       {isLow && !isOut && (
-                        <span className="absolute top-1.5 left-1.5 bg-amber-500 text-white text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase">
+                        <span style={{ position: 'absolute', top: 6, left: 6, background: '#f59e0b', color: '#fff', fontSize: 8, fontWeight: 800, padding: '2px 6px', borderRadius: 99, textTransform: 'uppercase' }}>
                           Low
                         </span>
                       )}
+
+                      {/* Out of stock overlay */}
                       {isOut && (
-                        <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
-                          <span className="bg-red-500 text-white text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-wide">
+                        <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ background: '#ef4444', color: '#fff', fontSize: 9, fontWeight: 800, padding: '4px 10px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             Out of Stock
                           </span>
                         </div>
@@ -1415,72 +1424,49 @@ export default function DashboardPOS({
                     </div>
                   )}
 
-                  {/* CARD BODY */}
-                  <div className={`${
-                    showProductImages
-                      ? 'flex items-center justify-between gap-1.5 px-2.5 py-2'
-                      : 'flex-1 min-w-0 flex items-center justify-between gap-2'
-                  }`}>
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-semibold text-slate-800 leading-tight truncate ${
-                        showProductImages ? 'text-[11px] lg:text-[12px]' : 'text-xs'
-                      }`}>
+                  {/* ── BODY ── */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    padding: showProductImages ? '8px 10px' : '8px 10px',
+                    flex: 1,
+                    minWidth: 0,
+                  }}>
+                    {/* Name + divider + price */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: '#1e293b', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
                         {prod.name}
                       </p>
-                      <div className="w-8 h-px bg-emerald-400 my-1 rounded-full" />
-                      <p className={`font-black text-emerald-600 leading-tight ${
-                        showProductImages ? 'text-[11px] lg:text-[13px]' : 'text-sm'
-                      }`}>
+                      {/* Accent line */}
+                      <div style={{ width: 28, height: 2, background: '#10b981', borderRadius: 99, margin: '4px 0' }} />
+                      <p style={{ fontSize: 12, fontWeight: 800, color: '#059669', margin: 0, lineHeight: 1 }}>
                         {currency}{Math.round(displayPrice).toLocaleString()}
                       </p>
                     </div>
 
-                    {!isOut ? (
+                    {/* Add button */}
+                    {!isOut && (
                       <button
                         type="button"
                         onClick={e => { e.stopPropagation(); addToCart(prod); playCartSuccessBeepAfterPaint(); }}
-                        className="w-7 h-7 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-90 flex items-center justify-center shrink-0 transition-all shadow-md shadow-emerald-100"
+                        style={{
+                          width: 28, height: 28, borderRadius: 9,
+                          background: '#10b981', border: 'none', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          flexShrink: 0, transition: 'background 0.15s, transform 0.1s',
+                          boxShadow: '0 2px 6px rgba(16,185,129,0.35)',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#059669')}
+                        onMouseLeave={e => (e.currentTarget.style.background = '#10b981')}
                       >
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 12 12" fill="none">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                           <path d="M6 2v8M2 6h8" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
                         </svg>
                       </button>
-                    ) : null}
+                    )}
                   </div>
-                </div>
-                  {/* IMAGE */}
-                  {showProductImages && (
-                    <div
-                      className="relative w-full bg-slate-50 border-b border-slate-100 overflow-hidden flex-shrink-0"
-                      style={{ height: 120 }}
-                    >
-                      {getProductImage(prod) !== '' ? (
-                        <img
-                          src={getProductImage(prod)}
-                          alt={prod.name}
-                          className="absolute inset-0 w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-200"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-3xl font-black text-slate-200 select-none">
-                            {prod.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                      )}
-                      {isLow && !isOut && (
-                        <span className="absolute top-1.5 left-1.5 bg-amber-500 text-white px-1.5 py-0.5 rounded-md text-[8px] font-black tracking-wider uppercase shadow-sm">
-                          LOW ({shopQty})
-                        </span>
-                      )}
-                      {isOut && (
-                        <span className="absolute top-1.5 left-1.5 bg-red-600 text-white px-2 py-0.5 rounded-md text-[8px] font-black tracking-wider uppercase animate-pulse shadow-sm">
-                          OUT
-                        </span>
-                      )}
-                    </div>
-                  )}
-
                 </div>
               );
             })
