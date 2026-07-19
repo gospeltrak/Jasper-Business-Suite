@@ -1558,10 +1558,6 @@ export default function DashboardSalesList({
                                 </button>
 
                                 <div className="border-t border-slate-100 mt-1 pt-1">
-                                  <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(false); setTimeout(() => printThermalReceipt(sale), 100); setActiveMenuId(null); setMenuPos(null); }}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-                                    <Receipt className="w-3.5 h-3.5 text-slate-400 shrink-0" /> Thermal Receipt
-                                  </button>
                                   <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(false); setActiveMenuId(null); setMenuPos(null); }}
                                     className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                     <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" /> POS Receipt
@@ -5308,7 +5304,7 @@ export default function DashboardSalesList({
                     </div>
                     <div>
                       <span className="text-sm font-bold text-slate-800 block">POS Receipt</span>
-                      <span className="text-[10px] text-slate-400 block mt-0.5">View or print thermal slip</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">View or print receipt</span>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
