@@ -96,17 +96,20 @@ export default function DashboardCashBank({
   
   // Helpers to get dates
   const getTodayRange = () => {
-    const start = new Date();
+    const now = new Date();
+    const start = new Date(now);
     start.setHours(0, 0, 0, 0);
-    const end = new Date();
+    const end = new Date(now);
     end.setHours(23, 59, 59, 999);
     return { start: start.toISOString(), end: end.toISOString() };
   };
 
   const getRelativeRange = (days: number) => {
     const end = new Date();
+    end.setHours(23, 59, 59, 999);
     const start = new Date();
-    start.setDate(end.getDate() - days);
+    start.setDate(end.getDate() - (days > 0 ? days - 1 : 0));
+    start.setHours(0, 0, 0, 0);
     return { start: start.toISOString(), end: end.toISOString() };
   };
 
@@ -318,7 +321,7 @@ export default function DashboardCashBank({
         entryType: 'debit',
         sourceType: 'EXPENSE_WITHDRAWAL',
         description: `Expense payout with safe drawer cash: ${exp.description} (${exp.category})`,
-        timestamp: exp.timestamp || new Date().toISOString()
+        timestamp: exp.date ? new Date(exp.date).toISOString() : (exp.timestamp || new Date().toISOString())
       });
     });
 
@@ -1312,7 +1315,7 @@ export default function DashboardCashBank({
         <div className="grid grid-cols-[1fr_auto] gap-4 items-start">
 
           {/* Dark header card */}
-          <div className="rounded-2xl p-6 text-white" style={{background:'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)'}}>
+          <div className="rounded-2xl p-7 text-white" style={{background:'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)'}}>
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Treasury</p>
@@ -1376,7 +1379,7 @@ export default function DashboardCashBank({
               const total = Object.values(byMode).reduce((a, b) => a + b, 0);
               if (total === 0) return null;
               return (
-                <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/10">
+                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/10">
                   {Object.entries(byMode).filter(([, amt]) => amt > 0).map(([mode, amt]) => {
                     const config = configModes.find(m => m.name === mode);
                     const type = getPaymentType(mode, configModes);
@@ -1393,11 +1396,11 @@ export default function DashboardCashBank({
                             <span className="text-white/70 text-[9px] font-bold truncate">{mode}</span>
                             <span className="text-white/50 text-[9px] font-mono ml-1 shrink-0">{pct}%</span>
                           </div>
-                          <div className="h-1 rounded-full mt-0.5" style={{background:'rgba(255,255,255,0.1)'}}>
+                          <div className="h-1.5 rounded-full mt-1" style={{background:'rgba(255,255,255,0.1)'}}>
                             <div className="h-full rounded-full" style={{width:`${pct}%`, background: colors.text}} />
                           </div>
                         </div>
-                        <span className="text-white/50 text-[9px] font-mono shrink-0">{formatCurrency(amt)}</span>
+                        <span className="text-white/60 text-[10px] font-mono font-bold shrink-0">{formatCurrency(amt)}</span>
                       </div>
                     );
                   })}
