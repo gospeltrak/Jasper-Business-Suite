@@ -469,7 +469,7 @@ export default function DashboardReports({
 
   // Filtered master datasets
   const filteredSales = sales.filter(s => isWithinDateRange(s.timestamp));
-  const filteredExpenses = expenses.filter(e => isWithinDateRange(e.timestamp));
+  const filteredExpenses = expenses.filter(e => isWithinDateRange((e as any).date || e.timestamp || ''));
 
   // Expense Categories Presets
   // Use categories from localStorage (user-defined) or empty
@@ -563,10 +563,17 @@ export default function DashboardReports({
   const netProfit = grossProfit - totalExpensesCharged;
 
   // Compute expenses breakdown by categories
-  const expensesBreakdown = EXPENSE_CATEGORIES.map(cat => {
-    const total = filteredExpenses.filter(e => e.category === cat).reduce((sum, e) => sum + e.amount, 0);
-    return { name: cat, value: total };
-  });
+  // Build expenses breakdown from actual expense categories (not predefined list)
+  const expensesBreakdown = (() => {
+    const byCategory: Record<string, number> = {};
+    filteredExpenses.forEach(e => {
+      const cat = (e as any).category || 'Uncategorized';
+      byCategory[cat] = (byCategory[cat] || 0) + (e.amount || 0);
+    });
+    return Object.entries(byCategory)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  })();
 
   // Chronological computation for financial chart comparison
   const pAndLGraphData = useMemo(() => {
@@ -5416,57 +5423,73 @@ export default function DashboardReports({
           {/* TAB: P&L SUMMARY */}
           {reportTab === 'p&l' && (
             <div className="space-y-4">
-              <table className="w-full text-left font-sans">
-                <thead>
-                  <tr className="bg-slate-100 font-bold border-b border-slate-300">
-                    <th className="p-2">Financial Statement Line Item</th>
-                    <th className="p-2 text-right">Value ({currency})</th>
-                    <th className="p-2 text-right">Proportion</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  <tr>
-                    <td className="p-2 font-medium">total sales</td>
-                    <td className="p-2 text-right font-mono font-bold">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</td>
-                    <td className="p-2 text-right">100.0%</td>
-                  </tr>
-                  <tr>
-                    <td className="p-2 font-medium">cost of goods sold</td>
-                    <td className="p-2 text-right font-mono text-rose-700">({currency}{Math.round(totalCOGS).toLocaleString()})</td>
-                    <td className="p-2 text-right text-rose-700">-{totalSalesRevenue > 0 ? ((totalCOGS / totalSalesRevenue) * 100).toFixed(1) : '0.0'}%</td>
-                  </tr>
-                  <tr className="bg-emerald-50">
-                    <td className="p-2 font-bold text-emerald-950">Gross profit</td>
-                    <td className="p-2 text-right font-mono font-black text-emerald-950">{currency}{Math.round(grossProfit).toLocaleString()}</td>
-                    <td className="p-2 text-right font-bold text-emerald-950">{totalSalesRevenue > 0 ? ((grossProfit / totalSalesRevenue) * 100).toFixed(1) : '0.0'}%</td>
-                  </tr>
-                  <tr>
-                    <td className="p-2 font-medium">total expenses</td>
-                    <td className="p-2 text-right font-mono text-rose-705">({currency}{Math.round(totalExpensesCharged).toLocaleString()})</td>
-                    <td className="p-2 text-right text-rose-705">-{totalSalesRevenue > 0 ? ((totalExpensesCharged / totalSalesRevenue) * 100).toFixed(1) : '0.0'}%</td>
-                  </tr>
-                  <tr className={`font-bold ${netProfit >= 0 ? 'bg-emerald-100 text-emerald-950' : 'bg-rose-50 text-rose-950'}`}>
-                    <td className="p-2 text-[11px]">net profit</td>
-                    <td className="p-2 text-right font-mono font-black text-[11px]">{netProfit < 0 ? '-' : ''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}</td>
-                    <td className="p-2 text-right text-[11px]">{totalSalesRevenue > 0 ? ((netProfit / totalSalesRevenue) * 100).toFixed(1) : '0.0'}%</td>
-                  </tr>
-                </tbody>
-              </table>
 
-              <div className="mt-4">
-                <h3 className="text-xs font-bold uppercase tracking-wide mb-2">Expenses Allocation Index</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {expensesBreakdown.map(cat => {
-                    const pct = totalExpensesCharged > 0 ? (cat.value / totalExpensesCharged) * 100 : 0;
-                    return (
-                      <div key={cat.name} className="flex justify-between border-b pb-1">
-                        <span className="text-slate-600">{cat.name}</span>
-                        <span className="font-mono font-bold">{currency}{cat.value.toLocaleString()} ({Math.round(pct)}%)</span>
-                      </div>
-                    );
-                  })}
+              {/* P&L Statement Cards */}
+              <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <p className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Profit & Loss</p>
+                  <p className="text-[9px] text-slate-400 mt-0.5">{startDateStr} → {endDateStr}</p>
+                </div>
+                <div className="divide-y divide-slate-50">
+                  {[
+                    { label: 'Total Sales', value: totalSalesRevenue, color: 'text-emerald-600', bg: '' },
+                    { label: 'Cost of Goods Sold', value: -totalCOGS, color: 'text-rose-600', bg: '' },
+                    { label: 'Gross Profit', value: grossProfit, color: grossProfit >= 0 ? 'text-emerald-700' : 'text-rose-700', bg: grossProfit >= 0 ? 'bg-emerald-50' : 'bg-rose-50', bold: true },
+                    { label: 'Total Expenses', value: -totalExpensesCharged, color: 'text-rose-600', bg: '' },
+                  ].map((row, i) => (
+                    <div key={i} className={`flex items-center justify-between px-4 py-3 ${row.bg}`}>
+                      <span className={`text-xs ${row.bold ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>{row.label}</span>
+                      <span className={`font-mono font-black text-sm ${row.color}`}>
+                        {row.value < 0 ? '-' : ''}{currency}{Math.abs(Math.round(row.value)).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {/* Net Profit banner */}
+                <div className={`px-4 py-4 flex items-center justify-between ${netProfit >= 0 ? 'bg-emerald-600' : 'bg-rose-600'}`}>
+                  <div>
+                    <p className="text-white/70 text-[9px] font-bold uppercase tracking-wider">Net Profit</p>
+                    <p className="text-white font-black text-xl leading-tight">
+                      {netProfit < 0 ? '-' : ''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className={`px-3 py-1.5 rounded-xl text-[10px] font-black ${netProfit >= 0 ? 'bg-white/20 text-white' : 'bg-white/20 text-white'}`}>
+                    {totalSalesRevenue > 0 ? ((netProfit / totalSalesRevenue) * 100).toFixed(1) : '0.0'}% margin
+                  </div>
                 </div>
               </div>
+
+              {/* Operations Charge Metrics */}
+              {expensesBreakdown.length > 0 && (
+                <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
+                  <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                    <p className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Operations Charge Metrics</p>
+                    <p className="text-[11px] font-black text-rose-600">{currency}{Math.round(totalExpensesCharged).toLocaleString()}</p>
+                  </div>
+                  <div className="divide-y divide-slate-50 px-4">
+                    {expensesBreakdown.map(cat => {
+                      const pct = totalExpensesCharged > 0 ? (cat.value / totalExpensesCharged) * 100 : 0;
+                      return (
+                        <div key={cat.name} className="py-3 space-y-1.5">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] font-semibold text-slate-700">{cat.name}</span>
+                            <span className="text-[11px] font-black text-rose-600 font-mono">{currency}{Math.round(cat.value).toLocaleString()} <span className="text-slate-400 font-normal">({Math.round(pct)}%)</span></span>
+                          </div>
+                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full bg-rose-500 transition-all" style={{ width: `${pct}%` }}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {expensesBreakdown.length === 0 && (
+                <div className="text-center py-8 bg-white rounded-2xl border border-slate-100">
+                  <p className="text-xs font-bold text-slate-400">No expense charges logged in this period</p>
+                </div>
+              )}
+
             </div>
           )}
 
