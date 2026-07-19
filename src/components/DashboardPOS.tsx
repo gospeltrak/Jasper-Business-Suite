@@ -2203,7 +2203,11 @@ export default function DashboardPOS({
                     </div>
                     <div className="flex justify-between">
                       <span>Date:</span>
-                      <span>{new Date(receiptResult.timestamp).toLocaleString()}</span>
+                      <span>{new Date(receiptResult.timestamp).toLocaleString(undefined, {
+                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit', hour12: false
+                      })}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>{activeTenant.businessType === 'pharmacy' ? 'Pharmacist:' : 'Cashier:'}</span>
@@ -2217,21 +2221,25 @@ export default function DashboardPOS({
 
                   {/* Receipt Items list */}
                   <div className="space-y-2 border-b border-dashed border-slate-200 pb-3">
-                    <div className="grid grid-cols-12 font-bold text-[10.5px]">
-                      <span className="col-span-6">Item Description</span>
-                      <span className="col-span-2 text-center">Qty</span>
-                      <span className="col-span-4 text-right">Sum</span>
+                    {/* Header */}
+                    <div className="flex text-[9.5px] font-black text-slate-500 uppercase tracking-wider pb-1 border-b border-slate-100">
+                      <span className="flex-1">Item</span>
+                      <span className="w-8 text-center">Qty</span>
+                      <span className="w-20 text-right">Amount</span>
                     </div>
                     {receiptResult.items.map((item, i) => {
-                      const finalItemPrice = (item.discountType === 'cash' 
-                        ? Math.max(0, item.price - item.discount) 
-                        : item.price * (1 - item.discount / 100)
-                      ) * item.qty;
+                      const unitPrice = item.discountType === 'cash'
+                        ? Math.max(0, item.price - item.discount)
+                        : item.price * (1 - item.discount / 100);
+                      const finalItemPrice = unitPrice * item.qty;
                       return (
-                        <div key={i} className="grid grid-cols-12 text-[10.5px] gap-y-0.5">
-                          <span className="col-span-6 line-clamp-1">{item.productName}</span>
-                          <span className="col-span-2 text-center">{formatSaleItemQuantity(item)}</span>
-                          <span className="col-span-4 text-right">
+                        <div key={i} className="flex items-start gap-1 py-1 border-b border-slate-50 last:border-0">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10.5px] font-semibold text-slate-800 leading-tight">{item.productName}</p>
+                            <p className="text-[9px] text-slate-400 font-mono">{currency}{Math.round(unitPrice).toLocaleString()} × {formatSaleItemQuantity(item)}</p>
+                          </div>
+                          <span className="w-8 text-center text-[10.5px] font-bold text-slate-700 shrink-0">{formatSaleItemQuantity(item)}</span>
+                          <span className="w-20 text-right text-[10.5px] font-black text-slate-900 shrink-0">
                             {currency}{Math.round(finalItemPrice).toLocaleString()}
                           </span>
                         </div>
@@ -2267,7 +2275,7 @@ export default function DashboardPOS({
                           )}
                           {receiptResult.vatStatus === 'vat' && (
                             <div className="flex justify-between text-slate-600 font-normal">
-                              <span>TRA VAT Compliant ({Math.round(activeTenant.taxRate * 100)}%)</span>
+                              <span>VAT ({Math.round(activeTenant.taxRate * 100)}%)</span>
                               <span>{currency}{Math.round(receiptResult.tax || 0).toLocaleString()}</span>
                             </div>
                           )}

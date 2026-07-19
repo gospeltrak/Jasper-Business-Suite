@@ -511,17 +511,8 @@ export default function App() {
           );
         }
         if (tenantDomainContext.kind === 'app') {
-          return (
-            <LoginPage
-              onLogin={handleLoginSuccess}
-              onNavigate={navigateTo}
-              redirectMessage={redirectMessage}
-              isDark={isDark}
-              onToggleTheme={toggleTheme}
-              domainMode="app"
-              landingUrl={publicLandingUrl}
-            />
-          );
+          // Show landing page on root — login is at /login
+          return <LandingPage isDark={isDark} onToggleTheme={toggleTheme} onNavigate={navigateTo} />;
         }
         return <LandingPage isDark={isDark} onToggleTheme={toggleTheme} onNavigate={navigateTo} />;
       case '/tools':

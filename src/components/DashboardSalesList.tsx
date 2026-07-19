@@ -2995,9 +2995,9 @@ export default function DashboardSalesList({
                     </div>
 
                     <div className="space-y-1 text-left md:text-right font-mono text-xs">
-                      <h3 className="text-base font-black font-sans text-slate-800 uppercase tracking-tight">TAX INVOICE</h3>
+                      <h3 className="text-base font-black font-sans text-slate-800 uppercase tracking-tight">INVOICE</h3>
                       <p className="text-slate-400">INVOICE NO: <span className="font-bold text-slate-700">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</span></p>
-                      <p className="text-slate-400">ISSUED DATE: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
+                      <p className="text-slate-400">ISSUED DATE: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString(undefined, { dateStyle: 'long', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })}</span></p>
                       <p className="text-slate-400">TELLER SIGN: <span className="font-bold text-slate-700 uppercase">{selectedSale.cashierName || 'Primary Admin'}</span></p>
                     </div>
                   </div>
@@ -3194,7 +3194,7 @@ export default function DashboardSalesList({
                     <div className="text-right font-mono text-xs space-y-1 shrink-0">
                       <div className="inline-block bg-indigo-600 text-white text-sm font-black uppercase tracking-wider px-5 py-2 rounded-xl mb-2">Sales Invoice</div>
                       <p className="text-slate-400">No: <strong className="text-slate-800">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</strong></p>
-                      <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
+                      <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString(undefined, { dateStyle: 'long', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })}</span></p>
                       <p className="text-slate-400">Prepared by: <span className="text-slate-700">{selectedSale.cashierName || 'Admin'}</span></p>
                       {(() => {
                         const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
@@ -3316,7 +3316,7 @@ export default function DashboardSalesList({
                   )}
                   <h4 className="text-sm font-black tracking-tight text-slate-800 text-uppercase">{systemSettings?.business?.businessName || activeTenant.name}</h4>
                   <p className="text-[10px] text-slate-500 uppercase">{activeTenant.city}</p>
-                  <p className="text-[10px] text-slate-400 leading-normal mt-1.5 font-bold text-slate-500">TAX REGISTER INVOICE DEBT VOUCHER</p>
+                  
                 </div>
 
                 {/* Core Docket Information details */}
@@ -3411,12 +3411,12 @@ export default function DashboardSalesList({
                           </div>
                         )}
                         <div className="flex justify-between">
-                          <span>TAX COMPLIANCE REGISTER</span>
-                          <span>{isVat ? `VAT (${Math.round(activeTenant.taxRate * 100)}%)` : 'NON-VAT (0%)'}</span>
+                          <span>Tax</span>
+                          <span>{isVat ? `VAT (${Math.round(activeTenant.taxRate * 100)}%)` : 'Non-VAT'}</span>
                         </div>
-                        {isVat && (
+                        {isVat && taxAmt > 0 && (
                           <div className="flex justify-between text-slate-500">
-                            <span>VAT VALUE CHARGED</span>
+                            <span>VAT Amount</span>
                             <span>{currency}{Math.round(taxAmt).toLocaleString()}</span>
                           </div>
                         )}
