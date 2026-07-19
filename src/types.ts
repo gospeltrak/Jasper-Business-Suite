@@ -452,6 +452,7 @@ export interface BranchBranding {
 export interface PaymentModeConfig {
   name: string;
   logoUrl?: string; // transparent PNG or white-bg image uploaded by user
+  type?: 'cash' | 'mobile_money' | 'bank' | 'card' | 'credit'; // payment category
 }
 
 export interface BusinessSettings {

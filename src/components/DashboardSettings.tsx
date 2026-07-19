@@ -2083,8 +2083,13 @@ export default function DashboardSettings({
                         </label>
                       </div>
 
-                      {/* Name */}
-                      <span className="flex-1 text-xs font-bold text-slate-700">{mode.name}</span>
+                      {/* Name + detected type */}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold text-slate-700 block">{mode.name}</span>
+                        <span className="text-[9px] text-slate-400 font-medium">
+                          {PAYMENT_TYPE_LABELS[mode.type || classifyPaymentMode(mode.name)]}
+                        </span>
+                      </div>
 
                       {/* Upload logo button */}
                       <label className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 cursor-pointer flex items-center gap-1 transition-colors">

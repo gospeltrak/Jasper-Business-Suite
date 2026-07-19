@@ -2,6 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Tenant, Sale, Expense, PaymentChannel, LedgerEntry, User as AppUser } from '../types';
 import { isDemoTenant } from '../utils/tenantIsolation';
 import { safeSetJsonItem } from '../utils/dataSafety';
+import {
+  getPaymentType,
+  getChannelIdForPayment,
+  groupSalesByPaymentType,
+  normalizePaymentModes,
+  PAYMENT_TYPE_LABELS,
+  PAYMENT_TYPE_COLORS,
+  PAYMENT_TYPE_ICONS,
+  PaymentType,
+} from '../utils/paymentClassifier';
 import { 
   Landmark, 
   Wallet, 
@@ -244,28 +254,13 @@ export default function DashboardCashBank({
       });
     });
 
+    const configuredModes = normalizePaymentModes(systemSettings?.business?.paymentModes || []);
+
     const getPaymentChannel = (methodName: string, reference: string) => {
-      let targetChannelId = 'counter-01';
-      let desc = `Received sale payment from customer: Receipt ${reference}`;
-      const method = methodName.toLowerCase();
-
-      if (method.includes('mpesa')) {
-        targetChannelId = 'mpesa-till';
-        desc = `M-Pesa payment received: Receipt ${reference}`;
-      } else if (method.includes('momo') || method.includes('money') || method.includes('tigo') || method.includes('yas') || method.includes('mixx') || method.includes('airtel')) {
-        targetChannelId = 'yas-merchant';
-        desc = `Mobile money payment received: Receipt ${reference}`;
-      } else if (method.includes('card') || method.includes('paystack')) {
-        targetChannelId = 'pos-card-terminal';
-        desc = `Card machine payment received: Receipt ${reference}`;
-      } else if (method.includes('bank') || method.includes('transfer')) {
-        targetChannelId = 'crdb-corporate';
-        desc = `Direct bank transfer received: Receipt ${reference}`;
-      } else {
-        targetChannelId = 'counter-01';
-        desc = `Cash received in register drawer: Receipt ${reference}`;
-      }
-
+      const targetChannelId = getChannelIdForPayment(methodName, configuredModes, activeChannels);
+      const type = getPaymentType(methodName, configuredModes);
+      const typeLabel = PAYMENT_TYPE_LABELS[type];
+      const desc = `${typeLabel} payment received — Ref: ${reference}`;
       return { targetChannelId, desc };
     };
 
@@ -314,26 +309,9 @@ export default function DashboardCashBank({
       const amt = (del.fee || del.deliveryCost || 0);
       if (amt <= 0) return;
 
-      let targetChannelId = 'counter-01';
-      let desc = `Received delivery charge payment for Order Ref: ${del.id}`;
-      const method = del.deliveryPaymentMethod?.toLowerCase() || '';
-      
-      if (method.includes('mpesa')) {
-        targetChannelId = 'mpesa-till';
-        desc = `M-Pesa delivery payment: Ref ${del.id}`;
-      } else if (method.includes('momo') || method.includes('money') || method.includes('tigo') || method.includes('yas') || method.includes('mixx') || method.includes('airtel')) {
-        targetChannelId = 'yas-merchant';
-        desc = `Mobile money delivery payment: Ref ${del.id}`;
-      } else if (method.includes('card') || method.includes('paystack')) {
-        targetChannelId = 'pos-card-terminal';
-        desc = `Card machine delivery payment: Ref ${del.id}`;
-      } else if (method.includes('bank')) {
-        targetChannelId = 'crdb-corporate';
-        desc = `Direct bank transfer delivery payment: Ref ${del.id}`;
-      } else {
-        targetChannelId = 'counter-01';
-        desc = `Cash received for delivery: Ref ${del.id}`;
-      }
+      const delivMethod = del.deliveryPaymentMethod || 'Cash';
+      const { targetChannelId, desc: delivDesc } = getPaymentChannel(delivMethod, del.id);
+      const desc = delivDesc.replace('payment received', 'delivery payment');
 
       generated.push({
         id: `DELIVERY-INC-${del.id}`,
@@ -803,6 +781,63 @@ export default function DashboardCashBank({
                 </div>
               ))}
             </div>
+
+            {/* Payment Type KPI Breakdown */}
+            {(() => {
+              const configModes = normalizePaymentModes(systemSettings?.business?.paymentModes || []);
+              const { startIso, endIso } = getDateRange();
+              const salesInRange = sales.filter((s: any) => {
+                const t = s.timestamp || s.createdAt || '';
+                return t >= startIso && t <= endIso;
+              });
+              const summary = groupSalesByPaymentType(
+                salesInRange.filter((s: any) => s.paymentStatus !== 'Pending'),
+                configModes
+              );
+              const types: PaymentType[] = ['cash', 'mobile_money', 'bank', 'card', 'credit'];
+              const activeTypes = types.filter(t => summary[t] > 0);
+              if (activeTypes.length === 0) return null;
+              return (
+                <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
+                  <div className="px-4 py-3 border-b border-slate-100">
+                    <p className="text-[11px] font-black text-slate-700 uppercase tracking-wider">Revenue by Payment Type</p>
+                    <p className="text-[9px] text-slate-400 font-medium mt-0.5">How customers paid in this period</p>
+                  </div>
+                  <div className="divide-y divide-slate-50">
+                    {activeTypes.map(type => {
+                      const amount = summary[type];
+                      const pct = summary.total > 0 ? Math.round((amount / summary.total) * 100) : 0;
+                      const colors = PAYMENT_TYPE_COLORS[type];
+                      const icon = PAYMENT_TYPE_ICONS[type];
+                      const label = PAYMENT_TYPE_LABELS[type];
+                      return (
+                        <div key={type} className="flex items-center gap-3 px-4 py-3">
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg" style={{background: colors.bg}}>
+                            {icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="text-[11px] font-bold text-slate-700">{label}</p>
+                              <p className="text-[11px] font-black text-slate-900">{formatCurrency(amount)}</p>
+                            </div>
+                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full transition-all" style={{width: `${pct}%`, background: colors.text}} />
+                            </div>
+                            <p className="text-[9px] text-slate-400 font-medium mt-0.5">{pct}% of total revenue</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-bold text-slate-500">Total Revenue</p>
+                      <p className="text-[13px] font-black text-slate-900">{formatCurrency(summary.total)}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Account balances */}
             <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
