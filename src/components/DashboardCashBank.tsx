@@ -604,7 +604,7 @@ export default function DashboardCashBank({
   const categoryTotals = getCategoryTotals();
   const treasurySummaryCards = [
     {
-      label: 'Available balance',
+      label: 'Available Balance',
       value: formatCurrency(
         channels
           .filter(chan => chan.category !== 'person')
@@ -614,22 +614,22 @@ export default function DashboardCashBank({
       helper: `${channels.filter(chan => chan.category !== 'person').length} active accounts`
     },
     {
-      label: 'Cash drawers',
+      label: 'Cash',
       value: formatCurrency(categoryTotals.physicalTotal),
-      tone: 'bg-amber-50 text-amber-900 border-amber-100',
-      helper: 'Physical cash points'
+      tone: 'bg-emerald-50 text-emerald-900 border-emerald-100',
+      helper: 'Physical cash in hand'
     },
     {
-      label: 'Mobile wallets',
+      label: 'Mobile Money',
       value: formatCurrency(categoryTotals.telcoTotal),
       tone: 'bg-indigo-50 text-indigo-900 border-indigo-100',
-      helper: 'M-Pesa, Airtel, Yas'
+      helper: normalizePaymentModes(systemSettings?.business?.paymentModes || []).filter(m => getPaymentType(m.name, normalizePaymentModes(systemSettings?.business?.paymentModes || [])) === 'mobile_money').map(m => m.name).join(', ') || 'Mobile payments'
     },
     {
-      label: 'Bank accounts',
+      label: 'Bank Accounts',
       value: formatCurrency(categoryTotals.bankTotal),
       tone: 'bg-blue-50 text-blue-900 border-blue-100',
-      helper: 'Formal bank channels'
+      helper: normalizePaymentModes(systemSettings?.business?.paymentModes || []).filter(m => getPaymentType(m.name, normalizePaymentModes(systemSettings?.business?.paymentModes || [])) === 'bank').map(m => m.name).join(', ') || 'Bank transfers'
     }
   ];
 
@@ -851,92 +851,192 @@ export default function DashboardCashBank({
               ))}
             </div>
 
-            {/* Payment Type KPI Breakdown */}
+            {/* Revenue by payment mode — only user's registered modes + Credit */}
             {(() => {
               const configModes = normalizePaymentModes(systemSettings?.business?.paymentModes || []);
               const { startIso, endIso } = getFilterBoundaries();
               const salesInRange = sales.filter((s: any) => {
                 const t = s.timestamp || s.createdAt || '';
+                return t >= startIso && t <= endIso && s.paymentStatus !== 'Pending';
+              });
+
+              // Build per-mode totals — only for modes user has registered
+              const registeredNames = new Set(configModes.map(m => m.name.toLowerCase().trim()));
+              const byMode: Record<string, {amount: number; config: typeof configModes[0]}> = {};
+
+              // Pre-populate with registered modes (so they appear even if 0)
+              configModes.forEach(m => { byMode[m.name] = { amount: 0, config: m }; });
+
+              // Also track credit separately
+              let creditTotal = 0;
+
+              salesInRange.forEach((s: any) => {
+                const breakdown = Array.isArray(s.paymentBreakdown) && s.paymentBreakdown.length > 0
+                  ? s.paymentBreakdown
+                  : [{ method: s.paymentMethod || 'Cash', amount: s.amountPaid ?? s.total }];
+                breakdown.forEach((p: any) => {
+                  const mName = (p.method || s.paymentMethod || 'Cash').trim();
+                  const type = getPaymentType(mName, configModes);
+                  if (type === 'credit') {
+                    creditTotal += Math.max(0, Number(p.amount || 0));
+                  } else if (registeredNames.has(mName.toLowerCase())) {
+                    // Match to registered mode
+                    const key = configModes.find(m => m.name.toLowerCase().trim() === mName.toLowerCase())?.name || mName;
+                    if (byMode[key]) byMode[key].amount += Math.max(0, Number(p.amount || 0));
+                  } else {
+                    // Try partial match
+                    const partial = configModes.find(m => mName.toLowerCase().includes(m.name.toLowerCase()) || m.name.toLowerCase().includes(mName.toLowerCase()));
+                    if (partial) byMode[partial.name].amount += Math.max(0, Number(p.amount || 0));
+                  }
+                });
+              });
+
+              const totalIn = Object.values(byMode).reduce((s, m) => s + m.amount, 0) + creditTotal;
+
+              // Money out from expenses
+              const expensesInRange = expenses.filter((e: any) => {
+                const t = e.date || e.timestamp || '';
                 return t >= startIso && t <= endIso;
               });
-              const summary = groupSalesByPaymentType(
-                salesInRange.filter((s: any) => s.paymentStatus !== 'Pending'),
-                configModes
-              );
-              const types: PaymentType[] = ['cash', 'mobile_money', 'bank', 'card', 'credit'];
-              const activeTypes = types.filter(t => summary[t] > 0);
-              if (activeTypes.length === 0) return null;
+              const totalOut = expensesInRange.reduce((s: number, e: any) => s + Math.max(0, Number(e.amount || 0)), 0);
+              const expensesByCategory: Record<string, number> = {};
+              expensesInRange.forEach((e: any) => {
+                const cat = e.category || e.type || 'Other';
+                expensesByCategory[cat] = (expensesByCategory[cat] || 0) + Math.max(0, Number(e.amount || 0));
+              });
+
               return (
-                <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
-                  <div className="px-4 py-3 border-b border-slate-100">
-                    <p className="text-[11px] font-black text-slate-700 uppercase tracking-wider">Revenue by Payment Type</p>
-                    <p className="text-[9px] text-slate-400 font-medium mt-0.5">How customers paid in this period</p>
-                  </div>
-                  <div className="divide-y divide-slate-50">
-                    {activeTypes.map(type => {
-                      const amount = summary[type];
-                      const pct = summary.total > 0 ? Math.round((amount / summary.total) * 100) : 0;
-                      const colors = PAYMENT_TYPE_COLORS[type];
-                      const icon = PAYMENT_TYPE_ICONS[type];
-                      const label = PAYMENT_TYPE_LABELS[type];
-                      return (
-                        <div key={type} className="flex items-center gap-3 px-4 py-3">
-                          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg" style={{background: colors.bg}}>
-                            {icon}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <p className="text-[11px] font-bold text-slate-700">{label}</p>
-                              <p className="text-[11px] font-black text-slate-900">{formatCurrency(amount)}</p>
+                <div className="space-y-3">
+                  {/* Revenue by registered payment mode */}
+                  <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+                    <div className="px-4 py-3 border-b border-slate-100">
+                      <p className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Revenue by Payment Mode</p>
+                      <p className="text-[9px] text-slate-400 font-medium mt-0.5">Only your registered payment methods</p>
+                    </div>
+                    <div className="divide-y divide-slate-50">
+                      {Object.entries(byMode).map(([name, {amount, config}]) => {
+                        const type = getPaymentType(name, configModes);
+                        const colors = PAYMENT_TYPE_COLORS[type];
+                        const icon = config.logoUrl
+                          ? <img src={config.logoUrl} className="w-5 h-5 object-contain" alt={name}/>
+                          : <span className="text-base">{PAYMENT_TYPE_ICONS[type]}</span>;
+                        const pct = totalIn > 0 ? Math.round((amount / totalIn) * 100) : 0;
+                        return (
+                          <div key={name} className="flex items-center gap-3 px-4 py-3">
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{background: colors.bg}}>
+                              {icon}
                             </div>
-                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full transition-all" style={{width: `${pct}%`, background: colors.text}} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-center mb-1">
+                                <p className="text-[11px] font-bold text-slate-800 truncate">{name}</p>
+                                <p className="text-[11px] font-black text-slate-900 ml-2 shrink-0">{formatCurrency(amount)}</p>
+                              </div>
+                              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full" style={{width:`${pct}%`, background: colors.text}} />
+                              </div>
                             </div>
-                            <p className="text-[9px] text-slate-400 font-medium mt-0.5">{pct}% of total revenue</p>
+                            <span className="text-[9px] font-bold text-slate-400 w-7 text-right shrink-0">{pct}%</span>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                      {/* Credit always shown */}
+                      {(() => {
+                        const pct = totalIn > 0 ? Math.round((creditTotal / totalIn) * 100) : 0;
+                        return (
+                          <div className="flex items-center gap-3 px-4 py-3">
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{background:'#fff1f2'}}>
+                              <span className="text-base">📋</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-center mb-1">
+                                <p className="text-[11px] font-bold text-slate-800">Credit / Mkopo</p>
+                                <p className="text-[11px] font-black text-slate-900 ml-2 shrink-0">{formatCurrency(creditTotal)}</p>
+                              </div>
+                              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full" style={{width:`${pct}%`, background:'#be123c'}} />
+                              </div>
+                            </div>
+                            <span className="text-[9px] font-bold text-slate-400 w-7 text-right shrink-0">{pct}%</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                      <p className="text-[9px] font-bold text-slate-500 uppercase">Total Collected</p>
+                      <p className="text-[13px] font-black text-emerald-700">{formatCurrency(totalIn)}</p>
+                    </div>
                   </div>
-                  <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] font-bold text-slate-500">Total Revenue</p>
-                      <p className="text-[13px] font-black text-slate-900">{formatCurrency(summary.total)}</p>
+
+                  {/* Money Out summary */}
+                  {totalOut > 0 && (
+                    <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+                      <div className="px-4 py-3 border-b border-slate-100">
+                        <p className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Money Out</p>
+                        <p className="text-[9px] text-slate-400 font-medium mt-0.5">Expenses by category</p>
+                      </div>
+                      <div className="divide-y divide-slate-50">
+                        {Object.entries(expensesByCategory).slice(0,5).map(([cat, amt]) => {
+                          const pct = totalOut > 0 ? Math.round((amt / totalOut) * 100) : 0;
+                          return (
+                            <div key={cat} className="flex items-center gap-3 px-4 py-2.5">
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-rose-50">
+                                <ArrowDownRight className="w-4 h-4 text-rose-500"/>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-center mb-0.5">
+                                  <p className="text-[10.5px] font-bold text-slate-700 truncate">{cat}</p>
+                                  <p className="text-[10.5px] font-black text-rose-600 ml-2 shrink-0">{formatCurrency(amt)}</p>
+                                </div>
+                                <div className="h-1 bg-rose-50 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full bg-rose-400" style={{width:`${pct}%`}} />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                        <p className="text-[9px] font-bold text-slate-500 uppercase">Total Expenses</p>
+                        <p className="text-[13px] font-black text-rose-600">{formatCurrency(totalOut)}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Channel cards — Cash first, then registered modes, 2 per row */}
+                  <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+                    <div className="px-4 py-3 border-b border-slate-100">
+                      <p className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Payment Channels</p>
+                    </div>
+                    <div className="p-3 grid grid-cols-2 gap-2.5">
+                      {channels.filter(c => c.category !== 'person').map(chan => {
+                        const bal = channelBalances[chan.id]?.current || 0;
+                        const type = getPaymentType(chan.name, configModes);
+                        const colors = PAYMENT_TYPE_COLORS[type];
+                        const icon = chan.category === 'physical' ? '💵'
+                          : chan.category === 'telco' ? '📱'
+                          : chan.category === 'bank' ? '🏦' : '💳';
+                        return (
+                          <div key={chan.id}
+                            className="rounded-xl p-3 cursor-pointer active:scale-95 transition-transform"
+                            style={{background: colors.bg, border:`1px solid ${colors.border}`}}
+                            onClick={() => { setSelectedChannelId(chan.id); setMobileSectionTab('accounts'); }}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-lg">{icon}</span>
+                              <p className="text-[10px] font-black text-slate-700 truncate flex-1">{chan.name}</p>
+                            </div>
+                            <p className={`text-[15px] font-black leading-none ${bal < 0 ? 'text-rose-600' : ''}`}
+                              style={{color: bal >= 0 ? colors.text : '#dc2626'}}>
+                              {formatCurrency(bal)}
+                            </p>
+                            <p className="text-[8px] font-bold opacity-60 mt-0.5 capitalize">{chan.category === 'telco' ? 'Mobile Money' : chan.category === 'physical' ? 'Cash' : chan.category}</p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
               );
             })()}
-
-            {/* Account balances */}
-            <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
-              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                <p className="text-[11px] font-black text-slate-700 uppercase tracking-wider">Accounts & Wallets</p>
-                <button type="button" onClick={() => setMobileSectionTab('accounts')}
-                  className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
-                  See all <ChevronRight className="w-3 h-3"/>
-                </button>
-              </div>
-              <div className="divide-y divide-slate-50">
-                {channels.filter(c => c.category !== 'person').slice(0, 5).map(chan => {
-                  const bal = channelBalances[chan.id]?.current || 0;
-                  const icon = chan.category === 'bank' ? <Landmark className="w-4 h-4"/> : chan.category === 'telco' ? <Wallet className="w-4 h-4"/> : <Coins className="w-4 h-4"/>;
-                  const iconColor = chan.category === 'bank' ? '#2563eb' : chan.category === 'telco' ? '#7c3aed' : '#059669';
-                  const iconBg = chan.category === 'bank' ? '#eff6ff' : chan.category === 'telco' ? '#f5f3ff' : '#f0fdf4';
-                  return (
-                    <div key={chan.id} className="flex items-center gap-3 px-4 py-3 active:bg-slate-50 cursor-pointer"
-                      onClick={() => { setSelectedChannelId(chan.id); setMobileSectionTab('accounts'); }}>
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{background:iconBg,color:iconColor}}>{icon}</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-bold text-slate-900 truncate">{chan.name}</p>
-                        <p className="text-[9px] text-slate-400 font-mono mt-0.5 capitalize">{chan.category}</p>
-                      </div>
-                      <p className={`text-[13px] font-black font-mono shrink-0 ${bal >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>{formatCurrency(bal)}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
           </div>
         )}
 
