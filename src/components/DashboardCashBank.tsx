@@ -963,6 +963,61 @@ export default function DashboardCashBank({
                       })}
                     </div>
                   </div>
+
+                  {/* Money Out summary with percentages */}
+                  {(() => {
+                    const expensesInRange = expenses.filter((e: any) => {
+                      const t = e.date || e.timestamp || e.createdAt || '';
+                      return t >= startIso && t <= endIso;
+                    });
+                    const totalOut = expensesInRange.reduce((s: number, e: any) => s + Math.max(0, Number(e.amount || 0)), 0);
+                    if (totalOut === 0) return null;
+
+                    // Group by category
+                    const byCategory: Record<string, number> = {};
+                    expensesInRange.forEach((e: any) => {
+                      const cat = e.category || e.type || 'Other';
+                      byCategory[cat] = (byCategory[cat] || 0) + Math.max(0, Number(e.amount || 0));
+                    });
+
+                    const entries = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
+
+                    return (
+                      <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+                        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                          <div>
+                            <p className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Money Out</p>
+                            <p className="text-[9px] text-slate-400 font-medium mt-0.5">Expenses by category</p>
+                          </div>
+                          <p className="text-[13px] font-black text-rose-600">{formatCurrency(totalOut)}</p>
+                        </div>
+                        <div className="divide-y divide-slate-50">
+                          {entries.map(([cat, amt]) => {
+                            const pct = totalOut > 0 ? Math.round((amt / totalOut) * 100) : 0;
+                            return (
+                              <div key={cat} className="flex items-center gap-3 px-4 py-3">
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-rose-50">
+                                  <ArrowDownRight className="w-4 h-4 text-rose-500"/>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex justify-between items-center mb-1">
+                                    <p className="text-[11px] font-bold text-slate-700 truncate">{cat}</p>
+                                    <p className="text-[11px] font-black text-rose-600 ml-2 shrink-0">{formatCurrency(amt)}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1 h-1.5 bg-rose-50 rounded-full overflow-hidden">
+                                      <div className="h-full rounded-full bg-rose-400" style={{width:`${pct}%`}} />
+                                    </div>
+                                    <span className="text-[9px] font-bold text-slate-400 shrink-0 w-7 text-right">{pct}%</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })()}
