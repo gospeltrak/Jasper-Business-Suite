@@ -330,7 +330,7 @@ export default function DashboardSalesList({
   const getInvoiceFooter = (doc?: SalesDocument) => {
     const businessName = systemSettings?.business?.businessName || systemSettings?.company?.companyName || activeTenant.name;
     const mainMessage = doc?.tagline || systemSettings?.invoiceSettings?.footerNote || 'Thank you for doing business with us.';
-    const poweredBy = (systemSettings as any)?.systemWebLink || (systemSettings as any)?.business?.website || 'Powered by Ndiva Suite';
+    const poweredBy = (systemSettings as any)?.systemWebLink || (systemSettings as any)?.business?.website || 'Powered by NDIVA';
     return { mainMessage, businessName, poweredBy };
   };
 
@@ -888,106 +888,77 @@ export default function DashboardSalesList({
     try {
       setPdfShareStatus('📄 Generating PDF...');
 
-      // Build PDF directly with jsPDF — no html2canvas, works on all devices
+      // Capture the preview HTML element — downloaded PDF = exactly what user sees
+      const previewEl = document.getElementById('sales-document-a4-pdf-template');
+      if (previewEl) {
+        const { default: html2canvas } = await import('html2canvas');
+        const { default: jsPDF } = await import('jspdf');
+
+        const canvas = await html2canvas(previewEl, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageW = 210;
+        const pageH = 297;
+        const imgW = pageW;
+        const imgH = (canvas.height * pageW) / canvas.width;
+
+        let heightLeft = imgH;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
+        heightLeft -= pageH;
+
+        while (heightLeft > 0) {
+          position = heightLeft - imgH;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
+          heightLeft -= pageH;
+        }
+
+        const fileName = buildInvoiceFileName(sale);
+        pdf.save(fileName);
+        setPdfShareStatus('✅ Invoice downloaded.');
+        return;
+      }
+
+      // Fallback if preview not open — basic jsPDF
       const { default: jsPDF } = await import('jspdf');
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
       const biz = systemSettings?.business?.businessName || activeTenant.name || 'Business';
       const cur = activeTenant.currency || 'TZS';
       const fmt = (n: number) => `${cur} ${Math.round(n).toLocaleString()}`;
-      const pageW = 210;
-      const margin = 20;
-      const lineW = pageW - margin * 2;
-      let y = 20;
-      const line = (extra = 6) => { y += extra; };
-
-      // ── Header ──
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.text(biz.toUpperCase(), pageW / 2, y, { align: 'center' }); line(6);
-      if (activeTenant.city) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.text(activeTenant.city.toUpperCase(), pageW / 2, y, { align: 'center' });
-      }
-      line(10);
-
-      // ── Title ──
-      doc.setFont('helvetica', 'bold');
+      const pageW = 210; const margin = 20;
+      let y = 20; const line = (extra = 6) => { y += extra; };
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+      doc.text(biz.toUpperCase(), pageW / 2, y, { align: 'center' }); line(10);
       doc.setFontSize(13);
-      doc.text('SALES INVOICE', pageW / 2, y, { align: 'center' }); line(3);
-      doc.setDrawColor(180); doc.setLineWidth(0.3);
-      doc.line(margin, y, pageW - margin, y); line(8);
-
-      // ── Invoice details ──
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      const ref = sale.reference || `INV-${(sale.id || '').slice(0, 8).toUpperCase()}`;
-      const saleDate = new Date(sale.timestamp).toLocaleString();
-      const details: [string, string][] = [
-        ['Invoice No:', ref],
-        ['Date:', saleDate],
-        ['Cashier:', sale.cashierName || 'Operator'],
-        ['Payment:', sale.paymentMethod || 'Cash'],
-      ];
-      if (sale.customerName) details.push(['Customer:', sale.customerName]);
-      if (sale.customerPhone) details.push(['Phone:', sale.customerPhone]);
-      details.forEach(([label, value]) => {
-        doc.setFont('helvetica', 'bold'); doc.text(label, margin, y);
-        doc.setFont('helvetica', 'normal'); doc.text(value, margin + 35, y);
-        line(5.5);
-      });
-
-      // ── Items header ──
-      line(4);
-      doc.setDrawColor(180); doc.line(margin, y, pageW - margin, y); line(5);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-      doc.text('ITEM', margin, y);
-      doc.text('QTY', margin + 90, y, { align: 'right' });
-      doc.text('PRICE', margin + 120, y, { align: 'right' });
-      doc.text('TOTAL', pageW - margin, y, { align: 'right' });
-      line(3);
-      doc.setDrawColor(200); doc.line(margin, y, pageW - margin, y); line(5);
-
-      // ── Items ──
+      doc.text('SALES INVOICE', pageW / 2, y, { align: 'center' }); line(10);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-      let subtotal = 0;
+      const ref = sale.reference || `INV-${(sale.id || '').slice(0, 8).toUpperCase()}`;
+      doc.text(`Invoice: ${ref}`, margin, y); line(5.5);
+      doc.text(`Date: ${new Date(sale.timestamp).toLocaleString()}`, margin, y); line(5.5);
+      if (sale.customerName) { doc.text(`Customer: ${sale.customerName}`, margin, y); line(5.5); }
+      line(5);
       sale.items.forEach(item => {
         const itemTotal = (item.qty || 0) * (item.price || 0);
-        subtotal += itemTotal;
         const nameLines = doc.splitTextToSize(item.productName || '', 88);
         doc.text(nameLines, margin, y);
-        doc.text(String(item.qty || 0), margin + 90, y, { align: 'right' });
-        doc.text(fmt(item.price || 0), margin + 120, y, { align: 'right' });
         doc.text(fmt(itemTotal), pageW - margin, y, { align: 'right' });
         line(nameLines.length > 1 ? nameLines.length * 5 + 2 : 6);
       });
-
-      // ── Totals ──
-      line(3);
-      doc.setDrawColor(180); doc.line(margin, y, pageW - margin, y); line(6);
-      const totals: [string, string, boolean][] = [
-        ['Subtotal', fmt(subtotal), false],
-        ['Amount Paid', fmt(sale.amountPaid ?? sale.total), false],
-        ['Amount Due', fmt(Math.max(0, sale.total - (sale.amountPaid ?? sale.total))), true],
-        ['TOTAL', fmt(sale.total), true],
-      ];
-      totals.forEach(([label, value, bold]) => {
-        doc.setFont('helvetica', bold ? 'bold' : 'normal');
-        doc.setFontSize(bold ? 10 : 9);
-        doc.text(label, pageW - margin - 60, y);
-        doc.text(value, pageW - margin, y, { align: 'right' });
-        line(bold ? 7 : 5.5);
-      });
-
-      // ── Footer ──
-      line(8);
-      doc.setFont('helvetica', 'italic'); doc.setFontSize(8);
-      doc.setTextColor(120);
-      doc.text('Thank you for your business!', pageW / 2, y, { align: 'center' }); line(4);
-      doc.text(`Powered by Jasper Business Suite`, pageW / 2, y, { align: 'center' });
-
-      // ── Save ──
+      line(5);
+      doc.setFont('helvetica', 'bold');
+      doc.text('TOTAL', pageW - margin - 60, y);
+      doc.text(fmt(sale.total), pageW - margin, y, { align: 'right' }); line(10);
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(120);
+      doc.text('Powered by NDIVA', pageW / 2, y, { align: 'center' });
       const fileName = buildInvoiceFileName(sale);
       doc.save(fileName);
       setPdfShareStatus('✅ Invoice downloaded.');
@@ -3193,7 +3164,7 @@ export default function DashboardSalesList({
 
                   {/* Corporate Footer Badge */}
                   <div className="border-t border-slate-150 pt-6 text-center text-[10px] text-slate-400 font-mono leading-tight">
-                    Thank you for shopping with us! Powered by: jasper.africa
+                    Thank you for shopping with us! Powered by NDIVA
                   </div>
 
                 </div>
@@ -3297,7 +3268,7 @@ export default function DashboardSalesList({
                     if (!terms.length) return null;
                     return <div className="border-t border-slate-100 pt-4"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mb-2">Terms &amp; Conditions</p><ol className="list-decimal list-inside space-y-1">{terms.map((term: string, index: number) => <li key={index} className="text-[11px] text-slate-500">{term}</li>)}</ol></div>;
                   })()}
-                  <div className="text-center border-t border-slate-100 pt-3"><p className="text-[8px] text-slate-300 font-mono">Powered by Ndiva Suite</p></div>
+                  <div className="text-center border-t border-slate-100 pt-3"><p className="text-[8px] text-slate-300 font-mono">Powered by NDIVA</p></div>
                 </div>
               </div>
                 </div>
@@ -4789,10 +4760,12 @@ export default function DashboardSalesList({
         const invoiceFooter = getInvoiceFooter(viewingDocument);
 
         const activeStaff = systemSettings?.staffs?.find(
-          s => s.name.toLowerCase() === (currentUser?.name || '').toLowerCase()
+          (s: any) => s.name?.toLowerCase().trim() === (currentUser?.name || '').toLowerCase().trim()
+        ) || systemSettings?.staffs?.find(
+          (s: any) => s.id === currentUser?.id
         );
-        const preparerName = activeStaff?.name || currentUser?.name || systemSettings?.invoiceSettings?.authorisedPerson || 'Jane Doe';
-        const preparerRole = activeStaff?.role || currentUser?.role || 'Accounts & Finance Dept';
+        const preparerName = systemSettings?.business?.businessName || activeTenant?.name || '';
+        const preparerRole = '';
 
         const docTypeLabel = getDocumentLabel(viewingDocument.type);
 
@@ -5107,22 +5080,22 @@ export default function DashboardSalesList({
                       </div>
                     </div>
 
-                    {/* Signature row — Authorized Person Name (left) | Signature (right) */}
+                    {/* Signature row */}
                     <div className="border-t border-slate-100 pt-6">
                       <div className="flex items-end justify-between gap-8">
-                        {/* Left: Authorized Person Name */}
+                        {/* Left: Business name only */}
                         <div className="flex-1 min-w-0">
                           <div className="h-10 border-b border-slate-300 mb-1.5" />
-                          <p className="text-xs font-semibold text-slate-700 truncate">{preparerName}</p>
-                          <p className="text-[10px] text-slate-400">{preparerRole}</p>
+                          <p className="text-xs font-semibold text-slate-700 truncate">{systemSettings?.business?.businessName || activeTenant?.name || ''}</p>
+                          <p className="text-[10px] text-slate-400">Issued by</p>
                         </div>
-                        {/* Right: Authorized Signature */}
+                        {/* Right: Authorized Signature image */}
                         <div className="flex-1 min-w-0 text-right">
                           {(() => {
-                            const sigImg = activeStaff?.signatureImage || systemSettings?.invoiceSettings?.signatureImage;
+                            const sigImg = activeStaff?.signatureImage || (systemSettings as any)?.invoiceSettings?.signatureImage;
                             return sigImg ? (
-                              <div className="h-10 mb-1.5 flex justify-end items-end">
-                                <img src={sigImg} alt="Signature" className="max-h-10 max-w-[160px] object-contain" referrerPolicy="no-referrer" />
+                              <div className="h-14 mb-1.5 flex justify-end items-end">
+                                <img src={sigImg} alt="Authorized Signature" className="max-h-14 max-w-[180px] object-contain" referrerPolicy="no-referrer" style={{ mixBlendMode: 'multiply' }} />
                               </div>
                             ) : (
                               <div className="h-10 border-b border-slate-300 mb-1.5" />

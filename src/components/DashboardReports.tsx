@@ -5351,7 +5351,7 @@ export default function DashboardReports({
                 {/* Footer Notes */}
                 <div className="text-center text-[9px] text-slate-400 border-t border-dashed border-slate-200 pt-3 leading-relaxed">
                   <p>Thank you for shopping with us!</p>
-                  <p className="font-mono font-bold">Powered by: jasper.africa</p>
+                  <p className="font-mono font-bold">Powered by NDIVA</p>
                 </div>
 
               </div>
