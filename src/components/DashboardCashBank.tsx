@@ -257,7 +257,7 @@ export default function DashboardCashBank({
     const configuredModes = normalizePaymentModes(systemSettings?.business?.paymentModes || []);
 
     const getPaymentChannel = (methodName: string, reference: string) => {
-      const targetChannelId = getChannelIdForPayment(methodName, configuredModes, activeChannels);
+      const targetChannelId = getChannelIdForPayment(methodName, configuredModes, channels);
       const type = getPaymentType(methodName, configuredModes);
       const typeLabel = PAYMENT_TYPE_LABELS[type];
       const desc = `${typeLabel} payment received — Ref: ${reference}`;
@@ -785,7 +785,7 @@ export default function DashboardCashBank({
             {/* Payment Type KPI Breakdown */}
             {(() => {
               const configModes = normalizePaymentModes(systemSettings?.business?.paymentModes || []);
-              const { startIso, endIso } = getDateRange();
+              const { startIso, endIso } = getFilterBoundaries();
               const salesInRange = sales.filter((s: any) => {
                 const t = s.timestamp || s.createdAt || '';
                 return t >= startIso && t <= endIso;
