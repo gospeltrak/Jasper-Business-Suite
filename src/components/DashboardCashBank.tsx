@@ -167,8 +167,46 @@ export default function DashboardCashBank({
     { id: 'office-safe', name: 'Main Office Safe', category: 'physical', provider: 'Locked Vault', accountNumber: 'SAFE-A2' }
   ];
 
-  // ledger entries matching active accounts
-  const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
+  // Sync channels from payment modes whenever systemSettings loads/changes
+  useEffect(() => {
+    if (!systemSettings?.business?.paymentModes) return;
+    const rawModes = systemSettings.business.paymentModes || [];
+    const configModes = normalizePaymentModes(rawModes as any[]);
+    if (configModes.length === 0) return;
+
+    // Only auto-generate if no manually configured channels exist
+    const hasManualChannels = systemSettings?.paymentChannels && (systemSettings.paymentChannels as any[]).length > 0;
+    if (hasManualChannels) {
+      setChannels(systemSettings.paymentChannels as PaymentChannel[]);
+      return;
+    }
+
+    // Check cached channels
+    const cached = onlineStorage.getItem(`jasper_channels_${activeTenant.id}`);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.length > 0) { setChannels(parsed); return; }
+      } catch (e) {}
+    }
+
+    // Generate from payment modes
+    const generated = configModes.map((m, i) => {
+      const type = classifyPaymentMode(m.name);
+      const category: PaymentChannel['category'] =
+        type === 'mobile_money' ? 'telco' :
+        type === 'bank' || type === 'card' ? 'bank' :
+        type === 'credit' ? 'person' : 'physical';
+      return {
+        id: `auto-${i}-${m.name.toLowerCase().replace(/\s+/g, '-')}`,
+        name: m.name,
+        category,
+        provider: m.name,
+        accountNumber: '',
+      } as PaymentChannel;
+    });
+    setChannels(generated);
+  }, [systemSettings?.business?.paymentModes, systemSettings?.paymentChannels, activeTenant.id]);
   
   const [channels, setChannels] = useState<PaymentChannel[]>(() => {
     // Priority 1: systemSettings.paymentChannels
