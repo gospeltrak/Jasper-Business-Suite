@@ -68,6 +68,7 @@ export default function DashboardCashBank({
   const [datePreset, setDatePreset] = useState<'today' | '1week' | '1month' | 'custom'>('1month');
   // Mobile-only section tabs
   const [mobileSectionTab, setMobileSectionTab] = useState<'overview' | 'accounts' | 'transfer' | 'audit'>('overview');
+  const [desktopTab, setDesktopTab] = useState<'overview' | 'accounts' | 'transfer' | 'history'>('overview');
 
   // On mount: migrate any existing channels from dedicated onlineStorage key into systemSettings
   // This ensures existing user data is not lost when moving to new persistence model
@@ -1445,8 +1446,33 @@ export default function DashboardCashBank({
         {/* ── MAIN CONTENT: 2 columns ── */}
         <div className="grid grid-cols-[1fr_380px] gap-5 items-start">
 
-          {/* LEFT: Channel filter + accounts */}
+          {/* LEFT: Tab nav + content */}
           <div className="space-y-4">
+
+            {/* Desktop tab navigation */}
+            <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1">
+              {([
+                { id: 'overview',  label: 'Overview',  icon: <BarChart3 className="w-4 h-4"/> },
+                { id: 'accounts',  label: 'Accounts',  icon: <Landmark className="w-4 h-4"/> },
+                { id: 'transfer',  label: 'Transfer',  icon: <Send className="w-4 h-4"/> },
+                { id: 'history',   label: 'History',   icon: <Clock className="w-4 h-4"/> },
+              ] as const).map(tab => {
+                const active = desktopTab === tab.id;
+                return (
+                  <button key={tab.id} type="button" onClick={() => setDesktopTab(tab.id)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold transition-all cursor-pointer border-none outline-none ${
+                      active ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                    }`}>
+                    <span className={active ? 'text-emerald-400' : 'text-slate-400'}>{tab.icon}</span>
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ── OVERVIEW TAB ── */}
+            {desktopTab === 'overview' && (
+              <div className="space-y-4">
 
             {/* Channel filter pills */}
             <div className="bg-white border border-slate-200 rounded-2xl p-4">
@@ -1520,16 +1546,19 @@ export default function DashboardCashBank({
               })}
             </div>
 
-            {/* Audit trail */}
+            {/* Audit trail — preview only in overview */}
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                <p className="text-sm font-black text-slate-800">Transaction History</p>
-                <span className="text-[10px] font-bold text-slate-400">{activeTenantFilterLedger.filter(e => selectedChannelId === 'all' || e.channelId === selectedChannelId).length} records</span>
+                <p className="text-sm font-black text-slate-800">Recent Transactions</p>
+                <button type="button" onClick={() => setDesktopTab('history')}
+                  className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 cursor-pointer">
+                  See all <ChevronRight className="w-3 h-3"/>
+                </button>
               </div>
-              <div className="divide-y divide-slate-50 max-h-80 overflow-y-auto">
+              <div className="divide-y divide-slate-50">
                 {activeTenantFilterLedger
                   .filter(e => selectedChannelId === 'all' || e.channelId === selectedChannelId)
-                  .slice(0, 20)
+                  .slice(0, 5)
                   .map(entry => {
                     const chan = channels.find(c => c.id === entry.channelId);
                     const isCredit = entry.amount >= 0;
@@ -1550,10 +1579,6 @@ export default function DashboardCashBank({
                   })}
               </div>
             </div>
-          </div>
-
-          {/* RIGHT: Revenue + Money Out */}
-          <div className="space-y-4">
 
             {/* Revenue by registered mode */}
             {(() => {
@@ -1671,13 +1696,219 @@ export default function DashboardCashBank({
               );
             })()}
 
-            {/* Transfer button */}
-            <button type="button" onClick={() => setMobileSectionTab('transfer')}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-2xl text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer">
-              <Send className="w-4 h-4"/>
+            {/* Quick transfer button */}
+            <button type="button" onClick={() => setDesktopTab('transfer')}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-2xl text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer border border-slate-800">
+              <Send className="w-4 h-4 text-emerald-400"/>
               New Transfer
             </button>
+            </div>
+            )}
+
+            {/* ── ACCOUNTS TAB ── */}
+            {desktopTab === 'accounts' && (
+              <div className="space-y-3">
+                <div className="flex gap-2 flex-wrap">
+                  {(['all', ...channels.map((c: any) => c.id)] as string[]).map(id => {
+                    const chan = id === 'all' ? null : channels.find((c: any) => c.id === id);
+                    if ((chan as any)?.category === 'person') return null;
+                    const isSelected = selectedChannelId === id;
+                    const type = chan ? getPaymentType((chan as any).name, normalizePaymentModes(systemSettings?.business?.paymentModes || [])) : null;
+                    const colors = type ? PAYMENT_TYPE_COLORS[type] : null;
+                    return (
+                      <button key={id} type="button" onClick={() => setSelectedChannelId(id)}
+                        className="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border"
+                        style={{
+                          background: isSelected ? (colors?.text || '#0f172a') : (colors?.bg || '#f1f5f9'),
+                          borderColor: isSelected ? (colors?.text || '#0f172a') : (colors?.border || '#e2e8f0'),
+                          color: isSelected ? '#fff' : (colors?.text || '#475569'),
+                        }}>
+                        {id === 'all' ? 'All Accounts' : (chan as any)?.name || id}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {channels.filter((c: any) => c.category !== 'person' && (selectedChannelId === 'all' || selectedChannelId === c.id)).map((chan: any) => {
+                    const bal = channelBalances[chan.id]?.current || 0;
+                    let periodIn = 0, periodOut = 0;
+                    activeTenantFilterLedger.forEach((e: any) => {
+                      if (e.channelId === chan.id) { if (e.amount >= 0) periodIn += e.amount; else periodOut += Math.abs(e.amount); }
+                    });
+                    const grad = chan.category === 'bank' ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : chan.category === 'telco' ? 'linear-gradient(135deg,#7c3aed,#6d28d9)' : 'linear-gradient(135deg,#059669,#047857)';
+                    const icon = chan.category === 'bank' ? <Landmark className="w-5 h-5"/> : chan.category === 'telco' ? <Wallet className="w-5 h-5"/> : <Coins className="w-5 h-5"/>;
+                    return (
+                      <div key={chan.id} className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e2e8f0',boxShadow:'0 2px 10px rgba(0,0,0,0.06)'}}>
+                        <div className="px-5 pt-5 pb-4 flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white shrink-0" style={{background:grad}}>{icon}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-extrabold text-slate-900 truncate">{chan.name}</p>
+                            <p className="text-[10px] text-slate-400 capitalize">{chan.provider || chan.category}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-lg font-black font-mono ${bal >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>{formatCurrency(bal)}</p>
+                            <p className="text-[9px] text-slate-400">Balance</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 border-t border-slate-100">
+                          <div className="px-5 py-3 border-r border-slate-100">
+                            <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider">IN</p>
+                            <p className="text-sm font-black text-emerald-700 font-mono mt-0.5">+{formatCurrency(periodIn)}</p>
+                          </div>
+                          <div className="px-5 py-3">
+                            <p className="text-[9px] text-rose-500 font-bold uppercase tracking-wider">OUT</p>
+                            <p className="text-sm font-black text-rose-600 font-mono mt-0.5">-{formatCurrency(periodOut)}</p>
+                          </div>
+                        </div>
+                        <div className="border-t border-slate-100 flex">
+                          <button type="button" onClick={() => { setSettleSource(chan.id); setDesktopTab('transfer'); }}
+                            className="flex-1 py-3 flex items-center justify-center gap-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 border-r border-slate-100 cursor-pointer">
+                            <Send className="w-3.5 h-3.5"/> Transfer
+                          </button>
+                          <button type="button" onClick={() => { setSelectedChannelId(chan.id); setDesktopTab('history'); }}
+                            className="flex-1 py-3 flex items-center justify-center gap-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer">
+                            <Eye className="w-3.5 h-3.5"/> History
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── TRANSFER TAB ── */}
+            {desktopTab === 'transfer' && (
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5">
+                <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                    <Send className="w-5 h-5 text-emerald-600"/>
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-slate-900">Transfer / Settle Till</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Move money between accounts</p>
+                  </div>
+                </div>
+                {settleSuccessMsg && (
+                  <div className="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                    <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5"/>
+                    <p className="text-xs text-emerald-800 font-medium">{settleSuccessMsg}</p>
+                  </div>
+                )}
+                <form onSubmit={handleExecuteSettleTill} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">From</label>
+                      <select value={settleSource} onChange={e => setSettleSource(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500 cursor-pointer">
+                        {channels.filter((c: any) => c.category !== 'person').map((c: any) => (
+                          <option key={c.id} value={c.id}>{c.name} ({formatCurrency(channelBalances[c.id]?.current)})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">To</label>
+                      <select value={settleTarget} onChange={e => setSettleTarget(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500 cursor-pointer">
+                        <optgroup label="Mobile Money">{channels.filter((c: any) => c.category === 'telco').map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
+                        <optgroup label="Bank Accounts">{channels.filter((c: any) => c.category === 'bank').map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
+                        <optgroup label="Cash / Physical">{channels.filter((c: any) => c.category === 'physical').map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
+                        <optgroup label="Send to Person">{channels.filter((c: any) => c.category === 'person').map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Amount</label>
+                      <input type="number" placeholder="0" value={settleAmount} onChange={e => setSettleAmount(e.target.value)} required
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xl font-black font-mono text-slate-900 outline-none focus:border-emerald-500"/>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Memo (optional)</label>
+                      <input type="text" placeholder="Note or reason" value={settleMemo} onChange={e => setSettleMemo(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500"/>
+                    </div>
+                  </div>
+                  {showRuleWarning && (
+                    <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-800 font-semibold">
+                      ⚠️ Large transfer — attach a receipt or proof of payment for audit trail.
+                    </div>
+                  )}
+                  <button type="submit"
+                    className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl flex items-center justify-center gap-2 cursor-pointer">
+                    <Send className="w-4 h-4"/> Execute Transfer
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* ── HISTORY TAB ── */}
+            {desktopTab === 'history' && (
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+                  <div className="flex-1 flex items-center bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl gap-2">
+                    <Search className="w-4 h-4 text-slate-400 shrink-0"/>
+                    <input type="text" placeholder="Search transactions..." value={auditSearch} onChange={e => setAuditSearch(e.target.value)}
+                      className="bg-transparent border-none outline-none text-sm text-slate-800 placeholder-slate-400 flex-1"/>
+                  </div>
+                  <select value={auditTypeFilter} onChange={e => setAuditTypeFilter(e.target.value as any)}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none cursor-pointer">
+                    <option value="ALL">All Types</option>
+                    <option value="POS_CHECKOUT">Sales</option>
+                    <option value="SETTLE_TILL_DEPOSIT">Transfers</option>
+                    <option value="EXPENSE_WITHDRAWAL">Expenses</option>
+                  </select>
+                </div>
+                <div className="px-5 py-3 border-b border-slate-100 flex gap-2 flex-wrap">
+                  <button type="button" onClick={() => setSelectedChannelId('all')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all ${selectedChannelId === 'all' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>All</button>
+                  {channels.filter((c: any) => c.category !== 'person').map((c: any) => (
+                    <button key={c.id} type="button" onClick={() => setSelectedChannelId(c.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all ${selectedChannelId === c.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="divide-y divide-slate-50 max-h-[500px] overflow-y-auto">
+                  {searchedAuditTrail.length > 0 ? searchedAuditTrail.map((entry: any) => {
+                    const chan = channels.find((c: any) => c.id === entry.channelId);
+                    const isPositive = entry.amount >= 0;
+                    const typeLabel = entry.sourceType === 'POS_CHECKOUT' ? 'Payment In' : entry.sourceType === 'SETTLE_TILL_DEPOSIT' ? 'Transfer' : entry.sourceType === 'EXPENSE_WITHDRAWAL' ? 'Expense' : 'Entry';
+                    const tc = entry.sourceType === 'POS_CHECKOUT' ? {bg:'#eff6ff',text:'#1d4ed8'} : entry.sourceType === 'SETTLE_TILL_DEPOSIT' ? {bg:'#f0fdf4',text:'#059669'} : entry.sourceType === 'EXPENSE_WITHDRAWAL' ? {bg:'#fff1f2',text:'#be123c'} : {bg:'#f8fafc',text:'#475569'};
+                    return (
+                      <div key={entry.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{background:tc.bg}}>
+                          {isPositive ? <ArrowUpRight className="w-4 h-4" style={{color:tc.text}}/> : <ArrowDownRight className="w-4 h-4" style={{color:tc.text}}/>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg" style={{background:tc.bg,color:tc.text}}>{typeLabel}</span>
+                            <p className="text-xs text-slate-600 font-medium truncate">{entry.description || '-'}</p>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-mono">{(chan as any)?.name || entry.channelId} · {new Date(entry.timestamp).toLocaleString()}</p>
+                        </div>
+                        <p className={`text-sm font-black shrink-0 ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {isPositive ? '+' : '-'}{formatCurrency(Math.abs(entry.amount))}
+                        </p>
+                      </div>
+                    );
+                  }) : (
+                    <div className="text-center py-12 text-slate-400">
+                      <Clock className="w-8 h-8 mx-auto mb-2 opacity-30"/>
+                      <p className="text-sm font-bold">No transactions found</p>
+                    </div>
+                  )}
+                </div>
+                {searchedAuditTrail.length > 0 && (
+                  <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-between text-[10px] text-slate-400 font-mono">
+                    <span>{searchedAuditTrail.length} records</span><span>All systems normal</span>
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
+
         </div>
 
       </div>
