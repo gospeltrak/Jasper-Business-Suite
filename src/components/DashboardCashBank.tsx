@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Tenant, Sale, Expense, PaymentChannel, LedgerEntry, User as AppUser } from '../types';
 import { isDemoTenant } from '../utils/tenantIsolation';
 import { safeSetJsonItem } from '../utils/dataSafety';
+import { onlineStorage } from '../utils/onlineStorage';
 import {
   getPaymentType,
   getChannelIdForPayment,
