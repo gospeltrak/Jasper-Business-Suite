@@ -351,6 +351,11 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
 
   const mappedUsers = safeOverview.users
     .filter((user) => !isPlatformUser(user))
+    .filter((user) => {
+      // Exclude users tied to demo/system tenant (Jasper HQ)
+      const tid = String(user.tenant_id || '');
+      return tid !== '11111111-1111-1111-1111-111111111111';
+    })
     .map((user) => {
       const tenantId = user.tenant_id ? String(user.tenant_id) : null;
       const tenant = tenantId ? tenantById.get(tenantId) : null;
@@ -581,9 +586,12 @@ export function buildSuperAdminMetrics(overview: SuperAdminOverview): SuperAdmin
 
   const colors = ['#34d399', '#60a5fa', '#f87171', '#f59e0b', '#a78bfa', '#22d3ee'];
 
+  const realTenants = safeOverview.tenants.filter(
+    t => String(t.id) !== '11111111-1111-1111-1111-111111111111'
+  );
   return {
-    subscribersCount: safeOverview.tenants.length || users.length,
-    activeTenants: safeOverview.tenants.length,
+    subscribersCount: realTenants.length || users.length,
+    activeTenants: realTenants.length,
     activeSessions: safeOverview.sessions.filter((session) => session.is_active).length,
     totalIncome: platformRevenue,
     affiliatePayouts,
