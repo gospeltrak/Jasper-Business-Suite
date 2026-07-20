@@ -47,7 +47,8 @@ export default function SaaSDemographicsView() {
   const locationBuckets = useMemo(() => {
     const map = new Map<string, LocationBucket>();
     
-    users.forEach(u => {
+    (users || []).forEach(u => {
+      if (!u) return;
       const key = view === 'city'
         ? (u.city || u.location || 'Unknown')
         : view === 'country'
@@ -68,8 +69,10 @@ export default function SaaSDemographicsView() {
     });
 
     // Add affiliate locations where available
-    affiliates.forEach(a => {
-      const loc = a.city || a.country || a.phone_whatsapp?.startsWith('+255') ? 'Tanzania' : 'Unknown';
+    (affiliates || []).forEach(a => {
+      if (!a) return;
+      const phone = a.phone_whatsapp || '';
+      const loc = (a.city || a.country) ? (a.city || a.country) : (phone.startsWith('+255') ? 'Tanzania' : 'Unknown');
       const key = loc;
       const existing = map.get(key) || {
         location: key,
