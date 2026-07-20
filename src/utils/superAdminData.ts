@@ -558,7 +558,7 @@ export function buildSuperAdminMetrics(overview: SuperAdminOverview): SuperAdmin
   const affiliatePayouts = safeOverview.payouts
     .filter((row) => isPositivePaymentStatus(row.status || row.payment_status))
     .reduce((sum, row) => sum + money(row.amount || row.net_payout || row.payout_amount), 0);
-  const expenses = 0;
+  const expenses = 0; // SaaS operational expenses — wire when expenses table added
   const planCounts = new Map<string, number>();
   users.forEach((user) => planCounts.set(user.subscriptionPlan, (planCounts.get(user.subscriptionPlan) || 0) + 1));
 
