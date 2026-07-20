@@ -696,7 +696,7 @@ Vehicle Plate Number: ${plateNumber}
 
         {/* Mobile native-style section switcher */}
         <div className="xl:hidden border-t border-slate-200 bg-slate-50 px-3 py-3">
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {[
               { id: 'queue' as const, label: 'Jobs', icon: Clipboard },
               { id: 'riders' as const, label: 'Crew', icon: UserCheck },
