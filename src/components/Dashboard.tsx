@@ -3119,7 +3119,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 ] : [
                   { id: 'sync', label: 'Sync', icon: RefreshCw, desc: isOfflineMode ? 'You are offline' : 'All data synced', color: isOfflineMode ? 'text-amber-600' : 'text-emerald-600', bg: isOfflineMode ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-emerald-50 dark:bg-emerald-500/10' },
                   { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
-                  { id: 'inventory', label: 'Inventory', icon: Package, desc: 'View stock levels', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10' },
                 ]).filter(item => isTabAllowed(item.id)).map((item, idx, arr) => {
                   const Icon = item.icon;
                   return (
