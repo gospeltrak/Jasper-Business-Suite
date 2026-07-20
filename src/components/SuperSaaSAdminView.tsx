@@ -41,7 +41,7 @@ import { User } from '../types';
 import SaaSStatusAndRequests from './SaaSStatusAndRequests';
 import SaaSReportsView from './SaaSReportsView';
 import SaaSUserActivityView from './SaaSUserActivityView';
-import SaasDashboardMetrics from './SaaSDashboardMetrics';
+import SaaSDashboardMetrics from './SaaSDashboardMetrics';
 import SaaSDemographicsView from './SaaSDemographicsView';
 import SaaSExpensesView from './SaaSExpensesView';
 import SaaSInbox from './SaaSInbox';
