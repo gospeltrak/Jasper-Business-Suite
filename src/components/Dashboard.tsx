@@ -294,6 +294,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     'admin-status',
     'admin-reports',
     'admin-user-activity',
+    'admin-demographics',
     'admin-expenses',
     'admin-chats',
     'admin-inbox',
@@ -894,6 +895,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       'admin-status': 'status',
       'admin-reports': 'reports',
       'admin-user-activity': 'user-activity',
+      'admin-demographics': 'demographics',
       'admin-expenses': 'expenses',
       'admin-chats': 'chats',
       'admin-inbox': 'inbox',
@@ -1839,6 +1841,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         { id: 'admin-status', label: 'Status and Request', icon: Activity },
         { id: 'admin-reports', label: 'Reports', icon: Database },
         { id: 'admin-user-activity', label: 'User Activity', icon: Users },
+        { id: 'admin-demographics', label: 'Demographics', icon: MapPin },
         { id: 'admin-expenses', label: 'Expenses', icon: Receipt },
         { id: 'admin-chats', label: 'Chats', icon: MessageSquare },
         { id: 'admin-inbox', label: 'Inbox', icon: Inbox },
@@ -1909,6 +1912,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     { id: 'admin-status', label: 'Status & Requests', icon: Activity, tabId: 'admin-status' },
     { id: 'admin-reports', label: 'Reports', icon: Database, tabId: 'admin-reports' },
     { id: 'admin-user-activity', label: 'User Activity', icon: Users, tabId: 'admin-user-activity' },
+    { id: 'admin-demographics', label: 'Demographics', icon: MapPin, tabId: 'admin-demographics' },
     { id: 'admin-expenses', label: 'Expenses', icon: Receipt, tabId: 'admin-expenses' },
     { id: 'admin-chats', label: 'Chats', icon: MessageSquare, tabId: 'admin-chats' },
     { id: 'admin-inbox', label: 'Inbox', icon: Inbox, tabId: 'admin-inbox' },
@@ -2935,6 +2939,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                  activeTab === 'admin-status' ? 'status' :
                  activeTab === 'admin-reports' ? 'reports' :
                  activeTab === 'admin-user-activity' ? 'user-activity' :
+                 activeTab === 'admin-demographics' ? 'demographics' :
                   activeTab === 'admin-expenses' ? 'expenses' :
                  activeTab === 'admin-chats' ? 'chats' :
                  activeTab === 'admin-inbox' ? 'inbox' :
@@ -2956,6 +2961,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                    subTab === 'status' ? 'admin-status' :
                    subTab === 'reports' ? 'admin-reports' :
                    subTab === 'user-activity' ? 'admin-user-activity' :
+                   subTab === 'demographics' ? 'admin-demographics' :
                     subTab === 'expenses' ? 'admin-expenses' :
                    subTab === 'chats' ? 'admin-chats' :
                    subTab === 'inbox' ? 'admin-inbox' :

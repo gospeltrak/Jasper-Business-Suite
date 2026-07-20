@@ -41,7 +41,8 @@ import { User } from '../types';
 import SaaSStatusAndRequests from './SaaSStatusAndRequests';
 import SaaSReportsView from './SaaSReportsView';
 import SaaSUserActivityView from './SaaSUserActivityView';
-import SaaSDashboardMetrics from './SaaSDashboardMetrics';
+import SaasDashboardMetrics from './SaaSDashboardMetrics';
+import SaaSDemographicsView from './SaaSDemographicsView';
 import SaaSExpensesView from './SaaSExpensesView';
 import SaaSInbox from './SaaSInbox';
 import SaaSHardwarePOS from './SaaSHardwarePOS';
@@ -54,7 +55,7 @@ import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../utils/onlineOnly';
 
-export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'user-activity' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
+export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'user-activity' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings' | 'demographics';
 
 export interface SuperSaaSAdminViewProps {
   activeAdminSubTab?: SuperAdminWorkspaceTab;
@@ -842,7 +843,14 @@ export default function SuperSaaSAdminView({
           </div>
         )}
 
-        {/* ======================= TAB: USER ACTIVITY & ONLINE ======================= */}
+        {/* ======================= TAB: DEMOGRAPHICS ======================= */}
+        {activeTab === 'demographics' && (
+          <div className="space-y-6 animate-fade-in text-left">
+            <SaaSDemographicsView />
+          </div>
+        )}
+
+        {/* ======================= TAB: USER ACTIVITY ======================= */}
         {activeTab === 'user-activity' && (
           <div className="space-y-6 animate-fade-in text-left">
             <SaaSUserActivityView />
