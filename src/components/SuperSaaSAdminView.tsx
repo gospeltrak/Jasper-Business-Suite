@@ -556,6 +556,45 @@ export default function SuperSaaSAdminView({
   };
 
   if (mirroredAccount) {
+    // AFFILIATES — show dedicated profile panel, NOT Dashboard mirror
+    // (Affiliates are platform users, not tenants — they have no Dashboard)
+    if (isMirrorAffiliate) {
+      return (
+        <div className="dark flex flex-col h-screen w-full bg-slate-950 text-slate-300">
+          <div className="h-[72px] shrink-0 border-b border-slate-800 bg-slate-900 flex items-center px-6 justify-between">
+            <div className="flex items-center space-x-4">
+              <button onClick={() => setMirroredAccount(null)}
+                className="flex items-center space-x-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-bold cursor-pointer">
+                <ArrowLeft className="w-4 h-4"/>
+                <span>Back to Affiliates</span>
+              </button>
+              <div>
+                <h2 className="text-sm font-bold text-white">Affiliate Profile — {mirroredAccount.name}</h2>
+                <p className="text-[10px] text-slate-400 font-mono">ID: {mirroredAccount.id}</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+              <h3 className="text-sm font-black text-white mb-4 uppercase tracking-wider">Affiliate Details</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-slate-500 text-xs block">Full Name</span><p className="text-white font-semibold">{mirroredAccount.name}</p></div>
+                <div><span className="text-slate-500 text-xs block">Role</span><p className="text-emerald-400 font-semibold">{mirroredAccount.role || 'Affiliate'}</p></div>
+                <div><span className="text-slate-500 text-xs block">Phone / WhatsApp</span><p className="text-white font-semibold">{mirroredAccount.phone || '—'}</p></div>
+                <div><span className="text-slate-500 text-xs block">Email</span><p className="text-white font-semibold">{mirroredAccount.email || '—'}</p></div>
+                <div><span className="text-slate-500 text-xs block">User ID</span><p className="text-slate-400 font-mono text-xs">{mirroredAccount.id}</p></div>
+                <div><span className="text-slate-500 text-xs block">Affiliate ID</span><p className="text-slate-400 font-mono text-xs">{mirroredAccount.affiliateId || '—'}</p></div>
+              </div>
+            </div>
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 text-xs text-amber-300">
+              Affiliates do not have a business dashboard. To view their commission and referral data, use the Affiliates tab.
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // SUBSCRIBERS — open their Dashboard as mirror
     const mappedUser: User = {
       id: mirroredAccount.id,
       email: mirroredAccount.email,

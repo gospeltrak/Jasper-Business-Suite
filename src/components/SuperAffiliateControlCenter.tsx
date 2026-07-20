@@ -286,7 +286,7 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit, onDelete }: { row
                 <td className="p-3 text-right text-emerald-300 font-bold">{money.format(row.netPayout)}</td>
                 <td className="p-3 text-xs">{row.mobileMoneyProvider || 'No provider'}<span className="block text-slate-500">{row.mobileMoneyNumber || '—'} · {row.payoutStatus}</span></td>
                 <td className="p-3 text-right">
-                  <button onClick={() => window.dispatchEvent(new CustomEvent('saas_enter_mirror', { detail: { account: { id: row.userId, name: row.name, role: 'Affiliate', phone: row.phone }, isAffiliate: true } }))} className="p-2 rounded hover:bg-slate-800" title="Mirror"><Eye className="w-4 h-4" /></button>
+                  <button onClick={() => window.dispatchEvent(new CustomEvent('saas_enter_mirror', { detail: { account: { id: row.userId, affiliateId: row.id, name: row.name, role: 'Affiliate', phone: row.phone }, isAffiliate: true } }))} className="p-2 rounded hover:bg-slate-800" title="Mirror"><Eye className="w-4 h-4" /></button>
                   <button onClick={() => onEdit(row)} className="p-2 rounded hover:bg-slate-800" title="Edit"><Pencil className="w-4 h-4" /></button>
                   <button onClick={() => onDelete(row)} className="p-2 rounded hover:bg-rose-950 text-rose-500" title="Delete sub-affiliate"><Trash2 className="w-4 h-4" /></button>
                 </td>
@@ -306,7 +306,7 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit, onDelete }: { row
                 <p className="text-xs text-slate-500 mt-0.5">{row.parentAgentName} · <span className="font-mono text-emerald-400">{row.promoCode}</span></p>
               </div>
               <div className="flex gap-1">
-                <button onClick={() => window.dispatchEvent(new CustomEvent('saas_enter_mirror', { detail: { account: { id: row.userId, name: row.name, role: 'Affiliate', phone: row.phone }, isAffiliate: true } }))} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-400"><Eye className="w-3.5 h-3.5" /></button>
+                <button onClick={() => window.dispatchEvent(new CustomEvent('saas_enter_mirror', { detail: { account: { id: row.userId, affiliateId: row.id, name: row.name, role: 'Affiliate', phone: row.phone }, isAffiliate: true } }))} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-400"><Eye className="w-3.5 h-3.5" /></button>
                 <button onClick={() => onEdit(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-blue-400"><Pencil className="w-3.5 h-3.5" /></button>
                 <button onClick={() => onDelete(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950 text-rose-500"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
