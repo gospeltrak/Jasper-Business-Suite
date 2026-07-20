@@ -250,7 +250,7 @@ export default function SaaSDemographicsView() {
         return (
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 text-xs text-amber-300 flex items-center gap-2">
             <Building className="w-4 h-4 shrink-0"/>
-            {noLocation} subscriber{noLocation > 1 ? 's' : ''} have no location data — they haven't completed business setup.
+            {noLocation} subscriber{noLocation > 1 ? 's' : ''} have no location data — they haven&apos;t completed business setup.
           </div>
         );
       })()}
