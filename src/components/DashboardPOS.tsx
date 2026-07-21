@@ -1918,7 +1918,7 @@ export default function DashboardPOS({
                 </div>
 
                 {/* Customer — name and phone in ONE row, no label */}
-                <div className="grid grid-cols-2 gap-2 pb-3 border-b border-slate-100">
+                <div className="grid gap-2 pb-3 border-b border-slate-100" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
                   <input
                     type="text"
                     placeholder="Client name (optional)"
