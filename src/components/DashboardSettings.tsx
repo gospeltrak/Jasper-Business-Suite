@@ -1544,23 +1544,44 @@ export default function DashboardSettings({
           })}
         </div>
 
-        <div className="xl:hidden bg-white border border-slate-200 rounded-2xl shadow-sm p-3 overflow-hidden">
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {/* ── MOBILE/TABLET SETTINGS NAV ── */}
+        <div className="xl:hidden space-y-3">
+          {/* Active tab header */}
+          <div className="rounded-2xl overflow-hidden" style={{background:'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)'}}>
+            <div className="px-4 py-4 flex items-center gap-3">
+              {(() => { const Icon = activeSettingsTab.icon; return <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0"><Icon className="w-5 h-5 text-emerald-400"/></div>; })()}
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-black text-sm leading-tight">{activeSettingsTab.label}</p>
+                <p className="text-white/40 text-[10px] mt-0.5">{activeSettingsTab.description}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Tab grid — 3 per row, 3 rows */}
+          <div className="grid grid-cols-3 gap-2.5">
             {settingsTabs.map(tab => {
               const Icon = tab.icon;
               const isActive = activeSubTab === tab.id;
               return (
                 <button
                   key={tab.id}
+                  type="button"
                   onClick={() => setActiveSubTab(tab.id)}
-                  className={`min-w-[92px] min-h-[58px] rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-black transition-all shrink-0 ${
-                    isActive
-                      ? 'bg-slate-950 text-white border-slate-950 shadow-sm'
-                      : 'bg-white text-slate-600 border-slate-200 active:bg-slate-100'
-                  }`}
+                  className="flex flex-col items-center justify-center gap-2 rounded-2xl p-3 min-h-[82px] transition-all active:scale-95 cursor-pointer border"
+                  style={{
+                    background: isActive ? '#0f172a' : '#ffffff',
+                    borderColor: isActive ? '#0f172a' : '#e2e8f0',
+                    boxShadow: isActive ? '0 4px 12px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.06)',
+                  }}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-300' : 'text-slate-400'}`} />
-                  <span>{tab.shortLabel}</span>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                    style={{background: isActive ? 'rgba(16,185,129,0.2)' : '#f1f5f9'}}>
+                    <Icon className="w-5 h-5" style={{color: isActive ? '#34d399' : '#64748b'}}/>
+                  </div>
+                  <span className="text-[10px] font-black text-center leading-tight"
+                    style={{color: isActive ? '#ffffff' : '#475569'}}>
+                    {tab.shortLabel}
+                  </span>
                 </button>
               );
             })}
@@ -1568,7 +1589,7 @@ export default function DashboardSettings({
         </div>
 
         {/* Content Panel Frame */}
-        <div className="lg:col-span-3 space-y-5 lg:space-y-6 min-w-0">
+        <div className="lg:col-span-3 space-y-5 lg:space-y-6 min-w-0 settings-content-panel">
           
           {/* TAB 1: COMPANY SETTINGS */}
           {activeSubTab === 'company' && (
