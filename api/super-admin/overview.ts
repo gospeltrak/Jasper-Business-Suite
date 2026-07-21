@@ -65,7 +65,7 @@ export default async function handler(req: any, res: any) {
   }
 
   // Fetch all platform data using service role (bypasses RLS)
-  const safe = async (query: Promise<any>) => {
+  const safe = async (query: PromiseLike<any>) => {
     try {
       const { data, error } = await query;
       if (error) { console.warn('[SuperAdmin API]', error.message); return []; }
@@ -101,7 +101,7 @@ export default async function handler(req: any, res: any) {
     safe(adminClient.from('referred_customers').select('*').order('created_at', { ascending: false }).limit(2000)),
     safe(adminClient.from('affiliate_commissions').select('*').order('created_at', { ascending: false }).limit(1000)),
     safe(adminClient.from('affiliate_payouts').select('*').order('created_at', { ascending: false }).limit(1000)),
-    safe(adminClient.from('super_admin_audit_logs').select('*').order('created_at', { ascending: false }).limit(250).catch(() => ({ data: [], error: null }))),
+    safe(adminClient.from('super_admin_audit_logs').select('*').order('created_at', { ascending: false }).limit(250)),
   ]);
 
   return res.status(200).json({

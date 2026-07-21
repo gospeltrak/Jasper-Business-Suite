@@ -9,7 +9,7 @@ dotenv.config();
 
 // Initialize Supabase Server-Side Client
 // This ensures that the Suppabase keys are strictly kept on the server.
-let supabaseAdmin: ReturnType<typeof createClient> | null = null;
+let supabaseAdmin: any = null;
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (supabaseUrl && supabaseServiceRoleKey) {
