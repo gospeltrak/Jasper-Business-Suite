@@ -1436,33 +1436,73 @@ export default function DashboardCashBank({
           })}
         </div>
 
-        {/* MAIN 2-COL */}
-        <div className="grid grid-cols-[1fr_380px] gap-5 items-start">
+        {desktopTab === 'overview' ? (
           <div className="space-y-4">
-
-            {desktopTab === 'overview' && (
-              <div className="space-y-4">
-                {(() => {
-                  const { startIso, endIso } = getFilterBoundaries();
-                  const expensesInRange = expenses.filter((e: any) => {
-                    const t = (e as any).date || e.timestamp || '';
-                    return t >= startIso && t <= endIso;
-                  });
-                  const totalOut = expensesInRange.reduce((s: number, e: any) => s + Math.max(0, Number(e.amount || 0)), 0);
-                  const byCategory: Record<string, number> = {};
-                  expensesInRange.forEach((e: any) => {
-                    const cat = (e as any).category || 'Other';
-                    byCategory[cat] = (byCategory[cat] || 0) + Math.max(0, Number(e.amount || 0));
-                  });
-                  if (totalOut <= 0) {
-                    return (
-                      <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center">
-                        <p className="text-sm font-black text-slate-800">Money Out</p>
-                        <p className="text-xs text-slate-400 mt-1">No expenses recorded in this period.</p>
-                      </div>
-                    );
-                  }
-                  return (
+            {(() => {
+              const configModes = normalizePaymentModes(systemSettings?.business?.paymentModes || []);
+              const { startIso, endIso } = getFilterBoundaries();
+              const salesInRange = sales.filter((s: any) => {
+                const t = s.timestamp || s.createdAt || '';
+                return t >= startIso && t <= endIso && s.paymentStatus !== 'Pending';
+              });
+              const byMode: Record<string, {amount: number; config: typeof configModes[0]}> = {};
+              configModes.forEach(m => { byMode[m.name] = { amount: 0, config: m }; });
+              let creditTotal = 0;
+              salesInRange.forEach((s: any) => {
+                const breakdown = Array.isArray(s.paymentBreakdown) && s.paymentBreakdown.length > 0
+                  ? s.paymentBreakdown : [{ method: s.paymentMethod || 'Cash', amount: s.amountPaid ?? s.total }];
+                breakdown.forEach((p: any) => {
+                  const mName = (p.method || s.paymentMethod || 'Cash').trim();
+                  const type = getPaymentType(mName, configModes);
+                  if (type === 'credit') { creditTotal += Math.max(0, Number(p.amount || 0)); return; }
+                  const match = configModes.find(m => m.name.toLowerCase().trim() === mName.toLowerCase() || mName.toLowerCase().includes(m.name.toLowerCase()) || m.name.toLowerCase().includes(mName.toLowerCase()));
+                  if (match) byMode[match.name].amount += Math.max(0, Number(p.amount || 0));
+                });
+              });
+              const totalIn = Object.values(byMode).reduce((s, m) => s + m.amount, 0) + creditTotal;
+              const expensesInRange = expenses.filter((e: any) => {
+                const t = (e as any).date || e.timestamp || '';
+                return t >= startIso && t <= endIso;
+              });
+              const totalOut = expensesInRange.reduce((s: number, e: any) => s + Math.max(0, Number(e.amount || 0)), 0);
+              const byCategory: Record<string, number> = {};
+              expensesInRange.forEach((e: any) => {
+                const cat = (e as any).category || 'Other';
+                byCategory[cat] = (byCategory[cat] || 0) + Math.max(0, Number(e.amount || 0));
+              });
+              return (
+                <div className="grid grid-cols-2 gap-5 items-start">
+                  <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                    <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                      <p className="text-sm font-black text-slate-800">Revenue by Mode</p>
+                      <p className="text-sm font-black text-emerald-600">{formatCurrency(totalIn)}</p>
+                    </div>
+                    <div className="divide-y divide-slate-50">
+                      {Object.entries(byMode).map(([name, {amount, config}]) => {
+                        const type = getPaymentType(name, configModes);
+                        const colors = PAYMENT_TYPE_COLORS[type];
+                        const pct = totalIn > 0 ? Math.round((amount / totalIn) * 100) : 0;
+                        return (
+                          <div key={name} className="flex items-center gap-3 px-5 py-3">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{background: colors.bg}}>
+                              {config.logoUrl ? <img src={config.logoUrl} className="w-5 h-5 object-contain" alt={name}/> : <span className="text-sm">{PAYMENT_TYPE_ICONS[type]}</span>}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-center mb-1">
+                                <p className="text-xs font-bold text-slate-700 truncate">{name}</p>
+                                <p className="text-xs font-black ml-2 shrink-0" style={{color: colors.text}}>{formatCurrency(amount)}</p>
+                              </div>
+                              <div className="h-1.5 rounded-full overflow-hidden" style={{background: colors.bg}}>
+                                <div className="h-full rounded-full" style={{width:`${pct}%`, background: colors.text}}/>
+                              </div>
+                            </div>
+                            <span className="text-[9px] font-bold text-slate-400 w-8 text-right shrink-0">{pct}%</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {totalOut > 0 ? (
                     <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
                       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                         <p className="text-sm font-black text-slate-800">Money Out</p>
@@ -1491,15 +1531,24 @@ export default function DashboardCashBank({
                         })}
                       </div>
                     </div>
-                  );
-                })()}
-                <button type="button" onClick={() => setDesktopTab('transfer')}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-2xl text-sm flex items-center justify-center gap-2 cursor-pointer">
-                  <Send className="w-4 h-4 text-emerald-400"/>
-                  New Transfer
-                </button>
-              </div>
-            )}
+                  ) : (
+                    <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center">
+                      <p className="text-sm font-black text-slate-800">Money Out</p>
+                      <p className="text-xs text-slate-400 mt-1">No expenses recorded in this period.</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            <button type="button" onClick={() => setDesktopTab('transfer')}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-2xl text-sm flex items-center justify-center gap-2 cursor-pointer">
+              <Send className="w-4 h-4 text-emerald-400"/>
+              New Transfer
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-[1fr_380px] gap-5 items-start">
+            <div className="space-y-4">
 
             {desktopTab === 'accounts' && (
               <div className="grid grid-cols-2 gap-3">
@@ -1631,9 +1680,9 @@ export default function DashboardCashBank({
               </div>
             )}
 
-          </div>
+            </div>
 
-          <div className="space-y-4">
+            <div className="space-y-4">
             {(() => {
               const configModes = normalizePaymentModes(systemSettings?.business?.paymentModes || []);
               const { startIso, endIso } = getFilterBoundaries();
@@ -1698,7 +1747,7 @@ export default function DashboardCashBank({
                       })}
                     </div>
                   </div>
-                  {desktopTab !== 'overview' && totalOut > 0 && (
+                  {totalOut > 0 && (
                     <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
                       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                         <p className="text-sm font-black text-slate-800">Money Out</p>
@@ -1732,7 +1781,9 @@ export default function DashboardCashBank({
               );
             })()}
           </div>
-        </div>
+          </div>
+        )}
+
 
       </div>
 
