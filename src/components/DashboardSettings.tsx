@@ -40,6 +40,7 @@ import {
 import { DashboardNotificationsSettings } from './DashboardNotificationsSettings';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { compressImageFile } from '../utils/imageCompression';
+import { classifyPaymentMode, PAYMENT_TYPE_LABELS } from '../utils/paymentClassifier';
 
 // Normalize payment modes — handles both legacy string[] and new {name,logoUrl}[]
 const normalizePaymentModes = (modes: any[]): PaymentModeConfig[] =>
