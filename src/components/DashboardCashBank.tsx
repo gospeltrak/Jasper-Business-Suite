@@ -1080,15 +1080,19 @@ export default function DashboardCashBank({
                         <p className="text-[9px] text-slate-400 mt-0.5">Balance</p>
                       </div>
                     </div>
-                    {/* Flow row */}
-                    <div className="grid grid-cols-2 gap-0 border-t border-slate-50">
-                      <div className="px-4 py-3 border-r border-slate-50">
-                        <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider">IN</p>
-                        <p className="text-[13px] font-black text-emerald-700 font-mono mt-0.5">+{formatCurrency(periodIn)}</p>
+                    {/* Flow row — IN/OUT always side-by-side, even on mobile */}
+                    <div className="grid gap-0 border-t border-slate-100" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+                      <div className="px-3.5 py-2.5 border-r border-slate-100 bg-emerald-50/50 flex items-center justify-between gap-1.5 min-w-0">
+                        <span className="flex items-center gap-1 text-[9px] text-emerald-600 font-bold uppercase tracking-wider shrink-0">
+                          <ArrowUpRight className="w-3 h-3"/>In
+                        </span>
+                        <span className="text-[12px] font-black text-emerald-700 font-mono truncate">+{formatCurrency(periodIn)}</span>
                       </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[9px] text-rose-500 font-bold uppercase tracking-wider">OUT</p>
-                        <p className="text-[13px] font-black text-rose-600 font-mono mt-0.5">-{formatCurrency(periodOut)}</p>
+                      <div className="px-3.5 py-2.5 bg-rose-50/50 flex items-center justify-between gap-1.5 min-w-0">
+                        <span className="flex items-center gap-1 text-[9px] text-rose-500 font-bold uppercase tracking-wider shrink-0">
+                          <ArrowDownRight className="w-3 h-3"/>Out
+                        </span>
+                        <span className="text-[12px] font-black text-rose-600 font-mono truncate">-{formatCurrency(periodOut)}</span>
                       </div>
                     </div>
                     {/* Actions */}
