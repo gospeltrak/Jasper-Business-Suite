@@ -1442,42 +1442,57 @@ export default function DashboardCashBank({
 
             {desktopTab === 'overview' && (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  {channels.filter((c: any) => c.category !== 'person').map((chan: any) => {
-                    const bal = channelBalances[chan.id]?.current || 0;
-                    let pIn = 0, pOut = 0;
-                    activeTenantFilterLedger.forEach((e: any) => {
-                      if (e.channelId === chan.id) { if (e.amount >= 0) pIn += e.amount; else pOut += Math.abs(e.amount); }
-                    });
-                    const type = getPaymentType(chan.name, normalizePaymentModes(systemSettings?.business?.paymentModes || []));
-                    const colors = PAYMENT_TYPE_COLORS[type];
-                    const icon = chan.category === 'physical' ? '💵' : chan.category === 'telco' ? '📱' : '🏦';
+                {(() => {
+                  const { startIso, endIso } = getFilterBoundaries();
+                  const expensesInRange = expenses.filter((e: any) => {
+                    const t = (e as any).date || e.timestamp || '';
+                    return t >= startIso && t <= endIso;
+                  });
+                  const totalOut = expensesInRange.reduce((s: number, e: any) => s + Math.max(0, Number(e.amount || 0)), 0);
+                  const byCategory: Record<string, number> = {};
+                  expensesInRange.forEach((e: any) => {
+                    const cat = (e as any).category || 'Other';
+                    byCategory[cat] = (byCategory[cat] || 0) + Math.max(0, Number(e.amount || 0));
+                  });
+                  if (totalOut <= 0) {
                     return (
-                      <div key={chan.id} className="rounded-2xl p-5 cursor-pointer hover:shadow-md transition-all"
-                        style={{background: colors.bg, border:`1.5px solid ${colors.border}`}}
-                        onClick={() => { setSelectedChannelId(chan.id); setDesktopTab('accounts'); }}>
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-2xl">{icon}</span>
-                          <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-lg" style={{background: colors.text + '20', color: colors.text}}>
-                            {chan.category === 'telco' ? 'Mobile' : chan.category === 'physical' ? 'Cash' : 'Bank'}
-                          </span>
-                        </div>
-                        <p className="text-xs font-bold text-slate-600 truncate mb-1">{chan.name}</p>
-                        <p className="text-2xl font-black" style={{color: bal < 0 ? '#dc2626' : colors.text}}>{formatCurrency(bal)}</p>
-                        <div className="flex gap-3 mt-3 pt-3 border-t" style={{borderColor: colors.border}}>
-                          <div>
-                            <p className="text-[8px] font-bold opacity-60">Period In</p>
-                            <p className="text-xs font-black text-emerald-600">+{formatCurrency(pIn)}</p>
-                          </div>
-                          <div>
-                            <p className="text-[8px] font-bold opacity-60">Period Out</p>
-                            <p className="text-xs font-black text-rose-500">-{formatCurrency(pOut)}</p>
-                          </div>
-                        </div>
+                      <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center">
+                        <p className="text-sm font-black text-slate-800">Money Out</p>
+                        <p className="text-xs text-slate-400 mt-1">No expenses recorded in this period.</p>
                       </div>
                     );
-                  })}
-                </div>
+                  }
+                  return (
+                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <p className="text-sm font-black text-slate-800">Money Out</p>
+                        <p className="text-sm font-black text-rose-600">{formatCurrency(totalOut)}</p>
+                      </div>
+                      <div className="divide-y divide-slate-50">
+                        {Object.entries(byCategory).sort((a,b) => b[1]-a[1]).map(([cat, amt]) => {
+                          const pct = totalOut > 0 ? Math.round((amt / totalOut) * 100) : 0;
+                          return (
+                            <div key={cat} className="flex items-center gap-3 px-5 py-3">
+                              <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center shrink-0">
+                                <ArrowDownRight className="w-4 h-4 text-rose-500"/>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-center mb-1">
+                                  <p className="text-xs font-bold text-slate-700 truncate">{cat}</p>
+                                  <p className="text-xs font-black text-rose-600 ml-2 shrink-0">{formatCurrency(amt)}</p>
+                                </div>
+                                <div className="h-1.5 bg-rose-50 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full bg-rose-400" style={{width:`${pct}%`}}/>
+                                </div>
+                              </div>
+                              <span className="text-[9px] font-bold text-slate-400 w-8 text-right shrink-0">{pct}%</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
                 <button type="button" onClick={() => setDesktopTab('transfer')}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-2xl text-sm flex items-center justify-center gap-2 cursor-pointer">
                   <Send className="w-4 h-4 text-emerald-400"/>
@@ -1683,7 +1698,7 @@ export default function DashboardCashBank({
                       })}
                     </div>
                   </div>
-                  {totalOut > 0 && (
+                  {desktopTab !== 'overview' && totalOut > 0 && (
                     <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
                       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                         <p className="text-sm font-black text-slate-800">Money Out</p>
