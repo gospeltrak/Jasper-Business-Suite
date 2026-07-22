@@ -33,6 +33,19 @@ export interface TenantWorkspace {
 const runtimeWorkspaces = new Map<string, TenantWorkspace>();
 const runtimeProductsUpdatedAt = new Map<string, string>();
 
+// Guards against an out-of-order-completion race: saveTenantWorkspace fires
+// immediately (no debounce) on every salesMap/expensesMap/productsMap/etc.
+// change. A single user action (e.g. delete sale, which also adjusts stock)
+// can trigger two overlapping save calls a few ms apart — one with the
+// pre-change data, one with the post-change (correct) data. On a slow or
+// jittery connection (mobile data), the OLDER call can finish its network
+// round-trip AFTER the newer one, silently overwriting the correct save
+// with stale data — e.g. a deleted sale reappearing "after a while".
+// Fix: every call grabs a per-tenant sequence number; only the call that is
+// still the latest issued for that tenant when it reaches the actual write
+// is allowed to write. Older, superseded calls skip their write entirely.
+const workspaceSaveSeq = new Map<string, number>();
+
 export const readCachedWorkspace = (tenantId: string): TenantWorkspace | null => {
   return runtimeWorkspaces.get(tenantId) || null;
 };
@@ -381,6 +394,10 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
     return false;
   }
 
+  const mySeq = (workspaceSaveSeq.get(tenantId) || 0) + 1;
+  workspaceSaveSeq.set(tenantId, mySeq);
+  const isStillLatest = () => workspaceSaveSeq.get(tenantId) === mySeq;
+
   try {
     // Use in-memory cache only — no remote SELECT pre-read.
     // Cache is the source of truth for this session.
@@ -446,6 +463,16 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
       console.warn('[workspace] prevented destructive overwrite for:', protection.protectedKeys.join(', '));
     }
 
+    // A newer save for this tenant has been issued since this call started
+    // (e.g. a follow-up state change fired another save a few ms later).
+    // That newer call has fresher data — let it win. Writing this stale
+    // payload now could overwrite the newer save if this network call
+    // happens to complete after it (out-of-order completion).
+    if (!isStillLatest()) {
+      console.warn('[workspace] skipped stale save (superseded by a newer save for this tenant)');
+      return false;
+    }
+
     // Direct upsert — no pre-read, instant DB write
     const { error } = await client
       .from('tenant_workspaces')
@@ -457,6 +484,12 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
     if (error) {
       console.warn('[workspace] save error:', error.message, '| code:', (error as any).code);
       return false;
+    }
+
+    if (!isStillLatest()) {
+      // An even newer save started and will also write — its result should
+      // win in cache too, so avoid clobbering it with this call's snapshot.
+      return true;
     }
 
     writeLocalProductTombstones(tenantId, mergedTombstones);
