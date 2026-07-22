@@ -920,30 +920,49 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         : makeInternalEmailCandidatesFromPhone(cleanIdentifier);
       const authEmail = authEmailCandidates[0] || cleanIdentifier.toLowerCase();
       
-      // Perform authentic database-backed authentication securely
+      // Perform authentic database-backed authentication securely.
+      // A phone number can map to up to ~4 synthetic email formats and only
+      // one is the real registered auth email. The previous version tried
+      // them ONE AT A TIME (await in a loop) — every wrong guess cost a full
+      // network round trip before even reaching the right candidate, which
+      // was a major contributor to slow sign-in on mobile data. Try every
+      // candidate in parallel instead; total time is bounded by the slowest
+      // single attempt, not the sum of all of them.
       let authData: any = null;
       let authError: any = null;
       let matchedAuthEmail = authEmail;
-      for (const candidateEmail of authEmailCandidates.length ? authEmailCandidates : [authEmail]) {
-        ({ data: authData, error: authError } = await client.auth.signInWithPassword({
-          email: candidateEmail,
-          password: cleanPassword
-        }));
+      const loginCandidateList = authEmailCandidates.length ? authEmailCandidates : [authEmail];
+      const attemptCandidates = async () => {
+        const settled = await Promise.allSettled(
+          loginCandidateList.map((candidateEmail) =>
+            client.auth.signInWithPassword({ email: candidateEmail, password: cleanPassword })
+              .then((result: any) => ({ candidateEmail, data: result?.data, error: result?.error }))
+          )
+        );
+        const fulfilled = settled
+          .filter((r: any) => r.status === 'fulfilled')
+          .map((r: any) => r.value);
+        const success = fulfilled.find((r: any) => !r.error && r.data?.user);
+        return { success, fulfilled };
+      };
 
-        if (authError && typeof navigator !== 'undefined' && navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
-          try {
-            await client.auth.signOut({ scope: 'local' });
-            ({ data: authData, error: authError } = await client.auth.signInWithPassword({
-              email: candidateEmail,
-              password: cleanPassword
-            }));
-          } catch (_) { /* fallback continues below */ }
-        }
+      let { success: loginMatch } = await attemptCandidates();
 
-        if (!authError && authData?.user) {
-          matchedAuthEmail = candidateEmail;
-          break;
-        }
+      if (!loginMatch && typeof navigator !== 'undefined' && navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
+        // Safari sometimes needs a local sign-out before a sign-in attempt sticks.
+        try {
+          await client.auth.signOut({ scope: 'local' });
+          ({ success: loginMatch } = await attemptCandidates());
+        } catch (_) { /* fallback continues below */ }
+      }
+
+      if (loginMatch) {
+        authData = loginMatch.data;
+        authError = null;
+        matchedAuthEmail = loginMatch.candidateEmail;
+      } else {
+        authData = null;
+        authError = new Error('Invalid login credentials');
       }
 
       // All synthetic email attempts failed — use backend to look up real email (bypasses RLS)
@@ -1037,26 +1056,36 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         startCloudSession(authData.session?.access_token).catch(() => null);
 
         // Active profile matches perfect tenant! Log in
-        // Pre-warm local workspace cache so dashboard has data immediately
+        // Warm the local workspace cache in the BACKGROUND (fire-and-forget).
+        // This used to be awaited here with its own 5s timeout budget, adding
+        // up to another 5 seconds of blocking delay before the dashboard was
+        // even allowed to start — on top of auth + profile fetch. It exists
+        // purely to make the dashboard feel instant once it mounts; the
+        // dashboard's own loadTenantWorkspace() call loads the real data
+        // regardless, so nothing depends on this finishing before login
+        // completes. Not awaiting it removes a full extra round trip from the
+        // critical sign-in path.
         const tenantId = userProfile.tenant_id || userProfile.active_tenant;
         if (tenantId) {
           const cacheKey = `jasper_workspace_cache_${tenantId}`;
-          try {
-            const workspaceResult: any = await Promise.race([
-              client.from('tenant_workspaces').select('payload').eq('tenant_id', tenantId).maybeSingle(),
-              new Promise((_, reject) => window.setTimeout(() => reject(new Error('Workspace pre-load timed out.')), 5000))
-            ]);
-            const ws = workspaceResult?.data;
-            if (ws?.payload) {
-              const currentCache = readJsonValue(cacheKey);
-              if (!payloadHasRecords(ws.payload) && payloadHasRecords(currentCache)) {
-                console.warn('[login] ignored empty workspace pre-warm payload because local cache has data');
-              } else {
-                safeSetJsonItem(cacheKey, ws.payload, { tenantId, dataKey: 'tenant_workspaces', logLabel: `${tenantId}/workspace-cache` });
+          (async () => {
+            try {
+              const workspaceResult: any = await Promise.race([
+                client.from('tenant_workspaces').select('payload').eq('tenant_id', tenantId).maybeSingle(),
+                new Promise((_, reject) => window.setTimeout(() => reject(new Error('Workspace pre-load timed out.')), 5000))
+              ]);
+              const ws = workspaceResult?.data;
+              if (ws?.payload) {
+                const currentCache = readJsonValue(cacheKey);
+                if (!payloadHasRecords(ws.payload) && payloadHasRecords(currentCache)) {
+                  console.warn('[login] ignored empty workspace pre-warm payload because local cache has data');
+                } else {
+                  safeSetJsonItem(cacheKey, ws.payload, { tenantId, dataKey: 'tenant_workspaces', logLabel: `${tenantId}/workspace-cache` });
+                }
+                onlineStorage.setItem(`${cacheKey}_synced_at`, new Date().toISOString());
               }
-              onlineStorage.setItem(`${cacheKey}_synced_at`, new Date().toISOString());
-            }
-          } catch (_) { /* non-fatal — dashboard will load from DB directly */ }
+            } catch (_) { /* non-fatal — dashboard will load from DB directly */ }
+          })();
         }
 
         triggerOnLoginWithSplash({

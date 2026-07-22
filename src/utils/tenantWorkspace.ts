@@ -256,11 +256,6 @@ async function loadLegacyTenantWorkspaceMeta(client: any, tenantId: string): Pro
   };
 }
 
-async function loadLegacyTenantWorkspace(client: any, tenantId: string): Promise<TenantWorkspace | null> {
-  const legacy = await loadLegacyTenantWorkspaceMeta(client, tenantId);
-  return legacy.workspace;
-}
-
 async function saveRemoteWorkspaceBackup(
   client: any,
   tenantId: string,
@@ -302,11 +297,20 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
   if (!client) return null;
 
   try {
-    const { data, error } = await client
-      .from('tenant_workspaces')
-      .select('payload, updated_at')
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
+    // Fetch the canonical workspace row and the legacy-table reconciliation
+    // data IN PARALLEL. These are two independent reads — the original code
+    // awaited them one after another (canonical select, then a *separate*
+    // legacy-table select later on), adding a full extra network round trip
+    // to every single sign-in/dashboard load. On a slow mobile connection
+    // that alone can add several seconds to "very long time to load".
+    const [{ data, error }, legacyMeta] = await Promise.all([
+      client
+        .from('tenant_workspaces')
+        .select('payload, updated_at')
+        .eq('tenant_id', tenantId)
+        .maybeSingle(),
+      loadLegacyTenantWorkspaceMeta(client, tenantId),
+    ]);
 
     if (error) {
       console.warn('[workspace] load error:', error.message);
@@ -314,7 +318,7 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
     }
 
     if (!data?.payload) {
-      const legacy = await loadLegacyTenantWorkspace(client, tenantId);
+      const legacy = legacyMeta.workspace;
       if (legacy && workspaceHasBusinessData(legacy)) {
         await client
           .from('tenant_workspaces')
@@ -333,7 +337,7 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
     // Online-only mode: do not push browser-local product cache into the
     // canonical cloud workspace during load. Cloud remains the source of truth.
     if (!workspaceHasBusinessData(safe)) {
-      const legacy = await loadLegacyTenantWorkspace(client, tenantId);
+      const legacy = legacyMeta.workspace;
       if (legacy && workspaceHasBusinessData(legacy)) {
         await client
           .from('tenant_workspaces')
@@ -345,7 +349,6 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
         return legacy;
       }
     }
-    const legacyMeta = await loadLegacyTenantWorkspaceMeta(client, tenantId);
     const legacyProductsUpdatedAt = legacyMeta.updatedAtByKey.products_map || legacyMeta.updatedAtByKey.products;
     const legacyProducts = legacyMeta.workspace?.products || [];
     const legacyProductScore = getProductPayloadQualityScore(legacyProducts);
