@@ -59,63 +59,120 @@ const inferImageType = (src: string) => {
   return 'image/png';
 };
 
+// Business documents (receipts, invoices) are printed on white paper, so the
+// installed app icon and splash screen must show the tenant logo the same
+// way: sitting on a solid white square, never floating on a dark or
+// transparent background. This composites the (possibly transparent) logo
+// onto a white canvas before it is used as a PWA icon.
+const createWhiteBackedIcon = (src: string): Promise<string> =>
+  new Promise((resolve) => {
+    if (!src || src.startsWith('data:image/svg')) {
+      // SVG initials badge already ships its own solid background.
+      resolve(src);
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const size = 512;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (!ctx || !img.naturalWidth || !img.naturalHeight) { resolve(src); return; }
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, size, size);
+        // Keep the logo inside Android's maskable "safe zone" (~80% of the icon).
+        const padding = size * 0.16;
+        const maxDim = size - padding * 2;
+        const ratio = Math.min(maxDim / img.naturalWidth, maxDim / img.naturalHeight);
+        const drawW = img.naturalWidth * ratio;
+        const drawH = img.naturalHeight * ratio;
+        ctx.drawImage(img, (size - drawW) / 2, (size - drawH) / 2, drawW, drawH);
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        // Cross-origin logo without CORS headers taints the canvas — fall
+        // back to the original source rather than breaking the PWA banner.
+        resolve(src);
+      }
+    };
+    img.onerror = () => resolve(src);
+    img.src = src;
+  });
+
 function usePersonalizedManifest({ tenantId, businessName, businessLogo, enabled }: PWAInstallBannerProps) {
   useEffect(() => {
     if (!enabled || !tenantId) return undefined;
+    let cancelled = false;
+    let manifestLink: HTMLLinkElement | null = null;
+    let titleMeta: HTMLMetaElement | null = null;
+    let appleIcon: HTMLLinkElement | null = null;
+    let manifestUrl: string | null = null;
 
     const name = safeBusinessName(businessName);
     const encodedTenantId = encodeURIComponent(tenantId);
-    const iconSource = businessLogo || createBusinessInitialsIcon(name);
-    const icons = [{
-      src: iconSource,
-      sizes: 'any',
-      type: inferImageType(iconSource),
-      purpose: 'any maskable',
-    }];
+    const rawIconSource = businessLogo || createBusinessInitialsIcon(name);
 
-    const manifest = {
-      id: `/dashboard?tenant=${encodedTenantId}`,
-      name,
-      short_name: shortBusinessName(name),
-      description: `${name} business app`,
-      start_url: `/dashboard?tenant=${encodedTenantId}`,
-      scope: '/',
-      display: 'standalone',
-      display_override: ['standalone', 'fullscreen'],
-      background_color: '#0f172a',
-      theme_color: '#0f172a',
-      orientation: 'portrait-primary',
-      categories: ['business', 'productivity', 'finance'],
-      prefer_related_applications: false,
-      icons,
-    };
+    (async () => {
+      // Always composite onto solid white first — the tenant logo must look
+      // the same on the home-screen icon / splash screen as it does on a
+      // printed receipt or invoice, not floating on transparency or navy.
+      const iconSource = await createWhiteBackedIcon(rawIconSource);
+      if (cancelled) return;
 
-    const manifestUrl = URL.createObjectURL(
-      new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }),
-    );
-    const manifestLink = document.createElement('link');
-    manifestLink.rel = 'manifest';
-    manifestLink.href = manifestUrl;
-    manifestLink.dataset.tenantPwa = tenantId;
-    document.head.appendChild(manifestLink);
+      const icons = [{
+        src: iconSource,
+        sizes: 'any',
+        type: inferImageType(iconSource),
+        purpose: 'any maskable',
+      }];
 
-    const titleMeta = document.createElement('meta');
-    titleMeta.name = 'apple-mobile-web-app-title';
-    titleMeta.content = name;
-    titleMeta.dataset.tenantPwa = tenantId;
-    document.head.appendChild(titleMeta);
+      const manifest = {
+        id: `/dashboard?tenant=${encodedTenantId}`,
+        name,
+        short_name: shortBusinessName(name),
+        description: `${name} business app`,
+        start_url: `/dashboard?tenant=${encodedTenantId}`,
+        scope: '/',
+        display: 'standalone',
+        display_override: ['standalone', 'fullscreen'],
+        background_color: '#ffffff',
+        theme_color: '#ffffff',
+        orientation: 'portrait-primary',
+        categories: ['business', 'productivity', 'finance'],
+        prefer_related_applications: false,
+        icons,
+      };
 
-    const appleIcon = document.createElement('link');
-    appleIcon.rel = 'apple-touch-icon';
-    appleIcon.href = iconSource;
-    appleIcon.dataset.tenantPwa = tenantId;
-    document.head.appendChild(appleIcon);
+      manifestUrl = URL.createObjectURL(
+        new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }),
+      );
+      manifestLink = document.createElement('link');
+      manifestLink.rel = 'manifest';
+      manifestLink.href = manifestUrl;
+      manifestLink.dataset.tenantPwa = tenantId;
+      document.head.appendChild(manifestLink);
+
+      titleMeta = document.createElement('meta');
+      titleMeta.name = 'apple-mobile-web-app-title';
+      titleMeta.content = name;
+      titleMeta.dataset.tenantPwa = tenantId;
+      document.head.appendChild(titleMeta);
+
+      appleIcon = document.createElement('link');
+      appleIcon.rel = 'apple-touch-icon';
+      appleIcon.href = iconSource;
+      appleIcon.dataset.tenantPwa = tenantId;
+      document.head.appendChild(appleIcon);
+    })();
 
     return () => {
-      manifestLink.remove();
-      titleMeta.remove();
-      appleIcon.remove();
-      URL.revokeObjectURL(manifestUrl);
+      cancelled = true;
+      manifestLink?.remove();
+      titleMeta?.remove();
+      appleIcon?.remove();
+      if (manifestUrl) URL.revokeObjectURL(manifestUrl);
     };
   }, [businessLogo, businessName, enabled, tenantId]);
 }

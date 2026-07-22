@@ -210,6 +210,141 @@ export function createReceiptPdfFromData(data: ReceiptData): File {
   return new File([pdf.output('blob')], cleanName, { type: 'application/pdf' });
 }
 
+// ─── Real PDF POS receipt generator (narrow thermal-width, dynamic height) ────
+// Same "no screenshot" vector approach as the A4 generator above, but sized
+// like an actual POS/till receipt (80mm-equivalent width) instead of a full
+// A4 page, and with a layout built for that narrow column.
+
+function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
+  const margin = 10;
+  const contentWidth = width - margin * 2;
+  const navy = '#0f172a';
+  const muted = '#64748b';
+  let y = 16;
+
+  const center = (value: string, yPos: number, opts: { size?: number; bold?: boolean; color?: string } = {}) => {
+    pdf.setFont('helvetica', opts.bold ? 'bold' : 'normal');
+    pdf.setFontSize(opts.size || 7.5);
+    pdf.setTextColor(opts.color || navy);
+    pdf.text(value, width / 2, yPos, { align: 'center' });
+  };
+  const left = (value: string, x: number, yPos: number, opts: { size?: number; bold?: boolean; color?: string; align?: 'left' | 'right' } = {}) => {
+    pdf.setFont('helvetica', opts.bold ? 'bold' : 'normal');
+    pdf.setFontSize(opts.size || 7.5);
+    pdf.setTextColor(opts.color || navy);
+    pdf.text(value, x, yPos, { align: opts.align || 'left' });
+  };
+  const dashedLine = (yPos: number) => {
+    pdf.setDrawColor('#94a3b8');
+    pdf.setLineDashPattern([1.5, 1.5], 0);
+    pdf.line(margin, yPos, width - margin, yPos);
+    pdf.setLineDashPattern([], 0);
+  };
+  const fmt = (amount: number) => `${data.currency} ${Math.abs(amount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+
+  // Logo — small, centered, drawn on the receipt's white background (never
+  // on a dark box) so it looks identical to how it prints on real till paper.
+  if (data.businessLogo?.startsWith('data:image/')) {
+    try {
+      const logoW = 44;
+      const logoH = 44;
+      pdf.addImage(data.businessLogo, data.businessLogo.includes('png') ? 'PNG' : 'JPEG', (width - logoW) / 2, y, logoW, logoH, undefined, 'FAST');
+      y += logoH + 6;
+    } catch { /* fall back to text-only header */ }
+  }
+
+  center(data.businessName.toUpperCase(), y, { size: 10.5, bold: true });
+  y += 13;
+  [data.businessCity, data.businessAddress, data.businessPhone ? `Tel: ${data.businessPhone}` : '', data.businessEmail].filter(Boolean).forEach(line => {
+    center(String(line), y, { size: 6.8, color: muted });
+    y += 10;
+  });
+  y += 4;
+  dashedLine(y);
+  y += 12;
+
+  const title = (data.documentTitle || 'POS RECEIPT').toUpperCase();
+  center(title, y, { size: 8.5, bold: true });
+  y += 12;
+  left(`No: ${data.receiptId}`, margin, y, { size: 7 });
+  left(
+    new Date(data.timestamp).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    width - margin, y, { size: 7, align: 'right', color: muted }
+  );
+  y += 11;
+  if (data.cashierName) { left(`Cashier: ${data.cashierName}`, margin, y, { size: 7, color: muted }); y += 11; }
+  if (data.customerName) { left(`Customer: ${data.customerName}`, margin, y, { size: 7, color: muted }); y += 11; }
+  y += 3;
+  dashedLine(y);
+  y += 12;
+
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.8); pdf.setTextColor(muted);
+  pdf.text('ITEM', margin, y);
+  pdf.text('TOTAL', width - margin, y, { align: 'right' });
+  y += 10;
+  dashedLine(y);
+  y += 10;
+
+  data.items.forEach(item => {
+    const nameLines = pdf.splitTextToSize(item.name || 'Item', contentWidth);
+    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.4); pdf.setTextColor(navy);
+    pdf.text(nameLines, margin, y);
+    y += nameLines.length * 9;
+    const qtyLine = `${item.qty}${item.unit ? ` ${item.unit}` : ''} x ${fmt(item.price)}`;
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7); pdf.setTextColor(muted);
+    pdf.text(qtyLine, margin, y);
+    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.4); pdf.setTextColor(navy);
+    pdf.text(fmt(item.total), width - margin, y, { align: 'right' });
+    y += 13;
+  });
+
+  y += 2;
+  dashedLine(y);
+  y += 12;
+
+  const totalRow = (label: string, value: string, opts: { bold?: boolean; size?: number } = {}) => {
+    left(label, margin, y, { size: opts.size || 7.5, bold: opts.bold, color: opts.bold ? navy : muted });
+    left(value, width - margin, y, { size: opts.size || 7.5, bold: true, align: 'right' });
+    y += 12;
+  };
+  totalRow('Subtotal', fmt(data.subtotal));
+  if ((data.discount || 0) > 0) totalRow('Discount', `-${fmt(data.discount || 0)}`);
+  if ((data.tax || 0) > 0) totalRow('VAT / Tax', fmt(data.tax || 0));
+  if ((data.deliveryCost || 0) > 0) totalRow('Delivery', fmt(data.deliveryCost || 0));
+  y += 2;
+  dashedLine(y);
+  y += 12;
+  totalRow('TOTAL', fmt(data.grandTotal), { bold: true, size: 9.5 });
+  y += 2;
+  if (data.amountPaid !== undefined) totalRow('Paid', fmt(data.amountPaid));
+  const balance = Math.max(0, data.grandTotal - (data.amountPaid || 0));
+  if (balance > 0) totalRow('Balance due', fmt(balance));
+  else if ((data.change || 0) > 0) totalRow('Change', fmt(data.change || 0));
+  left(`Payment: ${data.paymentMethod}`, margin, y, { size: 7, color: muted });
+  y += 14;
+
+  dashedLine(y);
+  y += 14;
+  center(data.footer || 'Thank you for your business!', y, { size: 7, bold: true });
+  y += 12;
+  center('Powered by Ndiva Suite', y, { size: 6, color: muted });
+  y += 10;
+
+  return y;
+}
+
+export function createPosReceiptPdfFromData(data: ReceiptData): File {
+  const width = 226; // ~80mm thermal-receipt width at 72dpi, matches real till paper
+  const measurePdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [width, 3000] });
+  const measuredHeight = drawPosReceipt(measurePdf, data, width);
+
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [width, Math.ceil(measuredHeight) + 16] });
+  drawPosReceipt(pdf, data, width);
+
+  const cleanName = sanitizeFileName(`pos-receipt-${data.receiptId}.pdf`);
+  return new File([pdf.output('blob')], cleanName, { type: 'application/pdf' });
+}
+
 // ─── Share result types ───────────────────────────────────────────────────────
 
 export type ShareResult =
@@ -223,7 +358,7 @@ export async function sharePosReceiptPdf(
   phone: string,
   message?: string
 ): Promise<ShareResult> {
-  const pdfFile = createReceiptPdfFromData(data);
+  const pdfFile = createPosReceiptPdfFromData(data);
   const waMessage = message || `Hello${data.customerName ? ` ${data.customerName}` : ''}, please find your receipt attached from ${data.businessName}. Thank you!`;
   const cleanPhone = phone.replace(/[^\d]/g, '');
   const files = [pdfFile];

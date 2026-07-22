@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import DashboardBarcodeScanner from './DashboardBarcodeScanner';
 import CachedImage from './CachedImage';
-import { createReceiptPdfFromData, printPdfFile, sharePosReceiptPdf, ReceiptData } from '../utils/pdfShare';
+import { createPosReceiptPdfFromData, printPdfFile, sharePosReceiptPdf, ReceiptData } from '../utils/pdfShare';
 
 // Web Audio API helper for offline-friendly beep sound
 // Shared AudioContext singleton — created once, reused for all beeps (eliminates init lag)
@@ -353,7 +353,7 @@ export default function DashboardPOS({
         amountPaid: receiptResult.amountPaid ?? receiptResult.total,
         change: receiptResult.change ?? 0,
         vatNumber: (systemSettings?.business as any)?.vatNumber || undefined,
-        documentTitle: 'A4 Receipt',
+        documentTitle: 'POS Receipt',
         status: (receiptResult.amountPaid ?? receiptResult.total) >= receiptResult.total ? 'Paid' : 'Pending',
         preparedByRole: 'Cashier',
         terms,
@@ -397,7 +397,7 @@ export default function DashboardPOS({
     if (!receiptData) return;
     try {
       setReceiptPdfStatus('Generating printable receipt PDF...');
-      const pdfFile = createReceiptPdfFromData(receiptData);
+      const pdfFile = createPosReceiptPdfFromData(receiptData);
       printPdfFile(pdfFile);
       setReceiptPdfStatus('PDF opened for printing.');
     } catch (err: any) {
