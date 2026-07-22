@@ -5176,6 +5176,23 @@ export default function DashboardProducts({
                   <div className="flex-1"><p className="text-[14px] font-bold text-slate-800">Replenish Stock</p><p className="text-[11px] text-slate-400 mt-0.5">Add new stock from supplier</p></div>
                   <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                 </button>
+                <button type="button" aria-label="Transfer stock"
+                  onClick={() => {
+                    const prod = mobileProductMenu;
+                    if (prod) runAfterMobileMenuClose(() => {
+                      setTransferProduct(prod);
+                      setTransferQty(1);
+                      setTransferDirection('store_to_shop');
+                      setTransferError(null);
+                      setTransferSuccess(false);
+                    });
+                  }}
+                  className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-slate-50 text-left border border-slate-100"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-purple-50 flex items-center justify-center shrink-0"><ArrowLeftRight className="w-5 h-5 text-purple-600" /></div>
+                  <div className="flex-1"><p className="text-[14px] font-bold text-slate-800">Transfer Stock</p><p className="text-[11px] text-slate-400 mt-0.5">Move stock between store and shop floor</p></div>
+                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                </button>
                 <button type="button" aria-label="Adjust stock"
                   onClick={() => {
                     const prod = mobileProductMenu;
