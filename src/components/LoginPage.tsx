@@ -254,6 +254,18 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     return raw ? JSON.parse(raw) : ['retail', 'pharmacy']; // Matches the user's wish: retail & pharmacy active first!
   });
 
+  // Dashboard is code-split (React.lazy in App.tsx) so the login screen
+  // itself doesn't have to ship Dashboard's much heavier bundle (charts,
+  // PDF generation, barcode scanning, every dashboard tab, etc.) before it
+  // can even render. But almost everyone who reaches this screen is about
+  // to log into the dashboard, so start downloading that chunk in the
+  // background the moment the login screen mounts. By the time the auth
+  // network round trip finishes, the Dashboard code is very likely already
+  // cached, instead of only starting to download AFTER login succeeds.
+  useEffect(() => {
+    import('./Dashboard').catch(() => { /* best-effort prefetch only */ });
+  }, []);
+
   useEffect(() => {
     if (tenantLogoFromContext) {
       setLoginScreenLogoUrl(tenantLogoFromContext);

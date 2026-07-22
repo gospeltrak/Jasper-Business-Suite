@@ -1,9 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import LandingPage from './components/LandingPage';
 import LoginPage from './components/LoginPage';
-import Dashboard from './components/Dashboard';
-import AffiliatePortal from './components/AffiliatePortal';
-import ToolsHub from './components/ToolsHub';
 import JasperSplashScreen from './components/JasperSplashScreen';
 import { User, Tenant } from './types';
 import { useTheme } from './ThemeContext';
@@ -12,6 +9,20 @@ import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '
 import { endCloudSession, touchCloudSession } from './utils/sessionControl';
 import { pullFromCloud, pushToCloud } from './utils/dbSync';
 import { configureOnlineStorage, resetOnlineStorage } from './utils/onlineStorage';
+
+// Code-split the heavy, post-login-only screens. App.tsx used to import
+// these directly, which meant Dashboard (every dashboard tab, charts,
+// PDF generation, barcode scanning, forecasting, etc.) had to be
+// downloaded and parsed before even the LOGIN PAGE could render — the
+// single JS bundle was ~4.8MB (~1.2MB gzipped). Landing/Login stay eager
+// since they're what almost every fresh visit needs immediately; these
+// three are only needed after auth/navigation, so they load on demand.
+// (LoginPage also prefetches the Dashboard chunk in the background as
+// soon as it mounts, so it's usually already cached by the time login
+// succeeds — see LoginPage.tsx.)
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const AffiliatePortal = lazy(() => import('./components/AffiliatePortal'));
+const ToolsHub = lazy(() => import('./components/ToolsHub'));
 
 type TenantDomainContext = {
   kind: 'loading' | 'landing' | 'app' | 'tenant' | 'tenant-not-found' | 'tenant-inactive' | 'error';
@@ -595,6 +606,15 @@ export default function App() {
   // Resolve logo: tenant custom logo → system default
   const splashLogo = logoUrl || '/jasper_logo_transparent.png';
 
+  const lazyRouteFallback = (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-6 text-center">
+      <div className="space-y-3">
+        <img src="/jb-logo.png" alt="Ndiva Suite Logo" className="w-14 h-14 object-contain mx-auto animate-pulse" />
+        <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">Loading Ndiva Suite</p>
+      </div>
+    </div>
+  );
+
   return (
     <div id="jasper-app-root" className="app-shell min-h-[100dvh] bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-emerald-100 selection:text-emerald-900 transition-colors duration-300">
       {/* Premium animated splash — shown only on fresh dashboard login */}
@@ -605,7 +625,9 @@ export default function App() {
           onFinish={() => setShowSplash(false)}
         />
       )}
-      {renderRoute()}
+      <Suspense fallback={lazyRouteFallback}>
+        {renderRoute()}
+      </Suspense>
     </div>
   );
 }
