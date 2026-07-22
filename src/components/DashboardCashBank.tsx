@@ -70,6 +70,7 @@ export default function DashboardCashBank({
   // Mobile-only section tabs
   const [mobileSectionTab, setMobileSectionTab] = useState<'overview' | 'accounts' | 'transfer' | 'audit'>('overview');
   const [desktopTab, setDesktopTab] = useState<'overview' | 'accounts' | 'transfer' | 'history'>('overview');
+  const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
 
   // On mount: migrate any existing channels from dedicated onlineStorage key into systemSettings
   // This ensures existing user data is not lost when moving to new persistence model
@@ -362,7 +363,7 @@ export default function DashboardCashBank({
         entryType: 'debit',
         sourceType: 'EXPENSE_WITHDRAWAL',
         description: `Expense payout with safe drawer cash: ${exp.description} (${exp.category})`,
-        timestamp: exp.date ? new Date(exp.date).toISOString() : (exp.timestamp || new Date().toISOString())
+        timestamp: exp.timestamp || new Date().toISOString()
       });
     });
 
