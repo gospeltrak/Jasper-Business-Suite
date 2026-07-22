@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { getBusinessDisplayName } from '../utils/businessBranding';
 import { useTranslation } from '../LanguageContext';
 import { useTenantLogo } from '../TenantLogoContext';
@@ -13,31 +13,44 @@ import {
 } from '../data';
 
 // Subcomponents imports
-import DashboardOverview from './DashboardOverview';
 import DashboardScreenErrorBoundary from './DashboardScreenErrorBoundary';
-import DashboardPOS from './DashboardPOS';
-import DashboardProducts from './DashboardProducts';
-import DashboardSuppliers from './DashboardSuppliers';
-import DashboardLogsAndSync from './DashboardLogsAndSync';
-import DashboardReports from './DashboardReports';
-import DashboardExpenses from './DashboardExpenses';
-import DashboardSalesList from './DashboardSalesList';
-import DashboardForecasting from './DashboardForecasting';
-import DashboardCashBank from './DashboardCashBank';
 import { saveData } from '../utils/dbSync';
-import DashboardPurchases from './DashboardPurchases';
-import DashboardDeliveries from './DashboardDeliveries';
-import DashboardHotelPMS from './DashboardHotelPMS';
-import DashboardSandboxVerticals from './DashboardSandboxVerticals';
-import DashboardRestaurant from './DashboardRestaurant';
-import DashboardWhiteLabel from './DashboardWhiteLabel';
-import DashboardSettings, { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
-import DashboardStaff from './DashboardStaff';
+import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
 import AIBusinessCopilot from './AIBusinessCopilot';
 import GlobalStickyAd from './GlobalStickyAd';
-import SuperSaaSAdminView from './SuperSaaSAdminView';
 import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
+
+// Each dashboard tab (and the SaaS admin view) is code-split. Dashboard.tsx
+// used to import all ~20 of these eagerly, which meant every tab's code —
+// POS, products, cash & bank, forecasting, settings, the entire SaaS admin
+// panel, etc. — had to be downloaded AND parsed/executed as one ~2.9MB
+// bundle before ANY tab could render, even though a login only ever needs
+// the one tab the user actually lands on. Parsing/executing that much JS
+// is CPU-bound, not network-bound, so it stayed slow after login even on
+// fast WiFi (unlike the earlier network-latency fixes, which only reduced
+// download/round-trip time). Splitting per tab means only the active tab's
+// code has to load before it renders; the rest load on demand when the
+// user navigates to them.
+const DashboardOverview = lazy(() => import('./DashboardOverview'));
+const DashboardPOS = lazy(() => import('./DashboardPOS'));
+const DashboardProducts = lazy(() => import('./DashboardProducts'));
+const DashboardSuppliers = lazy(() => import('./DashboardSuppliers'));
+const DashboardLogsAndSync = lazy(() => import('./DashboardLogsAndSync'));
+const DashboardReports = lazy(() => import('./DashboardReports'));
+const DashboardExpenses = lazy(() => import('./DashboardExpenses'));
+const DashboardSalesList = lazy(() => import('./DashboardSalesList'));
+const DashboardForecasting = lazy(() => import('./DashboardForecasting'));
+const DashboardCashBank = lazy(() => import('./DashboardCashBank'));
+const DashboardPurchases = lazy(() => import('./DashboardPurchases'));
+const DashboardDeliveries = lazy(() => import('./DashboardDeliveries'));
+const DashboardHotelPMS = lazy(() => import('./DashboardHotelPMS'));
+const DashboardSandboxVerticals = lazy(() => import('./DashboardSandboxVerticals'));
+const DashboardRestaurant = lazy(() => import('./DashboardRestaurant'));
+const DashboardWhiteLabel = lazy(() => import('./DashboardWhiteLabel'));
+const DashboardSettings = lazy(() => import('./DashboardSettings'));
+const DashboardStaff = lazy(() => import('./DashboardStaff'));
+const SuperSaaSAdminView = lazy(() => import('./SuperSaaSAdminView'));
 import { savePendingSaleOffline } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
 import { flushPendingTenantWorkspace, loadTenantWorkspace, markTenantProductsUpdated, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
@@ -2593,6 +2606,14 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               </div>
             ) : (
             <DashboardScreenErrorBoundary resetKey={activeTab} onReturnToDashboard={() => setActiveTab('overview')}>
+            <Suspense fallback={
+              <div className="flex min-h-[50vh] w-full items-center justify-center">
+                <div className="flex items-center gap-3 text-slate-400 dark:text-slate-500">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-500 dark:border-slate-700" />
+                  <span className="text-sm font-semibold">Loading…</span>
+                </div>
+              </div>
+            }>
             <>
 
           {/* TAB ROOT: Hotel Property Management Room Matrix (PMS) */}
@@ -2975,6 +2996,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           )}
 
             </>
+            </Suspense>
             </DashboardScreenErrorBoundary>
             )}
 
