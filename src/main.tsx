@@ -2,6 +2,7 @@ import './utils/onlineStorage';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App';
+import AppErrorBoundary from './components/AppErrorBoundary';
 import './index.css';
 import { ThemeProvider } from './ThemeContext';
 import { LanguageProvider } from './LanguageContext';
@@ -25,13 +26,15 @@ window.visualViewport?.addEventListener('scroll', syncViewportVars, { passive: t
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ThemeProvider>
-      <LanguageProvider>
-        <TenantLogoProvider>
-            <App />
-        </TenantLogoProvider>
-      </LanguageProvider>
-    </ThemeProvider>
+    <AppErrorBoundary>
+      <ThemeProvider>
+        <LanguageProvider>
+          <TenantLogoProvider>
+              <App />
+          </TenantLogoProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    </AppErrorBoundary>
   </StrictMode>,
 );
 // Sat Jul 18 18:28:48 UTC 2026

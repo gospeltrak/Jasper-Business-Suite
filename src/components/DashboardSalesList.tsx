@@ -2710,7 +2710,7 @@ export default function DashboardSalesList({
       {activeSubTab === 'documents' && (() => {
         const filteredDocs = documents.filter(doc => {
           const matchType = selectedDocTypeFilter === 'all' || doc.type === selectedDocTypeFilter;
-          const matchSearch = doc.customerName.toLowerCase().includes(searchTerm.toLowerCase()) || doc.documentNumber.toLowerCase().includes(searchTerm.toLowerCase());
+          const matchSearch = (doc.customerName || '').toLowerCase().includes(searchTerm.toLowerCase()) || (doc.documentNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
           return matchType && matchSearch;
         });
 

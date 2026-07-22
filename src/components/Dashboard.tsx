@@ -14,6 +14,7 @@ import {
 
 // Subcomponents imports
 import DashboardOverview from './DashboardOverview';
+import DashboardScreenErrorBoundary from './DashboardScreenErrorBoundary';
 import DashboardPOS from './DashboardPOS';
 import DashboardProducts from './DashboardProducts';
 import DashboardSuppliers from './DashboardSuppliers';
@@ -2594,6 +2595,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 </section>
               </div>
             ) : (
+            <DashboardScreenErrorBoundary resetKey={activeTab} onReturnToDashboard={() => setActiveTab('overview')}>
             <>
 
           {/* TAB ROOT: Hotel Property Management Room Matrix (PMS) */}
@@ -2976,6 +2978,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           )}
 
             </>
+            </DashboardScreenErrorBoundary>
             )}
 
           </main>

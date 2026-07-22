@@ -1399,12 +1399,15 @@ export default function DashboardProducts({
   };
 
   // Filter products catalog
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.barcode.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase()))
-  ).sort((a, b) => {
+  const filteredProducts = products.filter(p => {
+    const q = searchTerm.toLowerCase();
+    return (
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.barcode || '').toLowerCase().includes(q) ||
+      (p.category || '').toLowerCase().includes(q) ||
+      (p.brand && p.brand.toLowerCase().includes(q))
+    );
+  }).sort((a, b) => {
     // Zero/negative stock goes to bottom, in-stock stays on top
     const stockA = a.shopStockQty ?? a.stockQty ?? 0;
     const stockB = b.shopStockQty ?? b.stockQty ?? 0;
