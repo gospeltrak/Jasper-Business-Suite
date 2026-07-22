@@ -18,7 +18,7 @@ describe('mergeRecordsById', () => {
       [{ id: 'b', name: 'B' }],
     );
     const ids = result.map((r: any) => r.id).sort();
-    expect(ids).toEqual(['a', 'DELIBERATELY_BROKEN_FOR_GATE_TEST']);
+    expect(ids).toEqual(['a', 'b']);
   });
 
   it('never drops a record that is missing from "incoming" — this is why it must not be used for deletable data', () => {
