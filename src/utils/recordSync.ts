@@ -12,18 +12,20 @@ const RECORD_TIME_KEYS = [
   'deliveredAt',
 ];
 
+// IMPORTANT: this must never contain a data key that supports
+// user-initiated deletion (sales, expenses, deliveries, purchases,
+// pendingDeliveryNotes). mergeRecordsById() below is a pure UNION-by-id
+// merge — it can add or replace records but can never remove one that's
+// missing from "incoming". A dataKey in this set gets merged against
+// whatever is already in the legacy tenant_data table (dbSync.ts
+// saveData()), so deleting a sale locally and then saving through this
+// path would silently bring it back the next time this ran. That exact
+// bug shipped and was fixed in commit 5067650 — sales/expenses/etc. were
+// removed from the call sites that used this path, and are intentionally
+// excluded here too as a second line of defense. Only keys where "union,
+// never delete" is actually correct (org/structure data, not user
+// transaction records) belong in this set.
 export const APPEND_MERGE_DATA_KEYS = new Set([
-  'sales',
-  'sales_map',
-  'expenses',
-  'expenses_map',
-  'deliveries',
-  'deliveries_map',
-  'pendingDeliveryNotes',
-  'pendingDeliveryNotes_map',
-  'pending_delivery_notes_map',
-  'purchases',
-  'purchases_map',
   'branches',
   'branches_map',
   'branchStocks',
