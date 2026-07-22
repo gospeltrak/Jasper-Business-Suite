@@ -1126,19 +1126,14 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const currentStoreCount = systemSettings.business?.registeredStores?.length || 1;
   const currentStaffCount = systemSettings.staffs?.length || 0;
 
-  useEffect(() => {
-    if (!canWriteBusinessDataOnline()) return;
-    Object.entries(salesMap).forEach(([tid, data]) => {
-      saveData(tid, 'sales_map', { [tid]: data });
-    });
-  }, [salesMap]);
-
-  useEffect(() => {
-    if (!canWriteBusinessDataOnline()) return;
-    Object.entries(expensesMap).forEach(([tid, data]) => {
-      saveData(tid, 'expenses_map', { [tid]: data });
-    });
-  }, [expensesMap]);
+  // NOTE: sales/expenses persistence is handled entirely by the single
+  // saveTenantWorkspace effect above (tenant_workspaces table), which treats
+  // the incoming array as the source of truth and correctly honors deletions.
+  // Two legacy per-key effects used to also push here via saveData(..., 'sales_map'/
+  // 'expenses_map', ...), which merges by APPEND_MERGE_DATA_KEYS — a union-by-id
+  // merge that NEVER removes a record missing from one side. That silently
+  // resurrected deleted sales/expenses a little while after deletion whenever
+  // this effect re-ran with the (still cached) legacy remote row. Removed.
 
   const subStatus = checkSubscriptionStatus(
     subState,
@@ -1408,7 +1403,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     };
     setPendingDeliveryNotesMap(updated);
     safeSetTenantMapItem('jasper_pending_delivery_notes_map', 'pending_delivery_notes_map', updated);
-    saveData(activeTenant.id, 'pending_delivery_notes_map', updated);
+    // Persistence handled by the saveTenantWorkspace effect (deletion-safe).
+    // Do not also push to the legacy union-merge 'pending_delivery_notes_map'
+    // key — it can resurrect deleted notes (see sales/expenses note above).
   };
 
   const handleAddSale = (sale: Sale) => {
@@ -1634,8 +1631,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         ...prev,
         [activeTenant.id]: [purchase, ...currentTenantPurchases]
       };
-      // Sync purchases to cloud
-      saveData(activeTenant.id, 'purchases_map', updated);
+      // Persistence handled by the saveTenantWorkspace effect (deletion-safe).
+      // Do not also push to the legacy union-merge 'purchases_map' key.
       return updated;
     });
 
