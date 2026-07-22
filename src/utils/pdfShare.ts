@@ -5,6 +5,48 @@ import { buildWhatsAppLink } from './whatsapp';
 const sanitizeFileName = (name: string) =>
   name.replace(/[^\w.-]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
 
+// Places a logo inside a fixed box, preserving its aspect ratio (never
+// stretching/squishing it) and always on a solid white backing rectangle.
+// Thermal printers (and some PDF-to-raster print pipelines) flatten
+// transparent PNG pixels to black/noise instead of the paper's white —
+// baking real white pixels behind the logo first avoids that, and keeping
+// the true aspect ratio stops the logo looking squashed on receipts.
+const placeContainedImage = (
+  pdf: jsPDF,
+  src: string,
+  boxX: number,
+  boxY: number,
+  boxW: number,
+  boxH: number
+): boolean => {
+  if (!src || !src.startsWith('data:image/')) return false;
+  try {
+    pdf.setFillColor('#ffffff');
+    pdf.rect(boxX, boxY, boxW, boxH, 'F');
+
+    let naturalW = boxW;
+    let naturalH = boxH;
+    try {
+      const props = pdf.getImageProperties(src);
+      if (props?.width && props?.height) {
+        naturalW = props.width;
+        naturalH = props.height;
+      }
+    } catch { /* fall back to filling the box as-is */ }
+
+    const ratio = Math.min(boxW / naturalW, boxH / naturalH);
+    const drawW = naturalW * ratio;
+    const drawH = naturalH * ratio;
+    const drawX = boxX + (boxW - drawW) / 2;
+    const drawY = boxY + (boxH - drawH) / 2;
+
+    pdf.addImage(src, src.includes('png') ? 'PNG' : 'JPEG', drawX, drawY, drawW, drawH, undefined, 'FAST');
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const downloadBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -103,13 +145,7 @@ export function createReceiptPdfFromData(data: ReceiptData): File {
   };
 
   // Header — same arrangement as the approved A4 template.
-  let logoAdded = false;
-  if (data.businessLogo?.startsWith('data:image/')) {
-    try {
-      pdf.addImage(data.businessLogo, data.businessLogo.includes('png') ? 'PNG' : 'JPEG', margin, 34, 88, 42, undefined, 'FAST');
-      logoAdded = true;
-    } catch { /* fall back to the business initial */ }
-  }
+  const logoAdded = placeContainedImage(pdf, data.businessLogo || '', margin, 34, 88, 42);
   if (!logoAdded) {
     roundedBox(margin, 35, 34, 34, 8, indigo);
     text(data.businessName.charAt(0).toUpperCase(), margin + 17, 58, { align: 'center', size: 18, bold: true, color: '#ffffff' });
@@ -242,15 +278,13 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
   };
   const fmt = (amount: number) => `${data.currency} ${Math.abs(amount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
-  // Logo — small, centered, drawn on the receipt's white background (never
-  // on a dark box) so it looks identical to how it prints on real till paper.
-  if (data.businessLogo?.startsWith('data:image/')) {
-    try {
-      const logoW = 44;
-      const logoH = 44;
-      pdf.addImage(data.businessLogo, data.businessLogo.includes('png') ? 'PNG' : 'JPEG', (width - logoW) / 2, y, logoW, logoH, undefined, 'FAST');
-      y += logoH + 6;
-    } catch { /* fall back to text-only header */ }
+  // Logo — small, centered, on a solid white backing so it reads cleanly
+  // on a real thermal printer instead of turning into black/garbled noise,
+  // and scaled to fit without squashing its real aspect ratio.
+  const logoBoxW = 70;
+  const logoBoxH = 44;
+  if (placeContainedImage(pdf, data.businessLogo || '', (width - logoBoxW) / 2, y, logoBoxW, logoBoxH)) {
+    y += logoBoxH + 6;
   }
 
   center(data.businessName.toUpperCase(), y, { size: 10.5, bold: true });
