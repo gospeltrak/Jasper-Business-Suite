@@ -336,8 +336,10 @@ export default function DashboardSalesList({
   const getInvoiceFooter = (doc?: SalesDocument) => {
     const snapshot = (doc?.brandingSnapshot || {}) as Record<string, any>;
     const businessName = snapshot.businessName || snapshot.branchName || getBusinessDisplayName(activeTenant, systemSettings);
-    const mainMessage = doc?.tagline || systemSettings?.invoiceSettings?.footerNote || 'Thank you for doing business with us.';
-    const poweredBy = (systemSettings as any)?.systemWebLink || (systemSettings as any)?.business?.website || 'Powered by Jasper';
+    const mainMessage = doc?.tagline || systemSettings?.invoiceSettings?.footerNote || 'Thank you for shopping with us.';
+    // Fixed brand line — a configured business website is a different concept
+    // from "Powered by Jasper" attribution and must not replace it here.
+    const poweredBy = 'Powered by Jasper';
     return { mainMessage, businessName, poweredBy };
   };
   const getDocumentBranding = (doc: SalesDocument) => {
@@ -5043,8 +5045,9 @@ export default function DashboardSalesList({
                       );
                     })()}
 
-                    {/* Footer — poweredBy only, no tagline/thank you message */}
-                    <div className="text-center border-t border-slate-100 pt-3">
+                    {/* Footer — thank-you message + powered-by attribution, matching the standard document footer used across the app */}
+                    <div className="text-center border-t border-slate-100 pt-3 space-y-0.5">
+                      <p className="text-[9px] text-slate-400 font-mono">{invoiceFooter.mainMessage}</p>
                       <p className="text-[8px] text-slate-300 font-mono">{invoiceFooter.poweredBy}</p>
                     </div>
                   </div>
