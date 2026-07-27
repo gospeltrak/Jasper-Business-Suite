@@ -7,7 +7,7 @@ import {
   isSafeErrorCode,
   makeSafeErrorResponse,
   normalizeSafeErrorLanguage,
-} from './shared/safeErrors';
+} from './shared/safeErrors.js';
 
 type UnknownRecord = Record<string, unknown>;
 
