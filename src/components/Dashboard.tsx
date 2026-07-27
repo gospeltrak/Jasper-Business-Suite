@@ -14,29 +14,37 @@ import {
 } from '../data';
 
 // Subcomponents imports
-import DashboardOverview from './DashboardOverview';
-import DashboardPOS from './DashboardPOS';
-import DashboardProducts from './DashboardProducts';
-import DashboardSuppliers from './DashboardSuppliers';
-import DashboardLogsAndSync from './DashboardLogsAndSync';
-import DashboardReports from './DashboardReports';
-import DashboardExpenses from './DashboardExpenses';
-import DashboardSalesList from './DashboardSalesList';
-import DashboardForecasting from './DashboardForecasting';
-import DashboardCashBank from './DashboardCashBank';
+// Each dashboard tab (and the SaaS admin view) is code-split via React.lazy().
+// Importing them eagerly means every tab's code (POS, products, cash & bank,
+// forecasting, settings, the entire SaaS admin panel, etc.) has to be
+// downloaded AND parsed/executed as one monolithic bundle before ANY tab can
+// render, even though a login only ever needs the one tab the user lands on.
+// See STEP1_INSPECTION_REPORT.md / commit history for the original fix and
+// why this must stay lazy-loaded.
+const DashboardOverview = React.lazy(() => import('./DashboardOverview'));
+const DashboardPOS = React.lazy(() => import('./DashboardPOS'));
+const DashboardProducts = React.lazy(() => import('./DashboardProducts'));
+const DashboardSuppliers = React.lazy(() => import('./DashboardSuppliers'));
+const DashboardLogsAndSync = React.lazy(() => import('./DashboardLogsAndSync'));
+const DashboardReports = React.lazy(() => import('./DashboardReports'));
+const DashboardExpenses = React.lazy(() => import('./DashboardExpenses'));
+const DashboardSalesList = React.lazy(() => import('./DashboardSalesList'));
+const DashboardForecasting = React.lazy(() => import('./DashboardForecasting'));
+const DashboardCashBank = React.lazy(() => import('./DashboardCashBank'));
 import { saveData } from '../utils/dbSync';
-import DashboardPurchases from './DashboardPurchases';
-import DashboardDeliveries from './DashboardDeliveries';
-import DashboardHotelPMS from './DashboardHotelPMS';
-import DashboardSandboxVerticals from './DashboardSandboxVerticals';
-import DashboardRestaurant from './DashboardRestaurant';
-import DashboardWhiteLabel from './DashboardWhiteLabel';
-import DashboardSettings, { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
-import DashboardStaff from './DashboardStaff';
+const DashboardPurchases = React.lazy(() => import('./DashboardPurchases'));
+const DashboardDeliveries = React.lazy(() => import('./DashboardDeliveries'));
+const DashboardHotelPMS = React.lazy(() => import('./DashboardHotelPMS'));
+const DashboardSandboxVerticals = React.lazy(() => import('./DashboardSandboxVerticals'));
+const DashboardRestaurant = React.lazy(() => import('./DashboardRestaurant'));
+const DashboardWhiteLabel = React.lazy(() => import('./DashboardWhiteLabel'));
+const DashboardSettings = React.lazy(() => import('./DashboardSettings'));
+import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
+const DashboardStaff = React.lazy(() => import('./DashboardStaff'));
 import DashboardScreenErrorBoundary from './DashboardScreenErrorBoundary';
 import AIBusinessCopilot from './AIBusinessCopilot';
 import GlobalStickyAd from './GlobalStickyAd';
-import SuperSaaSAdminView from './SuperSaaSAdminView';
+const SuperSaaSAdminView = React.lazy(() => import('./SuperSaaSAdminView'));
 import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
 import { savePendingSaleOffline } from '../utils/offlineDb';
@@ -2982,6 +2990,14 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 </section>
               </div>
             ) : (
+            <React.Suspense fallback={(
+              <div className="flex min-h-[50vh] w-full items-center justify-center">
+                <div className="flex items-center gap-3 text-slate-400 dark:text-slate-500">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-500 dark:border-slate-700" />
+                  <span className="text-sm font-semibold">Loading…</span>
+                </div>
+              </div>
+            )}>
             <>
 
           {/* TAB ROOT: Hotel Property Management Room Matrix (PMS) */}
@@ -3389,6 +3405,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           )}
 
             </>
+            </React.Suspense>
             )}
 
             </DashboardScreenErrorBoundary>

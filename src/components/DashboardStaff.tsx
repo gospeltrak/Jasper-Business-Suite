@@ -28,7 +28,7 @@ import {
   ClipboardList,
   Lock
 } from 'lucide-react';
-import { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
+import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
 import { compressImageFile } from '../utils/imageCompression';
 import { getMaskedAccountReference } from '../utils/paymentAccounts';
 

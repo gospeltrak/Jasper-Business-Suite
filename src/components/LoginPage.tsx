@@ -30,7 +30,7 @@ import { initializeCleanTenantWorkspace } from '../utils/tenantIsolation';
 import { startCloudSession } from '../utils/sessionControl';
 import { payloadHasRecords, readJsonValue, safeSetJsonItem } from '../utils/dataSafety';
 import { toUserFacingError } from '../utils/safeError';
-import { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
+import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
 import PrivacyAndTermsModals from './PrivacyAndTermsModals';
 
 declare global {
