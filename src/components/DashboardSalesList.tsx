@@ -942,109 +942,16 @@ export default function DashboardSalesList({
   const downloadSalePdf = async (sale: Sale) => {
     try {
       setPdfShareStatus('📄 Generating PDF...');
-
-      // Build PDF directly with jsPDF — no html2canvas, works on all devices
-      const { default: jsPDF } = await import('jspdf');
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-      const biz = getBusinessDisplayName(activeTenant, systemSettings);
-      const cur = activeTenant.currency || 'TZS';
-      const fmt = (n: number) => `${cur} ${Math.round(n).toLocaleString()}`;
-      const pageW = 210;
-      const margin = 20;
-      const lineW = pageW - margin * 2;
-      let y = 20;
-      const line = (extra = 6) => { y += extra; };
-
-      // ── Header ──
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.text(biz.toUpperCase(), pageW / 2, y, { align: 'center' }); line(6);
-      if (activeTenant.city) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.text(activeTenant.city.toUpperCase(), pageW / 2, y, { align: 'center' });
-      }
-      line(10);
-
-      // ── Title ──
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.text('SALES INVOICE', pageW / 2, y, { align: 'center' }); line(3);
-      doc.setDrawColor(180); doc.setLineWidth(0.3);
-      doc.line(margin, y, pageW - margin, y); line(8);
-
-      // ── Invoice details ──
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      const ref = sale.reference || `INV-${(sale.id || '').slice(0, 8).toUpperCase()}`;
-      const saleDate = new Date(sale.timestamp).toLocaleString();
-      const details: [string, string][] = [
-        ['Invoice No:', ref],
-        ['Date:', saleDate],
-        ['Cashier:', sale.cashierName || 'Operator'],
-        ['Payment:', sale.paymentMethod || 'Cash'],
-      ];
-      if (sale.customerName) details.push(['Customer:', sale.customerName]);
-      if (sale.customerPhone) details.push(['Phone:', sale.customerPhone]);
-      details.forEach(([label, value]) => {
-        doc.setFont('helvetica', 'bold'); doc.text(label, margin, y);
-        doc.setFont('helvetica', 'normal'); doc.text(value, margin + 35, y);
-        line(5.5);
+      // Use the same DOM-screenshot engine as Print/WhatsApp (both already
+      // read #sales-invoice-a4-pdf-template) instead of a separate,
+      // hand-coded jsPDF invoice that had drifted out of sync with the real
+      // template — different layout, and its own stale footer text. This
+      // guarantees Download always matches what Preview shows.
+      await downloadPdfFromElement({
+        elementId: 'sales-invoice-a4-pdf-template',
+        fileName: buildInvoiceFileName(sale),
+        format: 'a4'
       });
-
-      // ── Items header ──
-      line(4);
-      doc.setDrawColor(180); doc.line(margin, y, pageW - margin, y); line(5);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-      doc.text('ITEM', margin, y);
-      doc.text('QTY', margin + 90, y, { align: 'right' });
-      doc.text('PRICE', margin + 120, y, { align: 'right' });
-      doc.text('TOTAL', pageW - margin, y, { align: 'right' });
-      line(3);
-      doc.setDrawColor(200); doc.line(margin, y, pageW - margin, y); line(5);
-
-      // ── Items ──
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-      let subtotal = 0;
-      sale.items.forEach(item => {
-        const itemTotal = (item.qty || 0) * (item.price || 0);
-        subtotal += itemTotal;
-        const nameLines = doc.splitTextToSize(item.productName || '', 88);
-        doc.text(nameLines, margin, y);
-        doc.text(String(item.qty || 0), margin + 90, y, { align: 'right' });
-        doc.text(fmt(item.price || 0), margin + 120, y, { align: 'right' });
-        doc.text(fmt(itemTotal), pageW - margin, y, { align: 'right' });
-        line(nameLines.length > 1 ? nameLines.length * 5 + 2 : 6);
-      });
-
-      // ── Totals ──
-      line(3);
-      doc.setDrawColor(180); doc.line(margin, y, pageW - margin, y); line(6);
-      const totals: [string, string, boolean][] = [
-        ['Subtotal', fmt(subtotal), false],
-        ['Amount Paid', fmt(sale.amountPaid ?? sale.total), false],
-        ['Amount Due', fmt(Math.max(0, sale.total - (sale.amountPaid ?? sale.total))), true],
-        ['TOTAL', fmt(sale.total), true],
-      ];
-      totals.forEach(([label, value, bold]) => {
-        doc.setFont('helvetica', bold ? 'bold' : 'normal');
-        doc.setFontSize(bold ? 10 : 9);
-        doc.text(label, pageW - margin - 60, y);
-        doc.text(value, pageW - margin, y, { align: 'right' });
-        line(bold ? 7 : 5.5);
-      });
-
-      // ── Footer ──
-      line(8);
-      doc.setFont('helvetica', 'italic'); doc.setFontSize(8);
-      doc.setTextColor(120);
-      doc.text('Thank you for your business!', pageW / 2, y, { align: 'center' }); line(4);
-      doc.text(`Powered by Jasper Business Suite`, pageW / 2, y, { align: 'center' });
-
-      // ── Save ──
-      const fileName = buildInvoiceFileName(sale);
-      doc.save(fileName);
       setPdfShareStatus('✅ Invoice downloaded.');
     } catch (err: any) {
       console.error('[Download PDF]', err);
