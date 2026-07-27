@@ -72,7 +72,7 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
   );
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-8 shadow-sm text-sm">
+    <div className="settings-native-section bg-white rounded-3xl border border-slate-200 p-6 space-y-8 shadow-sm text-sm">
       <div className="border-b border-slate-100 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono flex items-center">

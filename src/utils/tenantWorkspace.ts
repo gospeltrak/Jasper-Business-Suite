@@ -10,6 +10,14 @@ import {
 } from './productSync';
 import { mergeRecordsById } from './recordSync';
 import { mergeSettingsForSync } from './settingsSync';
+import {
+  extractPayloadSaleTombstones,
+  mergeSalesForSync,
+  mergeSaleTombstones,
+  readLocalSaleTombstones,
+  writeLocalSaleTombstones,
+  type SaleTombstones,
+} from './saleSync';
 import { canWriteBusinessDataOnline, isBrowserOnline, warnOfflineWriteBlocked } from './onlineOnly';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -26,6 +34,7 @@ export interface TenantWorkspace {
   pendingDeliveryNotes: any[];
   purchases: Purchase[];
   productTombstones?: Record<string, string>;
+  saleTombstones?: SaleTombstones;
 }
 
 // ─── Runtime state helpers ──────────────────────────────────────────────────
@@ -48,13 +57,14 @@ const normalizeWorkspace = (workspace: Partial<TenantWorkspace> | null | undefin
     branchStocks:        workspace.branchStocks        || [],
     branchStaffAssignments: workspace.branchStaffAssignments || [],
     products:            workspace.products            || [],
-    sales:               workspace.sales               || [],
+    sales:               mergeSalesForSync(workspace.sales || [], [], workspace.saleTombstones || {}),
     expenses:            workspace.expenses            || [],
     settings:            workspace.settings            || ({} as SystemSettings),
     deliveries:          workspace.deliveries          || [],
     pendingDeliveryNotes:workspace.pendingDeliveryNotes|| [],
     purchases:           workspace.purchases           || [],
     productTombstones:   workspace.productTombstones   || {},
+    saleTombstones:      workspace.saleTombstones      || {},
   };
 };
 
@@ -120,7 +130,6 @@ const protectedArrayKeys: WorkspaceArrayKey[] = [
 ];
 
 const appendMergeWorkspaceKeys: WorkspaceArrayKey[] = [
-  'sales',
   'expenses',
   'deliveries',
   'pendingDeliveryNotes',
@@ -235,6 +244,10 @@ async function loadLegacyTenantWorkspaceMeta(client: any, tenantId: string): Pro
     branchStocks: scopedArray(byKey.get('branchStocks_map'), tenantId).length ? scopedArray(byKey.get('branchStocks_map'), tenantId) : scopedArray(byKey.get('branchStocks'), tenantId),
     branchStaffAssignments: scopedArray(byKey.get('branchStaffAssignments_map'), tenantId).length ? scopedArray(byKey.get('branchStaffAssignments_map'), tenantId) : scopedArray(byKey.get('branchStaffAssignments'), tenantId),
     settings: byKey.get('settings') || ({} as SystemSettings),
+    saleTombstones: mergeSaleTombstones(
+      extractPayloadSaleTombstones(byKey.get('sales'), tenantId),
+      extractPayloadSaleTombstones(byKey.get('sales_map'), tenantId),
+    ),
   });
 
   return {
@@ -317,6 +330,7 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 
     const safe = normalizeWorkspace(data.payload as TenantWorkspace);
     if (!safe) return null;
+    writeLocalSaleTombstones(tenantId, safe.saleTombstones || {});
     // Online-only mode: do not push browser-local product cache into the
     // canonical cloud workspace during load. Cloud remains the source of truth.
     if (!workspaceHasBusinessData(safe)) {
@@ -354,6 +368,7 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
             { onConflict: 'tenant_id' }
           );
         cacheWorkspace(tenantId, reconciled);
+        writeLocalSaleTombstones(tenantId, reconciled.saleTombstones || {});
         return reconciled;
       }
     }
@@ -397,7 +412,8 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
       console.warn('[workspace] remote guard load exception:', error?.message || error);
     }
 
-    if (!workspaceHasBusinessData(workspace)) {
+    const hasSaleDeletionIntent = Object.keys(workspace.saleTombstones || {}).length > 0;
+    if (!workspaceHasBusinessData(workspace) && !hasSaleDeletionIntent) {
       if (workspaceHasBusinessData(currentSafe)) {
         cacheWorkspace(tenantId, currentSafe as TenantWorkspace);
         return false;
@@ -435,6 +451,21 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
     };
 
     const mergeBase = remoteSafe || currentSafe;
+    const mergedSaleTombstones = mergeSaleTombstones(
+      remoteSafe?.saleTombstones,
+      currentSafe?.saleTombstones,
+      workspaceToSave.saleTombstones,
+      readLocalSaleTombstones(tenantId),
+    );
+    workspaceToSave = {
+      ...workspaceToSave,
+      sales: mergeSalesForSync(
+        workspaceToSave.sales,
+        mergeBase?.sales,
+        mergedSaleTombstones,
+      ),
+      saleTombstones: mergedSaleTombstones,
+    };
     if (mergeBase) {
       for (const key of appendMergeWorkspaceKeys) {
         (workspaceToSave as any)[key] = mergeRecordsById(
@@ -475,6 +506,7 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
     // Online-only mode must not silently delete local records, even after a
     // successful cloud save.
     writeLocalProductTombstones(tenantId, mergedTombstones);
+    writeLocalSaleTombstones(tenantId, mergedSaleTombstones);
     cacheWorkspace(tenantId, workspaceToSave);
     return true;
   } catch (e) {
@@ -499,8 +531,9 @@ export async function subscribeToTenantWorkspace(
   if (!client) return () => undefined;
 
   try {
+    const channelId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     const channel: RealtimeChannel = client
-      .channel(`tenant-workspace:${tenantId}`)
+      .channel(`tenant-workspace:${tenantId}:${channelId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tenant_workspaces', filter: `tenant_id=eq.${tenantId}` },
@@ -515,6 +548,7 @@ export async function subscribeToTenantWorkspace(
               return;
             }
             writeLocalProductTombstones(tenantId, safe.productTombstones || {});
+            writeLocalSaleTombstones(tenantId, safe.saleTombstones || {});
             cacheWorkspace(tenantId, safe);
             onWorkspace(safe);
           }
@@ -560,6 +594,7 @@ export function emptyWorkspace(settings?: Partial<SystemSettings>): TenantWorksp
     pendingDeliveryNotes: [],
     purchases: [],
     productTombstones: {},
+    saleTombstones: {},
   };
 }
 

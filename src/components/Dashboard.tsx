@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PWAInstallBanner from './PWAInstallBanner';
-import { getBusinessDisplayName } from '../utils/businessBranding';
 import { useTranslation } from '../LanguageContext';
 import { useTenantLogo } from '../TenantLogoContext';
 import { useJasperNotifications } from '../JasperNotificationContext';
@@ -34,6 +33,7 @@ import DashboardRestaurant from './DashboardRestaurant';
 import DashboardWhiteLabel from './DashboardWhiteLabel';
 import DashboardSettings, { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
 import DashboardStaff from './DashboardStaff';
+import DashboardScreenErrorBoundary from './DashboardScreenErrorBoundary';
 import AIBusinessCopilot from './AIBusinessCopilot';
 import GlobalStickyAd from './GlobalStickyAd';
 import SuperSaaSAdminView from './SuperSaaSAdminView';
@@ -43,8 +43,17 @@ import { savePendingSaleOffline } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
 import { flushPendingTenantWorkspace, loadTenantWorkspace, markTenantProductsUpdated, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
+import { findPaymentChannel } from '../utils/paymentAccounts';
 import { markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
+import {
+  attachPayloadSaleTombstones,
+  markLocalSaleTombstone,
+  readLocalSaleTombstones,
+  reverseSaleInventory,
+  writeLocalSaleTombstones,
+} from '../utils/saleSync';
 import { mergeSettingsForSync, stampSettingsForSync } from '../utils/settingsSync';
+import { loadBranchWorkspace } from '../branches/branchApi';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../utils/onlineOnly';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
@@ -55,10 +64,13 @@ import {
   loadSubscriptionFromDB,
   SUBSCRIPTION_PLANS, 
   PAID_PACKAGE_IDS,
+  isTenantPackageTabAllowed,
   normalizeSubscriptionPlanId,
   SubscriptionPlanId,
   SubscriptionState
 } from '../utils/subscription';
+
+const DashboardBranchesSettings = React.lazy(() => import('./DashboardBranchesSettings'));
 
 import { 
   Store, 
@@ -219,9 +231,87 @@ const getInitialSystemSettings = (tenant: Tenant): SystemSettings => {
   };
 };
 
+const normalizeSystemSettings = (
+  tenant: Tenant,
+  incoming?: Partial<SystemSettings> | null,
+): SystemSettings => {
+  const normalizeNamedList = (value: unknown, fallback: string[] = []) => {
+    if (!Array.isArray(value)) return fallback;
+    const normalized = value
+      .map((item: any) => {
+        if (typeof item === 'string') return item.trim();
+        if (!item || typeof item !== 'object') return '';
+        return String(item.name || item.label || item.provider || item.value || '').trim();
+      })
+      .filter(Boolean);
+    return normalized.length > 0 ? normalized : fallback;
+  };
+  const normalizeBrandList = (
+    value: unknown,
+    fallback: Array<{ name: string; logo?: string }> = [],
+  ) => {
+    if (!Array.isArray(value)) return fallback;
+    const normalized = value
+      .map((item: any) => typeof item === 'string'
+        ? { name: item.trim() }
+        : { name: String(item?.name || item?.label || '').trim(), logo: item?.logo || item?.logoUrl || undefined })
+      .filter((item) => item.name);
+    return normalized.length > 0 ? normalized : fallback;
+  };
+  const defaults = getInitialSystemSettings(tenant);
+  const merged = mergeSettingsForSync(incoming, defaults);
+  const company: Partial<SystemSettings['company']> = merged?.company && typeof merged.company === 'object' ? merged.company : {};
+  const business: Partial<SystemSettings['business']> = merged?.business && typeof merged.business === 'object' ? merged.business : {};
+  const productStore: Partial<SystemSettings['productStore']> = merged?.productStore && typeof merged.productStore === 'object' ? merged.productStore : {};
+
+  return {
+    ...merged,
+    company: { ...defaults.company, ...company },
+    business: {
+      ...defaults.business,
+      ...business,
+      paymentModes: normalizeNamedList(business.paymentModes, defaults.business.paymentModes),
+      registeredStores: normalizeNamedList(business.registeredStores, defaults.business.registeredStores),
+    },
+    productStore: {
+      ...defaults.productStore,
+      ...productStore,
+      categories: normalizeNamedList(productStore.categories, defaults.productStore.categories),
+      units: normalizeNamedList(productStore.units, defaults.productStore.units),
+      brands: normalizeBrandList(productStore.brands, defaults.productStore.brands),
+    },
+    staffs: Array.isArray(merged?.staffs) ? merged.staffs : [],
+    customRoles: Array.isArray(merged?.customRoles) ? merged.customRoles : [],
+    paymentChannels: Array.isArray(merged?.paymentChannels) ? merged.paymentChannels : [],
+  };
+};
+
+type SubscriptionCheckoutRenderState = {
+  selectedPlanId: SubscriptionPlanId;
+  setSelectedPlanId: React.Dispatch<React.SetStateAction<SubscriptionPlanId>>;
+  paymentMode: 'online' | 'offline';
+  setPaymentMode: React.Dispatch<React.SetStateAction<'online' | 'offline'>>;
+};
+
+function SubscriptionCheckoutStateBridge({
+  initialPlan,
+  children,
+}: {
+  initialPlan: SubscriptionPlanId;
+  children: (state: SubscriptionCheckoutRenderState) => React.ReactNode;
+}) {
+  const normalizedInitialPlan = normalizeSubscriptionPlanId(initialPlan);
+  const [selectedPlanId, setSelectedPlanId] = useState<SubscriptionPlanId>(
+    PAID_PACKAGE_IDS.includes(normalizedInitialPlan as any) ? normalizedInitialPlan : 'diamond'
+  );
+  const [paymentMode, setPaymentMode] = useState<'online' | 'offline'>('online');
+
+  return <>{children({ selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode })}</>;
+}
+
 export default function Dashboard({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
-  const { logoUrl, businessName: databaseBrandBusinessName, getFallbackInitials } = useTenantLogo();
+  const { getFallbackInitials } = useTenantLogo();
   const { addSaleNotification, unreadCount } = useJasperNotifications();
   const [showDashLangMenu, setShowDashLangMenu] = useState(false);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
@@ -522,8 +612,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   }, [logs]);
 
   // Load and cache branch specific Settings
-  const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => getInitialSystemSettings(activeTenant));
-  const [databaseBusinessName, setDatabaseBusinessName] = useState<string>(() => activeTenant.businessName || '');
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => normalizeSystemSettings(activeTenant));
+  const [databaseBusinessName, setDatabaseBusinessName] = useState('');
+  const [activeBranchBusinessName, setActiveBranchBusinessName] = useState('');
 
   const [preloadedCart, setPreloadedCart] = useState<{
     items: SaleItem[];
@@ -542,8 +633,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   // Set safe defaults while the selected tenant workspace loads from Supabase.
   useEffect(() => {
-    setSystemSettings(getInitialSystemSettings(activeTenant));
-    setDatabaseBusinessName(activeTenant.businessName || '');
+    setSystemSettings(normalizeSystemSettings(activeTenant));
+    setDatabaseBusinessName('');
     document.documentElement.classList.remove('dark');
   }, [activeTenant]);
 
@@ -559,7 +650,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     const applyWorkspace = (workspace: TenantWorkspace) => {
       if (!active) return;
       const cloudBusinessName = String(workspace.settings?.business?.businessName || '').trim();
-      if (cloudBusinessName) setDatabaseBusinessName(cloudBusinessName);
+      setDatabaseBusinessName(cloudBusinessName);
       if (Date.now() - localWorkspaceChangedAtRef.current < LOCAL_WORKSPACE_PROTECTION_MS) {
         return;
       }
@@ -574,7 +665,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
       setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
       if (workspace.settings) {
-        setSystemSettings(workspace.settings);
+        setSystemSettings(normalizeSystemSettings(activeTenant, workspace.settings));
       }
     };
 
@@ -624,6 +715,33 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('focus', handleFocus);
       unsubscribe();
+    };
+  }, [activeTenant.id]);
+
+  useEffect(() => {
+    let active = true;
+    setActiveBranchBusinessName('');
+
+    const applyBranchContext = (detail: any) => {
+      if (!active) return;
+      setActiveBranchBusinessName(String(detail?.businessName || '').trim());
+    };
+    const handleBranchContextChanged = (event: Event) => {
+      applyBranchContext((event as CustomEvent).detail);
+    };
+
+    window.addEventListener('jasper_branch_context_changed', handleBranchContextChanged);
+    void loadBranchWorkspace()
+      .then(snapshot => applyBranchContext({
+        businessName: snapshot.context.selectedBranch?.businessName || '',
+      }))
+      .catch(() => {
+        if (active) setActiveBranchBusinessName('');
+      });
+
+    return () => {
+      active = false;
+      window.removeEventListener('jasper_branch_context_changed', handleBranchContextChanged);
     };
   }, [activeTenant.id]);
 
@@ -943,6 +1061,13 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       }
       return tabId === 'super-saas' || tabId.startsWith('admin-') || tabId === 'staff' || tabId === 'staff-members';
     }
+
+    // Enforce package access at the common navigation boundary. Desktop,
+    // mobile More, Lucy navigation, and restored session tabs all call this
+    // helper, so a lower package cannot reach a premium screen through a
+    // navigation path that happens not to be rendered in the desktop sidebar.
+    if (!isTenantPackageTabAllowed(subStatus.plan.id, tabId)) return false;
+
     const perms = currentPermissions;
     if (!perms) return true;
     
@@ -1031,6 +1156,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const [manualActivationNote, setManualActivationNote] = useState('');
   const [manualActivationSubmitting, setManualActivationSubmitting] = useState(false);
   const [manualActivationMessage, setManualActivationMessage] = useState<string | null>(null);
+  const [onlinePaymentSubmitting, setOnlinePaymentSubmitting] = useState(false);
+  const [onlinePaymentMessage, setOnlinePaymentMessage] = useState<string | null>(null);
   
   // Custom interactive limit modal state
   const [subModal, setSubModal] = useState<{
@@ -1084,8 +1211,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     setSubState(updated);
   };
 
-  const submitManualActivationRequest = async () => {
-    const selectedPlanId = normalizeSubscriptionPlanId(manualActivationPackage);
+  const submitManualActivationRequest = async (requestedPlanId: SubscriptionPlanId = manualActivationPackage) => {
+    const selectedPlanId = normalizeSubscriptionPlanId(requestedPlanId);
     if (selectedPlanId === 'trial') {
       setManualActivationMessage('Please choose Ruby, Diamond, or Tanzanite before submitting.');
       return;
@@ -1094,13 +1221,26 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       setManualActivationMessage('Please attach the payment receipt before submitting.');
       return;
     }
+    if (!manualActivationNote.trim()) {
+      setManualActivationMessage('Please add the transaction reference or payment details.');
+      return;
+    }
+    if (manualActivationReceipt.size > 5 * 1024 * 1024) {
+      setManualActivationMessage('Receipt must be 5 MB or smaller.');
+      return;
+    }
+    const allowedReceiptTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedReceiptTypes.includes(manualActivationReceipt.type)) {
+      setManualActivationMessage('Use a JPG, PNG, WebP, or PDF receipt.');
+      return;
+    }
 
     setManualActivationSubmitting(true);
     setManualActivationMessage(null);
     const selectedPlan = SUBSCRIPTION_PLANS[selectedPlanId];
     const submittedAt = new Date().toISOString();
     const requestRecord = {
-      id: `manual-sub-${Date.now()}`,
+      id: crypto.randomUUID(),
       tenant_id: activeTenant.id,
       tenant_name: activeTenant.name,
       requested_package_id: selectedPlanId,
@@ -1111,7 +1251,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       receipt_file_name: manualActivationReceipt.name,
       receipt_file_type: manualActivationReceipt.type || 'unknown',
       receipt_file_size: manualActivationReceipt.size,
-      note: manualActivationNote.trim() || null,
+      note: `Package: ${selectedPlan.name}. ${manualActivationNote.trim()}`,
       submitted_by: user.id,
       submitted_at: submittedAt,
       created_at: submittedAt,
@@ -1120,9 +1260,36 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
     try {
       const client: any = await getSecureDataBridgeClient();
+      const { data: sessionData } = await client.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('Your secure session has expired. Sign in again.');
+      const receiptBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Receipt file could not be read.'));
+        reader.readAsDataURL(manualActivationReceipt);
+      });
+      const uploadResponse = await fetch('/api/subscriptions/payment-proof-file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          tenantId: activeTenant.id,
+          fileName: manualActivationReceipt.name,
+          fileType: manualActivationReceipt.type,
+          receiptBase64,
+        }),
+      });
+      const uploadPayload = await uploadResponse.json().catch(() => ({}));
+      if (!uploadResponse.ok || !uploadPayload?.receiptPath) {
+        throw new Error(uploadPayload?.error || 'Receipt upload failed.');
+      }
+
       const { error } = await client
         .from('tenant_payment_proofs')
-        .insert(requestRecord);
+        .insert({ ...requestRecord, receipt_file_url: uploadPayload.receiptPath });
 
       if (error) throw error;
       setManualActivationMessage(`Activation request sent for ${selectedPlan.name}. Admin will verify the receipt.`);
@@ -1136,6 +1303,55 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       );
     } finally {
       setManualActivationSubmitting(false);
+    }
+  };
+
+  const startOnlineSubscriptionPayment = async (
+    requestedPlanId: SubscriptionPlanId = manualActivationPackage,
+    onOfflineAvailable?: () => void
+  ) => {
+    const planId = normalizeSubscriptionPlanId(requestedPlanId);
+    if (!PAID_PACKAGE_IDS.includes(planId as any)) {
+      setOnlinePaymentMessage('Choose Ruby, Diamond, or Tanzanite first.');
+      return;
+    }
+    setOnlinePaymentSubmitting(true);
+    setOnlinePaymentMessage(null);
+    try {
+      const client: any = await getSecureDataBridgeClient();
+      const { data: sessionData } = await client.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('Your secure session has expired. Sign in again.');
+
+      const response = await fetch('/api/subscriptions/azam-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          tenantId: activeTenant.id,
+          planId,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (payload?.offlineAvailable) {
+          setOnlinePaymentMessage(payload?.error || 'Online payment is temporarily unavailable. Use the offline receipt option below.');
+          onOfflineAvailable?.();
+          return;
+        }
+        throw new Error(payload?.error || 'Online payment could not be started.');
+      }
+      if (payload?.checkoutUrl) {
+        window.location.assign(payload.checkoutUrl);
+        return;
+      }
+      throw new Error('AzamPay did not return a secure checkout link.');
+    } catch (error: any) {
+      setOnlinePaymentMessage(error?.message || 'Online payment could not be started.');
+    } finally {
+      setOnlinePaymentSubmitting(false);
     }
   };
 
@@ -1155,7 +1371,15 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   useEffect(() => {
     if (!canWriteBusinessDataOnline()) return;
     Object.entries(salesMap).forEach(([tid, data]) => {
-      saveData(tid, 'sales_map', { [tid]: data });
+      saveData(
+        tid,
+        'sales_map',
+        attachPayloadSaleTombstones(
+          { [tid]: data },
+          tid,
+          readLocalSaleTombstones(tid),
+        ),
+      );
     });
   }, [salesMap]);
 
@@ -1178,14 +1402,14 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const rubyDowngradeNotes = [
     'Lucy AI online assistant is not included',
     'Product limit drops from 5,000 to 1,000',
-    'Branch limit drops from Diamond multi-branch to 1 store',
-    'Staff limit drops from 6 users to 2 users',
-    'Custom role security and advanced branch stock controls are reduced',
-    'Advanced consolidated reports and delivery/branch workflows are limited'
+    'Branch capacity remains 1 store',
+    'Staff limit drops from 5 users to 2 users',
+    'Custom role security controls are reduced',
+    'Advanced consolidated reports and delivery workflows are limited'
   ];
   const tanzaniteUpgradeNotes = [
     'Unlimited product catalog capacity',
-    'Up to 5 active branches',
+    '2 total branches included; Super Admin can grant more',
     'Up to 15 staff accounts',
     'Lucy AI Tanzanite limits: 500 chats, 6 reports, 3 forecasts per day',
     'Full white-label branding tools',
@@ -1223,7 +1447,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             title: isTrialAccount ? 'Subscribe to keep access' : 'Renew Subscription',
             limitType: 'expired',
             description: isTrialAccount
-              ? 'Your trial is ending soon. Choose a package to keep using Ndiva Suite without interruption.'
+              ? 'Your trial is ending soon. Choose a package to keep using Jasper without interruption.'
               : 'Your paid subscription is close to renewal. Choose a package and submit your receipt to avoid interruption.'
           });
         }}
@@ -1343,7 +1567,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     }
 
     const syncUpdatedAt = new Date().toISOString();
-    const syncedSettings = stampSettingsForSync(updated, systemSettings, syncUpdatedAt);
+    const safeUpdatedSettings = normalizeSystemSettings(activeTenant, updated);
+    const syncedSettings = stampSettingsForSync(safeUpdatedSettings, systemSettings, syncUpdatedAt);
+    setDatabaseBusinessName(String(syncedSettings.business?.businessName || '').trim());
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     setSystemSettings(syncedSettings);
@@ -1377,10 +1603,15 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     const syncUpdatedAt = new Date().toISOString();
+    const synchronizedSales = updatedSales.map((sale) => ({
+      ...sale,
+      syncUpdatedAt: (sale as any).syncUpdatedAt || syncUpdatedAt,
+    }) as Sale);
     setSalesMap(prev => ({
       ...prev,
-      [activeTenant.id]: updatedSales.map((sale) => ({ ...sale, syncUpdatedAt: (sale as any).syncUpdatedAt || syncUpdatedAt }) as Sale)
+      [activeTenant.id]: synchronizedSales
     }));
+    void saveData(activeTenant.id, 'sales_map', { [activeTenant.id]: synchronizedSales });
     
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
@@ -1390,6 +1621,75 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [newLog, ...prev]);
+  };
+
+  const handleDeleteSale = async (sale: Sale): Promise<boolean> => {
+    if (blockOfflineBusinessWrite('sale deletion')) return false;
+    if (!sale?.id || sale.tenantId !== activeTenant.id) {
+      console.warn('[Dashboard] Blocked sale deletion outside the active tenant.');
+      return false;
+    }
+
+    const tenantId = activeTenant.id;
+    const currentSales = salesMap[tenantId] || [];
+    const persistedSale = currentSales.find(candidate => candidate.id === sale.id);
+    if (!persistedSale) return true;
+
+    const deletedAt = new Date().toISOString();
+    const previousSaleTombstones = readLocalSaleTombstones(tenantId);
+    const nextSaleTombstones = markLocalSaleTombstone(tenantId, sale.id, deletedAt);
+    const nextSales = currentSales.filter(candidate => candidate.id !== sale.id);
+    const currentProducts = productsMap[tenantId] || [];
+
+    const restoredProducts = reverseSaleInventory(persistedSale, currentProducts, deletedAt);
+    const nextDeliveries = (deliveriesMap[tenantId] || [])
+      .filter(delivery => delivery.saleId !== sale.id);
+
+    const saved = await saveTenantWorkspace(tenantId, {
+      branches: branchesMap[tenantId] || [],
+      branchStocks: branchStocksMap[tenantId] || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[tenantId] || [],
+      products: restoredProducts,
+      sales: nextSales,
+      expenses: expensesMap[tenantId] || [],
+      settings: systemSettings,
+      deliveries: nextDeliveries,
+      pendingDeliveryNotes: pendingDeliveryNotesMap[tenantId] || [],
+      purchases: purchasesMap[tenantId] || [],
+      productTombstones: readLocalProductTombstones(tenantId),
+      saleTombstones: nextSaleTombstones,
+    });
+
+    if (!saved) {
+      writeLocalSaleTombstones(tenantId, previousSaleTombstones);
+      return false;
+    }
+
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
+    setSalesMap(previous => ({ ...previous, [tenantId]: nextSales }));
+    setProductsMap(previous => ({ ...previous, [tenantId]: restoredProducts }));
+    setDeliveriesMap(previous => ({ ...previous, [tenantId]: nextDeliveries }));
+    saveData(
+      tenantId,
+      'sales_map',
+      attachPayloadSaleTombstones(
+        { [tenantId]: nextSales },
+        tenantId,
+        nextSaleTombstones,
+      ),
+    );
+    saveData(tenantId, 'products_map', { [tenantId]: restoredProducts });
+    saveData(tenantId, 'deliveries_map', { [tenantId]: nextDeliveries });
+
+    setLogs(previous => [{
+      id: `sale-delete-${sale.id}-${Date.now()}`,
+      type: 'sale',
+      status: 'success',
+      message: `Deleted sale ${sale.reference || sale.id} and reversed its inventory movements.`,
+      timestamp: deletedAt,
+    }, ...previous]);
+    return true;
   };
 
   const handleSendToDeliveryNote = (sale: Sale) => {
@@ -1564,15 +1864,30 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
     setDeliveriesMap(prev => {
       const currentTenantDels = prev[activeTenant.id] || [];
+      const collectedAt = status === 'Delivered' ? new Date().toISOString() : undefined;
       return {
         ...prev,
         [activeTenant.id]: currentTenantDels.map(del => 
-          del.id === deliveryId 
-            ? { 
-                ...del, 
-                status, 
-                deliveredAt: status === 'Delivered' ? new Date().toISOString() : undefined 
-              } 
+          del.id === deliveryId
+            ? (() => {
+                const account = status === 'Delivered'
+                  ? findPaymentChannel(systemSettings.paymentChannels || [], del.deliveryPaymentMethod || 'Cash')
+                  : undefined;
+                return {
+                  ...del,
+                  status,
+                  deliveredAt: collectedAt,
+                  deliveryPaymentStatus: status === 'Delivered'
+                    ? 'collected'
+                    : status === 'Cancelled'
+                      ? 'cancelled'
+                      : 'pending',
+                  paymentCollectedAt: collectedAt,
+                  deliveryPaymentAccountId: status === 'Delivered'
+                    ? account?.id
+                    : undefined,
+                };
+              })()
             : del
         )
       };
@@ -1679,6 +1994,39 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     setLogs(prev => [newLog, ...prev]);
   };
 
+  const handleUpdatePurchases = (nextPurchases: Purchase[]) => {
+    if (blockOfflineBusinessWrite('purchase update')) return;
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
+    setPurchasesMap(prev => {
+      const updated = { ...prev, [activeTenant.id]: nextPurchases };
+      saveData(activeTenant.id, 'purchases_map', updated);
+      return updated;
+    });
+  };
+
+  const handleDeletePurchase = (purchaseId: string) => {
+    if (blockOfflineBusinessWrite('purchase deletion')) return;
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
+    setPurchasesMap(prev => {
+      const currentTenantPurchases = prev[activeTenant.id] || [];
+      const updated = {
+        ...prev,
+        [activeTenant.id]: currentTenantPurchases.filter(purchase => purchase.id !== purchaseId)
+      };
+      saveData(activeTenant.id, 'purchases_map', updated);
+      return updated;
+    });
+    setLogs(prev => [{
+      id: 'l-' + Math.random().toString(36).substr(2, 9),
+      type: 'inventory_audit',
+      status: 'success',
+      message: `Removed purchase record ${purchaseId} from ${activeTenant.name}. Product stock was not silently changed.`,
+      timestamp: new Date().toISOString()
+    }, ...prev]);
+  };
+
   // Switch store tenant controller
   const handleTenantChange = (tenantId: string) => {
     const matched = tenantsList.find(t => t.id === tenantId);
@@ -1766,20 +2114,15 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   // Calculate size of offline sync queue
   const offlinePendingCount = activeSales.filter(s => s.syncStatus === 'pending').length;
 
-  // Dynamic branding selectors to personalize the user's Ndiva Suite
+  // Dynamic branding selectors to personalize the user's Jasper
   const currentThemeMode = systemSettings.company?.themeMode || 'light';
   const customBrandingLogo = currentThemeMode === 'dark'
     ? (systemSettings.business?.businessLogoDark || systemSettings.business?.businessLogoLight || systemSettings.business?.businessLogo)
     : (systemSettings.business?.businessLogoLight || systemSettings.business?.businessLogoDark || systemSettings.business?.businessLogo);
   
-  const onlineBusinessName = databaseBrandBusinessName || databaseBusinessName || activeTenant.businessName || '';
-  const businessDisplayName = onlineBusinessName
-    ? getBusinessDisplayName(
-        { ...activeTenant, businessName: onlineBusinessName },
-        systemSettings,
-        user.name,
-      )
-    : 'Business';
+  const activeProfileBusinessName = String(databaseBusinessName || '').trim();
+  const businessDisplayName = activeBranchBusinessName || activeProfileBusinessName || 'My Business';
+  const onlineBusinessName = activeProfileBusinessName;
   const customBusinessName = businessDisplayName;
   const customBusinessAddressDetail = systemSettings.business?.businessAddress
     ? `Branch: ${systemSettings.business.businessAddress.split(',')[0]}`
@@ -1976,6 +2319,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       { id: 'ledger-balance-matrix', label: 'Money & Bank', icon: Wallet,               tabId: 'cash-bank-matrix',    plans: ['diamond','tanzanite'] },
       { id: 'staff',              label: 'Staff',           icon: Shield,                tabId: 'staff-members',       plans: ['diamond','tanzanite'] },
       { id: 'cash-bank',          label: 'Forecasting',     icon: TrendingUp,            tabId: 'forecasting',         plans: ['tanzanite'] },
+      { id: 'branches',           label: 'Branches',        icon: Building,              tabId: 'branches',            plans: ['tanzanite'] },
       { id: 'settings',           label: 'Settings',        icon: SettingsIcon,          tabId: 'settings',            plans: ['ruby','diamond','tanzanite'] },
       { id: 'subscription',       label: 'Subscription',    icon: CardIcon,              tabId: 'subscription-modal',  plans: ['ruby','diamond','tanzanite'] },
     ];
@@ -1995,7 +2339,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     if (isTabAllowed(activeTab)) return;
     const firstAllowed = visibleSidebarItems.find((item) => isTabAllowed(item.tabId || item.id));
     if (firstAllowed?.tabId) setActiveTab(firstAllowed.tabId);
-  }, [activeRoleName, activeTab, user.isSaaSStaff]);
+  }, [activeRoleName, activeTab, subStatus.plan.id, user.isSaaSStaff]);
 
   if (user.isDuress) {
     return <DuressDashboard onLogout={onLogout} onNavigate={onNavigate} />;
@@ -2267,14 +2611,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                 </div>
               </div>
 
-              <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'bg-slate-900 border-slate-800/60' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800/60'} w-full max-w-sm transition-colors`}>
-                <Search className={`w-4 h-4 ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'text-slate-500' : 'text-slate-400'}`} />
-                <input 
-                  type="text" 
-                  placeholder="Search workspace..."
-                  className={`bg-transparent outline-none border-none text-xs w-full ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'text-slate-300 placeholder-slate-600' : 'text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500'}`}
-                />
-              </div>
             </div>
 
             <div className="flex items-center space-x-4">
@@ -2545,6 +2881,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
           {/* Core workspace content viewports */}
           <main id="workspace-content" className={`flex-1 overflow-y-auto scrollbar-none overscroll-contain touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-3 sm:p-4 xl:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-5 xl:space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] xl:pb-6 min-h-0`}>
+            <DashboardScreenErrorBoundary
+              resetKey={activeTab}
+              onReturnToDashboard={() => setActiveTab(getDefaultDashboardTab())}
+            >
 
             {isTrialAccessLocked ? (
               <div className="min-h-[calc(100dvh-120px)]">
@@ -2589,8 +2929,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
                   <div className="grid gap-4 xl:grid-cols-3">
                     {([
-                      { id: 'ruby' as const, tag: 'Lower cost', tone: 'border-rose-200 bg-white', cta: 'Choose Ruby', notes: ['TZS 20,000 / month', '1,000 products', '1 store', '2 staff users'] },
-                      { id: 'diamond' as const, tag: 'Same as trial', tone: 'border-emerald-300 bg-emerald-50', cta: 'Keep Diamond', notes: ['TZS 35,000 / month', '5,000 products', 'Diamond Lucy AI', '6 staff users'] },
+                      { id: 'ruby' as const, tag: 'Lower cost', tone: 'border-rose-200 bg-white', cta: 'Choose Ruby', notes: ['TZS 15,000 / month', '1,000 products', '1 store', '2 staff users'] },
+                      { id: 'diamond' as const, tag: 'Same as trial', tone: 'border-emerald-300 bg-emerald-50', cta: 'Keep Diamond', notes: ['TZS 30,000 / month', '5,000 products', 'Diamond Lucy AI', '5 staff users'] },
                       { id: 'tanzanite' as const, tag: 'Full upgrade', tone: 'border-cyan-300 bg-white', cta: 'Upgrade Tanzanite', notes: ['TZS 50,000 / month', 'Unlimited products', 'Forecasting + higher Lucy limits', '15 staff users'] },
                     ]).map((pkg) => {
                       const plan = SUBSCRIPTION_PLANS[pkg.id];
@@ -2767,6 +3107,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onUpdateStocks={handleUpdateActiveStocks}
               purchases={activePurchases}
               onAddPurchase={handleAddPurchase}
+              onUpdatePurchases={handleUpdatePurchases}
+              onDeletePurchase={handleDeletePurchase}
+              systemSettings={systemSettings}
             />
           )}
 
@@ -2831,6 +3174,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               activeTenant={activeTenant}
               sales={activeSales}
               onUpdateSales={handleUpdateSales}
+              onDeleteSale={handleDeleteSale}
               rolePermissions={currentPermissions}
               products={activeProducts}
               systemSettings={systemSettings}
@@ -2854,6 +3198,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onUpdateExpense={handleUpdateExpense}
               userName={user.name}
               sales={activeSales}
+              systemSettings={systemSettings}
             />
           )}
 
@@ -2893,6 +3238,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               sales={activeSales}
               expenses={activeExpenses}
               deliveries={deliveriesMap[activeTenant.id] || []}
+              purchases={purchasesMap[activeTenant.id] || []}
               user={user}
               systemSettings={systemSettings}
               onUpdateSystemSettings={(updated) => {
@@ -2919,6 +3265,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               expenses={activeExpenses}
               activeTenant={activeTenant}
               deliveries={deliveriesMap[activeTenant.id] || []}
+              onPayStaff={handleAddExpense}
             />
           )}
 
@@ -2977,6 +3324,27 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
             />
           )}
 
+          {activeTab === 'branches' && (
+            <React.Suspense fallback={(
+              <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                <div className="h-8 w-44 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800" />
+                <div className="mt-6 h-48 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-900" />
+              </div>
+            )}>
+              <DashboardBranchesSettings
+                activeTenant={activeTenant}
+                onTriggerUpgrade={(type) => {
+                  setSubModal({
+                    show: true,
+                    title: 'Upgrade System Plan',
+                    limitType: type,
+                    description: 'Upgrade to Tanzanite to activate multi-branch business controls.'
+                  });
+                }}
+              />
+            </React.Suspense>
+          )}
+
            {/* TAB ROOT: Super SaaS Admin Control Panel */}
            {(activeTab === 'super-saas' || activeTab.startsWith('admin-')) && (
              <SuperSaaSAdminView 
@@ -3029,6 +3397,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
             </>
             )}
+
+            </DashboardScreenErrorBoundary>
 
           </main>
 
@@ -3178,11 +3548,24 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   { id: 'sync', label: 'Sync', icon: RefreshCw, desc: isOfflineMode ? 'You are offline' : 'All data synced', color: isOfflineMode ? 'text-amber-600' : 'text-emerald-600', bg: isOfflineMode ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-emerald-50 dark:bg-emerald-500/10' },
                   { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
                   { id: 'inventory', label: 'Inventory', icon: Package, desc: 'View stock levels', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10' },
-                ]).filter(item => isTabAllowed(item.id)).map((item, idx, arr) => {
+                  { id: 'subscription-modal', label: 'Subscription', icon: CardIcon, desc: 'Pay online or upload an offline receipt', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', alwaysShow: true },
+                ]).filter(item => (item as any).alwaysShow || isTabAllowed(item.id)).map((item, idx, arr) => {
                   const Icon = item.icon;
                   return (
                     <button key={item.id} type="button"
-                      onClick={() => { setActiveTab(item.id as any); setMoreMenuOpen(false); }}
+                      onClick={() => {
+                        if (item.id === 'subscription-modal') {
+                          setSubModal({
+                            show: true,
+                            title: 'System Subscription Options',
+                            limitType: 'general',
+                            description: 'Manage active subscriptions and premium account plans.',
+                          });
+                        } else {
+                          setActiveTab(item.id as any);
+                        }
+                        setMoreMenuOpen(false);
+                      }}
                       className={`w-full flex items-center gap-3 px-4 py-3.5 active:bg-slate-50 dark:active:bg-slate-800/50 transition-colors cursor-pointer bg-transparent border-none text-left ${idx < arr.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''}`}>
                       <div className={`w-9 h-9 rounded-xl ${item.bg} flex items-center justify-center shrink-0`}>
                         <Icon className={`w-5 h-5 ${item.color}`} strokeWidth={2} />
@@ -3240,172 +3623,237 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
       {/* Live Premium Subscription upgrade popups */}
       {subModal && subModal.show && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-4 z-[70] animate-in fade-in slide-in-from-bottom-5 md:slide-in-from-bottom-0">
-          <div className="bg-slate-900 border border-slate-800/60 rounded-t-3xl md:rounded-3xl max-w-2xl w-full max-h-[calc(100dvh-56px-env(safe-area-inset-bottom))] overflow-y-auto p-6 md:p-8 space-y-6 relative shadow-2xl mt-auto md:mt-0 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:pb-8 animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0">
-            {/* Mobile Drag Handle */}
-            <div className="w-full flex justify-center pb-2 md:hidden">
-              <div className="w-12 h-1.5 bg-slate-700/50 rounded-full" />
+        <SubscriptionCheckoutStateBridge initialPlan={manualActivationPackage}>
+          {({ selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode }) => (
+        <div className="fixed inset-0 z-[170] flex items-end justify-center bg-slate-950/65 p-0 backdrop-blur-sm md:items-center md:p-5 animate-in fade-in">
+          <div role="dialog" aria-modal="true" aria-labelledby="subscription-title" className="relative mt-auto flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-slate-200 bg-white shadow-2xl md:mt-0 md:h-auto md:max-h-[calc(100dvh-40px)] md:rounded-[2rem] animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0">
+            <div className="flex justify-center pb-1 pt-2.5 md:hidden">
+              <div className="h-1.5 w-12 rounded-full bg-slate-200" />
             </div>
 
-            <div className="text-center space-y-2">
-              <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-400">
-                <AlertTriangle className="w-7 h-7" />
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 pb-4 pt-3 md:px-8 md:pb-5 md:pt-7">
+              <div>
+                <h3 id="subscription-title" className="text-[28px] font-black leading-tight tracking-[-0.035em] text-slate-950 md:text-4xl">
+                  Subscription
+                </h3>
+                <p className="mt-1 text-sm font-medium text-slate-500 md:text-base">Choose the plan that fits your business</p>
               </div>
-              <h3 className="text-xl font-black text-white uppercase tracking-wider">
-                {subModal.title}
-              </h3>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">
-                You have reached your subscription package limits. Choose Ruby, Diamond, or Tanzanite, then pay and submit the receipt for manual activation.
-              </p>
-            </div>
-
-            <div className="bg-slate-950/60 border border-slate-850 p-4 rounded-2xl text-xs space-y-2">
-              <div className="flex justify-between font-mono">
-                <span className="text-slate-400 uppercase font-bold">Quota Category:</span>
-                <span className="text-rose-400 font-bold uppercase tracking-widest">
-                  {subModal.limitType === 'products' ? 'Products Exhausted' : 
-                   subModal.limitType === 'stores' ? 'Branches Full' :
-                   subModal.limitType === 'staff' ? 'Staff Limit Reached' : 'Trial Concluded'}
-                </span>
-              </div>
-              <div className="flex justify-between text-[11px] font-mono text-slate-400">
-                <span>Active Subscription Tier:</span>
-                <span className="text-white font-bold">{subStatus.plan.name}</span>
-              </div>
-              <p className="text-[11.5px] text-slate-500 pt-2 border-t border-slate-800/40 text-center italic font-mono">
-                "Instant, non-disruptive cloud upgrades for modern store networks."
-              </p>
-            </div>
-
-            {/* Live Plan Select Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Plan 1 */}
               <button
-                onClick={() => {
-                  setManualActivationPackage('ruby');
-                }}
-                className="bg-slate-950/50 hover:bg-slate-950 border border-slate-800 hover:border-emerald-500/40 p-4 rounded-xl text-left transition-all space-y-2 cursor-pointer outline-none focus:border-emerald-500"
-              >
-                <h5 className="text-[11px] uppercase font-bold text-emerald-400 tracking-wider">Ruby</h5>
-                <div className="text-lg font-black text-white font-mono">{activeTenant.currency}20,000</div>
-                <ul className="text-[9.5px] text-slate-400 space-y-0.5 list-disc list-inside">
-                  <li>1,000 Products max</li>
-                  <li>1 Branch Store max</li>
-                  <li>2 Cashier/Staff max</li>
-                </ul>
-              </button>
-
-              {/* Plan 2 */}
-              <button
-                onClick={() => {
-                  setManualActivationPackage('diamond');
-                }}
-                className="bg-slate-950 hover:bg-slate-950 border-2 border-emerald-500/30 hover:border-emerald-500/60 p-4 rounded-xl text-left transition-all space-y-2 cursor-pointer outline-none focus:border-emerald-500"
-              >
-                <span className="bg-emerald-500 text-slate-950 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase block w-max mb-1">Best Choice</span>
-                <h5 className="text-[11px] uppercase font-bold text-emerald-400 tracking-wider">Diamond</h5>
-                <div className="text-lg font-black text-white font-mono">{activeTenant.currency}35,000</div>
-                <ul className="text-[9.5px] text-slate-400 space-y-0.5 list-disc list-inside">
-                  <li>5,000 Products max</li>
-                  <li>2 Branch Stores max</li>
-                  <li>6 Cashier/Staff max</li>
-                </ul>
-              </button>
-
-              {/* Plan 3 */}
-              <button
-                onClick={() => {
-                  setManualActivationPackage('tanzanite');
-                }}
-                className="bg-slate-950/50 hover:bg-slate-950 border border-slate-800 hover:border-emerald-500/40 p-4 rounded-xl text-left transition-all space-y-2 cursor-pointer outline-none focus:border-emerald-500"
-              >
-                <h5 className="text-[11px] uppercase font-bold text-emerald-400 tracking-wider">Tanzanite</h5>
-                <div className="text-lg font-black text-white font-mono">{activeTenant.currency}50,000</div>
-                <ul className="text-[9.5px] text-slate-400 space-y-0.5 list-disc list-inside">
-                  <li>Unlimited Products</li>
-                  <li>5 Active branches</li>
-                  <li>15 Cashier/Staff max</li>
-                </ul>
-              </button>
-            </div>
-
-            {/* Manual Payment Fallback */}
-            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-inner mt-4">
-              <h5 className="text-[11px] uppercase font-bold text-slate-300 font-mono flex items-center space-x-2">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                <span>Payment Gateway Failed?</span>
-              </h5>
-              <p className="text-[10px] text-slate-400 mt-1 mb-3">
-                Pay directly via local bank/mobile transfer, choose the package paid for, and upload the receipt here. Our support team will verify and activate your subscription manually.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-3 mb-3">
-                <label className="space-y-1">
-                  <span className="block text-[9px] uppercase tracking-widest text-slate-500 font-bold">Paid Package</span>
-                  <select
-                    value={manualActivationPackage}
-                    onChange={(e) => setManualActivationPackage(e.target.value as SubscriptionPlanId)}
-                    className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-emerald-500"
-                  >
-                    {PAID_PACKAGE_IDS.map((planId) => {
-                      const plan = SUBSCRIPTION_PLANS[planId];
-                      return (
-                        <option key={planId} value={planId}>
-                          {plan.name} - {activeTenant.currency}{plan.price.toLocaleString()}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </label>
-                <label className="space-y-1">
-                  <span className="block text-[9px] uppercase tracking-widest text-slate-500 font-bold">Payment Note</span>
-                  <input
-                    type="text"
-                    value={manualActivationNote}
-                    onChange={(e) => setManualActivationNote(e.target.value)}
-                    placeholder="Optional transaction note or reference"
-                    className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-emerald-500"
-                  />
-                </label>
-              </div>
-              <div className="flex flex-col md:flex-row items-center space-y-3 md:space-y-0 md:space-x-3">
-                <div className="flex-1 w-full relative">
-                  <input
-                    type="file"
-                    id="receipt-upload"
-                    className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                    accept="image/*,.pdf"
-                    onChange={(e) => setManualActivationReceipt(e.target.files?.[0] || null)}
-                  />
-                  <div className="bg-slate-950 border border-slate-800 border-dashed hover:border-emerald-500/50 rounded-xl px-3 py-2 flex items-center justify-center space-x-2 text-slate-400 group transition-colors">
-                    <CloudLightning className="w-4 h-4 group-hover:text-emerald-400" />
-                    <span className="text-[10px] font-bold">
-                      {manualActivationReceipt ? manualActivationReceipt.name : 'Attach Receipt Document'}
-                    </span>
-                  </div>
-                </div>
-                <button 
-                  onClick={submitManualActivationRequest}
-                  disabled={manualActivationSubmitting}
-                  className="w-full md:w-auto px-5 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 disabled:opacity-60 disabled:cursor-not-allowed text-indigo-400 font-bold uppercase border border-indigo-500/20 text-[10px] rounded-xl transition-all tracking-wider shrink-0"
-                >
-                  {manualActivationSubmitting ? 'Sending...' : 'Send Activation Request'}
-                </button>
-              </div>
-              {manualActivationMessage && (
-                <p className="text-[10px] text-emerald-300 mt-3 font-semibold">{manualActivationMessage}</p>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
+                type="button"
                 onClick={() => setSubModal(null)}
-                className="px-5 py-2 hover:bg-slate-850 text-slate-400 hover:text-white font-medium text-xs font-mono uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+                aria-label="Close subscription options"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-950"
               >
-                Dismiss Alert
+                <X className="h-5 w-5" strokeWidth={2.25} />
               </button>
+            </header>
+
+            <div className="subscription-shell-grid min-h-0 flex-1 overflow-y-auto px-5 py-5 md:grid md:grid-cols-[minmax(260px,0.82fr)_minmax(0,1.18fr)] md:gap-8 md:px-8 md:py-7">
+              <section aria-label="Choose subscription plan" className="space-y-3">
+                {PAID_PACKAGE_IDS.map((planId) => {
+                  const plan = SUBSCRIPTION_PLANS[planId];
+                  const isSelected = selectedPlanId === planId;
+                  const planTone = planId === 'ruby'
+                    ? 'bg-rose-50 text-rose-600'
+                    : planId === 'diamond'
+                      ? 'bg-sky-50 text-sky-600'
+                      : 'bg-violet-50 text-violet-600';
+                  return (
+                    <button
+                      key={planId}
+                      type="button"
+                      onClick={() => setSelectedPlanId(planId)}
+                      aria-pressed={isSelected}
+                      className={`flex min-h-[86px] w-full items-center gap-3 rounded-[20px] border px-4 py-3 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 md:min-h-[112px] md:px-5 ${
+                        isSelected
+                          ? 'border-emerald-600 bg-emerald-50/70 shadow-[0_10px_30px_rgba(5,150,105,0.10)]'
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+                      }`}
+                    >
+                      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${planTone}`}>
+                        <CardIcon className="h-5 w-5" strokeWidth={2.2} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base font-black text-slate-950 md:text-lg">{plan.name}</p>
+                        <p className="mt-0.5 text-lg font-bold tracking-tight text-slate-700 md:text-xl">
+                          {activeTenant.currency}{plan.price.toLocaleString()}
+                        </p>
+                        <p className="mt-1 hidden text-xs font-medium leading-5 text-slate-500 md:block">
+                          {planId === 'ruby'
+                            ? '1 branch · 2 users · 1,000 products'
+                            : planId === 'diamond'
+                              ? '1 branch · 5 users · 5,000 products'
+                              : '2 branches included · 15 users · unlimited products'}
+                        </p>
+                      </div>
+                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${isSelected ? 'border-emerald-600' : 'border-slate-300'}`}>
+                        {isSelected ? <span className="h-3 w-3 rounded-full bg-emerald-600" /> : null}
+                      </span>
+                    </button>
+                  );
+                })}
+              </section>
+
+              <section className="mt-5 border-t border-slate-100 pt-5 md:mt-0 md:border-l md:border-t-0 md:pl-8 md:pt-0">
+                <div className="grid min-h-12 grid-cols-2 rounded-2xl bg-slate-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode('online')}
+                    className={`min-h-11 rounded-xl px-4 text-sm font-bold transition-all ${paymentMode === 'online' ? 'border border-emerald-600 bg-white text-emerald-700 shadow-sm' : 'text-slate-500'}`}
+                  >
+                    Pay online
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode('offline')}
+                    className={`min-h-11 rounded-xl px-4 text-sm font-bold transition-all ${paymentMode === 'offline' ? 'border border-emerald-600 bg-white text-emerald-700 shadow-sm' : 'text-slate-500'}`}
+                  >
+                    Pay offline
+                  </button>
+                </div>
+
+                {paymentMode === 'online' ? (
+                  <div className="mt-5">
+                    <h4 className="text-base font-black text-slate-950 md:text-lg">Order summary</h4>
+                    <div className="mt-3 overflow-hidden rounded-[20px] border border-slate-200 bg-white">
+                      <div className="flex items-center justify-between gap-4 px-4 py-4 md:px-5">
+                        <span className="text-sm font-medium text-slate-500">Selected plan</span>
+                        <span className="text-base font-black text-slate-950">
+                          {SUBSCRIPTION_PLANS[selectedPlanId].name}
+                        </span>
+                      </div>
+                      <div className="mx-4 border-t border-slate-100 md:mx-5" />
+                      <div className="flex items-end justify-between gap-4 px-4 py-4 md:px-5">
+                        <span className="text-sm font-medium text-slate-500">Monthly total</span>
+                        <span className="text-2xl font-black tracking-tight text-slate-950">
+                          {activeTenant.currency}{SUBSCRIPTION_PLANS[selectedPlanId].price.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex items-start gap-3 rounded-2xl bg-emerald-50 px-4 py-3 text-emerald-900">
+                      <Shield className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" strokeWidth={2.25} />
+                      <p className="text-xs font-semibold leading-5">Secure payment. Access activates after payment confirmation.</p>
+                    </div>
+
+                    {onlinePaymentMessage ? (
+                      <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-5 text-amber-800">{onlinePaymentMessage}</p>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      onClick={() => startOnlineSubscriptionPayment(selectedPlanId, () => setPaymentMode('offline'))}
+                      disabled={onlinePaymentSubmitting}
+                      className="subscription-desktop-action mt-4 min-h-14 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-[0_12px_30px_rgba(5,150,105,0.22)] transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {onlinePaymentSubmitting ? 'Starting secure payment…' : 'Pay online'}
+                    </button>
+
+                    <a
+                      href="https://wa.me/255655746552?text=Hello%20Jasper%20Deployments%2C%20I%20need%20help%20with%20subscription%20payment."
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-2xl text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50"
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      Need help? Contact deployments
+                    </a>
+                  </div>
+                ) : (
+                  <div className="mt-5">
+                    <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 p-4 md:p-5">
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Pay with Mixx by Yas</p>
+                      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Lipa Namba — mfano</p>
+                          <p className="mt-1 text-3xl font-black tracking-tight text-slate-950">123456</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Jina — mfano</p>
+                          <p className="mt-1 text-base font-black text-slate-950">Jasper Business Suite</p>
+                        </div>
+                      </div>
+                      <p className="mt-4 text-xs font-medium leading-5 text-amber-800">Hizi ni taarifa za mfano. Thibitisha Lipa Namba halisi kwa deployments kabla ya kutuma malipo.</p>
+                    </div>
+
+                    <label className="mt-4 block">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Payment details</span>
+                      <input
+                        type="text"
+                        value={manualActivationNote}
+                        onChange={(event) => setManualActivationNote(event.target.value)}
+                        placeholder="Transaction reference and payment details"
+                        className="mt-1.5 min-h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-950 outline-none transition-colors focus:border-emerald-500"
+                      />
+                    </label>
+
+                    <div className="relative mt-3">
+                      <input
+                        type="file"
+                        id="receipt-upload"
+                        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                        accept="image/*,.pdf"
+                        onChange={(event) => setManualActivationReceipt(event.target.files?.[0] || null)}
+                      />
+                      <div className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 text-slate-600">
+                        <CloudLightning className="h-5 w-5" />
+                        <span className="truncate text-xs font-bold">{manualActivationReceipt ? manualActivationReceipt.name : 'Upload payment receipt'}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => submitManualActivationRequest(selectedPlanId)}
+                      disabled={manualActivationSubmitting}
+                      className="subscription-desktop-action mt-3 min-h-14 w-full rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {manualActivationSubmitting ? 'Sending…' : 'Submit receipt for activation'}
+                    </button>
+
+                    {manualActivationMessage ? (
+                      <p className="mt-3 rounded-2xl bg-slate-100 px-4 py-3 text-xs font-semibold leading-5 text-slate-700">{manualActivationMessage}</p>
+                    ) : null}
+
+                    <a
+                      href="https://wa.me/255655746552?text=Hello%20Jasper%20Deployments%2C%20I%20need%20help%20with%20offline%20subscription%20payment."
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Contact Jasper deployments on WhatsApp"
+                      className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-2xl text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50"
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      Need help? Contact deployments
+                    </a>
+                  </div>
+                )}
+              </section>
             </div>
+
+            <footer className="subscription-mobile-action shrink-0 border-t border-slate-100 bg-white px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+              {paymentMode === 'online' ? (
+                <button
+                  type="button"
+                  onClick={() => startOnlineSubscriptionPayment(selectedPlanId, () => setPaymentMode('offline'))}
+                  disabled={onlinePaymentSubmitting}
+                  className="min-h-14 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-[0_12px_30px_rgba(5,150,105,0.22)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {onlinePaymentSubmitting ? 'Starting secure payment…' : 'Pay online'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => submitManualActivationRequest(selectedPlanId)}
+                  disabled={manualActivationSubmitting}
+                  className="min-h-14 w-full rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {manualActivationSubmitting ? 'Sending…' : 'Submit receipt for activation'}
+                </button>
+              )}
+            </footer>
           </div>
         </div>
+          )}
+        </SubscriptionCheckoutStateBridge>
       )}
 
       {/* 🔒 Sign Out Confirmation Modal */}

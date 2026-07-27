@@ -1,4 +1,5 @@
 import { getSecureDataBridgeClient } from '../secureDataBridge';
+import { toUserFacingError } from './safeError';
 
 const deviceStorageKey = 'jasper_device_id';
 const sessionStorageKey = 'jasper_cloud_session_id';
@@ -47,6 +48,10 @@ const getDeviceLabel = () => {
   return width < 768 ? 'Mobile browser' : width < 1024 ? 'Tablet browser' : 'Desktop browser';
 };
 
+const getSessionErrorLanguage = () => (
+  document.documentElement.lang || navigator.language || 'en'
+);
+
 const getAccessToken = async (provided?: string) => {
   if (provided) return provided;
   const client: any = await getSecureDataBridgeClient();
@@ -58,11 +63,21 @@ const sessionRequest = async (path: 'start' | 'touch' | 'end', token: string, bo
   const response = await withSessionTimeout(fetch(`/api/auth/session/${path}`, {
     method: 'POST',
     cache: 'no-store',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'X-Jasper-Language': getSessionErrorLanguage(),
+    },
     body: JSON.stringify(body)
   }), 8000);
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok && !payload?.reasonCode) throw new Error(payload?.reason || 'Session service unavailable.');
+  if (!response.ok) {
+    const safeError = toUserFacingError(
+      { ...payload, status: response.status },
+      { language: getSessionErrorLanguage(), context: 'session', fallbackCode: 'LOAD_ERROR' },
+    );
+    throw Object.assign(new Error(safeError.message), safeError, { status: response.status });
+  }
   return payload;
 };
 

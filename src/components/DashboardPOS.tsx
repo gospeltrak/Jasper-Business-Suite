@@ -341,7 +341,7 @@ export default function DashboardPOS({
         status: (receiptResult.amountPaid ?? receiptResult.total) >= receiptResult.total ? 'Paid' : 'Pending',
         preparedByRole: 'Cashier',
         terms,
-        footer: 'Powered by Ndiva Suite',
+        footer: 'Powered by Jasper',
       };
   };
 
@@ -542,9 +542,9 @@ export default function DashboardPOS({
   const filteredProducts = useMemo(() => products.filter(p => {
     const shopQty = Number(p.shopStockQty ?? p.stockQty ?? 0);
     if (shopQty <= 0) return false;
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          p.barcode.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = String(p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          String(p.sku || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          String(p.barcode || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = !selectedCategory || selectedCategory === 'All' || 
       p.category?.trim().toLowerCase() === selectedCategory.trim().toLowerCase();
     const inStock = (p.shopStockQty ?? p.stockQty ?? 0) > 0;
@@ -1189,23 +1189,23 @@ export default function DashboardPOS({
         {/* Product selection grid (8/12 scope) */}
         <div className="lg:col-span-7 xl:col-span-8 min-h-0 flex flex-col space-y-4 md:space-y-6">
           {/* Search and Categories controls */}
-          <div className="bg-white px-3 py-3 md:border border-slate-200 md:p-6 rounded-none md:rounded-3xl space-y-4 shadow-none md:shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-100/70 border border-slate-200 rounded-2xl p-1.5 relative md:mx-0">
+          <div className="bg-white px-3 py-2.5 md:border border-slate-200 md:p-6 rounded-none md:rounded-3xl space-y-3 lg:space-y-4 shadow-none md:shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-100/70 border border-slate-200 rounded-2xl p-1 lg:p-1.5 relative md:mx-0">
               <div className="relative flex-grow">
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search Code, Barcode or Title..."
-                  className="w-full bg-transparent text-sm pl-10 pr-24 py-2.5 text-slate-800 placeholder-slate-400 font-sans font-medium outline-none border-none focus:ring-0"
+                  className="w-full bg-transparent text-[13px] lg:text-sm pl-9 lg:pl-10 pr-20 lg:pr-24 py-2 lg:py-2.5 text-slate-800 placeholder-slate-400 font-sans font-medium outline-none border-none focus:ring-0"
                 />
-                <Search className="absolute left-3.5 top-3 w-5 h-5 text-slate-400 pointer-events-none" />
+                <Search className="absolute left-3 lg:left-3.5 top-1/2 -translate-y-1/2 w-4 lg:w-5 h-4 lg:h-5 text-slate-400 pointer-events-none" />
                 
                 {/* SCAN BARCODE ICON BUTTON IN THE RIGHT OF SEARCH BAR */}
                 <button 
                   type="button"
                   onClick={() => setIsScannerOpen(true)}
-                  className="absolute right-2 top-1.5 p-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center space-x-1 select-none"
+                  className="absolute right-1.5 lg:right-2 top-1/2 -translate-y-1/2 p-1.5 lg:p-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg lg:rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center space-x-1 select-none"
                   title="Scan Barcode / QR EAN code with reader"
                 >
                   <Scan className="w-4 h-4 text-emerald-600 animate-pulse" />
@@ -1254,7 +1254,8 @@ export default function DashboardPOS({
                   ? 'bg-teal-50 text-teal-800 border-teal-200 animate-pulse'
                   : 'bg-emerald-50 text-emerald-800 border-emerald-200'
               }`}>
-                ACTIVE SELLING CHANNEL: {sellingChannel.toUpperCase()}
+                <span className="lg:hidden">{sellingChannel.toUpperCase()}</span>
+                <span className="hidden lg:inline">ACTIVE SELLING CHANNEL: {sellingChannel.toUpperCase()}</span>
               </span>
             </div>
           </div>
@@ -1328,9 +1329,9 @@ export default function DashboardPOS({
         </div>
 
         {/* Product listing grid */}
-        <div className={`${showProductImages ? 'grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6' : 'flex flex-col gap-2'} px-2 md:px-0 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200`}>
+        <div id="pos-product-grid" className={`${showProductImages ? 'grid grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4' : 'flex flex-col gap-2'} px-2 md:px-0 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200`}>
           {filteredProducts.length === 0 ? (
-            <div className="sm:col-span-3 text-center py-16 text-sm font-mono text-slate-500 bg-white border border-slate-200 rounded-3xl shadow-sm">
+            <div className="col-span-3 lg:col-span-4 text-center py-16 text-sm font-mono text-slate-500 bg-white border border-slate-200 rounded-3xl shadow-sm">
               No matching {activeTenant.businessType === 'pharmacy' ? 'pharmaceutical products' : 'retail items'} in stock.
             </div>
           ) : (
@@ -1343,6 +1344,7 @@ export default function DashboardPOS({
               return (
                 <div 
                   key={prod.id}
+                  data-pos-product-card
                   onClick={() => {
                     if (!isOut) {
                       addToCart(prod);
@@ -1351,9 +1353,9 @@ export default function DashboardPOS({
                       playOutOfStockBeep();
                     }
                   }}
-                  className={`bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${
+                  className={`w-full min-w-0 bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${
                     showProductImages
-                      ? 'p-0 md:p-5 flex flex-col justify-between overflow-hidden xl:overflow-visible md:rounded-3xl'
+                      ? 'p-0 lg:p-5 flex flex-col justify-between overflow-hidden lg:overflow-visible lg:rounded-3xl'
                       : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'
                   } ${
                     isOut 
@@ -1363,11 +1365,11 @@ export default function DashboardPOS({
                 >
                   {/* Product image — only shown if user uploaded one */}
                   {showProductImages && getProductImage(prod) !== '' && (
-                    <div className="w-full h-[120px] md:h-36 bg-slate-50 border-b md:border border-slate-100 rounded-t-xl md:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
+                    <div className="w-full aspect-square lg:aspect-auto lg:h-36 bg-slate-50 border-b lg:border border-slate-100 rounded-t-xl lg:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
                       <CachedImage 
                         src={getProductImage(prod)} 
                         alt={prod.name} 
-                        className="w-full h-full group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
+                        className="w-full h-full lg:group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
                         referrerPolicy="no-referrer"
                       />
                       {isLow && !isOut && (
@@ -1380,32 +1382,45 @@ export default function DashboardPOS({
                           OUT
                         </span>
                       )}
+                      {!isOut && (
+                        <span
+                          className="absolute top-1.5 right-1.5 md:top-2.5 md:right-2.5 max-w-[70%] truncate rounded-full border border-white/80 bg-white/95 px-1.5 md:px-2 py-0.5 text-[7px] sm:text-[8px] font-extrabold leading-tight text-slate-700 shadow-sm backdrop-blur-sm"
+                          title={remainingLabel}
+                        >
+                          <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                          {remainingLabel}
+                        </span>
+                      )}
                     </div>
                   )}
 
                   {/* Text details and bottom panel wrapper */}
-                  <div className={`${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-2 px-3 pb-3 md:px-0 md:pb-0' : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'}`}>
+                  <div className={`${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-1.5 px-1.5 pb-2 sm:mt-2 sm:px-2 sm:pb-2.5 lg:px-0 lg:pb-0' : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'}`}>
                     {/* Product Metadata & Text layout */}
                     <div className="space-y-1 min-w-0">
-                      <div className={`${showProductImages ? 'hidden xl:flex' : 'flex'} items-center justify-between gap-2`}>
+                      <div className={`${showProductImages ? 'hidden lg:flex' : 'flex'} items-center justify-between gap-2`}>
                         <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded-xs leading-none">
                           {prod.category}
                         </span>
-                        <span className="text-[9px] font-mono text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded-xs leading-none">
-                          {remainingLabel}
-                        </span>
+                        {!showProductImages && (
+                          <span className="text-[9px] font-mono text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded-xs leading-none">
+                            {remainingLabel}
+                          </span>
+                        )}
                       </div>
-                      <h5 className={`font-extrabold text-xs text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 md:min-h-[2.25rem]' : 'truncate md:text-sm'}`} title={prod.name}>
+                      <h5 className={`font-extrabold text-[10px] sm:text-xs text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 min-h-[1.75rem] sm:min-h-[2.25rem]' : 'truncate md:text-sm'}`} title={prod.name}>
                         {prod.name}
                       </h5>
-                      <p className={`${showProductImages ? 'hidden xl:block' : 'block'} text-[9.5px] text-slate-400 font-mono font-medium truncate`}>SKU: {prod.sku || prod.barcode || 'N/A'}</p>
+                      {!showProductImages && (
+                        <p className="text-[9.5px] text-slate-400 font-mono font-medium truncate">SKU: {prod.sku || prod.barcode || 'N/A'}</p>
+                      )}
                     </div>
 
                     {/* Pricing and Select CTA trigger */}
-                    <div className={`${showProductImages ? 'flex items-center justify-between pt-2 border-t border-slate-100 mt-2' : 'contents md:flex md:items-center md:gap-3 md:justify-end'} shrink-0`}>
+                    <div className={`${showProductImages ? 'flex min-w-0 flex-col gap-1 pt-1.5 border-t border-slate-100 mt-1.5 lg:gap-2 lg:pt-2 lg:mt-2' : 'contents md:flex md:items-center md:gap-3 md:justify-end'} shrink-0`}>
                       <div className="space-y-0.5">
                         <p className="hidden xl:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
-                        <span className="text-sm md:text-[14px] font-black text-emerald-700 md:text-slate-900 leading-none whitespace-nowrap">{currency}{Math.round(displayPrice).toLocaleString()}</span>
+                        <span className="block max-w-full truncate text-[10px] sm:text-xs lg:text-[14px] font-black text-emerald-700 lg:text-slate-900 leading-none" title={`${currency}${Math.round(displayPrice).toLocaleString()}`}>{currency}{Math.round(displayPrice).toLocaleString()}</span>
                         {prod.batches && prod.batches.some(batch => batch.status === 'active') && (
                           <span className={`${showProductImages ? 'block' : 'hidden xl:block'} text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5`}>
                             {getProductCostingMethod(prod).replace('_', ' ')}
@@ -1413,9 +1428,11 @@ export default function DashboardPOS({
                         )}
                       </div>
                       {!isOut ? (
-                        <div className="text-right">
-                          <span className="bg-emerald-600 hover:bg-emerald-700 group-hover:bg-emerald-700 text-white text-[9px] md:text-[9.5px] font-black px-2 md:px-2.5 py-1 md:py-1.5 rounded-lg md:rounded-xl uppercase tracking-wider transition-all shadow-xs inline-flex items-center space-x-1">
-                            <span>+ Add</span>
+                        <div className="w-full text-right">
+                          <span className="w-full min-h-7 lg:min-h-9 bg-emerald-600 hover:bg-emerald-700 group-hover:bg-emerald-700 text-white text-[9px] lg:text-[10px] font-black px-1.5 lg:px-3 py-1.5 lg:py-2 rounded-lg lg:rounded-xl uppercase tracking-wider transition-all shadow-xs lg:shadow-md lg:shadow-emerald-600/20 inline-flex items-center justify-center gap-1">
+                            <Plus className="hidden lg:block h-3.5 w-3.5" strokeWidth={3} />
+                            <span className="lg:hidden">+ Add</span>
+                            <span className="hidden lg:inline">Add</span>
                           </span>
                         </div>
                       ) : (

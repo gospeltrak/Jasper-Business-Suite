@@ -1,17 +1,22 @@
-import { useState, useEffect, useRef } from 'react';
-import LandingPage from './components/LandingPage';
+import { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import LoginPage from './components/LoginPage';
-import Dashboard from './components/Dashboard';
-import AffiliatePortal from './components/AffiliatePortal';
-import ToolsHub from './components/ToolsHub';
 import JasperSplashScreen from './components/JasperSplashScreen';
 import { User, Tenant } from './types';
 import { useTheme } from './ThemeContext';
 import { useTenantLogo } from './TenantLogoContext';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from './secureDataBridge';
-import { endCloudSession, touchCloudSession } from './utils/sessionControl';
+import { endCloudSession, startCloudSession, touchCloudSession } from './utils/sessionControl';
 import { pullFromCloud, pushToCloud } from './utils/dbSync';
 import { configureOnlineStorage, resetOnlineStorage } from './utils/onlineStorage';
+
+// Route-level code splitting keeps the large business workspaces out of the
+// login bundle. No feature is removed; it is downloaded only when opened.
+const LandingPage = lazy(() => import('./components/LandingPage'));
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const AffiliatePortal = lazy(() => import('./components/AffiliatePortal'));
+const ToolsHub = lazy(() => import('./components/ToolsHub'));
+const JASPER_PUBLIC_LANDING_URL = 'https://jasper-business-suite.vercel.app/';
+const JASPER_PUBLIC_LANDING_HOST = new URL(JASPER_PUBLIC_LANDING_URL).hostname;
 
 type TenantDomainContext = {
   kind: 'loading' | 'landing' | 'app' | 'tenant' | 'tenant-not-found' | 'tenant-inactive' | 'error';
@@ -20,6 +25,13 @@ type TenantDomainContext = {
   subdomain?: string;
   tenant?: Tenant | null;
   message?: string;
+};
+
+type SplashRequest = {
+  mode: 'generic' | 'tenant';
+  logoSrc?: string;
+  showTagline: boolean;
+  pendingPath?: string;
 };
 
 export default function App() {
@@ -80,12 +92,16 @@ export default function App() {
   const { isDark, toggleTheme } = useTheme();
   const { fetchLogoUrl, logoUrl } = useTenantLogo();
 
-  // Splash: show once per session when user first enters dashboard
-  const [showSplash, setShowSplash] = useState(false);
+  // The new Jasper reveal is the only loader shown across public entry,
+  // public auth navigation, and the first authenticated workspace entry.
+  const [splashRequest, setSplashRequest] = useState<SplashRequest | null>({
+    mode: 'generic',
+    showTagline: true,
+  });
   const splashShownRef = useRef(false);
   const logoutInProgressRef = useRef(false);
   const staffSessionIdRef = useRef<string | null>(null);
-  const publicLandingUrl = tenantDomainContext.baseDomain ? `https://${tenantDomainContext.baseDomain}/` : undefined;
+  const publicLandingUrl = JASPER_PUBLIC_LANDING_URL;
 
   const persistSignedInUser = (sessionUser: User) => {
     const serialized = JSON.stringify(sessionUser);
@@ -134,11 +150,26 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Intercepting and executing clean internal routing
-  const navigateTo = (path: string) => {
+  const commitNavigation = (path: string) => {
     setRedirectMessage('');
     window.history.pushState({}, '', path);
     setCurrentPath(normalizePath(path));
+  };
+
+  // Public landing → login/signup always gets the complete Jasper reveal.
+  const navigateTo = (path: string) => {
+    const nextPath = normalizePath(path);
+    const isPublicLanding = currentPath === '/' || currentPath === '/home';
+    const isAuthDestination = nextPath === '/login' || nextPath === '/signup';
+    if (!user && isPublicLanding && isAuthDestination) {
+      setSplashRequest({
+        mode: 'generic',
+        showTagline: true,
+        pendingPath: path,
+      });
+      return;
+    }
+    commitNavigation(path);
   };
 
   const getSessionUserKey = (sessionUser: User) => sessionUser.id || sessionUser.phone || sessionUser.email || sessionUser.name;
@@ -321,7 +352,11 @@ export default function App() {
           profileImage: userProfile.profile_image_url || undefined
         };
 
-        await configureOnlineStorage(restoredUser.activeTenant || restoredUser.tenantId);
+        await startCloudSession(sessionData.session.access_token);
+        const restoredStorageTenantId = restoredUser.activeTenant || restoredUser.tenantId;
+        if (restoredStorageTenantId && restoredStorageTenantId !== 'platform-control') {
+          await configureOnlineStorage(restoredStorageTenantId);
+        }
         setUser(restoredUser);
         persistSignedInUser(restoredUser);
 
@@ -348,24 +383,38 @@ export default function App() {
       setRedirectMessage(`This account does not belong to ${tenantDomainContext.tenant?.name || 'this business'}. Please use the correct business login.`);
       return;
     }
-    await configureOnlineStorage(authenticatedUser.activeTenant || authenticatedUser.tenantId);
-    recordStaffLogin(authenticatedUser);
+    const storageTenantId = authenticatedUser.activeTenant || authenticatedUser.tenantId;
+    let resolvedTenantLogo: string | null = null;
+    if (storageTenantId && storageTenantId !== 'platform-control') {
+      await configureOnlineStorage(storageTenantId);
+      resolvedTenantLogo = await fetchLogoUrl(storageTenantId);
+    }
+    void recordStaffLogin(authenticatedUser);
     setUser(authenticatedUser);
     persistSignedInUser(authenticatedUser);
-    // Show splash on fresh login — only once per session
-    if (!splashShownRef.current) {
-      splashShownRef.current = true;
-      setShowSplash(true);
-    }
-    // Route based on role — Partner and Affiliate get their own portals
-    navigateTo(getAuthenticatedRoute(authenticatedUser));
+    splashShownRef.current = true;
+    setSplashRequest({
+      mode: 'tenant',
+      logoSrc: resolvedTenantLogo || undefined,
+      showTagline: false,
+    });
+    // Route immediately underneath the four-second tenant-branded reveal.
+    commitNavigation(getAuthenticatedRoute(authenticatedUser));
   };
 
   useEffect(() => {
     if (!user) return;
-    touchCloudSession();
-    const heartbeat = window.setInterval(() => { touchCloudSession(); }, 5 * 60 * 1000);
-    return () => window.clearInterval(heartbeat);
+    const touch = () => { void touchCloudSession(); };
+    const touchWhenVisible = () => { if (document.visibilityState === 'visible') touch(); };
+    touch();
+    const heartbeat = window.setInterval(touch, 60 * 1000);
+    window.addEventListener('focus', touch);
+    document.addEventListener('visibilitychange', touchWhenVisible);
+    return () => {
+      window.clearInterval(heartbeat);
+      window.removeEventListener('focus', touch);
+      document.removeEventListener('visibilitychange', touchWhenVisible);
+    };
   }, [user?.id]);
 
   const handleLogoutSuccess = async () => {
@@ -404,21 +453,14 @@ export default function App() {
   // Dynamic Component switcher based on pathname
   const renderRoute = () => {
     if (tenantDomainContext.kind === 'loading') {
-      return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-6 text-center">
-          <div className="space-y-3">
-            <img src="/jb-logo.png" alt="Ndiva Suite Logo" className="w-14 h-14 object-contain mx-auto animate-pulse" />
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">Loading Ndiva Suite</p>
-          </div>
-        </div>
-      );
+      return <div className="min-h-[100dvh] bg-white" aria-hidden="true" />;
     }
 
     if (tenantDomainContext.kind === 'tenant-not-found' || tenantDomainContext.kind === 'tenant-inactive' || tenantDomainContext.kind === 'error') {
       return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
           <div className="max-w-md rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:bg-slate-900 dark:border-slate-800">
-            <img src="/jb-logo.png" alt="Ndiva Suite Logo" className="mx-auto h-14 w-14 object-contain" />
+            <img src="/jb-logo.png" alt="Jasper Logo" className="mx-auto h-14 w-14 object-contain" />
             <h1 className="mt-4 text-2xl font-black text-slate-900 dark:text-white">
               {tenantDomainContext.kind === 'tenant-inactive' ? 'Business Domain Inactive' : 'Tenant Not Found'}
             </h1>
@@ -446,11 +488,9 @@ export default function App() {
     }
 
     if (currentPath === '/affiliate' || currentPath.startsWith('/affiliate/')) {
-      if (!splashShownRef.current) { splashShownRef.current = true; setShowSplash(true); }
       return <AffiliatePortal onNavigate={navigateTo} forcedRole="affiliate" />;
     }
     if (currentPath === '/partner' || currentPath.startsWith('/partner/')) {
-      if (!splashShownRef.current) { splashShownRef.current = true; setShowSplash(true); }
       return <AffiliatePortal onNavigate={navigateTo} forcedRole="partner" />;
     }
 
@@ -484,6 +524,9 @@ export default function App() {
 
     switch (currentPath) {
       case '/':
+        if (window.location.hostname === JASPER_PUBLIC_LANDING_HOST) {
+          return <LandingPage isDark={isDark} onToggleTheme={toggleTheme} onNavigate={navigateTo} />;
+        }
         if (tenantDomainContext.kind === 'tenant') {
           if (user) {
             return (
@@ -601,20 +644,25 @@ export default function App() {
     };
   }, [currentPath]);
 
-  // Resolve logo: tenant custom logo → system default
-  const splashLogo = logoUrl || '/jasper_logo_transparent.png';
-
   return (
     <div id="jasper-app-root" className="app-shell min-h-[100dvh] bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-emerald-100 selection:text-emerald-900 transition-colors duration-300">
-      {/* Premium animated splash — shown only on fresh dashboard login */}
-      {showSplash && (
+      {splashRequest && (
         <JasperSplashScreen
-          logoSrc={splashLogo}
-          duration={2600}
-          onFinish={() => setShowSplash(false)}
+          logoSrc={splashRequest.mode === 'tenant' ? splashRequest.logoSrc : undefined}
+          duration={4000}
+          showTagline={splashRequest.showTagline}
+          onFinish={() => {
+            const pendingPath = splashRequest.pendingPath;
+            setSplashRequest(null);
+            if (pendingPath) commitNavigation(pendingPath);
+          }}
         />
       )}
-      {renderRoute()}
+      <Suspense fallback={(
+        <div className="min-h-[100dvh] bg-white" aria-hidden="true" />
+      )}>
+        {renderRoute()}
+      </Suspense>
     </div>
   );
 }

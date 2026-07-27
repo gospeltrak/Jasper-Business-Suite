@@ -37,8 +37,9 @@ import {
   Line, 
   CartesianGrid 
 } from 'recharts';
-import { Tenant, Expense, Product, Sale } from '../types';
+import { Tenant, Expense, Product, Sale, SystemSettings } from '../types';
 import { safeSetJsonItem } from '../utils/dataSafety';
+import { getMaskedAccountReference } from '../utils/paymentAccounts';
 
 const DEFAULT_EXPENSE_CATEGORIES = ['Utilities & Power', 'Wages & Salary', 'Logistics & Transport', 'Packaging Materials', 'Rent & Logistics', 'Marketing & Ads', 'Miscellaneous'];
 
@@ -50,6 +51,7 @@ interface DashboardExpensesProps {
   onUpdateExpense?: (expense: Expense) => void;
   userName?: string;
   sales?: Sale[];
+  systemSettings: SystemSettings;
 }
 
 export default function DashboardExpenses({ 
@@ -59,16 +61,18 @@ export default function DashboardExpenses({
   onDeleteExpense,
   onUpdateExpense,
   userName = 'Admin',
-  sales = []
+  sales = [],
+  systemSettings,
 }: DashboardExpensesProps) {
   const currency = activeTenant.currencyCode || 'TSh';
 
   // State for submenu nav tabs: 'list' | 'categories' | 'add'
   const [subTab, setSubTab] = useState<'list' | 'categories' | 'add'>('list');
   const [expenseActionItem, setExpenseActionItem] = useState<Expense | null>(null);
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [isReceiptPreviewOpen, setIsReceiptPreviewOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [editForm, setEditForm] = useState<{description: string; amount: string; category: string; note: string}>({description: '', amount: '', category: '', note: ''});
+  const [editForm, setEditForm] = useState<{description: string; amount: string; category: string; note: string; paidFromAccountId: string}>({description: '', amount: '', category: '', note: '', paidFromAccountId: ''});
 
   // Date/day selected states. Defaulting to empty starts with 'All Records'
   // and user can filter by a single specific date or quick day options.
@@ -118,6 +122,9 @@ export default function DashboardExpenses({
   const [formAmount, setFormAmount] = useState<number | ''>('');
   const [formTransactionMessage, setFormTransactionMessage] = useState('');
   const [formNote, setFormNote] = useState('');
+  const [formPaidFromAccountId, setFormPaidFromAccountId] = useState('');
+  const paymentAccounts = (systemSettings.paymentChannels || [])
+    .filter(account => account.category !== 'person' && account.status !== 'inactive' && account.status !== 'archived');
   
   // File upload states
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -315,6 +322,15 @@ export default function DashboardExpenses({
       setFormError('Please supply a valid operational debit amount above 0.');
       return;
     }
+    if (!formPaidFromAccountId) {
+      setFormError('Please select the Money & Bank account used to pay this expense.');
+      return;
+    }
+    const paidFromAccount = paymentAccounts.find(account => account.id === formPaidFromAccountId);
+    if (!paidFromAccount) {
+      setFormError('The selected payment account is inactive or unavailable.');
+      return;
+    }
 
     const cleanDate = formDate || new Date().toISOString().split('T')[0];
 
@@ -338,7 +354,9 @@ export default function DashboardExpenses({
       receiptRef: uploadedFileName || undefined,
       receiptImage: uploadedFileBase64 || undefined,
       transactionMessage: formTransactionMessage.trim() || undefined,
-      note: formNote.trim() || undefined
+      note: formNote.trim() || undefined,
+      paymentMethod: paidFromAccount.paymentMethod || paidFromAccount.name,
+      paidFromAccountId: paidFromAccount.id,
     };
 
     onAddExpense(newExpense);
@@ -350,6 +368,7 @@ export default function DashboardExpenses({
     setFormAmount('');
     setFormTransactionMessage('');
     setFormNote('');
+    setFormPaidFromAccountId('');
     setUploadedFileName('');
     setUploadedFileType('');
     setUploadedFileBase64(null);
@@ -550,7 +569,7 @@ export default function DashboardExpenses({
                   Spending Trend
                 </p>
                 <div className="flex-1">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1} initialDimension={{ width: 900, height: 224 }}>
                     <ComposedChart data={expensesTrendData} margin={{ top: 2, right: 2, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="expTrendFill" x1="0" y1="0" x2="0" y2="1">
@@ -745,13 +764,13 @@ export default function DashboardExpenses({
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button type="button" title="Edit"
-                          onClick={() => { setEditingExpense(e); setEditForm({description: e.description, amount: String(e.amount), category: e.category, note: e.note || ''}); }}
+                          onClick={() => { setEditingExpense(e); setEditForm({description: e.description, amount: String(e.amount), category: e.category, note: e.note || '', paidFromAccountId: e.paidFromAccountId || ''}); }}
                           className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-500/10 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer bg-transparent border-none"
                         >
                           <Edit className="w-3.5 h-3.5" />
                         </button>
                         <button type="button" title="Delete"
-                          onClick={() => { if (window.confirm('Delete this expense?')) onDeleteExpense?.(e.id); }}
+                          onClick={() => setExpenseToDelete(e)}
                           className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-600 transition-colors cursor-pointer bg-transparent border-none"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -971,6 +990,22 @@ export default function DashboardExpenses({
 
             {/* File Upload Box: "place to upload pdf receipt" */}
             <div className="space-y-1">
+              <label className="block text-slate-600 dark:text-slate-400 font-extrabold">Paid From Account</label>
+              <select
+                value={formPaidFromAccountId}
+                onChange={(e) => setFormPaidFromAccountId(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 dark:text-white font-medium cursor-pointer"
+                required
+              >
+                <option value="">Select Money & Bank account</option>
+                {paymentAccounts.map(account => (
+                  <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* File Upload Box: "place to upload pdf receipt" */}
+            <div className="space-y-1">
               <label className="block text-slate-600 dark:text-slate-400 font-extrabold">Upload PDF Receipt / Receipt Attachment</label>
               
               <div 
@@ -1167,7 +1202,7 @@ export default function DashboardExpenses({
                 )}
                 <button
                   type="button"
-                  onClick={() => { setEditingExpense(expenseActionItem); setEditForm({description: expenseActionItem.description, amount: String(expenseActionItem.amount), category: expenseActionItem.category, note: expenseActionItem.note || ''}); setExpenseActionItem(null); }}
+                  onClick={() => { setEditingExpense(expenseActionItem); setEditForm({description: expenseActionItem.description, amount: String(expenseActionItem.amount), category: expenseActionItem.category, note: expenseActionItem.note || '', paidFromAccountId: expenseActionItem.paidFromAccountId || ''}); setExpenseActionItem(null); }}
                   className="w-full h-14 min-h-[52px] bg-white dark:bg-slate-800 hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs cursor-pointer text-left transition-colors"
                 >
                   <div className="flex items-center space-x-3.5">
@@ -1184,7 +1219,7 @@ export default function DashboardExpenses({
 
                 <button
                   type="button"
-                  onClick={() => { if (window.confirm('Delete this expense?')) { onDeleteExpense?.(expenseActionItem.id); setExpenseActionItem(null); } }}
+                  onClick={() => { setExpenseToDelete(expenseActionItem); setExpenseActionItem(null); }}
                   className="w-full h-14 min-h-[52px] bg-white dark:bg-slate-800 hover:bg-red-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-red-100 dark:border-red-500/20 shadow-xs cursor-pointer text-left transition-colors"
                 >
                   <div className="flex items-center space-x-3.5">
@@ -1201,6 +1236,76 @@ export default function DashboardExpenses({
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {expenseToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-expense-title"
+          >
+            <motion.div
+              initial={{ y: 16, scale: 0.98 }}
+              animate={{ y: 0, scale: 1 }}
+              exit={{ y: 16, scale: 0.98 }}
+              className="w-full max-w-md overflow-hidden rounded-3xl border border-rose-200 bg-white shadow-2xl dark:border-rose-500/30 dark:bg-slate-900"
+            >
+              <div className="flex items-start justify-between gap-4 border-b border-rose-100 bg-rose-50 px-5 py-4 dark:border-rose-500/20 dark:bg-rose-500/10">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-rose-500">Protected destructive action</p>
+                  <h3 id="delete-expense-title" className="mt-1 text-base font-black text-slate-900 dark:text-white">Delete expense record?</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setExpenseToDelete(null)}
+                  aria-label="Close delete confirmation"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-none bg-white text-slate-500 shadow-sm cursor-pointer dark:bg-slate-800"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-4 px-5 py-5">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{expenseToDelete.description}</p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                    <span>{expenseToDelete.category}</span>
+                    <span>•</span>
+                    <span>{currency} {Math.round(expenseToDelete.amount).toLocaleString()}</span>
+                    <span>•</span>
+                    <span>{new Date(expenseToDelete.timestamp).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                  This action removes the expense from business totals and reports. It will only run after the explicit confirmation below.
+                </p>
+              </div>
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+                <button
+                  type="button"
+                  onClick={() => setExpenseToDelete(null)}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-black text-slate-600 cursor-pointer dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                >
+                  Keep Expense
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDeleteExpense?.(expenseToDelete.id);
+                    setExpenseToDelete(null);
+                  }}
+                  className="rounded-xl border-none bg-rose-600 px-4 py-2.5 text-xs font-black text-white cursor-pointer hover:bg-rose-700"
+                >
+                  Confirm Delete Expense
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -1269,6 +1374,14 @@ export default function DashboardExpenses({
                   placeholder="Add a note..."
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500" />
               </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Paid From Account</label>
+                <select value={editForm.paidFromAccountId} onChange={e => setEditForm(p => ({...p, paidFromAccountId: e.target.value}))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 cursor-pointer">
+                  <option value="">Select Money & Bank account</option>
+                  {paymentAccounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+                </select>
+              </div>
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={() => setEditingExpense(null)}
                   className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-bold cursor-pointer border-none">
@@ -1276,8 +1389,10 @@ export default function DashboardExpenses({
                 </button>
                 <button type="button"
                   onClick={() => {
-                    if (!editForm.description || !editForm.amount) return;
-                    onUpdateExpense?.({...editingExpense, description: editForm.description, amount: parseFloat(editForm.amount) || 0, category: editForm.category, note: editForm.note});
+                    if (!editForm.description || !editForm.amount || !editForm.paidFromAccountId) return;
+                    const account = paymentAccounts.find(candidate => candidate.id === editForm.paidFromAccountId);
+                    if (!account) return;
+                    onUpdateExpense?.({...editingExpense, description: editForm.description, amount: parseFloat(editForm.amount) || 0, category: editForm.category, note: editForm.note, paidFromAccountId: account.id, paymentMethod: account.paymentMethod || account.name});
                     setEditingExpense(null);
                   }}
                   className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold cursor-pointer border-none transition-colors">

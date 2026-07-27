@@ -1,4 +1,61 @@
 import { GoogleGenAI } from '@google/genai';
+import { createClient } from '@supabase/supabase-js';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseAdmin = supabaseUrl && supabaseServiceRoleKey
+  ? createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  : null;
+
+async function requireLucyTenantUser(req: any, tenantId: string) {
+  if (!supabaseAdmin) {
+    const error: any = new Error('Lucy authentication service is not configured.');
+    error.status = 503;
+    throw error;
+  }
+  if (!UUID_RE.test(tenantId)) {
+    const error: any = new Error('Invalid tenant identifier.');
+    error.status = 400;
+    throw error;
+  }
+
+  const authorization = String(req.headers?.authorization || '');
+  const [scheme, token] = authorization.split(' ');
+  if (scheme.toLowerCase() !== 'bearer' || !token) {
+    const error: any = new Error('Authentication required.');
+    error.status = 401;
+    throw error;
+  }
+
+  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !authData.user) {
+    const error: any = new Error('Invalid session.');
+    error.status = 401;
+    throw error;
+  }
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('users')
+    .select('tenant_id, active_tenant, account_type, role, role_key, is_active')
+    .eq('id', authData.user.id)
+    .maybeSingle();
+  const normalizedRole = String(profile?.role_key || profile?.role || '').toLowerCase();
+  const isPlatformAdmin = Boolean(
+    profile?.is_active &&
+    (profile?.account_type === 'super_admin' || ['superadmin', 'super_admin', 'admin'].includes(normalizedRole))
+  );
+  const belongsToTenant = String(profile?.tenant_id || '') === tenantId
+    || String(profile?.active_tenant || '') === tenantId;
+
+  if (profileError || !(isPlatformAdmin || belongsToTenant)) {
+    const error: any = new Error('Tenant access denied.');
+    error.status = 403;
+    throw error;
+  }
+}
 
 // ─── Local greeting detection (no Gemini needed) ──────────────────────────────
 
@@ -152,6 +209,17 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ success: false, message: 'No message provided.', errorCode: 'NO_MESSAGE' });
   }
 
+  try {
+    await requireLucyTenantUser(req, String(businessData?.tenantId || ''));
+  } catch (error: any) {
+    const status = Number(error?.status || 500);
+    return res.status(status).json({
+      success: false,
+      message: status === 500 ? 'Lucy is temporarily unavailable.' : error.message,
+      errorCode: status === 401 ? 'AUTH_REQUIRED' : status === 403 ? 'TENANT_ACCESS_DENIED' : 'LUCY_REQUEST_FAILED',
+    });
+  }
+
   // Get the latest user message
   const lastUserMsg = [...messages].reverse().find((m: any) => m.role === 'user')?.content || '';
 
@@ -216,7 +284,7 @@ ${businessContext}`;
     }));
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       config: { systemInstruction },
       contents: geminiContents,
     });

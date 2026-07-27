@@ -587,7 +587,7 @@ export default function AIBusinessCopilot({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={!isLucyEnabled}
-                placeholder={isLucyEnabled ? 'Ask Lucy about Ndiva or your business...' : 'Upgrade to Diamond to use Lucy'}
+                placeholder={isLucyEnabled ? 'Ask Lucy about Jasper or your business...' : 'Upgrade to Diamond to use Lucy'}
                 className="flex-grow bg-[#F4F4F5] border-transparent rounded-full px-4 py-2 text-[13px] text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-shadow"
               />
               <button

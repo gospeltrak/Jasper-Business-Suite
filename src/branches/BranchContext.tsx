@@ -1,0 +1,117 @@
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  activatePrimaryBranch,
+  createBranch,
+  loadBranchWorkspace,
+  selectBranch,
+} from './branchApi';
+import type {
+  BranchWorkspaceSnapshot,
+  CreateBranchInput,
+  CreatedBranchResult,
+  SelectableBranchScope,
+} from './branchTypes';
+
+interface BranchContextValue {
+  snapshot: BranchWorkspaceSnapshot | null;
+  isLoading: boolean;
+  error: Error | null;
+  refresh: () => Promise<void>;
+  chooseBranch: (branchId: string | null, scope: SelectableBranchScope) => Promise<void>;
+  activatePrimary: () => Promise<void>;
+  addBranch: (input: CreateBranchInput) => Promise<CreatedBranchResult>;
+}
+
+const BranchContext = createContext<BranchContextValue | null>(null);
+
+const publishBranchContext = (snapshot: BranchWorkspaceSnapshot | null) => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('jasper_branch_context_changed', {
+    detail: {
+      activeBranchId: snapshot?.context.activeBranchId || null,
+      businessName: snapshot?.context.selectedBranch?.businessName || '',
+      scope: snapshot?.context.activeScope || 'no_branch_access',
+    },
+  }));
+};
+
+export function BranchProvider({
+  tenantKey,
+  children,
+}: {
+  tenantKey: string;
+  children: React.ReactNode;
+}) {
+  const [snapshot, setSnapshot] = useState<BranchWorkspaceSnapshot | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const requestIdRef = useRef(0);
+
+  const refresh = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const nextSnapshot = await loadBranchWorkspace();
+      if (requestId === requestIdRef.current) {
+        setSnapshot(nextSnapshot);
+        publishBranchContext(nextSnapshot);
+      }
+    } catch (nextError) {
+      if (requestId === requestIdRef.current) {
+        setError(nextError instanceof Error ? nextError : new Error('Branch information could not be loaded.'));
+      }
+    } finally {
+      if (requestId === requestIdRef.current) setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    setSnapshot(null);
+    void refresh();
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [tenantKey, refresh]);
+
+  const chooseBranch = useCallback(async (
+    branchId: string | null,
+    scope: SelectableBranchScope,
+  ) => {
+    const context = await selectBranch(branchId, scope);
+    setSnapshot(current => {
+      const next = current ? { ...current, context, directory: context } : current;
+      publishBranchContext(next);
+      return next;
+    });
+  }, []);
+
+  const activatePrimary = useCallback(async () => {
+    await activatePrimaryBranch();
+    await refresh();
+  }, [refresh]);
+
+  const addBranch = useCallback(async (input: CreateBranchInput) => {
+    const created = await createBranch(input);
+    await refresh();
+    return created;
+  }, [refresh]);
+
+  const value = useMemo<BranchContextValue>(() => ({
+    snapshot,
+    isLoading,
+    error,
+    refresh,
+    chooseBranch,
+    activatePrimary,
+    addBranch,
+  }), [snapshot, isLoading, error, refresh, chooseBranch, activatePrimary, addBranch]);
+
+  return <BranchContext.Provider value={value}>{children}</BranchContext.Provider>;
+}
+
+export const useBranchContext = () => {
+  const context = useContext(BranchContext);
+  if (!context) throw new Error('useBranchContext must be used inside BranchProvider.');
+  return context;
+};

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Sale, Tenant } from '../types';
 import { createLucyResponse, getLucyGreeting } from '../utils/lucyBrain';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { 
   ResponsiveContainer, 
   LineChart, 
@@ -485,8 +486,8 @@ export default function DashboardForecasting({
     const origProduct = products.find(p => p.sku === item.sku);
     const category = origProduct?.category || '';
 
-    const matchesSearch = item.productName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          item.sku.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = String(item.productName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          String(item.sku || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCategory = selectedCategory === 'All' || category === selectedCategory;
     const matchesRisk = riskFilter === 'All' || item.riskLevel === riskFilter;
@@ -624,10 +625,20 @@ export default function DashboardForecasting({
     setChatLoading(true);
 
     try {
+      const client = await getSecureDataBridgeClient();
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (sessionError || !accessToken) {
+        throw new Error('Please sign in again before asking Lucy.');
+      }
+
       // Send full business data to backend — backend builds rich context and calls Gemini
       const response = await fetch('/api/lucy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({
           messages: [
             ...chatMessages.slice(-8).map(m => ({
@@ -945,7 +956,7 @@ export default function DashboardForecasting({
                           </div>
 
                           <div className="h-64 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1} initialDimension={{ width: 900, height: 320 }}>
                               <LineChart
                                 data={[
                                   {
@@ -1350,7 +1361,7 @@ export default function DashboardForecasting({
                               <TrendingUp className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                             </div>
                             <div className="h-32 w-full text-[9px] font-sans">
-                              <ResponsiveContainer width="100%" height="100%">
+                              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1} initialDimension={{ width: 900, height: 320 }}>
                                 {m.chartType === 'line' ? (
                                   <LineChart data={m.chartData} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />

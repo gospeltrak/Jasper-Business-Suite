@@ -36,6 +36,7 @@ import {
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../../utils/onlineOnly';
 import { canShowDashboardAd, useGlobalAdSettings } from '../../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../utils/safeHtml';
+import { isSettledPaymentStatus } from '../../utils/financialStatus';
 import GlobalStickyAd from '../GlobalStickyAd';
 import SaaSHardwarePOS from '../SaaSHardwarePOS';
 import SaaSHardwareInventory from '../SaaSHardwareInventory';
@@ -156,11 +157,6 @@ function isUuidLike(value?: string | null): boolean {
 
 function normalizeReferralCode(value?: string | null): string {
   return String(value || '').trim().toUpperCase();
-}
-
-function isPaidReferralStatus(value?: string | null): boolean {
-  const status = String(value || '').trim().toLowerCase();
-  return ['paid', 'success', 'successful', 'completed', 'approved', 'verified'].some((token) => status.includes(token));
 }
 
 function uniqueBySubAffiliate(rows: SubAffiliateProfile[]): SubAffiliateProfile[] {
@@ -665,7 +661,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         if (!subAffiliateId) continue;
         const current = totalsBySubAffiliate.get(subAffiliateId) || { customers: 0, paidRevenue: 0 };
         current.customers += 1;
-        if (isPaidReferralStatus(row.payment_status)) {
+        if (isSettledPaymentStatus(row.payment_status)) {
           current.paidRevenue += numberValue(row.amount_paid);
         }
         totalsBySubAffiliate.set(subAffiliateId, current);

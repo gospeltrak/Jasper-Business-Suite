@@ -54,7 +54,7 @@ import {
   Scale
 } from 'lucide-react';
 import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } from '../utils/unitFormatter';
-import { printPdfFromElement } from '../utils/pdfShare';
+import { downloadPdfFromElement } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
 
 // Revenue helper: exclude delivery fees from product revenue calculations
@@ -76,6 +76,21 @@ interface DashboardReportsProps {
   systemSettings?: any;
 }
 
+const REPORT_DOCUMENT_TITLES: Record<string, string> = {
+  'p&l': 'Profit & Loss Report',
+  'sales-report': 'Sales Performance Report',
+  payments: 'Payments & Collections Report',
+  inventory: 'Inventory Valuation Report',
+  velocity: 'Product Velocity Report',
+  users: 'Customer & User Report',
+  expenses: 'Operating Expenses Report',
+  'product-monitoring': 'Product Monitoring Report',
+  'dual-channel': 'Retail & Wholesale Report',
+  deliveries: 'Delivery Operations Report',
+  'bulk-products': 'Bulk Products Report',
+  'stock-adjustment': 'Stock Adjustment Report',
+};
+
 export default function DashboardReports({
   activeTenant,
   products,
@@ -92,11 +107,27 @@ export default function DashboardReports({
 }: DashboardReportsProps) {
   const currency = activeTenant.currency;
   const printActiveReportPdf = async () => {
-    await printPdfFromElement({
+    await downloadPdfFromElement({
       elementId: 'reports-a4-pdf-template',
       fileName: `${activeTenant.name.replace(/\s+/g, '-')}-${reportTab}-report-${startDateStr}-${endDateStr}.pdf`,
       format: 'a4',
-      includeHidden: true
+      includeHidden: true,
+      visual: false,
+      branding: {
+        businessName: systemSettings?.business?.businessName || activeTenant.name,
+        logo: systemSettings?.business?.businessLogoLight
+          || systemSettings?.business?.businessLogo
+          || systemSettings?.business?.logo
+          || systemSettings?.company?.logo
+          || activeTenant.company_settings?.logo_url
+          || '',
+        address: systemSettings?.business?.address || systemSettings?.company?.address || activeTenant.city,
+        phone: systemSettings?.business?.phone || systemSettings?.company?.phone || '',
+        email: systemSettings?.business?.email || systemSettings?.company?.email || '',
+        documentTitle: REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report',
+        dateRange: `${startDateStr} to ${endDateStr}`,
+        generatedBy: userName,
+      }
     });
   };
   
@@ -750,6 +781,15 @@ export default function DashboardReports({
     return map;
   }, [filteredSales]);
 
+  const paymentMethodEntries = Object.entries(paymentMethodTotals) as Array<[
+    string,
+    { amount: number; count: number; label: string; category: string }
+  ]>;
+  const paymentBreakdownEntries = Object.entries(paymentBreakdownDynamic) as Array<[
+    string,
+    { revenue: number; count: number }
+  ]>;
+
   // Legacy breakdown (used by existing chart components — kept for backward compat)
   const paymentBreakdown = {
     Cash: filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Cash').reduce((a, s) => a + saleProductRevenue(s), 0),
@@ -860,7 +900,7 @@ export default function DashboardReports({
   // Categorized metrics filter
   const productValuationsFiltered = productValuationsRaw.filter(p => {
     const matchesCat = selectedCategory === 'All' || p.category === selectedCategory;
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = String(p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || String(p.sku || '').toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCat && matchesSearch;
   });
 
@@ -1688,7 +1728,7 @@ export default function DashboardReports({
               </div>
 
               <div className="w-full h-[320px] relative mt-2 bg-white rounded-2xl border border-slate-200/80 p-4">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1} initialDimension={{ width: 900, height: 320 }}>
                   <LineChart data={pAndLGraphData} margin={{ top: 10, right: 10, left: -25, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis 
@@ -2090,7 +2130,7 @@ export default function DashboardReports({
             <div className="mobile-tablet-kpi-grid gap-3 sm:gap-4 pb-2" style={{ ['--desktop-kpi-columns' as any]: 'repeat(4, minmax(0, 1fr))' }}>
               {Object.keys(paymentMethodTotals).length > 0 ? (
                 // Show per-configured-channel breakdown
-                Object.entries(paymentMethodTotals)
+                paymentMethodEntries
                   .sort((a, b) => b[1].amount - a[1].amount)
                   .map(([key, { amount, count, label, category }]) => {
                     const isCredit = category === 'Credit' || label.toLowerCase().includes('credit');
@@ -2109,7 +2149,7 @@ export default function DashboardReports({
               ) : (
                 // No configured channels — show breakdown by actual payment method names used in sales
                 Object.keys(paymentBreakdownDynamic).length > 0 ? (
-                  Object.entries(paymentBreakdownDynamic)
+                  paymentBreakdownEntries
                     .sort((a, b) => b[1].revenue - a[1].revenue)
                     .map(([method, { revenue, count }]) => {
                       const cat = classifyPaymentMethod(method);
@@ -2812,8 +2852,8 @@ export default function DashboardReports({
 
           // Simple Search & Select filtered product lookup
           const filteredOptions = products.filter(p => 
-            p.name.toLowerCase().includes(productSearchQuery.toLowerCase()) ||
-            p.sku.toLowerCase().includes(productSearchQuery.toLowerCase())
+            String(p.name || '').toLowerCase().includes(productSearchQuery.toLowerCase()) ||
+            String(p.sku || '').toLowerCase().includes(productSearchQuery.toLowerCase())
           );
 
           // Get daily performance data
@@ -3586,7 +3626,7 @@ export default function DashboardReports({
 
           // Function to export to CSV
           const handleExportDualChannelCSV = () => {
-            let csv = "Ndiva Suite - Dual-Channel Profit Audit Report\r\n";
+            let csv = "Jasper - Dual-Channel Profit Audit Report\r\n";
             csv += `Generational Range: ${startDateStr} to ${endDateStr}\r\n\r\n`;
             
             csv += "CHANNEL LEVEL PERFORMANCE SUMMARY\r\n";
@@ -3619,7 +3659,7 @@ export default function DashboardReports({
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.setAttribute("href", url);
-            link.setAttribute("download", `Ndiva_Dual_Channel_Profits_${startDateStr}_to_${endDateStr}.csv`);
+            link.setAttribute("download", `Jasper_Dual_Channel_Profits_${startDateStr}_to_${endDateStr}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -4062,7 +4102,7 @@ export default function DashboardReports({
                     <h4 className="text-sm font-bold text-slate-800 hidden">Consolidated Margin Curve</h4>
                     <div className="w-full overflow-x-auto scrollbar-none">
                       <div className="min-w-[340px] h-[180px]">
-                        <ResponsiveContainer width="105%" height="100%">
+                        <ResponsiveContainer width="105%" height="100%" minWidth={0} minHeight={1} initialDimension={{ width: 357, height: 180 }}>
                           <LineChart data={pAndLGraphData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                             <XAxis dataKey="label" stroke="#94a3b8" fontSize={9} tickLine={false} />
@@ -4182,7 +4222,7 @@ export default function DashboardReports({
                   {/* Summary Metrics Grid — configured payment channels */}
                   <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
                     {Object.keys(paymentMethodTotals).length > 0 ? (
-                      Object.entries(paymentMethodTotals)
+                      paymentMethodEntries
                         .sort((a, b) => b[1].amount - a[1].amount)
                         .map(([key, { amount, count, label, category }]) => {
                           const isCredit = category === 'Credit' || label.toLowerCase().includes('credit');
@@ -5359,7 +5399,7 @@ export default function DashboardReports({
               <button
                 type="button"
                 onClick={() => {
-                  alert("Opening Ndiva Thermal Printer: Simulating direct 50mm POS thermal receipt print.");
+                  alert("Opening Jasper Thermal Printer: Simulating direct 50mm POS thermal receipt print.");
                 }}
                 className="py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase hover:bg-slate-800 transition-all text-center cursor-pointer active:scale-95 shadow-sm"
               >
@@ -5917,7 +5957,7 @@ export default function DashboardReports({
                           ) : (
                             <>
                               <div className="h-48 w-full mb-4">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1} initialDimension={{ width: 640, height: 192 }}>
                                   <PieChart>
                                     <Pie
                                       data={topLocations.map(([name, value]) => ({ name, value }))}
@@ -5983,7 +6023,7 @@ export default function DashboardReports({
 
                             return (
                               <div className="h-48 w-full">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1} initialDimension={{ width: 640, height: 192 }}>
                                   <BarChart data={groupedExpenses} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={true} />
                                     <XAxis type="number" fontSize={10} tickFormatter={(val) => `${currency}${val}`} />

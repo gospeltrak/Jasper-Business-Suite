@@ -6,6 +6,7 @@ import { DEFAULT_TENANTS } from '../data';
 import { 
   Settings as SettingsIcon, 
   Building, 
+  Building2,
   Briefcase, 
   Package, 
   Users, 
@@ -35,11 +36,17 @@ import {
   X,
   Activity,
   DollarSign,
-  Truck
+  Truck,
+  ArrowLeft,
+  ChevronRight,
+  Search
 } from 'lucide-react';
 import { DashboardNotificationsSettings } from './DashboardNotificationsSettings';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { compressImageFile } from '../utils/imageCompression';
+import { getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
+
+const DashboardBranchesSettings = React.lazy(() => import('./DashboardBranchesSettings'));
 
 export const DEFAULT_CUSTOM_ROLES: CustomRole[] = [
   {
@@ -602,7 +609,9 @@ export default function DashboardSettings({
   const settingsDraftReadyRef = useRef(false);
   const settingsDraftTouchedAtRef = useRef(0);
   // Navigation tabs for Settings
-  const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'hrm' | 'roles' | 'notifications'>('company');
+  const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'hrm' | 'roles' | 'notifications' | 'branches'>('company');
+  const [isMobileSettingsMenuOpen, setIsMobileSettingsMenuOpen] = useState(true);
+  const [settingsSearchTerm, setSettingsSearchTerm] = useState('');
   
   // Temporary states for local forms to avoid writing directly to parent state until saved
   const [companyForm, setCompanyForm] = useState<CompanySettings>(() => {
@@ -911,13 +920,19 @@ export default function DashboardSettings({
     settingsDraftTouchedAtRef.current = Date.now();
     const timer = window.setTimeout(() => {
       onSaveSettings({
+        ...systemSettings,
         company: companyForm,
         business: businessForm,
         productStore: productForm,
         staffs: staffsList,
         customRoles: customRolesList,
         invoiceSettings: invoiceSettingsForm,
-        posSettings: posSettingsForm
+        posSettings: posSettingsForm,
+        paymentChannels: reconcilePaymentChannels(
+          getTreasuryPaymentMethods(businessForm),
+          systemSettings.paymentChannels || [],
+          { currency: activeTenant.currencyCode },
+        ),
       });
     }, 650);
 
@@ -952,6 +967,7 @@ export default function DashboardSettings({
   const persistCompanySettings = (nextCompanyForm: CompanySettings) => {
     markSettingsDraftChanged();
     onSaveSettings({
+      ...systemSettings,
       company: nextCompanyForm,
       business: businessForm,
       productStore: productForm,
@@ -965,13 +981,19 @@ export default function DashboardSettings({
   const persistBusinessSettings = (nextBusinessForm: BusinessSettings) => {
     markSettingsDraftChanged();
     onSaveSettings({
+      ...systemSettings,
       company: companyForm,
       business: nextBusinessForm,
       productStore: productForm,
       staffs: staffsList,
       customRoles: customRolesList,
       invoiceSettings: invoiceSettingsForm,
-      posSettings: posSettingsForm
+      posSettings: posSettingsForm,
+      paymentChannels: reconcilePaymentChannels(
+        getTreasuryPaymentMethods(nextBusinessForm),
+        systemSettings.paymentChannels || [],
+        { currency: activeTenant.currencyCode },
+      ),
     });
   };
 
@@ -1177,13 +1199,19 @@ export default function DashboardSettings({
   const persistProductStoreSettings = (nextProductForm: ProductStoreSettings) => {
     markSettingsDraftChanged();
     onSaveSettings({
+      ...systemSettings,
       company: companyForm,
       business: businessForm,
       productStore: nextProductForm,
       staffs: staffsList,
       customRoles: customRolesList,
       invoiceSettings: invoiceSettingsForm,
-      posSettings: posSettingsForm
+      posSettings: posSettingsForm,
+      paymentChannels: reconcilePaymentChannels(
+        getTreasuryPaymentMethods(businessForm),
+        systemSettings.paymentChannels || [],
+        { currency: activeTenant.currencyCode },
+      ),
     });
   };
 
@@ -1263,6 +1291,7 @@ export default function DashboardSettings({
   const persistStaffsList = (updatedStaffs: StaffSettings[]) => {
     setStaffsList(updatedStaffs);
     onSaveSettings({
+      ...systemSettings,
       company: companyForm,
       business: businessForm,
       productStore: productForm,
@@ -1383,6 +1412,7 @@ export default function DashboardSettings({
     shortLabel: string;
     description: string;
     icon: React.ElementType;
+    premium?: boolean;
   }> = [
     { id: 'company', label: 'Company Account', shortLabel: 'Company', description: 'Legal profile, tax, currency, theme', icon: Building },
     { id: 'business', label: 'Business Setup', shortLabel: 'Business', description: 'Brand, payment modes, stores', icon: Briefcase },
@@ -1390,8 +1420,14 @@ export default function DashboardSettings({
     { id: 'invoice-settings', label: 'Invoice & Logo', shortLabel: 'Invoice', description: 'Receipt branding and invoice fields', icon: FileText },
     { id: 'hrm', label: 'HRM Permanent Staffs', shortLabel: 'Staff', description: 'Workers, roles, salaries, signatures', icon: Users },
     { id: 'roles', label: 'Staff Roles & Access', shortLabel: 'Access', description: 'Permissions and private role presets', icon: ShieldCheck },
-    { id: 'notifications', label: 'Alerts & Reports', shortLabel: 'Alerts', description: 'Notification channels and reports', icon: Bell }
+    { id: 'notifications', label: 'Alerts & Reports', shortLabel: 'Alerts', description: 'Notification channels and reports', icon: Bell },
+    { id: 'branches', label: 'Branches', shortLabel: 'Branches', description: 'Independent branch workspaces and access', icon: Building2, premium: true }
   ];
+
+  const visibleSettingsTabs = settingsTabs.filter(tab => {
+    const needle = settingsSearchTerm.trim().toLowerCase();
+    return !needle || `${tab.label} ${tab.description}`.toLowerCase().includes(needle);
+  });
 
   const activeSettingsTab = settingsTabs.find(tab => tab.id === activeSubTab) || settingsTabs[0];
   const completedProfileCount = [
@@ -1404,15 +1440,30 @@ export default function DashboardSettings({
     staffsList.length ? 'staff' : ''
   ].filter(Boolean).length;
 
+  const openSettingsModule = (tabId: typeof activeSubTab) => {
+    setActiveSubTab(tabId);
+    setIsMobileSettingsMenuOpen(false);
+    requestAnimationFrame(() => {
+      document.getElementById('workspace-content')?.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  };
+
+  const returnToSettingsMenu = () => {
+    setIsMobileSettingsMenuOpen(true);
+    requestAnimationFrame(() => {
+      document.getElementById('workspace-content')?.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  };
+
   return (
     <div
-      className="space-y-5 pb-24 md:pb-8"
+      className="tenant-settings-shell space-y-5 pb-24 md:pb-8"
       onInputCapture={markSettingsDraftChanged}
       onChangeCapture={markSettingsDraftChanged}
     >
       
       {/* Title Header with descriptive details */}
-      <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="hidden xl:block bg-white rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 sm:p-5 lg:p-6 flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
@@ -1458,16 +1509,85 @@ export default function DashboardSettings({
             <span className="font-black text-slate-700">{activeSettingsTab.label}</span>
             <span className="hidden sm:inline"> · {activeSettingsTab.description}</span>
           </div>
-          <button
-            type="button"
-            onClick={triggerSaveAll}
-            disabled={isSlugSaving}
-            className="w-full sm:w-auto min-h-[48px] px-6 py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-wider rounded-2xl shadow-md shadow-emerald-600/10 cursor-pointer transition-all flex items-center justify-center space-x-2 shrink-0"
-          >
-            <Check className="w-3.5 h-3.5" />
-            <span>{isSlugSaving ? 'Saving...' : 'Save Settings'}</span>
-          </button>
+          {activeSubTab !== 'branches' ? (
+            <button
+              type="button"
+              onClick={triggerSaveAll}
+              disabled={isSlugSaving}
+              className="w-full sm:w-auto min-h-[48px] px-6 py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-wider rounded-2xl shadow-md shadow-emerald-600/10 cursor-pointer transition-all flex items-center justify-center space-x-2 shrink-0"
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>{isSlugSaving ? 'Saving...' : 'Save Settings'}</span>
+            </button>
+          ) : null}
         </div>
+      </div>
+
+      <div className="settings-native-mobile-header sticky top-0 z-30 overflow-hidden border-y border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950 md:hidden">
+        <div className="flex items-center gap-3 px-3 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] sm:px-4">
+          {!isMobileSettingsMenuOpen && (
+            <button
+              type="button"
+              onClick={returnToSettingsMenu}
+              aria-label="Back to Settings menu"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 active:scale-95 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          )}
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-900">
+            {isMobileSettingsMenuOpen
+              ? <SettingsIcon className="h-5 w-5" />
+              : <activeSettingsTab.icon className="h-5 w-5" />}
+          </div>
+          {isMobileSettingsMenuOpen ? (
+            <div key="settings-menu-title" className="min-w-0 flex-1">
+              <h2 className="truncate text-[17px] font-black leading-tight text-slate-950 dark:text-white">Settings</h2>
+              <p className="mt-0.5 truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">Manage your business preferences</p>
+            </div>
+          ) : (
+            <div key={activeSettingsTab.id} className="min-w-0 flex-1">
+              <h2 className="truncate text-[17px] font-black leading-tight text-slate-950 dark:text-white">{activeSettingsTab.label}</h2>
+              <p className="mt-0.5 truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">{activeSettingsTab.description}</p>
+            </div>
+          )}
+          {activeSubTab !== 'branches' ? (
+            <button
+              type="button"
+              onClick={triggerSaveAll}
+              disabled={isSlugSaving}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 px-4 text-[11px] font-black uppercase tracking-wide text-white shadow-sm shadow-emerald-600/15 active:scale-95 disabled:opacity-60"
+            >
+              <Check className="h-3.5 w-3.5" />
+              <span>{isSlugSaving ? 'Saving' : 'Save'}</span>
+            </button>
+          ) : null}
+        </div>
+        {isMobileSettingsMenuOpen && (
+          <div className="settings-readiness-grid grid grid-cols-3 border-t border-slate-100 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/70">
+            <div className="flex items-center justify-center gap-2 px-2 py-3">
+              <CheckCircle className="h-4 w-4 shrink-0 text-emerald-600" />
+              <div className="min-w-0">
+                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-400">Profile</span>
+                <span className="block truncate text-[11px] font-black text-slate-800 dark:text-slate-200">{completedProfileCount}/7 ready</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-center gap-2 border-x border-slate-200 px-2 py-3">
+              <Users className="h-4 w-4 shrink-0 text-indigo-600" />
+              <div className="min-w-0">
+                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-400">Staff</span>
+                <span className="block truncate text-[11px] font-black text-slate-800 dark:text-slate-200">{staffsList.length} saved</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-center gap-2 px-2 py-3">
+              <ShieldCheck className="h-4 w-4 shrink-0 text-blue-600" />
+              <div className="min-w-0">
+                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-400">Roles</span>
+                <span className="block truncate text-[11px] font-black text-slate-800 dark:text-slate-200">{customRolesList.length} active</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {saveSuccess && (
@@ -1478,7 +1598,7 @@ export default function DashboardSettings({
       )}
 
       {/* Primary configuration drawer bento structure */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 lg:gap-6 items-start">
+      <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-[240px_minmax(0,1fr)] md:gap-4 xl:grid-cols-4 xl:gap-6">
         
         {/* Navigation Sidebar Drawer */}
         <div className="hidden xl:block bg-white rounded-3xl border border-slate-200 p-4 space-y-2 lg:col-span-1 shadow-sm sticky top-[4.5rem] z-10">
@@ -1499,30 +1619,70 @@ export default function DashboardSettings({
                     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-600' : 'text-slate-500'}`} />
-                <span>{tab.label}</span>
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-600' : 'text-slate-500'}`} />
+                <span className="min-w-0 flex-1 truncate">{tab.label}</span>
+                {tab.premium ? (
+                  <span className="rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-emerald-700">Tanzanite</span>
+                ) : null}
               </button>
             );
           })}
         </div>
 
-        <div className="xl:hidden bg-white border border-slate-200 rounded-2xl shadow-sm p-3 overflow-hidden">
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            {settingsTabs.map(tab => {
+        <aside className="sticky top-4 hidden max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[22px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950 md:block xl:hidden">
+          <div className="border-b border-slate-200 p-4 dark:border-slate-800">
+            <h3 className="text-lg font-black text-slate-950 dark:text-white">Settings</h3>
+            <label className="relative mt-3 block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input value={settingsSearchTerm} onChange={event => setSettingsSearchTerm(event.target.value)} placeholder="Search settings" className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs font-semibold text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white" />
+            </label>
+          </div>
+          <nav className="divide-y divide-slate-100 dark:divide-slate-800" aria-label="Tablet settings categories">
+            {visibleSettingsTabs.map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeSubTab === tab.id;
+              return (
+                <button key={tab.id} type="button" onClick={() => setActiveSubTab(tab.id)} className={`flex min-h-[66px] w-full items-center gap-3 border-l-2 px-3 py-2.5 text-left transition ${isActive ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/20' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60'}`}>
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isActive ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300'}`}><Icon className="h-[18px] w-[18px]" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12.5px] font-black text-slate-900 dark:text-white">{tab.label}</span>
+                    <span className="mt-0.5 block truncate text-[10px] font-medium text-slate-500 dark:text-slate-400">{tab.description}</span>
+                  </span>
+                  {tab.premium ? <span className="rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[8px] font-black uppercase text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">Tanzanite</span> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        <div className={`${isMobileSettingsMenuOpen ? 'block' : 'hidden'} settings-mobile-module-menu overflow-hidden border-y border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950 md:hidden`}>
+          <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Configuration</span>
+            <label className="relative mt-3 block">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input value={settingsSearchTerm} onChange={event => setSettingsSearchTerm(event.target.value)} placeholder="Search settings" className="min-h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-[13px] font-semibold text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white" />
+            </label>
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {visibleSettingsTabs.map(tab => {
               const Icon = tab.icon;
               const isActive = activeSubTab === tab.id;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveSubTab(tab.id)}
-                  className={`min-w-[92px] min-h-[58px] rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-black transition-all shrink-0 ${
-                    isActive
-                      ? 'bg-slate-950 text-white border-slate-950 shadow-sm'
-                      : 'bg-white text-slate-600 border-slate-200 active:bg-slate-100'
-                  }`}
+                  type="button"
+                  onClick={() => openSettingsModule(tab.id)}
+                  className={`group flex min-h-[68px] w-full items-center gap-3 px-3 py-2.5 text-left transition-colors active:bg-slate-100 dark:active:bg-slate-800 sm:px-4 ${isActive ? 'bg-emerald-50/60 dark:bg-emerald-950/20' : 'bg-white dark:bg-slate-950'}`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-300' : 'text-slate-400'}`} />
-                  <span>{tab.shortLabel}</span>
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${isActive ? 'border-emerald-200 bg-emerald-600 text-white shadow-sm dark:border-emerald-900' : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'}`}>
+                    <Icon className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-black leading-tight text-slate-900 dark:text-white">{tab.label}</span>
+                    <span className="mt-1 block truncate text-[10.5px] font-medium text-slate-500 dark:text-slate-400">{tab.description}</span>
+                  </span>
+                  {tab.premium ? <span className="rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[8px] font-black uppercase text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">Tanzanite</span> : null}
+                  <ChevronRight className={`h-4 w-4 shrink-0 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
                 </button>
               );
             })}
@@ -1530,7 +1690,7 @@ export default function DashboardSettings({
         </div>
 
         {/* Content Panel Frame */}
-        <div className="lg:col-span-3 space-y-5 lg:space-y-6 min-w-0">
+        <div className={`${isMobileSettingsMenuOpen ? 'hidden md:block' : 'block'} settings-content-panel min-w-0 space-y-5 md:col-start-2 xl:col-span-3 xl:col-start-auto xl:space-y-6`}>
           
           {/* TAB 1: COMPANY SETTINGS */}
           {activeSubTab === 'company' && (
@@ -1784,7 +1944,7 @@ export default function DashboardSettings({
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">💼 Corporate Business Setup</h3>
                 <p className="text-xs text-slate-500 mt-1 font-sans">
-                  Configure your business identity details, branding logos for light/daymode and darkmode, customized physical warehouses, and cashier till payment modes. This setup personalizes the entire Ndiva Suite, dashboard views, receipts, and invoices.
+                  Configure your business identity details, branding logos for light/daymode and darkmode, customized physical warehouses, and cashier till payment modes. This setup personalizes the entire Jasper, dashboard views, receipts, and invoices.
                 </p>
               </div>
 
@@ -3056,16 +3216,23 @@ export default function DashboardSettings({
                     <div className="space-y-2 border border-slate-200 rounded-2xl p-4 bg-slate-50/50">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Created Staff Roles</span>
                       
-                      <div className="flex xl:block gap-2 overflow-x-auto xl:overflow-y-auto xl:max-h-[320px] xl:space-y-1.5 xl:pr-1 pb-1">
+                      <div className="settings-role-list flex xl:block gap-2 overflow-x-auto xl:overflow-y-auto xl:max-h-[320px] xl:space-y-1.5 xl:pr-1 pb-1">
                         {customRolesList.map(r => {
                           const isSel = r.id === selectedRoleId;
                           const isStatic = ['role-admin', 'role-manager', 'role-cashier', 'role-seller'].includes(r.id);
                           return (
-                            <button
+                            <div
                               key={r.id}
-                              type="button"
+                              role="button"
+                              tabIndex={0}
                               onClick={() => setSelectedRoleId(r.id)}
-                              className={`min-w-[190px] xl:min-w-0 xl:w-full p-3 rounded-xl flex items-center justify-between text-left transition-all text-xs cursor-pointer ${
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  setSelectedRoleId(r.id);
+                                }
+                              }}
+                              className={`settings-role-card min-w-[190px] xl:min-w-0 xl:w-full p-3 rounded-xl flex items-center justify-between text-left transition-all text-xs cursor-pointer ${
                                 isSel
                                   ? 'bg-emerald-600 text-white font-extrabold shadow-sm border border-transparent'
                                   : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'
@@ -3098,7 +3265,7 @@ export default function DashboardSettings({
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               )}
-                            </button>
+                            </div>
                           );
                         })}
                       </div>
@@ -3300,6 +3467,17 @@ export default function DashboardSettings({
                  />
                );
              })()
+          )}
+
+          {activeSubTab === 'branches' && (
+            <React.Suspense fallback={(
+              <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                <div className="h-8 w-44 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800" />
+                <div className="mt-6 h-48 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-900" />
+              </div>
+            )}>
+              <DashboardBranchesSettings activeTenant={activeTenant} onTriggerUpgrade={onTriggerUpgrade} />
+            </React.Suspense>
           )}
 
         </div>

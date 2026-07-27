@@ -34,6 +34,7 @@ import {
   Building2,
   Calendar,
   SlidersHorizontal,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   AffiliateCampaign,
@@ -51,6 +52,7 @@ import {
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../../utils/onlineOnly';
 import { canShowDashboardAd, useGlobalAdSettings } from '../../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../utils/safeHtml';
+import { isEarnedCommissionStatus, isSettledPaymentStatus } from '../../utils/financialStatus';
 import GlobalStickyAd from '../GlobalStickyAd';
 
 const currency = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
@@ -78,7 +80,13 @@ const isSafeExternalUrl = (value: string) => {
 
 type TabId = 'overview' | 'tenants' | 'code-link' | 'tasks' | 'ads' | 'meetings' | 'reports' | 'payouts' | 'settings';
 
-export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void }) {
+interface AffiliateWorkspaceProps {
+  onLogout: () => void;
+  mirrorAffiliateId?: string;
+  mirrorMode?: boolean;
+}
+
+export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirrorMode = false }: AffiliateWorkspaceProps) {
   const [workspace, setWorkspace] = useState<AffiliateWorkspaceData | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -192,14 +200,14 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
     setState('loading');
     setError(null);
     try {
-      const nextWorkspace = await loadAffiliateWorkspace();
+      const nextWorkspace = await loadAffiliateWorkspace({ affiliateId: mirrorAffiliateId });
       setWorkspace(nextWorkspace);
       setState(nextWorkspace ? 'ready' : 'missing');
     } catch (nextError: any) {
       setError(nextError?.message || 'Unable to load your affiliate workspace.');
       setState('error');
     }
-  }, []);
+  }, [mirrorAffiliateId]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -237,12 +245,13 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
     const commissions = workspace?.commissions || [];
     const activities = workspace?.activities || [];
     const subscribers = workspace?.subscribers || [];
-    const totalRevenue = subscribers.reduce((sum, subscriber) => sum + Number(subscriber.amount_paid || 0), 0);
+    const settledSubscribers = subscribers.filter((subscriber) => isSettledPaymentStatus(subscriber.payment_status));
+    const totalRevenue = settledSubscribers.reduce((sum, subscriber) => sum + Number(subscriber.amount_paid || 0), 0);
     const grossCommission15 = totalRevenue * 0.15;
     const withholdingTax5 = grossCommission15 * 0.05;
     const totalPayout = grossCommission15 - withholdingTax5;
     const available = commissions.filter((commission) => commission.status === 'available').reduce((sum, commission) => sum + commission.net_payout, 0);
-    const earned = commissions.filter((commission) => commission.status !== 'void').reduce((sum, commission) => sum + commission.net_payout, 0);
+    const earned = commissions.filter((commission) => isEarnedCommissionStatus(commission.status)).reduce((sum, commission) => sum + commission.net_payout, 0);
     const paid = commissions.filter((commission) => commission.status === 'paid').reduce((sum, commission) => sum + commission.net_payout, 0);
     return {
       clicks: referrals.filter((referral) => referral.status === 'clicked').length,
@@ -267,7 +276,9 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   }, [workspace?.subscribers, reportMonth]);
 
   const monthStats = useMemo(() => {
-    const revenue = monthlySubscribers.reduce((sum, subscriber) => sum + Number(subscriber.amount_paid || 0), 0);
+    const revenue = monthlySubscribers
+      .filter((subscriber) => isSettledPaymentStatus(subscriber.payment_status))
+      .reduce((sum, subscriber) => sum + Number(subscriber.amount_paid || 0), 0);
     const grossCommission = revenue * 0.15;
     const withholding = grossCommission * 0.05;
     const payout = grossCommission - withholding;
@@ -341,6 +352,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   };
 
   const handleTaskComplete = async (taskId: string) => {
+    if (mirrorMode) return;
     setBusyTaskId(taskId);
     try {
       await completeAffiliateTask(taskId);
@@ -459,7 +471,9 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
       setNotice('This resource is unavailable because its file or link is missing.');
       return;
     }
-    try { await recordAffiliateActivity(eventType, resourceType, resourceId); } catch { /* Tracking should not block a valid resource. */ }
+    if (!mirrorMode) {
+      try { await recordAffiliateActivity(eventType, resourceType, resourceId); } catch { /* Tracking should not block a valid resource. */ }
+    }
     if (eventType === 'campaign_link_copy') {
       await navigator.clipboard.writeText(url);
       setNotice('Campaign link copied.');
@@ -474,7 +488,9 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
       setNotice('This campaign has no text or link to copy.');
       return;
     }
-    try { await recordAffiliateActivity('campaign_link_copy', 'campaign', campaign.id); } catch { /* Tracking should not block copying. */ }
+    if (!mirrorMode) {
+      try { await recordAffiliateActivity('campaign_link_copy', 'campaign', campaign.id); } catch { /* Tracking should not block copying. */ }
+    }
     await navigator.clipboard.writeText(copyValue);
     setNotice('Promo material copied.');
   };
@@ -515,7 +531,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
   const profile = workspace!.profile;
   const openTasks = workspace!.tasks.filter((task) => !['completed', 'reviewed'].includes(task.status));
   const upcomingMeetings = workspace!.meetings.filter((meeting) => ['upcoming', 'live'].includes(meeting.status));
-  const navItems = [
+  const allNavItems: ReadonlyArray<readonly [TabId, string, LucideIcon]> = [
     ['overview', 'Overview', BarChart3],
     ['tenants', 'My Subscribers', Users],
     ['code-link', 'Code & Link', LinkIcon],
@@ -525,7 +541,8 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
     ['reports', 'Reports', TrendingUp],
     ['payouts', 'Payouts', Wallet],
     ['settings', 'Settings', Settings],
-  ] as const;
+  ];
+  const navItems = allNavItems.filter(([id]) => !mirrorMode || id !== 'settings');
   const mobilePrimaryNav = navItems.slice(0, 3);
   const mobileMoreNav = navItems.slice(3);
 
@@ -555,6 +572,17 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
 
   return (
     <main className="bg-slate-50 text-slate-900 pb-24 lg:pb-8 min-h-[100dvh]">
+      {mirrorMode && (
+        <div className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-cyan-300 bg-slate-950 px-4 py-3 text-white shadow-lg sm:px-6">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">Super Admin · Read-only mirror</p>
+            <p className="truncate text-sm font-bold">Affiliate ID: {mirrorAffiliateId}</p>
+          </div>
+          <button type="button" onClick={onLogout} className="shrink-0 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold hover:bg-slate-800">
+            Back to Super Admin
+          </button>
+        </div>
+      )}
       {/* Offline banner */}
       {!isNetworkOnline && (
         <div className="flex items-center justify-center gap-2 bg-amber-500 text-slate-950 text-xs font-bold py-2 px-4">
@@ -570,7 +598,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
           <nav className="mt-8 space-y-1" aria-label="Affiliate workspace navigation">
             {navItems.map(([id, label, Icon]) => <button key={id} type="button" onClick={() => setActiveTab(id)} className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold ${activeTab === id ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}><Icon className="h-4 w-4" />{label}</button>)}
           </nav>
-          <button type="button" onClick={onLogout} className="mt-auto rounded-md border border-slate-300 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Sign out</button>
+          <button type="button" onClick={onLogout} className="mt-auto rounded-md border border-slate-300 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">{mirrorMode ? 'Back to Super Admin' : 'Sign out'}</button>
         </aside>
 
         <section className="min-w-0 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
@@ -625,7 +653,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
             })()}
             <section className="grid gap-5 xl:grid-cols-2">
               <Panel title="Latest tasks" action="View all" onAction={() => setActiveTab('tasks')}>
-                {openTasks.slice(0, 3).map((task) => <TaskRow key={task.id} task={task} busy={busyTaskId === task.id} onComplete={handleTaskComplete} onDownload={() => task.attachment_url && handleTrackedLink('task_download', 'task', task.id, task.attachment_url, task.attachment_name)} />)}
+                {openTasks.slice(0, 3).map((task) => <TaskRow key={task.id} task={task} busy={busyTaskId === task.id} readOnly={mirrorMode} onComplete={handleTaskComplete} onDownload={() => task.attachment_url && handleTrackedLink('task_download', 'task', task.id, task.attachment_url, task.attachment_name)} />)}
                 {openTasks.length === 0 && <Empty text="No pending tasks from your agent." />}
               </Panel>
               <Panel title="Task target progress" action="View report" onAction={() => setActiveTab('reports')}>
@@ -671,7 +699,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
               const plan = (s.package_name || s.package_id || '').toLowerCase();
               const endDate = s.subscription_end_date;
               const isExpired = endDate && new Date(endDate) < new Date();
-              if (st === 'active' || st === 'paid') return { label: 'Paid', color: 'bg-emerald-100 text-emerald-700' };
+              if (isSettledPaymentStatus(st)) return { label: 'Paid', color: 'bg-emerald-100 text-emerald-700' };
               if (plan.includes('trial') || st === 'trial') {
                 return isExpired
                   ? { label: 'Trial Expired', color: 'bg-rose-100 text-rose-700' }
@@ -710,7 +738,9 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
             const paid = subs.filter(s => getStatus(s).label === 'Paid').length;
             const trial = subs.filter(s => getStatus(s).label === 'Free Trial').length;
             const expired = subs.filter(s => ['Trial Expired','Expired'].includes(getStatus(s).label)).length;
-            const totalComm = subs.reduce((a, s) => a + (s.commission_amount || 0), 0);
+            const totalComm = subs
+              .filter((s) => isSettledPaymentStatus(s.payment_status))
+              .reduce((a, s) => a + (s.commission_amount || 0), 0);
             const paidComm = subs.filter(s => s.commission_status === 'paid').reduce((a, s) => a + (s.commission_amount || 0), 0);
             const pendComm = totalComm - paidComm;
             const cur = workspace!.profile.currency || 'TZS';
@@ -959,10 +989,10 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
                       className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold rounded-lg cursor-pointer border-none flex items-center justify-center gap-2 text-sm">
                       <Copy className="h-4 w-4" /> Copy Code
                     </button>
-                    <button type="button" onClick={() => { setEditingCode(true); setNewCode(getLiveCode(profile) || profile.referral_code); }}
+                    {!mirrorMode && <button type="button" onClick={() => { setEditingCode(true); setNewCode(getLiveCode(profile) || profile.referral_code); }}
                       className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg cursor-pointer border-none flex items-center justify-center gap-2 text-sm">
                       <PencilIcon className="h-4 w-4" /> Edit Code
-                    </button>
+                    </button>}
                   </div>
                 </div>
               )}
@@ -989,7 +1019,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
             </section>
           </div>}
 
-          {activeTab === 'tasks' && <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.tasks.map((task) => <TaskRow key={task.id} task={task} busy={busyTaskId === task.id} onComplete={handleTaskComplete} onDownload={() => task.attachment_url && handleTrackedLink('task_download', 'task', task.id, task.attachment_url, task.attachment_name)} />)}{workspace!.tasks.length === 0 && <Empty text="No tasks, notes, or files have been assigned to you yet." />}</section>}
+          {activeTab === 'tasks' && <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.tasks.map((task) => <TaskRow key={task.id} task={task} busy={busyTaskId === task.id} readOnly={mirrorMode} onComplete={handleTaskComplete} onDownload={() => task.attachment_url && handleTrackedLink('task_download', 'task', task.id, task.attachment_url, task.attachment_name)} />)}{workspace!.tasks.length === 0 && <Empty text="No tasks, notes, or files have been assigned to you yet." />}</section>}
           {activeTab === 'ads' && (
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {workspace!.campaigns.map(renderCampaign)}
@@ -1036,7 +1066,9 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {monthlySubscribers.map((subscriber) => {
-                          const commission = subscriber.commission_amount || subscriber.amount_paid * 0.15;
+                          const isPaidSubscriber = isSettledPaymentStatus(subscriber.payment_status);
+                          const paidAmount = isPaidSubscriber ? subscriber.amount_paid : 0;
+                          const commission = isPaidSubscriber ? (subscriber.commission_amount || paidAmount * 0.15) : 0;
                           return (
                             <tr key={subscriber.id}>
                               <td className="px-4 py-3">
@@ -1048,7 +1080,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
                               <td className="px-4 py-3">
                                 <span className={`rounded-full px-2.5 py-1 text-xs font-black capitalize ${subscriber.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{subscriber.status}</span>
                               </td>
-                              <td className="px-4 py-3 text-right font-mono font-bold">{currency.format(subscriber.amount_paid)}</td>
+                              <td className="px-4 py-3 text-right font-mono font-bold">{currency.format(paidAmount)}</td>
                               <td className="px-4 py-3 text-right font-mono font-black text-emerald-700">{currency.format(commission)}</td>
                               <td className="px-4 py-3 text-right font-mono font-bold">{subscriber.days_remaining}</td>
                             </tr>
@@ -1152,7 +1184,12 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
               </div>
 
               {/* Withdraw button */}
-              {canWithdraw ? (
+              {mirrorMode ? (
+                <div className="w-full flex items-center gap-3 rounded-2xl border border-cyan-200 bg-cyan-50 px-5 py-4">
+                  <ShieldCheck className="w-5 h-5 shrink-0 text-cyan-700" />
+                  <div><p className="text-sm font-bold text-cyan-950">Read-only mirror</p><p className="text-[11px] text-cyan-700">Withdrawal actions are disabled while viewing from Super Admin.</p></div>
+                </div>
+              ) : canWithdraw ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -1420,7 +1457,7 @@ export default function AffiliateWorkspace({ onLogout }: { onLogout: () => void 
                 </button>
               ))}
               <button type="button" onClick={() => { setMobileMoreOpen(false); onLogout(); }} className="grid gap-1 rounded-xl border border-rose-100 px-2 py-3 text-center text-[11px] font-bold text-rose-600">
-                <LogOut className="mx-auto h-5 w-5" />Sign out
+                <LogOut className="mx-auto h-5 w-5" />{mirrorMode ? 'Back' : 'Sign out'}
               </button>
             </div>
           </section>
@@ -1449,8 +1486,8 @@ function Empty({ text }: { text: string }) {
   return <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">{text}</div>;
 }
 
-function TaskRow({ task, busy, onComplete, onDownload }: { key?: unknown; task: any; busy: boolean; onComplete: (id: string) => void; onDownload: () => void }) {
-  return <article className="p-4"><div className="flex justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{task.task_type} · {task.status}</p><h3 className="mt-1 text-sm font-bold text-slate-950">{task.title}</h3>{task.body && <p className="mt-1 text-sm leading-5 text-slate-600">{task.body}</p>}<p className="mt-2 text-xs text-slate-400">{task.sender_name ? `From ${task.sender_name}` : 'From assigned agent'}{task.due_at ? ` · Due ${formatDateTime(task.due_at)}` : ''}</p></div><ClipboardList className="h-5 w-5 shrink-0 text-slate-400" /></div><div className="mt-3 flex flex-wrap gap-2">{task.attachment_url ? <button type="button" onClick={onDownload} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"><Download className="h-3.5 w-3.5" /> {task.attachment_name || 'Download file'}</button> : null}{!['completed', 'reviewed'].includes(task.status) ? <button type="button" disabled={busy} onClick={() => onComplete(task.id)} className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"><CheckCircle2 className="h-3.5 w-3.5" /> {busy ? 'Updating' : 'Mark complete'}</button> : null}</div></article>;
+function TaskRow({ task, busy, readOnly = false, onComplete, onDownload }: { key?: unknown; task: any; busy: boolean; readOnly?: boolean; onComplete: (id: string) => void; onDownload: () => void }) {
+  return <article className="p-4"><div className="flex justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{task.task_type} · {task.status}</p><h3 className="mt-1 text-sm font-bold text-slate-950">{task.title}</h3>{task.body && <p className="mt-1 text-sm leading-5 text-slate-600">{task.body}</p>}<p className="mt-2 text-xs text-slate-400">{task.sender_name ? `From ${task.sender_name}` : 'From assigned agent'}{task.due_at ? ` · Due ${formatDateTime(task.due_at)}` : ''}</p></div><ClipboardList className="h-5 w-5 shrink-0 text-slate-400" /></div><div className="mt-3 flex flex-wrap gap-2">{task.attachment_url ? <button type="button" onClick={onDownload} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"><Download className="h-3.5 w-3.5" /> {task.attachment_name || 'Download file'}</button> : null}{!readOnly && !['completed', 'reviewed'].includes(task.status) ? <button type="button" disabled={busy} onClick={() => onComplete(task.id)} className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"><CheckCircle2 className="h-3.5 w-3.5" /> {busy ? 'Updating' : 'Mark complete'}</button> : null}</div></article>;
 }
 
 function MeetingRow({ meeting, onJoin }: { key?: unknown; meeting: any; onJoin: () => void }) {

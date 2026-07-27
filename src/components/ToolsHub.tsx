@@ -82,7 +82,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
   // Translations dictionary
   const t = {
     en: {
-      title: 'Ndiva Premium Business Tools',
+      title: 'Jasper Premium Business Tools',
       subtitle: 'Boost your inventory quality with automated asset production utilities powered by Gemini Neural Engine.',
       backHome: 'Back to Home',
       tokensLabel: 'Tokens',
@@ -119,7 +119,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
 
       // Scaler tab
       scaleTabTitle: 'Image 500x500 Auto-Scaler',
-      scaleDesc: 'In Ndiva systems, all store catalogs should project pristine clean 500x500 pixel isolated dimensions. Drop your file here to scale & clean simultaneously.',
+      scaleDesc: 'In Jasper systems, all store catalogs should project pristine clean 500x500 pixel isolated dimensions. Drop your file here to scale & clean simultaneously.',
       processScaleBtn: 'Scale & Clean Image (1 Token)',
       outputScaleTitle: 'Pristine 500x500px Standard Image',
 
@@ -177,7 +177,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
 
       // Scaler tab
       scaleTabTitle: 'Mfinyanzi wa Picha (500x500px)',
-      scaleDesc: 'Kwenye mfumo wa Ndiva, picha zote za bidhaa lazima ziwe na vipimo sawa vya saizi 500x500 ili katalogi ipendeze vizuri.',
+      scaleDesc: 'Kwenye mfumo wa Jasper, picha zote za bidhaa lazima ziwe na vipimo sawa vya saizi 500x500 ili katalogi ipendeze vizuri.',
       processScaleBtn: 'Badili kuwa 500x500px (Inatumia Tokeni 1)',
       outputScaleTitle: 'Picha Maalum yenye 500x500px',
 
@@ -248,7 +248,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
       downloadQ: 'تحميل الرمز (QR)'
     },
     fr: {
-      title: 'Outils Professionnels Premium Ndiva',
+      title: 'Outils Professionnels Premium Jasper',
       subtitle: 'Optimisez la qualité de votre inventaire grâce aux outils de détourage automatisés propulsés par le moteur neuronal Gemini.',
       backHome: 'Retour à l\'accueil',
       tokensLabel: 'Jetons',
@@ -281,7 +281,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
       downloadBtn: 'Télécharger PNG',
       original: 'Image Originale',
       scaleTabTitle: 'Ajusteur Auto-dimension 500x500px',
-      scaleDesc: 'Dans les systèmes Ndiva, tous les catalogues de magasins doivent afficher des images nettoyées au format carré standard de 500x500 pixels. Déposez votre fichier ici pour adapter.',
+      scaleDesc: 'Dans les systèmes Jasper, tous les catalogues de magasins doivent afficher des images nettoyées au format carré standard de 500x500 pixels. Déposez votre fichier ici pour adapter.',
       processScaleBtn: 'Redimensionner et Nettoyer (1 Jeton)',
       outputScaleTitle: 'Image Standard Propre 500x500px',
       barcodeTabTitle: 'Générateur de Code-barres',
@@ -691,7 +691,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
             <div>
               <h1 className="text-sm font-bold tracking-tight uppercase flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-emerald-500" />
-                Ndiva Suite <span className="text-emerald-500 font-extrabold font-mono">Tools</span>
+                Jasper <span className="text-emerald-500 font-extrabold font-mono">Tools</span>
               </h1>
               <p className={`text-[10px] font-mono leading-none ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                 PREMIUM ASSET PROCESSING PORT
@@ -1353,7 +1353,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
 
       {/* FOOTER */}
       <footer className={`border-t text-center py-8 text-xs font-mono leading-none ${isDark ? 'bg-slate-955 bg-slate-950 border-slate-900 text-slate-600' : 'bg-white border-slate-200 text-slate-400'}`}>
-        <p>© 2026 Ndiva Suite.</p>
+        <p>© 2026 Jasper.</p>
       </footer>
 
       {/* FLOATING TOKEN ACQUIRE MODAL / PAYROLL GATEWAY */}

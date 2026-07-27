@@ -1,5 +1,6 @@
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { loadPlatformRecord } from './superAdminPlatformRecords';
+import { isSettledPaymentStatus } from './financialStatus';
 
 export type AffiliateTaskStatus = 'new' | 'pending' | 'completed' | 'reviewed';
 export type AffiliateMeetingStatus = 'upcoming' | 'live' | 'completed' | 'cancelled';
@@ -176,14 +177,17 @@ const readablePackage = (value?: string | null) => {
 
 const mapSubscriberRow = (row: any): AffiliateSubscriber => {
   const endDate = row.subscription_end_date || row.subscriptionEndDate || row.trial_ends_at || null;
-  const amountPaid = Number(row.amount_paid ?? row.amountPaid ?? row.package_price ?? 0);
-  const commission = Number(row.commission_amount ?? row.commissionAmount ?? amountPaid * 0.15);
+  const recordedAmount = Number(row.amount_paid ?? row.amountPaid ?? 0);
   const daysRemaining = daysUntil(endDate);
-  const paymentStatus = String(row.payment_status || row.paymentStatus || (amountPaid > 0 ? 'paid' : 'free')).toLowerCase();
+  const paymentStatus = String(row.payment_status || row.paymentStatus || 'unpaid').toLowerCase();
+  const paymentSettled = isSettledPaymentStatus(paymentStatus);
+  const amountPaid = paymentSettled ? recordedAmount : 0;
+  const recordedCommission = Number(row.commission_amount ?? row.commissionAmount ?? amountPaid * 0.15);
+  const commission = paymentSettled ? recordedCommission : 0;
   const isActive = daysRemaining > 0 && !['failed', 'cancelled', 'inactive', 'expired'].includes(paymentStatus);
 
   return {
-    id: String(row.id || row.tenant_id || row.tenantId || `sub-${Date.now()}`),
+    id: String(row.id || row.tenant_id || row.tenantId || ''),
     tenant_id: row.tenant_id || row.tenantId || null,
     customer_name: row.customer_name || row.customerName || row.tenant_name || row.tenantName || row.business_name || row.name || 'Unnamed subscriber',
     owner_name: row.owner_name || row.ownerName || row.contact_name || row.admin_name || null,
@@ -205,7 +209,7 @@ const mapSubscriberRow = (row: any): AffiliateSubscriber => {
     days_remaining: daysRemaining,
     last_activity_at: row.last_activity_at || row.lastActivityAt || row.updated_at || row.updatedAt || null,
     last_login_at: row.last_login_at || row.lastLoginAt || null,
-    created_at: row.created_at || row.createdAt || new Date().toISOString(),
+    created_at: row.created_at || row.createdAt || '',
   };
 };
 
@@ -239,52 +243,43 @@ const mapSspBannerToCampaign = (banner: any): AffiliateCampaign | null => {
   };
 };
 
-export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData | null> {
+export interface AffiliateWorkspaceLoadOptions {
+  affiliateId?: string;
+}
+
+export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOptions = {}): Promise<AffiliateWorkspaceData | null> {
   const client: any = await getSecureDataBridgeClient();
   const { data: authData, error: authError } = await client.auth.getUser();
   if (authError || !authData?.user) return null;
 
-  const { data: profile, error: profileError } = await client
+  let profileQuery = client
     .from('affiliates')
-    .select('id, user_id, display_name, referral_code, promo_code, referral_slug, status, payout_method, payout_account, profile_image_url')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
+    .select('id, user_id, display_name, referral_code, promo_code, referral_slug, status, payout_method, payout_account, profile_image_url');
+  profileQuery = options.affiliateId
+    ? profileQuery.eq('id', options.affiliateId)
+    : profileQuery.eq('user_id', authData.user.id);
+  const { data: profile, error: profileError } = await profileQuery.maybeSingle();
 
   if (profileError) throw profileError;
-  if (!profile) {
-    try {
-      const cached = JSON.parse(onlineStorage.getItem('jasper_logged_affiliate') || 'null');
-      const authPhone = String(authData.user.email || '').replace(/^affiliate-/, '').replace(/@jasper\.local$/, '');
-      const cachedPhone = String(cached?.phone || '').replace(/\D/g, '');
-      if (cached?.id && cached?.promoCode && (!authPhone || !cachedPhone || authPhone === cachedPhone)) {
-        return {
-          profile: {
-            id: cached.id,
-            user_id: authData.user.id,
-            display_name: cached.name || authData.user.email || 'Affiliate',
-            referral_code: cached.promoCode,
-            referral_slug: String(cached.promoCode).toLowerCase(),
-            status: 'active',
-            payout_method: cached.paymentMethod || null,
-            payout_account: cached.payoutPhone || cached.phone || null,
-            profile_image_url: null,
-          },
-          tasks: [],
-          meetings: [],
-          campaigns: [],
-          referrals: [],
-          commissions: [],
-          payouts: [],
-          subscribers: [],
-          activities: [],
-        };
-      }
-    } catch {}
-    return null;
-  }
+  // Never turn a stale browser cache into an apparently active affiliate.
+  // Missing live profile data must remain visible to the user/admin.
+  if (!profile && !options.affiliateId) return null;
+  if (!profile) return null;
 
-  const safeQuery = async (fn: () => Promise<any>) => {
-    try { const r = await fn(); return r.error ? { data: [] } : r; } catch { return { data: [] }; }
+  const requiredQuery = async (label: string, fn: () => Promise<any>) => {
+    const result = await fn();
+    if (result?.error) {
+      throw new Error(`Live affiliate data source "${label}" is unavailable: ${result.error.message || 'database error'}`);
+    }
+    return result;
+  };
+  const optionalQuery = async (label: string, fn: () => Promise<any>) => {
+    const result = await fn();
+    if (result?.error) {
+      console.warn(`[Affiliate workspace] Optional data source "${label}" is unavailable:`, result.error.message || 'database error');
+      return { data: [] };
+    }
+    return result;
   };
 
   const promoCode = profile.promo_code || profile.referral_code || '';
@@ -295,26 +290,20 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
     promoCode ? `promo_code_used.eq.${promoCode}` : '',
     promoCode ? `referral_code_used.eq.${promoCode}` : '',
   ].filter(Boolean).join(',');
-  const tenantPromoScope = [
-    promoCode ? `promo_code_used.eq.${promoCode}` : '',
-    promoCode ? `referral_code_used.eq.${promoCode}` : '',
-  ].filter(Boolean).join(',');
 
-  const [tasksResult, meetingsResult, assignmentsResult, sspBanners, referralsResult, subscribersResult, tenantPromoResult, commissionsResult, payoutsResult, activitiesResult] = await Promise.all([
-    safeQuery(() => client.from('affiliate_tasks').select('*').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
-    safeQuery(() => client.from('affiliate_meetings').select('*').eq('affiliate_id', profile.id).order('starts_at', { ascending: true }).limit(50)),
-    safeQuery(() => client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(*)').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
+  const [tasksResult, meetingsResult, assignmentsResult, sspBanners, referralsResult, subscribersResult, sourceTrackingResult, commissionsResult, payoutsResult, activitiesResult] = await Promise.all([
+    requiredQuery('affiliate_tasks', () => client.from('affiliate_tasks').select('*').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
+    requiredQuery('affiliate_meetings', () => client.from('affiliate_meetings').select('*').eq('affiliate_id', profile.id).order('starts_at', { ascending: true }).limit(50)),
+    requiredQuery('affiliate_ad_assignments', () => client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(*)').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
     loadPlatformRecord<any[]>('promotional_banners', 'global', []),
-    safeQuery(() => client.from('affiliate_referrals').select('id, status, created_at').or(affiliateScope).order('created_at', { ascending: false }).limit(500)),
+    requiredQuery('affiliate_referrals', () => client.from('affiliate_referrals').select('id, status, created_at').or(affiliateScope).order('created_at', { ascending: false }).limit(500)),
     ownReferralScope
-      ? safeQuery(() => client.from('referred_customers').select('*').or(ownReferralScope).order('created_at', { ascending: false }).limit(1000))
+      ? optionalQuery('referred_customers', () => client.from('referred_customers').select('*').or(ownReferralScope).order('created_at', { ascending: false }).limit(1000))
       : Promise.resolve({ data: [] }),
-    tenantPromoScope
-      ? safeQuery(() => client.from('tenants').select('*').or(tenantPromoScope).order('created_at', { ascending: false }).limit(1000))
-      : Promise.resolve({ data: [] }),
-    safeQuery(() => client.from('affiliate_commissions').select('id, amount, gross_revenue, gross_commission, withholding_tax, net_payout, currency, status, created_at, available_at, paid_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(500)),
-    safeQuery(() => client.from('affiliate_payouts').select('id, amount, currency, payout_method, payout_reference, status, requested_at, processed_at, notes').eq('affiliate_id', profile.id).order('requested_at', { ascending: false }).limit(100)),
-    safeQuery(() => client.from('affiliate_activity_events').select('*').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(200)),
+    requiredQuery('subscriber_source_tracking', () => client.from('subscriber_source_tracking').select('*').or(ownReferralScope).order('created_at', { ascending: false }).limit(1000)),
+    requiredQuery('affiliate_commissions', () => client.from('affiliate_commissions').select('id, amount, gross_revenue, gross_commission, withholding_tax, net_payout, currency, status, created_at, available_at, paid_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(500)),
+    requiredQuery('affiliate_payouts', () => client.from('affiliate_payouts').select('id, amount, currency, payout_method, payout_reference, status, requested_at, processed_at, notes').eq('affiliate_id', profile.id).order('requested_at', { ascending: false }).limit(100)),
+    requiredQuery('affiliate_activity_events', () => client.from('affiliate_activity_events').select('*').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(200)),
   ]);
 
   const assignedCampaigns = asArray<any>(assignmentsResult.data)
@@ -328,18 +317,7 @@ export async function loadAffiliateWorkspace(): Promise<AffiliateWorkspaceData |
     .filter((campaign, index, all) => all.findIndex((candidate) => candidate.id === campaign.id) === index);
   const subscribers = [
     ...asArray<any>(subscribersResult.data).map(mapSubscriberRow),
-    ...asArray<any>(tenantPromoResult.data).map((tenant) => mapSubscriberRow({
-      ...tenant,
-      tenant_id: tenant.id,
-      customer_name: tenant.name || tenant.business_name,
-      owner_name: tenant.owner_name || tenant.contact_name,
-      email: tenant.owner_email || tenant.email,
-      location: tenant.city || tenant.region || tenant.country,
-      region: tenant.region || tenant.city,
-      package_name: tenant.package_name || tenant.active_package_id || tenant.selected_package_id || tenant.package_id,
-      amount_paid: 0,
-      payment_status: tenant.payment_status || tenant.subscription_status || tenant.status || 'registered',
-    })),
+    ...asArray<any>(sourceTrackingResult.data).map(mapSubscriberRow),
   ].filter((subscriber, index, all) => (
     all.findIndex((candidate) => (
       (candidate.tenant_id && candidate.tenant_id === subscriber.tenant_id) ||

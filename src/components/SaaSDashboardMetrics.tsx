@@ -24,6 +24,8 @@ export default function SaaSDashboardMetrics() {
           workspaces: [],
           sessions: [],
           affiliates: [],
+          affiliatePartners: [],
+          referredCustomers: [],
           referrals: [],
           sourceTracking: [],
           commissions: [],

@@ -166,6 +166,7 @@ export interface Product {
   storeStockQty: number; // stock currently in store backroom
   alertQty: number;
   image?: string;
+  imageBase64?: string;
   brand?: string;
   syncUpdatedAt?: string;
   updatedAt?: string;
@@ -293,6 +294,10 @@ export interface SaleItem {
   tabsSelected?: number;
   tabsPerPack?: number;
   channel?: 'retail' | 'wholesale';
+  // Internal Tanzanite document routing. Customer-facing PDFs must never render
+  // these source fields.
+  sourceBranchId?: string;
+  sourceBranchName?: string;
 }
 
 export interface Sale {
@@ -346,6 +351,8 @@ export interface Expense {
   receiptImage?: string; // base64 or object URL of attached receipt image
   transactionMessage?: string;
   note?: string;
+  paymentMethod?: string;
+  paidFromAccountId?: string;
 }
 
 export interface SyncLog {
@@ -381,6 +388,7 @@ export interface Purchase {
   amountPaid: number;
   amountDue: number;
   paymentMethod?: string;
+  paidFromAccountId?: string;
   destination: 'shop' | 'store';
   deliveryStatus: 'Pending' | 'Partial' | 'Full order delivered';
   timestamp: string; // ISO String
@@ -426,6 +434,9 @@ export interface Delivery {
   notes?: string;
   tenantId: string;
   deliveryPaymentMethod?: string;
+  deliveryPaymentAccountId?: string;
+  deliveryPaymentStatus?: 'pending' | 'collected' | 'cancelled';
+  paymentCollectedAt?: string;
 }
 
 export interface CompanySettings {
@@ -624,8 +635,13 @@ export interface SalesDocument {
   tenantId: string;
   status: 'pending' | 'converted' | 'cancelled';
   convertedSaleId?: string;
+  convertedBranchSaleIds?: string[];
   convertedAt?: string;
   tagline?: string;
+  issuingBranchId?: string;
+  issuingBranchName?: string;
+  serverDocumentId?: string;
+  brandingSnapshot?: Record<string, any>;
 }
 
 export interface PaymentChannel {
@@ -634,6 +650,12 @@ export interface PaymentChannel {
   category: 'telco' | 'bank' | 'physical' | 'person';
   provider?: string;
   accountNumber?: string;
+  maskedReference?: string;
+  paymentMethod?: string;
+  currency?: string;
+  branchId?: string;
+  status?: 'active' | 'inactive' | 'archived';
+  isDefault?: boolean;
 }
 
 export interface JasperNotificationSettings {
@@ -730,7 +752,7 @@ export interface LedgerEntry {
   channelId: string;
   amount: number;
   entryType: 'debit' | 'credit';
-  sourceType: 'POS_CHECKOUT' | 'SETTLE_TILL_DEPOSIT' | 'EXPENSE_WITHDRAWAL' | 'INITIAL_BALANCE';
+  sourceType: 'POS_CHECKOUT' | 'DELIVERY_COLLECTION' | 'PURCHASE_PAYMENT' | 'SETTLE_TILL_DEPOSIT' | 'EXPENSE_WITHDRAWAL' | 'INITIAL_BALANCE';
   description: string;
   timestamp: string;
   referenceId?: string;

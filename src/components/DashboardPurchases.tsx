@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Product, Supplier, Purchase, PurchaseItem, Tenant } from '../types';
+import { Product, Supplier, Purchase, PurchaseItem, Tenant, SystemSettings } from '../types';
+import { getMaskedAccountReference } from '../utils/paymentAccounts';
 import { addBatchToProduct, createInventoryBatch } from '../utils/inventoryCosting';
 import { formatProductQuantity } from '../utils/unitFormatter';
 import { 
@@ -35,6 +36,9 @@ interface DashboardPurchasesProps {
   onUpdateStocks: (updatedProducts: Product[]) => void;
   purchases: Purchase[];
   onAddPurchase: (purchase: Purchase) => void;
+  onUpdatePurchases: (purchases: Purchase[]) => void;
+  onDeletePurchase: (purchaseId: string) => void;
+  systemSettings: SystemSettings;
 }
 
 export default function DashboardPurchases({
@@ -43,7 +47,10 @@ export default function DashboardPurchases({
   suppliers,
   onUpdateStocks,
   purchases,
-  onAddPurchase
+  onAddPurchase,
+  onUpdatePurchases,
+  onDeletePurchase,
+  systemSettings,
 }: DashboardPurchasesProps) {
   const [activeSubTab, setActiveSubTab] = useState<'history' | 'till'>('history');
 
@@ -67,6 +74,7 @@ export default function DashboardPurchases({
   const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number }>>([]);
   const [amountPaid, setAmountPaid] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
+  const [paidFromAccountId, setPaidFromAccountId] = useState<string>('');
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
 
   // Discount & Delivery Fee states
@@ -87,8 +95,37 @@ export default function DashboardPurchases({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [viewPurchase, setViewPurchase] = useState<Purchase | null>(null);
   const [editPurchase, setEditPurchase] = useState<Purchase | null>(null);
+  const [editAmountPaid, setEditAmountPaid] = useState(0);
+  const [editDeliveryStatus, setEditDeliveryStatus] = useState<Purchase['deliveryStatus']>('Pending');
+  const [editPaymentMethod, setEditPaymentMethod] = useState('Cash');
+  const [editPaidFromAccountId, setEditPaidFromAccountId] = useState('');
   const [deletePurchaseId, setDeletePurchaseId] = useState<string | null>(null);
   const [mobilePurchaseMenu, setMobilePurchaseMenu] = useState<Purchase | null>(null);
+
+  const openEditPurchase = (purchase: Purchase) => {
+    setEditPurchase(purchase);
+    setEditAmountPaid(purchase.amountPaid || 0);
+    setEditDeliveryStatus(purchase.deliveryStatus);
+    setEditPaymentMethod(purchase.paymentMethod || 'Cash');
+    setEditPaidFromAccountId(purchase.paidFromAccountId || '');
+  };
+
+  const saveEditedPurchase = () => {
+    if (!editPurchase) return;
+    const safePaid = Math.max(0, Math.min(editPurchase.totalAmount, Number(editAmountPaid) || 0));
+    onUpdatePurchases(purchases.map((purchase) => purchase.id === editPurchase.id
+      ? {
+          ...purchase,
+          amountPaid: safePaid,
+          amountDue: Math.max(0, purchase.totalAmount - safePaid),
+          deliveryStatus: editDeliveryStatus,
+          paymentMethod: editPaymentMethod,
+          paidFromAccountId: safePaid > 0 ? editPaidFromAccountId : undefined,
+        }
+      : purchase
+    ));
+    setEditPurchase(null);
+  };
 
   const resetFilters = () => {
     setHistorySearch('');
@@ -125,9 +162,9 @@ export default function DashboardPurchases({
 
   // Filtered products for till search
   const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.barcode.includes(searchTerm)
+    String(p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(p.sku || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(p.barcode || '').includes(searchTerm)
   );
 
   // Add Product to Cart
@@ -166,6 +203,8 @@ export default function DashboardPurchases({
     : purchaseDiscount;
   const totalAmount = Math.max(0, subtotal - discountAmount) + deliveryFee;
   const amountDue = Math.max(0, totalAmount - amountPaid);
+  const paymentAccounts = (systemSettings.paymentChannels || [])
+    .filter(account => account.category !== 'person' && account.status !== 'inactive' && account.status !== 'archived');
 
   const handleCommitPurchase = () => {
     if (cart.length === 0) return;
@@ -173,8 +212,13 @@ export default function DashboardPurchases({
       alert("Please select a valid supplier first!");
       return;
     }
+    if (amountPaid > 0 && !paidFromAccountId) {
+      alert('Please select the Money & Bank account used to pay this purchase.');
+      return;
+    }
 
     const supplier = availableSuppliers.find(s => s.id === selectedSupplierId) || availableSuppliers[0];
+    const paidFromAccount = paymentAccounts.find(account => account.id === paidFromAccountId);
 
     const purchaseItems: PurchaseItem[] = cart.map(item => ({
       productId: item.product.id,
@@ -191,7 +235,8 @@ export default function DashboardPurchases({
       totalAmount,
       amountPaid,
       amountDue,
-      paymentMethod,
+      paymentMethod: paidFromAccount?.paymentMethod || paymentMethod,
+      paidFromAccountId: amountPaid > 0 ? paidFromAccountId : undefined,
       destination,
       deliveryStatus,
       timestamp: new Date().toISOString(),
@@ -235,6 +280,7 @@ export default function DashboardPurchases({
     setTimeout(() => {
       setCart([]);
       setAmountPaid(0);
+      setPaidFromAccountId('');
       setPurchaseDiscount(0);
       setPurchaseDiscountType('percentage');
       setDeliveryFee(0);
@@ -331,7 +377,7 @@ export default function DashboardPurchases({
           {/* Footer actions */}
           <div className="px-6 pb-6 pt-2 flex gap-3">
             <button
-              onClick={() => { setViewPurchase(null); setEditPurchase(pc); }}
+              onClick={() => { setViewPurchase(null); openEditPurchase(pc); }}
               className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
             >
               <Pencil className="w-3.5 h-3.5" /> Edit
@@ -374,7 +420,7 @@ export default function DashboardPurchases({
           </button>
           <button
             onClick={() => {
-              // In a real app: call onDeletePurchase(id)
+              onDeletePurchase(id);
               setDeletePurchaseId(null);
             }}
             className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white text-sm font-black rounded-2xl transition-all"
@@ -412,12 +458,12 @@ export default function DashboardPurchases({
             <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Amount Paid</label>
             <div className="flex items-center bg-slate-50 border border-slate-200 focus-within:border-emerald-500 px-3 py-2.5 rounded-xl transition-all">
               <span className="text-slate-500 font-bold font-mono mr-1.5">{currency}</span>
-              <input type="number" defaultValue={pc.amountPaid} className="bg-transparent w-full text-sm text-slate-800 font-black font-mono focus:outline-none text-right" />
+              <input type="number" min="0" max={pc.totalAmount} value={editAmountPaid} onChange={(event) => setEditAmountPaid(Number(event.target.value) || 0)} className="bg-transparent w-full text-sm text-slate-800 font-black font-mono focus:outline-none text-right" />
             </div>
           </div>
           <div className="space-y-1">
             <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Delivery Status</label>
-            <select defaultValue={pc.deliveryStatus} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
+            <select value={editDeliveryStatus} onChange={(event) => setEditDeliveryStatus(event.target.value as Purchase['deliveryStatus'])} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
               <option value="Full order delivered">Full Order Delivered</option>
               <option value="Partial">Partial Delivery</option>
               <option value="Pending">Pending / Not Shipped</option>
@@ -425,17 +471,25 @@ export default function DashboardPurchases({
           </div>
           <div className="space-y-1">
             <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Payment Method</label>
-            <select defaultValue={pc.paymentMethod} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
+            <select value={editPaymentMethod} onChange={(event) => setEditPaymentMethod(event.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
               <option value="Cash">Cash</option>
               <option value="Mobile Money">Mobile Money</option>
               <option value="Bank Transfer">Bank Transfer</option>
               <option value="Card">Credit/Debit Card</option>
             </select>
+            {editAmountPaid > 0 && (
+              <select value={editPaidFromAccountId} onChange={(event) => setEditPaidFromAccountId(event.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
+                <option value="">Select paid-from account</option>
+                {paymentAccounts.map(account => (
+                  <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
         <div className="px-6 pb-6 pt-2">
           <button
-            onClick={() => setEditPurchase(null)}
+            onClick={saveEditedPurchase}
             className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
           >
             <CheckCircle className="w-4 h-4 text-emerald-400" /> Save Changes
@@ -810,7 +864,7 @@ export default function DashboardPurchases({
                                         className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                         <Eye className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> View Details
                                       </button>
-                                      <button onClick={() => { setOpenMenuId(null); setEditPurchase(pc); }}
+                                      <button onClick={() => { setOpenMenuId(null); openEditPurchase(pc); }}
                                         className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                         <Pencil className="w-3.5 h-3.5 text-blue-500 shrink-0" /> Edit Purchase
                                       </button>
@@ -978,7 +1032,7 @@ export default function DashboardPurchases({
 
                           {/* Edit */}
                           <button type="button"
-                            onClick={() => { setEditPurchase(mobilePurchaseMenu); setMobilePurchaseMenu(null); }}
+                            onClick={() => { openEditPurchase(mobilePurchaseMenu); setMobilePurchaseMenu(null); }}
                             className="w-full h-14 flex items-center gap-4 px-4 rounded-2xl text-left active:bg-slate-50"
                             style={{border: '1px solid #f1f5f9', background: '#fff'}}
                           >
@@ -1324,6 +1378,27 @@ export default function DashboardPurchases({
                       />
                     </div>
                   </div>
+
+                  {amountPaid > 0 && (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-505 uppercase tracking-wider block font-mono">Paid From Account</label>
+                      <select
+                        value={paidFromAccountId}
+                        onChange={(e) => {
+                          const accountId = e.target.value;
+                          setPaidFromAccountId(accountId);
+                          const account = paymentAccounts.find(candidate => candidate.id === accountId);
+                          if (account) setPaymentMethod(account.paymentMethod || account.name);
+                        }}
+                        className="w-full bg-white border border-slate-250 focus:border-emerald-500 px-3 py-2.5 rounded-xl text-xs font-bold font-sans transition-all cursor-pointer outline-none"
+                      >
+                        <option value="">Select Money & Bank account</option>
+                        {paymentAccounts.map(account => (
+                          <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-slate-505 uppercase tracking-wider block font-mono">Payment Method</label>

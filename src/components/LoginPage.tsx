@@ -1,17 +1,17 @@
 import { useState, FormEvent, useEffect, useRef } from 'react';
 import { useTranslation } from '../LanguageContext';
-import { 
-  Store, 
-  KeyRound, 
-  AlertTriangle, 
-  Play, 
-  HelpCircle, 
-  UserPlus, 
-  Building, 
-  Pill, 
-  Utensils, 
-  Hotel, 
-  Sparkles, 
+import {
+  Store,
+  KeyRound,
+  AlertTriangle,
+  Play,
+  HelpCircle,
+  UserPlus,
+  Building,
+  Pill,
+  Utensils,
+  Hotel,
+  Sparkles,
   CheckCircle,
   MapPin,
   Compass,
@@ -29,6 +29,7 @@ import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '
 import { initializeCleanTenantWorkspace } from '../utils/tenantIsolation';
 import { startCloudSession } from '../utils/sessionControl';
 import { payloadHasRecords, readJsonValue, safeSetJsonItem } from '../utils/dataSafety';
+import { toUserFacingError } from '../utils/safeError';
 import { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
 import PrivacyAndTermsModals from './PrivacyAndTermsModals';
 
@@ -47,15 +48,15 @@ function decodeJwt(token: string) {
     }).join(''));
 
     return JSON.parse(jsonPayload);
-  } catch (error) {
-    console.error('Failed to decode JWT', error);
+  } catch {
+    console.warn('[auth] Google identity response could not be decoded.');
     return null;
   }
 }
 
 const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
-    welcome: "Welcome to Ndiva Suite",
+    welcome: "Welcome to Jasper",
     welcomeSub: "Run sales, stock, money, and your business in one place",
     signinTab: "Sign In",
     registerTab: "Create Account",
@@ -75,12 +76,12 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     googleOrSig: "OR SIGN IN WITH GOOGLE",
     demoProfiles: "TEST ACCOUNTS",
     adminPortal: "System Admin",
-    backHome: "Back to Ndiva Home",
+    backHome: "Back to Jasper Home",
     selectNicheMsg: "Please choose your business type.",
     successReg: "Your business, \"{orgName}\", is ready."
   },
   sw: {
-    welcome: "Karibu Ndiva Suite",
+    welcome: "Karibu Jasper",
     welcomeSub: "Simamia mauzo, bidhaa, fedha na biashara sehemu moja",
     signinTab: "Ingia",
     registerTab: "Fungua Akaunti",
@@ -130,7 +131,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     successReg: "لقد تم بنجاح تسجيل \"{orgName}\" كمستأجر جديد للمنصة."
   },
   fr: {
-    welcome: "Bienvenue sur Ndiva Suite",
+    welcome: "Bienvenue sur Jasper",
     welcomeSub: "Gérez les ventes, le stock, l'argent et votre entreprise au même endroit",
     signinTab: "Connexion",
     registerTab: "Créer un Compte",
@@ -229,20 +230,18 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [onboardingBusinessType, setOnboardingBusinessType] = useState('Retail');
   const [onboardingCity, setOnboardingCity] = useState('Dar es Salaam');
 
-  // Welcome Splash state
-  const [splashInfo, setSplashInfo] = useState<{
-    userName: string;
-    businessName: string;
-    logoUrl: string | null;
-  } | null>(null);
-
   const [loginScreenLogoUrl, setLoginScreenLogoUrl] = useState<string | null>(null);
   const tenantLogoFromContext = (resolvedTenant?.company_settings as any)?.logo_url || (resolvedTenant?.company_settings as any)?.logoUrl || null;
-  const tenantLoginTitle = resolvedTenant?.name || (domainMode === 'tenant' ? 'Business Login' : 'Ndiva Suite');
+  const tenantLoginTitle = resolvedTenant?.name || (domainMode === 'tenant' ? 'Business Login' : 'Jasper');
   const isTenantDomainLogin = domainMode === 'tenant' && !!resolvedTenant?.id;
   const handleBackToLandingHub = () => {
-    if (landingUrl && domainMode !== 'root') {
-      window.location.assign(landingUrl);
+    if (landingUrl) {
+      const targetUrl = new URL(landingUrl, window.location.origin);
+      if (targetUrl.origin !== window.location.origin) {
+        window.location.assign(targetUrl.toString());
+        return;
+      }
+      onNavigate(targetUrl.pathname || '/');
       return;
     }
     onNavigate('/');
@@ -320,7 +319,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [selectedGoogleName, setSelectedGoogleName] = useState('');
   const [customGoogleEmailInput, setCustomGoogleEmailInput] = useState('');
   const [showCustomGoogleInput, setShowCustomGoogleInput] = useState(false);
-  
+
   // Custom states during Google Signup
   const [googleOrgName, setGoogleOrgName] = useState('');
   const [googlePhone, setGooglePhone] = useState('');
@@ -363,11 +362,14 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               if (payload && payload.email) {
                 // Trigger oauth-verified registration or direct login action
                 handleSelectGoogleAccountRef.current(
-                  payload.email, 
+                  payload.email,
                   payload.name || payload.email.split('@')[0]
                 );
               } else {
-                setError('Authentication failed: Could not retrieve a valid Google user profile JWT.');
+                setError(toUserFacingError(
+                  { status: 401 },
+                  { language: currentLang, context: 'sign_in', fallbackCode: 'AUTH_ERROR' },
+                ).message);
               }
             },
             auto_select: false,
@@ -435,7 +437,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                  const staffRole = staff.role || 'Cashier';
                  systemUsers.push(withPasswordOverride({
                    id: staff.id,
-                   email: staff.phone || staff.name.toLowerCase().replace(' ', '') + '@jasper.com', 
+                   email: staff.phone || staff.name.toLowerCase().replace(' ', '') + '@jasper.com',
                    phone: staff.phone || '',
                    password: staff.password || 'password123',
                    name: staff.name,
@@ -542,7 +544,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
 
     if (!found.securityQuestion || !found.securityAnswer) {
-      setRecoveryMessage('Sorry, we could not verify that it was you. If you are confident it is you, please contact Ndiva support.');
+      setRecoveryMessage('Sorry, we could not verify that it was you. If you are confident it is you, please contact Jasper support.');
       return;
     }
 
@@ -564,7 +566,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
 
     if (normalizeSecurityAnswer(recoverySecurityAnswer) !== normalizeSecurityAnswer(recoveryUser.securityAnswer || '')) {
-      setRecoveryMessage('Sorry, we could not verify that it was you. If you are confident it is you, please contact Ndiva support.');
+      setRecoveryMessage('Sorry, we could not verify that it was you. If you are confident it is you, please contact Jasper support.');
       return;
     }
 
@@ -579,7 +581,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setRecoveryStep('verify');
     setRecoveryMessage('Security answer verified. OTP prepared. Send it to the owner/admin WhatsApp, then enter it here.');
 
-    const message = `Ndiva Suite password reset OTP: ${otp}. Use this code to reset your admin account password. If you did not request this, please ignore it.`;
+    const message = `Jasper password reset OTP: ${otp}. Use this code to reset your admin account password. If you did not request this, please ignore it.`;
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
@@ -781,7 +783,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   const triggerOnLoginWithSplash = (userPayload: any) => {
     const tenantId = userPayload.activeTenant || userPayload.tenantId;
-    
+
     if (!tenantId) {
       // Intercept and open the workspace onboarding flow immediately
       setOnboardingUser(userPayload);
@@ -789,30 +791,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       return;
     }
 
-    const cachedCustom = onlineStorage.getItem('jasper_custom_tenants');
-    const parsedCustom: Tenant[] = cachedCustom ? JSON.parse(cachedCustom) : [];
-    const matchedTenant = parsedCustom.find(t => t.id === tenantId) || DEFAULT_TENANTS.find(t => t.id === tenantId) || DEFAULT_TENANTS[0];
-    
-    // Check if corporate logo got uploaded under key
-    let uploadedLogo = onlineStorage.getItem(`jasper_tenant_logo_${tenantId}`) || matchedTenant.company_settings?.logo_url || null;
-    if (!uploadedLogo) {
-      const cachedSet = onlineStorage.getItem(`jasper_settings_${tenantId}`);
-      if (cachedSet) {
-        try {
-          const pSet = JSON.parse(cachedSet);
-          uploadedLogo = pSet?.company?.logo || pSet?.business?.businessLogoLight || pSet?.business?.businessLogo || null;
-        } catch (err) {}
-      }
-    }
-    
-    setSplashInfo({
-      userName: userPayload.name,
-      businessName: matchedTenant.businessName || 'My Business',
-      logoUrl: uploadedLogo
-    });
-    
     setIsLoading(false); // Stop any form loading spinners
-    
+
     // Start presence tracking for this tenant user (fire-and-forget)
     import('../utils/userPresence').then(({ startPresenceTracking }) => {
       startPresenceTracking(
@@ -868,7 +848,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setPassword('');
     setLoginOtpMessage('OTP prepared. Send it through WhatsApp, then enter it here.');
 
-    const message = `Ndiva Suite login OTP: ${otp}. Use this code to sign in. If you did not request this, please ignore it.`;
+    const message = `Jasper login OTP: ${otp}. Use this code to sign in. If you did not request this, please ignore it.`;
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
@@ -907,36 +887,80 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setError(null);
     const cleanIdentifier = String(targetIdentifier || '').trim();
     const cleanPassword = String(targetPass || '').trim();
+    let loginFailure: unknown = { status: 401 };
 
     try {
       const client: any = await getSecureDataBridgeClient();
       if (isPlaceholderSecureDataBridgeClient(client)) {
-        setError('Secure encrypted database is not configured for this app build. Add the required protected database environment keys, then redeploy.');
+        setError(toUserFacingError(
+          { status: 503 },
+          { language: currentLang, context: 'sign_in', fallbackCode: 'LOAD_ERROR' },
+        ).message);
         setIsLoading(false);
         return;
       }
+      let resolvedPhoneEmail = '';
+      if (!cleanIdentifier.includes('@')) {
+        try {
+          const lookupController = new AbortController();
+          const lookupTimeout = window.setTimeout(() => lookupController.abort(), 2500);
+          const lookupRes = await fetch('/api/auth/lookup-phone', {
+            method: 'POST',
+            cache: 'no-store',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Jasper-Language': currentLang,
+            },
+            body: JSON.stringify({ phone: cleanIdentifier }),
+            signal: lookupController.signal,
+          });
+          window.clearTimeout(lookupTimeout);
+          const lookupPayload = await lookupRes.json().catch(() => ({}));
+          resolvedPhoneEmail = lookupRes.ok ? String(lookupPayload?.email || '').trim().toLowerCase() : '';
+        } catch (_) { /* synthetic staff/legacy candidates remain available below */ }
+      }
       const authEmailCandidates = cleanIdentifier.includes('@')
         ? [cleanIdentifier.toLowerCase()]
-        : makeInternalEmailCandidatesFromPhone(cleanIdentifier);
+        : Array.from(new Set([
+            resolvedPhoneEmail,
+            ...makeInternalEmailCandidatesFromPhone(cleanIdentifier),
+          ].filter(Boolean)));
       const authEmail = authEmailCandidates[0] || cleanIdentifier.toLowerCase();
-      
+
       // Perform authentic database-backed authentication securely
+      // Supabase's auth fetch can remain pending during a regional/network
+      // incident. Bound every attempt so the login button always recovers and
+      // the legacy/test-account fallback can run instead of spinning forever.
+      const signInWithTimeout = async (candidateEmail: string, timeoutMs = 4500): Promise<any> => {
+        let timeoutId: number | undefined;
+        try {
+          return await Promise.race([
+            client.auth.signInWithPassword({
+              email: candidateEmail,
+              password: cleanPassword
+            }),
+            new Promise(resolve => {
+              timeoutId = window.setTimeout(() => resolve({
+                data: null,
+                error: new Error('Secure sign-in timed out. Please try again.')
+              }), timeoutMs);
+            })
+          ]);
+        } finally {
+          if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+        }
+      };
       let authData: any = null;
       let authError: any = null;
       let matchedAuthEmail = authEmail;
       for (const candidateEmail of authEmailCandidates.length ? authEmailCandidates : [authEmail]) {
-        ({ data: authData, error: authError } = await client.auth.signInWithPassword({
-          email: candidateEmail,
-          password: cleanPassword
-        }));
+        ({ data: authData, error: authError } = await signInWithTimeout(candidateEmail));
+        const authAttemptTimedOut = String(authError?.message || '').toLowerCase().includes('timed out');
 
-        if (authError && typeof navigator !== 'undefined' && navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
+        if (authError && !authAttemptTimedOut && typeof navigator !== 'undefined' && navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
           try {
             await client.auth.signOut({ scope: 'local' });
-            ({ data: authData, error: authError } = await client.auth.signInWithPassword({
-              email: candidateEmail,
-              password: cleanPassword
-            }));
+            ({ data: authData, error: authError } = await signInWithTimeout(candidateEmail));
           } catch (_) { /* fallback continues below */ }
         }
 
@@ -944,26 +968,45 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           matchedAuthEmail = candidateEmail;
           break;
         }
-      }
 
-      // All synthetic email attempts failed — use backend to look up real email (bypasses RLS)
-      if (authError && !cleanIdentifier.includes('@')) {
+        // A timeout means the authentication service is unavailable, not that
+        // this particular phone-to-email candidate is wrong. Do not repeat the
+        // same network wait for every legacy candidate.
+        if (authAttemptTimedOut) break;
+      }
+      loginFailure = authError || loginFailure;
+
+      // Tenant staff created inside workspace settings do not have an Auth row
+      // until their first successful login. Ask the backend to validate and
+      // provision that account, then continue through the normal Supabase path.
+      const secureAuthTimedOut = String(authError?.message || '').toLowerCase().includes('timed out');
+      if (authError && !secureAuthTimedOut && !cleanIdentifier.includes('@')) {
+        const staffLoginController = new AbortController();
+        const staffLoginTimeout = window.setTimeout(() => staffLoginController.abort(), 6000);
         try {
-          const lookupRes = await fetch('/api/auth/lookup-phone', {
+          const staffLoginResponse = await fetch('/api/auth/register?mode=staff-login', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: cleanIdentifier })
+            cache: 'no-store',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Jasper-Language': currentLang,
+            },
+            body: JSON.stringify({ phone: cleanIdentifier, password: cleanPassword }),
+            signal: staffLoginController.signal
           });
-          const { email: realEmail } = await lookupRes.json();
-          if (realEmail) {
-            const retry = await client.auth.signInWithPassword({ email: realEmail, password: cleanPassword });
+          const staffLoginPayload = await staffLoginResponse.json().catch(() => ({}));
+          if (staffLoginResponse.ok && staffLoginPayload?.email) {
+            const retry = await signInWithTimeout(staffLoginPayload.email);
             if (!retry.error && retry.data?.user) {
               authData = retry.data;
               authError = null;
-              matchedAuthEmail = realEmail;
+              matchedAuthEmail = staffLoginPayload.email;
             }
           }
-        } catch (_) { /* continue to error below */ }
+        } catch (_) { /* continue to generic invalid-login response */ }
+        finally {
+          window.clearTimeout(staffLoginTimeout);
+        }
       }
 
       if (!authError && authData?.user) {
@@ -976,15 +1019,21 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           const timeoutId = window.setTimeout(() => controller.abort(), 8000);
           const profileResponse = await fetch('/api/auth/profile', {
             cache: 'no-store',
-            headers: { Authorization: `Bearer ${authData.session?.access_token || ''}` },
+            headers: {
+              Authorization: `Bearer ${authData.session?.access_token || ''}`,
+              'X-Jasper-Language': currentLang,
+            },
             signal: controller.signal
           });
           window.clearTimeout(timeoutId);
+          const profilePayload = await profileResponse.json().catch(() => ({}));
           if (profileResponse.ok) {
-            const profilePayload = await profileResponse.json();
             userProfile = profilePayload?.profile || null;
           } else {
-            profileError = new Error('Could not load this account.');
+            profileError = {
+              ...profilePayload,
+              status: profileResponse.status,
+            };
           }
         } catch (error) {
           profileError = error;
@@ -1009,7 +1058,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         const profileTenantId = userProfile?.tenant_id || userProfile?.active_tenant;
         if (isTenantDomainLogin && !isPlatformAdmin && profileTenantId !== resolvedTenant?.id) {
           await client.auth.signOut();
-          setError(`This account does not belong to ${resolvedTenant?.name || 'this business'}. Please use the correct business login.`);
+          setError(toUserFacingError(
+            { status: 403 },
+            { language: currentLang, context: 'sign_in', fallbackCode: 'PERMISSION_ERROR' },
+          ).message);
           setIsLoading(false);
           return;
         }
@@ -1017,7 +1069,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           // No user profile profile/tenant exists yet. Redirect to onboarding form
           if (isTenantDomainLogin) {
             await client.auth.signOut();
-            setError(`This account does not belong to ${resolvedTenant?.name || 'this business'}. Please use the correct business login.`);
+            setError(toUserFacingError(
+              { status: 403 },
+              { language: currentLang, context: 'sign_in', fallbackCode: 'PERMISSION_ERROR' },
+            ).message);
             setIsLoading(false);
             return;
           }
@@ -1041,45 +1096,68 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         const tenantId = userProfile.tenant_id || userProfile.active_tenant;
         if (tenantId) {
           const cacheKey = `jasper_workspace_cache_${tenantId}`;
-          try {
-            const workspaceResult: any = await Promise.race([
-              client.from('tenant_workspaces').select('payload').eq('tenant_id', tenantId).maybeSingle(),
-              new Promise((_, reject) => window.setTimeout(() => reject(new Error('Workspace pre-load timed out.')), 5000))
-            ]);
-            const ws = workspaceResult?.data;
-            if (ws?.payload) {
-              const currentCache = readJsonValue(cacheKey);
-              if (!payloadHasRecords(ws.payload) && payloadHasRecords(currentCache)) {
-                console.warn('[login] ignored empty workspace pre-warm payload because local cache has data');
-              } else {
-                safeSetJsonItem(cacheKey, ws.payload, { tenantId, dataKey: 'tenant_workspaces', logLabel: `${tenantId}/workspace-cache` });
+          // Cache pre-warming is optional and must never hold the authenticated
+          // user on the login screen. The dashboard's normal storage hydration
+          // remains authoritative and tenant-scoped.
+          void (async () => {
+            try {
+              const workspaceResult: any = await Promise.race([
+                client.from('tenant_workspaces').select('payload').eq('tenant_id', tenantId).maybeSingle(),
+                new Promise((_, reject) => window.setTimeout(() => reject(new Error('Workspace pre-load timed out.')), 5000))
+              ]);
+              const ws = workspaceResult?.data;
+              if (ws?.payload) {
+                const currentCache = readJsonValue(cacheKey);
+                if (!payloadHasRecords(ws.payload) && payloadHasRecords(currentCache)) {
+                  console.warn('[login] ignored empty workspace pre-warm payload because local cache has data');
+                } else {
+                  safeSetJsonItem(cacheKey, ws.payload, { tenantId, dataKey: 'tenant_workspaces', logLabel: `${tenantId}/workspace-cache` });
+                }
+                onlineStorage.setItem(`${cacheKey}_synced_at`, new Date().toISOString());
               }
-              onlineStorage.setItem(`${cacheKey}_synced_at`, new Date().toISOString());
-            }
-          } catch (_) { /* non-fatal — dashboard will load from DB directly */ }
+            } catch (_) { /* non-fatal — dashboard will load from DB directly */ }
+          })();
         }
 
+        const profileRolePermissions = userProfile.role_permissions && Object.keys(userProfile.role_permissions).length
+          ? userProfile.role_permissions
+          : undefined;
+        const isBusinessStaff = userProfile.account_type === 'business_staff';
+        const staffRoleKey = String(userProfile.role_key || '').trim();
+        const effectiveProfileRole = isBusinessStaff && staffRoleKey
+          ? staffRoleKey.replace(/(^|[\s_-])([a-z])/g, (_match: string, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`)
+          : userProfile.role || 'Admin';
         triggerOnLoginWithSplash({
           id: userProfile.id,
           email: userProfile.email,
           name: userProfile.name,
-          role: isPlatformAdmin ? 'SuperAdmin' : (userProfile.role || 'Admin'),
+          role: isPlatformAdmin ? 'SuperAdmin' : effectiveProfileRole,
           tenantId: userProfile.tenant_id || 'platform-control',
           activeTenant: userProfile.active_tenant || userProfile.tenant_id || 'platform-control',
           phone: userProfile.phone || null,
           isSaaSStaff: userProfile.is_saas_staff || false,
           saasPermissions: userProfile.role_permissions || undefined,
+          rolePermissions: profileRolePermissions,
           profileImage: userProfile.profile_image_url || undefined,
         });
         return;
       }
-    } catch (e) {
-      console.warn('Secure signin request failed or bypassed. Executing simulated/demo fallback.', e);
+    } catch (error) {
+      loginFailure = error;
+      const safeError = toUserFacingError(error, {
+        language: currentLang,
+        context: 'sign_in',
+        fallbackCode: 'LOAD_ERROR',
+      });
+      console.warn('[auth] Secure sign-in request did not complete.', safeError.code, safeError.reference || '');
     }
 
     if (isTenantDomainLogin) {
       setHasActiveLoginAttempt(true);
-      setError(`Cloud login is required for ${resolvedTenant?.name || 'this business'}. Please check your credentials and try again.`);
+      setError(toUserFacingError(
+        loginFailure,
+        { language: currentLang, context: 'sign_in', fallbackCode: 'AUTH_ERROR' },
+      ).message);
       setIsLoading(false);
       return;
     }
@@ -1092,7 +1170,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         onLogin({
           id: 'u-saas-duress',
           email: 'saas.admin@jasper.com',
-          name: 'Ndiva Suite Controller',
+          name: 'Jasper Controller',
           role: 'SuperAdmin',
           tenantId: 't-lagos-01',
           activeTenant: 't-lagos-01',
@@ -1124,7 +1202,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         });
       } else {
         setHasActiveLoginAttempt(true);
-        setError('Invalid login details. Please check your email or phone number and password, then try again.');
+        setError(toUserFacingError(
+          { status: 401 },
+          { language: currentLang, context: 'sign_in', fallbackCode: 'AUTH_ERROR' },
+        ).message);
         setIsLoading(false);
       }
     }, 600);
@@ -1154,17 +1235,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       try { affiliates = JSON.parse(raw); } catch {}
     }
     const matchIndex = affiliates.findIndex((a: any) => a.promoCode?.toUpperCase() === upperCode);
-    const revenueAdded = 1500000; // TSh 1,500,000 per subscription
+    const trialPackagePrice = 1500000; // List price only; trial registration is not a payment.
     if (matchIndex !== -1) {
       affiliates[matchIndex].conversionsPromo = (affiliates[matchIndex].conversionsPromo || 0) + 1;
-      affiliates[matchIndex].revenueGenerated = (affiliates[matchIndex].revenueGenerated || 0) + revenueAdded;
-      affiliates[matchIndex].totalEarnings = (affiliates[matchIndex].totalEarnings || 0) + Math.round(revenueAdded * 0.15);
       if (affiliates[matchIndex].parentSuperId) {
         const superId = affiliates[matchIndex].parentSuperId;
         const superIndex = affiliates.findIndex((a: any) => a.id === superId);
         if (superIndex !== -1) {
-          affiliates[superIndex].revenueGenerated = (affiliates[superIndex].revenueGenerated || 0) + revenueAdded;
-          affiliates[superIndex].totalEarnings = (affiliates[superIndex].totalEarnings || 0) + Math.round(revenueAdded * 0.05);
           affiliates[superIndex].conversionsPromo = (affiliates[superIndex].conversionsPromo || 0) + 1;
         }
       }
@@ -1199,19 +1276,16 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         promo_code_used: upperCode,
         referral_code_used: upperCode,
         package_name: 'Trial',
-        package_price: revenueAdded,
-        amount_paid: revenueAdded,
+        package_price: trialPackagePrice,
+        amount_paid: 0,
         payment_status: 'pending',
         commission_status: 'pending',
-        commission_amount: Math.round(revenueAdded * 0.15),
+        commission_amount: 0,
         created_at: now,
       });
 
-      // 2b. commission_ledger — record the full 20% split
-      const grossCommission15 = Math.round(revenueAdded * 0.15);
-      const managerCommission5 = Math.round(revenueAdded * 0.05);
-      const networkPool20 = grossCommission15 + managerCommission5;
-
+      // 2b. Keep a zero-value pending audit row. Revenue and commissions are
+      // recognized only by the confirmed subscription-payment flow.
       await client.from('commission_ledger').insert({
         id: `cl-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
         customer_id: tenantId || null,
@@ -1219,13 +1293,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         affiliate_id: subAffiliateId,
         sub_affiliate_id: subAffiliateId,
         parent_super_agent_id: parentSuperAgentId || null,
-        revenue_amount: revenueAdded,
-        network_pool_20: networkPool20,
-        manager_commission_5: parentSuperAgentId ? managerCommission5 : 0,
-        sub_affiliate_gross_commission_15: grossCommission15,
+        revenue_amount: 0,
+        network_pool_20: 0,
+        manager_commission_5: 0,
+        sub_affiliate_gross_commission_15: 0,
         withholding_tax_rate: 0.05,
-        withholding_tax_amount: Math.round(grossCommission15 * 0.05),
-        sub_affiliate_net_payout: grossCommission15, // full gross — WHT not yet active
+        withholding_tax_amount: 0,
+        sub_affiliate_net_payout: 0,
         tin_number_available: false,
         withholding_status: 'not_active',
         status: 'pending',
@@ -1233,35 +1307,18 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         created_at: now,
       });
 
-      // 2c. Update sub-affiliate's running totals in affiliates table
+      // 2c. A trial is a referral/customer, but it is not revenue.
       if (subAffiliateId) {
         const { data: currentRow } = await client
           .from('affiliates')
-          .select('total_revenue, gross_commission, customers_count')
+          .select('customers_count')
           .eq('id', subAffiliateId)
           .maybeSingle();
         await client.from('affiliates')
           .update({
-            total_revenue: numberValue(currentRow?.total_revenue) + revenueAdded,
-            gross_commission: numberValue(currentRow?.gross_commission) + grossCommission15,
             customers_count: numberValue(currentRow?.customers_count) + 1,
           })
           .eq('id', subAffiliateId);
-      }
-
-      // 2d. Update parent partner's running totals in affiliate_partners table
-      if (parentSuperAgentId) {
-        const { data: currentPartner } = await client
-          .from('affiliate_partners')
-          .select('total_revenue, manager_commission, sub_affiliate_count')
-          .eq('id', parentSuperAgentId)
-          .maybeSingle();
-        await client.from('affiliate_partners')
-          .update({
-            total_revenue: numberValue(currentPartner?.total_revenue) + revenueAdded,
-            manager_commission: numberValue(currentPartner?.manager_commission) + managerCommission5,
-          })
-          .eq('id', parentSuperAgentId);
       }
 
     } catch (dbErr) {
@@ -1287,7 +1344,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
     // Registration requires internet — block if offline
     if (!navigator.onLine) {
-      setError('❌ Usajili unahitaji mtandao. Tafadhali unganisha intaneti na ujaribu tena. | Registration requires an internet connection. Please connect and try again.');
+      setError(toUserFacingError(
+        new TypeError('Failed to fetch'),
+        { language: currentLang, context: 'registration', fallbackCode: 'NETWORK_ERROR' },
+      ).message);
       return;
     }
 
@@ -1309,7 +1369,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     try {
       const registrationResponse = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Jasper-Language': currentLang,
+        },
         body: JSON.stringify({
           email: ownerAuthEmail,
           password: regPassword,
@@ -1325,9 +1388,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           referralCode: affiliateCode.trim() || undefined,
         })
       });
-      const registration = await registrationResponse.json();
+      const registration = await registrationResponse.json().catch(() => ({}));
       if (!registrationResponse.ok || !registration?.tenant || !registration?.userId) {
-        throw new Error(registration?.error || 'Secure account provisioning is unavailable.');
+        throw {
+          ...registration,
+          status: registrationResponse.status,
+        };
       }
 
       const newTenant = registration.tenant as Tenant;
@@ -1341,7 +1407,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         password: regPassword
       });
       if (signInError) {
-        console.warn('Account was created but this browser could not establish its cloud session.', signInError);
+        console.warn('[auth] Account was created, but the browser session was not established.');
       }
 
       const hasPromoCode = !!affiliateCode.trim();
@@ -1399,13 +1465,18 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
       setIsLoading(false);
       setSuccessMessage(`Success! Registered "${orgName}" as an isolated business tenant.`);
-      
+
       // Auto trigger login directly for premium user experience
       triggerOnLoginWithSplash(registeredUser);
 
     } catch (err: any) {
-      console.warn('[Secure Registration Flow Error]:', err);
-      setError(err?.message || 'Secure registration failed. Please reconnect internet and try again so this account is saved to the encrypted database.');
+      const safeError = toUserFacingError(err, {
+        language: currentLang,
+        context: 'registration',
+        fallbackCode: 'SAVE_ERROR',
+      });
+      console.warn('[auth] Secure registration did not complete.', safeError.code, safeError.reference || '');
+      setError(safeError.message);
       setIsLoading(false);
     }
   };
@@ -1413,7 +1484,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const handleGoogleLoginClick = () => {
     setError(null);
     setSuccessMessage(null);
-    
+
     const googleClientId = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
     const isSelfInIframe = window.self !== window.top;
 
@@ -1446,7 +1517,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   function handleSelectGoogleAccount(emailAddress: string, displayName: string) {
     setIsLoading(true);
-    
+
     // Check if user exists
     const customUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
     const combinedUsers = [...DEMO_USERS, ...customUsers];
@@ -1481,7 +1552,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   const handleGoogleRegisterSubmit = (e: FormEvent) => {
     e.preventDefault();
-    setError('Google account registration is not enabled yet. Please use WhatsApp/password registration so the account is saved to the encrypted database and works on every device.');
+    setError('Google account registration is not available yet. Please use WhatsApp/password registration so your account works securely on every device.');
     setIsLoading(false);
     return;
     if (!selectedGoogleEmail || !selectedGoogleName || !googleOrgName || !googlePhone) {
@@ -1617,21 +1688,21 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             {isSaasAdminPortal ? (
               <Shield className="w-8 h-8 text-amber-600 stroke-[1.75]" />
             ) : loginScreenLogoUrl ? (
-              <img src={loginScreenLogoUrl} alt="Ndiva Suite Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
+              <img src={loginScreenLogoUrl} alt="Jasper Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
             ) : (
-              <img src="/jb-logo.png" alt="Ndiva Suite Logo" className="w-10 h-10 object-contain animate-pulse" />
+              <img src="/jb-logo.png" alt="Jasper Logo" className="w-10 h-10 object-contain animate-pulse" />
             )}
           </div>
           <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
             {isSaasAdminPortal ? 'SaaS Core Authority' : tenantLoginTitle}
           </h2>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold tracking-normal leading-relaxed uppercase max-w-sm mx-auto">
-            {isSaasAdminPortal 
-              ? 'Central Management Backoffice' 
+            {isSaasAdminPortal
+              ? 'Central Management Backoffice'
               : isTenantDomainLogin
                 ? `${resolvedTenant?.primaryDomain || `${resolvedTenant?.subdomainSlug || ''}.ndiva.africa`} secure business portal`
-              : currentLang === 'sw' 
-                ? 'Mfumo wa Kisasa wa Usimamizi wa Biashara na Mauzo' 
+              : currentLang === 'sw'
+                ? 'Mfumo wa Kisasa wa Usimamizi wa Biashara na Mauzo'
                 : 'Next-Generation Unified POS & Enterprise Management Suite'}
           </p>
         </div>
@@ -1639,10 +1710,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         {/* Warning or Success outputs */}
         {visibleNotice && (
           <div className={`p-4 rounded-2xl border flex items-start space-x-3 text-xs font-mono animate-fade-in ${
-            successMessage 
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-250' 
-              : visibleError 
-                ? 'bg-red-50 text-red-700 border-red-200' 
+            successMessage
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-250'
+              : visibleError
+                ? 'bg-red-50 text-red-700 border-red-200'
                 : 'bg-amber-50 text-amber-700 border-amber-200'
           }`}>
             <span className="shrink-0 mt-0.5">⚠️</span>
@@ -1677,7 +1748,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
         {/* Action card boundary */}
         <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm space-y-6">
-          
+
           {onboardingUser ? (
             /* Onboarding Form Screen */
             <form className="space-y-5 animate-fade-in" onSubmit={handleOnboardingSubmit}>
@@ -1749,8 +1820,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               {!isSaasAdminPortal && (
                 <div className="bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-800/30 rounded-2xl p-4 text-center shadow-xs animate-fade-in">
                   <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 leading-normal">
-                    {currentLang === 'sw' 
-                      ? 'Karibu tena 👋 Ingia kwenye dashibodi yako ya biashara' 
+                    {currentLang === 'sw'
+                      ? 'Karibu tena 👋 Ingia kwenye dashibodi yako ya biashara'
                       : 'Welcome back 👋 Sign in to your business dashboard'}
                   </p>
                 </div>
@@ -2195,7 +2266,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600"
                   />
                   <span>
-                    I have read and agree to Ndiva Suite's{' '}
+                    I have read and agree to Jasper's{' '}
                     <button type="button" onClick={() => setTenantLegalModalType('terms')} className="font-black text-emerald-700 underline bg-transparent border-none p-0 cursor-pointer">
                       Terms & Conditions
                     </button>
@@ -2233,7 +2304,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             onClick={handleBackToLandingHub}
             className="text-xs text-slate-400 hover:text-emerald-600 font-bold transition-all bg-transparent border-none cursor-pointer"
           >
-            ← Back to Ndiva Landing Hub
+            ← Back to Jasper Landing Hub
           </button>
         </div>
       </div>
@@ -2243,7 +2314,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       {showGoogleModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in font-sans">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden relative">
-            
+
             {/* Modal Header */}
             <div className="px-6 py-5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
@@ -2252,7 +2323,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </svg>
                 <span className="text-xs font-mono font-black text-slate-500 uppercase tracking-widest">Google Consent Sheet</span>
               </div>
-              <button 
+              <button
                 type="button"
                 onClick={() => setShowGoogleModal(false)}
                 className="text-slate-400 hover:text-slate-600 transition-colors text-lg font-bold bg-transparent border-none cursor-pointer p-1"
@@ -2266,12 +2337,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               <div className="p-6 space-y-6">
                 <div className="text-center space-y-1.5">
                   <h3 className="text-base font-black text-slate-800 tracking-tight">Sign in with Google</h3>
-                  <p className="text-xs text-slate-500 font-medium">to continue securely to your Ndiva Suite cabin workspace</p>
+                  <p className="text-xs text-slate-500 font-medium">to continue securely to your Jasper cabin workspace</p>
                 </div>
 
                 <div className="space-y-2.5 font-sans">
                   {/* Account choice list */}
-                  
+
                   {/* Option A: Preferred Gmail account */}
                   <button
                     type="button"
@@ -2295,7 +2366,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   {/* Option B: SaaS Central admin */}
                   <button
                     type="button"
-                    onClick={() => handleSelectGoogleAccount('saas.admin@jasper.com', 'Sarah Ndiva')}
+                    onClick={() => handleSelectGoogleAccount('saas.admin@jasper.com', 'Sarah Jasper')}
                     className="w-full p-4 hover:bg-slate-50 border border-slate-200 hover:border-emerald-300 rounded-2xl text-left flex items-center justify-between transition-all cursor-pointer group"
                   >
                     <div className="flex items-center space-x-3.5">
@@ -2303,7 +2374,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                         SJ
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-slate-800 group-hover:text-amber-700 transition-colors">Sarah Ndiva (SaaS SuperAdmin)</p>
+                        <p className="text-xs font-bold text-slate-800 group-hover:text-amber-700 transition-colors">Sarah Jasper (SaaS SuperAdmin)</p>
                         <p className="text-[10.5px] font-mono text-slate-400">saas.admin@jasper.com</p>
                       </div>
                     </div>
@@ -2528,52 +2599,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         isDark={isDark}
       />
 
-      {/* Personalized Welcome Splash Screen Overlay */}
-      {splashInfo && (
-        <div className="fixed inset-0 z-[99999] bg-slate-900/98 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 animate-fade-in text-white select-none pointer-events-auto">
-          <div className="space-y-6 max-w-sm animate-scale-in flex flex-col items-center">
-            {/* User's business logo or app logo */}
-            <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden bg-white/10 flex items-center justify-center shadow-2xl p-2 border border-white/20">
-              {splashInfo.logoUrl ? (
-                <img 
-                  src={splashInfo.logoUrl} 
-                  alt="Business Logo" 
-                  className="w-full h-full object-contain" 
-                  referrerPolicy="no-referrer" 
-                />
-              ) : (
-                <img 
-                  src="/jb-logo.png" 
-                  alt="Ndiva App Logo" 
-                  className="w-16 h-16 object-contain" 
-                />
-              )}
-            </div>
-
-            <div className="space-y-2 text-center">
-              <h1 className="text-3xl font-black tracking-tight text-white font-sans">
-                Welcome, {splashInfo.userName}!
-              </h1>
-              <p className="text-xl font-extrabold font-sans bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent tracking-wide uppercase">
-                {splashInfo.businessName}
-              </p>
-            </div>
-
-            <div className="pt-4 border-t border-white/10 w-full text-center">
-              <p className="text-sm font-medium text-slate-300 font-sans tracking-wide">
-                {currentLang === 'sw' 
-                  ? 'Dashibodi yako ya biashara iko tayari' 
-                  : 'Your business dashboard is ready'}
-              </p>
-            </div>
-
-            {/* Subtle loader line */}
-            <div className="w-48 h-1 bg-white/10 rounded-full mx-auto overflow-hidden mt-3">
-              <div className="h-full bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 rounded-full animate-pulse" style={{ width: '100%' }} />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

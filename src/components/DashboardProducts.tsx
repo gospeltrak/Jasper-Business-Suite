@@ -45,6 +45,10 @@ import { formatProductQuantity } from '../utils/unitFormatter';
 import { compressImageFile } from '../utils/imageCompression';
 import { safeSetJsonItem } from '../utils/dataSafety';
 import { generateUniqueEan13Barcode } from '../utils/barcode';
+import ModernSelect, { ModernSelectOption } from './ui/ModernSelect';
+import DashboardBarcodeScanner from './DashboardBarcodeScanner';
+import { loadBranchWorkspace, transferStockBetweenBranches } from '../branches/branchApi';
+import type { BranchSummary } from '../branches/branchTypes';
 
 interface DashboardProductsProps {
   activeTenant: Tenant;
@@ -62,6 +66,49 @@ export interface ProductBrand {
   name: string;
   logo?: string;
 }
+
+const COSTING_METHOD_OPTIONS: ModernSelectOption[] = [
+  {
+    value: 'fifo',
+    label: 'FIFO',
+    description: 'Old stock sells first · Recommended',
+    icon: <Database className="h-4.5 w-4.5" strokeWidth={2.1} />,
+  },
+  {
+    value: 'average_price',
+    label: 'Average Price',
+    description: 'Uses the blended product cost',
+    icon: <Scale className="h-4.5 w-4.5" strokeWidth={2.1} />,
+  },
+  {
+    value: 'batch_price',
+    label: 'Batch Price',
+    description: 'Uses active batch prices',
+    icon: <Layers className="h-4.5 w-4.5" strokeWidth={2.1} />,
+  },
+];
+
+const PHARMACY_PRODUCT_TYPE_OPTIONS: ModernSelectOption[] = [
+  { value: 'pharmaceutical', label: 'Pharmaceutical' },
+  { value: 'non_pharmaceutical', label: 'Non-pharmaceutical' },
+];
+
+const PHARMACY_BASE_UNIT_OPTIONS: ModernSelectOption[] = [
+  { value: 'Tablet', label: 'Tablet' },
+  { value: 'Capsule', label: 'Capsule' },
+  { value: 'Dose', label: 'Dose' },
+];
+
+const PHARMACY_START_OPTIONS = {
+  pharmaceutical: [
+    { value: 'packet', label: 'Packet / Strip' },
+    { value: 'box', label: 'Box / Carton' },
+  ],
+  nonPharmaceutical: [
+    { value: 'carton', label: 'Carton' },
+    { value: 'master_box', label: 'Master Box' },
+  ],
+} satisfies Record<string, ModernSelectOption[]>;
 
 export default function DashboardProducts({ 
   activeTenant, 
@@ -87,6 +134,7 @@ export default function DashboardProducts({
 
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [editStockDraft, setEditStockDraft] = useState({ shop: '', store: '', alert: '' });
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
@@ -111,13 +159,13 @@ export default function DashboardProducts({
 
   // Lock body scroll when product overlays are open
   useEffect(() => {
-    if (mobileProductMenu || editingProduct || replenishProduct || adjustProduct || viewingProduct) {
+    if (mobileProductMenu || editingProduct || replenishProduct || adjustProduct || viewingProduct || productToDelete) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [mobileProductMenu, editingProduct, replenishProduct, adjustProduct, viewingProduct]);
+  }, [mobileProductMenu, editingProduct, replenishProduct, adjustProduct, viewingProduct, productToDelete]);
   
   const [brand, setBrand] = useState(''); // New Brand input field for manual product creation
   const [customCategories, setCustomCategories] = useState<string[]>([]);
@@ -132,7 +180,7 @@ export default function DashboardProducts({
           { name: 'Coca Cola', logo: '' },
           { name: 'Nestle', logo: '' },
           { name: 'Unilever', logo: '' },
-          { name: 'Ndiva Foods', logo: '' }
+          { name: 'Jasper Foods', logo: '' }
         ]
       : []
   ));
@@ -179,6 +227,19 @@ export default function DashboardProducts({
       ? systemSettings.productStore.units
       : (isDemoTenant(activeTenant.id) ? ['Pcs', 'Kgs', 'Ltrs', 'Boxes', 'Cartons'] : []);
   }, [activeTenant.businessType, systemSettings]);
+
+  const categorySelectOptions = useMemo<ModernSelectOption[]>(() =>
+    categoriesList.map((categoryName) => ({ value: categoryName, label: categoryName })),
+  [categoriesList]);
+
+  const unitSelectOptions = useMemo<ModernSelectOption[]>(() =>
+    unitsList.map((unitName) => ({ value: unitName, label: unitName })),
+  [unitsList]);
+
+  const editUnitSelectOptions = useMemo<ModernSelectOption[]>(() => [
+    { value: '', label: 'No unit' },
+    ...unitSelectOptions,
+  ], [unitSelectOptions]);
 
   // Self-healing, reactive list of brands that merges pre-loaded product brands and custom registered brands
   const brandsList = useMemo(() => {
@@ -734,9 +795,8 @@ export default function DashboardProducts({
     Number(pharmacyDoseContains || tabsPerDose) || 1
   ), [pharmacyProductType, pharmacyHierarchyStart, pharmacyBaseUnit, pharmacyTopContains, pharmacyMiddleContains, pharmacyDoseContains, dosesPerPacket, tabsPerDose]);
 
-  // Scanner Simulator modal in form
+  // Real camera/USB/manual scanner in the product form.
   const [isFormScannerOpen, setIsFormScannerOpen] = useState(false);
-  const [simulatedScanValue, setSimulatedScanValue] = useState('');
 
   // Bulk Import state
   const [csvUploadError, setCsvUploadError] = useState<string | null>(null);
@@ -746,9 +806,33 @@ export default function DashboardProducts({
   // Stock Transfer Modal state
   const [transferProduct, setTransferProduct] = useState<Product | null>(null);
   const [transferQty, setTransferQty] = useState<number>(1);
-  const [transferDirection, setTransferDirection] = useState<'store_to_shop' | 'shop_to_store'>('store_to_shop');
+  const [transferDirection, setTransferDirection] = useState<'store_to_shop' | 'shop_to_store' | 'branch_to_branch'>('store_to_shop');
   const [transferError, setTransferError] = useState<string | null>(null);
   const [transferSuccess, setTransferSuccess] = useState<boolean>(false);
+  const [transferBranches, setTransferBranches] = useState<BranchSummary[]>([]);
+  const [transferSourceBranchId, setTransferSourceBranchId] = useState('');
+  const [transferDestinationBranchId, setTransferDestinationBranchId] = useState('');
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!transferProduct || subscriptionStatus?.state?.planId !== 'tanzanite') return;
+    let cancelled = false;
+    loadBranchWorkspace()
+      .then(workspace => {
+        if (cancelled || !workspace.entitlement.canOperateAdditionalBranches) return;
+        const branches = workspace.directory.branches.filter(branch =>
+          branch.id && branch.status === 'active' && branch.relationshipType !== 'independent_business'
+        );
+        setTransferBranches(branches);
+        const selectedId = workspace.context.selectedBranch?.id || branches[0]?.id || '';
+        setTransferSourceBranchId(selectedId || '');
+        setTransferDestinationBranchId(branches.find(branch => branch.id !== selectedId)?.id || '');
+      })
+      .catch(() => {
+        if (!cancelled) setTransferBranches([]);
+      });
+    return () => { cancelled = true; };
+  }, [transferProduct, subscriptionStatus?.state?.planId]);
 
   // Barcode Printing Station States
   const [selectedLabels, setSelectedLabels] = useState<Record<string, boolean>>({});
@@ -785,8 +869,8 @@ export default function DashboardProducts({
     if (!labelSearchQuery.trim()) return [];
     const query = labelSearchQuery.toLowerCase();
     return products.filter(p => 
-      p.name.toLowerCase().includes(query) || 
-      p.barcode.toLowerCase().includes(query)
+      String(p.name || '').toLowerCase().includes(query) ||
+      String(p.barcode || '').toLowerCase().includes(query)
     );
   }, [products, labelSearchQuery]);
 
@@ -1189,7 +1273,7 @@ export default function DashboardProducts({
   };
 
   // Stock Transfer Actions
-  const handleExecuteTransfer = () => {
+  const handleExecuteTransfer = async () => {
     if (!transferProduct) return;
     const qty = transferQty;
     if (qty <= 0) {
@@ -1197,6 +1281,36 @@ export default function DashboardProducts({
       return;
     }
     
+    if (transferDirection === 'branch_to_branch') {
+      if (!transferSourceBranchId || !transferDestinationBranchId || transferSourceBranchId === transferDestinationBranchId) {
+        setTransferError('Choose two different same-business branches.');
+        return;
+      }
+      setTransferSubmitting(true);
+      try {
+        await transferStockBetweenBranches({
+          fromBranchId: transferSourceBranchId,
+          toBranchId: transferDestinationBranchId,
+          productId: String(transferProduct.id),
+          quantity: qty,
+          idempotencyKey: `stock-transfer:${activeTenant.id}:${Date.now()}:${transferProduct.id}`,
+          notes: `Transferred from Products action menu by ${activeTenant.name}`,
+        });
+        setTransferSuccess(true);
+        setTransferError(null);
+        setTimeout(() => {
+          setTransferProduct(null);
+          setTransferSuccess(false);
+          setTransferQty(1);
+        }, 1200);
+      } catch (error) {
+        setTransferError(error instanceof Error ? error.message : 'Branch stock transfer could not be completed.');
+      } finally {
+        setTransferSubmitting(false);
+      }
+      return;
+    }
+
     const shopQty = transferProduct.shopStockQty ?? 0;
     const storeQty = transferProduct.storeStockQty ?? 0;
     
@@ -1246,8 +1360,8 @@ export default function DashboardProducts({
   const downloadCsvTemplate = () => {
     const csvContent = "data:text/csv;charset=utf-8," 
       + "Product Name,Barcode,Category,Brand,Cost Price,Selling Price,Shop Stock,Store Stock,Alert Level,Sell Retail,Sell Wholesale,Wholesale Price,Min Wholesale Qty\r\n"
-      + "Premium Rice (5kg),6153094850239,Groceries,Ndiva Foods,4500,5500,20,50,5,Yes,No,0,10\r\n"
-      + "Spaghetti Bolognese,39185012,Groceries,Ndiva Foods,800,1200,15,30,8,Yes,Yes,1100,50\r\n"
+      + "Premium Rice (5kg),6153094850239,Groceries,Jasper Foods,4500,5500,20,50,5,Yes,No,0,10\r\n"
+      + "Spaghetti Bolognese,39185012,Groceries,Jasper Foods,800,1200,15,30,8,Yes,Yes,1100,50\r\n"
       + "Organic Coconut Milk,,Beverages,Nestle,1100,1600,10,25,3,Yes,No,0,10\r\n"; // Empty barcode tested inside
       
     const encodedUri = encodeURI(csvContent);
@@ -1388,10 +1502,10 @@ export default function DashboardProducts({
 
   // Filter products catalog
   const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.barcode.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase()))
+    String(p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(p.barcode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(p.category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(p.brand || '').toLowerCase().includes(searchTerm.toLowerCase())
   ).sort((a, b) => {
     // Zero/negative stock goes to bottom, in-stock stays on top
     const stockA = a.shopStockQty ?? a.stockQty ?? 0;
@@ -1451,7 +1565,7 @@ export default function DashboardProducts({
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Ndiva Thermal Labels</title>
+  <title>Jasper Thermal Labels</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     @page { size: 50mm ${totalHeightMm}mm; margin: 0; }
@@ -1473,7 +1587,7 @@ export default function DashboardProducts({
 <body>
   <div class="toolbar">
     <div>
-      <h2>Ndiva Thermal Labels</h2>
+      <h2>Jasper Thermal Labels</h2>
       <p>${chosenLabels.length} label${chosenLabels.length !== 1 ? 's' : ''} · 50mm wide · ${totalHeightMm}mm total length</p>
     </div>
     <button class="btn" onclick="window.print()">🖨️ Print / Send to Thermal</button>
@@ -1561,7 +1675,7 @@ export default function DashboardProducts({
       <div class="a4-page">
         ${stickerRows.join('')}
         <div class="footer">
-          <span>Ndiva Suite</span>
+          <span>Jasper</span>
           <span>Page ${pageIdx + 1} / ${pages.length}</span>
           <span>${chosenLabels.length} label${chosenLabels.length !== 1 ? 's' : ''}</span>
         </div>
@@ -1572,7 +1686,7 @@ export default function DashboardProducts({
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Ndiva A4 Sticker Sheet</title>
+  <title>Jasper A4 Sticker Sheet</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     @page { size: A4 portrait; margin: 0; }
@@ -1649,7 +1763,7 @@ export default function DashboardProducts({
 <body>
   <div class="toolbar">
     <div>
-      <h2>Ndiva A4 Printable Sticker Sheet</h2>
+      <h2>Jasper A4 Printable Sticker Sheet</h2>
       <p>${chosenLabels.length} labels · ${pages.length} page${pages.length !== 1 ? 's' : ''} · 4×6 grid (24 per page)</p>
     </div>
     <button class="btn" onclick="window.print()">
@@ -1961,32 +2075,32 @@ export default function DashboardProducts({
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase block">Category</label>
-                      <select
+                      <ModernSelect
                         value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-700 transition-all outline-none font-semibold truncate"
-                      >
-                        <option value="">Select category</option>
-                        {categoriesList.map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                      </select>
+                        options={categorySelectOptions}
+                        onChange={setCategory}
+                        title="Choose category"
+                        placeholder="Select category"
+                        searchPlaceholder="Search categories"
+                        searchable
+                        showOptionMarkers
+                      />
                     </div>
 
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase block">Units</label>
-                      <select
+                      <ModernSelect
                         value={unit}
-                        onChange={(e) => {
-                          setUnit(e.target.value);
-                          if (!isBulkProduct) setBaseUnit(e.target.value);
+                        options={unitSelectOptions}
+                        onChange={(nextUnit) => {
+                          setUnit(nextUnit);
+                          if (!isBulkProduct) setBaseUnit(nextUnit);
                         }}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-700 transition-all outline-none font-semibold"
-                      >
-                        {unitsList.map(u => (
-                          <option key={u} value={u}>{u}</option>
-                        ))}
-                      </select>
+                        title="Choose unit"
+                        placeholder="Select unit"
+                        searchPlaceholder="Search units"
+                        searchable={unitSelectOptions.length > 7}
+                      />
                     </div>
                   </div>
 
@@ -2125,7 +2239,7 @@ export default function DashboardProducts({
                   {/* Channel Toggles Section */}
                   <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 space-y-2">
                     <span className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Active Selling Channels</span>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className={`grid gap-2 ${transferBranches.length > 1 ? 'grid-cols-3' : 'grid-cols-2'}`}>
                       <label className="flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300">
                         <input 
                           type="checkbox" 
@@ -2297,40 +2411,28 @@ export default function DashboardProducts({
                   <div className="grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
                     <div className="space-y-1">
                       <label className="text-[9px] font-bold text-slate-500 uppercase">Product Type</label>
-                      <select value={pharmacyProductType} onChange={e => {
-                        const next = e.target.value as 'pharmaceutical' | 'non_pharmaceutical';
+                      <ModernSelect value={pharmacyProductType} options={PHARMACY_PRODUCT_TYPE_OPTIONS} onChange={(nextValue) => {
+                        const next = nextValue as 'pharmaceutical' | 'non_pharmaceutical';
                         setPharmacyProductType(next);
                         setPharmacyHierarchyStart(next === 'pharmaceutical' ? 'packet' : 'carton');
                         setPharmacyBaseUnit(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
-                      }} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl">
-                        <option value="pharmaceutical">Pharmaceutical</option>
-                        <option value="non_pharmaceutical">Non-Pharmaceutical</option>
-                      </select>
+                      }} title="Choose product type" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-bold text-slate-500 uppercase">Starting Level</label>
-                      <select value={pharmacyHierarchyStart} onChange={e => setPharmacyHierarchyStart(e.target.value as any)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl">
-                        {pharmacyProductType === 'pharmaceutical' ? (
-                          <>
-                            <option value="box">Box / Carton</option>
-                            <option value="packet">Packet / Strip</option>
-                          </>
-                        ) : (
-                          <>
-                            <option value="master_box">Master Box</option>
-                            <option value="carton">Carton</option>
-                          </>
-                        )}
-                      </select>
+                      <ModernSelect
+                        value={pharmacyHierarchyStart}
+                        options={pharmacyProductType === 'pharmaceutical'
+                          ? PHARMACY_START_OPTIONS.pharmaceutical
+                          : PHARMACY_START_OPTIONS.nonPharmaceutical}
+                        onChange={(nextValue) => setPharmacyHierarchyStart(nextValue as any)}
+                        title="Choose starting level"
+                      />
                     </div>
                     {pharmacyProductType === 'pharmaceutical' && (
                       <div className="space-y-1">
                         <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
-                        <select value={pharmacyBaseUnit} onChange={e => setPharmacyBaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl">
-                          <option value="Tablet">Tablet</option>
-                          <option value="Capsule">Capsule</option>
-                          <option value="Dose">Dose</option>
-                        </select>
+                        <ModernSelect value={pharmacyBaseUnit} options={PHARMACY_BASE_UNIT_OPTIONS} onChange={setPharmacyBaseUnit} title="Choose lowest unit" />
                       </div>
                     )}
                     {pharmacyHierarchyStart === 'box' && (
@@ -2841,6 +2943,7 @@ export default function DashboardProducts({
                                       { label: 'Edit Item',      icon: Edit,    color: 'text-slate-700',   action: () => { handleBeginEdit(prod); setDesktopMenuId(null); } },
                                       { label: 'Replenish Stock',icon: Package, color: 'text-emerald-700', action: () => { setReplenishProduct(prod); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo'); setDesktopMenuId(null); } },
                                       { label: 'Adjust Stock', icon: ArrowLeftRight, color: 'text-blue-600', action: () => { setAdjustProduct(prod); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(prod.name); setAdjustShowSearch(false); setDesktopMenuId(null); } },
+                                      { label: 'Transfer Stock', icon: ArrowLeftRight, color: 'text-indigo-700', action: () => { setTransferProduct(prod); setTransferQty(1); setTransferDirection('store_to_shop'); setTransferError(null); setTransferSuccess(false); setDesktopMenuId(null); } },
                                     ].map(item => {
                                       const Icon = item.icon;
                                       return (
@@ -2854,7 +2957,7 @@ export default function DashboardProducts({
                                     })}
                                     <div className="h-px bg-slate-100 mx-3 my-1" />
                                     <button type="button"
-                                      onClick={() => { onDeleteProduct(prod.id); setDesktopMenuId(null); }}
+                                      onClick={() => { setProductToDelete(prod); setDesktopMenuId(null); }}
                                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold hover:bg-red-50 transition-colors cursor-pointer text-left"
                                     >
                                       <Trash2 className="w-3.5 h-3.5 text-red-500 shrink-0" />
@@ -2896,7 +2999,7 @@ export default function DashboardProducts({
               <div className="space-y-1">
                 <div className="flex items-center space-x-2">
                   <Printer className="w-5 h-5 text-emerald-400" />
-                  <h4 className="font-black text-sm uppercase tracking-wide">Ndiva Print Driver Engine</h4>
+                  <h4 className="font-black text-sm uppercase tracking-wide">Jasper Print Driver Engine</h4>
                 </div>
                 <p className="text-[11px] text-slate-400 max-w-xl leading-relaxed">
                   Connect your thermal printer via USB, Bluetooth, or network to print labels.
@@ -3189,7 +3292,7 @@ export default function DashboardProducts({
               {/* Feedback messages */}
               {printJobSuccess && (
                 <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-center border border-emerald-100 font-bold text-[10px] uppercase tracking-wide animate-pulse">
-                  ✓ Print job successfully transmitted to Ndiva printer. Check feed.
+                  ✓ Print job successfully transmitted to Jasper printer. Check feed.
                 </div>
               )}
 
@@ -3202,7 +3305,7 @@ export default function DashboardProducts({
                     className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-mono text-[11px] uppercase tracking-wider font-extrabold rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
                   >
                     <Printer className="w-4 h-4 text-emerald-400 animate-pulse" />
-                    <span>Print via Ndiva Thermal Printer</span>
+                    <span>Print via Jasper Thermal Printer</span>
                   </button>
                   <p className="text-[9.5px] text-slate-400 text-center font-mono">
                     Ready to print 50×30mm labels.
@@ -3374,80 +3477,15 @@ export default function DashboardProducts({
         </div>
       )}
 
-      {/* MODAL I: CAMERA/SCANNER OVERLAY SIMULATOR MODAL (IN FORM) */}
-      {isFormScannerOpen && (
-        <div id="modal-form-scanner" className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
-            
-            <div className="px-5 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-between">
-              <div className="flex items-center space-x-1.5">
-                <Camera className="w-4 h-4 text-emerald-400 animate-pulse" />
-                <span className="text-xs font-bold uppercase tracking-wider font-mono">Barcode Scanner Laser</span>
-              </div>
-              <button onClick={() => setIsFormScannerOpen(false)} className="text-slate-400 hover:text-white cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4 text-xs">
-              <div className="relative h-44 bg-gradient-to-br from-emerald-950/80 to-teal-950/80 border border-emerald-700/40 rounded-2xl overflow-hidden flex flex-col items-center justify-center text-center">
-                <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 shadow-[0_0_12px_rgba(239,68,68,1)] z-10 animate-pulse" />
-                <div className="absolute inset-x-12 inset-y-8 border-2 border-emerald-500/30 rounded-xl pointer-events-none" />
-                
-                <Camera className="w-8 h-8 text-slate-600 animate-pulse mb-1.5" />
-                <p className="font-mono text-[10px] text-slate-500 uppercase tracking-widest">Awaiting Laser Feed...</p>
-                <p className="text-[9px] text-slate-500 max-w-[180px] leading-relaxed mt-1">Scan or pick a sample.</p>
-              </div>
-
-              {/* Sample codes to scan */}
-              <div className="space-y-2">
-                <span className="text-[10px] font-mono font-black uppercase text-slate-400 block tracking-widest">Available Mock Barcode labels</span>
-                <div className="grid grid-cols-2 gap-2 font-mono text-[10.5px]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBarcode('6153091040851');
-                      setIsFormScannerOpen(false);
-                      try {
-                        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                        const osc = audioCtx.createOscillator();
-                        osc.connect(audioCtx.destination);
-                        osc.start();
-                        setTimeout(() => { osc.stop(); audioCtx.close(); }, 80);
-                      } catch(e){}
-                    }}
-                    className="p-2 bg-slate-100 hover:bg-emerald-50 hover:border-emerald-500 border border-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer transition-colors text-center"
-                  >
-                    6153091040851
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBarcode('83910485');
-                      setIsFormScannerOpen(false);
-                      try {
-                        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                        const osc = audioCtx.createOscillator();
-                        osc.connect(audioCtx.destination);
-                        osc.start();
-                        setTimeout(() => { osc.stop(); audioCtx.close(); }, 80);
-                      } catch(e){}
-                    }}
-                    className="p-2 bg-slate-100 hover:bg-emerald-50 hover:border-emerald-500 border border-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer transition-colors text-center"
-                  >
-                    83910485
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 px-5 py-3 border-t border-slate-200 text-center text-[10px] text-slate-400">
-              Closes scanner window immediately on successful read lock.
-            </div>
-
-          </div>
-        </div>
-      )}
+      <DashboardBarcodeScanner
+        isOpen={isFormScannerOpen}
+        onClose={() => setIsFormScannerOpen(false)}
+        products={products}
+        onScanSuccess={(scannedText) => {
+          setBarcode(scannedText);
+          setIsFormScannerOpen(false);
+        }}
+      />
 
       {/* MODAL II: THERMAL HARDWARE SUCCESS DIAGNOSTIC TEST PAGE */}
       {showTestPrintModal && (
@@ -3500,7 +3538,7 @@ export default function DashboardProducts({
               </div>
 
               <div className="text-[9.5px] italic text-slate-500 leading-relaxed pt-2">
-                "Printed successfully via active Ndiva software. Live printer triggers are compatible with unified Windows PRN controllers & mobile thermal Bluetooth devices."
+                "Printed successfully via active Jasper software. Live printer triggers are compatible with unified Windows PRN controllers & mobile thermal Bluetooth devices."
               </div>
 
               {/* Tear outline mocks */}
@@ -3589,8 +3627,28 @@ export default function DashboardProducts({
                       >
                         <span>Shop ➔ Store</span>
                       </button>
+                      {transferBranches.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => { setTransferDirection('branch_to_branch'); setTransferError(null); }}
+                          className={`py-2 px-2 rounded-xl text-[10.5px] font-bold transition-all border cursor-pointer ${
+                            transferDirection === 'branch_to_branch'
+                              ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                              : 'bg-slate-50 border-slate-200 text-slate-500'
+                          }`}
+                        >
+                          Branch ➔ Branch
+                        </button>
+                      )}
                     </div>
                   </div>
+
+                  {transferDirection === 'branch_to_branch' && (
+                    <div className="grid grid-cols-1 gap-3 normal-case">
+                      <label className="space-y-1"><span className="text-[10px] font-bold text-slate-500">Source branch</span><select value={transferSourceBranchId} onChange={e => setTransferSourceBranchId(e.target.value)} className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold">{transferBranches.map(branch => <option key={branch.id || branch.branchCode} value={branch.id || ''}>{branch.businessName || branch.branchName}</option>)}</select></label>
+                      <label className="space-y-1"><span className="text-[10px] font-bold text-slate-500">Destination branch</span><select value={transferDestinationBranchId} onChange={e => setTransferDestinationBranchId(e.target.value)} className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold"><option value="">Choose destination</option>{transferBranches.filter(branch => branch.id !== transferSourceBranchId).map(branch => <option key={branch.id || branch.branchCode} value={branch.id || ''}>{branch.businessName || branch.branchName}</option>)}</select></label>
+                    </div>
+                  )}
 
                   {/* Qty input */}
                   <div className="space-y-1.5">
@@ -3601,7 +3659,9 @@ export default function DashboardProducts({
                         onClick={() => {
                           const maxQty = transferDirection === 'store_to_shop' 
                             ? (transferProduct.storeStockQty ?? 0) 
-                            : (transferProduct.shopStockQty ?? 0);
+                            : transferDirection === 'shop_to_store'
+                              ? (transferProduct.shopStockQty ?? 0)
+                              : (transferProduct.stockQty ?? 0);
                           setTransferQty(maxQty);
                         }}
                         className="text-emerald-600 hover:underline font-mono"
@@ -3629,9 +3689,10 @@ export default function DashboardProducts({
 
                   <button
                     onClick={handleExecuteTransfer}
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-505 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer"
+                    disabled={transferSubmitting}
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-505 disabled:opacity-60 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer"
                   >
-                    Commit Stock Move
+                    {transferSubmitting ? 'Posting Transfer…' : 'Review & Commit Stock Move'}
                   </button>
                 </div>
               )}
@@ -4306,33 +4367,33 @@ export default function DashboardProducts({
                   <div className="grid grid-cols-2 gap-3.5">
                     <div className="space-y-1.5">
                       <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Category Classification</label>
-                      <select
+                      <ModernSelect
                         value={editForm.category || ''}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, category: e.target.value }))}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-700 font-bold outline-none"
-                      >
-                        {categoriesList.map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                      </select>
+                        options={categorySelectOptions}
+                        onChange={(nextCategory) => setEditForm(prev => ({ ...prev, category: nextCategory }))}
+                        title="Choose category"
+                        placeholder="Select category"
+                        searchPlaceholder="Search categories"
+                        searchable
+                        showOptionMarkers
+                      />
                     </div>
 
                     <div className="space-y-1.5">
                       <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Units</label>
-                      <select
+                      <ModernSelect
                         value={editForm.unit || ''}
-                        onChange={(e) => setEditForm(prev => ({
+                        options={editUnitSelectOptions}
+                        onChange={(nextUnit) => setEditForm(prev => ({
                           ...prev,
-                          unit: e.target.value,
-                          ...(prev.isBulkProduct || prev.allowScaleSelling ? {} : { baseUnit: e.target.value }),
+                          unit: nextUnit,
+                          ...(prev.isBulkProduct || prev.allowScaleSelling ? {} : { baseUnit: nextUnit }),
                         }))}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-700 font-bold outline-none"
-                      >
-                        <option value="">-- No Unit --</option>
-                        {unitsList.map(u => (
-                          <option key={u} value={u}>{u}</option>
-                        ))}
-                      </select>
+                        title="Choose unit"
+                        placeholder="No unit"
+                        searchPlaceholder="Search units"
+                        searchable={editUnitSelectOptions.length > 7}
+                      />
                     </div>
                   </div>
 
@@ -4559,10 +4620,11 @@ export default function DashboardProducts({
 
                   <div className="space-y-1 pt-1 font-mono">
                     <label className="text-[9.5px] font-bold text-slate-500 uppercase block">How Stock is Used</label>
-                    <select 
+                    <ModernSelect
                       value={editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo'}
-                      onChange={(e) => {
-                        const method = e.target.value as 'fifo'|'average_price'|'batch_price';
+                      options={COSTING_METHOD_OPTIONS}
+                      onChange={(nextMethod) => {
+                        const method = nextMethod as 'fifo'|'average_price'|'batch_price';
                         setEditForm(prev => ({
                           ...prev,
                           costingMethod: method,
@@ -4581,12 +4643,9 @@ export default function DashboardProducts({
                           },
                         }));
                       }}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none"
-                    >
-                      <option value="fifo">FIFO (Old Stock First - Recommended)</option>
-                      <option value="average_price">Average Price Logic</option>
-                      <option value="batch_price">Batch Price Selling</option>
-                    </select>
+                      title="Choose costing method"
+                      showOptionMarkers
+                    />
                   </div>
 
                   <div className={`grid ${activeTenant.businessType === 'pharmacy' ? 'grid-cols-1' : 'grid-cols-2'} gap-3 pt-1`}>
@@ -4665,31 +4724,23 @@ export default function DashboardProducts({
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-slate-500 uppercase">Product type</label>
-                            <select value={structure.productType} onChange={e => setEditForm(prev => ({
+                            <ModernSelect value={structure.productType} options={PHARMACY_PRODUCT_TYPE_OPTIONS} onChange={(nextValue) => setEditForm(prev => ({
                               ...prev,
-                              pharmacyProductType: e.target.value as any,
-                              pharmacyHierarchyStart: e.target.value === 'non_pharmaceutical' ? 'carton' : 'packet',
-                              pharmacyBaseUnit: e.target.value === 'non_pharmaceutical' ? 'Piece' : (prev.pharmacyBaseUnit || 'Tablet')
-                            }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl">
-                              <option value="pharmaceutical">Pharmaceutical</option>
-                              <option value="non_pharmaceutical">Non-pharmaceutical</option>
-                            </select>
+                              pharmacyProductType: nextValue as any,
+                              pharmacyHierarchyStart: nextValue === 'non_pharmaceutical' ? 'carton' : 'packet',
+                              pharmacyBaseUnit: nextValue === 'non_pharmaceutical' ? 'Piece' : (prev.pharmacyBaseUnit || 'Tablet')
+                            }))} title="Choose product type" />
                           </div>
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-slate-500 uppercase">Start level</label>
-                            <select value={structure.hierarchyStart} onChange={e => setEditForm(prev => ({ ...prev, pharmacyHierarchyStart: e.target.value as any }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl">
-                              {structure.productType === 'pharmaceutical' ? (
-                                <>
-                                  <option value="packet">Packet / Strip</option>
-                                  <option value="box">Box / Carton</option>
-                                </>
-                              ) : (
-                                <>
-                                  <option value="carton">Carton</option>
-                                  <option value="master_box">Master Box</option>
-                                </>
-                              )}
-                            </select>
+                            <ModernSelect
+                              value={structure.hierarchyStart}
+                              options={structure.productType === 'pharmaceutical'
+                                ? PHARMACY_START_OPTIONS.pharmaceutical
+                                : PHARMACY_START_OPTIONS.nonPharmaceutical}
+                              onChange={(nextValue) => setEditForm(prev => ({ ...prev, pharmacyHierarchyStart: nextValue as any }))}
+                              title="Choose starting level"
+                            />
                           </div>
                           {structure.productType === 'pharmaceutical' && (
                             <div className="space-y-1">
@@ -5149,14 +5200,97 @@ export default function DashboardProducts({
                   <div className="flex-1"><p className="text-[14px] font-bold text-slate-800">Adjust Stock</p><p className="text-[11px] text-slate-400 mt-0.5">Manually add or deduct quantity</p></div>
                   <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                 </button>
+                <button type="button" aria-label="Transfer stock"
+                  onClick={() => {
+                    const prod = mobileProductMenu;
+                    if (prod) runAfterMobileMenuClose(() => {
+                      setTransferProduct(prod);
+                      setTransferQty(1);
+                      setTransferDirection('store_to_shop');
+                      setTransferError(null);
+                      setTransferSuccess(false);
+                    });
+                  }}
+                  className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-indigo-50 text-left border border-indigo-100"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0"><ArrowLeftRight className="w-5 h-5 text-indigo-600" /></div>
+                  <div className="flex-1"><p className="text-[14px] font-bold text-slate-800">Transfer Stock</p><p className="text-[11px] text-slate-400 mt-0.5">Move stock between store and shop</p></div>
+                  <ChevronRight className="w-4 h-4 text-indigo-300 shrink-0" />
+                </button>
                 <div className="h-px bg-slate-100 my-1" />
                 <button type="button" aria-label="Delete product"
-                  onClick={() => { onDeleteProduct(mobileProductMenu.id); setMobileProductMenu(null); }}
+                  onClick={() => { setProductToDelete(mobileProductMenu); setMobileProductMenu(null); }}
                   className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-red-50 text-left border border-red-100"
                 >
                   <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center shrink-0"><Trash2 className="w-5 h-5 text-red-500" /></div>
                   <div className="flex-1"><p className="text-[14px] font-bold text-red-600">Delete Item</p><p className="text-[11px] text-slate-400 mt-0.5">Remove from catalogue permanently</p></div>
                   <ChevronRight className="w-4 h-4 text-red-200 shrink-0" />
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {productToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-product-title"
+          >
+            <motion.div
+              initial={{ y: 18, scale: 0.98 }}
+              animate={{ y: 0, scale: 1 }}
+              exit={{ y: 18, scale: 0.98 }}
+              className="w-full max-w-md overflow-hidden rounded-3xl border border-rose-200 bg-white shadow-2xl"
+            >
+              <div className="flex items-start justify-between gap-4 border-b border-rose-100 bg-rose-50 px-5 py-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-rose-500">Protected destructive action</p>
+                  <h3 id="delete-product-title" className="mt-1 text-base font-black text-slate-900">Delete product from catalogue?</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setProductToDelete(null)}
+                  aria-label="Close delete confirmation"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-none bg-white text-slate-500 shadow-sm cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-4 px-5 py-5">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-black text-slate-900">{productToDelete.name}</p>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {productToDelete.barcode || productToDelete.sku || 'No barcode'} • Stock {getTotalStockQty(productToDelete.shopStockQty || 0, productToDelete.storeStockQty || 0)}
+                  </p>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-500">
+                  This removes the product from the active catalogue. Existing historical sales remain unchanged.
+                </p>
+              </div>
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4">
+                <button
+                  type="button"
+                  onClick={() => setProductToDelete(null)}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-black text-slate-600 cursor-pointer"
+                >
+                  Keep Product
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDeleteProduct(productToDelete.id);
+                    setProductToDelete(null);
+                  }}
+                  className="rounded-xl border-none bg-rose-600 px-4 py-2.5 text-xs font-black text-white cursor-pointer hover:bg-rose-700"
+                >
+                  Confirm Delete Product
                 </button>
               </div>
             </motion.div>

@@ -107,7 +107,7 @@ export default function DashboardLogsAndSync({
           </div>
 
           <p className="text-xs text-slate-500 leading-relaxed font-medium">
-	            Ndiva saves business changes online. This screen shows any legacy local records that were preserved for manual audit; they are not replayed automatically.
+	            Jasper saves business changes online. This screen shows any legacy local records that were preserved for manual audit; they are not replayed automatically.
           </p>
 
           {/* Interactive Switch Container */}

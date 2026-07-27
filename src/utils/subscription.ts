@@ -21,18 +21,18 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     price: 0,
     durationDays: 10,
     maxProducts: 5000,
-    maxStores: 999999,
-    maxStaff: 6,
+    maxStores: 1,
+    maxStaff: 5,
     features: [
       'Diamond experience during trial',
       'Max 5000 Products catalogued',
-      'Max 2 Active Store branches',
-      'Max 6 Users / staff accounts',
+      'Single business workspace during the Diamond trial',
+      'Max 5 Users / staff accounts',
       'Custom Role Security permissions',
       'Supplies & supplier log ledger',
       'Cashier POS Till checkout',
       'Consolidated P&L index generators',
-      'Branch management and stock transfer',
+      'Tanzanite branch tools require an active Tanzanite subscription',
       'Lucy AI Diamond access while trial is active'
     ]
   },
@@ -40,7 +40,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     id: 'ruby',
     packageId: 'ruby',
     name: 'Ruby',
-    price: 20000,
+    price: 15000,
     durationDays: 30,
     maxProducts: 1000,
     maxStores: 1,
@@ -60,20 +60,20 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     id: 'diamond',
     packageId: 'diamond',
     name: 'Diamond',
-    price: 35000,
+    price: 30000,
     durationDays: 30,
     maxProducts: 5000,
-    maxStores: 999999,
-    maxStaff: 6,
+    maxStores: 1,
+    maxStaff: 5,
     features: [
       'Max 5000 Products catalogued',
-      'Max 2 Active Store branches',
-      'Max 6 Users / staff accounts',
+      'Max 1 Active Store branch',
+      'Max 5 Users / staff accounts',
       'Custom Role Security permissions',
       'Supplies & supplier log ledger',
       'Cashier POS Till checkout',
       'Consolidated P&L index generators',
-      'Branch management and stock transfer'
+      'Delivery, staff, and advanced financial controls'
     ]
   },
   tanzanite: {
@@ -83,11 +83,11 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     price: 50000,
     durationDays: 30,
     maxProducts: 999999, // Unlimited
-    maxStores: 3,
+    maxStores: 2,
     maxStaff: 15,
     features: [
       'Unlimited Products catalogued',
-      'Max 3 Active Branch locations',
+      '2 total branches included; Super Admin can grant more per tenant',
       'Max 15 Users / staff accounts',
       'Supplies management tracking',
       'Cashier Till (POS Simulator)',
@@ -101,7 +101,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     id: 'essential',
     packageId: 'ruby',
     name: 'Ruby',
-    price: 20000,
+    price: 15000,
     durationDays: 30,
     maxProducts: 1000,
     maxStores: 1,
@@ -121,20 +121,20 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     id: 'business',
     packageId: 'diamond',
     name: 'Diamond',
-    price: 35000,
+    price: 30000,
     durationDays: 30,
     maxProducts: 5000,
-    maxStores: 999999,
-    maxStaff: 6,
+    maxStores: 1,
+    maxStaff: 5,
     features: [
       'Max 5000 Products catalogued',
-      'Max 2 Active Store branches',
-      'Max 6 Users / staff accounts',
+      'Max 1 Active Store branch',
+      'Max 5 Users / staff accounts',
       'Custom Role Security permissions',
       'Supplies & supplier log ledger',
       'Cashier POS Till checkout',
       'Consolidated P&L index generators',
-      'Branch management and stock transfer'
+      'Delivery, staff, and advanced financial controls'
     ]
   },
   wholesale: {
@@ -144,11 +144,11 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlan> = 
     price: 50000,
     durationDays: 30,
     maxProducts: 999999,
-    maxStores: 3,
+    maxStores: 2,
     maxStaff: 15,
     features: [
       'Unlimited Products catalogued',
-      'Max 3 Active Branch locations',
+      '2 total branches included; Super Admin can grant more per tenant',
       'Max 15 Users / staff accounts',
       'Supplies management tracking',
       'Cashier Till (POS Simulator)',
@@ -169,6 +169,30 @@ export function normalizeSubscriptionPlanId(planId?: string | null): Subscriptio
   if (normalized === 'tanzanite' || normalized === 'jasper' || normalized === 'premium' || normalized === 'wholesale') return 'tanzanite';
   if (normalized === 'trial' || normalized === 'sandbox') return 'trial';
   return 'diamond';
+}
+
+const DIAMOND_AND_TANZANITE_TABS = new Set([
+  'deliveries',
+  'cash-bank-matrix',
+  'staff-members',
+]);
+
+const TANZANITE_ONLY_TABS = new Set([
+  'branches',
+  'forecasting',
+  'whitelabel',
+]);
+
+/**
+ * Central package gate for every tenant navigation surface.
+ * Trial intentionally previews all product areas; permissions still apply.
+ */
+export function isTenantPackageTabAllowed(planId: string | null | undefined, tabId: string): boolean {
+  const normalizedPlanId = normalizeSubscriptionPlanId(planId);
+  if (normalizedPlanId === 'trial') return true;
+  if (TANZANITE_ONLY_TABS.has(tabId)) return normalizedPlanId === 'tanzanite';
+  if (DIAMOND_AND_TANZANITE_TABS.has(tabId)) return normalizedPlanId !== 'ruby';
+  return true;
 }
 
 export function getSubscriptionPlan(planId?: string | null): SubscriptionPlan {

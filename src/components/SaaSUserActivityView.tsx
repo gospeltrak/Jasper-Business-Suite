@@ -9,18 +9,28 @@ import {
   Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 import {
-  getOnlineUsers, getVisitsInRange,
-  OnlinePresenceEntry, VisitLogEntry,
-} from "../utils/userPresence";
+  buildSuperAdminOnlinePresence,
+  buildSuperAdminVisitHistory,
+  loadSuperAdminOverview,
+  SuperAdminPresenceEntry,
+  SuperAdminVisitEntry,
+} from "../utils/superAdminData";
 import jsPDF from "jspdf";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-function todayStr() { return new Date().toISOString().split("T")[0]; }
+function localDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function todayStr() { return localDateKey(new Date()); }
 
 function subtractDays(days: number): string {
   const d = new Date(); d.setDate(d.getDate() - days);
-  return d.toISOString().split("T")[0];
+  return localDateKey(d);
 }
 
 function formatDateShort(dateStr: string): string {
@@ -36,7 +46,7 @@ type DateRange = "today" | "week" | "month" | "custom";
 
 // ─── Compact Online User Card (2-column grid) ─────────────────────────────────
 
-function OnlineUserCard({ user }: { user: OnlinePresenceEntry }) {
+function OnlineUserCard({ user }: { user: SuperAdminPresenceEntry }) {
   const cfg =
     user.userType === "partner"   ? { badge: "bg-amber-900/50 text-amber-300 border-amber-700/50",   dot: "bg-amber-400",   label: "Partner"   } :
     user.userType === "affiliate" ? { badge: "bg-emerald-900/50 text-emerald-300 border-emerald-700/50", dot: "bg-emerald-400", label: "Affiliate" } :
@@ -51,7 +61,10 @@ function OnlineUserCard({ user }: { user: OnlinePresenceEntry }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-bold text-slate-200 truncate leading-tight">{user.userName}</p>
-        <p className="text-[10px] text-slate-500 leading-tight">{formatTime(user.lastHeartbeat)}</p>
+        <p className="truncate text-[10px] text-slate-500 leading-tight">
+          {user.businessName ? `${user.businessName} · ` : ''}{user.accountRole}
+        </p>
+        <p className="text-[9px] text-slate-600 leading-tight">Heartbeat {formatTime(user.lastHeartbeat)}</p>
       </div>
       <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-lg uppercase border ${cfg.badge}`}>
         {cfg.label}
@@ -62,7 +75,7 @@ function OnlineUserCard({ user }: { user: OnlinePresenceEntry }) {
 
 // ─── PDF Download ─────────────────────────────────────────────────────────────
 
-function downloadVisitsPdf(visits: VisitLogEntry[], rangeLabel: string) {
+function downloadVisitsPdf(visits: SuperAdminVisitEntry[], rangeLabel: string) {
   const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
   const margin = 42;
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -133,10 +146,12 @@ export default function SaaSUserActivityView() {
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [customFrom, setCustomFrom] = useState(subtractDays(7));
   const [customTo, setCustomTo] = useState(todayStr());
-  const [onlineUsers, setOnlineUsers] = useState<OnlinePresenceEntry[]>([]);
-  const [visits, setVisits] = useState<VisitLogEntry[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<SuperAdminPresenceEntry[]>([]);
+  const [visits, setVisits] = useState<SuperAdminVisitEntry[]>([]);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [onlineOpen, setOnlineOpen] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const refreshSequence = useRef(0);
 
   const getDateRange = useCallback((): { from: string; to: string } => {
     const today = todayStr();
@@ -146,16 +161,27 @@ export default function SaaSUserActivityView() {
     return { from: customFrom, to: customTo };
   }, [dateRange, customFrom, customTo]);
 
-  const refresh = useCallback(() => {
-    setOnlineUsers(getOnlineUsers());
+  const refresh = useCallback(async () => {
+    const sequence = ++refreshSequence.current;
     const { from, to } = getDateRange();
-    setVisits(getVisitsInRange(from, to));
-    setLastRefresh(new Date());
+    try {
+      const overview = await loadSuperAdminOverview();
+      if (sequence !== refreshSequence.current) return;
+      setOnlineUsers(buildSuperAdminOnlinePresence(overview));
+      setVisits(buildSuperAdminVisitHistory(overview, from, to));
+      setLoadError('');
+      setLastRefresh(new Date());
+    } catch (error: any) {
+      if (sequence !== refreshSequence.current) return;
+      setOnlineUsers([]);
+      setVisits([]);
+      setLoadError(error?.message || 'Unable to load live account sessions.');
+    }
   }, [getDateRange]);
 
   useEffect(() => {
-    refresh();
-    const timer = setInterval(refresh, 15_000);
+    void refresh();
+    const timer = window.setInterval(() => { void refresh(); }, 30_000);
     return () => clearInterval(timer);
   }, [refresh]);
 
@@ -174,7 +200,7 @@ export default function SaaSUserActivityView() {
   const d = new Date(from + "T00:00:00");
   const end = new Date(to + "T00:00:00");
   while (d <= end) {
-    const day = d.toISOString().split("T")[0];
+    const day = localDateKey(d);
     const dv = visits.filter(v => v.date === day);
     chartData.push({
       date: formatDateShort(day),
@@ -198,7 +224,7 @@ export default function SaaSUserActivityView() {
           </h2>
           <p className="text-[11px] text-slate-500 mt-0.5">Real-time presence + visit history</p>
         </div>
-        <button onClick={refresh}
+        <button onClick={() => { void refresh(); }}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl cursor-pointer border-none transition-colors">
           <RefreshCw className="w-3 h-3 text-slate-400" />
           <span className="text-[10px] text-slate-400 hidden sm:block">
@@ -206,6 +232,12 @@ export default function SaaSUserActivityView() {
           </span>
         </button>
       </div>
+
+      {loadError ? (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300">
+          {loadError}
+        </div>
+      ) : null}
 
       {/* ── Online Now — collapsible dropdown ── */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
@@ -249,7 +281,7 @@ export default function SaaSUserActivityView() {
             {/* Count summary row */}
             <div className="grid grid-cols-3 gap-2">
               {[
-                { label: "Tenants",   count: onlineTenants,   icon: Briefcase, color: "text-blue-400",    bg: "bg-blue-950/50 border-blue-800/50"    },
+                { label: "Tenant accounts", count: onlineTenants, icon: Briefcase, color: "text-blue-400", bg: "bg-blue-950/50 border-blue-800/50" },
                 { label: "Affiliates",count: onlineAffiliates,icon: Award,     color: "text-emerald-400", bg: "bg-emerald-950/50 border-emerald-800/50"},
                 { label: "Partners",  count: onlinePartners,  icon: UserCheck, color: "text-amber-400",   bg: "bg-amber-950/50 border-amber-800/50"  },
               ].map(({ label, count, icon: Icon, color, bg }) => (
@@ -389,7 +421,10 @@ export default function SaaSUserActivityView() {
                   const tc = v.userType === "partner" ? "bg-amber-900/40 text-amber-400" : v.userType === "affiliate" ? "bg-emerald-900/40 text-emerald-400" : "bg-blue-900/40 text-blue-400";
                   return (
                     <tr key={`${v.userId}-${v.date}-${i}`} className="border-t border-slate-800/50 hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2.5 px-3 font-semibold text-slate-200">{v.userName}</td>
+                      <td className="py-2.5 px-3">
+                        <p className="font-semibold text-slate-200">{v.userName}</p>
+                        <p className="text-[9px] text-slate-500">{v.businessName ? `${v.businessName} · ` : ''}{v.accountRole}</p>
+                      </td>
                       <td className="py-2.5 px-3"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${tc}`}>{v.userType}</span></td>
                       <td className="py-2.5 px-3 text-slate-400">{v.date}</td>
                       <td className="py-2.5 px-3 text-slate-400">{formatTime(v.firstSeenAt)}</td>
@@ -412,7 +447,8 @@ export default function SaaSUserActivityView() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-slate-200 truncate leading-tight">{v.userName}</p>
-                    <p className="text-[10px] text-slate-500 leading-tight">{v.date} · {formatTime(v.firstSeenAt)}</p>
+                    <p className="truncate text-[10px] text-slate-500 leading-tight">{v.businessName || v.accountRole}</p>
+                    <p className="text-[9px] text-slate-600 leading-tight">{v.date} · {formatTime(v.firstSeenAt)}</p>
                   </div>
                   <span className={`shrink-0 px-1.5 py-0.5 rounded-lg text-[9px] font-black uppercase border ${tc}`}>{v.userType}</span>
                 </div>

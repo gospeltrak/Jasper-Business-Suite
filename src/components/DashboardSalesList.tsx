@@ -51,6 +51,12 @@ import {
 import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
 import { normalizeSubscriptionPlanId } from '../utils/subscription';
+import {
+  createCrossBranchCommercialDocument,
+  convertCrossBranchCommercialDocument,
+  loadCrossBranchDocumentSources,
+  type CrossBranchDocumentSources,
+} from '../branches/branchApi';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
 function DeliveryMotorcycleIcon({ className, size = 14 }: { className?: string; size?: number }) {
@@ -161,6 +167,7 @@ interface DashboardSalesListProps {
   activeTenant: Tenant;
   sales: Sale[];
   onUpdateSales?: (updatedSales: Sale[]) => void;
+  onDeleteSale?: (sale: Sale) => Promise<boolean> | boolean;
   rolePermissions?: any;
   products?: Product[];
   systemSettings?: SystemSettings;
@@ -184,6 +191,7 @@ export default function DashboardSalesList({
   activeTenant, 
   sales, 
   onUpdateSales, 
+  onDeleteSale,
   rolePermissions,
   products = [],
   systemSettings,
@@ -250,6 +258,7 @@ export default function DashboardSalesList({
       || activeTenant.selectedPackageId
       || (activeTenant as any).subscriptionPlan
   );
+  const canUseCrossBranchDocuments = activePlanId === 'tanzanite';
   const canUseTillSettlement = activePlanId !== 'ruby';
 
   useEffect(() => {
@@ -324,10 +333,22 @@ export default function DashboardSalesList({
     return { subTotal, discount, tax, delivery, total, paid, balance: Math.max(0, total - paid) };
   };
   const getInvoiceFooter = (doc?: SalesDocument) => {
-    const businessName = systemSettings?.business?.businessName || systemSettings?.company?.companyName || activeTenant.name;
+    const snapshot = (doc?.brandingSnapshot || {}) as Record<string, any>;
+    const businessName = snapshot.businessName || snapshot.branchName || systemSettings?.business?.businessName || systemSettings?.company?.companyName || activeTenant.name;
     const mainMessage = doc?.tagline || systemSettings?.invoiceSettings?.footerNote || 'Thank you for doing business with us.';
-    const poweredBy = (systemSettings as any)?.systemWebLink || (systemSettings as any)?.business?.website || 'Powered by Ndiva Suite';
+    const poweredBy = (systemSettings as any)?.systemWebLink || (systemSettings as any)?.business?.website || 'Powered by Jasper';
     return { mainMessage, businessName, poweredBy };
+  };
+  const getDocumentBranding = (doc: SalesDocument) => {
+    const snapshot = (doc.brandingSnapshot || {}) as Record<string, any>;
+    return {
+      name: snapshot.businessName || snapshot.branchName || systemSettings?.business?.businessName || activeTenant.name,
+      city: snapshot.city || activeTenant.city || '',
+      address: snapshot.address || systemSettings?.business?.businessAddress || '',
+      phone: snapshot.phone || systemSettings?.business?.businessPhone || '',
+      email: snapshot.email || systemSettings?.business?.businessEmail || '',
+      logo: systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo || '',
+    };
   };
 
   // Load documents from onlineStorage on mount
@@ -488,6 +509,23 @@ export default function DashboardSalesList({
   const [newDocDiscountType, setNewDocDiscountType] = useState<'percent' | 'cash'>('percent');
   const [newDocPaymentMethod, setNewDocPaymentMethod] = useState(() => systemSettings?.business?.paymentModes?.[0] || 'Cash');
   const [newDocHasVat, setNewDocHasVat] = useState(() => !!systemSettings?.invoiceSettings?.hasVatByDefault);
+  const [crossBranchSources, setCrossBranchSources] = useState<CrossBranchDocumentSources | null>(null);
+  const [crossBranchSourcesLoading, setCrossBranchSourcesLoading] = useState(false);
+  const [crossBranchSourcesError, setCrossBranchSourcesError] = useState('');
+  const [newDocIssuingBranchId, setNewDocIssuingBranchId] = useState('');
+  const [docWizardSourceBranchId, setDocWizardSourceBranchId] = useState('');
+  const [documentMutationPending, setDocumentMutationPending] = useState(false);
+  const [conversionNotice, setConversionNotice] = useState<{
+    kind: 'success' | 'error';
+    title: string;
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!conversionNotice) return;
+    const timeout = window.setTimeout(() => setConversionNotice(null), 9000);
+    return () => window.clearTimeout(timeout);
+  }, [conversionNotice]);
 
   // Sync VAT toggle default state when modal opens
   const prevShowNewDocModal = React.useRef(false);
@@ -500,8 +538,24 @@ export default function DashboardSalesList({
       setNewDocDiscountValue(0);
       setNewDocDiscountType('percent');
       setNewDocPaymentMethod(systemSettings?.business?.paymentModes?.[0] || 'Cash');
+      if (canUseCrossBranchDocuments) {
+        setCrossBranchSourcesLoading(true);
+        setCrossBranchSourcesError('');
+        void loadCrossBranchDocumentSources()
+          .then(sources => {
+            setCrossBranchSources(sources);
+            const defaultBranch = sources.branches.find(branch => branch.isDefault) || sources.branches[0];
+            setNewDocIssuingBranchId(current => current || defaultBranch?.id || '');
+            setDocWizardSourceBranchId(current => current || defaultBranch?.id || '');
+          })
+          .catch(error => {
+            setCrossBranchSources(null);
+            setCrossBranchSourcesError(error instanceof Error ? error.message : 'Branch products could not be loaded.');
+          })
+          .finally(() => setCrossBranchSourcesLoading(false));
+      }
     }
-  }, [showNewDocModal]); // intentionally exclude systemSettings — we only want to reset on open
+  }, [showNewDocModal, canUseCrossBranchDocuments]); // reset only when opening
 
   useEffect(() => {
     if (viewingDocument) {
@@ -517,6 +571,14 @@ export default function DashboardSalesList({
   const [docWizardSelectedProductId, setDocWizardSelectedProductId] = useState('');
   const [docWizardSelectedQty, setDocWizardSelectedQty] = useState(1);
   const [docWizardProductSearchQuery, setDocWizardProductSearchQuery] = useState('');
+  const branchSourceProductIds = React.useMemo(() => new Set(
+    (crossBranchSources?.products || [])
+      .filter(product => product.branchId === docWizardSourceBranchId && product.quantity > 0)
+      .map(product => product.productId)
+  ), [crossBranchSources, docWizardSourceBranchId]);
+  const documentPickerProducts = canUseCrossBranchDocuments && crossBranchSources
+    ? products.filter(product => branchSourceProductIds.has(product.id))
+    : products;
   const newDocSubtotal = React.useMemo(
     () => newDocItems.reduce((sum, item) => sum + (toNumber(item.qty) * toNumber(item.price)), 0),
     [newDocItems]
@@ -746,7 +808,7 @@ export default function DashboardSalesList({
   const buildDocumentWhatsAppMessage = (doc: SalesDocument) => {
     const documentLabel = getDocumentLabel(doc.type).toLowerCase();
     const customer = doc.customerName?.trim() || 'valued customer';
-    return `Hello ${customer}, please find attached your ${documentLabel} PDF ${doc.documentNumber} from ${(systemSettings?.business?.businessName || activeTenant.name)}. Thank you.`;
+    return `Hello ${customer}, please find attached your ${documentLabel} PDF ${doc.documentNumber} from ${getDocumentBranding(doc).name}. Thank you.`;
   };
 
   const sharePdfDocument = async (doc: SalesDocument, phone?: string) => {
@@ -817,12 +879,15 @@ export default function DashboardSalesList({
     }
   };
 
-  // Build smart download filename: first word of business name + 4 char suffix
+  // Deterministic, recognizable filename using the real business and sale reference.
   const buildInvoiceFileName = (sale: Sale) => {
     const bizName = (systemSettings?.business?.businessName || activeTenant.name || 'Invoice').trim();
-    const firstWord = bizName.split(/[\s\-_]+/)[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 20) || 'Invoice';
-    const suffix = (sale.reference || sale.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase() || Math.random().toString(36).slice(-4).toUpperCase();
-    return `${firstWord}-${suffix}.pdf`;
+    const safeBusiness = bizName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 36) || 'Business';
+    const safeReference = String(sale.reference || sale.id || 'sale')
+      .replace(/[^a-zA-Z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48) || 'sale';
+    return `sales-invoice-${safeBusiness}-${safeReference}.pdf`;
   };
 
   // Print thermal receipt — works with USB and Bluetooth thermal printers
@@ -988,8 +1053,94 @@ export default function DashboardSalesList({
     }
   };
 
-  const sendDocumentToSales = (doc: SalesDocument) => {
-    if (!onPreloadCartForPOS) return;
+  const resetNewDocumentForm = () => {
+    setNewDocItems([]);
+    setNewDocCustomerName('');
+    setNewDocCustomerPhone('');
+    setNewDocCustomerAddress('');
+    setNewDocDiscountValue(0);
+    setShowNewDocModal(false);
+  };
+
+  const handleCreateCommercialDocument = async () => {
+    if (newDocItems.length === 0 || documentMutationPending) return;
+    const prefixMap = { 'price quote': 'QUO', 'proforma invoice': 'PFI' };
+    const prefix = prefixMap[newDocType] || 'DOC';
+    const nextNum = `${prefix}-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const issuingBranch = crossBranchSources?.branches.find(branch => branch.id === newDocIssuingBranchId);
+    const localDocument: SalesDocument = {
+      id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      type: newDocType,
+      documentNumber: nextNum,
+      customerName: newDocCustomerName || 'General Customer',
+      customerPhone: newDocCustomerPhone || '',
+      customerAddress: newDocCustomerAddress || '',
+      items: newDocItems.map(item => ({ ...item, discount: 0, discountType: 'percent' })),
+      total: newDocGrandTotal,
+      tax: newDocTaxAmount,
+      discountAmount: newDocDiscountAmount,
+      discountValue: cappedDiscountValue,
+      discountType: newDocDiscountType,
+      hasVat: newDocHasVat,
+      deliveryCost: Number(newDocDeliveryCost) || 0,
+      paymentMethod: newDocPaymentMethod,
+      timestamp: new Date(`${newDocDate || new Date().toISOString().split('T')[0]}T12:00:00`).toISOString(),
+      tenantId: activeTenant.id,
+      status: 'pending',
+      issuingBranchId: issuingBranch?.id,
+      issuingBranchName: issuingBranch?.businessName || issuingBranch?.branchName,
+    };
+
+    if (!canUseCrossBranchDocuments) {
+      setDocuments(prev => [localDocument, ...prev]);
+      resetNewDocumentForm();
+      return;
+    }
+    if (!issuingBranch || newDocItems.some(item => !item.sourceBranchId)) {
+      alert('Select the issuing branch and a source branch for every product.');
+      return;
+    }
+
+    setDocumentMutationPending(true);
+    try {
+      const saved = await createCrossBranchCommercialDocument({
+        issuingBranchId: issuingBranch.id,
+        documentType: newDocType === 'price quote' ? 'price_quote' : 'proforma_invoice',
+        documentNumber: nextNum,
+        customerName: localDocument.customerName,
+        customerPhone: localDocument.customerPhone,
+        customerAddress: localDocument.customerAddress,
+        issueDate: newDocDate,
+        currency,
+        discountAmount: newDocDiscountAmount,
+        taxAmount: newDocTaxAmount,
+        deliveryAmount: Number(newDocDeliveryCost) || 0,
+        items: newDocItems.map(item => ({
+          sourceBranchId: item.sourceBranchId!,
+          productId: String(item.productId),
+          productName: item.productName,
+          unit: item.unit,
+          quantity: toNumber(item.qty),
+          unitPrice: toNumber(item.price),
+        })),
+      });
+      setDocuments(prev => [{
+        ...localDocument,
+        id: saved.documentId,
+        serverDocumentId: saved.documentId,
+        documentNumber: saved.documentNumber,
+        total: saved.total,
+        brandingSnapshot: saved.brandingSnapshot,
+      }, ...prev]);
+      resetNewDocumentForm();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'The document could not be saved.');
+    } finally {
+      setDocumentMutationPending(false);
+    }
+  };
+
+  const sendDocumentToSales = async (doc: SalesDocument) => {
     if (doc.status === 'converted') {
       alert(`This ${getDocumentLabel(doc.type)} has already been recorded as a sale.`);
       return;
@@ -1009,6 +1160,43 @@ export default function DashboardSalesList({
       return;
     }
 
+    if (doc.serverDocumentId) {
+      if (documentMutationPending) return;
+      setDocumentMutationPending(true);
+      try {
+        const conversion = await convertCrossBranchCommercialDocument(
+          doc.serverDocumentId,
+          `commercial-document:${doc.serverDocumentId}`,
+        );
+        setDocuments(prev => prev.map(item => item.id === doc.id ? {
+          ...item,
+          items: normalizedItems,
+          status: 'converted',
+          convertedSaleId: conversion.saleGroupId,
+          convertedBranchSaleIds: (conversion.branchSales || []).map(sale => sale.saleId),
+          convertedAt: new Date().toISOString(),
+        } : item));
+        setViewingDocument(null);
+        setConversionNotice({
+          kind: 'success',
+          title: 'Conversion completed',
+          message: 'Stock was deducted and an unpaid sale was created in every source branch.',
+        });
+      } catch (error) {
+        setConversionNotice({
+          kind: 'error',
+          title: 'Conversion could not be completed',
+          message: error instanceof Error
+            ? error.message
+            : 'One or more products are out of stock. No stock or sale was changed.',
+        });
+      } finally {
+        setDocumentMutationPending(false);
+      }
+      return;
+    }
+
+    if (!onPreloadCartForPOS) return;
     onPreloadCartForPOS(normalizedItems, doc.timestamp, {
       deliveryCost: toNumber(doc.deliveryCost),
       paymentMethod: doc.paymentMethod || 'Cash',
@@ -1029,6 +1217,35 @@ export default function DashboardSalesList({
 
   return (
     <div className="space-y-0 md:space-y-6 animate-fade-in" id="sales-list-view-root">
+      {conversionNotice && createPortal((
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-[300] w-[min(94vw,560px)]"
+        >
+          <div className={`rounded-2xl border shadow-2xl px-4 py-3.5 flex items-start gap-3 ${
+            conversionNotice.kind === 'error'
+              ? 'bg-rose-50 border-rose-200 text-rose-950'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-950'
+          }`}>
+            {conversionNotice.kind === 'error'
+              ? <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              : <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />}
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black">{conversionNotice.title}</p>
+              <p className="text-xs font-semibold mt-1 leading-relaxed">{conversionNotice.message}</p>
+            </div>
+            <button
+              type="button"
+              aria-label="Close notification"
+              onClick={() => setConversionNotice(null)}
+              className="w-7 h-7 rounded-lg border-none bg-transparent hover:bg-black/5 flex items-center justify-center cursor-pointer shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      ), document.body)}
 
       {/* ── MOBILE HERO BANNER — replaces old "Sales History" card ────────── */}
       <div className="xl:hidden">
@@ -1576,10 +1793,6 @@ export default function DashboardSalesList({
                                 </button>
 
                                 <div className="border-t border-slate-100 mt-1 pt-1">
-                                  <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(false); setTimeout(() => printThermalReceipt(sale), 100); setActiveMenuId(null); setMenuPos(null); }}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-                                    <Receipt className="w-3.5 h-3.5 text-slate-400 shrink-0" /> Thermal Receipt
-                                  </button>
                                   <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(false); setActiveMenuId(null); setMenuPos(null); }}
                                     className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                     <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" /> POS Receipt
@@ -3286,7 +3499,7 @@ export default function DashboardSalesList({
                     if (!terms.length) return null;
                     return <div className="border-t border-slate-100 pt-4"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mb-2">Terms &amp; Conditions</p><ol className="list-decimal list-inside space-y-1">{terms.map((term: string, index: number) => <li key={index} className="text-[11px] text-slate-500">{term}</li>)}</ol></div>;
                   })()}
-                  <div className="text-center border-t border-slate-100 pt-3"><p className="text-[8px] text-slate-300 font-mono">Powered by Ndiva Suite</p></div>
+                  <div className="text-center border-t border-slate-100 pt-3"><p className="text-[8px] text-slate-300 font-mono">Powered by Jasper</p></div>
                 </div>
               </div>
                 </div>
@@ -4378,11 +4591,19 @@ export default function DashboardSalesList({
               
               <button
                 type="button"
-                onClick={() => {
-                  if (onUpdateSales) {
+                onClick={async () => {
+                  if (onDeleteSale) {
+                    const deleted = await onDeleteSale(saleToDelete);
+                    if (!deleted) return;
+                  } else if (onUpdateSales) {
                     const nextSales = sales.filter(s => s.id !== saleToDelete.id);
                     onUpdateSales(nextSales);
                   }
+                  setInstallmentRecords(previous => {
+                    const next = { ...previous };
+                    delete next[saleToDelete.id];
+                    return next;
+                  });
                   setSaleToDelete(null);
                 }}
                 className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-xl border-none transition-all text-xs uppercase flex items-center space-x-1.5 cursor-pointer shadow-md select-none"
@@ -4493,6 +4714,46 @@ export default function DashboardSalesList({
                 </label>
               </div>
 
+              {canUseCrossBranchDocuments && (
+                <div className="rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/20 p-3.5 space-y-3">
+                  <div>
+                    <p className="text-xs font-black text-indigo-900 dark:text-indigo-200">Tanzanite multi-branch document</p>
+                    <p className="text-[10px] text-indigo-600 dark:text-indigo-400">The customer sees one document. Branch sources remain internal.</p>
+                  </div>
+                  {crossBranchSourcesLoading ? (
+                    <p className="text-xs text-indigo-600">Loading branch products…</p>
+                  ) : crossBranchSourcesError ? (
+                    <p className="text-xs font-semibold text-rose-600">{crossBranchSourcesError}</p>
+                  ) : (
+                    <div className="grid sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Document branding branch</label>
+                        <select value={newDocIssuingBranchId} onChange={e => setNewDocIssuingBranchId(e.target.value)}
+                          className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100">
+                          {(crossBranchSources?.branches || []).map(branch => (
+                            <option key={branch.id} value={branch.id}>{branch.businessName || branch.branchName}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Product source branch</label>
+                        <select value={docWizardSourceBranchId}
+                          onChange={e => {
+                            setDocWizardSourceBranchId(e.target.value);
+                            setDocWizardSelectedProductId('');
+                            setDocWizardProductSearchQuery('');
+                          }}
+                          className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100">
+                          {(crossBranchSources?.branches || []).map(branch => (
+                            <option key={branch.id} value={branch.id}>{branch.branchName}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Product search */}
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Add Products</p>
@@ -4506,7 +4767,7 @@ export default function DashboardSalesList({
                       onKeyDown={e => {
                         if (e.key === 'Enter') {
                           const query = docWizardProductSearchQuery.toLowerCase().trim();
-                          const matches = products.filter(p =>
+                          const matches = documentPickerProducts.filter(p =>
                             (p.barcode && p.barcode.toLowerCase() === query) ||
                             (p.sku && p.sku.toLowerCase() === query) ||
                             (p.name && p.name.toLowerCase().includes(query))
@@ -4528,19 +4789,22 @@ export default function DashboardSalesList({
                   {/* Product results / selected chip */}
                   {(() => {
                     const query = docWizardProductSearchQuery.toLowerCase().trim();
-                    const filtered = products.filter(p => {
+                    const filtered = documentPickerProducts.filter(p => {
                       if (!query) return true;
                       return (p.name && p.name.toLowerCase().includes(query)) ||
                         (p.barcode && p.barcode.toLowerCase().includes(query)) ||
                         (p.sku && p.sku.toLowerCase().includes(query));
                     });
-                    const selected = products.find(p => p.id === docWizardSelectedProductId);
+                    const selected = documentPickerProducts.find(p => p.id === docWizardSelectedProductId);
+                    const selectedSource = crossBranchSources?.products.find(product =>
+                      product.branchId === docWizardSourceBranchId && product.productId === selected?.id
+                    );
                     if (selected && (!query || selected.name.toLowerCase().includes(query) || (selected.barcode || '').includes(query))) {
                       return (
                         <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-xl px-3 py-2 flex items-center justify-between">
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-indigo-800 dark:text-indigo-300 truncate">{selected.name}</p>
-                            <p className="text-[10px] text-indigo-500">{currency}{selected.sellingPrice.toLocaleString()} · Stock: {selected.shopStockQty ?? selected.stockQty ?? 0}</p>
+                            <p className="text-[10px] text-indigo-500">{currency}{(selectedSource?.sellingPrice ?? selected.sellingPrice).toLocaleString()} · Stock: {selectedSource?.quantity ?? selected.shopStockQty ?? selected.stockQty ?? 0}</p>
                           </div>
                           <button type="button" onClick={() => { setDocWizardSelectedProductId(''); setDocWizardProductSearchQuery(''); }}
                             className="text-indigo-300 hover:text-indigo-600 ml-2 shrink-0 cursor-pointer text-sm font-bold border-none bg-transparent">✕</button>
@@ -4552,14 +4816,19 @@ export default function DashboardSalesList({
                       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden max-h-44 overflow-y-auto shadow-md">
                         {filtered.length === 0 ? (
                           <p className="px-3 py-4 text-xs text-slate-400 text-center">No products found</p>
-                        ) : filtered.slice(0, 20).map(p => (
+                        ) : filtered.slice(0, 20).map(p => {
+                          const source = crossBranchSources?.products.find(product =>
+                            product.branchId === docWizardSourceBranchId && product.productId === p.id
+                          );
+                          return (
                           <button key={p.id} type="button"
                             onClick={() => { setDocWizardSelectedProductId(p.id); setDocWizardProductSearchQuery(p.name); }}
                             className={`w-full text-left px-3 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border-b border-slate-50 dark:border-slate-800 last:border-0 cursor-pointer transition-colors ${docWizardSelectedProductId === p.id ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}>
                             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{p.name}</p>
-                            <p className="text-[10px] text-slate-400">{currency}{p.sellingPrice.toLocaleString()} · Stock: {p.shopStockQty ?? p.stockQty ?? 0}</p>
+                            <p className="text-[10px] text-slate-400">{currency}{(source?.sellingPrice ?? p.sellingPrice).toLocaleString()} · Stock: {source?.quantity ?? p.shopStockQty ?? p.stockQty ?? 0}</p>
                           </button>
-                        ))}
+                          );
+                        })}
                       </div>
                     );
                   })()}
@@ -4575,9 +4844,15 @@ export default function DashboardSalesList({
                     <button type="button"
                       onClick={() => {
                         if (!docWizardSelectedProductId) return;
-                        const found = products.find(p => p.id === docWizardSelectedProductId);
+                        const found = documentPickerProducts.find(p => p.id === docWizardSelectedProductId);
                         if (!found) return;
-                        const existingIdx = newDocItems.findIndex(x => x.productId === found.id);
+                        const source = crossBranchSources?.products.find(product =>
+                          product.branchId === docWizardSourceBranchId && product.productId === found.id
+                        );
+                        const sourceBranch = crossBranchSources?.branches.find(branch => branch.id === docWizardSourceBranchId);
+                        const existingIdx = newDocItems.findIndex(x =>
+                          x.productId === found.id && x.sourceBranchId === (canUseCrossBranchDocuments ? docWizardSourceBranchId : undefined)
+                        );
                         if (existingIdx >= 0) {
                           setNewDocItems(prev => prev.map((item, index) => index === existingIdx
                             ? { ...item, qty: toNumber(item.qty) + docWizardSelectedQty }
@@ -4585,7 +4860,9 @@ export default function DashboardSalesList({
                         } else {
                           setNewDocItems(prev => [...prev, {
                             productId: found.id, productName: found.name,
-                            qty: docWizardSelectedQty, price: found.sellingPrice,
+                            qty: docWizardSelectedQty, price: source?.sellingPrice ?? found.sellingPrice,
+                            sourceBranchId: canUseCrossBranchDocuments ? docWizardSourceBranchId : undefined,
+                            sourceBranchName: canUseCrossBranchDocuments ? sourceBranch?.branchName : undefined,
                             discount: 0, discountType: 'percent' as const
                           }]);
                         }
@@ -4611,6 +4888,9 @@ export default function DashboardSalesList({
                         <div className="flex-1 min-w-0">
                           <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{item.productName}</p>
                           <p className="text-[10px] text-slate-400 font-mono mt-0.5">{item.qty} × {currency}{item.price}</p>
+                          {item.sourceBranchName && (
+                            <p className="text-[9px] text-indigo-500 font-semibold mt-0.5">Internal source: {item.sourceBranchName}</p>
+                          )}
                         </div>
                         <p className="text-[14px] font-black text-slate-800 dark:text-slate-100 font-mono shrink-0">
                           {currency}{Math.round(item.qty * item.price).toLocaleString()}
@@ -4680,43 +4960,10 @@ export default function DashboardSalesList({
                 Cancel
               </button>
               <button type="button"
-                disabled={newDocItems.length === 0}
-                onClick={() => {
-                  const prefixMap = { 'price quote': 'QUO', 'proforma invoice': 'PFI' };
-                  const prefix = prefixMap[newDocType] || 'DOC';
-                  const nextNum = `${prefix}-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-                  const deliverySum = Number(newDocDeliveryCost) || 0;
-                  const newDoc: SalesDocument = {
-                    id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                    type: newDocType,
-                    documentNumber: nextNum,
-                    customerName: newDocCustomerName || 'General Customer',
-                    customerPhone: newDocCustomerPhone || '',
-                    customerAddress: newDocCustomerAddress || '',
-                    items: newDocItems.map(item => ({ ...item, discount: 0, discountType: 'percent' })),
-                    total: newDocGrandTotal,
-                    tax: newDocTaxAmount,
-                    discountAmount: newDocDiscountAmount,
-                    discountValue: cappedDiscountValue,
-                    discountType: newDocDiscountType,
-                    hasVat: newDocHasVat,
-                    deliveryCost: deliverySum,
-                    paymentMethod: newDocPaymentMethod,
-                    date: newDocDate || new Date().toISOString().split('T')[0],
-                    status: 'active',
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  };
-                  onAddDocument?.(newDoc);
-                  setNewDocItems([]);
-                  setNewDocCustomerName('');
-                  setNewDocCustomerPhone('');
-                  setNewDocCustomerAddress('');
-                  setNewDocDiscountValue(0);
-                  setShowNewDocModal(false);
-                }}
+                disabled={newDocItems.length === 0 || documentMutationPending || (canUseCrossBranchDocuments && (!newDocIssuingBranchId || crossBranchSourcesLoading || !!crossBranchSourcesError))}
+                onClick={() => void handleCreateCommercialDocument()}
                 className="flex-[2] py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-black text-sm cursor-pointer transition-colors border-none">
-                Create {getDocumentLabel(newDocType)}
+                {documentMutationPending ? 'Saving…' : `Create ${getDocumentLabel(newDocType)}`}
               </button>
             </div>
 
@@ -4728,6 +4975,7 @@ export default function DashboardSalesList({
       {viewingDocument && (() => {
         const totals = getDocumentTotals(viewingDocument);
         const invoiceFooter = getInvoiceFooter(viewingDocument);
+        const documentBranding = getDocumentBranding(viewingDocument);
 
         const activeStaff = systemSettings?.staffs?.find(
           s => s.name.toLowerCase() === (currentUser?.name || '').toLowerCase()
@@ -4914,24 +5162,24 @@ export default function DashboardSalesList({
                     {/* Header: logo + doc meta */}
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
                       <div className="min-w-0">
-                        {(((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo) ? (
+                        {documentBranding.logo ? (
                           <img
-                            src={((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo || undefined}
+                            src={documentBranding.logo}
                             alt="Logo"
                             referrerPolicy="no-referrer"
                             className="max-h-16 max-w-[200px] object-contain rounded-xl select-none mb-3"
                           />
                         ) : (
                           <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl mb-3">
-                            {(systemSettings?.business?.businessName || activeTenant.name).charAt(0)}
+                            {documentBranding.name.charAt(0)}
                           </div>
                         )}
-                        <h2 className="text-xl font-black text-slate-900 tracking-tight">{systemSettings?.business?.businessName || activeTenant.name}</h2>
-                        <p className="text-[11px] text-slate-400 mt-0.5 uppercase tracking-wide font-semibold">{activeTenant.city || ''}</p>
+                        <h2 className="text-xl font-black text-slate-900 tracking-tight">{documentBranding.name}</h2>
+                        <p className="text-[11px] text-slate-400 mt-0.5 uppercase tracking-wide font-semibold">{documentBranding.city}</p>
                         {/* Address, phone, email — from Corporate Business Setup */}
-                        {systemSettings?.business?.businessAddress && <p className="text-[11px] text-slate-500 mt-0.5">{systemSettings.business.businessAddress}</p>}
-                        {systemSettings?.business?.businessPhone && <p className="text-[11px] text-slate-500">Tel: {systemSettings.business.businessPhone}</p>}
-                        {systemSettings?.business?.businessEmail && <p className="text-[11px] text-slate-500">Email: {systemSettings.business.businessEmail}</p>}
+                        {documentBranding.address && <p className="text-[11px] text-slate-500 mt-0.5">{documentBranding.address}</p>}
+                        {documentBranding.phone && <p className="text-[11px] text-slate-500">Tel: {documentBranding.phone}</p>}
+                        {documentBranding.email && <p className="text-[11px] text-slate-500">Email: {documentBranding.email}</p>}
                         {/* TIN and VAT — from Company Level Settings (invoiceSettings) */}
                         {systemSettings?.invoiceSettings?.tinNumber && <p className="text-[11px] text-slate-500 font-mono">TIN: {systemSettings.invoiceSettings.tinNumber}</p>}
                         {systemSettings?.invoiceSettings?.vatNumber && <p className="text-[11px] text-slate-500 font-mono">VAT: {systemSettings.invoiceSettings.vatNumber}</p>}

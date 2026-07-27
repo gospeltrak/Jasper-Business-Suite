@@ -1,6 +1,14 @@
 type DataSafetyReason = 'empty-overwrite' | 'shrink-save' | 'local-cache';
 
 import { canWriteBusinessDataOnline, warnOfflineWriteBlocked } from './onlineOnly';
+import {
+  attachPayloadSaleTombstones,
+  extractPayloadSaleTombstones,
+  isSaleDataKey,
+  mergeSalesForSync,
+  mergeSaleTombstones,
+  readLocalSaleTombstones,
+} from './saleSync';
 
 const PROTECTED_DATA_KEYS = new Set([
   'products',
@@ -161,6 +169,27 @@ export function protectTenantPayload<T>(
   const currentItems = getTenantArray(current, tenantId);
   if (!incomingItems || !currentItems || currentItems.length === 0) {
     return { payload: incoming, blockedEmptyOverwrite: false, shrank: false };
+  }
+
+  if (isSaleDataKey(dataKey)) {
+    const tombstones = mergeSaleTombstones(
+      extractPayloadSaleTombstones(current, tenantId),
+      extractPayloadSaleTombstones(incoming, tenantId),
+      readLocalSaleTombstones(tenantId),
+    );
+    const sales = mergeSalesForSync(incomingItems, currentItems, tombstones);
+    const merged: any = Array.isArray(incoming)
+      ? sales
+      : attachPayloadSaleTombstones(
+          { ...(incoming as any), [tenantId]: sales },
+          tenantId,
+          tombstones,
+        );
+    return {
+      payload: merged as T,
+      blockedEmptyOverwrite: false,
+      shrank: sales.length < currentItems.length,
+    };
   }
 
   if (incomingItems.length === 0) {

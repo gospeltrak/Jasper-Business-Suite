@@ -1,4 +1,5 @@
 import { getSecureDataBridgeClient } from '../secureDataBridge';
+import { isSettledPaymentStatus } from './financialStatus';
 
 export type SourceType = 'organic' | 'organic_affiliate' | 'sub_affiliate' | 'unknown' | 'untracked';
 
@@ -90,11 +91,6 @@ export interface AffiliateMonitoringData {
 
 const numberValue = (value: unknown) => Number(value || 0);
 const dateValue = (value: unknown) => value ? new Date(String(value)).toISOString().slice(0, 10) : '';
-const isPaidStatus = (value: unknown) => {
-  const status = String(value || '').trim().toLowerCase();
-  return ['paid', 'success', 'successful', 'completed', 'approved', 'verified'].some((token) => status.includes(token));
-};
-
 const readSettings = (tenant: any) => {
   const settings = tenant?.business_settings || tenant?.company_settings || {};
   if (typeof settings === 'string') {
@@ -124,7 +120,13 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
     client.from('commission_ledger').select('affiliate_id, sub_affiliate_id, parent_super_agent_id, revenue_amount, manager_commission_5, sub_affiliate_gross_commission_15, withholding_tax_amount, sub_affiliate_net_payout, status'),
   ]);
 
-  const failed = [partnersRes, affiliatesRes, tenantsRes].find((result: any) => result.error);
+  const failed = [
+    partnersRes,
+    affiliatesRes,
+    tenantsRes,
+    referredCustomersRes,
+    commissionLedgerRes,
+  ].find((result: any) => result.error);
   if (failed?.error) throw failed.error;
 
   const allPartners: any[] = partnersRes.data || [];
@@ -147,6 +149,7 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
   const taxOn = (amount: number) => amount * 0.05;
 
   for (const row of commissionRows) {
+    if (!isSettledPaymentStatus(row.status)) continue;
     const key = String(row.sub_affiliate_id || row.affiliate_id);
     const t = totalsByEntity.get(key) || emptyTotals();
     t.ledgerRevenue += numberValue(row.revenue_amount);
@@ -168,14 +171,14 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
     const key = String(row.sub_affiliate_id || row.affiliate_id);
     const t = totalsByEntity.get(key) || emptyTotals();
     t.customers += 1;
-    if (isPaidStatus(row.payment_status)) t.referralRevenue += numberValue(row.amount_paid);
+    if (isSettledPaymentStatus(row.payment_status)) t.referralRevenue += numberValue(row.amount_paid);
     totalsByEntity.set(key, t);
 
     if (row.parent_super_agent_id) {
       const pKey = String(row.parent_super_agent_id);
       const pt = totalsByEntity.get(pKey) || emptyTotals();
       pt.customers += 1;
-      if (isPaidStatus(row.payment_status)) pt.referralRevenue += numberValue(row.amount_paid);
+      if (isSettledPaymentStatus(row.payment_status)) pt.referralRevenue += numberValue(row.amount_paid);
       totalsByEntity.set(pKey, pt);
     }
   }

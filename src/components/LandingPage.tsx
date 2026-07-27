@@ -90,7 +90,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     coreBadge: "Simple Business System",
     headlinePre: "Work Less.",
     headlinePost: "Grow More.",
-    tagline: "Ndiva helps you run and grow your business.",
+    tagline: "Jasper helps you run and grow your business.",
     builtFor: "Built For:",
     retail: "Retail Shops",
     wholesale: "Wholesale Shops",
@@ -105,16 +105,16 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     offlineTitle: "Secure Online Mode",
     offlineDesc: "Requires internet so every sale, stock change, and setting is saved directly to the cloud.",
     meetLucy: "Lucy AI Business Assistant",
-    lucyDesc: "Lucy shows you how to use Ndiva and answers simple business questions.",
+    lucyDesc: "Lucy shows you how to use Jasper and answers simple business questions.",
     featLucyTitle: "Lucy AI Business Assistant",
-    featLucyDesc: "Ask Lucy about Ndiva, sales, stock, costs, and business reports.",
-    creed: "Ndiva helps your business grow higher!",
+    featLucyDesc: "Ask Lucy about Jasper, sales, stock, costs, and business reports.",
+    creed: "Jasper helps your business grow higher!",
     getStarted: "Get Started — It's Free",
     offlineMetric: "Cloud Synced",
     syncMetric: "Instant Sync",
     aiMetric: "AI Assistant",
     aboutTitle: "Online Sales Support For All Businesses",
-    aboutDesc: "We created Ndiva so every important sale, stock update, and setting is protected in the cloud as soon as you save it.",
+    aboutDesc: "We created Jasper so every important sale, stock update, and setting is protected in the cloud as soon as you save it.",
     aboutSupport: "Real support offices around East Africa",
     aboutCurrency: "Automatic local tax settings",
     aboutEndpoints: "Over 2,400 active stores registered",
@@ -130,8 +130,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     featSmartSokoDesc: "Manage raw materials, production batches, and yield efficiency with live unit cost tracking.",
     testimonialHeader: "Successful Businesses",
     testimonialSub: "What other shop owners say",
-    mustafaSay: "We needed cleaner records across devices. Since starting with Ndiva's cloud cashier, our sales and stock updates stay aligned.",
-    kwameSay: "Managing medicine lists was hard. Then we got Ndiva—Lucy sorted everything out easily. Perfect.",
+    mustafaSay: "We needed cleaner records across devices. Since starting with Jasper's cloud cashier, our sales and stock updates stay aligned.",
+    kwameSay: "Managing medicine lists was hard. Then we got Jasper—Lucy sorted everything out easily. Perfect.",
     fatumaSay: "The hotel room booking works wonderfully. Our local receptionist team learned to use it in five minutes.",
     mustafaRole: "Restaurant Owner • Dar es Salaam",
     kwameRole: "Dispensary Director • Kisumu",
@@ -167,7 +167,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     callLocalAgent: "Call Local Agent",
     contactDeployments: "Contact Deployments",
     privacyText: "Privacy Policy",
-    privacyModalTitle: "Ndiva Suite Privacy Policy",
+    privacyModalTitle: "Jasper Privacy Policy",
     privacyIntro: "We keep your business information safe:",
     privacyPoint1: "Your records are kept safe on your device.",
     privacyPoint2: "Information sent online is protected.",
@@ -202,16 +202,16 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     offlineTitle: "Mfumo Salama wa Mtandaoni",
     offlineDesc: "Unahitaji intaneti. Mauzo, bidhaa na mipangilio huhifadhiwa moja kwa moja mtandaoni.",
     meetLucy: "Msaidizi wa Biashara Lucy AI",
-    lucyDesc: "Lucy humuelekeza mtumiaji kutumia Ndiva, hujibu maswali ya biashara kwa lugha yoyote, hutengeneza ripoti, na husaidia biashara kukua kwa usalama.",
+    lucyDesc: "Lucy humuelekeza mtumiaji kutumia Jasper, hujibu maswali ya biashara kwa lugha yoyote, hutengeneza ripoti, na husaidia biashara kukua kwa usalama.",
     featLucyTitle: "Msaidizi wa Biashara Lucy AI",
-    featLucyDesc: "Muulize Lucy jinsi ya kutumia Ndiva, kuelewa mauzo, stoki, gharama, na kutengeneza ripoti za biashara kuanzia kifurushi cha Diamond na kuendelea.",
-    creed: "Ndiva inasaidia biashara yako kukua zaidi!",
+    featLucyDesc: "Muulize Lucy jinsi ya kutumia Jasper, kuelewa mauzo, stoki, gharama, na kutengeneza ripoti za biashara kuanzia kifurushi cha Diamond na kuendelea.",
+    creed: "Jasper inasaidia biashara yako kukua zaidi!",
     getStarted: "Anza Sasa - Ni Bure",
     offlineMetric: "Imehifadhiwa Mtandaoni",
     syncMetric: "Hifadhi Haraka",
     aiMetric: "Msaidizi wa AI",
     aboutTitle: "usaidizi wa biashara yako mtandaoni",
-    aboutDesc: "Ndiva huhifadhi mauzo, bidhaa na mipangilio yako salama mtandaoni.",
+    aboutDesc: "Jasper huhifadhi mauzo, bidhaa na mipangilio yako salama mtandaoni.",
     aboutSupport: "msaada wa haraka unapokwama",
     aboutCurrency: "Marekebisho rahisi ya kodi",
     aboutEndpoints: "zaidi ya maduka 1000+ yanayotumia",
@@ -227,8 +227,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     featSmartSokoDesc: "Dhibiti malighafi, uzalishaji, na gharama halisi za kila bidhaa kwa urahisi.",
     testimonialHeader: "Biashara Zinazofanikiwa",
     testimonialSub: "Maudhui kutoka kwa wamiliki wa maduka",
-    mustafaSay: "Tulihitaji kumbukumbu safi kwenye vifaa vyote. Ndiva imeweka mauzo na bidhaa zetu sawa.",
-    kwameSay: "Kupanga orodha za dawa ilikuwa ngumu sana. Baada ya kupata Ndiva, Lucy alimaliza tatizo huo kwa urahisi. Safi kabisa.",
+    mustafaSay: "Tulihitaji kumbukumbu safi kwenye vifaa vyote. Jasper imeweka mauzo na bidhaa zetu sawa.",
+    kwameSay: "Kupanga orodha za dawa ilikuwa ngumu sana. Baada ya kupata Jasper, Lucy alimaliza tatizo huo kwa urahisi. Safi kabisa.",
     fatumaSay: "Mfumo wa vyumba vya hoteli unafanya kazi vizuri. Wafanyakazi wetu walijifunza kuutumia kwa dakika tano tu.",
     mustafaRole: "Mmiliki wa Mgahawa • Dar es Salaam",
     kwameRole: "Mkurugenzi wa Famasia • Kisumu",
@@ -264,7 +264,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     callLocalAgent: "Piga Simu kwa Wakala wa Karibu",
     contactDeployments: "Wasiliana kwa Huduma ya Ufungaji",
     privacyText: "Sera ya Faragha",
-    privacyModalTitle: "Sera ya Faragha ya Ndiva Suite",
+    privacyModalTitle: "Sera ya Faragha ya Jasper",
     privacyIntro: "Tunalinda taarifa zako za biashara:",
     privacyPoint1: "Faragha ya Kifaa: Mauzo yako ya siku yanahifadhiwa kwa usiri mkubwa ndani ya kifaa chako mwenwe.",
     privacyPoint2: "Taarifa zinazotumwa mtandaoni zinalindwa.",
@@ -299,13 +299,13 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     offlineDesc: "Requiere internet para guardar ventas, stock y ajustes directamente en la nube.",
     meetLucy: "Conoce a Lucy",
     lucyDesc: "Tu asesora inteligente lista para responder preguntas y ayudarte a crecer.",
-    creed: "¡Ndiva ayuda a que tu negocio crezca más!",
+    creed: "¡Jasper ayuda a que tu negocio crezca más!",
     getStarted: "Comienza Gratis",
     offlineMetric: "Cloud Sync",
     syncMetric: "Sincronización Rápida",
     aiMetric: "Asistente de IA",
     aboutTitle: "Apoyo en línea para tu negocio",
-    aboutDesc: "Creamos Ndiva para que cada venta, cambio de stock y ajuste importante se guarde seguro en la nube.",
+    aboutDesc: "Creamos Jasper para que cada venta, cambio de stock y ajuste importante se guarde seguro en la nube.",
     aboutSupport: "Oficinas de soporte reales",
     aboutCurrency: "Configuración automática de impuestos locales",
     aboutEndpoints: "Más de 2400 tiendas activas",
@@ -319,8 +319,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     featGatewayDesc: "Se conecta con M-Pesa, Tigo Pesa y Airtel Money para confirmar pagos en segundos.",
     testimonialHeader: "Clientes Felices",
     testimonialSub: "Lo que dicen los dueños de tiendas",
-    mustafaSay: "Perdíamos ventas cuando se caía el internet. Desde que usamos Ndiva sin conexión, las ventas nunca se detienen.",
-    kwameSay: "Controlar las medicinas era difícil. Lucy de Ndiva ordenó todo fácilmente. Excelente.",
+    mustafaSay: "Perdíamos ventas cuando se caía el internet. Desde que usamos Jasper sin conexión, las ventas nunca se detienen.",
+    kwameSay: "Controlar las medicinas era difícil. Lucy de Jasper ordenó todo fácilmente. Excelente.",
     fatumaSay: "El sistema de reservas de hotel funciona genial. Las recepcionistas aprendieron en cinco minutos.",
     mustafaRole: "Dueño de Restaurante • Dar es Salaam",
     kwameRole: "Director de Farmacia • Kisumu",
@@ -351,7 +351,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     contactSupport: "Escríbenos",
     callLucy: "Pregúntale a Lucy",
     privacyText: "Política de Privacidad",
-    privacyModalTitle: "Política de Privacidad de Ndiva Suite",
+    privacyModalTitle: "Política de Privacidad de Jasper",
     privacyIntro: "Protegemos tus datos comerciales bajo reglas legales estrictas:",
     privacyPoint1: "Guardado Local Puro: Tu información de ventas se guarda de forma segura únicamente en tu propio dispositivo.",
     privacyPoint2: "Privacidad en la Nube: Los registros sincronizados están protegidos con conexiones seguras.",
@@ -386,13 +386,13 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     offlineDesc: "Internet est nécessaire. Les ventes, le stock et les réglages sont enregistrés en ligne.",
     meetLucy: "Découvrez Lucy",
     lucyDesc: "Votre assistante intelligente qui répond à vos questions et vous aide à grandir.",
-    creed: "Ndiva aide votre commerce à grandir plus haut !",
+    creed: "Jasper aide votre commerce à grandir plus haut !",
     getStarted: "Commencer Gratuitement",
     offlineMetric: "Enregistré en Ligne",
     syncMetric: "Enregistrement Rapide",
     aiMetric: "Assistant IA",
     aboutTitle: "Aide en ligne pour vos ventes",
-    aboutDesc: "Ndiva garde vos ventes, votre stock et vos réglages en sécurité en ligne.",
+    aboutDesc: "Jasper garde vos ventes, votre stock et vos réglages en sécurité en ligne.",
     aboutSupport: "Bureaux de support réels",
     aboutCurrency: "Calcul automatique de la taxe locale",
     aboutEndpoints: "Plus de 2 400 boutiques actives",
@@ -406,7 +406,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     featGatewayDesc: "Vérifie les transactions M-Pesa, Airtel et Tigo en quelques secondes.",
     testimonialHeader: "Commerçants Heureux",
     testimonialSub: "Ce que disent les propriétaires",
-    mustafaSay: "On perdait des ventes en cas de coupure réseau. Depuis qu'on a Ndiva sans internet, la caisse n'arrête pas.",
+    mustafaSay: "On perdait des ventes en cas de coupure réseau. Depuis qu'on a Jasper sans internet, la caisse n'arrête pas.",
     kwameSay: "L'inventaire des remèdes était fatiguant. Notre assistante Lucy a tout réglé avec plaisir.",
     fatumaSay: "Le planning des chambres d'hôtel est super. Nos agents ont appris à l'utiliser en cinq minutes seulement.",
     mustafaRole: "Chef de Restaurant • Dar es Salaam",
@@ -438,7 +438,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     contactSupport: "Nous Contacter",
     callLucy: "Consulter Lucy",
     privacyText: "Règles de Confidentialité",
-    privacyModalTitle: "Confidentialité de Ndiva Suite",
+    privacyModalTitle: "Confidentialité de Jasper",
     privacyIntro: "Nous protégeons les informations de votre entreprise :",
     privacyPoint1: "Vos comptes restent privés sur votre appareil.",
     privacyPoint2: "Les informations envoyées en ligne sont protégées.",
@@ -473,13 +473,13 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     offlineDesc: "Serve internet per salvare vendite, stock e impostazioni direttamente nel cloud.",
     meetLucy: "Incontra Lucy",
     lucyDesc: "La tua aiutante intelligente pronta a rispondere e a far crescere i tuoi affari.",
-    creed: "Ndiva spinge la tua attività ancora più in alto!",
+    creed: "Jasper spinge la tua attività ancora più in alto!",
     getStarted: "Comincia Gratis",
     offlineMetric: "Cloud Sync",
     syncMetric: "Sincronia Rapida",
     aiMetric: "Aiutante IA",
     aboutTitle: "Supporto vendite online",
-    aboutDesc: "Abbiamo costruito Ndiva per proteggere nel cloud ogni vendita, stock e impostazione importante.",
+    aboutDesc: "Abbiamo costruito Jasper per proteggere nel cloud ogni vendita, stock e impostazione importante.",
     aboutSupport: "Uffici di supporto reali",
     aboutCurrency: "Configurazione tasse locali automatica",
     aboutEndpoints: "Più di 2.400 negozi attivi",
@@ -493,8 +493,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     featGatewayDesc: "Controlla le transazioni con M-Pesa, Airtel e Tigo in pochissimi istanti.",
     testimonialHeader: "Commercianti Felici",
     testimonialSub: "Cosa dicono i nostri clienti",
-    mustafaSay: "Avevamo bisogno di dati puliti su tutti i dispositivi. Con la cassa cloud di Ndiva, vendite e stock restano allineati.",
-    kwameSay: "Organizzare l'elenco dei farmaci era un tormento. Lucy di Ndiva ha sistemato tutto in modo facile.",
+    mustafaSay: "Avevamo bisogno di dati puliti su tutti i dispositivi. Con la cassa cloud di Jasper, vendite e stock restano allineati.",
+    kwameSay: "Organizzare l'elenco dei farmaci era un tormento. Lucy di Jasper ha sistemato tutto in modo facile.",
     fatumaSay: "Il sistema di prenotazione camere funziona molto bene. I dipendenti hanno imparato la cassa in cinque minuti.",
     mustafaRole: "Proprietario Ristorante • Dar es Salaam",
     kwameRole: "Direttore di Farmacia • Kisumu",
@@ -525,7 +525,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     contactSupport: "Parla con Noi",
     callLucy: "Chiedi a Lucy",
     privacyText: "Norme Sulla Privacy",
-    privacyModalTitle: "Informativa sulla Privacy Ndiva Suite",
+    privacyModalTitle: "Informativa sulla Privacy Jasper",
     privacyIntro: "Rispettiamo e proteggiamo i tuoi dati di vendita con cura:",
     privacyPoint1: "Archiviazione Locale Riservata: I tuoi registri giornalieri rimangono sul tuo dispositivo senza uscire.",
     privacyPoint2: "Sincronizzazione Protetta: Tutto ciò che viene inviato online viaggia su reti ultra-sicure.",
@@ -566,7 +566,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     syncMetric: "تحديث فوري",
     aiMetric: "مساعد ذكاء اصطناعي",
     aboutTitle: "دعم مبيعات آمن عبر الإنترنت",
-    aboutDesc: "صممنا Ndiva لحفظ كل عملية بيع ومخزون وإعداد مهم في السحابة مباشرة.",
+    aboutDesc: "صممنا Jasper لحفظ كل عملية بيع ومخزون وإعداد مهم في السحابة مباشرة.",
     aboutSupport: "مكاتب دعم فني حقيقية",
     aboutCurrency: "تحديث الضرائب المحلية تلقائياً",
     aboutEndpoints: "أكثر من ٢٤٠٠ متجر نشط",
@@ -647,13 +647,13 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     offlineDesc: "需要网络才能将销售、库存和设置直接保存到云端。",
     meetLucy: "与智能助手 Lucy 相识",
     lucyDesc: "您的友好助手，随时解答疑问并提供业务优化建议。",
-    creed: "Ndiva 助您的生意蓬勃发展，更上一层楼！",
+    creed: "Jasper 助您的生意蓬勃发展，更上一层楼！",
     getStarted: "免费开始使用",
     offlineMetric: "云端同步",
     syncMetric: "联网自动同步",
     aiMetric: "智能 AI 助手",
     aboutTitle: "为所有商家提供在线销售支持",
-    aboutDesc: "我们创立 Ndiva，是为了让每笔销售、库存和重要设置都能安全保存到云端。",
+    aboutDesc: "我们创立 Jasper，是为了让每笔销售、库存和重要设置都能安全保存到云端。",
     aboutSupport: "实体人工支持网点",
     aboutCurrency: "全自动本地税率计算与设置",
     aboutEndpoints: "已有超过 2400 家活跃注册店铺使用",
@@ -667,8 +667,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     featGatewayDesc: "直连 M-Pesa, Tigo 及 Airtel Money 等主流通道，数秒内验证交易状态。",
     testimonialHeader: "成功的商家",
     testimonialSub: "听听其他店主怎么说",
-    mustafaSay: "以前网络不稳定时，我们的美食广场每天至少损失15%的生意。使用 Ndiva 的离线功能后，收银从未中断过！",
-    kwameSay: "药店以前药品的繁杂管理耗费了我们很多精力。有了 Ndiva，智能助理 Lucy 帮我们打理得有言不虚。太好用了！",
+    mustafaSay: "以前网络不稳定时，我们的美食广场每天至少损失15%的生意。使用 Jasper 的离线功能后，收银从未中断过！",
+    kwameSay: "药店以前药品的繁杂管理耗费了我们很多精力。有了 Jasper，智能助理 Lucy 帮我们打理得有言不虚。太好用了！",
     fatumaSay: "酒店房间预订系统运行十分顺畅。前台人员都在短短五分钟内轻松学会使用了。",
     mustafaRole: "餐厅老板 • 达累斯萨拉姆",
     kwameRole: "药房总监 • 基苏木",
@@ -699,7 +699,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     contactSupport: "获取协助与支持",
     callLucy: "咨询 Lucy 智能助理",
     privacyText: "隐私政策",
-    privacyModalTitle: "Ndiva 商业套件用户隐私保护条例",
+    privacyModalTitle: "Jasper 商业套件用户隐私保护条例",
     privacyIntro: "我们严格保障您的核心商业秘密及经营数据安全:",
     privacyPoint1: "本地安全：您的日常销售流水与经营日志仅高度保存在您本人的终端设备。",
     privacyPoint2: "安全传输：同步到服务器的营业信息、产品名单均采用银行级别加密。",
@@ -740,7 +740,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     syncMetric: "तुरंत अपडेट",
     aiMetric: "AI सहायक",
     aboutTitle: "हर व्यापार के लिए ऑनलाइन बिक्री सहायता",
-    aboutDesc: "Ndiva हर बिक्री, स्टॉक और जरूरी सेटिंग को सुरक्षित रूप से क्लाउड में सेव करने में मदद करता है.",
+    aboutDesc: "Jasper हर बिक्री, स्टॉक और जरूरी सेटिंग को सुरक्षित रूप से क्लाउड में सेव करने में मदद करता है.",
     aboutSupport: "असली सहायता केंद्र",
     aboutCurrency: "स्थानीय टैक्स का अपने आप मेल",
     aboutEndpoints: "2400 से ज़्यादा चलती हुई दुकानें",
@@ -875,21 +875,21 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       const saved = onlineStorage.getItem('jasper_custom_testimonials');
       return saved ? JSON.parse(saved) : [
         {
-          quote: "We needed cleaner checkout logs across devices during peak hours inside Mwenge food court. With Ndiva's cloud-first saving, our cashier records stay aligned.",
+          quote: "We needed cleaner checkout logs across devices during peak hours inside Mwenge food court. With Jasper's cloud-first saving, our cashier records stay aligned.",
           name: "Mustafa Al-Busaidy",
           role: "Restaurant Owner • Dar es Salaam",
           initials: "MA",
           color: "emerald"
         },
         {
-          quote: "Integrating generic classification drugs generic names inside Kisumu used to occupy our pharmacists for days. Then we launched Ndiva—Lucy resolved everything automatically. Highly recommended!",
+          quote: "Integrating generic classification drugs generic names inside Kisumu used to occupy our pharmacists for days. Then we launched Jasper—Lucy resolved everything automatically. Highly recommended!",
           name: "Dr. Kwame Osei",
           role: "Dispensary Director • Kisumu Pharmacy",
           initials: "KO",
           color: "teal"
         },
         {
-          quote: "Ndiva's Hotel suite PMS checked-in our room listings flawlessly. Seasonal rates surge works with zero configuration, and having direct support in Swahili inside checkout from assistant makes training receptionist very easy.",
+          quote: "Jasper's Hotel suite PMS checked-in our room listings flawlessly. Seasonal rates surge works with zero configuration, and having direct support in Swahili inside checkout from assistant makes training receptionist very easy.",
           name: "Fatuma Mrisho",
           role: "Managing Director • Arusha Lodge",
           initials: "FM",
@@ -1054,8 +1054,8 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
   const faqDataByLang: Record<string, Array<{ q: string, a: string }>> = {
     en: [
       {
-        q: "Does Ndiva require internet to save changes?",
-        a: "Yes. Ndiva now uses secure online-only saving so sales, stock, settings, and tenant records go directly to the cloud. If internet drops, reconnect before continuing with business changes."
+        q: "Does Jasper require internet to save changes?",
+        a: "Yes. Jasper now uses secure online-only saving so sales, stock, settings, and tenant records go directly to the cloud. If internet drops, reconnect before continuing with business changes."
       },
       {
         q: "How do I pay after my free trial?",
@@ -1063,7 +1063,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       },
       {
         q: "How does the multi-store consolidated bookkeeping work?",
-        a: "Ndiva allows you to connect multiple branches (such as Dar, Nairobi, or Arusha). Each branch can adopt its own localized currency and tax structure (like local VAT) in real-time, while consolidating all sales and stock reports under the single super owner account."
+        a: "Jasper allows you to connect multiple branches (such as Dar, Nairobi, or Arusha). Each branch can adopt its own localized currency and tax structure (like local VAT) in real-time, while consolidating all sales and stock reports under the single super owner account."
       },
       {
         q: "What are the limits on different packages?",
@@ -1072,8 +1072,8 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
     ],
     sw: [
       {
-        q: "Je, Ndiva inahitaji intaneti ili kusave mabadiliko?",
-        a: "Ndiyo. Ndiva sasa inatumia online-only saving ili mauzo, stoki, settings na taarifa za tenant ziende moja kwa moja cloud. Internet ikikatika, unganisha kwanza kabla ya kuendelea na mabadiliko ya biashara."
+        q: "Je, Jasper inahitaji intaneti ili kusave mabadiliko?",
+        a: "Ndiyo. Jasper sasa inatumia online-only saving ili mauzo, stoki, settings na taarifa za tenant ziende moja kwa moja cloud. Internet ikikatika, unganisha kwanza kabla ya kuendelea na mabadiliko ya biashara."
       },
       {
         q: "Ninalipia vipi baada ya majaribio ya bure kuisha?",
@@ -1081,7 +1081,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       },
       {
         q: "Inasaidiaje kuunganisha maduka mengi pamoja?",
-        a: "Ndiva inaruhusu kuunganisha matawi tofauti (kama Dar, Arusha au Nairobi). Kila tawi linaweza kutumia sarafu na kodi yake ya VAT, huku ripoti zote za stoki na faida zikionekana pamoja kwenye akaunti ya mmiliki."
+        a: "Jasper inaruhusu kuunganisha matawi tofauti (kama Dar, Arusha au Nairobi). Kila tawi linaweza kutumia sarafu na kodi yake ya VAT, huku ripoti zote za stoki na faida zikionekana pamoja kwenye akaunti ya mmiliki."
       },
       {
         q: "Kuna tofauti gani kati ya hivi vifurushi vitatu?",
@@ -1108,8 +1108,8 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
     ],
     fr: [
       {
-        q: "Est-ce que Ndiva fonctionne à 100% hors ligne ?",
-        a: "Oui, absolument ! Si votre connexion Internet ou l'alimentation électrique est coupée, Ndiva continue d'enregistrer les clients et de suivre les stocks localement sur votre appareil. Une fois la connexion rétablie, il synchronise et met à jour automatiquement votre tableau de bord cloud."
+        q: "Est-ce que Jasper fonctionne à 100% hors ligne ?",
+        a: "Oui, absolument ! Si votre connexion Internet ou l'alimentation électrique est coupée, Jasper continue d'enregistrer les clients et de suivre les stocks localement sur votre appareil. Une fois la connexion rétablie, il synchronise et met à jour automatiquement votre tableau de bord cloud."
       },
       {
         q: "Comment puis-je payer après mon essai gratuit de 14 jours ?",
@@ -1117,7 +1117,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       },
       {
         q: "Comment fonctionne la comptabilité consolidée multi-magasins ?",
-        a: "Ndiva vous permet de connecter plusieurs succursales (comme Dar, Nairobi ou Arusha). Chaque succursale peut adopter sa propre devise et structure fiscale locale (comme la TVA locale) en temps réel, tout en consolidant tous les rapports de vente et de stock sous un compte unique de super-propriétaire."
+        a: "Jasper vous permet de connecter plusieurs succursales (comme Dar, Nairobi ou Arusha). Chaque succursale peut adopter sa propre devise et structure fiscale locale (comme la TVA locale) en temps réel, tout en consolidant tous les rapports de vente et de stock sous un compte unique de super-propriétaire."
       },
       {
         q: "Quelles sont les limites des différents forfaits ?",
@@ -1136,16 +1136,14 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
         {/* Desktop Header Layout */}
         <div className="hidden lg:flex max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 items-center justify-between">
           
-          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => onNavigate('/')}>
-            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm flex items-center justify-center bg-white">
-              <img src={t.systemLogo || "/jb-logo.png"} alt="Ndiva Suite Logo" className="w-full h-full object-contain" />
-            </div>
-            <div>
-              <span className={`text-xl font-bold tracking-tight focus:outline-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Ndiva<span className="text-emerald-500 font-normal"> Suite</span>
-              </span>
-              <span className={`block text-[8px] tracking-widest uppercase font-mono mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>AFRICAN BUSINESS OS</span>
-            </div>
+          <div className="flex items-center cursor-pointer" onClick={() => onNavigate('/')}>
+            <span
+              className="bg-gradient-to-br from-emerald-950 via-emerald-600 to-green-400 bg-clip-text text-[2rem] font-black leading-none tracking-[-0.055em] text-transparent"
+              style={{ fontFamily: '"Avenir Next", "Century Gothic", "Trebuchet MS", sans-serif' }}
+              aria-label="Jasper"
+            >
+              Jasper
+            </span>
           </div>
           
           {/* Exact requested Top menu arrangement with dual language adaptation */}
@@ -1266,16 +1264,14 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
         {/* Mobile Header Layout (single row, fixed height 56px = h-14, centered items) */}
         <div className="flex lg:hidden max-w-7xl mx-auto px-3 h-14 items-center justify-between relative">
           {/* Left: Logo and branding */}
-          <div className="flex items-center space-x-2.5 cursor-pointer shrink-0" onClick={() => onNavigate('/')}>
-            <div className="w-8 h-8 rounded-lg overflow-hidden shadow-xs flex items-center justify-center shrink-0 bg-white">
-              <img src={t.systemLogo || "/jb-logo.png"} alt="Ndiva Suite Logo" className="w-full h-full object-contain" />
-            </div>
-            <div className="flex flex-col justify-center leading-tight">
-              <span className={`text-[15px] font-bold tracking-tight leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Ndiva<span className="text-emerald-500 font-normal"> Suite</span>
-              </span>
-              <span className={`text-[7px] tracking-widest uppercase font-mono mt-0.5 leading-none ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>AFRICAN BUSINESS OS</span>
-            </div>
+          <div className="flex items-center cursor-pointer shrink-0" onClick={() => onNavigate('/')}>
+            <span
+              className="bg-gradient-to-br from-emerald-950 via-emerald-600 to-green-400 bg-clip-text text-[1.45rem] font-black leading-none tracking-[-0.055em] text-transparent"
+              style={{ fontFamily: '"Avenir Next", "Century Gothic", "Trebuchet MS", sans-serif' }}
+              aria-label="Jasper"
+            >
+              Jasper
+            </span>
           </div>
 
           {/* Right: Actions list in exact requested sequence: Theme Toggle, SIGN IN, FREE TRIAL, Hamburger Menu */}
@@ -1491,7 +1487,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             {/* Creed Signature Text */}
             <div className="text-center pt-2">
               <span className="text-lg md:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 tracking-tight block animate-pulse">
-                {t.creed || "Ndiva helps your business grow higher!"}
+                {t.creed || "Jasper helps your business grow higher!"}
               </span>
             </div>
 
@@ -1531,7 +1527,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           <span className="text-xs font-mono uppercase tracking-widest text-emerald-500 font-bold">{t.aboutUs || "About Us"} • ABOUT JASPER SUITE</span>
           <h2 className={`text-3xl sm:text-4xl font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>{t.aboutTitle || "Online Sales Support For All Businesses"}</h2>
           <p className={`text-sm leading-relaxed font-light max-w-3xl ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-            {t.aboutDesc || "We created Ndiva because unstable internet should never stop your sales desk. Whether you are in Dar, Mbeya, or Nairobi, your cash drawer keeps working."}
+            {t.aboutDesc || "We created Jasper because unstable internet should never stop your sales desk. Whether you are in Dar, Mbeya, or Nairobi, your cash drawer keeps working."}
           </p>
           <div className={`flex flex-col sm:flex-row justify-center items-center gap-6 text-xs font-mono pt-4 border-t w-full ${isDark ? 'text-slate-300 border-slate-900' : 'text-slate-600 border-slate-250'}`}>
             <div className="flex items-center space-x-2">
@@ -1635,7 +1631,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               {/* Price */}
               <div className="flex items-baseline gap-1 mb-7">
                 <span className={`text-sm font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>TZS</span>
-                <span className={`text-4xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>20,000</span>
+                <span className={`text-4xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>15,000</span>
                 <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>/month</span>
               </div>
               {/* Features — no tick container */}
@@ -1687,20 +1683,18 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               </div>
               <h3 className={`text-xl font-black tracking-tight mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>Diamond</h3>
               <p className={`text-xs leading-relaxed mb-6 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>
-                For growing businesses that need branch management, staff control, and stronger reports.
+                For growing businesses that need staff control, Lucy AI, and stronger reports.
               </p>
               <div className="flex items-baseline gap-1 mb-7">
                 <span className={`text-sm font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>TZS</span>
-                <span className={`text-4xl font-black tracking-tight ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>35,000</span>
+                <span className={`text-4xl font-black tracking-tight ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>30,000</span>
                 <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>/month</span>
               </div>
               <ul className="space-y-2.5 flex-1 mb-8">
                 {[
                   'Everything in Ruby',
-                  'Up to 2 branches / stores',
-                  'Branch management',
-                  'Branch stock transfer',
-                  'Up to 6 users',
+                  '1 branch / store',
+                  'Up to 5 users',
                   'Up to 5,000 products',
                   'Supplier management',
                   'Accounting',
@@ -1753,7 +1747,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               <ul className="space-y-2.5 flex-1 mb-8">
                 {[
                   'Everything in Diamond',
-                  'Up to 5 branches / stores',
+                  '2 branches included; Super Admin can grant more',
                   'Up to 15 users',
                   'Unlimited products',
                   'Full multi-branch control',
@@ -1816,7 +1810,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               <span>Call Local Agent</span>
             </a>
             <a 
-              href="https://wa.me/255655746552?text=Hello%2C%20I%20am%20interested%20in%20deploying%20Ndiva%20Suite%20for%20my%20business.%20Please%20assist%20me%20with%20deployment."
+              href="https://wa.me/255655746552?text=Hello%2C%20I%20am%20interested%20in%20deploying%20Jasper%20Suite%20for%20my%20business.%20Please%20assist%20me%20with%20deployment."
               target="_blank"
               rel="noopener noreferrer"
               className={`w-full sm:w-auto flex items-center justify-center space-x-3 border font-bold text-sm uppercase tracking-wider px-8 py-4 rounded-2xl transition-all cursor-pointer ${isDark ? 'bg-slate-900 hover:bg-slate-800 text-white border-slate-800 hover:border-slate-755' : 'bg-white hover:bg-slate-50 text-[#111827] border-slate-200'}`}
@@ -1915,7 +1909,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             <form onSubmit={handleLucySend} className={`p-3 border-t flex items-center space-x-2 ${isDark ? 'bg-slate-950 border-slate-850/80' : 'bg-slate-50 border-slate-200'}`}>
               <input
                 type="text"
-                placeholder="Uliza chochote kuhusu Ndiva..."
+                placeholder="Uliza chochote kuhusu Jasper..."
                 value={lucyInput}
                 onChange={(e) => setLucyInput(e.target.value)}
                 className={`flex-1 border rounded-xl p-2.5 text-xs placeholder-slate-500 outline-none font-medium ${isDark ? 'bg-slate-900 border-slate-800 text-white focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 focus:border-[#00b87a]'}`}
@@ -1946,13 +1940,15 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           
           {/* Address details first */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <img src={t.systemLogo || "/jb-logo.png"} alt="Ndiva Suite Logo" className="w-6 h-6 rounded-lg object-contain bg-white" />
-              <span className={`text-base font-bold ${isDark ? 'text-white' : 'text-[#111827]'}`}>Ndiva <span className="text-emerald-450 text-emerald-505 text-emerald-500 font-normal">Suite</span></span>
-            </div>
+            <span
+              className="inline-block bg-gradient-to-br from-emerald-950 via-emerald-600 to-green-400 bg-clip-text text-2xl font-black leading-none tracking-[-0.055em] text-transparent"
+              style={{ fontFamily: '"Avenir Next", "Century Gothic", "Trebuchet MS", sans-serif' }}
+            >
+              Jasper
+            </span>
             
             <p className={`text-xs font-light leading-relaxed ${isDark ? 'text-slate-400' : 'text-[#374151]'}`}>
-              Ndiva Suite
+              Jasper
             </p>
             
             <p className={`text-[10.5px] font-mono ${isDark ? 'text-slate-500' : 'text-[#6b7280]'}`}>
@@ -1967,7 +1963,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               <li><a href="#landing-hero" className={`transition-colors ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`}>{t.footerHome || "Home Page"}</a></li>
               <li><span className={`transition-colors cursor-pointer ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`} onClick={() => setIsPrivacyOpen(true)}>{t.footerPrivacy || "Privacy Policy"}</span></li>
               <li><span className={`transition-colors cursor-pointer ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`} onClick={() => setIsTermsOpen(true)}>{t.footerTerms || "Terms and Conditions"}</span></li>
-              <li><a href="https://wa.me/255655746552?text=Hello%2C%20I%20need%20support%20with%20Ndiva%20Suite." target="_blank" rel="noopener noreferrer" className={`transition-colors ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`}>Contact Support</a></li>
+              <li><a href="https://wa.me/255655746552?text=Hello%2C%20I%20need%20support%20with%20Jasper%20Suite." target="_blank" rel="noopener noreferrer" className={`transition-colors ${isDark ? 'hover:text-emerald-400' : 'hover:text-[#00b87a]'}`}>Contact Support</a></li>
             </ul>
           </div>
 
@@ -2007,7 +2003,7 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
 
         {/* Footer legalities */}
         <div className={`max-w-7xl mx-auto mt-12 pt-6 border-t text-center text-[10px] font-sans flex flex-col sm:flex-row justify-between gap-4 ${isDark ? 'border-slate-900 text-slate-600' : 'border-slate-200 text-[#6b7280]'}`}>
-          <p>{t.footerCopyright || "© 2026 Ndiva Suite Network. All rights reserved."}</p>
+          <p>{t.footerCopyright || "© 2026 Jasper Network. All rights reserved."}</p>
         </div>
       </footer>
 

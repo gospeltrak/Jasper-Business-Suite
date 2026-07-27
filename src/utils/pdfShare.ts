@@ -204,7 +204,7 @@ export function createReceiptPdfFromData(data: ReceiptData): File {
     terms.slice(0, 4).forEach((term, index) => text(`${index + 1}. ${term}`, margin, termsY + 19 + index * 17, { size: 8, color: muted }));
   }
   pdf.setDrawColor('#f1f5f9'); pdf.line(margin, H - 66, W - margin, H - 66);
-  text(data.footer || 'Powered by Ndiva Suite', W / 2, H - 48, { align: 'center', size: 6, color: '#cbd5e1' });
+  text(data.footer || 'Powered by Jasper', W / 2, H - 48, { align: 'center', size: 6, color: '#cbd5e1' });
 
   const cleanName = sanitizeFileName(`a4-receipt-${data.receiptId}.pdf`);
   return new File([pdf.output('blob')], cleanName, { type: 'application/pdf' });
@@ -261,6 +261,22 @@ type PdfShareOptions = {
   message?: string;
   format?: 'a4' | 'receipt';
   includeHidden?: boolean;
+  /**
+   * Visual A4 capture uses html2canvas. Set false for report-style documents
+   * so modern CSS color functions cannot break export; the fallback produces
+   * a searchable, table-aware jsPDF document instead.
+   */
+  visual?: boolean;
+  branding?: {
+    businessName: string;
+    logo?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    documentTitle?: string;
+    dateRange?: string;
+    generatedBy?: string;
+  };
 };
 
 const isElementVisible = (el: Element) => {
@@ -299,16 +315,31 @@ const appendWrappedText = (
   return y + lines.length * (fontSize + (options.lineGap ?? 2));
 };
 
-const ensurePageSpace = (pdf: jsPDF, y: number, needed: number, margin: number) => {
+const ensurePageSpace = (
+  pdf: jsPDF,
+  y: number,
+  needed: number,
+  pageTop: number,
+  pageBottom = pageTop
+) => {
   const pageHeight = pdf.internal.pageSize.getHeight();
-  if (y + needed <= pageHeight - margin) return y;
+  if (y + needed <= pageHeight - pageBottom) return y;
   pdf.addPage();
-  return margin;
+  return pageTop;
 };
 
-const drawTable = (pdf: jsPDF, table: HTMLTableElement, yStart: number, margin: number, includeHidden = false) => {
+const drawTable = (
+  pdf: jsPDF,
+  table: HTMLTableElement,
+  yStart: number,
+  horizontalMargin: number,
+  pageTop: number,
+  pageBottom: number,
+  includeHidden = false
+) => {
   const pageWidth = pdf.internal.pageSize.getWidth();
-  const contentWidth = pageWidth - margin * 2;
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - horizontalMargin * 2;
   const rows = Array.from(table.querySelectorAll('tr'))
     .filter(row => includeHidden || isElementVisible(row))
     .map(row => Array.from(row.children)
@@ -321,31 +352,132 @@ const drawTable = (pdf: jsPDF, table: HTMLTableElement, yStart: number, margin: 
 
   const columnCount = Math.max(...rows.map(row => row.length));
   const colWidth = contentWidth / Math.max(columnCount, 1);
-  let y = ensurePageSpace(pdf, yStart, 24, margin);
-
-  rows.forEach((row, rowIndex) => {
+  let y = yStart;
+  const measureRow = (row: string[]) => {
     const wrappedCells = Array.from({ length: columnCount }, (_, index) => {
       pdf.setFontSize(7.5);
       return pdf.splitTextToSize(row[index] || '', colWidth - 6);
     });
     const rowHeight = Math.max(18, ...wrappedCells.map(lines => lines.length * 9 + 8));
-    y = ensurePageSpace(pdf, y, rowHeight, margin);
-
-    pdf.setFillColor(rowIndex === 0 ? '#f1f5f9' : rowIndex % 2 ? '#ffffff' : '#f8fafc');
-    pdf.rect(margin, y - 10, contentWidth, rowHeight, 'F');
+    return { wrappedCells, rowHeight };
+  };
+  const renderRow = (row: string[], rowIndex: number, isHeader = false) => {
+    const { wrappedCells, rowHeight } = measureRow(row);
+    pdf.setFillColor(isHeader ? '#e2e8f0' : rowIndex % 2 ? '#ffffff' : '#f8fafc');
+    pdf.rect(horizontalMargin, y - 10, contentWidth, rowHeight, 'F');
     pdf.setDrawColor('#e2e8f0');
-    pdf.line(margin, y - 10, margin + contentWidth, y - 10);
+    pdf.line(horizontalMargin, y - 10, horizontalMargin + contentWidth, y - 10);
 
     wrappedCells.forEach((lines, colIndex) => {
-      pdf.setFont('helvetica', rowIndex === 0 ? 'bold' : 'normal');
-      pdf.setFontSize(rowIndex === 0 ? 7.5 : 7);
-      pdf.setTextColor(rowIndex === 0 ? '#334155' : '#0f172a');
-      pdf.text(lines, margin + colIndex * colWidth + 3, y);
+      pdf.setFont('helvetica', isHeader ? 'bold' : 'normal');
+      pdf.setFontSize(isHeader ? 7.5 : 7);
+      pdf.setTextColor(isHeader ? '#334155' : '#0f172a');
+      pdf.text(lines, horizontalMargin + colIndex * colWidth + 3, y);
     });
     y += rowHeight;
+  };
+
+  rows.forEach((row, rowIndex) => {
+    const { rowHeight } = measureRow(row);
+    if (y + rowHeight > pageHeight - pageBottom) {
+      pdf.addPage();
+      y = pageTop;
+      if (rowIndex > 0) renderRow(rows[0], 0, true);
+    }
+    renderRow(row, rowIndex, rowIndex === 0);
   });
 
   return y + 8;
+};
+
+const resolveImageDataUrl = async (src?: string) => {
+  if (!src) return '';
+  if (src.startsWith('data:image/')) return src;
+  try {
+    const response = await fetch(src, { mode: 'cors', cache: 'force-cache' });
+    if (!response.ok) return '';
+    const blob = await response.blob();
+    return await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return '';
+  }
+};
+
+const applyBrandedReportChrome = async (
+  pdf: jsPDF,
+  branding: NonNullable<PdfShareOptions['branding']>
+) => {
+  const pageCount = pdf.getNumberOfPages();
+  const logoData = await resolveImageDataUrl(branding.logo);
+  const generatedAt = new Date().toLocaleString();
+
+  for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+    pdf.setPage(pageNumber);
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const left = 38;
+    const right = pageWidth - 38;
+
+    let logoRendered = false;
+    if (logoData) {
+      try {
+        const imageType = logoData.includes('image/png') ? 'PNG' : 'JPEG';
+        pdf.addImage(logoData, imageType, left, 24, 52, 34, undefined, 'FAST');
+        logoRendered = true;
+      } catch {
+        // Fall back to the business initial below.
+      }
+    }
+    if (!logoRendered) {
+      pdf.setFillColor('#4f46e5');
+      pdf.roundedRect(left, 24, 34, 34, 8, 8, 'F');
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(17);
+      pdf.setTextColor('#ffffff');
+      pdf.text((branding.businessName || 'B').charAt(0).toUpperCase(), left + 17, 47, { align: 'center' });
+    }
+
+    const identityX = logoData ? left + 62 : left + 44;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(14);
+    pdf.setTextColor('#0f172a');
+    pdf.text(branding.businessName || 'Business', identityX, 34);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(7.5);
+    pdf.setTextColor('#64748b');
+    const identity = [branding.address, branding.phone, branding.email].filter(Boolean).join('  •  ');
+    if (identity) pdf.text(pdf.splitTextToSize(identity, Math.max(120, pageWidth * 0.43)), identityX, 48);
+
+    const title = (branding.documentTitle || 'BUSINESS REPORT').toUpperCase();
+    const titleWidth = Math.min(220, Math.max(110, title.length * 6.2 + 28));
+    pdf.setFillColor('#0f172a');
+    pdf.roundedRect(right - titleWidth, 23, titleWidth, 28, 8, 8, 'F');
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(9.5);
+    pdf.setTextColor('#ffffff');
+    pdf.text(title, right - titleWidth / 2, 41.5, { align: 'center' });
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(7.5);
+    pdf.setTextColor('#64748b');
+    const meta = branding.dateRange || `Generated ${generatedAt}`;
+    pdf.text(meta, right, 64, { align: 'right' });
+    if (branding.generatedBy) pdf.text(`Prepared by ${branding.generatedBy}`, right, 76, { align: 'right' });
+
+    pdf.setDrawColor('#e2e8f0');
+    pdf.setLineWidth(0.6);
+    pdf.line(left, 88, right, 88);
+    pdf.line(left, pageHeight - 42, right, pageHeight - 42);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(7);
+    pdf.setTextColor('#94a3b8');
+    pdf.text('CONFIDENTIAL BUSINESS REPORT', left, pageHeight - 25);
+    pdf.text(`${branding.businessName}  •  Page ${pageNumber} of ${pageCount}`, right, pageHeight - 25, { align: 'right' });
+  }
 };
 
 const waitForDocumentAssets = async (root: HTMLElement) => {
@@ -444,26 +576,32 @@ const createVisualA4Pdf = async (source: HTMLElement) => {
 };
 
 export async function createPdfFromElement({
-  elementId, fileName, format = 'a4', includeHidden = false
+  elementId, fileName, format = 'a4', includeHidden = false, visual = true, branding
 }: Omit<PdfShareOptions, 'phone' | 'message'>): Promise<File> {
   const source = document.getElementById(elementId);
   if (!source) throw new Error('Document not found. Make sure the preview is open.');
 
-  if (format === 'a4') {
+  if (format === 'a4' && visual) {
     const visualPdf = await createVisualA4Pdf(source);
     const cleanName = sanitizeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
     return new File([visualPdf.output('blob')], cleanName, { type: 'application/pdf' });
   }
 
+  const widestTable = Math.max(
+    0,
+    ...Array.from(source.querySelectorAll('tr')).map(row => row.children.length)
+  );
   const pdf = new jsPDF({
-    orientation: 'portrait',
+    orientation: format === 'a4' && !visual && widestTable > 6 ? 'landscape' : 'portrait',
     unit: 'pt',
     format: format === 'receipt' ? [226, 800] : 'a4',
   });
-  const margin = format === 'receipt' ? 12 : 42;
+  const margin = format === 'receipt' ? 12 : 38;
+  const pageTop = branding && format === 'a4' ? 108 : margin;
+  const pageBottom = branding && format === 'a4' ? 58 : margin;
   const pageWidth = pdf.internal.pageSize.getWidth();
   const contentWidth = pageWidth - margin * 2;
-  let y = margin;
+  let y = pageTop;
 
   const nodes = Array.from(source.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,p,span,div,section,li,table,img'))
     .filter(el => includeHidden || isElementVisible(el))
@@ -479,7 +617,7 @@ export async function createPdfFromElement({
 
   nodes.forEach((el) => {
     if (el.tagName === 'TABLE') {
-      y = drawTable(pdf, el as HTMLTableElement, y + 4, margin, includeHidden);
+      y = drawTable(pdf, el as HTMLTableElement, y + 4, margin, pageTop, pageBottom, includeHidden);
       return;
     }
 
@@ -490,7 +628,7 @@ export async function createPdfFromElement({
           const maxLogoWidth = format === 'receipt' ? 58 : 82;
           const width = Math.min(maxLogoWidth, img.naturalWidth);
           const height = Math.min(54, img.naturalHeight * (width / img.naturalWidth));
-          y = ensurePageSpace(pdf, y, height + 8, margin);
+          y = ensurePageSpace(pdf, y, height + 8, pageTop, pageBottom);
           pdf.addImage(img, 'PNG', margin, y, width, height, undefined, 'FAST');
           y += height + 8;
         } catch {
@@ -511,7 +649,7 @@ export async function createPdfFromElement({
       ? (isHeading ? 9 : isSmall ? 6.5 : 7.2)
       : (tag === 'h1' ? 17 : tag === 'h2' ? 14 : isHeading ? 11 : isSmall ? 8 : 9.2);
     const needed = Math.max(16, Math.ceil(textValue.length / 70) * (fontSize + 3));
-    y = ensurePageSpace(pdf, y, needed, margin);
+    y = ensurePageSpace(pdf, y, needed, pageTop, pageBottom);
     y = appendWrappedText(pdf, textValue, margin, y, contentWidth, {
       fontSize,
       bold: isHeading || /total|balance|invoice|receipt|delivery note|quotation|proforma/i.test(textValue),
@@ -520,9 +658,11 @@ export async function createPdfFromElement({
     }) + (isHeading ? 5 : 2);
   });
 
-  if (y === margin) {
+  if (y === pageTop) {
     throw new Error('Document has no printable data.');
   }
+
+  if (branding && format === 'a4') await applyBrandedReportChrome(pdf, branding);
 
   const cleanName = sanitizeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
   return new File([pdf.output('blob')], cleanName, { type: 'application/pdf' });

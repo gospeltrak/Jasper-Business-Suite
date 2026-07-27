@@ -37,6 +37,7 @@ import {
 import SaaSUserDesk from './SaaSUserDesk';
 import SuperAffiliateControlCenter from './SuperAffiliateControlCenter';
 import Dashboard from './Dashboard';
+import AffiliateWorkspace from './affiliate/AffiliateWorkspace';
 import { User } from '../types';
 import SaaSStatusAndRequests from './SaaSStatusAndRequests';
 import SaaSReportsView from './SaaSReportsView';
@@ -186,7 +187,7 @@ export default function SuperSaaSAdminView({
     const handleEnterMirror = (e: any) => {
       if (e.detail && e.detail.account) {
         setMirroredAccount(e.detail.account);
-        setIsMirrorAffiliate(e.detail.isAffiliate || false);
+        setIsMirrorAffiliate(e.detail.accountType === 'affiliate' || e.detail.account?.accountType === 'affiliate' || e.detail.isAffiliate === true);
       }
     };
     window.addEventListener('saas_enter_mirror', handleEnterMirror);
@@ -556,6 +557,19 @@ export default function SuperSaaSAdminView({
   };
 
   if (mirroredAccount) {
+    if (isMirrorAffiliate) {
+      return (
+        <AffiliateWorkspace
+          onLogout={() => {
+            setMirroredAccount(null);
+            setIsMirrorAffiliate(false);
+          }}
+          mirrorAffiliateId={mirroredAccount.affiliateId || mirroredAccount.id}
+          mirrorMode
+        />
+      );
+    }
+
     const mappedUser: User = {
       id: mirroredAccount.id,
       email: mirroredAccount.email,
@@ -1063,7 +1077,7 @@ export default function SuperSaaSAdminView({
                     <label className="text-[9.5px] font-mono text-slate-500 uppercase">Ad Unit Campaign Title</label>
                     <input 
                       type="text"
-                      placeholder="e.g. Ndiva Standard Leaderboard 2026"
+                      placeholder="e.g. Jasper Standard Leaderboard 2026"
                       value={newBannerTitle}
                       onChange={(e) => setNewBannerTitle(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-emerald-500"

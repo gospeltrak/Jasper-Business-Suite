@@ -5,11 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "prebuild": "npm run verify:deploy",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && node scripts/verify-deploy.mjs --artifacts",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
+    "test:error-contract": "tsx --test scripts/safe-error-contract.test.ts scripts/auth-error-contract.test.ts",
+    "test:deploy": "tsx --test scripts/deployment-contract.test.ts",
+    "test:money-bank": "tsx --test scripts/payment-accounts-contract.test.ts",
+    "verify:source": "node scripts/verify-deploy.mjs && npm run test:error-contract",
+    "verify:deploy": "npm run verify:source && npm run lint && npm run test:deploy && npm run test:money-bank",
     "seed:demo-branches": "tsx scripts/seed-demo-branches.ts"
   },
   "dependencies": {

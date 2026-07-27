@@ -6,6 +6,7 @@ let tenantId: string | null = null;
 let hydrated = false;
 let saveTimer: number | null = null;
 let saveChain = Promise.resolve();
+const HYDRATION_TIMEOUT_MS = 4000;
 
 const snapshot = () => Object.fromEntries(values.entries());
 
@@ -64,22 +65,37 @@ export async function configureOnlineStorage(nextTenantId: string): Promise<void
   hydrated = false;
   values.clear();
 
-  const client: any = await getSecureDataBridgeClient();
-  const { data, error } = await client
-    .from('tenant_data')
-    .select('payload')
-    .eq('tenant_id', nextTenantId)
-    .eq('data_key', DATA_KEY)
-    .maybeSingle();
-
-  if (error) {
-    console.warn('[onlineStorage] database load failed:', error.message);
-  } else if (data?.payload && typeof data.payload === 'object' && !Array.isArray(data.payload)) {
-    for (const [key, value] of Object.entries(data.payload)) {
-      if (typeof value === 'string') values.set(key, value);
+  try {
+    const client: any = await getSecureDataBridgeClient();
+    const result: any = await Promise.race([
+      Promise.resolve(
+        client
+          .from('tenant_data')
+          .select('payload')
+          .eq('tenant_id', nextTenantId)
+          .eq('data_key', DATA_KEY)
+          .maybeSingle()
+      ),
+      new Promise((_, reject) => window.setTimeout(
+        () => reject(new Error('Online storage hydration timed out.')),
+        HYDRATION_TIMEOUT_MS,
+      )),
+    ]);
+    const { data, error } = result || {};
+    if (error) {
+      console.warn('[onlineStorage] database load failed:', error.message);
+    } else if (data?.payload && typeof data.payload === 'object' && !Array.isArray(data.payload)) {
+      for (const [key, value] of Object.entries(data.payload)) {
+        if (typeof value === 'string') values.set(key, value);
+      }
     }
+  } catch (error: any) {
+    // Authentication must never remain on a loading screen because optional
+    // workspace hydration is slow or temporarily unavailable.
+    console.warn('[onlineStorage] continuing without preloaded data:', error?.message || error);
+  } finally {
+    hydrated = true;
   }
-  hydrated = true;
 }
 
 export function resetOnlineStorage(): void {
@@ -95,4 +111,3 @@ declare global {
 }
 
 globalThis.onlineStorage = onlineStorage;
-

@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { DEFAULT_CUSTOM_ROLES } from './DashboardSettings';
 import { compressImageFile } from '../utils/imageCompression';
+import { getMaskedAccountReference } from '../utils/paymentAccounts';
 
 const currency = 'TSh';
 
@@ -234,7 +235,8 @@ export default function DashboardStaff({
   sales,
   expenses,
   activeTenant,
-  deliveries
+  deliveries,
+  onPayStaff
 }: {
   systemSettings: SystemSettings;
   onUpdateSettings: (s: SystemSettings) => void;
@@ -242,6 +244,7 @@ export default function DashboardStaff({
   expenses: Expense[];
   activeTenant: Tenant;
   deliveries: Delivery[];
+  onPayStaff: (expense: Expense) => void;
 }) {
   const [activeTab, setActiveTab] = useState<'list' | 'register' | 'reports'>('list');
   const [staffList, setStaffList] = useState<StaffSettings[]>(systemSettings.staffs || []);
@@ -249,6 +252,8 @@ export default function DashboardStaff({
   const [sessionLogs, setSessionLogs] = useState<StaffSessionRecord[]>([]);
   const [sessionNow, setSessionNow] = useState(Date.now());
   const customRoles = systemSettings.customRoles || DEFAULT_CUSTOM_ROLES;
+  const paymentAccounts = (systemSettings.paymentChannels || [])
+    .filter(account => account.category !== 'person' && account.status !== 'inactive' && account.status !== 'archived');
 
   const [roleType, setRoleType] = useState<'standard' | 'delivery'>('standard');
   const [fullName, setFullName] = useState('');
@@ -272,6 +277,12 @@ export default function DashboardStaff({
   const [credentialPhone, setCredentialPhone] = useState('');
   const [credentialPassword, setCredentialPassword] = useState('');
   const [selectedStaff, setSelectedStaff] = useState<StaffSettings | null>(null);
+  const [staffToRemove, setStaffToRemove] = useState<StaffSettings | null>(null);
+  const [staffToPay, setStaffToPay] = useState<StaffSettings | null>(null);
+  const [salaryPaymentAmount, setSalaryPaymentAmount] = useState('');
+  const [salaryPaymentMethod, setSalaryPaymentMethod] = useState('Bank Transfer');
+  const [salaryPaymentAccount, setSalaryPaymentAccount] = useState('');
+  const [salaryPaymentReference, setSalaryPaymentReference] = useState('');
   const [temporaryPassword, setTemporaryPassword] = useState('');
   const [allowanceForm, setAllowanceForm] = useState({
     name: 'Food allowance',
@@ -446,8 +457,53 @@ export default function DashboardStaff({
       alert('⚠️ The business owner account cannot be removed from the staff list.');
       return;
     }
-    if (!confirm('Are you sure you want to remove this staff member?')) return;
-    persistStaffList(staffList.filter(s => s.id !== staffId));
+    if (target) setStaffToRemove(target);
+  };
+
+  const confirmRemoveStaff = () => {
+    if (!staffToRemove) return;
+    persistStaffList(staffList.filter(s => s.id !== staffToRemove.id));
+    setStaffToRemove(null);
+  };
+
+  const openSalaryPayment = (staff: StaffSettings) => {
+    const payroll = calculateStaffPayroll(staff, payrollPeriod);
+    setStaffToPay(staff);
+    setSalaryPaymentAmount(String(Math.max(0, payroll.totalCost)));
+    const defaultAccount = paymentAccounts.find(account => account.isDefault) || paymentAccounts[0];
+    setSalaryPaymentMethod(defaultAccount?.paymentMethod || defaultAccount?.name || '');
+    setSalaryPaymentAccount(defaultAccount?.id || '');
+    setSalaryPaymentReference(`PAY-${todayIsoDate()}-${staff.id.slice(-6).toUpperCase()}`);
+  };
+
+  const confirmSalaryPayment = () => {
+    if (!staffToPay) return;
+    const amount = Number(salaryPaymentAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setSuccessMessage('Enter a valid salary or wages amount.');
+      return;
+    }
+    const account = paymentAccounts.find(candidate => candidate.id === salaryPaymentAccount);
+    if (!account) {
+      setSuccessMessage('Select an active Money & Bank account for this payroll payment.');
+      return;
+    }
+    onPayStaff({
+      id: `payroll-${Date.now()}`,
+      category: 'Wages & Salary',
+      amount,
+      timestamp: new Date().toISOString(),
+      description: `Salary/wages payment to ${staffToPay.name} for ${payrollPeriod.start} to ${payrollPeriod.end}`,
+      staffName: staffToPay.name,
+      tenantId: activeTenant.id,
+      receiptRef: salaryPaymentReference.trim() || undefined,
+      transactionMessage: `${account.paymentMethod || account.name} · ${account.name}`,
+      note: `Payroll period ${payrollPeriod.start} to ${payrollPeriod.end}`,
+      paymentMethod: account.paymentMethod || account.name,
+      paidFromAccountId: account.id,
+    });
+    setSuccessMessage(`Salary payment of ${formatMoney(amount)} recorded as Money Out for ${staffToPay.name}.`);
+    setStaffToPay(null);
   };
 
   const openCredentialEditor = (staff: StaffSettings) => {
@@ -889,6 +945,14 @@ export default function DashboardStaff({
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"
+                              onClick={() => openSalaryPayment(staff)}
+                              className="min-h-[38px] rounded-xl bg-emerald-50 px-3 text-xs font-black text-emerald-700 hover:bg-emerald-100 inline-flex items-center gap-1.5"
+                            >
+                              <Wallet className="w-3.5 h-3.5" />
+                              Pay Staff
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => openStaffProfile(staff)}
                               className="min-h-[38px] rounded-xl bg-white border border-slate-200 px-3 text-xs font-black text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1.5"
                             >
@@ -1262,6 +1326,14 @@ export default function DashboardStaff({
                           <FileDown className="w-3 h-3" />
                           PDF
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => openSalaryPayment(staff)}
+                          className="rounded-xl bg-emerald-600 px-3 py-1.5 text-[10px] font-black text-white inline-flex items-center gap-1"
+                        >
+                          <Wallet className="w-3 h-3" />
+                          Pay Staff
+                        </button>
                       </div>
                     </div>
 
@@ -1334,6 +1406,64 @@ export default function DashboardStaff({
             )}
           </div>
         </section>
+      )}
+
+      {staffToPay && (
+        <div role="dialog" aria-modal="true" aria-labelledby="pay-staff-title" className="fixed inset-0 z-[95] bg-slate-950/70 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4">
+          <div className="w-full md:max-w-2xl max-h-[92dvh] overflow-y-auto rounded-t-[2rem] md:rounded-[2rem] bg-white p-5 md:p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 id="pay-staff-title" className="text-xl font-black text-slate-950">Pay Staff</h3>
+                <p className="mt-1 text-sm font-semibold text-slate-500">{staffToPay.name} · {payrollPeriod.start} to {payrollPeriod.end}</p>
+              </div>
+              <button type="button" aria-label="Close salary payment" onClick={() => setStaffToPay(null)} className="h-10 w-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="space-y-1.5"><span className="text-xs font-black text-slate-700">Amount to Pay</span><input type="number" min="0.01" step="0.01" value={salaryPaymentAmount} onChange={e => setSalaryPaymentAmount(e.target.value)} className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold outline-none focus:border-emerald-500" /></label>
+              <label className="space-y-1.5"><span className="text-xs font-black text-slate-700">Payment Method</span><input value={salaryPaymentMethod} readOnly className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-100 px-3 text-sm font-bold text-slate-600" /></label>
+              <label className="space-y-1.5"><span className="text-xs font-black text-slate-700">Money & Bank Account</span><select value={salaryPaymentAccount} onChange={e => { const id = e.target.value; setSalaryPaymentAccount(id); const account = paymentAccounts.find(candidate => candidate.id === id); setSalaryPaymentMethod(account?.paymentMethod || account?.name || ''); }} className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold"><option value="">Select account</option>{paymentAccounts.map(account => <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>)}</select></label>
+              <label className="space-y-1.5"><span className="text-xs font-black text-slate-700">Reference</span><input value={salaryPaymentReference} onChange={e => setSalaryPaymentReference(e.target.value)} className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-mono font-bold" /></label>
+            </div>
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">This payment will be recorded as <strong>Money Out</strong>, category <strong>Wages & Salary</strong>, and will appear automatically in Money & Bank, Expenses, Profit & Loss and downloaded reports.</div>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => setStaffToPay(null)} className="min-h-[50px] rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700">Cancel</button>
+              <button type="button" onClick={confirmSalaryPayment} className="min-h-[50px] rounded-2xl bg-emerald-600 text-sm font-black text-white">Pay Staff</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {staffToRemove && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="remove-staff-title"
+          className="fixed inset-0 z-[90] bg-slate-950/70 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4"
+        >
+          <div className="w-full md:max-w-md rounded-t-[2rem] md:rounded-[2rem] bg-white p-5 md:p-6 shadow-2xl">
+            <h3 id="remove-staff-title" className="text-lg font-black text-slate-950">Remove staff account?</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              This will remove <strong className="text-slate-900">{staffToRemove.name}</strong> from this business.
+              Review the selected account before confirming.
+            </p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setStaffToRemove(null)}
+                className="min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700"
+              >
+                Keep Staff
+              </button>
+              <button
+                type="button"
+                onClick={confirmRemoveStaff}
+                className="min-h-[48px] rounded-2xl bg-red-600 px-4 text-sm font-black text-white"
+              >
+                Confirm Remove Staff
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {selectedStaff && (

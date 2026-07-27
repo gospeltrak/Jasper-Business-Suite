@@ -323,23 +323,33 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
     .reduce((val, curr) => val + (curr.paymentStatus === 'Paid' ? curr.transactions.reduce((s, t) => s + t.amount, 0) : 0), 0);
 
   const filteredUsers = users.filter(u => {
-    const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          u.username.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesSearch = u.tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           u.phone.includes(searchQuery);
-    
+
     let matchesCategory = true;
     if (categoryFilter === 'organic') matchesCategory = isOrganicSubscriber(u);
     if (categoryFilter === 'sub_affiliate') matchesCategory = isSubAffiliateSubscriber(u);
-    
+
     return matchesSearch && matchesCategory;
   });
+  const subscriberCountUnavailable = Boolean(loadError && !isLoading && users.length === 0);
+  const countLabel = (value: number) => subscriberCountUnavailable ? '—' : value;
 
   return (
     <div className="space-y-6">
       {loadError && (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
-          {loadError}
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={() => { void loadUsersData(); }}
+            className="shrink-0 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 font-bold text-amber-100 transition-colors hover:bg-amber-400/20"
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -382,14 +392,14 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
           <div className="flex flex-col gap-2.5 bg-slate-950 p-4 rounded-xl border border-slate-850">
             <h3 className="text-xs font-mono uppercase text-slate-400 font-bold flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Registered Accounts List</span>
+              <span>Registered Subscriber Businesses</span>
             </h3>
             
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <input 
                 type="text"
-                placeholder="Search by name, email, phone..."
+                placeholder="Search business, owner, email or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white outline-none focus:border-slate-700"
@@ -420,7 +430,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
 
           <div className="bg-slate-950 border border-slate-850 rounded-xl overflow-hidden max-h-[380px] overflow-y-auto">
             <div className="p-3 bg-slate-900 border-b border-slate-850 text-[10px] font-mono uppercase text-slate-500 tracking-wider">
-              {filteredUsers.length} matched users found
+              {filteredUsers.length} matched businesses found
             </div>
             {filteredUsers.length === 0 ? (
               <div className="p-6 text-center text-xs text-slate-500">No users match query.</div>
@@ -445,9 +455,10 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                       className={`p-3 transition-colors cursor-pointer hover:bg-slate-900/40 text-slate-300 ${isSelected ? 'bg-emerald-500/10 border-l-2 border-emerald-500 text-white font-bold' : ''}`}
                     >
                       <div className="flex justify-between items-start gap-1">
-                        <div>
-                          <span className="text-xs block font-bold text-slate-200">{u.name}</span>
-                          <span className="text-[10px] text-slate-500 font-mono block leading-tight">{u.username} · {u.email}</span>
+                        <div className="min-w-0">
+                          <span className="block truncate text-sm font-black text-white">{u.tenantName}</span>
+                          <span className="mt-0.5 block truncate text-[10px] font-semibold text-slate-400">Subscriber: {u.name}</span>
+                          <span className="block truncate text-[9px] font-mono leading-tight text-slate-600">{u.username || u.email}</span>
                         </div>
                         <div className="flex flex-col items-end gap-1.5">
                           <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase shrink-0 ${u.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : u.status === 'Suspended' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>
@@ -505,8 +516,8 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                     <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="text-[9.5px] font-mono text-emerald-400 uppercase tracking-widest font-black">SUPERADMIN IMMERSIVE DASHBOARD INTERCEPT</span>
                   </div>
-                  <h3 className="text-lg font-black text-white mt-1 uppercase tracking-tight">{selectedUser.name} View</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">View user workspace.</p>
+                  <h3 className="text-lg font-black text-white mt-1 tracking-tight">{selectedUser.tenantName}</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Subscriber: {selectedUser.name}</p>
                   {/* Location + last activity line */}
                   <div className="flex flex-wrap gap-3 mt-1.5 text-[10px] font-mono text-slate-500">
                     {(selectedUser as any).location && (selectedUser as any).location !== 'Location not provided' && (
@@ -687,19 +698,19 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-8 w-full max-w-3xl border-t border-slate-800/80 pt-10">
                 <div className="flex flex-col gap-2 items-center">
-                  <span className="text-4xl font-mono font-bold text-slate-200">{users.length}</span>
-                  <span className="text-[10px] uppercase text-emerald-500 font-black tracking-widest">Total Users</span>
+                  <span className="text-4xl font-mono font-bold text-slate-200">{countLabel(users.length)}</span>
+                  <span className="text-[10px] uppercase text-emerald-500 font-black tracking-widest">Total Subscribers</span>
                 </div>
                 <div className="flex flex-col gap-2 items-center">
-                  <span className="text-4xl font-mono font-bold text-emerald-400">{users.filter(u => u.status === 'Active').length}</span>
+                  <span className="text-4xl font-mono font-bold text-emerald-400">{countLabel(users.filter(u => u.status === 'Active').length)}</span>
                   <span className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Active</span>
                 </div>
                 <div className="flex flex-col gap-2 items-center">
-                  <span className="text-4xl font-mono font-bold text-rose-400">{users.filter(u => u.status === 'Suspended').length}</span>
+                  <span className="text-4xl font-mono font-bold text-rose-400">{countLabel(users.filter(u => u.status === 'Suspended').length)}</span>
                   <span className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Suspended</span>
                 </div>
                 <div className="flex flex-col gap-2 items-center">
-                  <span className="text-4xl font-mono font-bold text-amber-400">{users.filter(u => u.paymentStatus === 'Overdue').length}</span>
+                  <span className="text-4xl font-mono font-bold text-amber-400">{countLabel(users.filter(u => u.paymentStatus === 'Overdue').length)}</span>
                   <span className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Overdue</span>
                 </div>
               </div>

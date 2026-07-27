@@ -1096,7 +1096,7 @@ export default function DashboardOverview({
 
           <div className="w-full h-56 flex items-center justify-center">
             {/* Real SVG Grouped Bar Chart Replacement via Recharts for Trendline Feature */}
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1} initialDimension={{ width: 900, height: 224 }}>
               <ComposedChart 
                 data={chartData.map(d => ({ ...d, predictiveVelocity: Math.round(d.sales * 1.15) }))} 
                 margin={{ top: 10, right: 10, left: -10, bottom: 0 }}

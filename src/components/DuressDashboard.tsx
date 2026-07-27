@@ -47,7 +47,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
   const [sentHistory, setSentHistory] = useState(duressData.historyMessages);
 
   // Settings mock states
-  const [decoySaaSTitle, setDecoySaaSTitle] = useState('Ndiva Suite Lite Console');
+  const [decoySaaSTitle, setDecoySaaSTitle] = useState('Jasper Lite Console');
   const [billCycle, setBillCycle] = useState('Every 30 Days');
   const [webhookUrl, setWebhookUrl] = useState('https://api.jaspersaas.com/v1/webhooks/tz_notify');
 
@@ -72,7 +72,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
   // Add ad material
   const handleFakeUploadAd = (e: FormEvent) => {
     e.preventDefault();
-    const fileName = newAdFile ? newAdFile.trim() : `Ndiva_Material_${Math.floor(Math.random() * 9000 + 1000)}.jpg`;
+    const fileName = newAdFile ? newAdFile.trim() : `Jasper_Material_${Math.floor(Math.random() * 9000 + 1000)}.jpg`;
     const newAd = {
       id: `ad-${Date.now()}`,
       file: fileName,
@@ -854,7 +854,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Ndiva_Spring_Promo_Mobile.jpg"
+                      placeholder="e.g. Jasper_Spring_Promo_Mobile.jpg"
                       value={newAdFile}
                       onChange={(e) => setNewAdFile(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-850 p-2 text-white text-xs focus:outline-none rounded"

@@ -13,8 +13,6 @@ const RECORD_TIME_KEYS = [
 ];
 
 export const APPEND_MERGE_DATA_KEYS = new Set([
-  'sales',
-  'sales_map',
   'expenses',
   'expenses_map',
   'deliveries',

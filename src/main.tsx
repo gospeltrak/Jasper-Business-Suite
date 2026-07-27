@@ -8,6 +8,7 @@ import { ThemeProvider } from './ThemeContext';
 import { LanguageProvider } from './LanguageContext';
 import { TenantLogoProvider } from './TenantLogoContext';
 import { NotificationProvider } from './JasperNotificationContext';
+import AppErrorBoundary from './components/AppErrorBoundary';
 
 function syncViewportVars() {
   const viewport = window.visualViewport;
@@ -31,7 +32,9 @@ createRoot(document.getElementById('root')!).render(
       <LanguageProvider>
         <TenantLogoProvider>
           <NotificationProvider>
-            <App />
+            <AppErrorBoundary>
+              <App />
+            </AppErrorBoundary>
           </NotificationProvider>
         </TenantLogoProvider>
       </LanguageProvider>

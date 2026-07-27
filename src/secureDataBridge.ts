@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-let secureDataBridgeInstance: ReturnType<typeof createClient> | null = null;
+let secureDataBridgeInstance: any = null;
 const PLACEHOLDER_DATA_URL = 'https://placeholder-url.supabase.co';
 const PLACEHOLDER_DATA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy';
 

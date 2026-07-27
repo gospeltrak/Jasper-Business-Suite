@@ -30,6 +30,7 @@ import { Tenant } from "../types";
 import { loadPlatformRecord } from "../utils/superAdminPlatformRecords";
 import { loadSuperAdminOverview } from "../utils/superAdminData";
 import { printPdfFromElement } from "../utils/pdfShare";
+import { isEarnedCommissionStatus, isSettledPaymentStatus } from "../utils/financialStatus";
 
 interface ExpenseRecord {
   id: string;
@@ -49,10 +50,6 @@ interface AffiliateAccount {
 }
 
 const moneyValue = (value: unknown) => Number(value || 0);
-const isPositivePaymentStatus = (value: unknown) => {
-  const status = String(value || '').trim().toLowerCase();
-  return ['paid', 'success', 'successful', 'completed', 'approved', 'active', 'verified'].some((token) => status.includes(token));
-};
 
 export default function SaaSReportsView() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -78,14 +75,17 @@ export default function SaaSReportsView() {
       setHardwareSales(Array.isArray(hwSales) ? hwSales : []);
       setHardwareInventory(Array.isArray(hwInventory) ? hwInventory : []);
       const paidSubscriptionRevenue = (overview.referredCustomers || [])
-        .filter((row: any) => isPositivePaymentStatus(row.payment_status || row.status))
-        .reduce((sum: number, row: any) => sum + moneyValue(row.amount_paid || row.amount || row.package_price), 0);
+        .filter((row: any) => isSettledPaymentStatus(row.payment_status || row.status))
+        .reduce((sum: number, row: any) => sum + moneyValue(row.amount_paid || row.amount), 0);
       const paidTrackedRevenue = (overview.sourceTracking || [])
-        .filter((row: any) => isPositivePaymentStatus(row.payment_status || row.subscription_status || row.status))
+        .filter((row: any) => isSettledPaymentStatus(row.payment_status || row.status))
         .reduce((sum: number, row: any) => sum + moneyValue(row.revenue_generated || row.amount_paid || row.amount), 0);
       setSubscriptionRevenue(paidSubscriptionRevenue || paidTrackedRevenue);
       setAffiliates((overview.affiliates || []).map((affiliate: any) => {
-        const commissions = (overview.commissions || []).filter((row: any) => row.affiliate_id === affiliate.id);
+        const commissions = (overview.commissions || []).filter((row: any) => (
+          row.affiliate_id === affiliate.id
+          && (isEarnedCommissionStatus(row.commission_status) || isEarnedCommissionStatus(row.status))
+        ));
         return {
           id: affiliate.id,
           name: affiliate.display_name,
@@ -254,7 +254,7 @@ export default function SaaSReportsView() {
       <div className="flex justify-between items-start sm:items-center bg-slate-900/95 border border-slate-800 p-4 sm:p-5 rounded-3xl flex-col sm:flex-row gap-4 shadow-[0_16px_40px_rgba(2,6,23,0.22)] print:hidden">
         <div>
           <h2 className="text-base font-bold text-white uppercase tracking-wider font-mono">
-            Ndiva Suite Business Reports
+            Jasper Business Reports
           </h2>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-2xl">
             Audit platform P&L ratios, subscription revenue margins, hardware

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Tenant, Sale, Expense, PaymentChannel, LedgerEntry, User as AppUser } from '../types';
+import { Tenant, Sale, Expense, PaymentChannel, LedgerEntry, User as AppUser, SystemSettings, Purchase } from '../types';
 import { isDemoTenant } from '../utils/tenantIsolation';
 import { safeSetJsonItem } from '../utils/dataSafety';
+import { findPaymentChannel, getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
 import { 
   Landmark, 
   Wallet, 
@@ -38,9 +39,10 @@ interface DashboardCashBankProps {
   sales: Sale[];
   expenses: Expense[];
   deliveries?: any[];
+  purchases?: Purchase[];
   user?: AppUser;
-  systemSettings?: any;
-  onUpdateSystemSettings?: (updated: any) => void;
+  systemSettings?: SystemSettings;
+  onUpdateSystemSettings?: (updated: SystemSettings) => void;
 }
 
 export default function DashboardCashBank({ 
@@ -48,6 +50,7 @@ export default function DashboardCashBank({
   sales, 
   expenses,
   deliveries = [],
+  purchases = [],
   user,
   systemSettings,
   onUpdateSystemSettings
@@ -63,14 +66,17 @@ export default function DashboardCashBank({
   useEffect(() => {
     if (!onUpdateSystemSettings || !systemSettings) return;
     // Only migrate if systemSettings doesn't already have channels saved
-    if (systemSettings.paymentChannels && systemSettings.paymentChannels.length > 0) return;
     const cached = onlineStorage.getItem(`jasper_channels_${activeTenant.id}`);
-    if (!cached) return;
     try {
-      const parsed = JSON.parse(cached);
-      if (parsed && parsed.length > 0) {
-        // Migrate: save channels into systemSettings
-        const updatedSettings = { ...systemSettings, paymentChannels: parsed };
+      const parsed = cached ? JSON.parse(cached) : [];
+      const existing = systemSettings.paymentChannels?.length ? systemSettings.paymentChannels : parsed;
+      const reconciled = reconcilePaymentChannels(
+        getTreasuryPaymentMethods(systemSettings.business),
+        Array.isArray(existing) ? existing : [],
+        { currency: activeTenant.currencyCode },
+      );
+      if (JSON.stringify(reconciled) !== JSON.stringify(systemSettings.paymentChannels || [])) {
+        const updatedSettings = { ...systemSettings, paymentChannels: reconciled };
         onUpdateSystemSettings(updatedSettings);
         safeSetJsonItem(`jasper_settings_${activeTenant.id}`, updatedSettings, {
           tenantId: activeTenant.id,
@@ -79,8 +85,7 @@ export default function DashboardCashBank({
         });
       }
     } catch (e) { /* ignore */ }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeTenant.currencyCode, activeTenant.id, onUpdateSystemSettings, systemSettings]);
   
   // Helpers to get dates
   const getTodayRange = () => {
@@ -158,20 +163,40 @@ export default function DashboardCashBank({
   const [channels, setChannels] = useState<PaymentChannel[]>(() => {
     // Priority 1: systemSettings.paymentChannels (most reliable — synced with all other settings)
     if (systemSettings?.paymentChannels && systemSettings.paymentChannels.length > 0) {
-      return systemSettings.paymentChannels;
+      return reconcilePaymentChannels(
+        getTreasuryPaymentMethods(systemSettings.business),
+        systemSettings.paymentChannels,
+        { currency: activeTenant.currencyCode },
+      ).filter(channel => channel.status !== 'inactive' && channel.status !== 'archived');
     }
     // Priority 2: dedicated onlineStorage key (backward compat)
     const cached = onlineStorage.getItem(`jasper_channels_${activeTenant.id}`);
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (parsed && parsed.length > 0) return parsed;
+        if (parsed && parsed.length > 0) return reconcilePaymentChannels(
+          getTreasuryPaymentMethods(systemSettings?.business),
+          parsed,
+          { currency: activeTenant.currencyCode },
+        ).filter(channel => channel.status !== 'inactive' && channel.status !== 'archived');
       } catch (e) {
         console.error("Failed to parse cached channels", e);
       }
     }
     return hasDemoSeedData ? defaultBaseChannels : [];
   });
+
+  useEffect(() => {
+    if (!systemSettings) return;
+    const reconciled = reconcilePaymentChannels(
+      getTreasuryPaymentMethods(systemSettings.business),
+      systemSettings.paymentChannels || [],
+      { currency: activeTenant.currencyCode },
+    ).filter(channel => channel.status !== 'inactive' && channel.status !== 'archived');
+    setChannels(current => (
+      JSON.stringify(current) === JSON.stringify(reconciled) ? current : reconciled
+    ));
+  }, [activeTenant.currencyCode, systemSettings]);
 
   // Custom accounts form states
   const [newAccType, setNewAccType] = useState<'bank' | 'telco' | 'person'>('bank');
@@ -245,8 +270,15 @@ export default function DashboardCashBank({
     });
 
     const getPaymentChannel = (methodName: string, reference: string) => {
-      let targetChannelId = 'counter-01';
+      const linkedChannel = findPaymentChannel(channels, methodName);
+      let targetChannelId = linkedChannel?.id || channels.find(channel => channel.category === 'physical')?.id || 'counter-01';
       let desc = `Received sale payment from customer: Receipt ${reference}`;
+      if (linkedChannel) {
+        return {
+          targetChannelId: linkedChannel.id,
+          desc: `${methodName} payment received: Receipt ${reference}`,
+        };
+      }
       const method = methodName.toLowerCase();
 
       if (method.includes('mpesa')) {
@@ -296,29 +328,38 @@ export default function DashboardCashBank({
 
     // Track loose counter payments for business expenses
     expenses.forEach(exp => {
+      const accountId = exp.paidFromAccountId && channels.some(channel => channel.id === exp.paidFromAccountId)
+        ? exp.paidFromAccountId
+        : channels.find(channel => channel.category === 'physical')?.id || 'counter-01';
       generated.push({
         id: `EXP-WITHDR-${exp.id}`,
         tenantId: activeTenant.id,
-        channelId: 'counter-01',
+        channelId: accountId,
         amount: -exp.amount,
         entryType: 'debit',
         sourceType: 'EXPENSE_WITHDRAWAL',
-        description: `Expense payout with safe drawer cash: ${exp.description} (${exp.category})`,
+        description: `Expense payment: ${exp.description} (${exp.category})`,
         timestamp: exp.timestamp || new Date().toISOString()
       });
     });
 
     // Track delivery incomes
     deliveries.forEach(del => {
+      const isCollected = del.deliveryPaymentStatus === 'collected'
+        || (!del.deliveryPaymentStatus && del.status === 'Delivered');
+      if (!isCollected || del.status === 'Cancelled') return;
       if (!del.fee && !del.deliveryCost) return;
       const amt = (del.fee || del.deliveryCost || 0);
       if (amt <= 0) return;
 
-      let targetChannelId = 'counter-01';
+      const linkedChannel = channels.find(channel => channel.id === del.deliveryPaymentAccountId)
+        || findPaymentChannel(channels, del.deliveryPaymentMethod || 'Cash');
+      let targetChannelId = linkedChannel?.id || channels.find(channel => channel.category === 'physical')?.id || 'counter-01';
       let desc = `Received delivery charge payment for Order Ref: ${del.id}`;
       const method = del.deliveryPaymentMethod?.toLowerCase() || '';
-      
-      if (method.includes('mpesa')) {
+      if (linkedChannel) {
+        desc = `${del.deliveryPaymentMethod || linkedChannel.name} delivery payment collected: Ref ${del.id}`;
+      } else if (method.includes('mpesa')) {
         targetChannelId = 'mpesa-till';
         desc = `M-Pesa delivery payment: Ref ${del.id}`;
       } else if (method.includes('momo') || method.includes('money') || method.includes('tigo') || method.includes('yas') || method.includes('mixx') || method.includes('airtel')) {
@@ -341,9 +382,27 @@ export default function DashboardCashBank({
         channelId: targetChannelId,
         amount: amt,
         entryType: 'credit',
-        sourceType: 'POS_CHECKOUT',
+        sourceType: 'DELIVERY_COLLECTION',
         description: desc,
-        timestamp: del.timestamp || new Date().toISOString()
+        timestamp: del.paymentCollectedAt || del.deliveredAt || del.timestamp || new Date().toISOString(),
+        referenceId: del.id,
+      });
+    });
+
+    purchases.forEach(purchase => {
+      const amount = Math.max(0, Number(purchase.amountPaid || 0));
+      if (amount <= 0 || !purchase.paidFromAccountId) return;
+      if (!channels.some(channel => channel.id === purchase.paidFromAccountId)) return;
+      generated.push({
+        id: `PURCHASE-PAYMENT-${purchase.id}`,
+        tenantId: activeTenant.id,
+        channelId: purchase.paidFromAccountId,
+        amount: -amount,
+        entryType: 'debit',
+        sourceType: 'PURCHASE_PAYMENT',
+        description: `Purchase payment to ${purchase.supplierName}: ${purchase.id}`,
+        timestamp: purchase.timestamp,
+        referenceId: purchase.id,
       });
     });
 
@@ -393,7 +452,7 @@ export default function DashboardCashBank({
       dataKey: 'cash_bank_matrix',
       logLabel: `${activeTenant.id}/cash-bank-matrix`,
     });
-  }, [activeTenant.id, sales, expenses, deliveries, hasDemoSeedData]);
+  }, [activeTenant.id, sales, expenses, deliveries, purchases, channels, hasDemoSeedData]);
 
   // Update cached file local records
   const saveLedgerState = (entriesList: LedgerEntry[]) => {
@@ -504,7 +563,16 @@ export default function DashboardCashBank({
       name: newAccName,
       category: newAccType,
       provider: newAccProvider,
-      accountNumber: newAccNumber
+      accountNumber: newAccNumber,
+      maskedReference: getMaskedAccountReference({
+        id: newChanId,
+        name: newAccName,
+        category: newAccType,
+        provider: newAccProvider,
+        accountNumber: newAccNumber,
+      }),
+      currency: activeTenant.currencyCode,
+      status: 'active',
     };
 
     const updated = [...channels, newChan];
@@ -673,21 +741,37 @@ export default function DashboardCashBank({
 
   // Export report to CSV computer file
   const downloadAuditReportCSV = () => {
+    const csvCell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const headers = 'Date,Reference ID,Type,Where,Account No,Sent To,Sent To Number,Entry Type,Amount,Note\n';
     const rows = activeTenantFilterLedger
       .map(entry => {
         const chan = channels.find(c => c.id === entry.channelId);
         const counterParty = entry.counterPartyChannelId ? channels.find(c => c.id === entry.counterPartyChannelId) : undefined;
-        return `"${entry.timestamp}","${entry.id}","${entry.sourceType}","${chan?.name || 'N/A'}","${chan?.accountNumber || ''}","${counterParty?.name || ''}","${counterParty?.accountNumber || ''}","${entry.entryType}",${entry.amount},"${entry.description}"`;
+        return [
+          entry.timestamp,
+          entry.id,
+          entry.sourceType,
+          chan?.name || 'N/A',
+          getMaskedAccountReference(chan),
+          counterParty?.name || '',
+          getMaskedAccountReference(counterParty),
+          entry.entryType,
+          entry.amount,
+          entry.description,
+        ].map(csvCell).join(',');
       })
       .join('\n');
     
     const blob = new Blob([headers + rows], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.setAttribute('href', url);
-    a.setAttribute('download', `money_report_${activeTenant.id}_${datePreset}.csv`);
+    a.href = url;
+    a.download = `money_report_${activeTenant.id}_${datePreset}.csv`;
+    a.style.display = 'none';
+    document.body.appendChild(a);
     a.click();
+    a.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 10000);
   };
 
   // Free text search inside transaction log
@@ -699,7 +783,7 @@ export default function DashboardCashBank({
 
     const chan = channels.find(c => c.id === entry.channelId);
     const counterParty = entry.counterPartyChannelId ? channels.find(c => c.id === entry.counterPartyChannelId) : undefined;
-    const rawString = `${entry.description} ${entry.id} ${chan?.name || ''} ${counterParty?.name || ''} ${counterParty?.accountNumber || ''} ${entry.sourceType}`.toLowerCase();
+    const rawString = `${entry.description} ${entry.id} ${chan?.name || ''} ${counterParty?.name || ''} ${getMaskedAccountReference(counterParty)} ${entry.sourceType}`.toLowerCase();
     
     const matchesSearch = rawString.includes(auditSearch.toLowerCase());
     const matchesPresetType = auditTypeFilter === 'ALL' || entry.sourceType === auditTypeFilter;
@@ -999,7 +1083,7 @@ export default function DashboardCashBank({
                       {channels.filter(c => c.category === 'physical').map(c => <option key={c.id} value={c.id}>{c.name} ({formatCurrency(channelBalances[c.id]?.current)})</option>)}
                     </optgroup>
                     <optgroup label="Send to Person">
-                      {channels.filter(c => c.category === 'person').map(c => <option key={c.id} value={c.id}>{c.name} – {c.accountNumber}</option>)}
+                      {channels.filter(c => c.category === 'person').map(c => <option key={c.id} value={c.id}>{c.name} – {getMaskedAccountReference(c)}</option>)}
                     </optgroup>
                   </select>
                 </div>
@@ -1115,7 +1199,7 @@ export default function DashboardCashBank({
                             <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">{entry.description}</p>
                           )}
                           {entry.counterPartyChannelId && (
-                            <p className="text-[9px] text-slate-400 italic mt-1">→ {counterParty?.name || 'Account'}{counterParty?.accountNumber ? ` (${counterParty.accountNumber})` : ''}</p>
+                            <p className="text-[9px] text-slate-400 italic mt-1">→ {counterParty?.name || 'Account'}{getMaskedAccountReference(counterParty) ? ` (${getMaskedAccountReference(counterParty)})` : ''}</p>
                           )}
                           {(entry.receiptFile || entry.muamalaFile) && (
                             <div className="flex gap-1.5 mt-2 flex-wrap">
@@ -1548,7 +1632,7 @@ export default function DashboardCashBank({
                     <optgroup label="Sent to Person">
                       {channels.filter(c => c.category === 'person').map(chan => (
                         <option key={chan.id} value={chan.id}>
-                          {chan.name} - {chan.provider || 'Recipient'} ({chan.accountNumber || 'No number'})
+                          {chan.name} - {chan.provider || 'Recipient'} ({getMaskedAccountReference(chan) || 'No number'})
                         </option>
                       ))}
                     </optgroup>
@@ -1788,8 +1872,8 @@ export default function DashboardCashBank({
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 mt-1 font-medium">
                         <span>Provider: <strong className="text-slate-700">{chan.provider}</strong></span>
                         <span>Category: <strong className="text-slate-705 capitalize">{chan.category} Operational</strong></span>
-                        {chan.accountNumber && (
-                          <span>A/C or Code: <strong className="text-slate-800 font-mono bg-slate-100 px-1.5 py-0.5 rounded-md">{chan.accountNumber}</strong></span>
+                        {getMaskedAccountReference(chan) && (
+                          <span>A/C or Code: <strong className="text-slate-800 font-mono bg-slate-100 px-1.5 py-0.5 rounded-md">{getMaskedAccountReference(chan)}</strong></span>
                         )}
                       </div>
                     </div>
@@ -1991,7 +2075,7 @@ export default function DashboardCashBank({
                         {entry.counterPartyChannelId && (
                           <span className="text-[10px] block text-slate-400 italic">
                             {isPersonPayout ? 'Sent to' : 'Other account'}: {counterParty?.name || 'N/A'}
-                            {counterParty?.accountNumber ? ` (${counterParty.accountNumber})` : ''}
+                            {getMaskedAccountReference(counterParty) ? ` (${getMaskedAccountReference(counterParty)})` : ''}
                           </span>
                         )}
                         {(entry.receiptFile || entry.muamalaFile) && (
@@ -2087,7 +2171,7 @@ export default function DashboardCashBank({
                     {entry.counterPartyChannelId && (
                       <span className="text-[10px] block text-slate-400 italic mt-1">
                         {isPersonPayout ? 'Sent to' : 'Other account'}: {counterParty?.name || 'N/A'}
-                        {counterParty?.accountNumber ? ` (${counterParty.accountNumber})` : ''}
+                        {getMaskedAccountReference(counterParty) ? ` (${getMaskedAccountReference(counterParty)})` : ''}
                       </span>
                     )}
                   </p>

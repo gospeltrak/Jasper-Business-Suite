@@ -654,6 +654,17 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   width: 100%;
 }
 
+/* POS product catalog: 3-up on phone/tablet, 4-up from the desktop boundary. */
+#dashboard-scaffold #pos-product-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+@media (min-width: 1024px) {
+  #dashboard-scaffold #pos-product-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
 @media (max-width: 767px) {
   .phone {
     margin: 0;
@@ -1475,6 +1486,10 @@ button:active:not(:disabled),
 }
 
 @media (max-width: 1279px) {
+  #dashboard-scaffold .subscription-shell-grid {
+    grid-template-columns: minmax(260px, 0.82fr) minmax(0, 1.18fr) !important;
+  }
+
   #dashboard-scaffold .dashboard-kpi-two-column-grid,
   #dashboard-scaffold .stock-tabs-two-column-grid,
   #dashboard-scaffold .product-import-actions-grid,
@@ -1482,6 +1497,28 @@ button:active:not(:disabled),
   #dashboard-scaffold .native-report-kpi-grid {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+.subscription-mobile-action {
+  display: none;
+}
+
+.subscription-desktop-action {
+  display: block;
+}
+
+@media (max-width: 767px) {
+  #dashboard-scaffold .subscription-shell-grid {
+    display: block !important;
+  }
+
+  #dashboard-scaffold .subscription-mobile-action {
+    display: block !important;
+  }
+
+  #dashboard-scaffold .subscription-desktop-action {
+    display: none !important;
   }
 }
 
@@ -1507,6 +1544,184 @@ button:active:not(:disabled),
 
   #dashboard-scaffold .jasper-sticky-ad-slot {
     max-height: 72px;
+  }
+}
+
+/* Tenant Settings — compact native mobile/tablet experience only. */
+@media (max-width: 1279px) {
+  #dashboard-scaffold .tenant-settings-shell {
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell > * + * {
+    margin-top: 0.75rem !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell > .grid {
+    gap: 0.75rem !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-readiness-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel {
+    min-width: 0;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel > :is(div, section) {
+    border-radius: 1.25rem !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel > div:not(.fixed),
+  #dashboard-scaffold .tenant-settings-shell .settings-native-section {
+    padding: 0.875rem !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel > div > :first-child[class*="border-b"],
+  #dashboard-scaffold .tenant-settings-shell .settings-native-section > :first-child[class*="border-b"] {
+    display: none !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel :is([class~="p-5"], [class~="p-6"]):not(.fixed) {
+    padding: 0.875rem !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel :is([class~="p-4"]):not(.fixed) {
+    padding: 0.75rem !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel :is([class~="space-y-8"], [class~="space-y-6"]) > * + * {
+    margin-top: 1rem !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel :is([class~="space-y-5"], [class~="space-y-4"]) > * + * {
+    margin-top: 0.75rem !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel :is([class~="gap-6"], [class~="gap-5"], [class~="gap-4"]) {
+    gap: 0.75rem !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel select {
+    min-height: 44px;
+    border-radius: 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel textarea {
+    min-height: 72px !important;
+    border-radius: 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel input[type="checkbox"],
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel input[type="radio"] {
+    width: 1.125rem;
+    height: 1.125rem;
+    flex: 0 0 auto;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel [class~="grid-cols-2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel [class~="grid-cols-3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-role-list {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+    overflow: visible !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-role-card {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 54px;
+    padding: 0.625rem !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-role-card > div {
+    min-width: 0;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel .xl\:hidden [class*="min-h-[52px]"] {
+    min-height: 44px !important;
+    border-radius: 0.75rem !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel .xl\:hidden [class*="rounded-2xl"] {
+    border-radius: 0.875rem !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel section > h4 {
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+    padding-bottom: 0.5rem;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel button:focus-visible,
+  #dashboard-scaffold .tenant-settings-shell .settings-role-card:focus-visible,
+  #dashboard-scaffold .tenant-settings-shell .settings-mobile-module-menu button:focus-visible,
+  #dashboard-scaffold .tenant-settings-shell .settings-native-mobile-header button:focus-visible {
+    outline: 2px solid #10b981;
+    outline-offset: 2px;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1279px) {
+  #dashboard-scaffold .tenant-settings-shell .settings-mobile-module-menu > .divide-y {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.625rem;
+    padding: 0.75rem;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-mobile-module-menu > .divide-y > button {
+    min-height: 76px;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel [class*="md:grid-cols-2"],
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel [class*="lg:grid-cols-2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel [class*="lg:grid-cols-3"],
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel [class*="lg:grid-cols-5"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-role-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 639px) {
+  #dashboard-scaffold .tenant-settings-shell .settings-native-mobile-header {
+    border-radius: 1rem;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-mobile-module-menu {
+    border-radius: 1rem;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-mobile-module-menu > .divide-y > button {
+    min-height: 64px;
+  }
+
+  #dashboard-scaffold .tenant-settings-shell .settings-content-panel > div:not(.fixed),
+  #dashboard-scaffold .tenant-settings-shell .settings-native-section {
+    padding: 0.75rem !important;
+    border-radius: 1rem !important;
   }
 }
 

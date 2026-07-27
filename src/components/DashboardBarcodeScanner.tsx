@@ -31,10 +31,14 @@ export default function DashboardBarcodeScanner({
   const [manualCode, setManualCode] = useState('');
   const [scanSuccessAnim, setScanSuccessAnim] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraDecoderActive, setCameraDecoderActive] = useState(false);
   
   // Camera state
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const scanFrameRef = useRef<number | null>(null);
+  const lastCameraScanRef = useRef<{ value: string; at: number }>({ value: '', at: 0 });
 
   // Web Audio BEEP generator for tactile scanning feedback
   const playBeep = () => {
@@ -79,6 +83,7 @@ export default function DashboardBarcodeScanner({
         video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
       setVideoStream(stream);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -86,16 +91,18 @@ export default function DashboardBarcodeScanner({
     } catch (err: any) {
       console.warn('Webcam hardware block or sandbox constraint:', err);
       setCameraError(
-        'Physical camera stream could not launch. This is expected inside iframe containers or non-HTTPS sessions. Please use the simulated quick barcode trigger pads below to test all checkout states.'
+        'Camera scanning is unavailable. Use a USB/Bluetooth barcode reader or enter the barcode manually.'
       );
     }
   };
 
   const stopCamera = () => {
-    if (videoStream) {
-      videoStream.getTracks().forEach(track => track.stop());
-      setVideoStream(null);
-    }
+    if (scanFrameRef.current !== null) cancelAnimationFrame(scanFrameRef.current);
+    scanFrameRef.current = null;
+    streamRef.current?.getTracks().forEach(track => track.stop());
+    streamRef.current = null;
+    setVideoStream(null);
+    setCameraDecoderActive(false);
   };
 
   // Process scanning trigger
@@ -105,7 +112,7 @@ export default function DashboardBarcodeScanner({
 
     // Find if it matches a catalog product (by barcode or sku)
     const foundProduct = products.find(
-      p => p.barcode === trimmed || p.sku.toUpperCase() === trimmed.toUpperCase()
+      p => String(p.barcode || '').trim() === trimmed || String(p.sku || '').toUpperCase() === trimmed.toUpperCase()
     ) || null;
 
     // Set interactive visual flash state
@@ -118,6 +125,48 @@ export default function DashboardBarcodeScanner({
       setManualCode('');
     }, 450);
   };
+
+  useEffect(() => {
+    if (!isOpen || !videoStream || cameraError) return;
+    const Detector = (window as any).BarcodeDetector;
+    if (!Detector) {
+      setCameraDecoderActive(false);
+      setCameraError('This browser cannot decode camera barcodes. Use a USB/Bluetooth barcode reader or enter the barcode manually.');
+      return;
+    }
+
+    let cancelled = false;
+    const detector = new Detector({
+      formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'],
+    });
+    setCameraDecoderActive(true);
+
+    const scanFrame = async () => {
+      if (cancelled) return;
+      const video = videoRef.current;
+      if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        try {
+          const results = await detector.detect(video);
+          const value = String(results?.[0]?.rawValue || '').trim();
+          const now = Date.now();
+          if (value && (lastCameraScanRef.current.value !== value || now - lastCameraScanRef.current.at > 1800)) {
+            lastCameraScanRef.current = { value, at: now };
+            handleItemBarcodeTrigger(value);
+          }
+        } catch (error) {
+          console.warn('Camera barcode frame could not be decoded.', error);
+        }
+      }
+      scanFrameRef.current = requestAnimationFrame(scanFrame);
+    };
+    scanFrameRef.current = requestAnimationFrame(scanFrame);
+    return () => {
+      cancelled = true;
+      if (scanFrameRef.current !== null) cancelAnimationFrame(scanFrameRef.current);
+      scanFrameRef.current = null;
+      setCameraDecoderActive(false);
+    };
+  }, [isOpen, videoStream, cameraError, products]);
 
   if (!isOpen) return null;
 
@@ -133,7 +182,7 @@ export default function DashboardBarcodeScanner({
               <h3 className="text-sm font-black tracking-tight flex items-center space-x-1.5">
                 <span>Integrated Barcode Scan Desk</span>
                 <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-widest">
-                  Live Scanner
+                  {cameraDecoderActive ? 'Camera decoding' : 'Scanner ready'}
                 </span>
               </h3>
             </div>
@@ -161,7 +210,7 @@ export default function DashboardBarcodeScanner({
         {/* CONTAINER WORKSPACE */}
         <div className="flex-grow overflow-y-auto p-6 space-y-6">
 
-          {/* RASTERIZED SCAN TARGET LAYER (CAMERA VIEWPORT OR SIMULATED INTERFACE) */}
+          {/* Camera scan target */}
           <div className="relative w-full h-48 bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden flex flex-col items-center justify-center">
             
             {/* SUCCESS SCAN ANIMATION LAYER */}
@@ -175,7 +224,7 @@ export default function DashboardBarcodeScanner({
               </div>
             )}
 
-            {/* Simulated Animated Red Scanning Pulse Bar */}
+            {/* Scan guide */}
             <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 shadow-[0_0_12px_rgba(239,68,68,1)] z-10 animate-pulse" />
 
             {/* Video feed element */}
@@ -189,14 +238,14 @@ export default function DashboardBarcodeScanner({
               />
             )}
 
-            {/* MOCK BACKUP VIEW IN IFRAME */}
+            {/* Honest hardware/browser fallback */}
             {cameraError && (
               <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center p-6 text-center text-slate-400 space-y-3">
                 <Camera className="w-10 h-10 text-slate-600 stroke-[1.25] animate-pulse" />
                 <div className="space-y-1 max-w-xs">
-                  <p className="text-xs font-bold text-slate-350">Simulated Beam Online</p>
+                  <p className="text-xs font-bold text-slate-300">Camera decoder unavailable</p>
                   <p className="text-[10px] text-slate-500 leading-normal">
-                     वेब कैमरा feeds represent direct local retail hardware. Select simulated items below to trigger scan beeps instantly!
+                    {cameraError}
                   </p>
                 </div>
               </div>
@@ -213,7 +262,7 @@ export default function DashboardBarcodeScanner({
           {/* FIELD FOR TYPING CUSTOM BARCODE DIRECTLY */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
             <label className="block text-[10px] uppercase font-mono font-black tracking-wider text-slate-400">
-              Manual Barcode Keyer (simulate scanner gun keystrokes)
+              USB scanner or manual barcode
             </label>
             <form 
               onSubmit={(e) => {
@@ -225,6 +274,7 @@ export default function DashboardBarcodeScanner({
               <div className="relative flex-grow">
                 <input
                   type="text"
+                  autoFocus
                   placeholder="Type barcode or item code..."
                   value={manualCode}
                   onChange={(e) => setManualCode(e.target.value)}
@@ -236,7 +286,7 @@ export default function DashboardBarcodeScanner({
                 disabled={!manualCode}
                 className="bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all cursor-pointer border-none shadow-xs"
               >
-                Trigger Trigger
+                Scan
               </button>
             </form>
           </div>
@@ -245,10 +295,10 @@ export default function DashboardBarcodeScanner({
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <span className="text-[10.5px] font-bold font-mono text-slate-400 uppercase tracking-widest">
-                Mock Barcodes Catalog ({products.length} registered)
+                Registered product shortcuts ({products.length})
               </span>
               <span className="text-[9.5px] italic text-slate-405 font-sans">
-                Taps simulate physical laser scans
+                For verification and touch devices
               </span>
             </div>
 

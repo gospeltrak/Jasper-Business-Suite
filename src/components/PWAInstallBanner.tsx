@@ -149,7 +149,7 @@ export default function PWAInstallBanner(props: PWAInstallBannerProps) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const name = useMemo(() => safeBusinessName(businessName), [businessName]);
   const host = typeof window === 'undefined' ? '' : window.location.host;
-  const isDevelopmentPreview = import.meta.env.DEV &&
+  const isDevelopmentPreview = Boolean((import.meta as any).env?.DEV) &&
     new URLSearchParams(window.location.search).get('pwa-preview') === '1';
 
   usePersonalizedManifest(props);
