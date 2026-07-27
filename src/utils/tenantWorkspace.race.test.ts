@@ -129,4 +129,42 @@ describe('saveTenantWorkspace write queue (out-of-order network completion)', ()
     const finalWorkspace = readCachedWorkspace(tenantId);
     expect(finalWorkspace?.sales.map((s: any) => s.id)).toEqual(['s2']);
   });
+
+  // Stage 1 fix (Dashboard.tsx handleAddPurchase/handleUpdatePurchases/
+  // handleDeletePurchase): these previously also called the legacy
+  // saveData(tenantId, 'purchases_map', ...) path in parallel with this
+  // canonical saveTenantWorkspace save — the exact redundant dual-write
+  // pattern already proven to risk the same class of out-of-order bug for
+  // sales/expenses. This test proves the canonical write-queue path alone
+  // (now the only path purchases go through) correctly resists the same
+  // out-of-order-completion race for the 'purchases' key.
+  it('applies the same out-of-order write protection to purchases', async () => {
+    const tenantId = 'race-test-tenant-purchases';
+
+    const withPurchases = (purchases: any[]): any => ({
+      ...baseWorkspace([]),
+      purchases,
+    });
+
+    // Call A: still has purchase pc1 (about to be deleted) alongside pc2.
+    const callA = saveTenantWorkspace(
+      tenantId,
+      withPurchases([{ id: 'pc1', totalAmount: 500 }, { id: 'pc2', totalAmount: 800 }]),
+    );
+
+    // Call B: fired shortly after, pc1 already deleted (correct, newer data).
+    const callB = saveTenantWorkspace(tenantId, withPurchases([{ id: 'pc2', totalAmount: 800 }]));
+
+    await vi.waitFor(() => {
+      if (!releaseFirstUpsert) throw new Error('first upsert not issued yet');
+    });
+    releaseFirstUpsert!();
+
+    await Promise.all([callA, callB]);
+
+    expect(mockDbState?.purchases.map((p: any) => p.id)).toEqual(['pc2']);
+
+    const finalWorkspace = readCachedWorkspace(tenantId);
+    expect(finalWorkspace?.purchases.map((p: any) => p.id)).toEqual(['pc2']);
+  });
 });

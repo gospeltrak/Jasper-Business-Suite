@@ -1980,13 +1980,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     cloudWorkspaceLoadedRef.current = true;
     setPurchasesMap(prev => {
       const currentTenantPurchases = prev[activeTenant.id] || [];
-      const updated = {
+      return {
         ...prev,
         [activeTenant.id]: [purchase, ...currentTenantPurchases]
       };
-      // Sync purchases to cloud
-      saveData(activeTenant.id, 'purchases_map', updated);
-      return updated;
     });
 
     const newLog: SyncLog = {
@@ -2003,26 +2000,17 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     if (blockOfflineBusinessWrite('purchase update')) return;
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
-    setPurchasesMap(prev => {
-      const updated = { ...prev, [activeTenant.id]: nextPurchases };
-      saveData(activeTenant.id, 'purchases_map', updated);
-      return updated;
-    });
+    setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: nextPurchases }));
   };
 
   const handleDeletePurchase = (purchaseId: string) => {
     if (blockOfflineBusinessWrite('purchase deletion')) return;
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
-    setPurchasesMap(prev => {
-      const currentTenantPurchases = prev[activeTenant.id] || [];
-      const updated = {
-        ...prev,
-        [activeTenant.id]: currentTenantPurchases.filter(purchase => purchase.id !== purchaseId)
-      };
-      saveData(activeTenant.id, 'purchases_map', updated);
-      return updated;
-    });
+    setPurchasesMap(prev => ({
+      ...prev,
+      [activeTenant.id]: (prev[activeTenant.id] || []).filter(purchase => purchase.id !== purchaseId)
+    }));
     setLogs(prev => [{
       id: 'l-' + Math.random().toString(36).substr(2, 9),
       type: 'inventory_audit',
