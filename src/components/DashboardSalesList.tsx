@@ -3418,7 +3418,8 @@ export default function DashboardSalesList({
                   <span className="inline-block tracking-[0.3em] font-mono font-bold text-[13px] bg-slate-50 border border-slate-200 px-3 py-1 text-slate-800 rounded select-none">
                     *20260520TSUITE*
                   </span>
-                  <p className="text-[9px] uppercase">Thank you.</p>
+                  <p className="text-[9px] uppercase">Thank you for shopping with us.</p>
+                  <p className="text-[8px] text-slate-300 normal-case">Powered by Jasper</p>
                 </div>
 
               </div>
