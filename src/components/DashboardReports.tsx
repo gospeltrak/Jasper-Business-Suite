@@ -114,15 +114,7 @@ export default function DashboardReports({
       fileName: `${activeTenant.name.replace(/\s+/g, '-')}-${reportTab}-report-${startDateStr}-${endDateStr}.pdf`,
       format: 'a4',
       includeHidden: true,
-      // Screenshot the actual reports-a4-pdf-template markup (real cards,
-      // colors, tables, signature block) instead of the old text-only
-      // reconstruction engine, which ignored all of this styling and
-      // rebuilt the page from raw text nodes with font-size/bold heuristics
-      // — the direct cause of reports PDFs looking "poorly arranged" versus
-      // what the template actually renders. This also brings reports onto
-      // the same rendering engine already used for delivery notes, so
-      // Preview and Download are the same markup, not two implementations.
-      visual: true,
+      visual: false,
       branding: {
         businessName: systemSettings?.business?.businessName || activeTenant.name,
         logo: systemSettings?.business?.businessLogoLight
