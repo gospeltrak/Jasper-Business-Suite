@@ -56,6 +56,7 @@ import {
 import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } from '../utils/unitFormatter';
 import { downloadPdfFromElement } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
+import { getBusinessDisplayName } from '../utils/businessBranding';
 
 // Revenue helper: exclude delivery fees from product revenue calculations
 const saleProductRevenue = (s: any): number =>
@@ -116,7 +117,7 @@ export default function DashboardReports({
       includeHidden: true,
       visual: false,
       branding: {
-        businessName: systemSettings?.business?.businessName || activeTenant.name,
+        businessName: getBusinessDisplayName(activeTenant, systemSettings, userName),
         logo: systemSettings?.business?.businessLogoLight
           || systemSettings?.business?.businessLogo
           || systemSettings?.business?.logo
@@ -5312,7 +5313,7 @@ export default function DashboardReports({
                 
                 {/* Brand Banner */}
                 <div className="text-center pb-3 border-b border-dashed border-slate-200">
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight font-sans leading-none">{activeTenant.name}</h3>
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight font-sans leading-none">{getBusinessDisplayName(activeTenant, systemSettings, userName)}</h3>
                   <p className="text-[10px] text-slate-500 font-mono mt-1.5 uppercase tracking-wider">
                     {activeTenant.businessType === 'pharmacy' ? 'Clinical Pharmacy Dispensary' : activeTenant.businessType === 'restaurant' ? 'Hospitality & Diner' : 'General Merchant Office'}
                   </p>
@@ -5468,7 +5469,7 @@ export default function DashboardReports({
               Official Branch Accounts Report File
             </span>
             <h1 className="text-xl font-bold font-sans mt-1.5 text-slate-900 uppercase">
-              {activeTenant.name} Audit Ledger
+              {getBusinessDisplayName(activeTenant, systemSettings, userName)} Audit Ledger
             </h1>
             <p className="text-[9.5px] text-slate-505 font-medium font-sans mt-0.5">
               Location: {activeTenant.city} | Branch ID: {activeTenant.id} | Base Currency: {currency}

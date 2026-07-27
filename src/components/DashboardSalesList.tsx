@@ -50,6 +50,7 @@ import {
 } from 'lucide-react';
 import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
+import { getBusinessDisplayName } from '../utils/businessBranding';
 import { normalizeSubscriptionPlanId } from '../utils/subscription';
 import {
   createCrossBranchCommercialDocument,
@@ -334,7 +335,7 @@ export default function DashboardSalesList({
   };
   const getInvoiceFooter = (doc?: SalesDocument) => {
     const snapshot = (doc?.brandingSnapshot || {}) as Record<string, any>;
-    const businessName = snapshot.businessName || snapshot.branchName || systemSettings?.business?.businessName || systemSettings?.company?.companyName || activeTenant.name;
+    const businessName = snapshot.businessName || snapshot.branchName || getBusinessDisplayName(activeTenant, systemSettings);
     const mainMessage = doc?.tagline || systemSettings?.invoiceSettings?.footerNote || 'Thank you for doing business with us.';
     const poweredBy = (systemSettings as any)?.systemWebLink || (systemSettings as any)?.business?.website || 'Powered by Jasper';
     return { mainMessage, businessName, poweredBy };
@@ -342,7 +343,7 @@ export default function DashboardSalesList({
   const getDocumentBranding = (doc: SalesDocument) => {
     const snapshot = (doc.brandingSnapshot || {}) as Record<string, any>;
     return {
-      name: snapshot.businessName || snapshot.branchName || systemSettings?.business?.businessName || activeTenant.name,
+      name: snapshot.businessName || snapshot.branchName || getBusinessDisplayName(activeTenant, systemSettings),
       city: snapshot.city || activeTenant.city || '',
       address: snapshot.address || systemSettings?.business?.businessAddress || '',
       phone: snapshot.phone || systemSettings?.business?.businessPhone || '',
@@ -852,7 +853,7 @@ export default function DashboardSalesList({
         elementId: format === 'a4' ? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template',
         fileName: `${format === 'a4' ? 'sales-invoice' : 'pos-receipt'}-${sale.reference || sale.id}.pdf`,
         phone: phone || sale.customerPhone,
-        message: `Hello ${sale.customerName || 'customer'}, please find attached your ${format === 'a4' ? 'sales invoice' : 'POS receipt'} PDF from ${(systemSettings?.business?.businessName || activeTenant.name)}. Thank you.`,
+        message: `Hello ${sale.customerName || 'customer'}, please find attached your ${format === 'a4' ? 'sales invoice' : 'POS receipt'} PDF from ${getBusinessDisplayName(activeTenant, systemSettings)}. Thank you.`,
         format
       });
       setPdfShareStatus('PDF ready for WhatsApp.');
@@ -881,7 +882,7 @@ export default function DashboardSalesList({
 
   // Deterministic, recognizable filename using the real business and sale reference.
   const buildInvoiceFileName = (sale: Sale) => {
-    const bizName = (systemSettings?.business?.businessName || activeTenant.name || 'Invoice').trim();
+    const bizName = getBusinessDisplayName(activeTenant, systemSettings).trim();
     const safeBusiness = bizName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 36) || 'Business';
     const safeReference = String(sale.reference || sale.id || 'sale')
       .replace(/[^a-zA-Z0-9_-]+/g, '-')
@@ -946,7 +947,7 @@ export default function DashboardSalesList({
       const { default: jsPDF } = await import('jspdf');
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-      const biz = systemSettings?.business?.businessName || activeTenant.name || 'Business';
+      const biz = getBusinessDisplayName(activeTenant, systemSettings);
       const cur = activeTenant.currency || 'TZS';
       const fmt = (n: number) => `${cur} ${Math.round(n).toLocaleString()}`;
       const pageW = 210;
@@ -3218,7 +3219,7 @@ export default function DashboardSalesList({
                         <div className="p-2 bg-indigo-600 text-white rounded-xl">
                           <Building className="w-6 h-6" />
                         </div>
-                        <h2 className="text-2xl font-black tracking-tight text-slate-800">{systemSettings?.business?.businessName || activeTenant.name}</h2>
+                        <h2 className="text-2xl font-black tracking-tight text-slate-800">{getBusinessDisplayName(activeTenant, systemSettings)}</h2>
                       </div>
                       <p className="text-xs text-slate-500 max-w-sm uppercase leading-relaxed font-semibold">
                         {activeTenant.businessType === 'pharmacy' ? 'Clinical Pharmacy Dispensary' : 'Retail Branch'} — {activeTenant.city}, West Africa Operations • Smart POS Ledger Verified
@@ -3413,10 +3414,10 @@ export default function DashboardSalesList({
                         />
                       ) : (
                         <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl font-black mb-3">
-                          {(systemSettings?.business?.businessName || activeTenant.name).charAt(0)}
+                          {getBusinessDisplayName(activeTenant, systemSettings).charAt(0)}
                         </div>
                       )}
-                      <h2 className="text-xl font-black text-slate-900">{systemSettings?.business?.businessName || activeTenant.name}</h2>
+                      <h2 className="text-xl font-black text-slate-900">{getBusinessDisplayName(activeTenant, systemSettings)}</h2>
                       {activeTenant.city && <p className="text-[11px] text-slate-400 uppercase font-semibold mt-1">{activeTenant.city}</p>}
                       {systemSettings?.business?.businessAddress && <p className="text-[11px] text-slate-500 mt-1">{systemSettings.business.businessAddress}</p>}
                       {systemSettings?.business?.businessPhone && <p className="text-[11px] text-slate-500">Tel: {systemSettings.business.businessPhone}</p>}
@@ -3443,7 +3444,7 @@ export default function DashboardSalesList({
                     </div>
                     <div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">From</p>
-                      <p className="font-black text-slate-800 text-sm">{systemSettings?.business?.businessName || activeTenant.name}</p>
+                      <p className="font-black text-slate-800 text-sm">{getBusinessDisplayName(activeTenant, systemSettings)}</p>
                       <p className="text-xs text-slate-500 mt-1">{selectedSale.cashierName || 'Admin'}</p>
                     </div>
                   </div>
@@ -3545,7 +3546,7 @@ export default function DashboardSalesList({
                       className="max-h-12 max-w-[140px] object-contain rounded-lg mb-2 select-none"
                     />
                   )}
-                  <h4 className="text-sm font-black tracking-tight text-slate-800 text-uppercase">{systemSettings?.business?.businessName || activeTenant.name}</h4>
+                  <h4 className="text-sm font-black tracking-tight text-slate-800 text-uppercase">{getBusinessDisplayName(activeTenant, systemSettings)}</h4>
                   <p className="text-[10px] text-slate-500 uppercase">{activeTenant.city}</p>
                   <p className="text-[10px] text-slate-400 leading-normal mt-1.5 font-bold text-slate-500">TAX REGISTER INVOICE DEBT VOUCHER</p>
                 </div>
@@ -5213,7 +5214,7 @@ export default function DashboardSalesList({
                       </div>
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">From</p>
-                        <p className="font-black text-slate-800 text-sm">{systemSettings?.business?.businessName || activeTenant.name}</p>
+                        <p className="font-black text-slate-800 text-sm">{getBusinessDisplayName(activeTenant, systemSettings)}</p>
                         <p className="text-xs text-slate-500 mt-0.5">{preparerRole}</p>
                       </div>
                     </div>

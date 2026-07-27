@@ -27,6 +27,7 @@ import {
   Eye
 } from 'lucide-react';
 import { printPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
+import { getBusinessDisplayName } from '../utils/businessBranding';
 import { formatSaleItemQuantity } from '../utils/unitFormatter';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
@@ -255,7 +256,7 @@ export default function DashboardDeliveries({
   // Dynamically computed supplier details
   const computedLogo = ((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo || '';
   const computedLogoName = activeTenant?.name || 'Doe Company';
-  const computedCompanyTitle = systemSettings?.business?.businessName || activeTenant?.name || 'Doe Company';
+  const computedCompanyTitle = getBusinessDisplayName(activeTenant, systemSettings);
   const computedCompanyAddress = systemSettings?.company?.address || '123 Main Street, City';
   const computedCompanyPhone = systemSettings?.company?.phone || '+255700000000';
   const computedCompanyEmail = systemSettings?.business?.businessEmail || 'hello@example.com';
@@ -585,7 +586,7 @@ Vehicle Plate Number: ${plateNumber}
         elementId: 'delivery-note-print-area',
         fileName: `delivery-note-${dnNo}.pdf`,
         phone: del.customerPhone,
-        message: `Hello ${customerName}, please find attached your delivery note PDF from ${activeTenant.name}. Thank you.`,
+        message: `Hello ${customerName}, please find attached your delivery note PDF from ${getBusinessDisplayName(activeTenant, systemSettings)}. Thank you.`,
         format: 'a4'
       });
       setDeliveryPdfStatus('PDF ready for WhatsApp.');

@@ -8,6 +8,7 @@ import {
 } from '../utils/inventoryCosting';
 import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitFormatter';
 import { getPaymentModeName } from '../utils/paymentAccounts';
+import { getBusinessDisplayName } from '../utils/businessBranding';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -306,7 +307,7 @@ export default function DashboardPOS({
     const rawTerms = systemSettings?.invoiceSettings?.termsAndConditions;
     const terms = Array.isArray(rawTerms) ? rawTerms : rawTerms ? String(rawTerms).split('\n').filter(Boolean) : [];
     return {
-        businessName: systemSettings?.business?.businessName || activeTenant.name,
+        businessName: getBusinessDisplayName(activeTenant, systemSettings, userName),
         businessAddress: systemSettings?.business?.businessAddress || activeTenant.city || undefined,
         businessPhone: systemSettings?.business?.businessPhone || undefined,
         businessEmail: systemSettings?.business?.businessEmail || undefined,
@@ -358,7 +359,7 @@ export default function DashboardPOS({
       const result = await sharePosReceiptPdf(
         receiptData,
         recipientWhatsApp,
-        `Hello ${receiptResult.customerName || 'valued customer'}, please find your receipt attached from ${systemSettings?.business?.businessName || activeTenant.name}. Thank you for your business!`
+        `Hello ${receiptResult.customerName || 'valued customer'}, please find your receipt attached from ${getBusinessDisplayName(activeTenant, systemSettings, userName)}. Thank you for your business!`
       );
 
       if (result.method === 'native-share') {
@@ -2122,7 +2123,7 @@ export default function DashboardPOS({
                       />
                     )}
                     <h5 className="font-bold text-sm uppercase">
-                      {systemSettings?.business?.businessName || activeTenant.name}
+                      {getBusinessDisplayName(activeTenant, systemSettings, userName)}
                     </h5>
                     <p className="text-[10.5px] text-slate-500">
                       {systemSettings?.business?.businessAddress || `${activeTenant.city}, ${activeTenant.country}`}
