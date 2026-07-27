@@ -359,9 +359,9 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
 
   dashedLine(y);
   y += 14;
-  center(data.footer || 'Thank you for your business!', y, { size: 7, bold: true });
+  center('Thank you for shopping with us.', y, { size: 7, bold: true });
   y += 12;
-  center('Powered by Ndiva Suite', y, { size: 6, color: muted });
+  center(data.footer || 'Powered by Jasper', y, { size: 6, color: muted });
   y += 10;
 
   return y;

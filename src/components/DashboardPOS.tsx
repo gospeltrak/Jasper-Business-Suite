@@ -38,7 +38,7 @@ import {
 } from 'lucide-react';
 import DashboardBarcodeScanner from './DashboardBarcodeScanner';
 import CachedImage from './CachedImage';
-import { createReceiptPdfFromData, printPdfFile, sharePosReceiptPdf, ReceiptData } from '../utils/pdfShare';
+import { createPosReceiptPdfFromData, printPdfFile, sharePosReceiptPdf, ReceiptData } from '../utils/pdfShare';
 
 // Web Audio API helper for offline-friendly beep sound
 // Shared AudioContext singleton — created once, reused for all beeps (eliminates init lag)
@@ -383,7 +383,10 @@ export default function DashboardPOS({
     if (!receiptData) return;
     try {
       setReceiptPdfStatus('Generating printable receipt PDF...');
-      const pdfFile = createReceiptPdfFromData(receiptData);
+      // Use the same narrow till-receipt generator as WhatsApp share (and
+      // that matches the on-screen Preview) instead of the full-A4 generator
+      // that was here before — Print/Download must match what Preview shows.
+      const pdfFile = createPosReceiptPdfFromData(receiptData);
       printPdfFile(pdfFile);
       setReceiptPdfStatus('PDF opened for printing.');
     } catch (err: any) {
