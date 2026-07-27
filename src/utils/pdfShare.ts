@@ -772,10 +772,34 @@ export async function createPdfFromElement({
   const contentWidth = pageWidth - margin * 2;
   let y = pageTop;
 
+  // Detect "label ... value" rows (the near-universal
+  // `<div class="flex justify-between"><span>Label</span><span>Value</span></div>`
+  // pattern used throughout the app for summary/total lines). Without this,
+  // each span is picked up independently below and rendered as its own
+  // stacked line, silently losing the label/value alignment — the single
+  // biggest cause of reports looking "poorly arranged" compared to Preview.
+  const rowLayoutElements = new Set<Element>();
+  const consumedByRow = new Set<Element>();
+  Array.from(source.querySelectorAll<HTMLElement>('div,li')).forEach((el) => {
+    if (!(includeHidden || isElementVisible(el))) return;
+    if (el.closest('button,[role="button"],input,textarea,select,.print\\:hidden')) return;
+    if (el.querySelector('table')) return;
+    if (Array.from(rowLayoutElements).some((row) => row !== el && row.contains(el))) return;
+    const style = window.getComputedStyle(el);
+    if ((style.display === 'flex' || style.display === 'inline-flex') && style.justifyContent === 'space-between') {
+      const children = Array.from(el.children).filter((child) => includeHidden || isElementVisible(child));
+      if (children.length < 2) return;
+      rowLayoutElements.add(el);
+      el.querySelectorAll('*').forEach((descendant) => consumedByRow.add(descendant));
+    }
+  });
+
   const nodes = Array.from(source.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,p,span,div,section,li,table,img'))
     .filter(el => includeHidden || isElementVisible(el))
     .filter((el) => {
       if (el.closest('button,[role="button"],input,textarea,select,.print\\:hidden')) return false;
+      if (rowLayoutElements.has(el)) return true;
+      if (consumedByRow.has(el)) return false;
       if (el.tagName === 'TABLE') return true;
       if (el.tagName === 'IMG') return true;
       if (el.querySelector('table')) return false;
@@ -803,6 +827,25 @@ export async function createPdfFromElement({
         } catch {
           // Keep the PDF text-valid even if a remote logo cannot be embedded.
         }
+      }
+      return;
+    }
+
+    if (rowLayoutElements.has(el)) {
+      const children = Array.from(el.children).filter((child) => includeHidden || isElementVisible(child));
+      const left = cleanText(children[0]?.textContent || '');
+      const right = cleanText(children[children.length - 1]?.textContent || '');
+      if ((left || right) && `${left}|${right}` !== '' && !seenText.has(`row:${left}|${right}`)) {
+        seenText.add(`row:${left}|${right}`);
+        const bold = /total|balance|grand|due|paid/i.test(left);
+        const fontSize = format === 'receipt' ? 7.2 : 9.2;
+        y = ensurePageSpace(pdf, y, fontSize + 6, pageTop, pageBottom);
+        pdf.setFont('helvetica', bold ? 'bold' : 'normal');
+        pdf.setFontSize(fontSize);
+        pdf.setTextColor(bold ? '#0f172a' : '#334155');
+        if (left) pdf.text(left, margin, y);
+        if (right) pdf.text(right, margin + contentWidth, y, { align: 'right' });
+        y += fontSize + 6;
       }
       return;
     }
