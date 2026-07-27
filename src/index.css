@@ -1740,3 +1740,113 @@ button:active:not(:disabled),
 .dark ::-webkit-scrollbar-thumb {
   background: #4b5563;
 }
+
+
+/* POS product grid — 4 columns on desktop */
+@media (min-width: 1024px) {
+  .pos-product-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+/* ── Mobile Settings — Native App Feel ── */
+@media (max-width: 1279px) {
+
+  /* Each settings section card */
+  .settings-content-panel .bg-white.rounded-2xl,
+  .settings-content-panel .bg-white.rounded-3xl {
+    border-radius: 20px;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+
+  /* Section header inside card */
+  .settings-content-panel .border-b.border-slate-100.pb-4 {
+    padding: 16px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #f8fafc;
+  }
+
+  .settings-content-panel .border-b.border-slate-100.pb-4 h3 {
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    color: #0f172a;
+  }
+
+  .settings-content-panel .border-b.border-slate-100.pb-4 p {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+
+  /* Form grid — single column on mobile */
+  .settings-content-panel .grid.grid-cols-1.md\:grid-cols-2 {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  /* Each form field row */
+  .settings-content-panel .grid.grid-cols-1.md\:grid-cols-2 > div.space-y-1\.5 {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    margin: 0;
+    gap: 0;
+  }
+
+  /* Labels */
+  .settings-content-panel label {
+    font-size: 10px;
+    font-weight: 800;
+    color: #64748b;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  /* Inputs */
+  .settings-content-panel input[type="text"],
+  .settings-content-panel input[type="email"],
+  .settings-content-panel input[type="tel"],
+  .settings-content-panel input[type="number"],
+  .settings-content-panel input[type="password"],
+  .settings-content-panel select,
+  .settings-content-panel textarea {
+    width: 100%;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+    background: #f8fafc;
+    transition: border-color 0.15s, background 0.15s;
+    -webkit-appearance: none;
+  }
+
+  .settings-content-panel input:focus,
+  .settings-content-panel select:focus,
+  .settings-content-panel textarea:focus {
+    border-color: #10b981;
+    background: #ffffff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.1);
+  }
+
+  /* Save buttons */
+  .settings-content-panel button[type="submit"],
+  .settings-content-panel button.save-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    margin-top: 4px;
+    cursor: pointer;
+  }
+}

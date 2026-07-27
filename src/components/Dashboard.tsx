@@ -270,7 +270,12 @@ const normalizeSystemSettings = (
     business: {
       ...defaults.business,
       ...business,
-      paymentModes: normalizeNamedList(business.paymentModes, defaults.business.paymentModes),
+      paymentModes: normalizeNamedList(
+        business.paymentModes,
+        (defaults.business.paymentModes || []).map((mode: any) => (
+          typeof mode === 'string' ? { name: mode } : mode
+        )),
+      ),
       registeredStores: normalizeNamedList(business.registeredStores, defaults.business.registeredStores),
     },
     productStore: {

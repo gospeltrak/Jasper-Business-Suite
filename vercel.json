@@ -10,5 +10,6 @@
       "source": "/:path*",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "ignoreCommand": "bash scripts/vercel-ignore-check.sh"
 }

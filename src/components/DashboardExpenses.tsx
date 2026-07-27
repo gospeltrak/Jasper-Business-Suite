@@ -41,7 +41,7 @@ import { Tenant, Expense, Product, Sale, SystemSettings } from '../types';
 import { safeSetJsonItem } from '../utils/dataSafety';
 import { getMaskedAccountReference } from '../utils/paymentAccounts';
 
-const DEFAULT_EXPENSE_CATEGORIES = ['Utilities & Power', 'Wages & Salary', 'Logistics & Transport', 'Packaging Materials', 'Rent & Logistics', 'Marketing & Ads', 'Miscellaneous'];
+
 
 interface DashboardExpensesProps {
   activeTenant: Tenant;
@@ -91,7 +91,7 @@ export default function DashboardExpenses({
         console.warn("Failed loading custom expense categories:", err);
       }
     }
-    return DEFAULT_EXPENSE_CATEGORIES;
+    return [];
   });
 
   // State for adding a new category
@@ -139,10 +139,7 @@ export default function DashboardExpenses({
 
   // Handle setting default category when categories load/change
   useEffect(() => {
-    if (categories.length === 0) {
-      saveCategories(DEFAULT_EXPENSE_CATEGORIES);
-      setFormCategory(DEFAULT_EXPENSE_CATEGORIES[0]);
-    } else if (!formCategory) {
+    if (categories.length > 0 && !formCategory) {
       setFormCategory(categories[0]);
     }
   }, [categories, formCategory]);

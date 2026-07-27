@@ -41,6 +41,7 @@ export interface TenantWorkspace {
 
 const runtimeWorkspaces = new Map<string, TenantWorkspace>();
 const runtimeProductsUpdatedAt = new Map<string, string>();
+const workspaceSaveQueue = new Map<string, Promise<boolean>>();
 
 export const readCachedWorkspace = (tenantId: string): TenantWorkspace | null => {
   return runtimeWorkspaces.get(tenantId) || null;
@@ -130,10 +131,6 @@ const protectedArrayKeys: WorkspaceArrayKey[] = [
 ];
 
 const appendMergeWorkspaceKeys: WorkspaceArrayKey[] = [
-  'expenses',
-  'deliveries',
-  'pendingDeliveryNotes',
-  'purchases',
   'branches',
   'branchStocks',
   'branchStaffAssignments',
@@ -382,7 +379,7 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 
 // ─── Save to DB ────────────────────────────────────────────────────────────
 
-export async function saveTenantWorkspace(tenantId: string, workspace: TenantWorkspace): Promise<boolean> {
+async function saveTenantWorkspaceNow(tenantId: string, workspace: TenantWorkspace): Promise<boolean> {
   if (!tenantId) return false;
 
   if (!canWriteBusinessDataOnline()) {
@@ -461,7 +458,7 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
       ...workspaceToSave,
       sales: mergeSalesForSync(
         workspaceToSave.sales,
-        mergeBase?.sales,
+        [],
         mergedSaleTombstones,
       ),
       saleTombstones: mergedSaleTombstones,
@@ -513,6 +510,19 @@ export async function saveTenantWorkspace(tenantId: string, workspace: TenantWor
     console.warn('[workspace] save exception:', (e as any)?.message || e);
     return false;
   }
+}
+
+export function saveTenantWorkspace(tenantId: string, workspace: TenantWorkspace): Promise<boolean> {
+  if (!tenantId) return Promise.resolve(false);
+  const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
+  const next = previous
+    .catch(() => false)
+    .then(() => saveTenantWorkspaceNow(tenantId, workspace));
+  workspaceSaveQueue.set(tenantId, next);
+  void next.finally(() => {
+    if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);
+  });
+  return next;
 }
 
 // ─── Flush pending (called when going online) ──────────────────────────────

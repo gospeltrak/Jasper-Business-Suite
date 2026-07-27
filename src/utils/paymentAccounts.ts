@@ -1,6 +1,9 @@
-import type { BusinessSettings, PaymentChannel } from '../types';
+import type { BusinessSettings, PaymentChannel, PaymentModeConfig } from '../types';
 
 const normalize = (value: unknown): string => String(value || '').trim().toLowerCase();
+
+export const getPaymentModeName = (mode: string | PaymentModeConfig): string =>
+  typeof mode === 'string' ? mode.trim() : String(mode?.name || '').trim();
 
 const classifyPaymentMethod = (method: string): PaymentChannel['category'] => {
   const value = normalize(method);
@@ -38,7 +41,7 @@ export const getTreasuryPaymentMethods = (
     ...(business?.paymentModes || []),
     ...(business?.deliveryPaymentModes || []),
   ]
-    .map(method => method.trim())
+    .map(getPaymentModeName)
     .filter(Boolean)
     .map(method => [normalize(method), method]),
 ).values()];

@@ -566,7 +566,13 @@ export default function DashboardStaff({
   };
 
   const generateTemporaryPassword = (staff: StaffSettings) => {
-    const generated = `JSP-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    // Simple, memorable: FirstName + 4-digit number
+    // e.g. "John" → "John1847", "Mary Wanjiku" → "Mary4293"
+    const firstName = (staff.name || 'Staff').split(' ')[0];
+    const clean = firstName.charAt(0).toUpperCase() + firstName.slice(1, 8).toLowerCase();
+    const num = String(Math.floor(1000 + Math.random() * 9000)); // 4-digit: 1000–9999
+    const generated = `${clean}${num}`;
+
     updateStaff(staff.id, current => ({
       ...current,
       password: generated,

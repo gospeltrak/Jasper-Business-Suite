@@ -7,6 +7,7 @@ import {
   getProductCostingMethod,
 } from '../utils/inventoryCosting';
 import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitFormatter';
+import { getPaymentModeName } from '../utils/paymentAccounts';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -1909,7 +1910,7 @@ export default function DashboardPOS({
                       const baseModes = systemSettings?.business?.paymentModes && systemSettings.business.paymentModes.length > 0
                         ? systemSettings.business.paymentModes
                         : ['Cash', 'Mobile Money', 'Bank'];
-                      const enabledModes = [...baseModes, 'Multi-Channel'];
+                      const enabledModes = [...baseModes.map(getPaymentModeName), 'Multi-Channel'].filter(Boolean);
                       
                       return enabledModes.map(mode => {
                         const isSelected = paymentMethod === mode;

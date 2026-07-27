@@ -1469,7 +1469,7 @@ export default function DashboardForecasting({
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   placeholder="Ask Lucy anything about your business..."
-                  className="flex-1 bg-transparent text-slate-800 dark:text-slate-100 px-2 py-2 text-xs focus:outline-none placeholder-slate-400 dark:placeholder-slate-500 font-sans border-none outline-none"
+                  className="flex-1 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 px-2 py-2 text-xs focus:outline-none placeholder-slate-400 dark:placeholder-slate-500 font-sans border-none outline-none rounded"
                 />
                 {/* Mic button — speech to text */}
                 {recognitionSupported && (

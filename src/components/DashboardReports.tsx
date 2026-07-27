@@ -74,6 +74,7 @@ interface DashboardReportsProps {
   purchases?: any[];
   deliveries?: any[];
   systemSettings?: any;
+  headerSearchQuery?: string;
 }
 
 const REPORT_DOCUMENT_TITLES: Record<string, string> = {
@@ -104,6 +105,7 @@ export default function DashboardReports({
   purchases = [],
   deliveries = [],
   systemSettings,
+  headerSearchQuery = '',
 }: DashboardReportsProps) {
   const currency = activeTenant.currency;
   const printActiveReportPdf = async () => {
@@ -208,6 +210,13 @@ export default function DashboardReports({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [velocitySortOrder, setVelocitySortOrder] = useState<'desc' | 'asc'>('desc');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Sync from header search — scoped to active report tab
+  useEffect(() => {
+    if (headerSearchQuery !== undefined) {
+      setSearchTerm(headerSearchQuery);
+    }
+  }, [headerSearchQuery, reportTab]);
   const [mobileSelectorOpen, setMobileSelectorOpen] = useState(false);
 
   // Additional Sales Report local filters
@@ -491,17 +500,18 @@ export default function DashboardReports({
 
   // Filtered master datasets
   const filteredSales = sales.filter(s => isWithinDateRange(s.timestamp));
-  const filteredExpenses = expenses.filter(e => isWithinDateRange(e.timestamp));
+  const filteredExpenses = expenses.filter(e => isWithinDateRange((e as any).date || e.timestamp || ''));
 
   // Expense Categories Presets
-  const EXPENSE_CATEGORIES = [
-    'Utilities & Power',
-    'Wages & Salary',
-    'Logistics',
-    'Packaging Materials',
-    'Rent & Logistics',
-    'Miscellaneous'
-  ];
+  // Use categories from localStorage (user-defined) or empty
+  const savedCats = (() => {
+    try {
+      const saved = localStorage.getItem(`jasper_expense_cats_${activeTenant.id}`);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  })();
+  const EXPENSE_CATEGORIES: string[] = savedCats;
 
   const handleImageChange = (file: File) => {
     if (file && file.type.startsWith('image/')) {
@@ -584,10 +594,17 @@ export default function DashboardReports({
   const netProfit = grossProfit - totalExpensesCharged;
 
   // Compute expenses breakdown by categories
-  const expensesBreakdown = EXPENSE_CATEGORIES.map(cat => {
-    const total = filteredExpenses.filter(e => e.category === cat).reduce((sum, e) => sum + e.amount, 0);
-    return { name: cat, value: total };
-  });
+  // Build expenses breakdown from actual expense categories (not predefined list)
+  const expensesBreakdown = (() => {
+    const byCategory: Record<string, number> = {};
+    filteredExpenses.forEach(e => {
+      const cat = (e as any).category || 'Uncategorized';
+      byCategory[cat] = (byCategory[cat] || 0) + (e.amount || 0);
+    });
+    return Object.entries(byCategory)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  })();
 
   // Chronological computation for financial chart comparison
   const pAndLGraphData = useMemo(() => {
@@ -1274,39 +1291,33 @@ export default function DashboardReports({
       </div>
 
       {/* ============================================================= */}
-      {/* ── MOBILE HEADER — premium native hero ── */}
+      {/* ── MOBILE HEADER — clean, no dark background ── */}
       <div className="xl:hidden space-y-3">
-        {/* Dark hero banner */}
-        <div className="rounded-2xl overflow-hidden relative" style={{background:'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)',boxShadow:'0 4px 20px rgba(15,23,42,0.2)'}}>
-          <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full opacity-5" style={{background:'white'}}/>
-          <div className="px-4 pt-4 pb-4 relative">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Reports & Analytics</p>
-                {(()=>{ const m=getTabMeta(reportTab); const Icon=m.icon; return(
-                  <h1 className="text-white font-black text-[20px] leading-tight mt-0.5">{m.label}</h1>
-                );})()}
-              </div>
-              <div className="flex gap-1.5">
-                <button onClick={printActiveReportPdf} type="button"
-                  className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:'rgba(255,255,255,0.1)'}}>
-                  <Printer className="w-4 h-4 text-white"/>
-                </button>
-              </div>
-            </div>
-            {/* Date quick chips */}
-            <div className="grid grid-cols-4 gap-1.5">
-              {[
-                {l:'Today',   f:()=>{const t=getTodayRange();setStartDateStr(t);setEndDateStr(t);}},
-                {l:'7 Days',  f:()=>{setStartDateStr(getLast7DaysRange());setEndDateStr(getTodayRange());}},
-                {l:'30 Days', f:()=>{const d=new Date();d.setDate(d.getDate()-29);setStartDateStr(d.toISOString().split('T')[0]);setEndDateStr(getTodayRange());}},
-                {l:'All',     f:()=>{setStartDateStr('2020-01-01');setEndDateStr(getTodayRange());}},
-              ].map(p=>(
-                <button key={p.l} type="button" onClick={p.f}
-                  className="px-2 py-1.5 rounded-xl text-[10px] font-bold text-center" style={{background:'rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.75)'}}>{p.l}</button>
-              ))}
-            </div>
+        {/* Clean header — no dark hero, no background color */}
+        <div className="flex items-center justify-between px-1">
+          <div>
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Reports & Analytics</p>
+            {(()=>{ const m=getTabMeta(reportTab); const Icon=m.icon; return(
+              <h1 className="text-slate-900 font-black text-[20px] leading-tight mt-0.5">{m.label}</h1>
+            );})()}
           </div>
+          <button onClick={printActiveReportPdf} type="button"
+            className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+            <Printer className="w-4 h-4 text-slate-600"/>
+          </button>
+        </div>
+
+        {/* Date quick chips */}
+        <div className="grid grid-cols-4 gap-1.5">
+          {[
+            {l:'Today',   f:()=>{const t=getTodayRange();setStartDateStr(t);setEndDateStr(t);}},
+            {l:'7 Days',  f:()=>{setStartDateStr(getLast7DaysRange());setEndDateStr(getTodayRange());}},
+            {l:'30 Days', f:()=>{const d=new Date();d.setDate(d.getDate()-29);setStartDateStr(d.toISOString().split('T')[0]);setEndDateStr(getTodayRange());}},
+            {l:'All',     f:()=>{setStartDateStr('2020-01-01');setEndDateStr(getTodayRange());}},
+          ].map(p=>(
+            <button key={p.l} type="button" onClick={p.f}
+              className="px-2 py-1.5 rounded-xl text-[10px] font-bold text-center bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 transition-colors">{p.l}</button>
+          ))}
         </div>
 
         {/* KPI mini cards 2×2 — clean elegant cards */}
@@ -1913,7 +1924,7 @@ export default function DashboardReports({
               </div>
 
               {/* Filtering summary stats metrics grid */}
-              <div className="mobile-tablet-kpi-grid gap-3 lg:gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(5, minmax(0, 1fr))' }}>
+              <div className="grid grid-cols-2 xl:grid-cols-5 gap-3 lg:gap-4">
                 {/* Total Sales Orders */}
                 <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.05)] flex flex-col justify-between min-h-[108px] text-left min-w-0">
                   <div className="flex items-start space-x-2">
@@ -3937,7 +3948,7 @@ export default function DashboardReports({
             {/* List of Reports Cards with Icons */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                { id: 'p&l', label: 'Profit & Loss', icon: BarChart3, desc: 'Gross & net margin statement', colorClass: 'bg-emerald-50 text-emerald-605 border border-emerald-100', reqPerm: 'reportsProfitCogs' },
+                { id: 'p&l', label: 'Profit & Loss', icon: BarChart3, desc: 'Gross & net margin statement', colorClass: 'bg-emerald-50 text-emerald-700 border border-emerald-100', reqPerm: 'reportsSalesExpenses' },
                 { id: 'sales-report', label: 'Sales Report', icon: TrendingUp, desc: 'Transactions & VAT audit', colorClass: 'bg-indigo-50 text-indigo-605 border border-indigo-100', reqPerm: 'reportsSalesExpenses' },
                 { id: 'dual-channel', label: 'Dual Channel Report', icon: ShieldAlert, desc: 'Retail vs wholesale pricing', colorClass: 'bg-teal-50 text-teal-605 border border-teal-100', reqPerm: 'reportsSalesExpenses' },
                 { id: 'inventory', label: 'Inventory Report', icon: Package, desc: 'Stock & asset valuations', colorClass: 'bg-amber-50 text-amber-605 border border-amber-100', reqPerm: 'reportsSalesExpenses' },
@@ -4145,6 +4156,34 @@ export default function DashboardReports({
                       </div>
                     ))}
                   </div>
+                  {/* Operations Charge Metrics */}
+                  {expensesBreakdown.length > 0 && (
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+                      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <span className="text-[10px] font-black tracking-widest uppercase text-slate-400">Operations Charge Metrics</span>
+                        <span className="text-sm font-black text-rose-600 font-mono">{currency}{Math.round(totalExpensesCharged).toLocaleString()}</span>
+                      </div>
+                      <div className="divide-y divide-slate-50 dark:divide-slate-800 px-4">
+                        {expensesBreakdown.map(cat => {
+                          const pct = totalExpensesCharged > 0 ? (cat.value / totalExpensesCharged) * 100 : 0;
+                          return (
+                            <div key={cat.name} className="py-3 space-y-1.5">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">{cat.name}</span>
+                                <span className="text-[11px] font-black text-rose-600 font-mono">
+                                  {currency}{Math.round(cat.value).toLocaleString()}
+                                  <span className="text-slate-400 font-normal ml-1">({Math.round(pct)}%)</span>
+                                </span>
+                              </div>
+                              <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-rose-500 transition-all" style={{ width: `${pct}%` }}/>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -5387,8 +5426,8 @@ export default function DashboardReports({
 
                 {/* Footer Notes */}
                 <div className="text-center text-[9px] text-slate-400 border-t border-dashed border-slate-200 pt-3 leading-relaxed">
-                  <p>Thank you for shopping with us!</p>
-                  <p className="font-mono font-bold">Powered by: jasper.africa</p>
+                  <p>Thank you for shopping with</p>
+                  <p className="font-mono font-bold">Powered by Jasper</p>
                 </div>
 
               </div>
@@ -5452,57 +5491,73 @@ export default function DashboardReports({
           {/* TAB: P&L SUMMARY */}
           {reportTab === 'p&l' && (
             <div className="space-y-4">
-              <table className="w-full text-left font-sans">
-                <thead>
-                  <tr className="bg-slate-100 font-bold border-b border-slate-300">
-                    <th className="p-2">Financial Statement Line Item</th>
-                    <th className="p-2 text-right">Value ({currency})</th>
-                    <th className="p-2 text-right">Proportion</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  <tr>
-                    <td className="p-2 font-medium">total sales</td>
-                    <td className="p-2 text-right font-mono font-bold">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</td>
-                    <td className="p-2 text-right">100.0%</td>
-                  </tr>
-                  <tr>
-                    <td className="p-2 font-medium">cost of goods sold</td>
-                    <td className="p-2 text-right font-mono text-rose-700">({currency}{Math.round(totalCOGS).toLocaleString()})</td>
-                    <td className="p-2 text-right text-rose-700">-{totalSalesRevenue > 0 ? ((totalCOGS / totalSalesRevenue) * 100).toFixed(1) : '0.0'}%</td>
-                  </tr>
-                  <tr className="bg-emerald-50">
-                    <td className="p-2 font-bold text-emerald-950">Gross profit</td>
-                    <td className="p-2 text-right font-mono font-black text-emerald-950">{currency}{Math.round(grossProfit).toLocaleString()}</td>
-                    <td className="p-2 text-right font-bold text-emerald-950">{totalSalesRevenue > 0 ? ((grossProfit / totalSalesRevenue) * 100).toFixed(1) : '0.0'}%</td>
-                  </tr>
-                  <tr>
-                    <td className="p-2 font-medium">total expenses</td>
-                    <td className="p-2 text-right font-mono text-rose-705">({currency}{Math.round(totalExpensesCharged).toLocaleString()})</td>
-                    <td className="p-2 text-right text-rose-705">-{totalSalesRevenue > 0 ? ((totalExpensesCharged / totalSalesRevenue) * 100).toFixed(1) : '0.0'}%</td>
-                  </tr>
-                  <tr className={`font-bold ${netProfit >= 0 ? 'bg-emerald-100 text-emerald-950' : 'bg-rose-50 text-rose-950'}`}>
-                    <td className="p-2 text-[11px]">net profit</td>
-                    <td className="p-2 text-right font-mono font-black text-[11px]">{netProfit < 0 ? '-' : ''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}</td>
-                    <td className="p-2 text-right text-[11px]">{totalSalesRevenue > 0 ? ((netProfit / totalSalesRevenue) * 100).toFixed(1) : '0.0'}%</td>
-                  </tr>
-                </tbody>
-              </table>
 
-              <div className="mt-4">
-                <h3 className="text-xs font-bold uppercase tracking-wide mb-2">Expenses Allocation Index</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {expensesBreakdown.map(cat => {
-                    const pct = totalExpensesCharged > 0 ? (cat.value / totalExpensesCharged) * 100 : 0;
-                    return (
-                      <div key={cat.name} className="flex justify-between border-b pb-1">
-                        <span className="text-slate-600">{cat.name}</span>
-                        <span className="font-mono font-bold">{currency}{cat.value.toLocaleString()} ({Math.round(pct)}%)</span>
-                      </div>
-                    );
-                  })}
+              {/* P&L Statement Cards */}
+              <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <p className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Profit & Loss</p>
+                  <p className="text-[9px] text-slate-400 mt-0.5">{startDateStr} → {endDateStr}</p>
+                </div>
+                <div className="divide-y divide-slate-50">
+                  {[
+                    { label: 'Total Sales', value: totalSalesRevenue, color: 'text-emerald-600', bg: '' },
+                    { label: 'Cost of Goods Sold', value: -totalCOGS, color: 'text-rose-600', bg: '' },
+                    { label: 'Gross Profit', value: grossProfit, color: grossProfit >= 0 ? 'text-emerald-700' : 'text-rose-700', bg: grossProfit >= 0 ? 'bg-emerald-50' : 'bg-rose-50', bold: true },
+                    { label: 'Total Expenses', value: -totalExpensesCharged, color: 'text-rose-600', bg: '' },
+                  ].map((row, i) => (
+                    <div key={i} className={`flex items-center justify-between px-4 py-3 ${row.bg}`}>
+                      <span className={`text-xs ${row.bold ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>{row.label}</span>
+                      <span className={`font-mono font-black text-sm ${row.color}`}>
+                        {row.value < 0 ? '-' : ''}{currency}{Math.abs(Math.round(row.value)).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {/* Net Profit banner */}
+                <div className={`px-4 py-4 flex items-center justify-between ${netProfit >= 0 ? 'bg-emerald-600' : 'bg-rose-600'}`}>
+                  <div>
+                    <p className="text-white/70 text-[9px] font-bold uppercase tracking-wider">Net Profit</p>
+                    <p className="text-white font-black text-xl leading-tight">
+                      {netProfit < 0 ? '-' : ''}{currency}{Math.abs(Math.round(netProfit)).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className={`px-3 py-1.5 rounded-xl text-[10px] font-black ${netProfit >= 0 ? 'bg-white/20 text-white' : 'bg-white/20 text-white'}`}>
+                    {totalSalesRevenue > 0 ? ((netProfit / totalSalesRevenue) * 100).toFixed(1) : '0.0'}% margin
+                  </div>
                 </div>
               </div>
+
+              {/* Operations Charge Metrics */}
+              {expensesBreakdown.length > 0 && (
+                <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
+                  <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                    <p className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Operations Charge Metrics</p>
+                    <p className="text-[11px] font-black text-rose-600">{currency}{Math.round(totalExpensesCharged).toLocaleString()}</p>
+                  </div>
+                  <div className="divide-y divide-slate-50 px-4">
+                    {expensesBreakdown.map(cat => {
+                      const pct = totalExpensesCharged > 0 ? (cat.value / totalExpensesCharged) * 100 : 0;
+                      return (
+                        <div key={cat.name} className="py-3 space-y-1.5">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] font-semibold text-slate-700">{cat.name}</span>
+                            <span className="text-[11px] font-black text-rose-600 font-mono">{currency}{Math.round(cat.value).toLocaleString()} <span className="text-slate-400 font-normal">({Math.round(pct)}%)</span></span>
+                          </div>
+                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full bg-rose-500 transition-all" style={{ width: `${pct}%` }}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {expensesBreakdown.length === 0 && (
+                <div className="text-center py-8 bg-white rounded-2xl border border-slate-100">
+                  <p className="text-xs font-bold text-slate-400">No expense charges logged in this period</p>
+                </div>
+              )}
+
             </div>
           )}
 
