@@ -729,10 +729,6 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
       discountType: 'percent'
     }));
 
-    const isVat = restaurantVatStatus === 'vat';
-    const vfdControlNo = isVat ? 'TZ-VFD-TRA-' + Math.floor(Math.random() * 9000000000 + 1000000000) : undefined;
-    const vfdSignature = isVat ? 'TRA-VERIFY-' + Math.random().toString(36).substr(2, 6).toUpperCase() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase() : undefined;
-
     const newSale: Sale = {
       id: 'sl-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
       items: saleItems,
@@ -751,8 +747,6 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
       customerPhone: mPesaPhoneInput || undefined,
       staffName: tktOrder.waiterName,
       vatStatus: restaurantVatStatus,
-      vfdControlNo,
-      vfdSignature
     };
 
     // Trigger loyalty credit if a matching customer phone is supplied
@@ -1006,10 +1000,6 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
             <span className="text-slate-450 block text-[9px] uppercase tracking-widest font-black">Active Restaurant Payment Mode</span>
             <span className="text-base font-extrabold text-orange-400 block mt-1">
               {activeTenant.name}
-            </span>
-            <span className="text-[10px] text-emerald-400 uppercase tracking-wider block mt-1 font-sans font-extrabold flex items-center justify-end space-x-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
-              <span>TRA Compliant</span>
             </span>
           </div>
         </div>
@@ -1473,7 +1463,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
                     <div>
                       <h5 className="text-xs font-bold text-white uppercase font-mono tracking-widest text-emerald-400">Ledger Fully Paid</h5>
                       <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                        Transaction cleared on TRA EFD gateway. Thank you for dining with {activeTenant.name}! Visit logged in persistent register.
+                        Thank you for dining with {activeTenant.name}! Visit logged in persistent register.
                       </p>
                     </div>
                     <button
@@ -1649,7 +1639,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
 
                             {restaurantVatStatus === 'vat' && (
                               <div className="flex justify-between text-slate-500">
-                                <span>TRA Local VAT ({Math.round(activeTenant.taxRate * 100)}%):</span>
+                                <span>VAT ({Math.round(activeTenant.taxRate * 100)}%):</span>
                                 <span>{currencyValue(calculatedTax)}</span>
                               </div>
                             )}
@@ -1670,7 +1660,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
                             className="w-full text-xs bg-white border border-slate-250 px-2.5 py-2 rounded-xl text-slate-850 outline-none focus:border-emerald-500 font-sans"
                           >
                             <option value="non-vat">Normal Sell (Non-VAT Receipt)</option>
-                            <option value="vat">TRA VFD Fiscal Sell (VAT-Compliant)</option>
+                            <option value="vat">VAT Sell (VAT-Compliant Receipt)</option>
                           </select>
                         </div>
 
@@ -3368,7 +3358,7 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
                         </div>
                         {isVat && (
                           <div className="flex justify-between font-normal text-emerald-700">
-                            <span>TRA VAT Compliant ({Math.round(activeTenant.taxRate * 100)}%):</span>
+                            <span>VAT ({Math.round(activeTenant.taxRate * 100)}%):</span>
                             <span>{activeTenant.currency || 'TSh '}{taxAmt.toLocaleString()}</span>
                           </div>
                         )}
@@ -3380,30 +3370,6 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
                     );
                   })()}
                 </div>
-
-                {/* VFD Fiscal block if applicable */}
-                {restaurantReceiptSale.vatStatus === 'vat' && restaurantReceiptSale.vfdControlNo && (
-                  <div className="bg-emerald-50/45 border border-emerald-100 rounded-2xl p-3 space-y-1 text-[9px] leading-relaxed text-slate-700 text-left">
-                    <p className="font-bold text-[9.5px] text-emerald-800 uppercase tracking-widest text-center border-b border-dashed border-emerald-250 pb-1 mb-1.5 font-sans">
-                      TRA VFD FISCAL RECEIPT
-                    </p>
-                    <div className="flex justify-between font-mono">
-                      <span>VFD Serial No:</span>
-                      <span className="font-bold text-slate-800">TZ-VFD-REG-847294B</span>
-                    </div>
-                    <div className="flex justify-between font-mono">
-                      <span>TRA Control No:</span>
-                      <span className="font-bold text-emerald-900">{restaurantReceiptSale.vfdControlNo}</span>
-                    </div>
-                    <div className="flex justify-between font-mono">
-                      <span>Receipt Verification PIN:</span>
-                      <span className="font-black text-rose-850 shrink-0 select-all">{restaurantReceiptSale.vfdSignature}</span>
-                    </div>
-                    <p className="text-[8px] text-emerald-700 text-center italic mt-1.5 font-sans font-semibold">
-                      ✓ Registered with Tanzania Revenue Authority Gateway VFD Server.
-                    </p>
-                  </div>
-                )}
 
                 <div className="text-center font-normal text-[8.5px] text-slate-400 border-t border-dashed border-slate-200 pt-3 space-y-0.5">
                   <p>Asante kwa kutembelea Jasper!</p>
@@ -3432,7 +3398,6 @@ CREATE INDEX idx_recipes_menu ON public.product_recipes(menu_item_id);`;
                     const msg = `🧾 *RECEIPT: ${restaurantReceiptSale.id}* at *${activeTenant.name}*\n` +
                       `📅 Date: ${new Date().toLocaleString()}\n` +
                       `💵 Paid Total: ${activeTenant.currency || 'TSh '}${restaurantReceiptSale.total.toLocaleString()} (${restaurantReceiptSale.paymentMethod})\n` +
-                      (restaurantReceiptSale.vatStatus === 'vat' ? `✓ TRA Class VFD Fiscal Control No: ${restaurantReceiptSale.vfdControlNo}\n` : '') +
                       `\nThanks for choosing us! Hope to see you again soon.`;
                     const link = `https://api.whatsapp.com/send?phone=${restaurantReceiptPhone || ''}&text=${encodeURIComponent(msg)}`;
                     return (

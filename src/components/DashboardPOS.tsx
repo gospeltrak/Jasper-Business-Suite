@@ -1034,9 +1034,6 @@ export default function DashboardPOS({
       };
     });
 
-    const isVat = vatStatus === 'vat';
-    const vfdControlNo = isVat ? 'TZ-VFD-TRA-' + Math.floor(Math.random() * 9000000000 + 1000000000) : undefined;
-    const vfdSignature = isVat ? 'TRA-VERIFY-' + Math.random().toString(36).substr(2, 6).toUpperCase() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase() : undefined;
     const normalizedAmountPaid = paymentMethod === 'Multi-Channel'
       ? Number((multiCashAmount + multiBankAmount).toFixed(2))
       : Math.max(0, Number(amountPaid || 0));
@@ -1089,8 +1086,6 @@ export default function DashboardPOS({
       customerPhone: customerPhone ? customerPhone : undefined,
       staffName: userName,
       vatStatus: vatStatus,
-      vfdControlNo,
-      vfdSignature,
       multiCashAmount: paymentMethod === 'Multi-Channel' ? multiCashAmount : undefined,
       multiBankAmount: paymentMethod === 'Multi-Channel' ? multiBankAmount : undefined,
       paymentBreakdown: paymentMethod === 'Multi-Channel'
@@ -1760,7 +1755,7 @@ export default function DashboardPOS({
                 className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-[10.5px] font-extrabold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
               >
                 <option value="non-vat">No Tax (0%)</option>
-                <option value="vat">VAT ({Math.round(activeTenant.taxRate * 100)}% TRA VFD)</option>
+                <option value="vat">VAT ({Math.round(activeTenant.taxRate * 100)}%)</option>
               </select>
             </div>
 
@@ -2207,7 +2202,7 @@ export default function DashboardPOS({
                           )}
                           {receiptResult.vatStatus === 'vat' && (
                             <div className="flex justify-between text-slate-600 font-normal">
-                              <span>TRA VAT Compliant ({Math.round(activeTenant.taxRate * 100)}%)</span>
+                              <span>VAT ({Math.round(activeTenant.taxRate * 100)}%)</span>
                               <span>{currency}{Math.round(receiptResult.tax || 0).toLocaleString()}</span>
                             </div>
                           )}
@@ -2226,33 +2221,9 @@ export default function DashboardPOS({
                     })()}
                   </div>
 
-                  {/* TRA VFD fiscal signature block if VAT was charged */}
-                  {receiptResult.vatStatus === 'vat' && receiptResult.vfdControlNo && (
-                    <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3 space-y-1 text-[9.5px] leading-relaxed text-slate-700 text-left">
-                      <p className="font-bold text-[10px] text-emerald-800 uppercase tracking-widest text-center border-b border-dashed border-emerald-250 pb-1 mb-1.5 font-sans">
-                        TRA VFD FISCAL RECEIPT
-                      </p>
-                      <div className="flex justify-between font-mono">
-                        <span>VFD Serial No:</span>
-                        <span className="font-bold text-slate-800">TZ-VFD-REG-847294B</span>
-                      </div>
-                      <div className="flex justify-between font-mono">
-                        <span>TRA Control No:</span>
-                        <span className="font-bold text-emerald-900">{receiptResult.vfdControlNo}</span>
-                      </div>
-                      <div className="flex justify-between font-mono">
-                        <span>Receipt Verification PIN:</span>
-                        <span className="font-black text-rose-850 shrink-0 select-all">{receiptResult.vfdSignature}</span>
-                      </div>
-                      <p className="text-[8px] text-emerald-700 text-center italic mt-1.5 font-sans font-semibold">
-                        ✓ Registered with Tanzania Revenue Authority Gateway VFD Server.
-                      </p>
-                    </div>
-                  )}
-
                   <div className="text-center font-normal text-[9.5px] text-slate-500 border-t border-dashed border-slate-200 pt-3 space-y-1">
                     <p className="font-sans font-medium">Thank you for shopping with us!</p>
-                    <p className="text-[8px] text-slate-400 font-mono">Powered by: jasper.africa</p>
+                    <p className="text-[8px] text-slate-400 font-mono">Powered by Jasper</p>
                   </div>
                 </div>
 

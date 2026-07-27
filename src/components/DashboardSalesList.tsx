@@ -3367,30 +3367,6 @@ export default function DashboardSalesList({
                     <span className="font-black text-slate-900">{currency}{Math.round(selectedSale.total).toLocaleString()}</span>
                   </div>
 
-                  {/* TRA VFD fiscal signature block if VAT was charged */}
-                  {selectedSale.vatStatus === 'vat' && selectedSale.vfdControlNo && (
-                    <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3 space-y-1 text-[9.5px] leading-relaxed text-slate-700 text-left my-2 shrink-0">
-                      <p className="font-bold text-[9.5px] text-emerald-800 uppercase tracking-widest text-center border-b border-dashed border-emerald-250 pb-1 mb-1.5 font-sans">
-                        TRA VFD FISCAL RECEIPT
-                      </p>
-                      <div className="flex justify-between font-mono">
-                        <span>VFD Serial No:</span>
-                        <span className="font-bold text-slate-800">TZ-VFD-REG-847294B</span>
-                      </div>
-                      <div className="flex justify-between font-mono">
-                        <span>TRA Control No:</span>
-                        <span className="font-bold text-emerald-950">{selectedSale.vfdControlNo}</span>
-                      </div>
-                      <div className="flex justify-between font-mono">
-                        <span>Receipt Verification PIN:</span>
-                        <span className="font-bold text-rose-800 select-all shrink-0">{selectedSale.vfdSignature}</span>
-                      </div>
-                      <p className="text-[8px] text-emerald-700 text-center italic mt-1.5 font-sans font-semibold">
-                        ✓ Registered with Tanzania Revenue Authority Gateway VFD Server.
-                      </p>
-                    </div>
-                  )}
-
                   {(() => {
                     const initialPaid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
                     const extra = (installmentRecords[selectedSale.id] || []).reduce((sum, inst) => sum + inst.amount, 0);

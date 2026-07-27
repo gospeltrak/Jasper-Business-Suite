@@ -5396,30 +5396,6 @@ export default function DashboardReports({
                   </div>
                 </div>
 
-                {/* TRA VFD control if VAT was registered */}
-                {selectedInspectSale.vfdControlNo && (
-                  <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3 space-y-1 text-[9.5px] leading-relaxed text-slate-700 text-left">
-                    <p className="font-bold text-[10px] text-emerald-800 uppercase tracking-widest text-center border-b border-dashed border-emerald-250 pb-1 mb-1.5 font-sans">
-                      TRA VFD FISCAL RECEIPT
-                    </p>
-                    <div className="flex justify-between font-mono">
-                      <span>VFD Serial No:</span>
-                      <span className="font-bold text-slate-800">TZ-VFD-REG-847294B</span>
-                    </div>
-                    <div className="flex justify-between font-mono">
-                      <span>TRA Control No:</span>
-                      <span className="font-bold text-emerald-950">{selectedInspectSale.vfdControlNo}</span>
-                    </div>
-                    <div className="flex justify-between font-mono">
-                      <span>Receipt PIN:</span>
-                      <span className="font-black text-rose-800 shrink-0 uppercase select-all">{selectedInspectSale.vfdSignature || 'VERIFIED'}</span>
-                    </div>
-                    <p className="text-[8px] text-emerald-600 text-center italic mt-1 font-sans">
-                      ✓ Registered with Tanzania Revenue Authority Gateway VFD Server.
-                    </p>
-                  </div>
-                )}
-
                 {/* Footer Notes */}
                 <div className="text-center text-[9px] text-slate-400 border-t border-dashed border-slate-200 pt-3 leading-relaxed">
                   <p>Thank you for shopping with</p>
@@ -6150,7 +6126,7 @@ export default function DashboardReports({
 
         {/* Dynamic Signature Block */}
         <div className="hidden print:block mt-12 pt-8 border-t border-dashed border-slate-300">
-          <div className="grid grid-cols-3 gap-6 text-center text-[9px] text-slate-600 font-mono">
+          <div className="grid grid-cols-2 gap-6 text-center text-[9px] text-slate-600 font-mono">
             <div className="border-t border-slate-300 pt-3">
               <p className="font-bold uppercase">Prepared By</p>
               <p className="mt-1 font-semibold">{userName}</p>
@@ -6160,11 +6136,6 @@ export default function DashboardReports({
               <p className="font-bold uppercase">Authorized By</p>
               <p className="mt-1 font-semibold text-slate-400">________________________</p>
               <p className="text-slate-400 mt-0.5 font-sans">Branch Manager</p>
-            </div>
-            <div className="border-t border-slate-300 pt-3">
-              <p className="font-bold uppercase">Fiscal Verifier Code</p>
-              <p className="mt-1 font-bold text-slate-800">JASPER-TZ-VFD-CERTIFIED</p>
-              <p className="text-slate-400 mt-0.5 font-sans italic">✓ Tra Digital Integration Key</p>
             </div>
           </div>
         </div>

@@ -522,9 +522,9 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
                         </div>
 
                         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-left">
-                          <span className="text-[8.5px] font-mono text-slate-400 uppercase tracking-widest font-black block">VFD VAT Collected</span>
+                          <span className="text-[8.5px] font-mono text-slate-400 uppercase tracking-widest font-black block">VAT Collected</span>
                           <h4 className="text-xl font-black text-slate-850 mt-1 font-mono" style={{ color: primaryColor }}>TZS 266,760</h4>
-                          <span className="text-[9.5px] text-slate-450 mt-1 block">Consolidated TRA regulatory status: <span className="text-emerald-700 font-bold">VERIFIED</span></span>
+                          <span className="text-[9.5px] text-slate-450 mt-1 block">Consolidated for the selected period: <span className="text-emerald-700 font-bold">VERIFIED</span></span>
                         </div>
                       </div>
 

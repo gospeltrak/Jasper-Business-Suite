@@ -53,7 +53,6 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
   const [walkInName, setWalkInName] = useState('');
   
   const [paymentMethod, setPaymentMethod] = useState('Cash');
-  const [traReceipt, setTraReceipt] = useState(false);
   const [discountVal, setDiscountVal] = useState(0);
   const [discountType, setDiscountType] = useState<'amount'|'percent'>('amount');
   const [deliveryFee, setDeliveryFee] = useState(0);
@@ -162,7 +161,6 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
       deliveryFee,
       total: cartTotal,
       paymentMethod,
-      traReceipt,
       affiliateSeller: affiliateId || null
     };
 
@@ -229,7 +227,6 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
     setSelectedSubscriber('');
     setSelectedAffiliate('');
     setPaymentMethod('Cash');
-    setTraReceipt(false);
     setDiscountVal(0);
     setDeliveryFee(0);
   };
@@ -413,15 +410,6 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
             </div>
           </div>
 
-          <label className="flex items-center space-x-2 bg-slate-900 p-2 rounded border border-slate-800 cursor-pointer group">
-            <input 
-              type="checkbox" 
-              checked={traReceipt}
-              onChange={(e) => setTraReceipt(e.target.checked)}
-              className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-700 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-slate-900" 
-            />
-            <span className="text-[10px] font-bold text-slate-400 group-hover:text-white uppercase transition-colors">Issue Official EFD Receipt (TRA)</span>
-          </label>
         </div>
 
         {/* Total & Checkout */}

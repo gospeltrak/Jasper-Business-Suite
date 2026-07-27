@@ -387,10 +387,6 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
       return d;
     }));
 
-    // Generate VFD Fiscal compliance details for VAT
-    const randomVFDNo = 'TZ-VFD-RX-' + Math.floor(Math.random() * 9000000000 + 1000000000);
-    const vfdSignature = 'RX-VERIFY-' + Math.random().toString(36).substr(2, 6).toUpperCase() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase();
-
     // Compile Sale items for Central ledger connection
     const saleItems: SaleItem[] = dispenseCart.map(item => ({
       productId: item.drug.id,
@@ -420,8 +416,6 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
       customerPhone: selectedPatientData?.phone || undefined,
       staffName: currentUser.name || 'Chief Druggist',
       vatStatus: 'vat',
-      vfdControlNo: randomVFDNo,
-      vfdSignature,
       amountPaid: cartTotals.patientCoPayDue // Patient only pays the co-pay amount!
     };
 
@@ -1498,30 +1492,6 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
                   </div>
                 </div>
 
-                {/* VFD TRA Compliance blocks */}
-                {successReceiptSale.vfdControlNo && (
-                  <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3 space-y-1 text-[9px] leading-relaxed text-slate-700 text-left">
-                    <p className="font-bold text-[9.5px] text-emerald-800 uppercase tracking-widest text-center border-b border-dashed border-emerald-250 pb-1 mb-1.5 font-sans">
-                      TRA VFD FISCAL RECEIPT
-                    </p>
-                    <div className="flex justify-between font-mono">
-                      <span>VFD Serial No:</span>
-                      <span className="font-bold text-slate-800">TZ-VFD-REG-847294B</span>
-                    </div>
-                    <div className="flex justify-between font-mono">
-                      <span>TRA Control No:</span>
-                      <span className="font-bold text-emerald-950">{successReceiptSale.vfdControlNo}</span>
-                    </div>
-                    <div className="flex justify-between font-mono">
-                      <span>Receipt Verification PIN:</span>
-                      <span className="font-black text-rose-800 shrink-0 select-all">{successReceiptSale.vfdSignature}</span>
-                    </div>
-                    <p className="text-[8px] text-emerald-700 text-center italic mt-1.5 font-sans font-semibold">
-                      ✓ Registered with Tanzania Revenue Authority Gateway VFD Server.
-                    </p>
-                  </div>
-                )}
-
                 {/* Signature Slots */}
                 <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-3 text-[9px] text-slate-400 font-sans font-bold">
                   <div className="text-left">
@@ -1565,7 +1535,6 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
                       `🌡️ Formulary items: ${successReceiptSale.items.map(it => `${it.productName} (x${it.qty})`).join(', ')}\n` +
                       `💵 Insurer: ${insurerOverride}\n` +
                       `💵 OOP Patient Co-Pay Paid: ${currency}${patientCoPayPaid.toLocaleString()}\n` +
-                      (successReceiptSale.vfdControlNo ? `✓ TRA VFD Control No: ${successReceiptSale.vfdControlNo}\n` : '') +
                       `\nYour medicine dosage instructions are mapped on physical vouchers. Wish you sound health!`;
                     const link = `https://api.whatsapp.com/send?phone=${whatsappSharePhone || ''}&text=${encodeURIComponent(msg)}`;
                     return (

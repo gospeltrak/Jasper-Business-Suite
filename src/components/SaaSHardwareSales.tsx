@@ -289,7 +289,6 @@ export default function SaaSHardwareSales() {
                         <span className={`px-2 py-0.5 rounded text-[9px] uppercase ${sale.paymentMethod === 'Credit' ? 'bg-rose-500/10 text-rose-400' : 'bg-slate-800 text-slate-300'}`}>
                           {sale.paymentMethod || 'Cash'}
                         </span>
-                        {sale.traReceipt && <span className="px-1.5 py-0.5 rounded text-[8px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">EFD</span>}
                       </div>
                     </td>
                     <td className="p-3 text-slate-300">{sale.items.map((it: any) => `${it.qty}x ${it.name}`).join(', ')}</td>
