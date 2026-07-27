@@ -56,7 +56,7 @@ import {
 import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } from '../utils/unitFormatter';
 import { downloadPdfFromElement } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
-import { getBusinessDisplayName } from '../utils/businessBranding';
+import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
 
 // Revenue helper: exclude delivery fees from product revenue calculations
 const saleProductRevenue = (s: any): number =>
@@ -118,12 +118,7 @@ export default function DashboardReports({
       visual: false,
       branding: {
         businessName: getBusinessDisplayName(activeTenant, systemSettings, userName),
-        logo: systemSettings?.business?.businessLogoLight
-          || systemSettings?.business?.businessLogo
-          || systemSettings?.business?.logo
-          || systemSettings?.company?.logo
-          || activeTenant.company_settings?.logo_url
-          || '',
+        logo: getBusinessLogo(systemSettings),
         address: systemSettings?.business?.address || systemSettings?.company?.address || activeTenant.city,
         phone: systemSettings?.business?.phone || systemSettings?.company?.phone || '',
         email: systemSettings?.business?.email || systemSettings?.company?.email || '',

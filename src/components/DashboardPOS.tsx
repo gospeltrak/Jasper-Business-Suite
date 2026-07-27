@@ -8,7 +8,7 @@ import {
 } from '../utils/inventoryCosting';
 import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitFormatter';
 import { getPaymentModeName } from '../utils/paymentAccounts';
-import { getBusinessDisplayName } from '../utils/businessBranding';
+import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -312,7 +312,7 @@ export default function DashboardPOS({
         businessPhone: systemSettings?.business?.businessPhone || undefined,
         businessEmail: systemSettings?.business?.businessEmail || undefined,
         businessCity: activeTenant.city || undefined,
-        businessLogo: branchBranding?.businessLogoLight || branchBranding?.businessLogo || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo || undefined,
+        businessLogo: branchBranding?.businessLogoLight || branchBranding?.businessLogo || getBusinessLogo(systemSettings) || undefined,
         receiptId: receiptResult.reference || receiptResult.id,
         timestamp: receiptResult.timestamp,
         cashierName: receiptResult.cashierName || userName || undefined,
@@ -2114,9 +2114,9 @@ export default function DashboardPOS({
                 {/* PHYSICAL RECEIPT GRAPHIC CONTAINER */}
                 <div id="pos-receipt-pdf-template" className="bg-white text-slate-900 p-5 rounded-3xl font-mono text-xs space-y-4 shadow-xl border-dashed border-2 border-slate-250">
                   <div className="text-center space-y-2 border-b border-dashed border-slate-200 pb-3 flex flex-col items-center">
-                    {(((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo) && (
+                    {(((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings)) && (
                       <CachedImage 
-                        src={((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo || undefined} 
+                        src={((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || undefined} 
                         alt="Logo" 
                         className="w-12 h-12 object-contain mb-1 rounded-lg border border-slate-200 p-0.5" 
                         referrerPolicy="no-referrer"

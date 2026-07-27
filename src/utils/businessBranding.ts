@@ -28,3 +28,15 @@ export const getBusinessDisplayName = (
 
   return 'My Business';
 };
+
+// Canonical business logo resolver — same field priority as TenantLogoContext.tsx's
+// cloud-fetched resolver (business.businessLogoLight || business.businessLogoDark ||
+// business.businessLogo), so app chrome and generated documents never disagree.
+// Deliberately Business Settings-only: does not fall back to company.logo or any
+// Tenant/company_settings field, since those are not the Business Settings source.
+export const getBusinessLogo = (
+  settings?: Pick<SystemSettings, 'business'> | null,
+): string => {
+  const business = settings?.business as any;
+  return business?.businessLogoLight || business?.businessLogoDark || business?.businessLogo || '';
+};

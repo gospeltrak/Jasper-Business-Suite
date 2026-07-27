@@ -27,7 +27,7 @@ import {
   Eye
 } from 'lucide-react';
 import { printPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
-import { getBusinessDisplayName } from '../utils/businessBranding';
+import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
 import { formatSaleItemQuantity } from '../utils/unitFormatter';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
@@ -254,7 +254,7 @@ export default function DashboardDeliveries({
   const [showSearchResults, setShowSearchResults] = useState(false);
 
   // Dynamically computed supplier details
-  const computedLogo = ((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || systemSettings?.business?.businessLogoLight || systemSettings?.business?.businessLogoDark || systemSettings?.business?.businessLogo || '';
+  const computedLogo = ((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || '';
   const computedLogoName = activeTenant?.name || 'Doe Company';
   const computedCompanyTitle = getBusinessDisplayName(activeTenant, systemSettings);
   const computedCompanyAddress = systemSettings?.company?.address || '123 Main Street, City';
