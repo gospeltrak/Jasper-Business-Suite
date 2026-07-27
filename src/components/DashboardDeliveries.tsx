@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import { Tenant, Delivery, DeliveryRider, SaleItem, Product, SystemSettings, Sale } from '../types';
 import { 
   Truck, 
@@ -582,6 +583,16 @@ Vehicle Plate Number: ${plateNumber}
 
     try {
       setDeliveryPdfStatus('Preparing delivery note PDF...');
+      // The printable delivery note only exists in the DOM while the "Notes"
+      // tab is active. "WhatsApp Note" is triggered from the Queue tab, so
+      // without this the template was never mounted and every WhatsApp share
+      // failed with "Document not found." flushSync commits the tab switch
+      // and this delivery's data into the composer synchronously, so the PDF
+      // capture below reads the correct, already-rendered note.
+      flushSync(() => {
+        handleLoadFromOrder(del);
+        setActiveSubTab('notes');
+      });
       await shareElementPdfToWhatsApp({
         elementId: 'delivery-note-print-area',
         fileName: `delivery-note-${dnNo}.pdf`,
