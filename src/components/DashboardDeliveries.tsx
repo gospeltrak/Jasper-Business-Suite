@@ -255,11 +255,11 @@ export default function DashboardDeliveries({
 
   // Dynamically computed supplier details
   const computedLogo = ((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || '';
-  const computedLogoName = activeTenant?.name || 'Doe Company';
+  const computedLogoName = getBusinessDisplayName(activeTenant, systemSettings);
   const computedCompanyTitle = getBusinessDisplayName(activeTenant, systemSettings);
-  const computedCompanyAddress = systemSettings?.company?.address || '123 Main Street, City';
-  const computedCompanyPhone = systemSettings?.company?.phone || '+255700000000';
-  const computedCompanyEmail = systemSettings?.business?.businessEmail || 'hello@example.com';
+  const computedCompanyAddress = systemSettings?.business?.businessAddress || '';
+  const computedCompanyPhone = systemSettings?.business?.businessPhone || '';
+  const computedCompanyEmail = systemSettings?.business?.businessEmail || '';
   const computedTIN = systemSettings?.invoiceSettings?.tin || systemSettings?.invoiceSettings?.tinNumber || '';
   const computedInvoiceColor = systemSettings?.invoiceSettings?.invoiceColor || '#102d68';
   const selectedRiderForNote = riders.find(r => r.id === selectedRiderForNoteId);
@@ -1933,13 +1933,6 @@ Vehicle Plate Number: ${plateNumber}
                           </svg>
                         </div>
                       )}
-                      <div>
-                        {/* Multi-toned brand title EXACT replication of logo */}
-                        <h1 className="text-xl tracking-tight leading-tight">
-                          <span className="block font-sans font-extrabold text-lg" style={{ color: computedInvoiceColor }}>{computedLogoName}</span>
-                          <span className="block text-[11px] tracking-wider font-extrabold uppercase mt-0.5 font-sans text-slate-500">Official Delivery</span>
-                        </h1>
-                      </div>
                     </div>
 
                     {/* Right Header Details Column */}
