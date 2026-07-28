@@ -333,7 +333,7 @@ export interface Sale {
   vfdSignature?: string;
   multiCashAmount?: number;
   multiBankAmount?: number;
-  paymentBreakdown?: Array<{ method: string; amount: number }>;
+  paymentBreakdown?: Array<{ method: string; amount: number; reference?: string }>;
   channel?: 'retail' | 'wholesale';
   approvals?: any[];
   actualTimestamp?: string; // actual entry date/time for security
