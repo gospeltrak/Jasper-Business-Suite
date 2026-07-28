@@ -45,8 +45,9 @@ import { DashboardNotificationsSettings } from './DashboardNotificationsSettings
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { compressImageFile } from '../utils/imageCompression';
 import { getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
+import { lazyWithReload } from '../utils/lazyWithReload';
 
-const DashboardBranchesSettings = React.lazy(() => import('./DashboardBranchesSettings'));
+const DashboardBranchesSettings = lazyWithReload('SettingsDashboardBranches', () => import('./DashboardBranchesSettings'));
 
 import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
 export { DEFAULT_CUSTOM_ROLES };
@@ -120,7 +121,6 @@ export default function DashboardSettings({
   const { isDark, toggleTheme } = useTheme();
   const { setLogoUrl } = useTenantLogo();
   const incomingSettingsSyncRef = useRef(false);
-  const settingsDraftReadyRef = useRef(false);
   const settingsDraftTouchedAtRef = useRef(0);
   // Navigation tabs for Settings
   const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'hrm' | 'roles' | 'notifications' | 'branches'>('company');
@@ -222,15 +222,9 @@ export default function DashboardSettings({
       setLogoUrl(savedLogoUrl);
       
       // Also save general settings
-      const fullyUpdatedSettings: SystemSettings = {
+      const fullyUpdatedSettings = buildSettingsSnapshot({
         company: { ...companyForm, logo: savedLogoUrl },
-        business: businessForm,
-        productStore: productForm,
-        staffs: staffsList,
-        customRoles: customRolesList,
-        invoiceSettings: invoiceSettingsForm,
-        posSettings: posSettingsForm
-      };
+      });
       onSaveSettings(fullyUpdatedSettings);
 
     } catch (err: any) {
@@ -246,6 +240,28 @@ export default function DashboardSettings({
   const [newRoleName, setNewRoleName] = useState<string>('');
   const markSettingsDraftChanged = () => {
     settingsDraftTouchedAtRef.current = Date.now();
+  };
+
+  const buildSettingsSnapshot = (
+    overrides: Partial<SystemSettings> = {},
+  ): SystemSettings => {
+    const nextBusiness = overrides.business || businessForm;
+    return {
+      ...systemSettings,
+      ...overrides,
+      company: overrides.company || companyForm,
+      business: nextBusiness,
+      productStore: overrides.productStore || productForm,
+      staffs: overrides.staffs || staffsList,
+      customRoles: overrides.customRoles || customRolesList,
+      invoiceSettings: overrides.invoiceSettings || invoiceSettingsForm,
+      posSettings: overrides.posSettings || posSettingsForm,
+      paymentChannels: overrides.paymentChannels || reconcilePaymentChannels(
+        getTreasuryPaymentMethods(nextBusiness),
+        systemSettings.paymentChannels || [],
+        { currency: activeTenant.currencyCode },
+      ),
+    };
   };
 
   const cleanBusinessSlug = (value: string) => value
@@ -424,43 +440,6 @@ export default function DashboardSettings({
     }, 0);
   }, [systemSettings]);
 
-  useEffect(() => {
-    if (incomingSettingsSyncRef.current) return;
-    if (!settingsDraftReadyRef.current) {
-      settingsDraftReadyRef.current = true;
-      return;
-    }
-
-    settingsDraftTouchedAtRef.current = Date.now();
-    const timer = window.setTimeout(() => {
-      onSaveSettings({
-        ...systemSettings,
-        company: companyForm,
-        business: businessForm,
-        productStore: productForm,
-        staffs: staffsList,
-        customRoles: customRolesList,
-        invoiceSettings: invoiceSettingsForm,
-        posSettings: posSettingsForm,
-        paymentChannels: reconcilePaymentChannels(
-          getTreasuryPaymentMethods(businessForm),
-          systemSettings.paymentChannels || [],
-          { currency: activeTenant.currencyCode },
-        ),
-      });
-    }, 650);
-
-    return () => window.clearTimeout(timer);
-  }, [
-    companyForm,
-    businessForm,
-    productForm,
-    staffsList,
-    customRolesList,
-    invoiceSettingsForm,
-    posSettingsForm
-  ]);
-
   // Handle Company Name change to system auto-generate usernameKey
   const handleCompanyNameChange = (val: string) => {
     // Generate username format based on text: lowercase, replace spaces and special chars with hyphens
@@ -480,35 +459,19 @@ export default function DashboardSettings({
 
   const persistCompanySettings = (nextCompanyForm: CompanySettings) => {
     markSettingsDraftChanged();
-    onSaveSettings({
-      ...systemSettings,
-      company: nextCompanyForm,
-      business: businessForm,
-      productStore: productForm,
-      staffs: staffsList,
-      customRoles: customRolesList,
-      invoiceSettings: invoiceSettingsForm,
-      posSettings: posSettingsForm
-    });
+    onSaveSettings(buildSettingsSnapshot({ company: nextCompanyForm }));
   };
 
   const persistBusinessSettings = (nextBusinessForm: BusinessSettings) => {
     markSettingsDraftChanged();
-    onSaveSettings({
-      ...systemSettings,
-      company: companyForm,
+    onSaveSettings(buildSettingsSnapshot({
       business: nextBusinessForm,
-      productStore: productForm,
-      staffs: staffsList,
-      customRoles: customRolesList,
-      invoiceSettings: invoiceSettingsForm,
-      posSettings: posSettingsForm,
       paymentChannels: reconcilePaymentChannels(
         getTreasuryPaymentMethods(nextBusinessForm),
         systemSettings.paymentChannels || [],
         { currency: activeTenant.currencyCode },
       ),
-    });
+    }));
   };
 
   // Drag and drop logo processors
@@ -712,21 +675,9 @@ export default function DashboardSettings({
 
   const persistProductStoreSettings = (nextProductForm: ProductStoreSettings) => {
     markSettingsDraftChanged();
-    onSaveSettings({
-      ...systemSettings,
-      company: companyForm,
-      business: businessForm,
+    onSaveSettings(buildSettingsSnapshot({
       productStore: nextProductForm,
-      staffs: staffsList,
-      customRoles: customRolesList,
-      invoiceSettings: invoiceSettingsForm,
-      posSettings: posSettingsForm,
-      paymentChannels: reconcilePaymentChannels(
-        getTreasuryPaymentMethods(businessForm),
-        systemSettings.paymentChannels || [],
-        { currency: activeTenant.currencyCode },
-      ),
-    });
+    }));
   };
 
   // Product Categories management states
@@ -804,16 +755,9 @@ export default function DashboardSettings({
 
   const persistStaffsList = (updatedStaffs: StaffSettings[]) => {
     setStaffsList(updatedStaffs);
-    onSaveSettings({
-      ...systemSettings,
-      company: companyForm,
-      business: businessForm,
-      productStore: productForm,
+    onSaveSettings(buildSettingsSnapshot({
       staffs: updatedStaffs,
-      customRoles: customRolesList,
-      invoiceSettings: invoiceSettingsForm,
-      posSettings: posSettingsForm
-    });
+    }));
   };
 
   const handleSaveStaffCredentials = (staffId: string) => {
@@ -896,15 +840,9 @@ export default function DashboardSettings({
       setSaveSuccess(null);
       return;
     }
-    const fullyUpdatedSettings: SystemSettings = {
-      company: companyForm,
+    const fullyUpdatedSettings = buildSettingsSnapshot({
       business: nextBusinessForm,
-      productStore: productForm,
-      staffs: staffsList,
-      customRoles: customRolesList,
-      invoiceSettings: invoiceSettingsForm,
-      posSettings: posSettingsForm
-    };
+    });
     onSaveSettings(fullyUpdatedSettings);
     
     // Apply Light/Dark mode changes immediately if the user explicitly changed it

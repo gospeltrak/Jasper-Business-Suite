@@ -24,6 +24,19 @@ test('tenant package navigation contract remains centralized and correct', () =>
   assert.equal(isTenantPackageTabAllowed('tanzanite', 'whitelabel'), true);
 });
 
+test('lazy screens recover safely after a deployment changes chunk filenames', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const appSource = await read('src/App.tsx');
+  const boundarySource = await read('src/components/DashboardScreenErrorBoundary.tsx');
+  const lazyLoaderSource = await read('src/utils/lazyWithReload.ts');
+
+  assert.match(dashboardSource, /lazyWithReload\('DashboardCashBank'/);
+  assert.match(appSource, /lazyWithReload\('Dashboard'/);
+  assert.match(boundarySource, /Reload updated app/);
+  assert.match(lazyLoaderSource, /window\.setTimeout\(\(\) => window\.location\.reload\(\), 0\)/);
+  assert.match(lazyLoaderSource, /sessionStorage\.setItem/);
+});
+
 test('login always returns to the canonical Jasper landing hub', async () => {
   const appSource = await read('src/App.tsx');
   const loginSource = await read('src/components/LoginPage.tsx');
@@ -35,6 +48,14 @@ test('login always returns to the canonical Jasper landing hub', async () => {
   assert.match(loginSource, /window\.location\.assign\(targetUrl\.toString\(\)\)/);
   assert.match(loginSource, /onNavigate\(targetUrl\.pathname \|\| '\/'\)/);
   assert.doesNotMatch(appSource, /publicLandingUrl\s*=\s*tenantDomainContext\.baseDomain/);
+});
+
+test('optional tenant branding cannot leave a successful login waiting forever', async () => {
+  const appSource = await read('src/App.tsx');
+  assert.match(appSource, /resolvedTenantLogo\s*=\s*await Promise\.race\(\[/);
+  assert.match(appSource, /fetchLogoUrl\(storageTenantId\)/);
+  assert.match(appSource, /window\.setTimeout\(\(\) => resolve\(null\), 1500\)/);
+  assert.match(appSource, /setUser\(authenticatedUser\)/);
 });
 
 test('subscription checkout uses the native plan summary without inline mobile-money fields', async () => {
@@ -216,12 +237,16 @@ test('sale deletion inventory reversal restores exact base and batch quantities'
 test('sale deletion remains tenant-scoped and updates canonical related data', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const salesSource = await read('src/components/DashboardSalesList.tsx');
-  assert.match(dashboardSource, /sale\.tenantId !== activeTenant\.id/);
+  assert.match(dashboardSource, /saleHasTenantConflict\(sale,\s*persistedSale,\s*tenantId\)/);
   assert.match(dashboardSource, /markLocalSaleTombstone\(tenantId,\s*sale\.id/);
   assert.match(dashboardSource, /reverseSaleInventory\(persistedSale,\s*currentProducts/);
   assert.match(dashboardSource, /filter\(delivery => delivery\.saleId !== sale\.id\)/);
   assert.match(dashboardSource, /saleTombstones:\s*nextSaleTombstones/);
+  assert.match(dashboardSource, /Sale could not be deleted from the database\. Nothing was removed\./);
   assert.match(salesSource, /await onDeleteSale\(saleToDelete\)/);
+  assert.match(salesSource, /setIsDeletingSale\(true\)/);
+  assert.match(salesSource, /Sale could not be deleted safely\. Nothing was removed\./);
+  assert.match(salesSource, /Deleting…/);
 });
 
 test('expense deletion requires an inspectable in-app confirmation', async () => {
@@ -451,6 +476,28 @@ test('branch migrations never contain destructive tenant-data DML', async () => 
     assert.doesNotMatch(sql, /\bTRUNCATE\b/i, `${name} contains TRUNCATE`);
     assert.doesNotMatch(sql, /\bDELETE\s+FROM\b/i, `${name} contains DELETE FROM`);
   }
+});
+
+test('tenant settings can only change through the explicit authoritative save path', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const settingsSource = await read('src/components/DashboardSettings.tsx');
+  const workspaceSource = await read('src/utils/tenantWorkspace.ts');
+  const migrationSource = await read('supabase/migrations/20260728000500_authoritative_tenant_settings.sql');
+
+  assert.match(dashboardSource, /saveTenantSettings\(activeTenant\.id,\s*syncedSettings\)/);
+  assert.match(dashboardSource, /\}, \[activeTenant\.id\]\);/);
+  assert.doesNotMatch(settingsSource, /settingsDraftReadyRef/);
+  assert.match(settingsSource, /const buildSettingsSnapshot/);
+  assert.match(settingsSource, /\.\.\.systemSettings/);
+  assert.match(workspaceSource, /options\.allowSettingsWrite[\s\S]*mergeSettingsForSync/);
+  assert.match(workspaceSource, /client\.rpc\('save_current_tenant_settings'/);
+  assert.match(migrationSource, /preserve_tenant_settings_on_workspace_update/);
+  assert.match(migrationSource, /create or replace function public\.save_current_tenant_settings/);
+  assert.match(migrationSource, /current_setting\('app\.jasper_explicit_settings_tenant'/);
+  assert.doesNotMatch(
+    migrationSource,
+    /\b(delete\s+from|truncate\s+table|drop\s+table)\s+public\.(tenant_workspaces|tenant_data)\b/i,
+  );
 });
 
 test('GitHub CI runs tests and a production frontend build', async () => {

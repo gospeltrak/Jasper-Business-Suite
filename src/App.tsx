@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import LoginPage from './components/LoginPage';
 import JasperSplashScreen from './components/JasperSplashScreen';
 import { User, Tenant } from './types';
@@ -8,13 +8,14 @@ import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '
 import { endCloudSession, startCloudSession, touchCloudSession } from './utils/sessionControl';
 import { pullFromCloud, pushToCloud } from './utils/dbSync';
 import { configureOnlineStorage, resetOnlineStorage } from './utils/onlineStorage';
+import { lazyWithReload } from './utils/lazyWithReload';
 
 // Route-level code splitting keeps the large business workspaces out of the
 // login bundle. No feature is removed; it is downloaded only when opened.
-const LandingPage = lazy(() => import('./components/LandingPage'));
-const Dashboard = lazy(() => import('./components/Dashboard'));
-const AffiliatePortal = lazy(() => import('./components/AffiliatePortal'));
-const ToolsHub = lazy(() => import('./components/ToolsHub'));
+const LandingPage = lazyWithReload('LandingPage', () => import('./components/LandingPage'));
+const Dashboard = lazyWithReload('Dashboard', () => import('./components/Dashboard'));
+const AffiliatePortal = lazyWithReload('AffiliatePortal', () => import('./components/AffiliatePortal'));
+const ToolsHub = lazyWithReload('ToolsHub', () => import('./components/ToolsHub'));
 const JASPER_PUBLIC_LANDING_URL = 'https://jasper-business-suite.vercel.app/';
 const JASPER_PUBLIC_LANDING_HOST = new URL(JASPER_PUBLIC_LANDING_URL).hostname;
 
@@ -387,7 +388,12 @@ export default function App() {
     let resolvedTenantLogo: string | null = null;
     if (storageTenantId && storageTenantId !== 'platform-control') {
       await configureOnlineStorage(storageTenantId);
-      resolvedTenantLogo = await fetchLogoUrl(storageTenantId);
+      // Branding is cosmetic and must never hold an authenticated user on the
+      // login page during a slow database/network incident.
+      resolvedTenantLogo = await Promise.race([
+        fetchLogoUrl(storageTenantId),
+        new Promise<null>(resolve => window.setTimeout(() => resolve(null), 1500)),
+      ]);
     }
     void recordStaffLogin(authenticatedUser);
     setUser(authenticatedUser);

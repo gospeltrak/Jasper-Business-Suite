@@ -43,6 +43,19 @@ test('delivery-only methods share the same treasury account registry', () => {
   assert.equal(findPaymentChannel(accounts, 'NMB Delivery')?.category, 'bank');
 });
 
+test('legacy malformed payment-account entries cannot crash reconciliation', () => {
+  const malformed = [
+    null,
+    { name: 'Legacy NMB', provider: 'NMB', accountNumber: 12345678 },
+    { id: 'cash-safe', name: 'Cash Account', paymentMethod: 'Cash', status: 'active' },
+  ] as any;
+  const channels = reconcilePaymentChannels(['Cash', 'NMB'], malformed, { currency: 'TZS' });
+
+  assert.equal(channels.some(channel => channel.id === 'cash-safe'), true);
+  assert.equal(channels.some(channel => channel.provider === 'NMB'), true);
+  assert.equal(channels.every(channel => Boolean(channel?.id)), true);
+});
+
 test('atomic treasury migration is append-only, locked, idempotent, and RPC-only', () => {
   const sql = readFileSync(
     new URL('../supabase/migrations/20260727000100_atomic_treasury_ledger.sql', import.meta.url),

@@ -46,7 +46,8 @@ import {
   Share2,
   ChevronLeft,
   Barcode,
-  ScanLine
+  ScanLine,
+  RefreshCw
 } from 'lucide-react';
 import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
@@ -487,6 +488,17 @@ export default function DashboardSalesList({
   // Editing transaction fields
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [isDeletingSale, setIsDeletingSale] = useState(false);
+  const [deleteSaleError, setDeleteSaleError] = useState<string | null>(null);
+  const openDeleteSaleConfirmation = (sale: Sale) => {
+    setDeleteSaleError(null);
+    setSaleToDelete(sale);
+  };
+  const closeDeleteSaleConfirmation = () => {
+    if (isDeletingSale) return;
+    setDeleteSaleError(null);
+    setSaleToDelete(null);
+  };
 
   // States for Documents Tab (Quotes, Quote, Invoices)
   const [showNewDocModal, setShowNewDocModal] = useState(false);
@@ -1719,7 +1731,7 @@ export default function DashboardSalesList({
 
                                 {(!rolePermissions || rolePermissions.deleteSale?.write !== false) && (
                                   <div className="border-t border-slate-100 mt-1 pt-1">
-                                    <button onClick={() => { setSaleToDelete(sale); setActiveMenuId(null); setMenuPos(null); }}
+                                    <button onClick={() => { openDeleteSaleConfirmation(sale); setActiveMenuId(null); setMenuPos(null); }}
                                       className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold text-rose-600 hover:bg-rose-50">
                                       <Trash2 className="w-3.5 h-3.5 shrink-0" /> Delete Sale
                                     </button>
@@ -4223,7 +4235,8 @@ export default function DashboardSalesList({
                 </div>
               </div>
               <button 
-                onClick={() => setSaleToDelete(null)}
+                onClick={closeDeleteSaleConfirmation}
+                disabled={isDeletingSale}
                 className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer border-none bg-transparent"
               >
                 <X className="w-5 h-5" />
@@ -4258,14 +4271,20 @@ export default function DashboardSalesList({
                   <span className="text-rose-600 font-mono">{activeTenant.currency} {saleToDelete.total.toLocaleString()}</span>
                 </div>
               </div>
+              {deleteSaleError && (
+                <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-bold leading-relaxed text-rose-700">
+                  {deleteSaleError}
+                </div>
+              )}
             </div>
 
             {/* Actions Drawer */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end items-center gap-3 shrink-0">
               <button
                 type="button"
-                onClick={() => setSaleToDelete(null)}
-                className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-600 font-bold hover:bg-slate-100 transition-colors cursor-pointer text-xs uppercase select-none"
+                onClick={closeDeleteSaleConfirmation}
+                disabled={isDeletingSale}
+                className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-600 font-bold hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 transition-colors cursor-pointer text-xs uppercase select-none"
               >
                 Cancel
               </button>
@@ -4273,24 +4292,37 @@ export default function DashboardSalesList({
               <button
                 type="button"
                 onClick={async () => {
-                  if (onDeleteSale) {
-                    const deleted = await onDeleteSale(saleToDelete);
-                    if (!deleted) return;
-                  } else if (onUpdateSales) {
-                    const nextSales = sales.filter(s => s.id !== saleToDelete.id);
-                    onUpdateSales(nextSales);
+                  if (isDeletingSale) return;
+                  setIsDeletingSale(true);
+                  setDeleteSaleError(null);
+                  try {
+                    if (onDeleteSale) {
+                      const deleted = await onDeleteSale(saleToDelete);
+                      if (!deleted) {
+                        setDeleteSaleError('Sale could not be deleted. Check your branch access and permissions, then try again.');
+                        return;
+                      }
+                    } else if (onUpdateSales) {
+                      const nextSales = sales.filter(s => s.id !== saleToDelete.id);
+                      onUpdateSales(nextSales);
+                    }
+                    setInstallmentRecords(previous => {
+                      const next = { ...previous };
+                      delete next[saleToDelete.id];
+                      return next;
+                    });
+                    setSaleToDelete(null);
+                  } catch {
+                    setDeleteSaleError('Sale could not be deleted safely. Nothing was removed.');
+                  } finally {
+                    setIsDeletingSale(false);
                   }
-                  setInstallmentRecords(previous => {
-                    const next = { ...previous };
-                    delete next[saleToDelete.id];
-                    return next;
-                  });
-                  setSaleToDelete(null);
                 }}
-                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-xl border-none transition-all text-xs uppercase flex items-center space-x-1.5 cursor-pointer shadow-md select-none"
+                disabled={isDeletingSale}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60 text-white font-black rounded-xl border-none transition-all text-xs uppercase flex items-center space-x-1.5 cursor-pointer shadow-md select-none"
               >
-                <Trash2 className="w-4 h-4 text-white" />
-                <span>Confirm Delete</span>
+                {isDeletingSale ? <RefreshCw className="w-4 h-4 animate-spin text-white" /> : <Trash2 className="w-4 h-4 text-white" />}
+                <span>{isDeletingSale ? 'Deleting…' : 'Confirm Delete'}</span>
               </button>
             </div>
 
@@ -5264,7 +5296,7 @@ export default function DashboardSalesList({
                 <button
                   type="button"
                   onClick={() => {
-                    setSaleToDelete(mobileActionsSale);
+                    openDeleteSaleConfirmation(mobileActionsSale);
                     setMobileActionsSale(null);
                   }}
                   disabled={rolePermissions && rolePermissions.deleteSale?.write === false}

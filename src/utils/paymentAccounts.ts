@@ -27,11 +27,12 @@ const stableMethodId = (method: string): string => {
 
 export const getMaskedAccountReference = (channel?: PaymentChannel): string => {
   if (!channel) return '';
-  if (channel.maskedReference?.trim()) return channel.maskedReference.trim();
-  const raw = channel.accountNumber?.trim();
+  const existingMaskedReference = String(channel.maskedReference || '').trim();
+  if (existingMaskedReference) return existingMaskedReference;
+  const raw = String(channel.accountNumber || '').trim();
   if (!raw) return '';
   const visible = raw.replace(/\s+/g, '').slice(-4);
-  return `${channel.provider || channel.name} •••• ${visible}`;
+  return `${String(channel.provider || channel.name || 'Account')} •••• ${visible}`;
 };
 
 export const getTreasuryPaymentMethods = (
@@ -51,17 +52,31 @@ export const reconcilePaymentChannels = (
   existingChannels: PaymentChannel[] = [],
   options: { currency?: string; branchId?: string } = {},
 ): PaymentChannel[] => {
+  const safeExistingChannels = (Array.isArray(existingChannels) ? existingChannels : [])
+    .flatMap((candidate, index) => {
+      if (!candidate || typeof candidate !== 'object') return [];
+      const channel = { ...candidate } as PaymentChannel;
+      const identity = String(
+        channel.id ||
+        channel.paymentMethod ||
+        channel.name ||
+        channel.provider ||
+        `legacy-account-${index + 1}`,
+      ).trim();
+      channel.id = channel.id ? String(channel.id) : stableMethodId(identity);
+      return [channel];
+    });
   const methods = [...new Map(
-    paymentMethods
-      .map(method => method.trim())
+    (Array.isArray(paymentMethods) ? paymentMethods : [])
+      .map(method => String(method || '').trim())
       .filter(Boolean)
       .map(method => [normalize(method), method]),
   ).values()];
   const activeMethods = new Set(methods.map(normalize));
   const claimedChannelIds = new Set<string>();
 
-  const reconciled = existingChannels.map(channel => {
-    const linkedMethod = channel.paymentMethod?.trim();
+  const reconciled = safeExistingChannels.map(channel => {
+    const linkedMethod = String(channel.paymentMethod || '').trim();
     if (!linkedMethod) return channel;
     const isActive = activeMethods.has(normalize(linkedMethod));
     claimedChannelIds.add(channel.id);
@@ -125,7 +140,8 @@ export const findPaymentChannel = (
   paymentMethod: string,
 ): PaymentChannel | undefined => {
   const method = normalize(paymentMethod);
-  return channels.find(channel =>
+  return (Array.isArray(channels) ? channels : []).find(channel =>
+    Boolean(channel) &&
     channel.status !== 'inactive' &&
     channel.status !== 'archived' &&
     normalize(channel.paymentMethod) === method,

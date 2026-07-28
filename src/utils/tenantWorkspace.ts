@@ -42,6 +42,11 @@ export interface TenantWorkspace {
 const runtimeWorkspaces = new Map<string, TenantWorkspace>();
 const runtimeProductsUpdatedAt = new Map<string, string>();
 const workspaceSaveQueue = new Map<string, Promise<boolean>>();
+const settingsSaveQueue = new Map<string, Promise<boolean>>();
+
+type SaveTenantWorkspaceOptions = {
+  allowSettingsWrite?: boolean;
+};
 
 export const readCachedWorkspace = (tenantId: string): TenantWorkspace | null => {
   return runtimeWorkspaces.get(tenantId) || null;
@@ -398,7 +403,11 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 
 // ─── Save to DB ────────────────────────────────────────────────────────────
 
-async function saveTenantWorkspaceNow(tenantId: string, workspace: TenantWorkspace): Promise<boolean> {
+async function saveTenantWorkspaceNow(
+  tenantId: string,
+  workspace: TenantWorkspace,
+  options: SaveTenantWorkspaceOptions = {},
+): Promise<boolean> {
   if (!tenantId) return false;
 
   if (!canWriteBusinessDataOnline()) {
@@ -499,7 +508,9 @@ async function saveTenantWorkspaceNow(tenantId: string, workspace: TenantWorkspa
           (mergeBase as any)[key],
         );
       }
-      workspaceToSave.settings = mergeSettingsForSync(workspaceToSave.settings, mergeBase.settings);
+      workspaceToSave.settings = options.allowSettingsWrite
+        ? mergeSettingsForSync(workspaceToSave.settings, mergeBase.settings)
+        : mergeBase.settings;
     }
 
     if (protection.protectedKeys.length > 0) {
@@ -563,15 +574,87 @@ async function saveTenantWorkspaceNow(tenantId: string, workspace: TenantWorkspa
   }
 }
 
-export function saveTenantWorkspace(tenantId: string, workspace: TenantWorkspace): Promise<boolean> {
+export function saveTenantWorkspace(
+  tenantId: string,
+  workspace: TenantWorkspace,
+  options: SaveTenantWorkspaceOptions = {},
+): Promise<boolean> {
   if (!tenantId) return Promise.resolve(false);
   const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
   const next = previous
     .catch(() => false)
-    .then(() => saveTenantWorkspaceNow(tenantId, workspace));
+    .then(() => saveTenantWorkspaceNow(tenantId, workspace, options));
   workspaceSaveQueue.set(tenantId, next);
   void next.finally(() => {
     if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);
+  });
+  return next;
+}
+
+async function saveTenantSettingsNow(
+  tenantId: string,
+  settings: SystemSettings,
+): Promise<boolean> {
+  if (!tenantId || !canWriteBusinessDataOnline()) {
+    warnOfflineWriteBlocked(`saveTenantSettings:${tenantId}`);
+    return false;
+  }
+
+  const client = await getConfiguredClient();
+  if (!client) {
+    warnOfflineWriteBlocked(`saveTenantSettings:no-client:${tenantId}`);
+    return false;
+  }
+
+  try {
+    if (typeof client.rpc === 'function') {
+      const result = await client.rpc('save_current_tenant_settings', {
+        p_settings: settings,
+      });
+      const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
+      if (!result.error) {
+        const cached = readCachedWorkspace(tenantId);
+        if (cached) {
+          cacheWorkspace(tenantId, {
+            ...cached,
+            settings: (result.data?.settings || settings) as SystemSettings,
+          });
+        }
+        return true;
+      }
+      if (!missingRpc) {
+        console.warn('[workspace] settings save error:', result.error.message);
+        return false;
+      }
+    }
+
+    // Compatibility path while environments are receiving the authoritative
+    // settings migration. This path is removed from normal workspace saves by
+    // allowSettingsWrite being opt-in.
+    const current = readCachedWorkspace(tenantId) || await loadTenantWorkspace(tenantId);
+    return saveTenantWorkspace(
+      tenantId,
+      current ? { ...current, settings } : emptyWorkspace(settings),
+      { allowSettingsWrite: true },
+    );
+  } catch (error: any) {
+    console.warn('[workspace] settings save exception:', error?.message || error);
+    return false;
+  }
+}
+
+export function saveTenantSettings(
+  tenantId: string,
+  settings: SystemSettings,
+): Promise<boolean> {
+  if (!tenantId) return Promise.resolve(false);
+  const previous = settingsSaveQueue.get(tenantId) || Promise.resolve(true);
+  const next = previous
+    .catch(() => false)
+    .then(() => saveTenantSettingsNow(tenantId, settings));
+  settingsSaveQueue.set(tenantId, next);
+  void next.finally(() => {
+    if (settingsSaveQueue.get(tenantId) === next) settingsSaveQueue.delete(tenantId);
   });
   return next;
 }

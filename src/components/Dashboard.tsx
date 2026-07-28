@@ -12,6 +12,7 @@ import {
   MOCK_SALES_HISTORY,
   MOCK_EXPENSES_HISTORY
 } from '../data';
+import { lazyWithReload } from '../utils/lazyWithReload';
 
 // Subcomponents imports
 // Each dashboard tab (and the SaaS admin view) is code-split via React.lazy().
@@ -21,35 +22,35 @@ import {
 // render, even though a login only ever needs the one tab the user lands on.
 // See STEP1_INSPECTION_REPORT.md / commit history for the original fix and
 // why this must stay lazy-loaded.
-const DashboardOverview = React.lazy(() => import('./DashboardOverview'));
-const DashboardPOS = React.lazy(() => import('./DashboardPOS'));
-const DashboardProducts = React.lazy(() => import('./DashboardProducts'));
-const DashboardSuppliers = React.lazy(() => import('./DashboardSuppliers'));
-const DashboardLogsAndSync = React.lazy(() => import('./DashboardLogsAndSync'));
-const DashboardReports = React.lazy(() => import('./DashboardReports'));
-const DashboardExpenses = React.lazy(() => import('./DashboardExpenses'));
-const DashboardSalesList = React.lazy(() => import('./DashboardSalesList'));
-const DashboardForecasting = React.lazy(() => import('./DashboardForecasting'));
-const DashboardCashBank = React.lazy(() => import('./DashboardCashBank'));
+const DashboardOverview = lazyWithReload('DashboardOverview', () => import('./DashboardOverview'));
+const DashboardPOS = lazyWithReload('DashboardPOS', () => import('./DashboardPOS'));
+const DashboardProducts = lazyWithReload('DashboardProducts', () => import('./DashboardProducts'));
+const DashboardSuppliers = lazyWithReload('DashboardSuppliers', () => import('./DashboardSuppliers'));
+const DashboardLogsAndSync = lazyWithReload('DashboardLogsAndSync', () => import('./DashboardLogsAndSync'));
+const DashboardReports = lazyWithReload('DashboardReports', () => import('./DashboardReports'));
+const DashboardExpenses = lazyWithReload('DashboardExpenses', () => import('./DashboardExpenses'));
+const DashboardSalesList = lazyWithReload('DashboardSalesList', () => import('./DashboardSalesList'));
+const DashboardForecasting = lazyWithReload('DashboardForecasting', () => import('./DashboardForecasting'));
+const DashboardCashBank = lazyWithReload('DashboardCashBank', () => import('./DashboardCashBank'));
 import { saveData } from '../utils/dbSync';
-const DashboardPurchases = React.lazy(() => import('./DashboardPurchases'));
-const DashboardDeliveries = React.lazy(() => import('./DashboardDeliveries'));
-const DashboardHotelPMS = React.lazy(() => import('./DashboardHotelPMS'));
-const DashboardSandboxVerticals = React.lazy(() => import('./DashboardSandboxVerticals'));
-const DashboardRestaurant = React.lazy(() => import('./DashboardRestaurant'));
-const DashboardWhiteLabel = React.lazy(() => import('./DashboardWhiteLabel'));
-const DashboardSettings = React.lazy(() => import('./DashboardSettings'));
+const DashboardPurchases = lazyWithReload('DashboardPurchases', () => import('./DashboardPurchases'));
+const DashboardDeliveries = lazyWithReload('DashboardDeliveries', () => import('./DashboardDeliveries'));
+const DashboardHotelPMS = lazyWithReload('DashboardHotelPMS', () => import('./DashboardHotelPMS'));
+const DashboardSandboxVerticals = lazyWithReload('DashboardSandboxVerticals', () => import('./DashboardSandboxVerticals'));
+const DashboardRestaurant = lazyWithReload('DashboardRestaurant', () => import('./DashboardRestaurant'));
+const DashboardWhiteLabel = lazyWithReload('DashboardWhiteLabel', () => import('./DashboardWhiteLabel'));
+const DashboardSettings = lazyWithReload('DashboardSettings', () => import('./DashboardSettings'));
 import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
-const DashboardStaff = React.lazy(() => import('./DashboardStaff'));
+const DashboardStaff = lazyWithReload('DashboardStaff', () => import('./DashboardStaff'));
 import DashboardScreenErrorBoundary from './DashboardScreenErrorBoundary';
 import AIBusinessCopilot from './AIBusinessCopilot';
 import GlobalStickyAd from './GlobalStickyAd';
-const SuperSaaSAdminView = React.lazy(() => import('./SuperSaaSAdminView'));
+const SuperSaaSAdminView = lazyWithReload('SuperSaaSAdminView', () => import('./SuperSaaSAdminView'));
 import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
 import { savePendingSaleOffline } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
-import { flushPendingTenantWorkspace, loadTenantWorkspace, markTenantProductsUpdated, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
+import { flushPendingTenantWorkspace, loadTenantWorkspace, markTenantProductsUpdated, saveTenantSettings, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
 import { findPaymentChannel } from '../utils/paymentAccounts';
 import { markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
@@ -58,6 +59,7 @@ import {
   markLocalSaleTombstone,
   readLocalSaleTombstones,
   reverseSaleInventory,
+  saleHasTenantConflict,
   writeLocalSaleTombstones,
 } from '../utils/saleSync';
 import { mergeSettingsForSync, stampSettingsForSync } from '../utils/settingsSync';
@@ -88,7 +90,7 @@ import {
   SubscriptionState
 } from '../utils/subscription';
 
-const DashboardBranchesSettings = React.lazy(() => import('./DashboardBranchesSettings'));
+const DashboardBranchesSettings = lazyWithReload('DashboardBranchesSettings', () => import('./DashboardBranchesSettings'));
 
 import { 
   Store, 
@@ -658,6 +660,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const cloudWorkspaceLoadedRef = useRef(false);
   const localWorkspaceChangedAtRef = useRef(0);
   const skipNextWorkspaceSaveRef = useRef(false);
+  const settingsSaveVersionRef = useRef(0);
   const LOCAL_WORKSPACE_PROTECTION_MS = 10000; // 10s — save completes in < 5s normally
 
   // Set safe defaults while the selected tenant workspace loads from Supabase.
@@ -665,7 +668,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     setSystemSettings(normalizeSystemSettings(activeTenant));
     setDatabaseBusinessName('');
     document.documentElement.classList.remove('dark');
-  }, [activeTenant]);
+  }, [activeTenant.id]);
 
   // The encrypted database is the only durable tenant source of truth.
   useEffect(() => {
@@ -1731,14 +1734,24 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       return systemSettings;
     }
 
+    const previousSettings = systemSettings;
+    const saveVersion = settingsSaveVersionRef.current + 1;
+    settingsSaveVersionRef.current = saveVersion;
     const syncUpdatedAt = new Date().toISOString();
     const safeUpdatedSettings = normalizeSystemSettings(activeTenant, updated);
     const syncedSettings = stampSettingsForSync(safeUpdatedSettings, systemSettings, syncUpdatedAt);
     setDatabaseBusinessName(String(syncedSettings.business?.businessName || '').trim());
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
+    skipNextWorkspaceSaveRef.current = true;
     setSystemSettings(syncedSettings);
     saveData(activeTenant.id, 'settings', syncedSettings);
+    void saveTenantSettings(activeTenant.id, syncedSettings).then((saved) => {
+      if (saved || settingsSaveVersionRef.current !== saveVersion) return;
+      setSystemSettings(previousSettings);
+      setDatabaseBusinessName(String(previousSettings.business?.businessName || '').trim());
+      addToast('Settings could not be saved safely. Your previous saved settings were kept.', 'error');
+    });
     return syncedSettings;
   };
 
@@ -1835,8 +1848,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
   const handleDeleteSale = async (sale: Sale): Promise<boolean> => {
     if (blockOfflineBusinessWrite('sale deletion')) return false;
-    if (!sale?.id || sale.tenantId !== activeTenant.id) {
-      console.warn('[Dashboard] Blocked sale deletion outside the active tenant.');
+    if (!sale?.id) {
+      addToast('This sale has no valid transaction ID and could not be deleted.', 'error');
       return false;
     }
 
@@ -1844,7 +1857,20 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const currentSales = salesMap[tenantId] || [];
     const persistedSale = currentSales.find(candidate => candidate.id === sale.id);
     if (!persistedSale) return true;
-    if (!recordBelongsToActiveBranch(persistedSale, activeBranchSelection)) return false;
+
+    // Older workspace sales can legitimately predate the tenantId field. Their
+    // presence inside the active tenant's canonical workspace establishes the
+    // tenant boundary; an explicit conflicting tenant ID is still rejected.
+    if (saleHasTenantConflict(sale, persistedSale, tenantId)) {
+      console.warn('[Dashboard] Blocked sale deletion outside the active tenant.');
+      addToast('This sale belongs to a different business and cannot be deleted here.', 'error');
+      return false;
+    }
+
+    if (!recordBelongsToActiveBranch(persistedSale, activeBranchSelection)) {
+      addToast('Switch to the branch that owns this sale before deleting it.', 'error');
+      return false;
+    }
 
     const deletedAt = new Date().toISOString();
     const previousSaleTombstones = readLocalSaleTombstones(tenantId);
@@ -1873,6 +1899,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
     if (!saved) {
       writeLocalSaleTombstones(tenantId, previousSaleTombstones);
+      addToast('Sale could not be deleted from the database. Nothing was removed.', 'error');
       return false;
     }
 
@@ -3747,19 +3774,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               onSaveSettings={(updated) => {
                 if (blockOfflineBusinessWrite('settings save')) return;
                 const syncedSettings = persistSystemSettingsNow(updated);
-                saveTenantWorkspace(activeTenant.id, {
-                  branches: branchesMap[activeTenant.id] || [],
-                  branchStocks: branchStocksMap[activeTenant.id] || [],
-                  branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
-                  products: productsMap[activeTenant.id] || [],
-                  sales: salesMap[activeTenant.id] || [],
-                  expenses: expensesMap[activeTenant.id] || [],
-                  settings: syncedSettings,
-                  deliveries: deliveriesMap[activeTenant.id] || [],
-                  pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
-                  purchases: purchasesMap[activeTenant.id] || [],
-                  productTombstones: readLocalProductTombstones(activeTenant.id),
-                });
                 let logoToSave = '';
                 if (syncedSettings.company?.logo) {
                   logoToSave = syncedSettings.company.logo;

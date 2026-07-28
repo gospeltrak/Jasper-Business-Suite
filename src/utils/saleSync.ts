@@ -29,6 +29,21 @@ const saleTime = (sale: any): number => {
 export const isSaleDataKey = (dataKey: string): boolean =>
   dataKey === 'sales' || dataKey === 'sales_map';
 
+export const saleHasTenantConflict = (
+  requestedSale: Partial<Sale> | null | undefined,
+  persistedSale: Partial<Sale> | null | undefined,
+  activeTenantId: string,
+): boolean => {
+  const explicitTenantId = String(
+    requestedSale?.tenantId
+    || (requestedSale as any)?.tenant_id
+    || persistedSale?.tenantId
+    || (persistedSale as any)?.tenant_id
+    || ''
+  ).trim();
+  return Boolean(explicitTenantId && explicitTenantId !== activeTenantId);
+};
+
 export const readLocalSaleTombstones = (tenantId: string): SaleTombstones => ({
   ...(runtimeTombstones.get(tenantId) || {}),
 });
