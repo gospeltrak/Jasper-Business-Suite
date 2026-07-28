@@ -488,30 +488,30 @@ drop policy if exists tenant_data_delete_own on public.tenant_data;
 create policy tenant_data_admin_read on public.tenant_data
   for select to authenticated
   using (
-    tenant_id = private.current_tenant_id()
-    and private.is_tenant_branch_administrator(tenant_id)
+    tenant_id = private.current_tenant_id()::text
+    and private.is_tenant_branch_administrator(private.current_tenant_id())
   );
 create policy tenant_data_admin_insert on public.tenant_data
   for insert to authenticated
   with check (
-    tenant_id = private.current_tenant_id()
-    and private.is_tenant_branch_administrator(tenant_id)
+    tenant_id = private.current_tenant_id()::text
+    and private.is_tenant_branch_administrator(private.current_tenant_id())
   );
 create policy tenant_data_admin_update on public.tenant_data
   for update to authenticated
   using (
-    tenant_id = private.current_tenant_id()
-    and private.is_tenant_branch_administrator(tenant_id)
+    tenant_id = private.current_tenant_id()::text
+    and private.is_tenant_branch_administrator(private.current_tenant_id())
   )
   with check (
-    tenant_id = private.current_tenant_id()
-    and private.is_tenant_branch_administrator(tenant_id)
+    tenant_id = private.current_tenant_id()::text
+    and private.is_tenant_branch_administrator(private.current_tenant_id())
   );
 create policy tenant_data_admin_delete on public.tenant_data
   for delete to authenticated
   using (
-    tenant_id = private.current_tenant_id()
-    and private.is_tenant_branch_administrator(tenant_id)
+    tenant_id = private.current_tenant_id()::text
+    and private.is_tenant_branch_administrator(private.current_tenant_id())
   );
 
 commit;
