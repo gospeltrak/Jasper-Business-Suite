@@ -219,6 +219,7 @@ export interface Product {
   latestBuyingPrice?: number;
   averageBuyingCost?: number;
   batches?: ProductBatch[];
+  branchId?: string;
 }
 
 export interface ProductBatch {
@@ -337,6 +338,8 @@ export interface Sale {
   channel?: 'retail' | 'wholesale';
   approvals?: any[];
   actualTimestamp?: string; // actual entry date/time for security
+  branchId?: string;
+  treasuryJournalId?: string;
 }
 
 export interface Expense {
@@ -353,6 +356,14 @@ export interface Expense {
   note?: string;
   paymentMethod?: string;
   paidFromAccountId?: string;
+  branchId?: string;
+  staffId?: string;
+  payrollPaymentType?: 'salary' | 'wages' | 'allowance' | 'bonus' | 'overtime' | 'advance_recovery' | 'other';
+  payrollPeriodStart?: string;
+  payrollPeriodEnd?: string;
+  payrollReference?: string;
+  payrollAttachmentName?: string;
+  treasuryJournalId?: string;
 }
 
 export interface SyncLog {
@@ -370,6 +381,8 @@ export interface Supplier {
   phone: string;
   email: string;
   categories: string[];
+  tenantId?: string;
+  branchId?: string;
 }
 
 export interface PurchaseItem {
@@ -396,6 +409,8 @@ export interface Purchase {
   discount?: number;
   discountType?: 'percentage' | 'cash';
   deliveryFee?: number;
+  branchId?: string;
+  treasuryJournalId?: string;
 }
 
 export interface DeliveryRider {
@@ -407,6 +422,7 @@ export interface DeliveryRider {
   vehicleColor: string;
   licensePlate: string;
   tenantId: string;
+  branchId?: string;
   signatureImage?: string;
 }
 
@@ -437,6 +453,8 @@ export interface Delivery {
   deliveryPaymentAccountId?: string;
   deliveryPaymentStatus?: 'pending' | 'collected' | 'cancelled';
   paymentCollectedAt?: string;
+  branchId?: string;
+  treasuryJournalId?: string;
 }
 
 export interface CompanySettings {
@@ -494,6 +512,7 @@ export interface ProductStoreSettings {
 
 export interface StaffSettings {
   id: string;
+  branchId?: string;
   name: string;
   phone: string;
   password?: string;

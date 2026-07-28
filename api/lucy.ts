@@ -301,7 +301,10 @@ ${businessContext}`;
     return res.json({ success: true, text, source: 'gemini' });
 
   } catch (err: any) {
-    console.error('[Lucy] Gemini error:', err?.message || err);
+    console.error('[Lucy] Gemini request failed.', {
+      code: String(err?.code || 'GEMINI_ERROR').slice(0, 40),
+      status: Number(err?.status || 0) || undefined,
+    });
     const fallback = getFallbackMessage(lastUserMsg);
     return res.json({ success: false, text: fallback, source: 'fallback_error', errorCode: 'GEMINI_ERROR' });
   }

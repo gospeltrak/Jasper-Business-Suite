@@ -35,9 +35,9 @@ interface DashboardPurchasesProps {
   suppliers: Supplier[];
   onUpdateStocks: (updatedProducts: Product[]) => void;
   purchases: Purchase[];
-  onAddPurchase: (purchase: Purchase) => void;
+  onAddPurchase: (purchase: Purchase) => void | boolean | Promise<void | boolean>;
   onUpdatePurchases: (purchases: Purchase[]) => void;
-  onDeletePurchase: (purchaseId: string) => void;
+  onDeletePurchase: (purchaseId: string) => void | boolean | Promise<void | boolean>;
   systemSettings: SystemSettings;
 }
 
@@ -76,6 +76,7 @@ export default function DashboardPurchases({
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
   const [paidFromAccountId, setPaidFromAccountId] = useState<string>('');
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
+  const [purchaseError, setPurchaseError] = useState('');
 
   // Discount & Delivery Fee states
   const [purchaseDiscount, setPurchaseDiscount] = useState<number>(0);
@@ -99,10 +100,12 @@ export default function DashboardPurchases({
   const [editDeliveryStatus, setEditDeliveryStatus] = useState<Purchase['deliveryStatus']>('Pending');
   const [editPaymentMethod, setEditPaymentMethod] = useState('Cash');
   const [editPaidFromAccountId, setEditPaidFromAccountId] = useState('');
+  const [editPurchaseError, setEditPurchaseError] = useState('');
   const [deletePurchaseId, setDeletePurchaseId] = useState<string | null>(null);
   const [mobilePurchaseMenu, setMobilePurchaseMenu] = useState<Purchase | null>(null);
 
   const openEditPurchase = (purchase: Purchase) => {
+    setEditPurchaseError('');
     setEditPurchase(purchase);
     setEditAmountPaid(purchase.amountPaid || 0);
     setEditDeliveryStatus(purchase.deliveryStatus);
@@ -113,6 +116,16 @@ export default function DashboardPurchases({
   const saveEditedPurchase = () => {
     if (!editPurchase) return;
     const safePaid = Math.max(0, Math.min(editPurchase.totalAmount, Number(editAmountPaid) || 0));
+    if (
+      editPurchase.treasuryJournalId
+      && (
+        safePaid !== Number(editPurchase.amountPaid || 0)
+        || editPaidFromAccountId !== (editPurchase.paidFromAccountId || '')
+      )
+    ) {
+      setEditPurchaseError('A posted payment cannot be silently changed. Reverse/delete this purchase payment, then record the corrected purchase.');
+      return;
+    }
     onUpdatePurchases(purchases.map((purchase) => purchase.id === editPurchase.id
       ? {
           ...purchase,
@@ -206,7 +219,8 @@ export default function DashboardPurchases({
   const paymentAccounts = (systemSettings.paymentChannels || [])
     .filter(account => account.category !== 'person' && account.status !== 'inactive' && account.status !== 'archived');
 
-  const handleCommitPurchase = () => {
+  const handleCommitPurchase = async () => {
+    setPurchaseError('');
     if (cart.length === 0) return;
     if (!selectedSupplierId) {
       alert("Please select a valid supplier first!");
@@ -273,8 +287,12 @@ export default function DashboardPurchases({
       return prod;
     });
 
+    const saved = await onAddPurchase(newPurchase);
+    if (saved === false) {
+      setPurchaseError('Purchase payment was not posted. Stock and purchase records were not changed.');
+      return;
+    }
     onUpdateStocks(updatedProductsList);
-    onAddPurchase(newPurchase);
 
     setPurchaseSuccess(true);
     setTimeout(() => {
@@ -419,9 +437,9 @@ export default function DashboardPurchases({
             Cancel
           </button>
           <button
-            onClick={() => {
-              onDeletePurchase(id);
-              setDeletePurchaseId(null);
+            onClick={async () => {
+              const deleted = await onDeletePurchase(id);
+              if (deleted !== false) setDeletePurchaseId(null);
             }}
             className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white text-sm font-black rounded-2xl transition-all"
           >
@@ -494,6 +512,11 @@ export default function DashboardPurchases({
           >
             <CheckCircle className="w-4 h-4 text-emerald-400" /> Save Changes
           </button>
+          {editPurchaseError && (
+            <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+              {editPurchaseError}
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -1397,6 +1420,11 @@ export default function DashboardPurchases({
                           <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
                         ))}
                       </select>
+                    </div>
+                  )}
+                  {purchaseError && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                      {purchaseError}
                     </div>
                   )}
 

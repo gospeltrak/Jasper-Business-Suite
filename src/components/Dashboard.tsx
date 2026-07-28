@@ -61,13 +61,23 @@ import {
   writeLocalSaleTombstones,
 } from '../utils/saleSync';
 import { mergeSettingsForSync, stampSettingsForSync } from '../utils/settingsSync';
-import { loadBranchWorkspace } from '../branches/branchApi';
+import { BranchProvider } from '../branches/BranchContext';
+import GlobalBranchSwitcher from './GlobalBranchSwitcher';
+import {
+  mergeScopedProducts,
+  recordBelongsToActiveBranch,
+  replaceScopedBranchRecords,
+  scopeBranchRecords,
+  scopeProductsForBranch,
+  type ActiveBranchSelection,
+} from '../branches/branchScope';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../utils/onlineOnly';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
+import { postTreasuryEntry, postTreasurySplitIncome, reverseTreasuryEntry } from '../utils/treasuryApi';
+import { getSubscriptionReminder, getSubscriptionReminderKey } from '../utils/subscriptionReminder';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
 import { 
   getSubscriptionState, 
-  saveSubscriptionState, 
   checkSubscriptionStatus, 
   loadSubscriptionFromDB,
   SUBSCRIPTION_PLANS, 
@@ -322,7 +332,7 @@ function SubscriptionCheckoutStateBridge({
   return <>{children({ selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode })}</>;
 }
 
-export default function Dashboard({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab }: DashboardProps) {
+function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
   const { getFallbackInitials } = useTenantLogo();
   const { addSaleNotification, unreadCount } = useJasperNotifications();
@@ -628,6 +638,12 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => normalizeSystemSettings(activeTenant));
   const [databaseBusinessName, setDatabaseBusinessName] = useState('');
   const [activeBranchBusinessName, setActiveBranchBusinessName] = useState('');
+  const [activeBranchSelection, setActiveBranchSelection] = useState<ActiveBranchSelection>({
+    activeBranchId: null,
+    activeScope: 'compatibility_primary',
+    selectedBranch: null,
+  });
+  const [branchSwitching, setBranchSwitching] = useState(false);
 
   const [preloadedCart, setPreloadedCart] = useState<{
     items: SaleItem[];
@@ -738,23 +754,55 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     const applyBranchContext = (detail: any) => {
       if (!active) return;
       setActiveBranchBusinessName(String(detail?.businessName || '').trim());
+      setActiveBranchSelection({
+        activeBranchId: detail?.activeBranchId || null,
+        activeScope: detail?.activeScope || detail?.scope || 'no_branch_access',
+        selectedBranch: detail?.selectedBranch || null,
+      });
     };
-    const handleBranchContextChanged = (event: Event) => {
+    const handleBranchContextChanged = async (event: Event) => {
       applyBranchContext((event as CustomEvent).detail);
+      try {
+        const workspace = await loadTenantWorkspace(activeTenant.id);
+        if (!active) return;
+        if (!workspace) {
+          addToast('The selected branch workspace could not be loaded. No previous-branch data was shown.', 'error');
+          return;
+        }
+        skipNextWorkspaceSaveRef.current = true;
+        setProductsMap(previous => ({ ...previous, [activeTenant.id]: workspace.products || [] }));
+        setBranchesMap(previous => ({ ...previous, [activeTenant.id]: workspace.branches || [] }));
+        setBranchStocksMap(previous => ({ ...previous, [activeTenant.id]: workspace.branchStocks || [] }));
+        setBranchStaffAssignmentsMap(previous => ({
+          ...previous,
+          [activeTenant.id]: workspace.branchStaffAssignments || [],
+        }));
+        setSalesMap(previous => ({ ...previous, [activeTenant.id]: workspace.sales || [] }));
+        setExpensesMap(previous => ({ ...previous, [activeTenant.id]: workspace.expenses || [] }));
+        setDeliveriesMap(previous => ({ ...previous, [activeTenant.id]: workspace.deliveries || [] }));
+        setPendingDeliveryNotesMap(previous => ({
+          ...previous,
+          [activeTenant.id]: workspace.pendingDeliveryNotes || [],
+        }));
+        setPurchasesMap(previous => ({ ...previous, [activeTenant.id]: workspace.purchases || [] }));
+        setSystemSettings(normalizeSystemSettings(activeTenant, workspace.settings));
+        cloudWorkspaceLoadedRef.current = true;
+      } finally {
+        if (active) setBranchSwitching(false);
+      }
     };
+    const handleBranchSwitchStarted = () => setBranchSwitching(true);
+    const handleBranchSwitchFailed = () => setBranchSwitching(false);
 
     window.addEventListener('jasper_branch_context_changed', handleBranchContextChanged);
-    void loadBranchWorkspace()
-      .then(snapshot => applyBranchContext({
-        businessName: snapshot.context.selectedBranch?.businessName || '',
-      }))
-      .catch(() => {
-        if (active) setActiveBranchBusinessName('');
-      });
+    window.addEventListener('jasper_branch_switch_started', handleBranchSwitchStarted);
+    window.addEventListener('jasper_branch_switch_failed', handleBranchSwitchFailed);
 
     return () => {
       active = false;
       window.removeEventListener('jasper_branch_context_changed', handleBranchContextChanged);
+      window.removeEventListener('jasper_branch_switch_started', handleBranchSwitchStarted);
+      window.removeEventListener('jasper_branch_switch_failed', handleBranchSwitchFailed);
     };
   }, [activeTenant.id]);
 
@@ -1152,14 +1200,27 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
 
   // Multi-tenant pivot controller keys
   const currentTenantId = user.activeTenant || user.tenantId;
-  const activeProducts = currentTenantId ? (productsMap[activeTenant.id] || []) : [];
-  const activeSales = currentTenantId ? (salesMap[activeTenant.id] || []) : [];
-  const activeExpenses = currentTenantId ? (expensesMap[activeTenant.id] || []) : [];
-  const activePurchases = currentTenantId ? (purchasesMap[activeTenant.id] || []) : [];
-  const activeDeliveries = currentTenantId ? (deliveriesMap[activeTenant.id] || []) : [];
+  const activeProducts = currentTenantId
+    ? scopeProductsForBranch(
+      productsMap[activeTenant.id] || [],
+      branchStocksMap[activeTenant.id] || [],
+      activeBranchSelection,
+    )
+    : [];
+  const activeSales: Sale[] = currentTenantId ? scopeBranchRecords<Sale>(salesMap[activeTenant.id] || [], activeBranchSelection) : [];
+  const activeExpenses: Expense[] = currentTenantId ? scopeBranchRecords<Expense>(expensesMap[activeTenant.id] || [], activeBranchSelection) : [];
+  const activePurchases: Purchase[] = currentTenantId ? scopeBranchRecords<Purchase>(purchasesMap[activeTenant.id] || [], activeBranchSelection) : [];
+  const activeDeliveries: Delivery[] = currentTenantId ? scopeBranchRecords<Delivery>(deliveriesMap[activeTenant.id] || [], activeBranchSelection) : [];
+  const activePendingDeliveryNotes = currentTenantId
+    ? scopeBranchRecords<any>(pendingDeliveryNotesMap[activeTenant.id] || [], activeBranchSelection)
+    : [];
 
-  const activeSuppliers = currentTenantId ? suppliers.filter(s => s.tenantId === activeTenant.id) : [];
-  const activeRiders = currentTenantId ? riders.filter(r => r.tenantId === activeTenant.id) : [];
+  const activeSuppliers = currentTenantId
+    ? scopeBranchRecords<Supplier>(suppliers.filter(s => s.tenantId === activeTenant.id), activeBranchSelection)
+    : [];
+  const activeRiders = currentTenantId
+    ? scopeBranchRecords<DeliveryRider>(riders.filter(r => r.tenantId === activeTenant.id), activeBranchSelection)
+    : [];
 
   // Premium subscription state setup 
   const [subState, setSubState] = useState<SubscriptionState>(() => getSubscriptionState());
@@ -1211,18 +1272,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       // Silently fall back to onlineStorage state — system still works offline
     });
   }, [activeTenant.id]);
-
-  const updateSubscriptionPlan = (newPlanId: SubscriptionPlanId) => {
-    const normalizedPlanId = normalizeSubscriptionPlanId(newPlanId);
-    const updated: SubscriptionState = {
-      ...subState,
-      planId: normalizedPlanId,
-      isSubscribedPaid: normalizedPlanId !== 'trial',
-      paidAt: normalizedPlanId !== 'trial' ? new Date().toISOString() : undefined
-    };
-    saveSubscriptionState(updated);
-    setSubState(updated);
-  };
 
   const submitManualActivationRequest = async (requestedPlanId: SubscriptionPlanId = manualActivationPackage) => {
     const selectedPlanId = normalizeSubscriptionPlanId(requestedPlanId);
@@ -1368,15 +1417,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     }
   };
 
-  const setSimulatedDays = (days: number) => {
-    const updated: SubscriptionState = {
-      ...subState,
-      simulatedDaysPassed: days
-    };
-    saveSubscriptionState(updated);
-    setSubState(updated);
-  };
-
   const currentProductCount = activeProducts.length;
   const currentStoreCount = systemSettings.business?.registeredStores?.length || 1;
   const currentStaffCount = systemSettings.staffs?.length || 0;
@@ -1429,55 +1469,111 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     'Staff payroll, allowances, and richer executive reporting'
   ];
 
-  const getSubscriptionCountdown = () => {
-    if (subStatus.daysRemaining <= 0 && !isTrialAccessLocked) return null;
+  const subscriptionReminder = getSubscriptionReminder(
+    subStatus.plan.id,
+    subStatus.daysRemaining,
+    subStatus.isExpired,
+  );
+  const subscriptionReminderKey = subscriptionReminder
+    ? getSubscriptionReminderKey(
+      activeTenant.id,
+      subStatus.state.subscriptionEndAt,
+      subscriptionReminder,
+    )
+    : null;
 
-    const isWarning = subStatus.daysRemaining <= 3;
-    const message = isWarning
-      ? isTrialAccount
-        ? `Your free trial expires in ${subStatus.daysRemaining} days - subscribe now to keep access.`
-        : `Your subscription expires in ${subStatus.daysRemaining} days - renew now to avoid interruption.`
-      : isTrialAccount
-        ? `Free trial: ${subStatus.daysRemaining} days remaining`
-        : '';
-
-    return message ? { message, isWarning } : null;
-  };
+  useEffect(() => {
+    setIsBillingBannerDismissed(
+      Boolean(subscriptionReminderKey && sessionStorage.getItem(subscriptionReminderKey) === 'dismissed'),
+    );
+  }, [subscriptionReminderKey]);
 
   // Compact header countdown between search and online status.
   const renderSubscriptionCountdownBadge = () => {
-    const countdown = getSubscriptionCountdown();
-    if (!countdown || user.role === 'SuperAdmin') return null;
-    const { message, isWarning } = countdown;
+    if (!subscriptionReminder || isBillingBannerDismissed || user.role === 'SuperAdmin') return null;
 
     return (
-      <button
-        type="button"
-        onClick={() => {
-          if (!isWarning) return;
+      <div
+        className="flex min-w-0 items-center gap-1 rounded-xl border border-amber-200 bg-amber-50 px-2 py-1.5 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200"
+        role="status"
+      >
+        <button
+          type="button"
+          onClick={() => {
           setSubModal({
             show: true,
-            title: isTrialAccount ? 'Subscribe to keep access' : 'Renew Subscription',
+            title: subscriptionReminder.level === 'expired' ? 'Renew Tanzanite' : 'Renew Subscription',
             limitType: 'expired',
-            description: isTrialAccount
-              ? 'Your trial is ending soon. Choose a package to keep using Jasper without interruption.'
-              : 'Your paid subscription is close to renewal. Choose a package and submit your receipt to avoid interruption.'
+            description: subscriptionReminder.message,
           });
-        }}
-        className={`hidden xl:flex items-center space-x-2 text-[11px] font-medium tracking-tight px-3 py-1.5 rounded-xl border transition-all font-sans ${
-        isWarning
-          ? 'border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100'
-          : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 cursor-default'
-      }`}>
-        <Clock className={`w-3.5 h-3.5 ${isWarning ? 'text-amber-500' : 'text-emerald-500'}`} />
-        <span className="font-semibold whitespace-nowrap">{message}</span>
-      </button>
+          }}
+          className="flex min-w-0 items-center gap-1.5 text-[11px] font-semibold"
+          title={subscriptionReminder.message}
+        >
+          <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+          <span className="hidden max-w-[260px] truncate md:inline">{subscriptionReminder.message}</span>
+          <span className="md:hidden">{subscriptionReminder.title}</span>
+        </button>
+        <button
+          type="button"
+          aria-label="Dismiss subscription reminder for this session"
+          className="rounded-md p-0.5 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+          onClick={() => {
+            if (subscriptionReminderKey) sessionStorage.setItem(subscriptionReminderKey, 'dismissed');
+            setIsBillingBannerDismissed(true);
+          }}
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
     );
   };
 
   // Mutators passed down
-  const handleAddExpense = (expense: Expense) => {
-    if (blockOfflineBusinessWrite('expense entry')) return;
+  const getTreasuryOpeningBalances = () => {
+    const channels = (systemSettings.paymentChannels || []).filter(channel =>
+      channel.category !== 'person'
+      && channel.status !== 'inactive'
+      && channel.status !== 'archived'
+    );
+    const balances = Object.fromEntries(channels.map(channel => [channel.id, 0])) as Record<string, number>;
+    const creditMethod = (method: string, amount: number) => {
+      const channel = findPaymentChannel(channels, method);
+      if (channel && amount > 0) balances[channel.id] = (balances[channel.id] || 0) + amount;
+    };
+
+    activeSales.forEach(sale => {
+      const amount = Math.max(0, Number(sale.total || 0) - Number(sale.deliveryCost || 0));
+      const breakdown = sale.paymentBreakdown?.length
+        ? sale.paymentBreakdown
+        : [{ method: sale.paymentMethod || 'Cash', amount }];
+      breakdown.forEach(part => creditMethod(part.method || sale.paymentMethod || 'Cash', Math.max(0, Number(part.amount || 0))));
+    });
+    activeDeliveries.forEach(delivery => {
+      const collected = delivery.deliveryPaymentStatus === 'collected'
+        || (!delivery.deliveryPaymentStatus && delivery.status === 'Delivered');
+      if (collected && delivery.status !== 'Cancelled') {
+        creditMethod(
+          delivery.deliveryPaymentMethod || 'Cash',
+          Math.max(0, Number(delivery.deliveryCost || 0)),
+        );
+      }
+    });
+    activeExpenses.forEach(expense => {
+      if (expense.paidFromAccountId && balances[expense.paidFromAccountId] !== undefined) {
+        balances[expense.paidFromAccountId] -= Math.max(0, Number(expense.amount || 0));
+      }
+    });
+    activePurchases.forEach(purchase => {
+      if (purchase.paidFromAccountId && balances[purchase.paidFromAccountId] !== undefined) {
+        balances[purchase.paidFromAccountId] -= Math.max(0, Number(purchase.amountPaid || 0));
+      }
+    });
+    return Object.fromEntries(Object.entries(balances).map(([id, balance]) => [id, Math.max(0, balance)]));
+  };
+
+  const handleAddExpense = async (expense: Expense) => {
+    if (blockOfflineBusinessWrite('expense entry')) return false;
 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
@@ -1490,7 +1586,38 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     );
     if (!hasValidExpensePayload) {
       console.warn('Blocked invalid automatic expense payload', expense);
-      return;
+      return false;
+    }
+
+    try {
+      const posted = await postTreasuryEntry({
+        channels: systemSettings.paymentChannels || [],
+        sourceAccountKey: String(expense.paidFromAccountId || ''),
+        amount: expense.amount,
+        direction: 'out',
+        sourceType: expense.payrollPaymentType ? 'payroll' : 'expense',
+        sourceId: expense.id,
+        description: expense.description,
+        openingBalances: getTreasuryOpeningBalances(),
+        metadata: {
+          category: expense.category,
+          staffId: expense.staffId || null,
+          staffName: expense.staffName,
+          payrollPaymentType: expense.payrollPaymentType || null,
+          payrollPeriodStart: expense.payrollPeriodStart || null,
+          payrollPeriodEnd: expense.payrollPeriodEnd || null,
+          reference: expense.payrollReference || expense.receiptRef || null,
+          attachmentName: expense.payrollAttachmentName || null,
+        },
+      });
+      expense = {
+        ...expense,
+        branchId: posted.branchId,
+        treasuryJournalId: posted.journalId,
+      };
+    } catch (error: any) {
+      addToast(error?.message || 'Money & Bank could not post this expense safely.', 'error');
+      return false;
     }
 
     setExpensesMap(prev => {
@@ -1509,23 +1636,48 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [newLog, ...prev]);
+    return true;
   };
 
-  const handleDeleteExpense = (expenseId: string) => {
-    if (blockOfflineBusinessWrite('expense delete')) return;
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (blockOfflineBusinessWrite('expense delete')) return false;
+    const expense = (expensesMap[activeTenant.id] || []).find(item => item.id === expenseId);
+    if (!expense || !recordBelongsToActiveBranch(expense, activeBranchSelection)) {
+      addToast('This expense is not part of the active branch workspace.', 'error');
+      return false;
+    }
+    if (expense?.treasuryJournalId) {
+      try {
+        await reverseTreasuryEntry(
+          expense.treasuryJournalId,
+          expense.id,
+          `Voided expense: ${expense.description}`,
+        );
+      } catch (error: any) {
+        addToast(error?.message || 'Money & Bank could not reverse this expense safely.', 'error');
+        return false;
+      }
+    }
 
     setExpensesMap(prev => ({
       ...prev,
       [activeTenant.id]: (prev[activeTenant.id] || []).filter(e => e.id !== expenseId)
     }));
+    return true;
   };
 
   const handleUpdateExpense = (updatedExpense: Expense) => {
     if (blockOfflineBusinessWrite('expense update')) return;
+    const existingExpense = (expensesMap[activeTenant.id] || []).find(item => item.id === updatedExpense.id);
+    if (!existingExpense || !recordBelongsToActiveBranch(existingExpense, activeBranchSelection)) return;
 
     setExpensesMap(prev => ({
       ...prev,
-      [activeTenant.id]: (prev[activeTenant.id] || []).map(e => e.id === updatedExpense.id ? updatedExpense : e)
+      [activeTenant.id]: (prev[activeTenant.id] || []).map(e => (
+        e.id === updatedExpense.id
+          ? { ...updatedExpense, branchId: existingExpense.branchId }
+          : e
+      ))
     }));
   };
 
@@ -1593,7 +1745,47 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const handleUpdateActiveStocks = (updatedProducts: Product[]) => {
     if (blockOfflineBusinessWrite('stock adjustment')) return;
 
-    const syncedProducts = persistTenantProductsNow(updatedProducts);
+    const tenantProducts = productsMap[activeTenant.id] || [];
+    const safeCatalogueUpdates = updatedProducts.map(updated => {
+      const existing = tenantProducts.find(product => product.id === updated.id);
+      if (!existing || recordBelongsToActiveBranch(existing, activeBranchSelection)) return updated;
+      // A product shared into this branch through BranchStock keeps its tenant/
+      // owning-branch catalogue record unchanged; only this branch's stock row
+      // is updated below.
+      return existing;
+    });
+    const nextTenantProducts = mergeScopedProducts(tenantProducts, safeCatalogueUpdates);
+    if (activeBranchSelection.activeScope === 'branch' && activeBranchSelection.activeBranchId) {
+      const now = new Date().toISOString();
+      setBranchStocksMap(previous => {
+        const tenantStocks = previous[activeTenant.id] || [];
+        const updates = new Map(updatedProducts.map(product => [product.id, product]));
+        const retained = tenantStocks.filter(stock => (
+          stock.branchId !== activeBranchSelection.activeBranchId || !updates.has(stock.productId)
+        ));
+        const branchStockUpdates = updatedProducts.map(product => {
+          const existing = tenantStocks.find(stock => (
+            stock.branchId === activeBranchSelection.activeBranchId && stock.productId === product.id
+          ));
+          return {
+            id: existing?.id || `branch-stock-${activeBranchSelection.activeBranchId}-${product.id}`,
+            tenantId: activeTenant.id,
+            branchId: activeBranchSelection.activeBranchId!,
+            productId: product.id,
+            quantity: Number(product.stockQty || 0),
+            shopStockQty: Number(product.shopStockQty || 0),
+            storeStockQty: Number(product.storeStockQty || 0),
+            buyingPrice: product.costPrice,
+            sellingPrice: product.sellingPrice,
+            lowStockAlert: product.alertQty,
+            createdAt: existing?.createdAt || now,
+            updatedAt: now,
+          } satisfies BranchStock;
+        });
+        return { ...previous, [activeTenant.id]: [...retained, ...branchStockUpdates] };
+      });
+    }
+    const syncedProducts = persistTenantProductsNow(nextTenantProducts);
     setProductsMap(prev => ({
       ...prev,
       [activeTenant.id]: syncedProducts
@@ -1616,10 +1808,15 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     const syncUpdatedAt = new Date().toISOString();
-    const synchronizedSales = updatedSales.map((sale) => ({
+    const synchronizedScopedSales = updatedSales.map((sale) => ({
       ...sale,
       syncUpdatedAt: (sale as any).syncUpdatedAt || syncUpdatedAt,
     }) as Sale);
+    const synchronizedSales = replaceScopedBranchRecords(
+      salesMap[activeTenant.id] || [],
+      synchronizedScopedSales,
+      activeBranchSelection,
+    );
     setSalesMap(prev => ({
       ...prev,
       [activeTenant.id]: synchronizedSales
@@ -1647,6 +1844,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     const currentSales = salesMap[tenantId] || [];
     const persistedSale = currentSales.find(candidate => candidate.id === sale.id);
     if (!persistedSale) return true;
+    if (!recordBelongsToActiveBranch(persistedSale, activeBranchSelection)) return false;
 
     const deletedAt = new Date().toISOString();
     const previousSaleTombstones = readLocalSaleTombstones(tenantId);
@@ -1676,6 +1874,34 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     if (!saved) {
       writeLocalSaleTombstones(tenantId, previousSaleTombstones);
       return false;
+    }
+
+    if (persistedSale.treasuryJournalId) {
+      try {
+        await reverseTreasuryEntry(
+          persistedSale.treasuryJournalId,
+          persistedSale.id,
+          `Deleted sale ${persistedSale.reference || persistedSale.id}`,
+        );
+      } catch (error: any) {
+        writeLocalSaleTombstones(tenantId, previousSaleTombstones);
+        await saveTenantWorkspace(tenantId, {
+          branches: branchesMap[tenantId] || [],
+          branchStocks: branchStocksMap[tenantId] || [],
+          branchStaffAssignments: branchStaffAssignmentsMap[tenantId] || [],
+          products: currentProducts,
+          sales: currentSales,
+          expenses: expensesMap[tenantId] || [],
+          settings: systemSettings,
+          deliveries: deliveriesMap[tenantId] || [],
+          pendingDeliveryNotes: pendingDeliveryNotesMap[tenantId] || [],
+          purchases: purchasesMap[tenantId] || [],
+          productTombstones: readLocalProductTombstones(tenantId),
+          saleTombstones: previousSaleTombstones,
+        });
+        addToast(error?.message || 'Money & Bank could not reverse this sale safely.', 'error');
+        return false;
+      }
     }
 
     localWorkspaceChangedAtRef.current = Date.now();
@@ -1719,7 +1945,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       deliveryCost: sale.deliveryCost || 0,
       status: 'Pending Dispatch',
       timestamp: sale.timestamp,
-      tenantId: activeTenant.id
+      tenantId: activeTenant.id,
+      branchId: sale.branchId || activeBranchSelection.activeBranchId || undefined,
     };
 
     localWorkspaceChangedAtRef.current = Date.now();
@@ -1738,22 +1965,81 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const handleUpdatePendingDeliveryNotes = (updatedNotes: any[]) => {
     if (blockOfflineBusinessWrite('pending delivery notes update')) return;
 
+    const tenantNotes = replaceScopedBranchRecords(
+      pendingDeliveryNotesMap[activeTenant.id] || [],
+      updatedNotes,
+      activeBranchSelection,
+    );
     const updated = {
       ...pendingDeliveryNotesMap,
-      [activeTenant.id]: updatedNotes
+      [activeTenant.id]: tenantNotes
     };
     setPendingDeliveryNotesMap(updated);
     safeSetTenantMapItem('jasper_pending_delivery_notes_map', 'pending_delivery_notes_map', updated);
     saveData(activeTenant.id, 'pending_delivery_notes_map', updated);
   };
 
-  const handleAddSale = (sale: Sale) => {
-    if (blockOfflineBusinessWrite('POS sale')) return;
+  const handleAddSale = async (sale: Sale) => {
+    if (blockOfflineBusinessWrite('POS sale')) return false;
 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     const syncUpdatedAt = new Date().toISOString();
-    const saleToStore = { ...sale, syncUpdatedAt } as Sale;
+    let saleToStore = {
+      ...sale,
+      branchId: sale.branchId || activeBranchSelection.activeBranchId || undefined,
+      syncUpdatedAt,
+    } as Sale;
+    const saleIncome = Math.max(0, Number(sale.total || 0) - Number(sale.deliveryCost || 0));
+    const collectedAmount = sale.paymentStatus === 'unpaid'
+      ? 0
+      : Math.min(saleIncome, Math.max(0, Number(sale.amountPaid ?? saleIncome)));
+    if (collectedAmount > 0) {
+      const channels = systemSettings.paymentChannels || [];
+      const rawBreakdown = sale.paymentBreakdown?.length
+        ? sale.paymentBreakdown
+        : [{ method: sale.paymentMethod || 'Cash', amount: collectedAmount }];
+      const availableTotal = rawBreakdown.reduce((sum, part) => sum + Math.max(0, Number(part.amount || 0)), 0);
+      const scale = availableTotal > collectedAmount && availableTotal > 0
+        ? collectedAmount / availableTotal
+        : 1;
+      const paymentLines = rawBreakdown
+        .map(part => {
+          const channel = findPaymentChannel(channels, part.method || sale.paymentMethod || 'Cash');
+          return {
+            sourceAccountKey: channel?.id || '',
+            amount: Math.max(0, Number(part.amount || 0)) * scale,
+          };
+        })
+        .filter(line => line.amount > 0);
+      if (paymentLines.some(line => !line.sourceAccountKey)) {
+        addToast('Every sale payment must use an active Money & Bank account.', 'error');
+        return false;
+      }
+      try {
+        const posted = await postTreasurySplitIncome({
+          channels,
+          lines: paymentLines,
+          sourceType: 'sale',
+          sourceId: sale.id,
+          description: `Sale payment ${sale.reference || sale.id}`,
+          openingBalances: getTreasuryOpeningBalances(),
+          metadata: {
+            reference: sale.reference,
+            cashierName: sale.cashierName,
+            customerName: sale.customerName || null,
+          },
+        });
+        saleToStore = {
+          ...saleToStore,
+          branchId: posted.branchId,
+          treasuryJournalId: posted.journalId,
+        };
+      } catch (error: any) {
+        addToast(error?.message || 'Money & Bank could not post this sale safely.', 'error');
+        return false;
+      }
+    }
     setSalesMap(prev => {
       const currentTenantSales = prev[activeTenant.id] || [];
       return {
@@ -1803,7 +2089,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         deliveryCost: sale.deliveryCost,
         status: 'Pending Dispatch',
         timestamp: sale.timestamp,
-        tenantId: sale.tenantId
+        tenantId: sale.tenantId,
+        branchId: saleToStore.branchId || activeBranchSelection.activeBranchId || undefined,
       };
       setDeliveriesMap(prev => {
         const currentDeliveries = prev[sale.tenantId] || [];
@@ -1825,14 +2112,20 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [newLog, ...prev]);
+    return true;
   };
 
   const handleAddRider = (newRider: DeliveryRider) => {
-    setRiders(prev => [newRider, ...prev]);
+    setRiders(prev => [{
+      ...newRider,
+      branchId: activeBranchSelection.activeBranchId || undefined,
+    }, ...prev]);
   };
 
   const handleDispatchDelivery = (deliveryId: string, riderDetails: NonNullable<Delivery['riderDetails']>, riderId?: string, customerData?: { name: string, phone: string, location: string, paymentMethod?: string }) => {
     if (blockOfflineBusinessWrite('delivery dispatch')) return;
+    const delivery = (deliveriesMap[activeTenant.id] || []).find(item => item.id === deliveryId);
+    if (!delivery || !recordBelongsToActiveBranch(delivery, activeBranchSelection)) return;
 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
@@ -1872,8 +2165,64 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     setLogs(prev => [newLog, ...prev]);
   };
 
-  const handleUpdateDeliveryStatus = (deliveryId: string, status: Delivery['status']) => {
-    if (blockOfflineBusinessWrite('delivery status update')) return;
+  const handleUpdateDeliveryStatus = async (deliveryId: string, status: Delivery['status']) => {
+    if (blockOfflineBusinessWrite('delivery status update')) return false;
+    const currentDelivery = (deliveriesMap[activeTenant.id] || []).find(delivery => delivery.id === deliveryId);
+    if (!currentDelivery || !recordBelongsToActiveBranch(currentDelivery, activeBranchSelection)) return false;
+    let treasuryJournalId = currentDelivery.treasuryJournalId;
+    let treasuryBranchId = currentDelivery.branchId;
+    let collectedAccountId = currentDelivery.deliveryPaymentAccountId;
+
+    const deliveryIncomeAmount = Math.max(0, Number(currentDelivery.deliveryCost || 0));
+    if (
+      status === 'Delivered'
+      && currentDelivery.deliveryPaymentStatus !== 'collected'
+      && deliveryIncomeAmount > 0
+    ) {
+      const account = findPaymentChannel(
+        systemSettings.paymentChannels || [],
+        currentDelivery.deliveryPaymentMethod || 'Cash',
+      );
+      if (!account) {
+        addToast('Select an active delivery payment account before marking this delivery as collected.', 'error');
+        return false;
+      }
+      try {
+        const posted = await postTreasuryEntry({
+          channels: systemSettings.paymentChannels || [],
+          sourceAccountKey: account.id,
+          amount: deliveryIncomeAmount,
+          direction: 'in',
+          sourceType: 'delivery',
+          sourceId: currentDelivery.id,
+          description: `Collected delivery income for ${currentDelivery.id}`,
+          openingBalances: getTreasuryOpeningBalances(),
+          metadata: {
+            saleId: currentDelivery.saleId,
+            customerName: currentDelivery.customerName,
+          },
+        });
+        treasuryJournalId = posted.journalId;
+        treasuryBranchId = posted.branchId;
+        collectedAccountId = account.id;
+      } catch (error: any) {
+        addToast(error?.message || 'Money & Bank could not post this delivery income safely.', 'error');
+        return false;
+      }
+    }
+    if (status === 'Cancelled' && currentDelivery.treasuryJournalId) {
+      try {
+        await reverseTreasuryEntry(
+          currentDelivery.treasuryJournalId,
+          currentDelivery.id,
+          `Cancelled delivery collection: ${currentDelivery.id}`,
+        );
+        treasuryJournalId = undefined;
+      } catch (error: any) {
+        addToast(error?.message || 'Money & Bank could not reverse this delivery income safely.', 'error');
+        return false;
+      }
+    }
 
     setDeliveriesMap(prev => {
       const currentTenantDels = prev[activeTenant.id] || [];
@@ -1883,9 +2232,6 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         [activeTenant.id]: currentTenantDels.map(del => 
           del.id === deliveryId
             ? (() => {
-                const account = status === 'Delivered'
-                  ? findPaymentChannel(systemSettings.paymentChannels || [], del.deliveryPaymentMethod || 'Cash')
-                  : undefined;
                 return {
                   ...del,
                   status,
@@ -1897,8 +2243,10 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                       : 'pending',
                   paymentCollectedAt: collectedAt,
                   deliveryPaymentAccountId: status === 'Delivered'
-                    ? account?.id
+                    ? collectedAccountId
                     : undefined,
+                  treasuryJournalId,
+                  branchId: treasuryBranchId,
                 };
               })()
             : del
@@ -1914,12 +2262,17 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [newLog, ...prev]);
+    return true;
   };
 
   const handleCreateProduct = (newProd: Product) => {
     if (blockOfflineBusinessWrite('product creation')) return;
 
-    const updatedProducts = [newProd, ...(productsMap[activeTenant.id] || [])];
+    const branchScopedProduct = {
+      ...newProd,
+      branchId: activeBranchSelection.activeBranchId || undefined,
+    };
+    const updatedProducts = [branchScopedProduct, ...(productsMap[activeTenant.id] || [])];
     const syncedProducts = persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => {
       return {
@@ -1946,7 +2299,21 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   const handleDeleteProduct = (id: string) => {
     if (blockOfflineBusinessWrite('product delete/archive')) return;
 
-    const updatedProducts = (productsMap[activeTenant.id] || []).filter(p => p.id !== id);
+    const tenantProducts = productsMap[activeTenant.id] || [];
+    const product = tenantProducts.find(item => item.id === id);
+    if (!product || !activeProducts.some(item => item.id === id)) return;
+    if (!recordBelongsToActiveBranch(product, activeBranchSelection)) {
+      if (!activeBranchSelection.activeBranchId) return;
+      setBranchStocksMap(previous => ({
+        ...previous,
+        [activeTenant.id]: (previous[activeTenant.id] || []).filter(stock => !(
+          stock.branchId === activeBranchSelection.activeBranchId
+          && stock.productId === id
+        )),
+      }));
+      return;
+    }
+    const updatedProducts = tenantProducts.filter(p => p.id !== id);
     const syncedProducts = persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => {
       return {
@@ -1969,7 +2336,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
   };
 
   const handleCreateSupplier = (newSup: Supplier) => {
-    setSuppliers(prev => [newSup, ...prev]);
+    setSuppliers(prev => [{
+      ...newSup,
+      tenantId: activeTenant.id,
+      branchId: activeBranchSelection.activeBranchId || undefined,
+    }, ...prev]);
 
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
@@ -1981,11 +2352,42 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
     setLogs(prev => [newLog, ...prev]);
   };
 
-  const handleAddPurchase = (purchase: Purchase) => {
-    if (blockOfflineBusinessWrite('purchase entry')) return;
+  const handleAddPurchase = async (purchase: Purchase) => {
+    if (blockOfflineBusinessWrite('purchase entry')) return false;
 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
+    purchase = {
+      ...purchase,
+      branchId: purchase.branchId || activeBranchSelection.activeBranchId || undefined,
+    };
+    if (Number(purchase.amountPaid || 0) > 0) {
+      try {
+        const posted = await postTreasuryEntry({
+          channels: systemSettings.paymentChannels || [],
+          sourceAccountKey: String(purchase.paidFromAccountId || ''),
+          amount: Number(purchase.amountPaid || 0),
+          direction: 'out',
+          sourceType: 'purchase',
+          sourceId: purchase.id,
+          description: `Purchase payment to ${purchase.supplierName}`,
+          openingBalances: getTreasuryOpeningBalances(),
+          metadata: {
+            supplierId: purchase.supplierId,
+            supplierName: purchase.supplierName,
+            totalAmount: purchase.totalAmount,
+          },
+        });
+        purchase = {
+          ...purchase,
+          branchId: posted.branchId,
+          treasuryJournalId: posted.journalId,
+        };
+      } catch (error: any) {
+        addToast(error?.message || 'Money & Bank could not post this purchase safely.', 'error');
+        return false;
+      }
+    }
     setPurchasesMap(prev => {
       const currentTenantPurchases = prev[activeTenant.id] || [];
       return {
@@ -2002,17 +2404,39 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [newLog, ...prev]);
+    return true;
   };
 
   const handleUpdatePurchases = (nextPurchases: Purchase[]) => {
     if (blockOfflineBusinessWrite('purchase update')) return;
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
-    setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: nextPurchases }));
+    setPurchasesMap(prev => {
+      const tenantPurchases = replaceScopedBranchRecords(
+        prev[activeTenant.id] || [],
+        nextPurchases,
+        activeBranchSelection,
+      );
+      return { ...prev, [activeTenant.id]: tenantPurchases };
+    });
   };
 
-  const handleDeletePurchase = (purchaseId: string) => {
-    if (blockOfflineBusinessWrite('purchase deletion')) return;
+  const handleDeletePurchase = async (purchaseId: string) => {
+    if (blockOfflineBusinessWrite('purchase deletion')) return false;
+    const purchase = (purchasesMap[activeTenant.id] || []).find(item => item.id === purchaseId);
+    if (!purchase || !recordBelongsToActiveBranch(purchase, activeBranchSelection)) return false;
+    if (purchase?.treasuryJournalId) {
+      try {
+        await reverseTreasuryEntry(
+          purchase.treasuryJournalId,
+          purchase.id,
+          `Voided purchase payment: ${purchase.supplierName}`,
+        );
+      } catch (error: any) {
+        addToast(error?.message || 'Money & Bank could not reverse this purchase safely.', 'error');
+        return false;
+      }
+    }
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     setPurchasesMap(prev => ({
@@ -2026,6 +2450,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
       message: `Removed purchase record ${purchaseId} from ${activeTenant.name}. Product stock was not silently changed.`,
       timestamp: new Date().toISOString()
     }, ...prev]);
+    return true;
   };
 
   // Switch store tenant controller
@@ -2611,6 +3036,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   </span>
                 </div>
               </div>
+              {user.role !== 'SuperAdmin' ? (
+                <GlobalBranchSwitcher onManageBranches={() => setActiveTab('branches')} />
+              ) : null}
 
             </div>
 
@@ -2803,8 +3231,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               </div>
             </div>
 
-            {/* Center: Clean whitespace (nothing, per design) */}
-            <div className="flex-1" />
+            <div className="min-w-0 flex-1 px-2">
+              {user.role !== 'SuperAdmin' ? (
+                <GlobalBranchSwitcher onManageBranches={() => setActiveTab('branches')} />
+              ) : null}
+            </div>
 
             {/* Right: Search icon + Dark Mode + Language + Notification bell */}
             <div className="flex items-center space-x-1">
@@ -2881,7 +3312,15 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           </header>
 
           {/* Core workspace content viewports */}
-          <main id="workspace-content" className={`flex-1 overflow-y-auto scrollbar-none overscroll-contain touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-3 sm:p-4 xl:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-5 xl:space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] xl:pb-6 min-h-0`}>
+          <main id="workspace-content" className={`relative flex-1 overflow-y-auto scrollbar-none overscroll-contain touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-3 sm:p-4 xl:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-5 xl:space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] xl:pb-6 min-h-0`}>
+            {branchSwitching ? (
+              <div className="absolute inset-0 z-40 flex items-center justify-center bg-white/90 backdrop-blur-sm dark:bg-slate-950/90" role="status" aria-live="polite">
+                <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white px-5 py-4 text-sm font-black text-slate-900 shadow-xl dark:border-emerald-900 dark:bg-slate-900 dark:text-white">
+                  <RefreshCcw className="h-5 w-5 animate-spin text-emerald-600" />
+                  Switching branch workspace…
+                </div>
+              </div>
+            ) : null}
             <DashboardScreenErrorBoundary
               resetKey={activeTab}
               onReturnToDashboard={() => setActiveTab(getDefaultDashboardTab())}
@@ -3132,7 +3571,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               onAddDelivery={(delivery) => {
                 setDeliveriesMap(prev => {
                   const currentDeliveries = prev[delivery.tenantId] || [];
-                  return { ...prev, [delivery.tenantId]: [delivery, ...currentDeliveries] };
+                  const scopedDelivery = {
+                    ...delivery,
+                    branchId: delivery.branchId || activeBranchSelection.activeBranchId || undefined,
+                  };
+                  return { ...prev, [delivery.tenantId]: [scopedDelivery, ...currentDeliveries] };
                 });
               }}
               onDispatchDelivery={handleDispatchDelivery}
@@ -3140,11 +3583,11 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               products={activeProducts}
               systemSettings={systemSettings}
               sales={activeSales}
-              pendingNotes={pendingDeliveryNotesMap[activeTenant.id] || []}
+              pendingNotes={activePendingDeliveryNotes}
               onUpdatePendingNotes={handleUpdatePendingDeliveryNotes}
               defaultSubTab={deliveriesSubTab}
               onSubTabChange={(tab) => setDeliveriesSubTab(tab)}
-              expenses={expensesMap[activeTenant.id] || []}
+              expenses={activeExpenses}
               onAddExpense={handleAddExpense}
             />
           )}
@@ -3171,8 +3614,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               userName={user.name}
               rolePermissions={currentPermissions}
               suppliers={activeSuppliers}
-              purchases={purchasesMap[activeTenant.id] || []}
-              deliveries={deliveriesMap[activeTenant.id] || []}
+              purchases={activePurchases}
+              deliveries={activeDeliveries}
               systemSettings={systemSettings}
             />
           )}
@@ -3223,7 +3666,7 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               defaultTab="inventory"
               rolePermissions={currentPermissions}
               suppliers={activeSuppliers}
-              purchases={purchasesMap[activeTenant.id] || []}
+              purchases={activePurchases}
               systemSettings={systemSettings}
             />
           )}
@@ -3246,8 +3689,8 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
               activeTenant={activeTenant}
               sales={activeSales}
               expenses={activeExpenses}
-              deliveries={deliveriesMap[activeTenant.id] || []}
-              purchases={purchasesMap[activeTenant.id] || []}
+              deliveries={activeDeliveries}
+              purchases={activePurchases}
               user={user}
               systemSettings={systemSettings}
               onUpdateSystemSettings={(updated) => {
@@ -3266,15 +3709,33 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
           {/* TAB ROOT: Staff */}
           {activeTab === 'staff-members' && (
             <DashboardStaff 
-              systemSettings={systemSettings}
+              systemSettings={{
+                ...systemSettings,
+                staffs: scopeBranchRecords<NonNullable<SystemSettings['staffs']>[number]>(
+                  systemSettings.staffs || [],
+                  activeBranchSelection,
+                ),
+              }}
               onUpdateSettings={(updated) => {
-                persistSystemSettingsNow(updated);
+                persistSystemSettingsNow({
+                  ...updated,
+                  staffs: replaceScopedBranchRecords(
+                    systemSettings.staffs || [],
+                    (updated.staffs || []).map(staff => ({
+                      ...staff,
+                      branchId: staff.branchId || activeBranchSelection.activeBranchId || undefined,
+                    })),
+                    activeBranchSelection,
+                  ),
+                });
               }}
               sales={activeSales}
               expenses={activeExpenses}
               activeTenant={activeTenant}
-              deliveries={deliveriesMap[activeTenant.id] || []}
+              deliveries={activeDeliveries}
               onPayStaff={handleAddExpense}
+              payrollEnabled={subStatus.plan.id === 'tanzanite'}
+              canPayPayroll={Boolean(currentPermissions?.expenses?.write || activeRoleName === 'SuperAdmin')}
             />
           )}
 
@@ -3327,9 +3788,9 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
                   description: 'Upgrade your subscription tier to allow unlimited shops and team staff accounts.'
                 });
               }}
-              sales={salesMap[activeTenant.id] || []}
-              expenses={expensesMap[activeTenant.id] || []}
-              deliveries={deliveriesMap[activeTenant.id] || []}
+              sales={activeSales}
+              expenses={activeExpenses}
+              deliveries={activeDeliveries}
             />
           )}
 
@@ -3920,5 +4381,15 @@ export default function Dashboard({ user, onLogout, onNavigate, isDark = false, 
         }} 
       />
     </div>
+  );
+}
+
+export default function Dashboard(props: DashboardProps) {
+  if (props.user.role === 'SuperAdmin') return <DashboardContent {...props} />;
+  const tenantKey = props.user.activeTenant || props.user.tenantId;
+  return (
+    <BranchProvider tenantKey={tenantKey}>
+      <DashboardContent {...props} />
+    </BranchProvider>
   );
 }

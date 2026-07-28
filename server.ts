@@ -28,6 +28,7 @@ const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABA
 const multiBranchFeatureEnabled = ['1', 'true', 'yes', 'on'].includes(
   String(process.env.MULTIBRANCH_FEATURE_ENABLED || '').trim().toLowerCase()
 );
+let geminiHealthCache: { checkedAt: number; ok: boolean } | null = null;
 if (supabaseUrl && supabaseServiceRoleKey) {
   supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false }
@@ -897,7 +898,10 @@ async function generateResilientContent(ai: GoogleGenAI, params: any) {
         console.log(`[Resilient Gemini API] Invoking secondary fallback model gemini-3.5-flash-lite...`);
         return await ai.models.generateContent(fallbackParams);
       } catch (fallbackError: any) {
-        console.error(`[Resilient Gemini API] Fallback model gemini-3.5-flash-lite also failed. Error:`, fallbackError);
+        console.error('[Resilient Gemini API] Fallback model failed.', {
+          code: String(fallbackError?.code || 'GEMINI_ERROR').slice(0, 40),
+          status: Number(fallbackError?.status || 0) || undefined,
+        });
         throw fallbackError;
       }
     } else {
@@ -2100,6 +2104,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const reason = normalizeText(req.body?.reason, 500);
       const durationDays = Number(req.body?.durationDays || 30);
       const paymentProofId = req.body?.paymentProofId ? String(req.body.paymentProofId) : null;
+      const idempotencyKey = paymentProofId
+        ? `payment-proof:${paymentProofId}`
+        : normalizeText(req.body?.idempotencyKey, 180);
       const enableBranches = req.body?.enableBranches === true;
 
       if (!SUBSCRIPTION_PACKAGE_IDS.has(packageId)) {
@@ -2112,76 +2119,26 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (paymentProofId && !isUuid(paymentProofId)) {
         return res.status(400).json({ error: 'Invalid payment proof identifier.' });
       }
-
-      const now = new Date();
-      const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-      const { data: tenant, error: tenantError } = await adminTable('tenants')
-        .update({
-          subscription_plan: packageId,
-          selected_package_id: packageId,
-          active_package_id: packageId,
-          subscription_status: 'active',
-          subscription_start_date: now.toISOString(),
-          subscription_end_date: expiresAt.toISOString(),
-          subscription_activated_at: now.toISOString(),
-          subscription_expires_at: expiresAt.toISOString(),
-          package_updated_at: now.toISOString(),
-          package_change_type: paymentProofId ? 'payment_approved' : 'super_admin_grant',
-          package_change_note: reason
-        })
-        .eq('id', tenantId)
-        .select('id, name, subscription_plan, selected_package_id, active_package_id, subscription_status, subscription_start_date, subscription_end_date')
-        .single();
-      if (tenantError) throw tenantError;
-
-      const existingEntitlement = await adminTable('tenant_branch_entitlements')
-        .select('additional_branch_slots')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
-      if (existingEntitlement.error) throw existingEntitlement.error;
-      const preservedAdditionalSlots = Math.max(0, Number(existingEntitlement.data?.additional_branch_slots || 0));
-      const branchesEnabled = packageId === 'tanzanite' && enableBranches;
-      const { error: entitlementError } = await adminTable('tenant_branch_entitlements').upsert({
-        tenant_id: tenantId,
-        feature_enabled: branchesEnabled,
-        additional_branch_slots: preservedAdditionalSlots,
-        grant_reason: reason,
-        granted_by: adminUser.id,
-        granted_at: now.toISOString(),
-        updated_at: now.toISOString()
-      }, { onConflict: 'tenant_id' });
-      if (entitlementError) throw entitlementError;
-
-      if (paymentProofId) {
-        const { error: proofError } = await adminTable('tenant_payment_proofs')
-          .update({
-            status: 'approved',
-            admin_note: reason,
-            reviewed_by: adminUser.id,
-            reviewed_at: now.toISOString(),
-            updated_at: now.toISOString()
-          })
-          .eq('id', paymentProofId)
-          .eq('tenant_id', tenantId)
-          .eq('status', 'pending');
-        if (proofError) throw proofError;
+      if (!idempotencyKey) {
+        return res.status(400).json({ error: 'An activation idempotency key is required.' });
       }
 
-      await adminTable('super_admin_audit_logs').insert({
-        actor_user_id: adminUser.id,
-        target_tenant_id: tenantId,
-        action: 'tenant_package_activated',
-        metadata: {
-          packageId,
-          durationDays,
-          branchesEnabled,
-          preservedAdditionalSlots,
-          paymentProofId,
-          reason
-        }
+      void adminUser;
+      const rpcClient = createAuthenticatedSupabaseClient(req);
+      if (!rpcClient) {
+        return res.status(503).json({ error: 'Authenticated Supabase client is not configured.' });
+      }
+      const { data, error } = await rpcClient.rpc('activate_tenant_package_period', {
+        p_tenant_id: tenantId,
+        p_package_id: packageId,
+        p_duration_days: durationDays,
+        p_reason: reason,
+        p_enable_branches: enableBranches,
+        p_payment_proof_id: paymentProofId,
+        p_idempotency_key: idempotencyKey
       });
-
-      return res.json({ tenant, branchesEnabled, additionalGrantedSlots: preservedAdditionalSlots });
+      if (error) throw error;
+      return res.json(data);
     } catch (error: any) {
       return platformAdminError(res, error);
     }
@@ -3914,7 +3871,10 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
         });
       }
     } catch (error: any) {
-      console.warn('[Tools API] Background removal resilient fallback initialized. Gemini API quota exceeded or rate-limited. Reverting safely to offline client-side engine. Message:', error?.message || error);
+      console.warn('[Tools API] Gemini image request unavailable; using the local canvas fallback.', {
+        code: String(error?.code || 'GEMINI_ERROR').slice(0, 40),
+        status: Number(error?.status || 0) || undefined,
+      });
       return res.json({
         success: true,
         useLocalFallback: true,
@@ -3926,6 +3886,49 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
   // Health check route
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  app.get('/api/health/gemini', async (req, res) => {
+    const now = Date.now();
+    if (geminiHealthCache && now - geminiHealthCache.checkedAt < 5 * 60 * 1000) {
+      return res.status(geminiHealthCache.ok ? 200 : 503).json({
+        status: geminiHealthCache.ok ? 'ok' : 'unavailable',
+        provider: 'gemini',
+        model: 'gemini-3.6-flash',
+        cached: true,
+      });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      geminiHealthCache = { checkedAt: now, ok: false };
+      return res.status(503).json({
+        status: 'unavailable',
+        provider: 'gemini',
+        model: 'gemini-3.6-flash',
+        configured: false,
+      });
+    }
+
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      await ai.models.get({ model: 'gemini-3.6-flash' });
+      geminiHealthCache = { checkedAt: now, ok: true };
+      return res.json({
+        status: 'ok',
+        provider: 'gemini',
+        model: 'gemini-3.6-flash',
+        configured: true,
+      });
+    } catch {
+      geminiHealthCache = { checkedAt: now, ok: false };
+      return res.status(503).json({
+        status: 'unavailable',
+        provider: 'gemini',
+        model: 'gemini-3.6-flash',
+        configured: true,
+      });
+    }
   });
 
   // Vite Integration & Routing Handler

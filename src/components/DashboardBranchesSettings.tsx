@@ -18,7 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import type { Tenant } from '../types';
-import { BranchProvider, useBranchContext } from '../branches/BranchContext';
+import { useBranchContext } from '../branches/BranchContext';
 import type { BranchRelationshipType, BranchSummary, CreateBranchInput } from '../branches/branchTypes';
 
 interface DashboardBranchesSettingsProps {
@@ -413,13 +413,40 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
   const directory = snapshot?.directory;
   const packageId = String(entitlement?.packageId || activeTenant.activePackageId || activeTenant.selectedPackageId || '').toLowerCase();
   const isTanzanite = packageId === 'tanzanite';
+  const subscriptionCurrent = entitlement?.subscriptionCurrent === true;
+  const canManageBranches = entitlement?.canManageBranches === true;
   const branches = directory?.branches || [];
   const currentUsage = directory?.usesCompatibilityPrimary ? 1 : (directory?.physicalBranchCount || 0);
   const effectiveLimit = entitlement?.effectiveTotalBranches || (isTanzanite ? 2 : 1);
   const capacityReached = currentUsage >= effectiveLimit;
   const mutationRolloutReady = snapshot?.serverRolloutEnabled === true;
   const canOperateAdditional = mutationRolloutReady && entitlement?.canOperateAdditionalBranches === true;
-  const canOpenWizard = canOperateAdditional && !capacityReached && !directory?.usesCompatibilityPrimary;
+  const canOpenWizard = canManageBranches && canOperateAdditional && !capacityReached && !directory?.usesCompatibilityPrimary;
+  const branchActionLabel = !isTanzanite
+    ? 'Tanzanite only'
+    : !subscriptionCurrent
+      ? 'Renew Tanzanite'
+      : !canManageBranches
+        ? 'Admin permission required'
+        : capacityReached
+          ? 'Capacity full'
+          : mutationRolloutReady
+            ? 'Add Branch'
+            : 'Rollout pending';
+  const eligibilityTitle = !subscriptionCurrent
+    ? 'Tanzanite subscription expired'
+    : !canManageBranches
+      ? 'Branch management requires administrator permission'
+      : mutationRolloutReady
+        ? `Tanzanite includes ${entitlement?.defaultTotalBranches || 2} total branches`
+        : 'Branch workspace prepared for controlled rollout';
+  const eligibilityDetail = !subscriptionCurrent
+    ? 'Existing branch records remain preserved. Renew Tanzanite to restore Branch actions.'
+    : !canManageBranches
+      ? 'You can use authorized branches, but only a tenant administrator can add or activate branches.'
+      : mutationRolloutReady
+        ? 'Contact support for additional capacity.'
+        : 'Creation remains closed until the server rollout is enabled.';
 
   const filteredBranches = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
@@ -470,7 +497,7 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
         <div className="flex items-start gap-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"><AlertCircle className="h-5 w-5" /></span>
           <div className="min-w-0 flex-1">
-            <h3 className="text-base font-black text-slate-950 dark:text-white">Branches is not available in this app build yet</h3>
+            <h3 className="text-base font-black text-slate-950 dark:text-white">Branch workspace could not be loaded</h3>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">{error.message}</p>
             <button type="button" onClick={() => void refresh()} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-black text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"><RefreshCw className="h-4 w-4" /> Retry</button>
           </div>
@@ -495,8 +522,8 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
             <div className={`flex min-h-[64px] items-center gap-3 rounded-2xl border px-3.5 py-3 ${mutationRolloutReady ? 'border-emerald-100 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/25' : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900'}`}>
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm dark:bg-slate-950 dark:text-emerald-300"><Building2 className="h-5 w-5" /></span>
               <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-black leading-5 text-slate-900 dark:text-white">{mutationRolloutReady ? `Tanzanite includes ${entitlement?.defaultTotalBranches || 2} total branches` : 'Branch workspace prepared for controlled rollout'}</p>
-                <p className="mt-0.5 text-[10.5px] font-medium text-slate-500 dark:text-slate-400">{mutationRolloutReady ? 'Contact support for additional capacity.' : 'Creation remains closed until rollout is enabled.'}</p>
+                <p className="text-[12px] font-black leading-5 text-slate-900 dark:text-white">{eligibilityTitle}</p>
+                <p className="mt-0.5 text-[10.5px] font-medium text-slate-500 dark:text-slate-400">{eligibilityDetail}</p>
               </div>
               <span className={`shrink-0 text-[13px] font-black ${capacityReached ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>{currentUsage} of {effectiveLimit}</span>
             </div>
@@ -548,7 +575,7 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
             </button>
           ) : (
             <button type="button" onClick={() => setShowWizard(true)} disabled={!canOpenWizard} className="flex min-h-13 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm disabled:bg-amber-50 disabled:text-amber-700 disabled:shadow-none dark:disabled:bg-amber-950/30 dark:disabled:text-amber-300">
-              {canOpenWizard ? <Plus className="h-5 w-5" /> : <LockKeyhole className="h-5 w-5" />}{!isTanzanite ? 'Tanzanite only' : capacityReached ? 'Capacity full' : mutationRolloutReady ? 'Add Branch' : 'Rollout pending'}
+              {canOpenWizard ? <Plus className="h-5 w-5" /> : <LockKeyhole className="h-5 w-5" />}{branchActionLabel}
             </button>
           )}
           {activationError ? <p className="mt-2 text-center text-xs font-bold text-rose-600 dark:text-rose-400">{activationError}</p> : null}
@@ -562,6 +589,11 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
               <div className="flex min-w-0 items-center gap-3"><LockKeyhole className="h-5 w-5 shrink-0 text-slate-500" /><p className="text-xs font-semibold leading-5 text-slate-700 dark:text-slate-300">Branches are available only on the Tanzanite Package. Upgrade to create and manage multiple branches.</p></div>
               <button type="button" onClick={() => onTriggerUpgrade?.('stores')} className="min-h-11 shrink-0 rounded-xl border border-slate-300 bg-white px-4 text-xs font-black text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-white">View Tanzanite</button>
             </div>
+          ) : !subscriptionCurrent || !canManageBranches ? (
+            <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <div><p className="font-black">{eligibilityTitle}</p><p className="mt-0.5">{eligibilityDetail}</p></div>
+            </div>
           ) : null}
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -571,7 +603,7 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
             {directory?.usesCompatibilityPrimary && canOperateAdditional ? (
               <button type="button" onClick={() => void activateCompatibilityPrimary()} disabled={isActivating} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-xs font-black text-white disabled:opacity-60"><ShieldCheck className="h-4 w-4" />Activate Branches</button>
             ) : (
-              <button type="button" onClick={() => setShowWizard(true)} disabled={!canOpenWizard} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-xs font-black text-white disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-500">{canOpenWizard ? <Plus className="h-4 w-4" /> : <LockKeyhole className="h-4 w-4" />}{!isTanzanite ? 'Tanzanite only' : capacityReached ? 'Capacity full' : mutationRolloutReady ? 'Add Branch' : 'Rollout pending'}</button>
+              <button type="button" onClick={() => setShowWizard(true)} disabled={!canOpenWizard} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-xs font-black text-white disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-500">{canOpenWizard ? <Plus className="h-4 w-4" /> : <LockKeyhole className="h-4 w-4" />}{branchActionLabel}</button>
             )}
           </div>
           <label className="relative mt-4 block">
@@ -634,6 +666,11 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
             </div>
             <button type="button" onClick={() => onTriggerUpgrade?.('stores')} className="min-h-11 shrink-0 rounded-xl border border-slate-300 bg-white px-4 text-sm font-black text-slate-900 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-800">View Tanzanite</button>
           </div>
+        ) : !subscriptionCurrent || !canManageBranches ? (
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+            <div><p className="text-sm font-black">{eligibilityTitle}</p><p className="mt-0.5 text-sm font-semibold leading-6">{eligibilityDetail}</p></div>
+          </div>
         ) : !mutationRolloutReady ? (
           <div className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
             <Info className="mt-0.5 h-5 w-5 shrink-0" />
@@ -675,9 +712,9 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
                 {isActivating ? 'Activating...' : 'Activate Branches'}
               </button>
             ) : (
-              <button type="button" onClick={() => setShowWizard(true)} disabled={!canOpenWizard} title={!isTanzanite ? 'Upgrade to Tanzanite to create and manage multiple branches.' : capacityReached ? 'Branch capacity is full.' : !canOperateAdditional ? 'Branch creation is not enabled.' : undefined} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm shadow-emerald-600/15 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none dark:disabled:bg-slate-800 dark:disabled:text-slate-500">
+              <button type="button" onClick={() => setShowWizard(true)} disabled={!canOpenWizard} title={!isTanzanite ? 'Upgrade to Tanzanite to create and manage multiple branches.' : !subscriptionCurrent ? 'Renew Tanzanite to manage branches.' : !canManageBranches ? 'Only a tenant administrator may manage branches.' : capacityReached ? 'Branch capacity is full.' : !canOperateAdditional ? 'Branch creation is not enabled.' : undefined} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm shadow-emerald-600/15 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none dark:disabled:bg-slate-800 dark:disabled:text-slate-500">
                 {canOpenWizard ? <Plus className="h-4 w-4" /> : <LockKeyhole className="h-4 w-4" />}
-                {!isTanzanite ? 'Tanzanite only' : capacityReached ? 'Capacity full' : 'Add Branch'}
+                {branchActionLabel}
               </button>
             )}
           </div>
@@ -732,9 +769,5 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
 }
 
 export default function DashboardBranchesSettings(props: DashboardBranchesSettingsProps) {
-  return (
-    <BranchProvider tenantKey={props.activeTenant.id}>
-      <BranchSettingsContent {...props} />
-    </BranchProvider>
-  );
+  return <BranchSettingsContent {...props} />;
 }

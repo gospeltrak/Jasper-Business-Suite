@@ -278,6 +278,7 @@ export async function activateTenantPackage(
     reason: string;
     enableBranches?: boolean;
     paymentProofId?: string;
+    idempotencyKey?: string;
   },
 ) {
   return apiRequest(`/api/super-admin/tenants/${encodeURIComponent(tenantId)}/activate-package`, {

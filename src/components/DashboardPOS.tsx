@@ -132,7 +132,7 @@ interface DashboardPOSProps {
   activeTenant: Tenant;
   products: Product[];
   onUpdateStocks: (updatedProducts: Product[]) => void;
-  onAddSale: (sale: Sale) => void;
+  onAddSale: (sale: Sale) => void | boolean | Promise<void | boolean>;
   userName: string;
   isOfflineMode: boolean;
   systemSettings?: SystemSettings;
@@ -925,11 +925,11 @@ export default function DashboardPOS({
     setIsCheckoutOpen(true);
   };
 
-  const submitPayment = () => {
-    finalizeSale();
+  const submitPayment = async () => {
+    await finalizeSale();
   };
 
-  const finalizeSale = () => {
+  const finalizeSale = async () => {
     const pendingBatchUpdates: Record<string, import('../types').ProductBatch[]> = {};
 
     // Generate sale item models
@@ -1130,8 +1130,9 @@ export default function DashboardPOS({
       return prod;
     });
 
+    const saved = await onAddSale(newSale);
+    if (saved === false) return;
     onUpdateStocks(updatedProducts);
-    onAddSale(newSale);
     setReceiptResult(newSale);
     setRecipientWhatsApp(customerPhone || '');
     setPaymentStatus('completed');

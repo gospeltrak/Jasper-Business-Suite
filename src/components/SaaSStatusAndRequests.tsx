@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Activity, ShieldAlert, CheckCircle, XCircle, Gift, Search, RefreshCw, FileText, Clock, Package, User, AlertCircle } from 'lucide-react';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { normalizeSubscriptionPlanId, SUBSCRIPTION_PLANS } from '../utils/subscription';
@@ -56,6 +56,7 @@ export default function SaaSStatusAndRequests() {
   const [branchAccessLoading, setBranchAccessLoading] = useState(false);
   const [additionalBranchSlots, setAdditionalBranchSlots] = useState(0);
   const [rolloutReason, setRolloutReason] = useState('');
+  const emergencyActivationKeyRef = useRef<{ fingerprint: string; key: string } | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -121,7 +122,7 @@ export default function SaaSStatusAndRequests() {
       if (normalizedPlan === 'trial' || normalizedPlan === 'essential' || normalizedPlan === 'business' || normalizedPlan === 'wholesale') {
         throw new Error('The requested package could not be normalized.');
       }
-      await activateTenantPackage(proof.tenant_id, {
+      const activation = await activateTenantPackage(proof.tenant_id, {
         packageId: normalizedPlan,
         durationDays: 30,
         reason: `Payment proof ${proof.id} approved by Super Admin.`,
@@ -135,7 +136,13 @@ export default function SaaSStatusAndRequests() {
         active_package_id: normalizedPlan,
         subscription_status: 'active',
       } : t));
-      setMessage({ text: `✅ Approved! ${proof.tenant_name} is now on ${SUBSCRIPTION_PLANS[normalizedPlan]?.name || normalizedPlan} plan.`, type: 'success' });
+      const expiryLabel = activation?.endAt
+        ? new Date(activation.endAt).toLocaleString()
+        : 'the authoritative database expiry';
+      setMessage({
+        text: `✅ Approved! ${proof.tenant_name} is now on ${SUBSCRIPTION_PLANS[normalizedPlan]?.name || normalizedPlan} until ${expiryLabel}.`,
+        type: 'success',
+      });
     } catch (e: any) {
       setMessage({ text: `❌ Approve failed: ${e.message || 'Unknown error'}`, type: 'error' });
     } finally {
@@ -198,19 +205,34 @@ export default function SaaSStatusAndRequests() {
       if (normalizedPlan === 'trial' || normalizedPlan === 'essential' || normalizedPlan === 'business' || normalizedPlan === 'wholesale') {
         throw new Error('Select Ruby, Diamond, or Tanzanite.');
       }
-      await activateTenantPackage(emergencyTenantId, {
+      const fingerprint = `${emergencyTenantId}:${normalizedPlan}:${adminReason.trim()}`;
+      if (emergencyActivationKeyRef.current?.fingerprint !== fingerprint) {
+        emergencyActivationKeyRef.current = {
+          fingerprint,
+          key: `admin-grant:${crypto.randomUUID()}`,
+        };
+      }
+      const activation = await activateTenantPackage(emergencyTenantId, {
         packageId: normalizedPlan,
         durationDays: 30,
         reason: adminReason.trim(),
         enableBranches: normalizedPlan === 'tanzanite' && enableBranches,
+        idempotencyKey: emergencyActivationKeyRef.current.key,
       });
+      emergencyActivationKeyRef.current = null;
       setTenants(prev => prev.map(t => t.id === emergencyTenantId ? {
         ...t,
         subscription_plan: normalizedPlan,
         active_package_id: normalizedPlan,
         subscription_status: 'active',
       } : t));
-      setMessage({ text: `✅ Emergency override applied. Tenant is now on ${SUBSCRIPTION_PLANS[normalizedPlan]?.name}.`, type: 'success' });
+      const expiryLabel = activation?.endAt
+        ? new Date(activation.endAt).toLocaleString()
+        : 'the authoritative database expiry';
+      setMessage({
+        text: `✅ Emergency override applied. Tenant is now on ${SUBSCRIPTION_PLANS[normalizedPlan]?.name} until ${expiryLabel}.`,
+        type: 'success',
+      });
       setAdminReason('');
       await loadSelectedTenantBranchAccess(emergencyTenantId);
     } catch (e: any) {

@@ -31,6 +31,7 @@ import {
 import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
 import { compressImageFile } from '../utils/imageCompression';
 import { getMaskedAccountReference } from '../utils/paymentAccounts';
+import { loadBranchWorkspace } from '../branches/branchApi';
 
 const currency = 'TSh';
 
@@ -236,7 +237,9 @@ export default function DashboardStaff({
   expenses,
   activeTenant,
   deliveries,
-  onPayStaff
+  onPayStaff,
+  payrollEnabled,
+  canPayPayroll,
 }: {
   systemSettings: SystemSettings;
   onUpdateSettings: (s: SystemSettings) => void;
@@ -244,7 +247,9 @@ export default function DashboardStaff({
   expenses: Expense[];
   activeTenant: Tenant;
   deliveries: Delivery[];
-  onPayStaff: (expense: Expense) => void;
+  onPayStaff: (expense: Expense) => void | boolean | Promise<void | boolean>;
+  payrollEnabled: boolean;
+  canPayPayroll: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<'list' | 'register' | 'reports'>('list');
   const [staffList, setStaffList] = useState<StaffSettings[]>(systemSettings.staffs || []);
@@ -283,6 +288,10 @@ export default function DashboardStaff({
   const [salaryPaymentMethod, setSalaryPaymentMethod] = useState('Bank Transfer');
   const [salaryPaymentAccount, setSalaryPaymentAccount] = useState('');
   const [salaryPaymentReference, setSalaryPaymentReference] = useState('');
+  const [salaryPaymentType, setSalaryPaymentType] = useState<NonNullable<Expense['payrollPaymentType']>>('salary');
+  const [salaryPaymentNotes, setSalaryPaymentNotes] = useState('');
+  const [salaryPaymentAttachment, setSalaryPaymentAttachment] = useState<{ name: string; data: string } | null>(null);
+  const [activeBranchContext, setActiveBranchContext] = useState<{ id: string; name: string } | null>(null);
   const [temporaryPassword, setTemporaryPassword] = useState('');
   const [allowanceForm, setAllowanceForm] = useState({
     name: 'Food allowance',
@@ -299,6 +308,26 @@ export default function DashboardStaff({
   useEffect(() => {
     setStaffList(systemSettings.staffs || []);
   }, [systemSettings.staffs]);
+
+  useEffect(() => {
+    let mounted = true;
+    const applyContext = (detail: any) => {
+      if (!mounted) return;
+      const id = String(detail?.activeBranchId || '');
+      const name = String(detail?.businessName || detail?.branchName || '');
+      setActiveBranchContext(id ? { id, name: name || 'Active branch' } : null);
+    };
+    const onContextChange = (event: Event) => applyContext((event as CustomEvent).detail);
+    window.addEventListener('jasper_branch_context_changed', onContextChange);
+    void loadBranchWorkspace().then(snapshot => applyContext({
+      activeBranchId: snapshot.context.activeBranchId,
+      businessName: snapshot.context.selectedBranch?.businessName || snapshot.context.selectedBranch?.branchName,
+    })).catch(() => setActiveBranchContext(null));
+    return () => {
+      mounted = false;
+      window.removeEventListener('jasper_branch_context_changed', onContextChange);
+    };
+  }, [activeTenant.id]);
 
   useEffect(() => {
     const loadSessions = () => {
@@ -467,6 +496,14 @@ export default function DashboardStaff({
   };
 
   const openSalaryPayment = (staff: StaffSettings) => {
+    if (!payrollEnabled) {
+      setSuccessMessage('Payroll payments are available on the Tanzanite package only.');
+      return;
+    }
+    if (!canPayPayroll) {
+      setSuccessMessage('You do not have permission to post payroll payments.');
+      return;
+    }
     const payroll = calculateStaffPayroll(staff, payrollPeriod);
     setStaffToPay(staff);
     setSalaryPaymentAmount(String(Math.max(0, payroll.totalCost)));
@@ -474,9 +511,12 @@ export default function DashboardStaff({
     setSalaryPaymentMethod(defaultAccount?.paymentMethod || defaultAccount?.name || '');
     setSalaryPaymentAccount(defaultAccount?.id || '');
     setSalaryPaymentReference(`PAY-${todayIsoDate()}-${staff.id.slice(-6).toUpperCase()}`);
+    setSalaryPaymentType('salary');
+    setSalaryPaymentNotes('');
+    setSalaryPaymentAttachment(null);
   };
 
-  const confirmSalaryPayment = () => {
+  const confirmSalaryPayment = async () => {
     if (!staffToPay) return;
     const amount = Number(salaryPaymentAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -488,20 +528,40 @@ export default function DashboardStaff({
       setSuccessMessage('Select an active Money & Bank account for this payroll payment.');
       return;
     }
-    onPayStaff({
+    const saved = await onPayStaff({
       id: `payroll-${Date.now()}`,
-      category: 'Wages & Salary',
+      category: salaryPaymentType === 'allowance'
+        ? 'Staff Allowance'
+        : salaryPaymentType === 'bonus'
+          ? 'Staff Bonus'
+          : salaryPaymentType === 'overtime'
+            ? 'Staff Overtime'
+            : salaryPaymentType === 'advance_recovery'
+              ? 'Staff Advance Recovery'
+              : 'Wages & Salary',
       amount,
       timestamp: new Date().toISOString(),
-      description: `Salary/wages payment to ${staffToPay.name} for ${payrollPeriod.start} to ${payrollPeriod.end}`,
+      description: `${salaryPaymentType.replace('_', ' ')} payment to ${staffToPay.name} for ${payrollPeriod.start} to ${payrollPeriod.end}`,
       staffName: staffToPay.name,
+      staffId: staffToPay.id,
       tenantId: activeTenant.id,
-      receiptRef: salaryPaymentReference.trim() || undefined,
+      branchId: activeBranchContext?.id,
+      receiptRef: salaryPaymentAttachment?.name || salaryPaymentReference.trim() || undefined,
+      receiptImage: salaryPaymentAttachment?.data,
       transactionMessage: `${account.paymentMethod || account.name} · ${account.name}`,
-      note: `Payroll period ${payrollPeriod.start} to ${payrollPeriod.end}`,
+      note: salaryPaymentNotes.trim() || `Payroll period ${payrollPeriod.start} to ${payrollPeriod.end}`,
       paymentMethod: account.paymentMethod || account.name,
       paidFromAccountId: account.id,
+      payrollPaymentType: salaryPaymentType,
+      payrollPeriodStart: payrollPeriod.start,
+      payrollPeriodEnd: payrollPeriod.end,
+      payrollReference: salaryPaymentReference.trim() || undefined,
+      payrollAttachmentName: salaryPaymentAttachment?.name,
     });
+    if (saved === false) {
+      setSuccessMessage('Payroll payment was not posted. No local record was created.');
+      return;
+    }
     setSuccessMessage(`Salary payment of ${formatMoney(amount)} recorded as Money Out for ${staffToPay.name}.`);
     setStaffToPay(null);
   };
@@ -949,14 +1009,16 @@ export default function DashboardStaff({
                         </td>
                         <td className="p-4 text-right">
                           <div className="flex justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openSalaryPayment(staff)}
-                              className="min-h-[38px] rounded-xl bg-emerald-50 px-3 text-xs font-black text-emerald-700 hover:bg-emerald-100 inline-flex items-center gap-1.5"
-                            >
-                              <Wallet className="w-3.5 h-3.5" />
-                              Pay Staff
-                            </button>
+                            {payrollEnabled && canPayPayroll && (
+                              <button
+                                type="button"
+                                onClick={() => openSalaryPayment(staff)}
+                                className="min-h-[38px] rounded-xl bg-emerald-50 px-3 text-xs font-black text-emerald-700 hover:bg-emerald-100 inline-flex items-center gap-1.5"
+                              >
+                                <Wallet className="w-3.5 h-3.5" />
+                                Pay Staff
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => openStaffProfile(staff)}
@@ -1332,14 +1394,16 @@ export default function DashboardStaff({
                           <FileDown className="w-3 h-3" />
                           PDF
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => openSalaryPayment(staff)}
-                          className="rounded-xl bg-emerald-600 px-3 py-1.5 text-[10px] font-black text-white inline-flex items-center gap-1"
-                        >
-                          <Wallet className="w-3 h-3" />
-                          Pay Staff
-                        </button>
+                        {payrollEnabled && canPayPayroll && (
+                          <button
+                            type="button"
+                            onClick={() => openSalaryPayment(staff)}
+                            className="rounded-xl bg-emerald-600 px-3 py-1.5 text-[10px] font-black text-white inline-flex items-center gap-1"
+                          >
+                            <Wallet className="w-3 h-3" />
+                            Pay Staff
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -1426,9 +1490,58 @@ export default function DashboardStaff({
             </div>
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="space-y-1.5"><span className="text-xs font-black text-slate-700">Amount to Pay</span><input type="number" min="0.01" step="0.01" value={salaryPaymentAmount} onChange={e => setSalaryPaymentAmount(e.target.value)} className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold outline-none focus:border-emerald-500" /></label>
+              <label className="space-y-1.5">
+                <span className="text-xs font-black text-slate-700">Payment Type</span>
+                <select value={salaryPaymentType} onChange={e => setSalaryPaymentType(e.target.value as NonNullable<Expense['payrollPaymentType']>)} className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold">
+                  <option value="salary">Salary</option>
+                  <option value="wages">Wages</option>
+                  <option value="allowance">Allowance</option>
+                  <option value="bonus">Bonus</option>
+                  <option value="overtime">Overtime</option>
+                  <option value="advance_recovery">Advance Recovery</option>
+                  <option value="other">Other Payment</option>
+                </select>
+              </label>
               <label className="space-y-1.5"><span className="text-xs font-black text-slate-700">Payment Method</span><input value={salaryPaymentMethod} readOnly className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-100 px-3 text-sm font-bold text-slate-600" /></label>
               <label className="space-y-1.5"><span className="text-xs font-black text-slate-700">Money & Bank Account</span><select value={salaryPaymentAccount} onChange={e => { const id = e.target.value; setSalaryPaymentAccount(id); const account = paymentAccounts.find(candidate => candidate.id === id); setSalaryPaymentMethod(account?.paymentMethod || account?.name || ''); }} className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold"><option value="">Select account</option>{paymentAccounts.map(account => <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>)}</select></label>
               <label className="space-y-1.5"><span className="text-xs font-black text-slate-700">Reference</span><input value={salaryPaymentReference} onChange={e => setSalaryPaymentReference(e.target.value)} className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-mono font-bold" /></label>
+              <label className="space-y-1.5"><span className="text-xs font-black text-slate-700">Branch</span><input value={activeBranchContext?.name || 'Primary business workspace'} readOnly className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-100 px-3 text-sm font-bold text-slate-600" /></label>
+              <label className="space-y-1.5 md:col-span-2"><span className="text-xs font-black text-slate-700">Notes</span><textarea value={salaryPaymentNotes} onChange={e => setSalaryPaymentNotes(e.target.value)} rows={3} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500" /></label>
+              <label className="space-y-1.5 md:col-span-2">
+                <span className="text-xs font-black text-slate-700">Optional Attachment</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  onChange={event => {
+                    const file = event.target.files?.[0];
+                    if (!file) return setSalaryPaymentAttachment(null);
+                    if (file.size > 5 * 1024 * 1024) {
+                      setSuccessMessage('Payroll attachment must be 5 MB or smaller.');
+                      event.target.value = '';
+                      return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = () => setSalaryPaymentAttachment({ name: file.name, data: String(reader.result || '') });
+                    reader.readAsDataURL(file);
+                  }}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold"
+                />
+                {salaryPaymentAttachment && <span className="block text-xs font-bold text-emerald-700">{salaryPaymentAttachment.name}</span>}
+              </label>
+            </div>
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-600">Recent Payment History</h4>
+              <div className="mt-3 space-y-2">
+                {expenses.filter(expense => expense.staffId === staffToPay.id || (expense.staffName === staffToPay.name && expense.payrollPaymentType)).slice(0, 5).map(expense => (
+                  <div key={expense.id} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-xs">
+                    <span className="font-semibold text-slate-600">{new Date(expense.timestamp).toLocaleDateString()} · {(expense.payrollPaymentType || 'salary').replace('_', ' ')}</span>
+                    <strong className="text-slate-900">{formatMoney(expense.amount)}</strong>
+                  </div>
+                ))}
+                {!expenses.some(expense => expense.staffId === staffToPay.id || (expense.staffName === staffToPay.name && expense.payrollPaymentType)) && (
+                  <p className="text-xs font-semibold text-slate-400">No payroll payments recorded for this staff member.</p>
+                )}
+              </div>
             </div>
             <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">This payment will be recorded as <strong>Money Out</strong>, category <strong>Wages & Salary</strong>, and will appear automatically in Money & Bank, Expenses, Profit & Loss and downloaded reports.</div>
             <div className="mt-6 grid grid-cols-2 gap-3">

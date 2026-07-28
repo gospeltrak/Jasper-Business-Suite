@@ -299,6 +299,25 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
   if (!client) return null;
 
   try {
+    if (typeof client.rpc === 'function') {
+      const scopedResult = await client.rpc('get_current_branch_workspace');
+      if (!scopedResult.error && scopedResult.data?.payload) {
+        const scoped = normalizeWorkspace(scopedResult.data.payload as TenantWorkspace);
+        if (!scoped) return null;
+        writeLocalSaleTombstones(tenantId, scoped.saleTombstones || {});
+        cacheWorkspace(tenantId, scoped);
+        return scoped;
+      }
+      const missingRpc = ['PGRST202', '42883'].includes(String(scopedResult.error?.code || ''));
+      if (scopedResult.error && !missingRpc) {
+        console.warn('[workspace] secure branch load error:', scopedResult.error.message);
+        return null;
+      }
+    }
+
+    // Compatibility path for environments where the security migration has
+    // not been applied yet. Once deployed, branch users only receive RPC-
+    // filtered payloads and raw table RLS is administrator-only.
     const { data, error } = await client
       .from('tenant_workspaces')
       .select('payload, updated_at')
@@ -397,11 +416,21 @@ async function saveTenantWorkspaceNow(tenantId: string, workspace: TenantWorkspa
     const currentSafe = readCachedWorkspace(tenantId);
     let remoteSafe: TenantWorkspace | null = null;
     try {
-      const { data: remoteData, error: remoteError } = await client
-        .from('tenant_workspaces')
-        .select('payload, updated_at')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+      const scopedRemote = typeof client.rpc === 'function'
+        ? await client.rpc('get_current_branch_workspace')
+        : null;
+      const { data: remoteData, error: remoteError } = scopedRemote && !scopedRemote.error
+        ? {
+          data: scopedRemote.data?.payload
+            ? { payload: scopedRemote.data.payload, updated_at: scopedRemote.data.updatedAt }
+            : null,
+          error: null,
+        }
+        : await client
+          .from('tenant_workspaces')
+          .select('payload, updated_at')
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
       if (!remoteError && remoteData?.payload) {
         remoteSafe = normalizeWorkspace(remoteData.payload as TenantWorkspace);
       }
@@ -488,12 +517,34 @@ async function saveTenantWorkspaceNow(tenantId: string, workspace: TenantWorkspa
       if (backupSource) saveRemoteWorkspaceBackup(client, tenantId, backupSource, 'pre-shrink-save').catch(() => {});
     }
 
-    const { error } = await client
-      .from('tenant_workspaces')
-      .upsert(
-        { tenant_id: tenantId, payload: workspaceToSave, updated_at: new Date().toISOString() },
-        { onConflict: 'tenant_id' }
-      );
+    let error: any = null;
+    if (typeof client.rpc === 'function') {
+      const secureSave = await client.rpc('save_current_branch_workspace', {
+        p_workspace: workspaceToSave,
+      });
+      const missingRpc = ['PGRST202', '42883'].includes(String(secureSave.error?.code || ''));
+      if (!secureSave.error) {
+        error = null;
+      } else if (!missingRpc) {
+        error = secureSave.error;
+      } else {
+        const fallback = await client
+          .from('tenant_workspaces')
+          .upsert(
+            { tenant_id: tenantId, payload: workspaceToSave, updated_at: new Date().toISOString() },
+            { onConflict: 'tenant_id' }
+          );
+        error = fallback.error;
+      }
+    } else {
+      const fallback = await client
+        .from('tenant_workspaces')
+        .upsert(
+          { tenant_id: tenantId, payload: workspaceToSave, updated_at: new Date().toISOString() },
+          { onConflict: 'tenant_id' }
+        );
+      error = fallback.error;
+    }
 
     if (error) {
       console.warn('[workspace] save error:', error.message, '| code:', (error as any).code);

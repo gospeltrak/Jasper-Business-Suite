@@ -204,6 +204,10 @@ export interface SubscriptionState {
   trialStartedAt: string; // ISO string
   isSubscribedPaid: boolean;
   paidAt?: string;
+  subscriptionStartAt?: string;
+  subscriptionEndAt?: string;
+  serverNowAtLoad?: string;
+  loadedAtClient?: string;
   simulatedDaysPassed?: number; // state for interactive time simulation
   promoCodeUsed?: string; // promo code registered with
   autoRenewEnabled?: boolean; // subscription auto renewal flag
@@ -220,17 +224,34 @@ export async function loadSubscriptionFromDB(tenantId: string): Promise<Subscrip
     const url: string = (client as any).supabaseUrl || '';
     if (!url || url.includes('placeholder')) return null;
 
-    const { data, error } = await client
-      .from('tenants')
-      .select('subscription_plan, subscription_status, subscription_start_date, subscription_end_date, subscription_activated_at, active_package_id, selected_package_id')
-      .eq('id', tenantId)
-      .maybeSingle();
+    const statusResult = await client.rpc('get_current_subscription_status');
+    let data: any = null;
+    let error: any = statusResult.error;
+    if (!statusResult.error && statusResult.data) {
+      const status = statusResult.data;
+      data = {
+        active_package_id: status.planId,
+        subscription_status: status.status,
+        subscription_start_date: status.startAt,
+        subscription_end_date: status.endAt,
+        server_now: status.serverNow,
+      };
+      error = null;
+    } else {
+      const fallback = await client
+        .from('tenants')
+        .select('subscription_plan, subscription_status, subscription_start_date, subscription_end_date, active_package_id, selected_package_id')
+        .eq('id', tenantId)
+        .maybeSingle();
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error || !data) return null;
 
     const rawPlan = data.active_package_id || data.selected_package_id || data.subscription_plan || data.subscription_status || 'trial';
     const normalizedPlanId = normalizeSubscriptionPlanId(rawPlan);
-    const startedAt = data.subscription_start_date || data.subscription_activated_at || new Date().toISOString();
+    const startedAt = data.subscription_start_date || new Date().toISOString();
     const startMs = new Date(startedAt).getTime();
     const endMs = data.subscription_end_date ? new Date(data.subscription_end_date).getTime() : 0;
     const dbTrialDays = Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs
@@ -240,7 +261,11 @@ export async function loadSubscriptionFromDB(tenantId: string): Promise<Subscrip
       planId: normalizedPlanId,
       trialStartedAt: startedAt,
       isSubscribedPaid: normalizedPlanId !== 'trial',
-      paidAt: data.subscription_activated_at || undefined,
+      paidAt: data.subscription_start_date || undefined,
+      subscriptionStartAt: data.subscription_start_date || undefined,
+      subscriptionEndAt: data.subscription_end_date || undefined,
+      serverNowAtLoad: data.server_now || new Date().toISOString(),
+      loadedAtClient: new Date().toISOString(),
       promoCodeUsed: normalizedPlanId === 'trial' && dbTrialDays >= 15 ? 'PROMO' : undefined,
       paymentStatus: data.subscription_status === 'expired' ? 'expired' : 'active',
       autoRenewEnabled: true,
@@ -309,27 +334,38 @@ export function checkSubscriptionStatus(
     ? state.trialStartedAt
     : state.paidAt || state.trialStartedAt;
   
+  const loadedClientMs = new Date(state.loadedAtClient || '').getTime();
+  const serverNowAtLoadMs = new Date(state.serverNowAtLoad || '').getTime();
+  const estimatedNowMs = Number.isFinite(loadedClientMs) && Number.isFinite(serverNowAtLoadMs)
+    ? serverNowAtLoadMs + Math.max(0, Date.now() - loadedClientMs)
+    : Date.now();
+
   // Calculate elapsed time
   let daysPassed = 0;
   if (state.simulatedDaysPassed !== undefined && state.simulatedDaysPassed > 0) {
     daysPassed = state.simulatedDaysPassed;
   } else {
     const started = new Date(periodStartedAt).getTime();
-    const now = new Date().getTime();
-    daysPassed = Math.floor(Math.max(0, now - started) / (1000 * 60 * 60 * 24));
+    daysPassed = Math.floor(Math.max(0, estimatedNowMs - started) / (1000 * 60 * 60 * 24));
   }
   // If promo code was registered: 20 days free. Else 10 days free.
   const durationAllowed = normalizedPlanId === 'trial' 
     ? (state.promoCodeUsed ? 20 : 10) 
     : 30;
   
-  const daysRemaining = Math.max(0, durationAllowed - daysPassed);
+  const authoritativeEndMs = new Date(state.subscriptionEndAt || '').getTime();
+  const hasAuthoritativePaidEnd = normalizedPlanId !== 'trial' && Number.isFinite(authoritativeEndMs);
+  const daysRemaining = hasAuthoritativePaidEnd
+    ? Math.max(0, Math.ceil((authoritativeEndMs - estimatedNowMs) / (1000 * 60 * 60 * 24)))
+    : Math.max(0, durationAllowed - daysPassed);
   
   // Notification triggered 3 days before any trial or paid subscription period ends.
   const isNearingExpiry = daysRemaining > 0 && daysRemaining <= 3;
   
   // Expired state triggers lockouts automatically for trial users and renewal alerts for paid users.
-  const isExpired = daysPassed >= durationAllowed;
+  const isExpired = hasAuthoritativePaidEnd
+    ? estimatedNowMs >= authoritativeEndMs
+    : daysPassed >= durationAllowed;
 
   const productsLimitExceeded = currentProductCount >= plan.maxProducts;
   const storesLimitExceeded = currentStoreCount >= plan.maxStores;

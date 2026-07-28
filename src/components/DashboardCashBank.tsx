@@ -3,6 +3,7 @@ import { Tenant, Sale, Expense, PaymentChannel, LedgerEntry, User as AppUser, Sy
 import { isDemoTenant } from '../utils/tenantIsolation';
 import { safeSetJsonItem } from '../utils/dataSafety';
 import { findPaymentChannel, getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
+import { syncTreasuryPaymentAccounts } from '../utils/treasuryApi';
 import { 
   Landmark, 
   Wallet, 
@@ -271,34 +272,13 @@ export default function DashboardCashBank({
 
     const getPaymentChannel = (methodName: string, reference: string) => {
       const linkedChannel = findPaymentChannel(channels, methodName);
-      let targetChannelId = linkedChannel?.id || channels.find(channel => channel.category === 'physical')?.id || 'counter-01';
-      let desc = `Received sale payment from customer: Receipt ${reference}`;
       if (linkedChannel) {
         return {
           targetChannelId: linkedChannel.id,
           desc: `${methodName} payment received: Receipt ${reference}`,
         };
       }
-      const method = methodName.toLowerCase();
-
-      if (method.includes('mpesa')) {
-        targetChannelId = 'mpesa-till';
-        desc = `M-Pesa payment received: Receipt ${reference}`;
-      } else if (method.includes('momo') || method.includes('money') || method.includes('tigo') || method.includes('yas') || method.includes('mixx') || method.includes('airtel')) {
-        targetChannelId = 'yas-merchant';
-        desc = `Mobile money payment received: Receipt ${reference}`;
-      } else if (method.includes('card') || method.includes('paystack')) {
-        targetChannelId = 'pos-card-terminal';
-        desc = `Card machine payment received: Receipt ${reference}`;
-      } else if (method.includes('bank') || method.includes('transfer')) {
-        targetChannelId = 'crdb-corporate';
-        desc = `Direct bank transfer received: Receipt ${reference}`;
-      } else {
-        targetChannelId = 'counter-01';
-        desc = `Cash received in register drawer: Receipt ${reference}`;
-      }
-
-      return { targetChannelId, desc };
+      return null;
     };
 
     // Link incoming sales to correct payment methods automatically
@@ -311,7 +291,9 @@ export default function DashboardCashBank({
       breakdown.forEach((part, index) => {
         const amount = Math.max(0, Number(part.amount || 0));
         if (amount <= 0) return;
-        const { targetChannelId, desc } = getPaymentChannel(part.method || sale.paymentMethod || 'Cash', sale.reference);
+        const linkedPayment = getPaymentChannel(part.method || sale.paymentMethod || 'Cash', sale.reference);
+        if (!linkedPayment) return;
+        const { targetChannelId, desc } = linkedPayment;
 
         generated.push({
           id: `POS-RECON-${sale.id}-${index}`,
@@ -330,7 +312,8 @@ export default function DashboardCashBank({
     expenses.forEach(exp => {
       const accountId = exp.paidFromAccountId && channels.some(channel => channel.id === exp.paidFromAccountId)
         ? exp.paidFromAccountId
-        : channels.find(channel => channel.category === 'physical')?.id || 'counter-01';
+        : null;
+      if (!accountId) return;
       generated.push({
         id: `EXP-WITHDR-${exp.id}`,
         tenantId: activeTenant.id,
@@ -354,27 +337,9 @@ export default function DashboardCashBank({
 
       const linkedChannel = channels.find(channel => channel.id === del.deliveryPaymentAccountId)
         || findPaymentChannel(channels, del.deliveryPaymentMethod || 'Cash');
-      let targetChannelId = linkedChannel?.id || channels.find(channel => channel.category === 'physical')?.id || 'counter-01';
-      let desc = `Received delivery charge payment for Order Ref: ${del.id}`;
-      const method = del.deliveryPaymentMethod?.toLowerCase() || '';
-      if (linkedChannel) {
-        desc = `${del.deliveryPaymentMethod || linkedChannel.name} delivery payment collected: Ref ${del.id}`;
-      } else if (method.includes('mpesa')) {
-        targetChannelId = 'mpesa-till';
-        desc = `M-Pesa delivery payment: Ref ${del.id}`;
-      } else if (method.includes('momo') || method.includes('money') || method.includes('tigo') || method.includes('yas') || method.includes('mixx') || method.includes('airtel')) {
-        targetChannelId = 'yas-merchant';
-        desc = `Mobile money delivery payment: Ref ${del.id}`;
-      } else if (method.includes('card') || method.includes('paystack')) {
-        targetChannelId = 'pos-card-terminal';
-        desc = `Card machine delivery payment: Ref ${del.id}`;
-      } else if (method.includes('bank')) {
-        targetChannelId = 'crdb-corporate';
-        desc = `Direct bank transfer delivery payment: Ref ${del.id}`;
-      } else {
-        targetChannelId = 'counter-01';
-        desc = `Cash received for delivery: Ref ${del.id}`;
-      }
+      if (!linkedChannel) return;
+      const targetChannelId = linkedChannel.id;
+      const desc = `${del.deliveryPaymentMethod || linkedChannel.name} delivery payment collected: Ref ${del.id}`;
 
       generated.push({
         id: `DELIVERY-INC-${del.id}`,
@@ -453,6 +418,19 @@ export default function DashboardCashBank({
       logLabel: `${activeTenant.id}/cash-bank-matrix`,
     });
   }, [activeTenant.id, sales, expenses, deliveries, purchases, channels, hasDemoSeedData]);
+
+  useEffect(() => {
+    if (!channels.length) return;
+    const openingBalances = ledgerEntries.reduce<Record<string, number>>((balances, entry) => {
+      balances[entry.channelId] = (balances[entry.channelId] || 0) + Number(entry.amount || 0);
+      return balances;
+    }, {});
+    void syncTreasuryPaymentAccounts(channels, openingBalances).catch(() => {
+      // Non-admin staff may read/post already synchronized accounts but cannot
+      // change account definitions. Transaction handlers surface actionable
+      // errors if an administrator has not synchronized them yet.
+    });
+  }, [channels, ledgerEntries]);
 
   // Update cached file local records
   const saveLedgerState = (entriesList: LedgerEntry[]) => {

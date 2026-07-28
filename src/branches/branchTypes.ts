@@ -44,6 +44,8 @@ export interface BranchEntitlement {
   tenantId: string;
   packageId: string | null;
   subscriptionStatus: string | null;
+  subscriptionEndAt: string | null;
+  subscriptionCurrent: boolean;
   globalFeatureEnabled: boolean;
   tenantFeatureEnabled: boolean;
   defaultTotalBranches: number;
@@ -51,6 +53,7 @@ export interface BranchEntitlement {
   effectiveTotalBranches: number;
   currentPhysicalBranchCount: number;
   canOperateAdditionalBranches: boolean;
+  canManageBranches: boolean;
   usesCompatibilityPrimary: boolean;
 }
 

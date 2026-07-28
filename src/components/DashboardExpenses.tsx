@@ -46,8 +46,8 @@ import { getMaskedAccountReference } from '../utils/paymentAccounts';
 interface DashboardExpensesProps {
   activeTenant: Tenant;
   expenses: Expense[];
-  onAddExpense: (expense: Expense) => void;
-  onDeleteExpense?: (id: string) => void;
+  onAddExpense: (expense: Expense) => void | boolean | Promise<void | boolean>;
+  onDeleteExpense?: (id: string) => void | boolean | Promise<void | boolean>;
   onUpdateExpense?: (expense: Expense) => void;
   userName?: string;
   sales?: Sale[];
@@ -72,6 +72,7 @@ export default function DashboardExpenses({
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [isReceiptPreviewOpen, setIsReceiptPreviewOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editExpenseError, setEditExpenseError] = useState('');
   const [editForm, setEditForm] = useState<{description: string; amount: string; category: string; note: string; paidFromAccountId: string}>({description: '', amount: '', category: '', note: '', paidFromAccountId: ''});
 
   // Date/day selected states. Defaulting to empty starts with 'All Records'
@@ -302,7 +303,7 @@ export default function DashboardExpenses({
   };
 
   // Handle Book Expense Submit
-  const handleBookExpense = (e: React.FormEvent) => {
+  const handleBookExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
@@ -356,7 +357,11 @@ export default function DashboardExpenses({
       paidFromAccountId: paidFromAccount.id,
     };
 
-    onAddExpense(newExpense);
+    const saved = await onAddExpense(newExpense);
+    if (saved === false) {
+      setFormError('Expense payment was not posted. No expense record was created.');
+      return;
+    }
 
     setFormSuccess(`Expense logged successfully! Added TSh ${Number(formAmount).toLocaleString()}`);
     
@@ -761,7 +766,7 @@ export default function DashboardExpenses({
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button type="button" title="Edit"
-                          onClick={() => { setEditingExpense(e); setEditForm({description: e.description, amount: String(e.amount), category: e.category, note: e.note || '', paidFromAccountId: e.paidFromAccountId || ''}); }}
+                          onClick={() => { setEditExpenseError(''); setEditingExpense(e); setEditForm({description: e.description, amount: String(e.amount), category: e.category, note: e.note || '', paidFromAccountId: e.paidFromAccountId || ''}); }}
                           className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-500/10 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer bg-transparent border-none"
                         >
                           <Edit className="w-3.5 h-3.5" />
@@ -1292,9 +1297,9 @@ export default function DashboardExpenses({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    onDeleteExpense?.(expenseToDelete.id);
-                    setExpenseToDelete(null);
+                  onClick={async () => {
+                    const deleted = await onDeleteExpense?.(expenseToDelete.id);
+                    if (deleted !== false) setExpenseToDelete(null);
                   }}
                   className="rounded-xl border-none bg-rose-600 px-4 py-2.5 text-xs font-black text-white cursor-pointer hover:bg-rose-700"
                 >
@@ -1389,6 +1394,16 @@ export default function DashboardExpenses({
                     if (!editForm.description || !editForm.amount || !editForm.paidFromAccountId) return;
                     const account = paymentAccounts.find(candidate => candidate.id === editForm.paidFromAccountId);
                     if (!account) return;
+                    if (
+                      editingExpense.treasuryJournalId
+                      && (
+                        Number(editForm.amount) !== Number(editingExpense.amount)
+                        || editForm.paidFromAccountId !== (editingExpense.paidFromAccountId || '')
+                      )
+                    ) {
+                      setEditExpenseError('A posted payment cannot be silently changed. Reverse/delete it, then record the corrected expense.');
+                      return;
+                    }
                     onUpdateExpense?.({...editingExpense, description: editForm.description, amount: parseFloat(editForm.amount) || 0, category: editForm.category, note: editForm.note, paidFromAccountId: account.id, paymentMethod: account.paymentMethod || account.name});
                     setEditingExpense(null);
                   }}
@@ -1396,6 +1411,11 @@ export default function DashboardExpenses({
                   Save Changes
                 </button>
               </div>
+              {editExpenseError && (
+                <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                  {editExpenseError}
+                </p>
+              )}
             </div>
           </div>
         </div>

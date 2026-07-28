@@ -59,6 +59,38 @@ test('atomic treasury migration is append-only, locked, idempotent, and RPC-only
   assert.doesNotMatch(sql, /\b(delete from|truncate table|drop table)\b/i);
 });
 
+test('payment-account synchronization is non-destructive, masked, and opening-balance idempotent', () => {
+  const sql = readFileSync(
+    new URL('../supabase/migrations/20260727000200_treasury_account_sync.sql', import.meta.url),
+    'utf8',
+  );
+  assert.match(sql, /add column if not exists source_key text/i);
+  assert.match(sql, /sync_current_tenant_treasury_accounts/i);
+  assert.match(sql, /set status = 'inactive'/i);
+  assert.match(sql, /v_masked_reference !~/i);
+  assert.match(sql, /if v_is_new and v_opening_balance > 0/i);
+  assert.match(sql, /'opening:' \|\| v_account_id::text/i);
+  assert.match(sql, /post_current_tenant_treasury_split_entry/i);
+  assert.match(sql, /order by value ->> 'accountId'/i);
+  assert.match(sql, /private\.can_write_branch\(v_tenant_id, p_branch_id, 'money_bank\.post'\)/i);
+  assert.doesNotMatch(sql, /\b(delete from|truncate table|drop table)\b/i);
+});
+
+test('sales, delivery, purchases, expenses, and payroll use canonical treasury posting', () => {
+  const dashboard = readFileSync(new URL('../src/components/Dashboard.tsx', import.meta.url), 'utf8');
+  const staff = readFileSync(new URL('../src/components/DashboardStaff.tsx', import.meta.url), 'utf8');
+  const cashBank = readFileSync(new URL('../src/components/DashboardCashBank.tsx', import.meta.url), 'utf8');
+  assert.match(dashboard, /postTreasurySplitIncome\(\{/);
+  assert.match(dashboard, /sourceType:\s*'purchase'/);
+  assert.match(dashboard, /expense\.payrollPaymentType \? 'payroll' : 'expense'/);
+  assert.match(dashboard, /sourceType:\s*'delivery'/);
+  assert.match(dashboard, /reverseTreasuryEntry\(/);
+  assert.match(staff, /payrollPaymentType:\s*salaryPaymentType/);
+  assert.match(staff, /payrollEnabled=\{subStatus\.plan\.id === 'tanzanite'\}|payrollEnabled/);
+  assert.match(cashBank, /syncTreasuryPaymentAccounts\(channels, openingBalances\)/);
+  assert.doesNotMatch(cashBank, /targetChannelId\s*=\s*'counter-01'/);
+});
+
 test('two-device session migration serializes admissions without deleting sessions', () => {
   const sql = readFileSync(
     new URL('../supabase/migrations/20260714000100_strict_two_device_sessions.sql', import.meta.url),

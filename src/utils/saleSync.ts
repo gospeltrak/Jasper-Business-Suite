@@ -107,8 +107,12 @@ export const mergeSalesForSync = (
 
   for (const sale of [...current, ...incoming]) {
     if (!sale?.id) continue;
-    const deletedAt = parseTime(tombstones[sale.id]);
-    if (deletedAt && deletedAt >= saleTime(sale)) {
+    // A recorded deletion is authoritative. Remote workspace upserts and
+    // realtime relays may stamp an old sale with a newer transport timestamp;
+    // comparing those timestamps would allow the deleted sale to resurrect.
+    // Sale IDs are immutable and never reused, so only an explicit tombstone
+    // removal may make the same ID eligible again.
+    if (tombstones[sale.id]) {
       chosen.delete(sale.id);
       continue;
     }
