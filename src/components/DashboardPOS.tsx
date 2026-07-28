@@ -29,6 +29,7 @@ import {
   Pill,
   Coins,
   ShieldAlert,
+  Check,
 
   History,
   UserCheck,
@@ -286,8 +287,7 @@ export default function DashboardPOS({
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
   const [deliveryPaymentMethod, setDeliveryPaymentMethod] = useState<string>('');
-  const [multiCashAmount, setMultiCashAmount] = useState<number>(0);
-  const [multiBankAmount, setMultiBankAmount] = useState<number>(0);
+  const [multiAllocations, setMultiAllocations] = useState<Array<{ method: string; amount: number; reference: string }>>([]);
   const [vatStatus, setVatStatus] = useState<'vat' | 'non-vat'>('non-vat');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -319,6 +319,7 @@ export default function DashboardPOS({
         customerName: receiptResult.customerName || undefined,
         customerPhone: receiptResult.customerPhone || customerPhone || undefined,
         paymentMethod: receiptResult.paymentMethod,
+        paymentBreakdown: receiptResult.paymentBreakdown,
         items: receiptResult.items.map(item => {
           const prod = products.find(p => p.id === item.productId);
           return {
@@ -917,8 +918,7 @@ export default function DashboardPOS({
       ? systemSettings.business.deliveryPaymentModes 
       : (systemSettings?.business?.paymentModes || ['Cash']);
     setDeliveryPaymentMethod(availableDeliveryModes[0]);
-    setMultiCashAmount(Math.round(grandTotal / 2));
-    setMultiBankAmount(grandTotal - Math.round(grandTotal / 2));
+    setMultiAllocations([]);
     setAmountPaid(Number(grandTotal.toFixed(2)));
     setReferenceCode('');
     setPaymentNote('');
@@ -1035,7 +1035,7 @@ export default function DashboardPOS({
     });
 
     const normalizedAmountPaid = paymentMethod === 'Multi-Channel'
-      ? Number((multiCashAmount + multiBankAmount).toFixed(2))
+      ? Number(multiAllocations.reduce((sum, row) => sum + Math.max(0, Number(row.amount || 0)), 0).toFixed(2))
       : Math.max(0, Number(amountPaid || 0));
     const amountDue = Math.max(0, Number((grandTotal - normalizedAmountPaid).toFixed(2)));
     const manualPaymentStatus: Sale['paymentStatus'] = amountDue <= 0
@@ -1086,14 +1086,15 @@ export default function DashboardPOS({
       customerPhone: customerPhone ? customerPhone : undefined,
       staffName: userName,
       vatStatus: vatStatus,
-      multiCashAmount: paymentMethod === 'Multi-Channel' ? multiCashAmount : undefined,
-      multiBankAmount: paymentMethod === 'Multi-Channel' ? multiBankAmount : undefined,
       paymentBreakdown: paymentMethod === 'Multi-Channel'
-        ? [
-            { method: 'Cash', amount: Math.max(0, Number(multiCashAmount || 0)) },
-            { method: 'Bank', amount: Math.max(0, Number(multiBankAmount || 0)) },
-          ].filter(part => part.amount > 0)
-        : [{ method: paymentMethod, amount: normalizedAmountPaid }],
+        ? multiAllocations
+            .map(row => ({
+              method: row.method,
+              amount: Math.max(0, Number(row.amount || 0)),
+              reference: row.reference?.trim() || undefined,
+            }))
+            .filter(part => part.amount > 0 && part.method)
+        : [{ method: paymentMethod, amount: normalizedAmountPaid, reference: cleanTransactionReference || undefined }],
       channel: sellingChannel,
 
     };
@@ -1853,7 +1854,7 @@ export default function DashboardPOS({
       {/* CHECKOUT MODAL SYSTEM */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/70" style={{paddingBottom: 'calc(var(--dashboard-bottom-nav-height, 0px) + env(safe-area-inset-bottom))'}}>
-          <div className="relative bg-white border border-slate-200 md:rounded-3xl rounded-t-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col" style={{maxHeight: 'calc(100dvh - var(--dashboard-bottom-nav-height, 60px) - env(safe-area-inset-bottom) - env(safe-area-inset-top))' }}>
+          <div className="relative bg-white border border-slate-200 md:rounded-3xl rounded-t-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col" style={{maxHeight: 'calc(100dvh - var(--dashboard-bottom-nav-height, 60px) - env(safe-area-inset-bottom) - env(safe-area-inset-top))' }}>
             {/* Mobile Drag Handle */}
             <div className="w-full flex justify-center pt-3 pb-2 xl:hidden bg-slate-50">
               <div className="w-12 h-1.5 bg-slate-300/50 rounded-full" />
@@ -1863,7 +1864,7 @@ export default function DashboardPOS({
             <div className="px-6 py-4 md:py-5 bg-slate-50 border-b border-slate-250 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Receipt className="w-5 h-5 text-emerald-600" />
-                <h4 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Payment Mode Till</h4>
+                <h4 className="font-bold text-slate-800 text-sm">Payment Mode</h4>
               </div>
               <button 
                 onClick={() => { setIsCheckoutOpen(false); setPaymentStatus('idle'); }}
@@ -1878,7 +1879,7 @@ export default function DashboardPOS({
               <div className="p-6 space-y-5 overflow-y-auto flex-1" style={{paddingBottom: '1.5rem'}}>
                 <div className="text-center py-2 space-y-1">
                   <p className="text-3xl font-black text-slate-950">{currency}{Math.round(grandTotal).toLocaleString()}</p>
-                  <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest font-black">Manual payment record for this till sale</p>
+                  <p className="text-[11px] text-slate-400 font-sans">Complete payment for this sale</p>
                 </div>
 
                 {/* Customer Assignment (New feature) */}
@@ -1905,134 +1906,173 @@ export default function DashboardPOS({
                 {/* Manual payment recording selectors */}
                 <div className="space-y-3">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Choose Payment Method</label>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-2">
                     {(() => {
                       const baseModes = systemSettings?.business?.paymentModes && systemSettings.business.paymentModes.length > 0
                         ? systemSettings.business.paymentModes
                         : ['Cash', 'Mobile Money', 'Bank'];
                       const enabledModes = [...baseModes.map(getPaymentModeName), 'Multi-Channel'].filter(Boolean);
-                      
+
                       return enabledModes.map(mode => {
                         const isSelected = paymentMethod === mode;
                         const isCash = mode.toLowerCase().includes('cash');
                         const isMomo = mode.toLowerCase().includes('pesa') || mode.toLowerCase().includes('momo') || mode.toLowerCase().includes('mobile') || mode.toLowerCase().includes('mtn') || mode.toLowerCase().includes('paystack');
                         const isMulti = mode === 'Multi-Channel';
-                        
-                        return (
-                          <div key={mode} className="space-y-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPaymentMethod(mode);
-                                const isCreditMode = mode.toLowerCase().includes('credit');
-                                setAmountPaid(isCreditMode ? 0 : Number(grandTotal.toFixed(2)));
-                                setReferenceCode('');
-                                setPaymentNote('');
-                                if (mode === 'Multi-Channel') {
-                                  setMultiCashAmount(Math.round(grandTotal / 2));
-                                  setMultiBankAmount(grandTotal - Math.round(grandTotal / 2));
-                                }
-                              }}
-                              className={`p-3 rounded-2xl border flex items-center justify-between transition-all cursor-pointer text-left w-full ${
-                                isSelected 
-                                  ? 'bg-emerald-50 text-emerald-755 border-emerald-450' 
-                                  : 'bg-slate-50 text-slate-600 border-slate-250 hover:border-slate-350'
-                              }`}
-                            >
-                              <div className="flex items-center space-x-3 text-xs">
-                                {isCash ? (
-                                  <Receipt className={`w-4 h-4 ${isSelected ? 'text-emerald-600' : 'text-slate-405'}`} />
-                                ) : isMomo ? (
-                                  <Smartphone className={`w-4 h-4 ${isSelected ? 'text-emerald-600' : 'text-slate-405'}`} />
-                                ) : isMulti ? (
-                                  <Coins className={`w-4 h-4 ${isSelected ? 'text-indigo-600 animate-pulse' : 'text-slate-405'}`} />
-                                ) : (
-                                  <CreditCard className={`w-4 h-4 ${isSelected ? 'text-emerald-600' : 'text-slate-405'}`} />
-                                )}
-                                <div>
-                                  <p className="font-bold text-slate-800">{mode}</p>
-                                  <p className="text-[10px] text-slate-500 font-light mt-0.5">
-                                    {isCash ? 'Collect paper currency, log to system till vault' : 
-                                     isMomo ? 'Record manual wallet payment received outside the system' :
-                                     isMulti ? 'Split manually received cash and bank/card amounts' :
-                                     'Record manual bank/card transfer for reports'}
-                                  </p>
-                                </div>
-                              </div>
-                              <span className="text-[9px] font-bold tracking-widest bg-slate-250 border border-slate-300 px-2 py-0.5 rounded font-mono uppercase text-slate-700">
-                                {isCash ? 'CASH' : isMomo ? 'MOMO' : isMulti ? 'SPLIT' : 'BANK'}
-                              </span>
-                            </button>
 
-                            {isMulti && isSelected && (
-                              <div className="bg-white border border-slate-200 rounded-2xl p-4.5 space-y-3 shadow-xs">
-                                <p className="text-[10px] font-mono font-black text-indigo-700 uppercase tracking-wider">Split Payment</p>
-                                <div className="grid grid-cols-2 gap-3.5">
-                                  <div>
-                                    <label className="block text-[9.5px] uppercase font-bold text-slate-500 mb-1">Cash In ({currency})</label>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max={grandTotal}
-                                      value={multiCashAmount}
-                                      onChange={(e) => {
-                                        const val = parseFloat(e.target.value) || 0;
-                                        const boundedVal = Math.min(grandTotal, val);
-                                        setMultiCashAmount(boundedVal);
-                                        setMultiBankAmount(grandTotal - boundedVal);
-                                      }}
-                                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 font-mono font-bold text-xs"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[9.5px] uppercase font-bold text-slate-500 mb-1">Bank / Card ({currency})</label>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max={grandTotal}
-                                      value={multiBankAmount}
-                                      onChange={(e) => {
-                                        const val = parseFloat(e.target.value) || 0;
-                                        const boundedVal = Math.min(grandTotal, val);
-                                        setMultiBankAmount(boundedVal);
-                                        setMultiCashAmount(grandTotal - boundedVal);
-                                      }}
-                                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 font-mono font-bold text-xs"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="text-[10px] uppercase font-black text-emerald-800 text-center bg-emerald-50 py-1.5 rounded-xl border border-emerald-100 font-sans">
-                                  Combined: {currency}{multiCashAmount.toLocaleString()} Cash + {currency}{multiBankAmount.toLocaleString()} Bank = {currency}{(multiCashAmount + multiBankAmount).toLocaleString()}
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  <label className="block">
-                                    <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Transaction Ref (optional)</span>
-                                    <input
-                                      type="text"
-                                      value={referenceCode}
-                                      onChange={(e) => setReferenceCode(e.target.value)}
-                                      placeholder="Bank/card/mobile ref"
-                                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 font-mono text-xs text-slate-800"
-                                    />
-                                  </label>
-                                  <label className="block">
-                                    <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Payment Note (optional)</span>
-                                    <input
-                                      type="text"
-                                      value={paymentNote}
-                                      onChange={(e) => setPaymentNote(e.target.value)}
-                                      placeholder="Manual split confirmation"
-                                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 text-xs text-slate-800"
-                                    />
-                                  </label>
-                                </div>
-                              </div>
+                        return (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => {
+                              setPaymentMethod(mode);
+                              const isCreditMode = mode.toLowerCase().includes('credit');
+                              setAmountPaid(isCreditMode ? 0 : Number(grandTotal.toFixed(2)));
+                              setReferenceCode('');
+                              setPaymentNote('');
+                              if (mode === 'Multi-Channel') {
+                                const baseModes = systemSettings?.business?.paymentModes && systemSettings.business.paymentModes.length > 0
+                                  ? systemSettings.business.paymentModes
+                                  : ['Cash', 'Mobile Money', 'Bank'];
+                                const firstMethod = baseModes.map(getPaymentModeName).filter(Boolean)[0] || 'Cash';
+                                setMultiAllocations([{ method: firstMethod, amount: Number(grandTotal.toFixed(2)), reference: '' }]);
+                              }
+                            }}
+                            className={`relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border py-3 px-2 text-center transition-all cursor-pointer active:scale-95 ${
+                              isSelected
+                                ? 'bg-emerald-50 border-emerald-450 text-emerald-755 shadow-sm'
+                                : 'bg-slate-50 border-slate-250 text-slate-600 hover:border-slate-350'
+                            }`}
+                          >
+                            {isSelected && (
+                              <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-white">
+                                <Check className="w-2.5 h-2.5" strokeWidth={3} />
+                              </span>
                             )}
-                          </div>
+                            {isCash ? (
+                              <Receipt className={`w-5 h-5 ${isSelected ? 'text-emerald-600' : 'text-slate-405'}`} />
+                            ) : isMomo ? (
+                              <Smartphone className={`w-5 h-5 ${isSelected ? 'text-emerald-600' : 'text-slate-405'}`} />
+                            ) : isMulti ? (
+                              <Coins className={`w-5 h-5 ${isSelected ? 'text-indigo-600' : 'text-slate-405'}`} />
+                            ) : (
+                              <CreditCard className={`w-5 h-5 ${isSelected ? 'text-emerald-600' : 'text-slate-405'}`} />
+                            )}
+                            <p className="font-bold text-[11px] leading-tight">{mode}</p>
+                          </button>
                         );
                       });
                     })()}
                   </div>
+
+                  {paymentMethod === 'Multi-Channel' && (() => {
+                    const baseModes = systemSettings?.business?.paymentModes && systemSettings.business.paymentModes.length > 0
+                      ? systemSettings.business.paymentModes
+                      : ['Cash', 'Mobile Money', 'Bank'];
+                    const availableMethods = baseModes.map(getPaymentModeName).filter(Boolean);
+                    const usedMethods = new Set(multiAllocations.map(row => row.method));
+                    const totalAllocated = Number(multiAllocations.reduce((sum, row) => sum + Math.max(0, Number(row.amount || 0)), 0).toFixed(2));
+                    const remaining = Number((grandTotal - totalAllocated).toFixed(2));
+                    const canAddMore = multiAllocations.length < availableMethods.length;
+
+                    return (
+                      <div className="bg-white border border-slate-200 rounded-2xl p-4.5 space-y-3 shadow-xs">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-mono font-black text-indigo-700 uppercase tracking-wider">Split Payment</p>
+                          <span className="text-[9px] font-bold text-slate-400">{multiAllocations.length} method{multiAllocations.length === 1 ? '' : 's'}</span>
+                        </div>
+
+                        {multiAllocations.length === 0 && (
+                          <p className="text-[11px] text-slate-400 text-center py-2">Add a payment method to begin the split.</p>
+                        )}
+
+                        <div className="space-y-2.5">
+                          {multiAllocations.map((row, index) => {
+                            const otherUsed = new Set(multiAllocations.filter((_, i) => i !== index).map(r => r.method));
+                            const rowOptions = availableMethods.filter(m => m === row.method || !otherUsed.has(m));
+                            return (
+                              <div key={index} className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2.5">
+                                <div className="flex-1 space-y-1.5">
+                                  <div className="flex gap-2">
+                                    <select
+                                      value={row.method}
+                                      onChange={(e) => {
+                                        const next = [...multiAllocations];
+                                        next[index] = { ...next[index], method: e.target.value };
+                                        setMultiAllocations(next);
+                                      }}
+                                      className="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-indigo-500"
+                                    >
+                                      {rowOptions.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max={grandTotal}
+                                      value={row.amount || ''}
+                                      onChange={(e) => {
+                                        const val = Math.max(0, Math.min(grandTotal, parseFloat(e.target.value) || 0));
+                                        const next = [...multiAllocations];
+                                        next[index] = { ...next[index], amount: val };
+                                        setMultiAllocations(next);
+                                      }}
+                                      placeholder="Amount"
+                                      className="w-24 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] font-mono font-bold text-right focus:outline-none focus:border-indigo-500"
+                                    />
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={row.reference}
+                                    onChange={(e) => {
+                                      const next = [...multiAllocations];
+                                      next[index] = { ...next[index], reference: e.target.value };
+                                      setMultiAllocations(next);
+                                    }}
+                                    placeholder="Transaction ref (optional)"
+                                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10.5px] font-mono text-slate-600 focus:outline-none focus:border-indigo-500"
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setMultiAllocations(multiAllocations.filter((_, i) => i !== index))}
+                                  className="mt-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                  aria-label="Remove payment row"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {canAddMore && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextMethod = availableMethods.find(m => !usedMethods.has(m)) || availableMethods[0];
+                              setMultiAllocations([...multiAllocations, { method: nextMethod, amount: Math.max(0, remaining), reference: '' }]);
+                            }}
+                            className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-indigo-300 text-indigo-600 text-[11px] font-bold py-2 hover:bg-indigo-50 transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Add payment method
+                          </button>
+                        )}
+
+                        <div className={`text-[10px] uppercase font-black text-center py-1.5 rounded-xl border font-sans ${
+                          remaining === 0
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                            : remaining > 0
+                              ? 'bg-amber-50 text-amber-800 border-amber-100'
+                              : 'bg-indigo-50 text-indigo-800 border-indigo-100'
+                        }`}>
+                          {remaining === 0
+                            ? `Fully allocated: ${currency}${totalAllocated.toLocaleString()}`
+                            : remaining > 0
+                              ? `Remaining: ${currency}${remaining.toLocaleString()}`
+                              : `Overpaid by ${currency}${Math.abs(remaining).toLocaleString()}`}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {paymentMethod !== 'Multi-Channel' && (
@@ -2089,8 +2129,9 @@ export default function DashboardPOS({
 
                 <button
                   type="button"
+                  disabled={paymentMethod === 'Multi-Channel' && multiAllocations.filter(row => Number(row.amount || 0) > 0).length === 0}
                   onClick={submitPayment}
-                  className="w-full py-4 font-bold rounded-2xl text-xs uppercase tracking-wider cursor-pointer active:scale-98 shadow-md bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/10"
+                  className="w-full py-4 font-bold rounded-2xl text-xs uppercase tracking-wider cursor-pointer active:scale-98 shadow-md bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/10 disabled:opacity-45 disabled:cursor-not-allowed disabled:active:scale-100"
                 >
                   <span>Confirm Payment</span>
                 </button>
@@ -2149,6 +2190,16 @@ export default function DashboardPOS({
                       <span>Payment Mode:</span>
                       <span className="font-bold uppercase">{receiptResult.paymentMethod}</span>
                     </div>
+                    {receiptResult.paymentMethod === 'Multi-Channel' && Array.isArray(receiptResult.paymentBreakdown) && receiptResult.paymentBreakdown.length > 0 && (
+                      <div className="pt-1 mt-1 border-t border-dashed border-slate-200 space-y-0.5">
+                        {receiptResult.paymentBreakdown.map((part, i) => (
+                          <div key={i} className="flex justify-between text-slate-500">
+                            <span>{part.method}</span>
+                            <span className="font-mono">{currency}{Math.round(part.amount).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Receipt Items list */}

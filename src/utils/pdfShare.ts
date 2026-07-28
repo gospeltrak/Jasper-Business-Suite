@@ -98,6 +98,7 @@ export interface ReceiptData {
   customerPhone?: string;
   customerAddress?: string;
   paymentMethod: string;
+  paymentBreakdown?: Array<{ method: string; amount: number }>;
   items: Array<{
     name: string;
     qty: number;
@@ -355,7 +356,15 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
   if (balance > 0) totalRow('Balance due', fmt(balance));
   else if ((data.change || 0) > 0) totalRow('Change', fmt(data.change || 0));
   left(`Payment: ${data.paymentMethod}`, margin, y, { size: 7, color: muted });
-  y += 14;
+  y += 11;
+  if (data.paymentMethod === 'Multi-Channel' && Array.isArray(data.paymentBreakdown) && data.paymentBreakdown.length > 0) {
+    data.paymentBreakdown.forEach(part => {
+      left(`  ${part.method}`, margin, y, { size: 6.8, color: muted });
+      left(fmt(part.amount), width - margin, y, { size: 6.8, color: muted, align: 'right' });
+      y += 10;
+    });
+  }
+  y += 3;
 
   dashedLine(y);
   y += 14;

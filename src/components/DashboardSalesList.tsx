@@ -3343,15 +3343,17 @@ export default function DashboardSalesList({
                             <span>-{currency}{Math.round(discAmt).toLocaleString()}</span>
                           </div>
                         )}
-                        <div className="flex justify-between">
-                          <span>TAX COMPLIANCE REGISTER</span>
-                          <span>{isVat ? `VAT (${Math.round(activeTenant.taxRate * 100)}%)` : 'NON-VAT (0%)'}</span>
-                        </div>
                         {isVat && (
-                          <div className="flex justify-between text-slate-500">
-                            <span>VAT VALUE CHARGED</span>
-                            <span>{currency}{Math.round(taxAmt).toLocaleString()}</span>
-                          </div>
+                          <>
+                            <div className="flex justify-between">
+                              <span>TAX COMPLIANCE REGISTER</span>
+                              <span>{`VAT (${Math.round(activeTenant.taxRate * 100)}%)`}</span>
+                            </div>
+                            <div className="flex justify-between text-slate-500">
+                              <span>VAT VALUE CHARGED</span>
+                              <span>{currency}{Math.round(taxAmt).toLocaleString()}</span>
+                            </div>
+                          </>
                         )}
                       </>
                     );
