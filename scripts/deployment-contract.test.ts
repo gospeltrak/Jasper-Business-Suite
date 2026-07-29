@@ -120,6 +120,17 @@ test('branch bootstrap uses one authenticated HTTP request and one directory cal
   assert.doesNotMatch(migrationSource, /list_current_user_branches\(\)/);
 });
 
+test('workspace sync uses realtime with a low-frequency recovery poll and coalesced autosaves', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const workspaceSource = await read('src/utils/tenantWorkspace.ts');
+  assert.match(dashboardSource, /scheduleTenantWorkspaceSave\(activeTenant\.id, workspace\)/);
+  assert.match(dashboardSource, /90_000/);
+  assert.doesNotMatch(dashboardSource, /setInterval\(refreshWorkspaceFromDatabase,\s*5000\)/);
+  assert.match(workspaceSource, /AUTO_SAVE_DELAY_MS = 1000/);
+  assert.match(workspaceSource, /pendingWorkspaceAutoSaves/);
+  assert.match(workspaceSource, /await runPendingWorkspaceAutoSave\(tenantId\)/);
+});
+
 test('sale tombstones prevent stale database records from reappearing', () => {
   const deletedAt = '2026-07-27T10:00:00.000Z';
   const staleSale = {

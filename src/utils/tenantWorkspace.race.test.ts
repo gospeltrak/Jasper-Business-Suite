@@ -73,7 +73,12 @@ vi.mock('../secureDataBridge', () => {
   };
 });
 
-import { saveTenantWorkspace, readCachedWorkspace } from './tenantWorkspace';
+import {
+  flushPendingTenantWorkspace,
+  readCachedWorkspace,
+  saveTenantWorkspace,
+  scheduleTenantWorkspaceSave,
+} from './tenantWorkspace';
 
 const baseWorkspace = (sales: any[]): any => ({
   branches: [], branchStocks: [], branchStaffAssignments: [],
@@ -166,5 +171,27 @@ describe('saveTenantWorkspace write queue (out-of-order network completion)', ()
 
     const finalWorkspace = readCachedWorkspace(tenantId);
     expect(finalWorkspace?.purchases.map((p: any) => p.id)).toEqual(['pc2']);
+  });
+
+  it('coalesces render-driven autosaves and flushes only the latest snapshot', async () => {
+    const tenantId = 'autosave-coalesce-tenant';
+    const first = scheduleTenantWorkspaceSave(
+      tenantId,
+      baseWorkspace([{ id: 's1', amount: 100 }]),
+    );
+    const latest = scheduleTenantWorkspaceSave(
+      tenantId,
+      baseWorkspace([{ id: 's2', amount: 200 }]),
+    );
+
+    const flush = flushPendingTenantWorkspace(tenantId);
+    await vi.waitFor(() => {
+      if (!releaseFirstUpsert) throw new Error('coalesced upsert not issued yet');
+    });
+    releaseFirstUpsert!();
+
+    await Promise.all([first, latest, flush]);
+    expect(upsertCalls).toHaveLength(1);
+    expect(mockDbState?.sales.map((sale: any) => sale.id)).toEqual(['s2']);
   });
 });

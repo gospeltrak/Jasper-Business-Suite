@@ -43,6 +43,17 @@ const runtimeWorkspaces = new Map<string, TenantWorkspace>();
 const runtimeProductsUpdatedAt = new Map<string, string>();
 const workspaceSaveQueue = new Map<string, Promise<boolean>>();
 const settingsSaveQueue = new Map<string, Promise<boolean>>();
+const AUTO_SAVE_DELAY_MS = 1000;
+
+type PendingWorkspaceAutoSave = {
+  workspace: TenantWorkspace;
+  options: SaveTenantWorkspaceOptions;
+  timer: ReturnType<typeof setTimeout>;
+  promise: Promise<boolean>;
+  resolve: (saved: boolean) => void;
+};
+
+const pendingWorkspaceAutoSaves = new Map<string, PendingWorkspaceAutoSave>();
 
 type SaveTenantWorkspaceOptions = {
   allowSettingsWrite?: boolean;
@@ -591,6 +602,54 @@ export function saveTenantWorkspace(
   return next;
 }
 
+const runPendingWorkspaceAutoSave = async (tenantId: string): Promise<boolean> => {
+  const pending = pendingWorkspaceAutoSaves.get(tenantId);
+  if (!pending) return true;
+  clearTimeout(pending.timer);
+  pendingWorkspaceAutoSaves.delete(tenantId);
+  const saved = await saveTenantWorkspace(tenantId, pending.workspace, pending.options);
+  pending.resolve(saved);
+  return saved;
+};
+
+/**
+ * Coalesce high-frequency React state snapshots into one durable workspace
+ * save. Explicit transactional callers continue using saveTenantWorkspace().
+ */
+export function scheduleTenantWorkspaceSave(
+  tenantId: string,
+  workspace: TenantWorkspace,
+  options: SaveTenantWorkspaceOptions = {},
+): Promise<boolean> {
+  if (!tenantId) return Promise.resolve(false);
+  const current = pendingWorkspaceAutoSaves.get(tenantId);
+  if (current) {
+    clearTimeout(current.timer);
+    current.workspace = workspace;
+    current.options = options;
+    current.timer = setTimeout(() => {
+      void runPendingWorkspaceAutoSave(tenantId);
+    }, AUTO_SAVE_DELAY_MS);
+    return current.promise;
+  }
+
+  let resolvePending!: (saved: boolean) => void;
+  const promise = new Promise<boolean>((resolve) => {
+    resolvePending = resolve;
+  });
+  const pending: PendingWorkspaceAutoSave = {
+    workspace,
+    options,
+    promise,
+    resolve: resolvePending,
+    timer: setTimeout(() => {
+      void runPendingWorkspaceAutoSave(tenantId);
+    }, AUTO_SAVE_DELAY_MS),
+  };
+  pendingWorkspaceAutoSaves.set(tenantId, pending);
+  return promise;
+}
+
 async function saveTenantSettingsNow(
   tenantId: string,
   settings: SystemSettings,
@@ -662,7 +721,10 @@ export function saveTenantSettings(
 // ─── Flush pending (called when going online) ──────────────────────────────
 
 export async function flushPendingTenantWorkspace(tenantId: string): Promise<void> {
-  void tenantId;
+  if (!tenantId) return;
+  await runPendingWorkspaceAutoSave(tenantId);
+  const queued = workspaceSaveQueue.get(tenantId);
+  if (queued) await queued.catch(() => false);
 }
 
 // ─── Real-time subscription ─────────────────────────────────────────────────

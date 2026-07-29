@@ -50,7 +50,7 @@ import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
 import { savePendingSaleOffline } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
-import { flushPendingTenantWorkspace, loadTenantWorkspace, markTenantProductsUpdated, saveTenantSettings, saveTenantWorkspace, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
+import { flushPendingTenantWorkspace, loadTenantWorkspace, markTenantProductsUpdated, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
 import { findPaymentChannel } from '../utils/paymentAccounts';
 import { markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
@@ -736,7 +736,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const handleFocus = () => {
       refreshWorkspaceFromDatabase(true);
     };
-    const liveRefreshTimer = window.setInterval(refreshWorkspaceFromDatabase, 5000); // every 5s
+    // Realtime is the primary synchronisation path. This low-frequency,
+    // visible-tab refresh is only a recovery net for silent disconnects.
+    const liveRefreshTimer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void refreshWorkspaceFromDatabase();
+      }
+    }, 90_000);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('focus', handleFocus);
@@ -833,9 +839,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     if (!cloudWorkspaceLoadedRef.current && !workspaceHasBusinessData(workspace)) {
       return;
     }
-    // Save immediately — no debounce. Protection window (30s) prevents
-    // the live refresh from overwriting while save is in flight.
-    saveTenantWorkspace(activeTenant.id, workspace);
+    // Coalesce render-driven snapshots. Explicit sale, stock, treasury and
+    // settings operations still use immediate durable save paths.
+    void scheduleTenantWorkspaceSave(activeTenant.id, workspace);
   }, [workspaceReady, activeTenant.id, branchesMap, branchStocksMap, branchStaffAssignmentsMap, productsMap, salesMap, expensesMap, systemSettings, deliveriesMap, pendingDeliveryNotesMap, purchasesMap]);
 
   // PHASE 3 — Auto-create the business owner as a staff record on first login.
