@@ -28,7 +28,6 @@ import { User, Tenant } from '../types';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../secureDataBridge';
 import { initializeCleanTenantWorkspace } from '../utils/tenantIsolation';
 import { startCloudSession } from '../utils/sessionControl';
-import { payloadHasRecords, readJsonValue, safeSetJsonItem } from '../utils/dataSafety';
 import { toUserFacingError } from '../utils/safeError';
 import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
 import PrivacyAndTermsModals from './PrivacyAndTermsModals';
@@ -919,13 +918,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           resolvedPhoneEmail = lookupRes.ok ? String(lookupPayload?.email || '').trim().toLowerCase() : '';
         } catch (_) { /* synthetic staff/legacy candidates remain available below */ }
       }
-      const authEmailCandidates = cleanIdentifier.includes('@')
-        ? [cleanIdentifier.toLowerCase()]
-        : Array.from(new Set([
-            resolvedPhoneEmail,
-            ...makeInternalEmailCandidatesFromPhone(cleanIdentifier),
-          ].filter(Boolean)));
-      const authEmail = authEmailCandidates[0] || cleanIdentifier.toLowerCase();
+      // One deliberate Auth request per login attempt. Phone lookup is the
+      // authoritative resolver; if it is unavailable, use only the canonical
+      // legacy address instead of trying every historical phone format.
+      const authEmail = cleanIdentifier.includes('@')
+        ? cleanIdentifier.toLowerCase()
+        : resolvedPhoneEmail || makeInternalEmailFromPhone(cleanIdentifier) || cleanIdentifier.toLowerCase();
 
       // Perform authentic database-backed authentication securely
       // Supabase's auth fetch can remain pending during a regional/network
@@ -953,34 +951,16 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       let authData: any = null;
       let authError: any = null;
       let matchedAuthEmail = authEmail;
-      for (const candidateEmail of authEmailCandidates.length ? authEmailCandidates : [authEmail]) {
-        ({ data: authData, error: authError } = await signInWithTimeout(candidateEmail));
-        const authAttemptTimedOut = String(authError?.message || '').toLowerCase().includes('timed out');
-
-        if (authError && !authAttemptTimedOut && typeof navigator !== 'undefined' && navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
-          try {
-            await client.auth.signOut({ scope: 'local' });
-            ({ data: authData, error: authError } = await signInWithTimeout(candidateEmail));
-          } catch (_) { /* fallback continues below */ }
-        }
-
-        if (!authError && authData?.user) {
-          matchedAuthEmail = candidateEmail;
-          break;
-        }
-
-        // A timeout means the authentication service is unavailable, not that
-        // this particular phone-to-email candidate is wrong. Do not repeat the
-        // same network wait for every legacy candidate.
-        if (authAttemptTimedOut) break;
-      }
+      ({ data: authData, error: authError } = await signInWithTimeout(authEmail));
       loginFailure = authError || loginFailure;
 
       // Tenant staff created inside workspace settings do not have an Auth row
       // until their first successful login. Ask the backend to validate and
       // provision that account, then continue through the normal Supabase path.
       const secureAuthTimedOut = String(authError?.message || '').toLowerCase().includes('timed out');
-      if (authError && !secureAuthTimedOut && !cleanIdentifier.includes('@')) {
+      const secureAuthStatus = Number(authError?.status || authError?.statusCode || 0);
+      const secureAuthUnavailable = secureAuthTimedOut || secureAuthStatus >= 500;
+      if (authError && !secureAuthUnavailable && !cleanIdentifier.includes('@')) {
         const staffLoginController = new AbortController();
         const staffLoginTimeout = window.setTimeout(() => staffLoginController.abort(), 6000);
         try {
@@ -1014,6 +994,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         // backend first so a slow RLS/browser request cannot leave login loading.
         let userProfile: any = null;
         let profileError: any = null;
+        let profileFallbackAllowed = false;
         try {
           const controller = new AbortController();
           const timeoutId = window.setTimeout(() => controller.abort(), 8000);
@@ -1030,6 +1011,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           if (profileResponse.ok) {
             userProfile = profilePayload?.profile || null;
           } else {
+            profileFallbackAllowed = [404, 405, 501].includes(profileResponse.status);
             profileError = {
               ...profilePayload,
               status: profileResponse.status,
@@ -1040,10 +1022,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         }
 
         // Fallback for static deployments that do not have the profile route.
-        if (!userProfile) {
+        // Never double a database request after a timeout or upstream 5xx.
+        if (!userProfile && profileFallbackAllowed) {
           try {
             const profileResult: any = await Promise.race([
-              client.from('users').select('*').eq('id', authData.user.id).single(),
+              client
+                .from('users')
+                .select('id,email,name,role,role_key,account_type,tenant_id,active_tenant,phone,is_active,is_saas_staff,role_permissions,profile_image_url')
+                .eq('id', authData.user.id)
+                .single(),
               new Promise((_, reject) => window.setTimeout(() => reject(new Error('Account lookup timed out.')), 8000))
             ]);
             userProfile = profileResult?.data || null;
@@ -1090,34 +1077,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
         // Session tracking — fire and forget, never block login
         startCloudSession(authData.session?.access_token).catch(() => null);
-
-        // Active profile matches perfect tenant! Log in
-        // Pre-warm local workspace cache so dashboard has data immediately
-        const tenantId = userProfile.tenant_id || userProfile.active_tenant;
-        if (tenantId) {
-          const cacheKey = `jasper_workspace_cache_${tenantId}`;
-          // Cache pre-warming is optional and must never hold the authenticated
-          // user on the login screen. The dashboard's normal storage hydration
-          // remains authoritative and tenant-scoped.
-          void (async () => {
-            try {
-              const workspaceResult: any = await Promise.race([
-                client.from('tenant_workspaces').select('payload').eq('tenant_id', tenantId).maybeSingle(),
-                new Promise((_, reject) => window.setTimeout(() => reject(new Error('Workspace pre-load timed out.')), 5000))
-              ]);
-              const ws = workspaceResult?.data;
-              if (ws?.payload) {
-                const currentCache = readJsonValue(cacheKey);
-                if (!payloadHasRecords(ws.payload) && payloadHasRecords(currentCache)) {
-                  console.warn('[login] ignored empty workspace pre-warm payload because local cache has data');
-                } else {
-                  safeSetJsonItem(cacheKey, ws.payload, { tenantId, dataKey: 'tenant_workspaces', logLabel: `${tenantId}/workspace-cache` });
-                }
-                onlineStorage.setItem(`${cacheKey}_synced_at`, new Date().toISOString());
-              }
-            } catch (_) { /* non-fatal — dashboard will load from DB directly */ }
-          })();
-        }
 
         const profileRolePermissions = userProfile.role_permissions && Object.keys(userProfile.role_permissions).length
           ? userProfile.role_permissions

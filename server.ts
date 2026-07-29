@@ -1192,7 +1192,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       }
       const { data: profile, error: profileError } = await supabaseAdmin
         .from('users')
-        .select('*')
+        .select('id,email,name,role,role_key,account_type,tenant_id,active_tenant,phone,is_active,is_saas_staff,role_permissions,profile_image_url')
         .eq('id', authData.user.id)
         .maybeSingle();
       if (profileError) throw profileError;
