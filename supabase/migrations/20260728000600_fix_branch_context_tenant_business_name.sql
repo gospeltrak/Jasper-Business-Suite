@@ -1,4 +1,5 @@
--- Fix: list_current_user_branches() and ensure_physical_primary_branch()
+-- Migration-history record of the already-applied fix for
+-- list_current_user_branches() and ensure_physical_primary_branch().
 -- (introduced in 20260722000700_multibranch_primary_compatibility_rpcs.sql)
 -- reference tenant.business_name, a column that only exists on
 -- public.branches, not on public.tenants. Every call raised Postgres error

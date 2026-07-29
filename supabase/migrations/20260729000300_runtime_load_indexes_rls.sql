@@ -1,7 +1,12 @@
 -- Additive runtime-load optimization.
 -- No tenant data is updated or deleted and authorization rules stay unchanged.
 
-create index concurrently if not exists branches_directory_active_idx
+begin;
+
+set local lock_timeout = '5s';
+set local statement_timeout = '2min';
+
+create index if not exists branches_directory_active_idx
   on public.branches (tenant_id, is_default desc, branch_name, id)
   where archived_at is null;
 
@@ -86,3 +91,5 @@ create policy tenant_data_admin_delete on public.tenant_data
       )
     )
   );
+
+commit;
