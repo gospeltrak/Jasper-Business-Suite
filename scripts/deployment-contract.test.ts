@@ -131,6 +131,20 @@ test('workspace sync uses realtime with a low-frequency recovery poll and coales
   assert.match(workspaceSource, /await runPendingWorkspaceAutoSave\(tenantId\)/);
 });
 
+test('legacy hydration excludes backups and protected saves reuse one guard read', async () => {
+  const syncSource = await read('src/utils/dbSync.ts');
+  const storageSource = await read('src/utils/onlineStorage.ts');
+  const migrationSource = await read('supabase/migrations/20260729000300_runtime_load_indexes_rls.sql');
+  assert.match(syncSource, /\.not\('data_key', 'like', 'workspace_backup_%'\)/);
+  assert.match(syncSource, /\.not\('data_key', 'like', 'data_backup_%'\)/);
+  assert.doesNotMatch(syncSource, /const \{ data: remoteData, error: remoteError \}/);
+  assert.match(storageSource, /PERSIST_DEBOUNCE_MS = 1000/);
+  assert.match(storageSource, /serialized === lastPersistedSnapshot/);
+  assert.match(migrationSource, /branches_directory_active_idx/);
+  assert.match(migrationSource, /replica identity default/);
+  assert.match(migrationSource, /tenant_id = \(select private\.current_tenant_id\(\)\)/);
+});
+
 test('sale tombstones prevent stale database records from reappearing', () => {
   const deletedAt = '2026-07-27T10:00:00.000Z';
   const staleSale = {

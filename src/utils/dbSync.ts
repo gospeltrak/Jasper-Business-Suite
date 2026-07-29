@@ -108,18 +108,11 @@ export async function pushToCloud(tenantId: string, dataKey: string, payload: an
       }
 
       if (isProductDataKey(dataKey)) {
-        const { data: remoteData, error: remoteError } = await client
-          .from('tenant_data')
-          .select('payload')
-          .eq('tenant_id', tenantId)
-          .eq('data_key', dataKey)
-          .maybeSingle();
-
-        if (!remoteError && remoteData?.payload) {
+        if (currentPayload) {
           const incomingItems = getTenantArray(payloadToPush, tenantId) || [];
-          const remoteItems = getTenantArray(remoteData.payload, tenantId) || [];
+          const remoteItems = getTenantArray(currentPayload, tenantId) || [];
           const tombstones = mergeProductTombstones(
-            extractPayloadProductTombstones(remoteData.payload, tenantId),
+            extractPayloadProductTombstones(currentPayload, tenantId),
             extractPayloadProductTombstones(payloadToPush, tenantId),
             readLocalProductTombstones(tenantId),
           );
@@ -130,42 +123,28 @@ export async function pushToCloud(tenantId: string, dataKey: string, payload: an
           payloadToPush = attachPayloadProductTombstones(payloadToPush, tenantId, tombstones);
           writeLocalProductTombstones(tenantId, tombstones);
 
-          const remoteProtection = protectTenantPayload(tenantId, dataKey, payloadToPush, remoteData.payload);
+          const remoteProtection = protectTenantPayload(tenantId, dataKey, payloadToPush, currentPayload);
           payloadToPush = remoteProtection.payload;
 
-          if (payloadHasRecords(remoteData.payload, tenantId) && !payloadHasRecords(payloadToPush, tenantId)) {
-            saveRemoteDataBackup(client, tenantId, dataKey, remoteData.payload, 'prevented-empty-overwrite').catch(() => {});
+          if (payloadHasRecords(currentPayload, tenantId) && !payloadHasRecords(payloadToPush, tenantId)) {
+            saveRemoteDataBackup(client, tenantId, dataKey, currentPayload, 'prevented-empty-overwrite').catch(() => {});
             console.warn(`[dbSync] prevented destructive cloud overwrite for ${tenantId}/${dataKey} from remote guard`);
-            payloadToPush = remoteData.payload;
+            payloadToPush = currentPayload;
           } else if (remoteProtection.blockedEmptyOverwrite) {
-            saveRemoteDataBackup(client, tenantId, dataKey, remoteData.payload, 'prevented-empty-overwrite').catch(() => {});
+            saveRemoteDataBackup(client, tenantId, dataKey, currentPayload, 'prevented-empty-overwrite').catch(() => {});
             console.warn(`[dbSync] prevented destructive cloud overwrite for ${tenantId}/${dataKey} from remote guard`);
           } else if (remoteProtection.shrank) {
-            saveRemoteDataBackup(client, tenantId, dataKey, remoteData.payload, 'pre-remote-guard-save').catch(() => {});
+            saveRemoteDataBackup(client, tenantId, dataKey, currentPayload, 'pre-remote-guard-save').catch(() => {});
           }
         }
       } else if (dataKey === 'settings') {
-        const { data: remoteData, error: remoteError } = await client
-          .from('tenant_data')
-          .select('payload')
-          .eq('tenant_id', tenantId)
-          .eq('data_key', dataKey)
-          .maybeSingle();
-
-        if (!remoteError && remoteData?.payload) {
-          payloadToPush = mergeSettingsForSync(payloadToPush, remoteData.payload);
+        if (currentPayload) {
+          payloadToPush = mergeSettingsForSync(payloadToPush, currentPayload);
         }
       } else if (APPEND_MERGE_DATA_KEYS.has(dataKey)) {
-        const { data: remoteData, error: remoteError } = await client
-          .from('tenant_data')
-          .select('payload')
-          .eq('tenant_id', tenantId)
-          .eq('data_key', dataKey)
-          .maybeSingle();
-
-        if (!remoteError && remoteData?.payload) {
+        if (currentPayload) {
           const incomingItems = getTenantArray(payloadToPush, tenantId) || [];
-          const remoteItems = getTenantArray(remoteData.payload, tenantId) || [];
+          const remoteItems = getTenantArray(currentPayload, tenantId) || [];
           const mergedRecords = mergeRecordsById(incomingItems, remoteItems);
           payloadToPush = Array.isArray(payloadToPush)
             ? mergedRecords
@@ -224,7 +203,9 @@ export async function pullAllFromCloud(tenantId: string): Promise<Record<string,
     const { data, error } = await client
       .from('tenant_data')
       .select('data_key, payload')
-      .eq('tenant_id', tenantId);
+      .eq('tenant_id', tenantId)
+      .not('data_key', 'like', 'workspace_backup_%')
+      .not('data_key', 'like', 'data_backup_%');
 
     if (error || !data) return {};
     const result: Record<string, any> = {};

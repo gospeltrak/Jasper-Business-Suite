@@ -6,7 +6,9 @@ let tenantId: string | null = null;
 let hydrated = false;
 let saveTimer: number | null = null;
 let saveChain = Promise.resolve();
+let lastPersistedSnapshot = '';
 const HYDRATION_TIMEOUT_MS = 4000;
+const PERSIST_DEBOUNCE_MS = 1000;
 
 const snapshot = () => Object.fromEntries(values.entries());
 
@@ -14,6 +16,8 @@ const persist = async () => {
   if (!tenantId || !hydrated || !navigator.onLine) return;
   const currentTenantId = tenantId;
   const payload = snapshot();
+  const serialized = JSON.stringify(payload);
+  if (serialized === lastPersistedSnapshot) return;
   const client: any = await getSecureDataBridgeClient();
   const { error } = await client.from('tenant_data').upsert({
     tenant_id: currentTenantId,
@@ -22,6 +26,7 @@ const persist = async () => {
     updated_at: new Date().toISOString(),
   }, { onConflict: 'tenant_id,data_key' });
   if (error) throw error;
+  if (tenantId === currentTenantId) lastPersistedSnapshot = serialized;
 };
 
 const schedulePersist = () => {
@@ -32,7 +37,7 @@ const schedulePersist = () => {
     saveChain = saveChain.then(persist).catch((error) => {
       console.warn('[onlineStorage] database save failed:', error?.message || error);
     });
-  }, 300);
+  }, PERSIST_DEBOUNCE_MS);
 };
 
 export const onlineStorage: Storage = {
@@ -64,6 +69,7 @@ export async function configureOnlineStorage(nextTenantId: string): Promise<void
   tenantId = nextTenantId;
   hydrated = false;
   values.clear();
+  lastPersistedSnapshot = '';
 
   try {
     const client: any = await getSecureDataBridgeClient();
@@ -94,6 +100,7 @@ export async function configureOnlineStorage(nextTenantId: string): Promise<void
     // workspace hydration is slow or temporarily unavailable.
     console.warn('[onlineStorage] continuing without preloaded data:', error?.message || error);
   } finally {
+    lastPersistedSnapshot = JSON.stringify(snapshot());
     hydrated = true;
   }
 }
@@ -102,6 +109,7 @@ export function resetOnlineStorage(): void {
   tenantId = null;
   hydrated = false;
   values.clear();
+  lastPersistedSnapshot = '';
   if (saveTimer !== null) window.clearTimeout(saveTimer);
   saveTimer = null;
 }
