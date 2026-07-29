@@ -145,6 +145,15 @@ test('legacy hydration excludes backups and protected saves reuse one guard read
   assert.match(migrationSource, /tenant_id = \(select private\.current_tenant_id\(\)\)/);
 });
 
+test('Super Admin overview deduplicates requests and never amplifies backend outages', async () => {
+  const source = await read('src/utils/superAdminData.ts');
+  assert.match(source, /OVERVIEW_CACHE_TTL_MS = 10_000/);
+  assert.match(source, /if \(overviewRequest\) return overviewRequest/);
+  assert.match(source, /if \(status !== 401 && status !== 403\) throw apiError/);
+  assert.match(source, /AbortSignal\.timeout\(API_REQUEST_TIMEOUT_MS\)/);
+  assert.doesNotMatch(source, /client\.from\('user_sessions'\)\.select\('\*'\)\.order\('last_activity_at', \{ ascending: false \}\),/);
+});
+
 test('sale tombstones prevent stale database records from reappearing', () => {
   const deletedAt = '2026-07-27T10:00:00.000Z';
   const staleSale = {

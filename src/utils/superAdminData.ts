@@ -123,6 +123,11 @@ const normalizeOverview = (overview?: Partial<SuperAdminOverview> | null): Super
   auditLogs: Array.isArray(overview?.auditLogs) ? overview.auditLogs : []
 });
 
+const OVERVIEW_CACHE_TTL_MS = 10_000;
+const API_REQUEST_TIMEOUT_MS = 20_000;
+let overviewCache: { value: SuperAdminOverview; expiresAt: number } | null = null;
+let overviewRequest: Promise<SuperAdminOverview> | null = null;
+
 const apiRequest = async (path: string, init: RequestInit = {}) => {
   const client = await getSecureDataBridgeClient();
   const { data: { session } } = await client.auth.getSession();
@@ -135,6 +140,7 @@ const apiRequest = async (path: string, init: RequestInit = {}) => {
   const response = await fetch(requestPath, {
     ...init,
     cache: 'no-store',
+    signal: init.signal || AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
@@ -142,11 +148,16 @@ const apiRequest = async (path: string, init: RequestInit = {}) => {
     }
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload?.error || 'Super Admin request failed.');
+  if (!response.ok) {
+    const requestError: any = new Error(payload?.error || 'Super Admin request failed.');
+    requestError.status = response.status;
+    throw requestError;
+  }
+  if (method !== 'GET') overviewCache = null;
   return payload;
 };
 
-export async function loadSuperAdminOverview(): Promise<SuperAdminOverview> {
+async function fetchSuperAdminOverview(): Promise<SuperAdminOverview> {
   let apiError: Error | null = null;
 
   // Try API first (uses service role via Bearer token)
@@ -154,6 +165,12 @@ export async function loadSuperAdminOverview(): Promise<SuperAdminOverview> {
     return normalizeOverview(await apiRequest('/api/super-admin/overview'));
   } catch (apiErr: any) {
     apiError = apiErr instanceof Error ? apiErr : new Error('Super Admin overview request failed.');
+    const status = Number(apiErr?.status || 0);
+    // Only an authorization mismatch can benefit from the RLS-protected direct
+    // client fallback. Retrying 5xx, timeouts or network failures as eleven
+    // parallel database queries would amplify an already unhealthy backend.
+    if (status !== 401 && status !== 403) throw apiError;
+
     // API auth failed (403/401) — try direct Supabase client as fallback
     // This works when the super admin is authenticated in Supabase but
     // the server-side requirePlatformAdmin check fails (e.g. is_active mismatch)
@@ -176,14 +193,14 @@ export async function loadSuperAdminOverview(): Promise<SuperAdminOverview> {
         client.from('tenants').select('*').order('name', { ascending: true }),
         client.from('users').select('*').order('name', { ascending: true }),
         client.from('tenant_workspaces').select('*'),
-        client.from('user_sessions').select('*').order('last_activity_at', { ascending: false }),
+        client.from('user_sessions').select('*').order('last_activity_at', { ascending: false }).limit(500),
         client.from('affiliates').select('*').order('created_at', { ascending: false }),
         client.from('affiliate_partners').select('*').order('created_at', { ascending: false }),
-        client.from('affiliate_referrals').select('*').order('created_at', { ascending: false }),
-        client.from('subscriber_source_tracking').select('*').order('created_at', { ascending: false }),
-        client.from('referred_customers').select('*').order('created_at', { ascending: false }),
-        client.from('affiliate_commissions').select('*').order('created_at', { ascending: false }),
-        client.from('affiliate_payouts').select('*').order('requested_at', { ascending: false }),
+        client.from('affiliate_referrals').select('*').order('created_at', { ascending: false }).limit(1000),
+        client.from('subscriber_source_tracking').select('*').order('created_at', { ascending: false }).limit(2000),
+        client.from('referred_customers').select('*').order('created_at', { ascending: false }).limit(2000),
+        client.from('affiliate_commissions').select('*').order('created_at', { ascending: false }).limit(1000),
+        client.from('affiliate_payouts').select('*').order('requested_at', { ascending: false }).limit(1000),
       ]);
       if (!tenantsRes.error && !usersRes.error) {
         const fallbackOverview = normalizeOverview({
@@ -212,6 +229,25 @@ export async function loadSuperAdminOverview(): Promise<SuperAdminOverview> {
   }
 
   throw apiError || new Error('Unable to load the live Super Admin overview.');
+}
+
+export async function loadSuperAdminOverview(): Promise<SuperAdminOverview> {
+  if (overviewCache && overviewCache.expiresAt > Date.now()) return overviewCache.value;
+  if (overviewRequest) return overviewRequest;
+
+  overviewRequest = fetchSuperAdminOverview()
+    .then((overview) => {
+      overviewCache = {
+        value: overview,
+        expiresAt: Date.now() + OVERVIEW_CACHE_TTL_MS,
+      };
+      return overview;
+    })
+    .finally(() => {
+      overviewRequest = null;
+    });
+
+  return overviewRequest;
 }
 
 export async function updateSuperAdminUser(userId: string, payload: Record<string, unknown>) {
