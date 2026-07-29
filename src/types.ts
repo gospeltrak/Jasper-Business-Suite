@@ -637,6 +637,8 @@ export interface SystemSettings {
     showProductImages: boolean;
   };
   paymentChannels?: PaymentChannel[]; // persisted bank/mobile/cash accounts
+  expenseCategories?: string[];
+  notificationModuleSettings?: JasperModuleNotificationSettings[];
 }
 
 export interface SalesDocument {

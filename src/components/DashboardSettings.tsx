@@ -435,6 +435,10 @@ export default function DashboardSettings({
     setCustomRolesList(systemSettings?.customRoles && systemSettings.customRoles.length > 0
       ? systemSettings?.customRoles
       : DEFAULT_CUSTOM_ROLES);
+    setInvoiceSettingsForm(systemSettings?.invoiceSettings || {});
+    setPosSettingsForm({
+      showProductImages: systemSettings?.posSettings?.showProductImages !== false,
+    });
     window.setTimeout(() => {
       incomingSettingsSyncRef.current = false;
     }, 0);
@@ -2916,6 +2920,19 @@ export default function DashboardSettings({
                    tenantId={activeTenant.id}
                    moduleName={notificationModule.name}
                    moduleLabel={notificationModule.label}
+                   persistedSettings={(systemSettings.notificationModuleSettings || []).find(
+                     setting => setting.tenantId === activeTenant.id
+                       && setting.moduleName === notificationModule.name
+                   )}
+                   onPersistSettings={(updatedNotificationSettings) => {
+                     const remaining = (systemSettings.notificationModuleSettings || []).filter(
+                       setting => !(setting.tenantId === activeTenant.id
+                         && setting.moduleName === notificationModule.name)
+                     );
+                     return onSaveSettings(buildSettingsSnapshot({
+                       notificationModuleSettings: [updatedNotificationSettings, ...remaining],
+                     }));
+                   }}
                  />
                );
              })()

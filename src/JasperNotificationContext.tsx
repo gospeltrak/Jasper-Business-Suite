@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useState, useEffect } from 'react';
 import { JasperNotificationSettings, JasperModuleNotificationSettings, JasperNotification, JasperScheduledReport } from './types';
 
 interface NotificationContextProps {
@@ -10,6 +10,7 @@ interface NotificationContextProps {
   updateSettings: (newSettings: Partial<JasperNotificationSettings>) => void;
   getModuleSettings: (tenantId: string, moduleName: string) => JasperModuleNotificationSettings;
   updateModuleSettings: (tenantId: string, moduleName: string, updates: Partial<JasperModuleNotificationSettings>) => JasperModuleNotificationSettings;
+  hydrateTenantModuleSettings: (tenantId: string, settings: JasperModuleNotificationSettings[]) => void;
   sendTestModuleWhatsappReport: (tenantId: string, moduleName: string, moduleLabel?: string) => { ok: boolean; message: string };
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
@@ -155,6 +156,24 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return updated;
   };
 
+  const hydrateTenantModuleSettings = useCallback((tenantId: string, persisted: JasperModuleNotificationSettings[]) => {
+    if (!tenantId || !Array.isArray(persisted) || persisted.length === 0) return;
+    setModuleSettings(current => {
+      const outsideTenant = current.filter(setting => setting.tenantId !== tenantId);
+      const persistedForTenant = persisted
+        .filter(setting => setting.tenantId === tenantId)
+        .map(setting => ({
+          ...setting,
+          tenantId,
+          moduleName: normalizeModuleName(setting.moduleName),
+        }));
+      const hydrated = [...persistedForTenant, ...outsideTenant];
+      if (JSON.stringify(hydrated) === JSON.stringify(current)) return current;
+      onlineStorage.setItem('jasper_module_notification_settings', JSON.stringify(hydrated));
+      return hydrated;
+    });
+  }, []);
+
   const sendTestModuleWhatsappReport = (tenantId: string, moduleName: string, moduleLabel = moduleName) => {
     const moduleConfig = getModuleSettings(tenantId, moduleName);
     if (moduleConfig.enableWhatsapp && !hasValidWhatsappNumber(moduleConfig.whatsappNumber)) {
@@ -247,6 +266,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       updateSettings,
       getModuleSettings,
       updateModuleSettings,
+      hydrateTenantModuleSettings,
       sendTestModuleWhatsappReport,
       markAsRead,
       markAllAsRead,

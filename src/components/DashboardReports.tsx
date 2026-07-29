@@ -498,9 +498,12 @@ export default function DashboardReports({
   const filteredSales = sales.filter(s => isWithinDateRange(s.timestamp));
   const filteredExpenses = expenses.filter(e => isWithinDateRange((e as any).date || e.timestamp || ''));
 
-  // Expense Categories Presets
-  // Use categories from localStorage (user-defined) or empty
+  // Expense categories are durable tenant settings. Browser storage is only a
+  // compatibility read for tenants that have not saved them to Supabase yet.
   const savedCats = (() => {
+    if (Array.isArray(systemSettings?.expenseCategories)) {
+      return systemSettings.expenseCategories;
+    }
     try {
       const saved = localStorage.getItem(`jasper_expense_cats_${activeTenant.id}`);
       if (saved) return JSON.parse(saved);

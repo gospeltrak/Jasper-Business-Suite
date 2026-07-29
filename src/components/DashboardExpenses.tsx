@@ -52,6 +52,7 @@ interface DashboardExpensesProps {
   userName?: string;
   sales?: Sale[];
   systemSettings: SystemSettings;
+  onUpdateSystemSettings?: (settings: SystemSettings) => void | boolean | Promise<boolean>;
 }
 
 export default function DashboardExpenses({ 
@@ -63,6 +64,7 @@ export default function DashboardExpenses({
   userName = 'Admin',
   sales = [],
   systemSettings,
+  onUpdateSystemSettings,
 }: DashboardExpensesProps) {
   const currency = activeTenant.currencyCode || 'TSh';
 
@@ -84,6 +86,9 @@ export default function DashboardExpenses({
 
   // Load custom categories from onlineStorage or set defaults
   const [categories, setCategories] = useState<string[]>(() => {
+    if (Array.isArray(systemSettings.expenseCategories)) {
+      return systemSettings.expenseCategories;
+    }
     const saved = onlineStorage.getItem(`jasper_expense_cats_${activeTenant.id}`);
     if (saved) {
       try {
@@ -108,7 +113,17 @@ export default function DashboardExpenses({
       dataKey: 'expense_cats',
       logLabel: `${activeTenant.id}/expense-categories`,
     });
+    void onUpdateSystemSettings?.({
+      ...systemSettings,
+      expenseCategories: newCats,
+    });
   };
+
+  useEffect(() => {
+    if (Array.isArray(systemSettings.expenseCategories)) {
+      setCategories(systemSettings.expenseCategories);
+    }
+  }, [systemSettings.expenseCategories]);
 
   // Form states for creating a new expense
   const [formDate, setFormDate] = useState<string>(() => {

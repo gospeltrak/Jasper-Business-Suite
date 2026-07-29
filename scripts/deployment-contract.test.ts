@@ -531,6 +531,11 @@ test('tenant settings can only change through the explicit authoritative save pa
   const migrationSource = await read('supabase/migrations/20260728000500_authoritative_tenant_settings.sql');
 
   assert.match(dashboardSource, /saveTenantSettings\(activeTenant\.id,\s*syncedSettings\)/);
+  assert.doesNotMatch(
+    dashboardSource,
+    /saveData\(activeTenant\.id,\s*['"]settings['"]/,
+    'Settings must not race the authoritative RPC through the legacy writer.',
+  );
   assert.match(dashboardSource, /\}, \[activeTenant\.id\]\);/);
   assert.doesNotMatch(settingsSource, /settingsDraftReadyRef/);
   assert.match(settingsSource, /const buildSettingsSnapshot/);
@@ -544,6 +549,30 @@ test('tenant settings can only change through the explicit authoritative save pa
     migrationSource,
     /\b(delete\s+from|truncate\s+table|drop\s+table)\s+public\.(tenant_workspaces|tenant_data)\b/i,
   );
+});
+
+test('all user-editable Settings modules use the authoritative tenant settings payload', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const settingsSource = await read('src/components/DashboardSettings.tsx');
+  const notificationsSource = await read('src/components/DashboardNotificationsSettings.tsx');
+  const notificationContextSource = await read('src/JasperNotificationContext.tsx');
+  const expensesSource = await read('src/components/DashboardExpenses.tsx');
+  const reportsSource = await read('src/components/DashboardReports.tsx');
+  const typesSource = await read('src/types.ts');
+
+  assert.match(settingsSource, /setInvoiceSettingsForm\(systemSettings\?\.invoiceSettings/);
+  assert.match(settingsSource, /setPosSettingsForm\(/);
+  assert.match(settingsSource, /notificationModuleSettings/);
+  assert.match(notificationsSource, /onPersistSettings/);
+  assert.match(notificationsSource, /Save Alert Settings/);
+  assert.match(notificationContextSource, /hydrateTenantModuleSettings/);
+  assert.match(dashboardSource, /systemSettings\.notificationModuleSettings/);
+  assert.match(typesSource, /expenseCategories\?: string\[\]/);
+  assert.match(typesSource, /notificationModuleSettings\?: JasperModuleNotificationSettings\[\]/);
+  assert.match(expensesSource, /systemSettings\.expenseCategories/);
+  assert.match(expensesSource, /onUpdateSystemSettings/);
+  assert.match(reportsSource, /systemSettings\?\.expenseCategories/);
+  assert.match(dashboardSource, /onUpdateSystemSettings=\{persistSystemSettingsNow\}/);
 });
 
 test('GitHub CI runs tests and a production frontend build', async () => {

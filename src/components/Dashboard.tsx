@@ -337,7 +337,7 @@ function SubscriptionCheckoutStateBridge({
 function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
   const { getFallbackInitials } = useTenantLogo();
-  const { addSaleNotification, unreadCount } = useJasperNotifications();
+  const { addSaleNotification, unreadCount, hydrateTenantModuleSettings } = useJasperNotifications();
   const [showDashLangMenu, setShowDashLangMenu] = useState(false);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
 
@@ -663,6 +663,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const settingsSaveVersionRef = useRef(0);
   const LOCAL_WORKSPACE_PROTECTION_MS = 10000; // 10s — save completes in < 5s normally
 
+  useEffect(() => {
+    hydrateTenantModuleSettings(
+      activeTenant.id,
+      systemSettings.notificationModuleSettings || [],
+    );
+  }, [activeTenant.id, systemSettings.notificationModuleSettings, hydrateTenantModuleSettings]);
+
   // Set safe defaults while the selected tenant workspace loads from Supabase.
   useEffect(() => {
     setSystemSettings(normalizeSystemSettings(activeTenant));
@@ -880,7 +887,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         dataKey: 'settings',
         logLabel: `${activeTenant.id}/settings`,
       });
-      saveData(activeTenant.id, 'settings', updatedSettings);
+      void saveTenantSettings(activeTenant.id, updatedSettings);
     } catch { /* quota */ }
   }, [workspaceReady, activeTenant.id]);
 
@@ -1751,7 +1758,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     cloudWorkspaceLoadedRef.current = true;
     skipNextWorkspaceSaveRef.current = true;
     setSystemSettings(syncedSettings);
-    saveData(activeTenant.id, 'settings', syncedSettings);
     void saveTenantSettings(activeTenant.id, syncedSettings).then((saved) => {
       if (saved || settingsSaveVersionRef.current !== saveVersion) return;
       setSystemSettings(previousSettings);
@@ -3684,6 +3690,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               userName={user.name}
               sales={activeSales}
               systemSettings={systemSettings}
+              onUpdateSystemSettings={persistSystemSettingsNow}
             />
           )}
 

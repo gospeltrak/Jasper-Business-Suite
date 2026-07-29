@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useJasperNotifications } from '../JasperNotificationContext';
 import { Save, Bell, Clock, Calendar, AlertTriangle, Send, User, MessageCircle } from 'lucide-react';
 import { JasperModuleNotificationSettings } from '../types';
@@ -7,6 +7,8 @@ interface DashboardNotificationsSettingsProps {
   tenantId?: string;
   moduleName?: string;
   moduleLabel?: string;
+  persistedSettings?: JasperModuleNotificationSettings;
+  onPersistSettings?: (settings: JasperModuleNotificationSettings) => void | boolean | Promise<boolean>;
 }
 
 const validateWhatsapp = (value: string) => /^\+[1-9]\d{8,14}$/.test(value.trim());
@@ -14,19 +16,51 @@ const validateWhatsapp = (value: string) => /^\+[1-9]\d{8,14}$/.test(value.trim(
 export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSettingsProps> = ({
   tenantId = 'default-tenant',
   moduleName = 'wholesale-retail',
-  moduleLabel = 'Wholesale & Retail'
+  moduleLabel = 'Wholesale & Retail',
+  persistedSettings,
+  onPersistSettings,
 }) => {
   const { getModuleSettings, updateModuleSettings, sendTestModuleWhatsappReport } = useJasperNotifications();
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const draftTouchedRef = useRef(false);
+  const settingsScopeRef = useRef(`${tenantId}:${moduleName}`);
 
   const activeMeta = { id: moduleName, label: moduleLabel };
 
-  const settings = getModuleSettings(tenantId, activeMeta.id);
+  const localSettings = getModuleSettings(tenantId, activeMeta.id);
+  const [settings, setSettings] = useState<JasperModuleNotificationSettings>(() => ({
+    ...localSettings,
+    ...(persistedSettings || {}),
+    tenantId,
+    moduleName: activeMeta.id,
+  }));
+
+  useEffect(() => {
+    const nextScope = `${tenantId}:${activeMeta.id}`;
+    if (settingsScopeRef.current !== nextScope) {
+      settingsScopeRef.current = nextScope;
+      draftTouchedRef.current = false;
+    }
+    if (draftTouchedRef.current) return;
+    setSettings({
+      ...getModuleSettings(tenantId, activeMeta.id),
+      ...(persistedSettings || {}),
+      tenantId,
+      moduleName: activeMeta.id,
+    });
+  }, [tenantId, activeMeta.id, persistedSettings]);
 
   const update = (updates: Partial<JasperModuleNotificationSettings>) => {
     setError(null);
-    updateModuleSettings(tenantId, activeMeta.id, updates);
+    draftTouchedRef.current = true;
+    setSettings(current => ({
+      ...current,
+      ...updates,
+      tenantId,
+      moduleName: activeMeta.id,
+      updatedAt: new Date().toISOString(),
+    }));
   };
 
   const validate = () => {
@@ -37,8 +71,23 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
     return true;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return;
+    setError(null);
+    const updated = {
+      ...settings,
+      tenantId,
+      moduleName: activeMeta.id,
+      updatedAt: new Date().toISOString(),
+    };
+    const saved = await onPersistSettings?.(updated);
+    if (saved === false) {
+      setError('Notification settings could not be saved safely. Previous saved values were kept.');
+      return;
+    }
+    updateModuleSettings(tenantId, activeMeta.id, updated);
+    setSettings(updated);
+    draftTouchedRef.current = false;
     setSaveStatus(activeMeta.label + ' notification settings saved.');
     setTimeout(() => setSaveStatus(null), 3000);
   };
@@ -100,6 +149,14 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
           {error}
         </div>
       )}
+      <button
+        type="button"
+        onClick={handleSave}
+        className="xl:hidden w-full flex items-center justify-center space-x-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-colors"
+      >
+        <Save className="w-4 h-4" />
+        <span>Save Alert Settings</span>
+      </button>
 
       <section className="space-y-4">
         <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center"><User className="w-4 h-4 mr-2" /> 1. Report Receiver Details - {activeMeta.label}</h4>

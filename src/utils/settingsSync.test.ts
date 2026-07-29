@@ -56,4 +56,31 @@ describe('settings field persistence', () => {
 
     expect(mergeSettingsForSync(stale, newer).company.companyName).toBe('New Saved Name');
   });
+
+  it('persists tenant-scoped alerts and expense categories, including an intentional empty list', () => {
+    const current = {
+      company: { companyName: 'Saved Company' },
+      expenseCategories: ['Rent', 'Fuel'],
+      notificationModuleSettings: [{
+        id: 'tenant-1-wholesale-retail',
+        tenantId: 'tenant-1',
+        moduleName: 'wholesale-retail',
+        receiverName: 'Owner',
+        whatsappNumber: '+255712345678',
+      }],
+    } as any;
+    const next = stampSettingsForSync({
+      ...current,
+      expenseCategories: [],
+      notificationModuleSettings: [{
+        ...current.notificationModuleSettings[0],
+        receiverName: 'Finance Manager',
+      }],
+    }, current, '2026-07-29T10:00:00.000Z');
+
+    const reloaded = mergeSettingsForSync(next, current);
+    expect(reloaded.expenseCategories).toEqual([]);
+    expect(reloaded.notificationModuleSettings?.[0]?.receiverName).toBe('Finance Manager');
+    expect(reloaded.notificationModuleSettings?.[0]?.tenantId).toBe('tenant-1');
+  });
 });
