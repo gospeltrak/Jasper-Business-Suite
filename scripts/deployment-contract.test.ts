@@ -108,6 +108,18 @@ test('header uses active business profile and has no decorative workspace search
   assert.doesNotMatch(dashboardSource, /const businessDisplayName[\s\S]{0,240}activeTenant\.name/);
 });
 
+test('branch bootstrap uses one authenticated HTTP request and one directory calculation', async () => {
+  const branchApiSource = await read('src/branches/branchApi.ts');
+  const serverSource = await read('server.ts');
+  const migrationSource = await read('supabase/migrations/20260729000200_branch_bootstrap_rpc.sql');
+  assert.match(branchApiSource, /requestBranchApi<BranchWorkspaceSnapshot>\('\/api\/branches\/bootstrap'/);
+  assert.doesNotMatch(branchApiSource, /Promise\.all\(\[\s*requestBranchApi/);
+  assert.match(serverSource, /app\.get\('\/api\/branches\/bootstrap'/);
+  assert.match(migrationSource, /get_current_branch_bootstrap/);
+  assert.match(migrationSource, /v_context := public\.get_current_branch_context\(\)/);
+  assert.doesNotMatch(migrationSource, /list_current_user_branches\(\)/);
+});
+
 test('sale tombstones prevent stale database records from reappearing', () => {
   const deletedAt = '2026-07-27T10:00:00.000Z';
   const staleSale = {

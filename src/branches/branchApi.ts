@@ -1,7 +1,6 @@
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import type {
   BranchContextSnapshot,
-  BranchDirectory,
   BranchEntitlement,
   SelectableBranchScope,
   BranchWorkspaceSnapshot,
@@ -60,20 +59,7 @@ const requestBranchApi = async <T>(
 
 export const loadBranchWorkspace = async (signal?: AbortSignal): Promise<BranchWorkspaceSnapshot> => {
   const token = await getAccessToken();
-  const [entitlementResponse, directoryResponse, contextResponse] = await Promise.all([
-    requestBranchApi<{ entitlement: BranchEntitlement; serverRolloutEnabled: boolean }>(
-      '/api/branches/entitlement', token, {}, signal,
-    ),
-    requestBranchApi<{ branchDirectory: BranchDirectory }>('/api/branches', token, {}, signal),
-    requestBranchApi<{ context: BranchContextSnapshot }>('/api/branches/context', token, {}, signal),
-  ]);
-
-  return {
-    entitlement: entitlementResponse.entitlement,
-    serverRolloutEnabled: entitlementResponse.serverRolloutEnabled,
-    directory: directoryResponse.branchDirectory,
-    context: contextResponse.context,
-  };
+  return requestBranchApi<BranchWorkspaceSnapshot>('/api/branches/bootstrap', token, {}, signal);
 };
 
 export const selectBranch = async (branchId: string | null, scope: SelectableBranchScope) => {

@@ -1302,6 +1302,38 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     next();
   });
 
+  app.get('/api/branches/bootstrap', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+
+    const bootstrap = await branchClient.rpc('get_current_branch_bootstrap');
+    const missingBootstrapRpc = isBranchRpcUnavailable(bootstrap.error);
+    if (!bootstrap.error) {
+      return res.json({
+        entitlement: bootstrap.data?.entitlement,
+        serverRolloutEnabled: multiBranchFeatureEnabled,
+        directory: bootstrap.data?.directory,
+        context: bootstrap.data?.context,
+      });
+    }
+    if (!missingBootstrapRpc) return sendBranchRpcError(res, bootstrap.error);
+
+    // Backward-compatible rollout path: still use one HTTP authentication
+    // verification and avoid the old duplicate directory RPC.
+    const [entitlementResult, contextResult] = await Promise.all([
+      branchClient.rpc('get_current_branch_entitlement'),
+      branchClient.rpc('get_current_branch_context'),
+    ]);
+    if (entitlementResult.error) return sendBranchRpcError(res, entitlementResult.error);
+    if (contextResult.error) return sendBranchRpcError(res, contextResult.error);
+    return res.json({
+      entitlement: entitlementResult.data,
+      serverRolloutEnabled: multiBranchFeatureEnabled,
+      directory: contextResult.data,
+      context: contextResult.data,
+    });
+  });
+
   app.get('/api/branches/entitlement', async (req, res) => {
     const branchClient = await requireBranchRpcClient(req, res);
     if (!branchClient) return;
