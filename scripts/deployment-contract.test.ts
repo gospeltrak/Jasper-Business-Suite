@@ -551,6 +551,30 @@ test('tenant settings can only change through the explicit authoritative save pa
   );
 });
 
+test('tenant wildcard domains have an additive immutable database contract', async () => {
+  const migrationSource = await read('supabase/migrations/20260729000400_tenant_wildcard_domains.sql');
+  const slugApiSource = await read('api/tenant/slug.ts');
+
+  for (const column of [
+    'business_name',
+    'business_name_slug',
+    'subdomain_slug',
+    'custom_domain',
+    'primary_domain',
+    'domain_status',
+    'is_domain_active',
+  ]) {
+    assert.match(migrationSource, new RegExp(`add column if not exists ${column}`));
+  }
+  assert.match(migrationSource, /tenants_subdomain_slug_unique_idx/);
+  assert.match(migrationSource, /enforce_immutable_tenant_domain/);
+  assert.match(slugApiSource, /\.select\('id, name, business_name, business_name_slug, subdomain_slug'\)/);
+  assert.doesNotMatch(
+    migrationSource,
+    /\b(delete\s+from|truncate\s+table|drop\s+table|update\s+public\.tenants)\b/i,
+  );
+});
+
 test('all user-editable Settings modules use the authoritative tenant settings payload', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const settingsSource = await read('src/components/DashboardSettings.tsx');
