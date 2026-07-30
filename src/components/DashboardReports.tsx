@@ -54,6 +54,7 @@ import {
 import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } from '../utils/unitFormatter';
 import { downloadPdfFromElement } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
+import ModernSelect from './ui/ModernSelect';
 import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
 
 // Revenue helper: exclude delivery fees from product revenue calculations
@@ -168,8 +169,29 @@ export default function DashboardReports({
   useEffect(() => {
     if (!selectedMonitoredProductId) {
       setSelectedMonitoredProductId('all');
+      return;
     }
-  }, [selectedMonitoredProductId]);
+    // Safe fallback: if the previously-selected product was deleted (no
+    // longer present in the tenant/branch-scoped products list), drop back
+    // to "All" instead of leaving stale product-specific data on screen.
+    if (selectedMonitoredProductId !== 'all' && !products.some(p => p.id === selectedMonitoredProductId)) {
+      setSelectedMonitoredProductId('all');
+    }
+  }, [selectedMonitoredProductId, products]);
+
+  // Shared product search used by the Product Profitability report's
+  // "Filter by Product" control on both desktop and mobile/tablet - matches
+  // name, SKU, or barcode. Purely client-side filtering over the already
+  // tenant/branch-scoped `products` prop, no extra fetch per keystroke.
+  const monitoredProductSearchOptions = useMemo(() => {
+    const q = productSearchQuery.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter(p =>
+      String(p.name || '').toLowerCase().includes(q) ||
+      String(p.sku || '').toLowerCase().includes(q) ||
+      String(p.barcode || '').toLowerCase().includes(q)
+    );
+  }, [products, productSearchQuery]);
 
   const [mobileView, setMobileView] = useState<'menu' | 'report'>('menu');
 
@@ -2868,11 +2890,9 @@ export default function DashboardReports({
           const totalProductProfit = totalRevenue - totalCogs;
           const productProfitMargin = totalRevenue > 0 ? (totalProductProfit / totalRevenue) * 100 : 0;
 
-          // Simple Search & Select filtered product lookup
-          const filteredOptions = products.filter(p => 
-            String(p.name || '').toLowerCase().includes(productSearchQuery.toLowerCase()) ||
-            String(p.sku || '').toLowerCase().includes(productSearchQuery.toLowerCase())
-          );
+          // Search & Select filtered product lookup - shared with mobile/tablet
+          // via monitoredProductSearchOptions (matches name, SKU, barcode).
+          const filteredOptions = monitoredProductSearchOptions;
 
           // Get daily performance data
           const getProductDailyTrendArr = () => {
@@ -3032,35 +3052,41 @@ export default function DashboardReports({
                   </div>
 
                   {/* Product Search & Dropdown Selector */}
-                  <div className="relative flex flex-col sm:flex-row gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Type name or code to filter dropdown..."
-                        value={productSearchQuery}
-                        onChange={(e) => setProductSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-4 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
+                  {products.length === 0 ? (
+                    <p className="text-xs text-slate-400 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                      No products are available for this branch.
+                    </p>
+                  ) : (
+                    <div className="relative flex flex-col sm:flex-row gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search product, SKU or barcode..."
+                          value={productSearchQuery}
+                          onChange={(e) => setProductSearchQuery(e.target.value)}
+                          className="w-full pl-9 pr-4 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <select
+                        value={selectedMonitoredProductId}
+                        onChange={(e) => {
+                          setSelectedMonitoredProductId(e.target.value);
+                          setProductSearchQuery('');
+                        }}
+                        className="sm:w-40 shrink-0 bg-white border border-slate-220 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 cursor-pointer focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                      >
+                        <option value="all">All</option>
+                        {filteredOptions.length > 0 ? (
+                          filteredOptions.map(p => (
+                            <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
+                          ))
+                        ) : (
+                          <option value="">No products match search</option>
+                        )}
+                      </select>
                     </div>
-                    <select
-                      value={selectedMonitoredProductId}
-                      onChange={(e) => {
-                        setSelectedMonitoredProductId(e.target.value);
-                        setProductSearchQuery('');
-                      }}
-                      className="flex-1 bg-white border border-slate-220 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 cursor-pointer focus:ring-1 focus:ring-emerald-500 focus:outline-none"
-                    >
-                      <option value="all">🌐 [VIEW ALL PRODUCTS] — Combined Performance</option>
-                      {filteredOptions.length > 0 ? (
-                        filteredOptions.map(p => (
-                          <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
-                        ))
-                      ) : (
-                        <option value="">No products match search</option>
-                      )}
-                    </select>
-                  </div>
+                  )}
                 </div>
 
                 {/* Date Selection Box with Calendar Inputs & Quick Toggles */}
@@ -4635,21 +4661,53 @@ export default function DashboardReports({
                     });
                     const list = Object.values(prodPerfMap).sort((a,b) => b.sold - a.sold);
 
+                    const mobileMonitoredProductOptions = [
+                      { value: 'all', label: 'All', description: 'Combined performance for every product' },
+                      ...monitoredProductSearchOptions.map(p => ({
+                        value: p.id,
+                        label: p.name,
+                        description: p.sku ? `SKU: ${p.sku}` : undefined,
+                      })),
+                    ];
+
                     return (
                       <div className="space-y-4 text-left">
-                        {/* Dropdown filter */}
+                        {/* Search + All/product selector */}
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono text-left">Filter by specific Product:</label>
-                          <select
-                            value={selectedMonitoredProductId}
-                            onChange={(e) => setSelectedMonitoredProductId(e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-705 outline-none cursor-pointer"
-                          >
-                            <option value="all">Compare All Products</option>
-                            {products.map(p => (
-                              <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
-                          </select>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono text-left">Filter by Product</label>
+                          {products.length === 0 ? (
+                            <p className="text-xs text-slate-400 bg-white border border-slate-200 rounded-xl px-3 py-3">
+                              No products are available for this branch.
+                            </p>
+                          ) : (
+                            <div className="flex flex-row flex-nowrap items-stretch gap-2">
+                              <div className="relative flex-1 min-w-0">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Search product, SKU or barcode..."
+                                  value={productSearchQuery}
+                                  onChange={(e) => setProductSearchQuery(e.target.value)}
+                                  className="w-full pl-8 pr-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold outline-none focus:border-emerald-500 transition-all"
+                                />
+                              </div>
+                              <div className="w-[110px] shrink-0">
+                                <ModernSelect
+                                  value={selectedMonitoredProductId}
+                                  options={mobileMonitoredProductOptions}
+                                  onChange={(nextValue) => {
+                                    setSelectedMonitoredProductId(nextValue);
+                                    setProductSearchQuery('');
+                                  }}
+                                  title="Filter by product"
+                                  placeholder="All"
+                                  searchable
+                                  searchPlaceholder="Search products"
+                                  buttonClassName="!min-h-[38px] !py-2.5"
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
                          {/* Summary Metrics Grid */}
                         {(() => {
