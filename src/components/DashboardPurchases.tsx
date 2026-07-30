@@ -702,50 +702,57 @@ export default function DashboardPurchases({
             style={{border: '1px solid #e2e8f0', boxShadow: '0 1px 8px rgba(0,0,0,0.06)'}}>
             
             {/* Table toolbar */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-white">
-              <div className="flex items-center gap-3">
-                <h5 className="text-sm font-black text-slate-800">Purchase History</h5>
-                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{filteredAndSortedPurchases.length} orders</span>
+            <div className="flex flex-col gap-3 px-4 py-4 border-b border-slate-100 bg-white sm:px-5 xl:flex-row xl:items-center xl:justify-between">
+              {/* Row 1: title + count - own row on every breakpoint */}
+              <div className="flex items-center gap-3 shrink-0">
+                <h5 className="text-sm font-black text-slate-800 whitespace-nowrap">Purchase History</h5>
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full whitespace-nowrap">{filteredAndSortedPurchases.length} orders</span>
               </div>
-              <div className="flex items-center gap-2">
-                {/* Search */}
-                <div className="relative">
+              <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:gap-2">
+                {/* Row 2 (mobile/tablet): search, full width. Desktop: fixed width, inline. */}
+                <div className="relative w-full xl:w-56">
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input type="text" placeholder="Search supplier, item, ref..."
+                  <input type="text" placeholder="Search purchases..."
                     value={historySearch} onChange={e => setHistorySearch(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 rounded-xl text-xs pl-8 pr-3 py-2 text-slate-700 focus:outline-none focus:border-emerald-400 w-56" />
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs pl-8 pr-3 py-2.5 text-slate-700 focus:outline-none focus:border-emerald-400 xl:py-2" />
                 </div>
-                {/* Destination */}
-                <div className="relative">
-                  <select value={historyDestination} onChange={e => setHistoryDestination(e.target.value as any)}
-                    className="appearance-none bg-slate-50 border border-slate-200 rounded-xl text-xs px-3 py-2 pr-7 text-slate-700 font-semibold focus:outline-none focus:border-emerald-400 cursor-pointer">
-                    <option value="all">All Targets</option>
-                    <option value="shop">Shop</option>
-                    <option value="store">Store</option>
-                  </select>
-                  <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-                {/* Payment */}
-                <div className="relative">
-                  <select value={historyPaymentStatus} onChange={e => setHistoryPaymentStatus(e.target.value as any)}
-                    className="appearance-none bg-slate-50 border border-slate-200 rounded-xl text-xs px-3 py-2 pr-7 text-slate-700 font-semibold focus:outline-none focus:border-emerald-400 cursor-pointer">
-                    <option value="all">All Payments</option>
-                    <option value="paid">Paid in Full</option>
-                    <option value="due">Credit Due</option>
-                  </select>
-                  <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-                {/* Sort */}
-                <div className="relative">
-                  <ArrowUpDown className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <select value={historySortBy} onChange={e => setHistorySortBy(e.target.value as any)}
-                    className="appearance-none bg-slate-50 border border-slate-200 rounded-xl text-xs pl-7 pr-3 py-2 text-slate-700 font-semibold focus:outline-none focus:border-emerald-400 cursor-pointer">
-                    <option value="date-desc">Newest First</option>
-                    <option value="date-asc">Oldest First</option>
-                    <option value="amount-desc">Highest Amount</option>
-                    <option value="amount-asc">Lowest Amount</option>
-                    <option value="supplier-asc">Supplier A–Z</option>
-                  </select>
+                {/* Row 3 (mobile/tablet): the three filters share the row evenly.
+                    `xl:contents` drops this wrapper's own box on desktop so its
+                    children become direct flex items again, restoring the
+                    original inline desktop layout exactly. */}
+                <div className="grid grid-cols-3 gap-2 xl:contents">
+                  {/* Destination */}
+                  <div className="relative w-full xl:w-auto">
+                    <select value={historyDestination} onChange={e => setHistoryDestination(e.target.value as any)}
+                      className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl text-[11px] xl:text-xs px-2.5 xl:px-3 py-2.5 xl:py-2 pr-6 xl:pr-7 text-slate-700 font-semibold focus:outline-none focus:border-emerald-400 cursor-pointer truncate">
+                      <option value="all">All Targets</option>
+                      <option value="shop">Shop</option>
+                      <option value="store">Store</option>
+                    </select>
+                    <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 xl:right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                  {/* Payment */}
+                  <div className="relative w-full xl:w-auto">
+                    <select value={historyPaymentStatus} onChange={e => setHistoryPaymentStatus(e.target.value as any)}
+                      className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl text-[11px] xl:text-xs px-2.5 xl:px-3 py-2.5 xl:py-2 pr-6 xl:pr-7 text-slate-700 font-semibold focus:outline-none focus:border-emerald-400 cursor-pointer truncate">
+                      <option value="all">All Payments</option>
+                      <option value="paid">Paid in Full</option>
+                      <option value="due">Credit Due</option>
+                    </select>
+                    <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 xl:right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                  {/* Sort */}
+                  <div className="relative w-full xl:w-auto">
+                    <ArrowUpDown className="w-3 h-3 text-slate-400 absolute left-2 xl:left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select value={historySortBy} onChange={e => setHistorySortBy(e.target.value as any)}
+                      className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl text-[11px] xl:text-xs pl-6 xl:pl-7 pr-2.5 xl:pr-3 py-2.5 xl:py-2 text-slate-700 font-semibold focus:outline-none focus:border-emerald-400 cursor-pointer truncate">
+                      <option value="date-desc">Newest First</option>
+                      <option value="date-asc">Oldest First</option>
+                      <option value="amount-desc">Highest Amount</option>
+                      <option value="amount-asc">Lowest Amount</option>
+                      <option value="supplier-asc">Supplier A–Z</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
