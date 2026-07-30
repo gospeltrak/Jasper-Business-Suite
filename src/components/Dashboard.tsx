@@ -1206,14 +1206,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     };
   }, []);
 
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  // Setup live clock in the ledger header
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   // Multi-tenant pivot controller keys
   const currentTenantId = user.activeTenant || user.tenantId;
   const activeProducts = currentTenantId

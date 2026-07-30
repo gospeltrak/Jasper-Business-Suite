@@ -92,26 +92,61 @@ export function notifyGlobalAdSettingsChanged() {
   window.dispatchEvent(new Event(AD_SETTINGS_EVENT));
 }
 
+// Shared singleton state: every useGlobalAdSettings() consumer used to run its
+// own effect + interval + fetch independently (4 mount sites, each polling on
+// its own timer). That meant up to 4x the requests for the exact same data.
+// This module now fetches once and fans the result out to every subscriber,
+// with the underlying refresh (event listeners + interval) started on the
+// first mounted consumer and stopped once the last one unmounts.
+let sharedAdSettings: GlobalAdPlacementSettings = { ...DEFAULT_AD_SETTINGS };
+const adSettingsSubscribers = new Set<(settings: GlobalAdPlacementSettings) => void>();
+let adSettingsRefreshHandle: number | null = null;
+let adSettingsInFlight: Promise<void> | null = null;
+
+function refreshSharedAdSettings() {
+  if (adSettingsInFlight) return adSettingsInFlight;
+  adSettingsInFlight = loadGlobalAdSettings()
+    .then((next) => {
+      sharedAdSettings = next;
+      adSettingsSubscribers.forEach((notify) => notify(next));
+    })
+    .finally(() => {
+      adSettingsInFlight = null;
+    });
+  return adSettingsInFlight;
+}
+
+function startSharedAdSettingsRefreshIfNeeded() {
+  if (adSettingsRefreshHandle !== null) return;
+  void refreshSharedAdSettings();
+  window.addEventListener(AD_SETTINGS_EVENT, refreshSharedAdSettings);
+  window.addEventListener('focus', refreshSharedAdSettings);
+  // Ad settings already refresh instantly on save (AD_SETTINGS_EVENT) and on
+  // window focus. This interval only exists to catch cross-tab/cross-admin
+  // changes without those triggers, so it does not need to run every 2s.
+  adSettingsRefreshHandle = window.setInterval(refreshSharedAdSettings, 60000);
+}
+
+function stopSharedAdSettingsRefreshIfIdle() {
+  if (adSettingsSubscribers.size > 0 || adSettingsRefreshHandle === null) return;
+  window.removeEventListener(AD_SETTINGS_EVENT, refreshSharedAdSettings);
+  window.removeEventListener('focus', refreshSharedAdSettings);
+  window.clearInterval(adSettingsRefreshHandle);
+  adSettingsRefreshHandle = null;
+}
+
 export function useGlobalAdSettings() {
-  const [settings, setSettings] = useState<GlobalAdPlacementSettings>(() => ({ ...DEFAULT_AD_SETTINGS }));
+  const [settings, setSettings] = useState<GlobalAdPlacementSettings>(() => sharedAdSettings);
 
   useEffect(() => {
-    let alive = true;
-    const refresh = () => {
-      loadGlobalAdSettings().then((next) => {
-        if (alive) setSettings(next);
-      });
-    };
-
-    refresh();
-    window.addEventListener(AD_SETTINGS_EVENT, refresh);
-    window.addEventListener('focus', refresh);
-    const interval = window.setInterval(refresh, 2000);
+    adSettingsSubscribers.add(setSettings);
+    startSharedAdSettingsRefreshIfNeeded();
+    // Pick up whatever the shared cache already has in case another consumer
+    // fetched it before this one mounted.
+    setSettings(sharedAdSettings);
     return () => {
-      alive = false;
-      window.removeEventListener(AD_SETTINGS_EVENT, refresh);
-      window.removeEventListener('focus', refresh);
-      window.clearInterval(interval);
+      adSettingsSubscribers.delete(setSettings);
+      stopSharedAdSettingsRefreshIfIdle();
     };
   }, []);
 
