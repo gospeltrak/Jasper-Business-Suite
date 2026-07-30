@@ -34,8 +34,6 @@ import {
   Search,
   CheckCircle,
   AlertCircle,
-  Smartphone,
-  AlertTriangle,
   Archive,
   FileText,
   Image,
@@ -757,29 +755,47 @@ export default function DashboardReports({
 
   const paymentsSalesFiltered = filteredSales.filter(s => matchesSelectedPaymentMode(s.paymentMethod));
   
-  // Payment breakdown: use configured paymentChannels if available, else fallback to generic categories
+  // Payment breakdown: driven by the tenant's real configured payment
+  // channels (systemSettings.paymentChannels), the same source Settings and
+  // Money & Bank already treat as authoritative. Channels are matched by
+  // name since historical sales only ever recorded a method name string
+  // (there is no payment_method_id on Sale) - an unmatched/renamed/disabled
+  // method still displays under its recorded name rather than disappearing,
+  // so historical reports stay accurate even after the tenant edits Settings.
   const configuredChannels: any[] = systemSettings?.paymentChannels || [];
+  const activeConfiguredChannels = configuredChannels.filter((ch: any) => (ch.status || 'active') === 'active');
+  const matchChannelByName = (method: string) => configuredChannels.find((ch: any) =>
+    ch.name?.toLowerCase() === method.toLowerCase() ||
+    ch.provider?.toLowerCase() === method.toLowerCase() ||
+    method.toLowerCase().includes(ch.name?.toLowerCase()) ||
+    ch.name?.toLowerCase().includes(method.toLowerCase())
+  );
 
-  // Build per-method totals using actual sale.paymentMethod string matching
+  // Build per-method totals. Split (Multi-Channel) sales allocate only the
+  // exact amount actually paid through each method - never the full sale
+  // total under every method - by reading sale.paymentBreakdown, which is
+  // written at checkout with the real per-method amounts. Non-split sales
+  // keep using the existing saleProductRevenue() convention (revenue
+  // excluding delivery cost) so single-method totals are unchanged.
   const paymentMethodTotals = useMemo(() => {
     const totals: Record<string, { amount: number; count: number; label: string; category: string }> = {};
-
-    filteredSales.forEach(s => {
-      const method = s.paymentMethod || 'Cash';
-      const rev = saleProductRevenue(s);
-      // Try to match to a configured channel
-      const matched = configuredChannels.find(ch =>
-        ch.name?.toLowerCase() === method.toLowerCase() ||
-        ch.provider?.toLowerCase() === method.toLowerCase() ||
-        method.toLowerCase().includes(ch.name?.toLowerCase()) ||
-        ch.name?.toLowerCase().includes(method.toLowerCase())
-      );
+    const addEntry = (method: string, amount: number) => {
+      const matched = matchChannelByName(method);
       const key = matched ? matched.id : method;
       const label = matched ? matched.name : method;
       const category = matched ? matched.category : classifyPaymentMethod(method);
       if (!totals[key]) totals[key] = { amount: 0, count: 0, label, category };
-      totals[key].amount += rev;
+      totals[key].amount += amount;
       totals[key].count += 1;
+    };
+
+    filteredSales.forEach(s => {
+      const splitEntries = Array.isArray(s.paymentBreakdown) ? s.paymentBreakdown.filter((e: any) => Number(e?.amount) > 0) : [];
+      if (s.paymentMethod === 'Multi-Channel' && splitEntries.length > 0) {
+        splitEntries.forEach((entry: any) => addEntry(entry.method || 'Cash', Number(entry.amount) || 0));
+      } else {
+        addEntry(s.paymentMethod || 'Cash', saleProductRevenue(s));
+      }
     });
     return totals;
   }, [filteredSales, configuredChannels]);
@@ -788,11 +804,18 @@ export default function DashboardReports({
   // Groups by exact method name recorded on each sale — respects user-configured methods
   const paymentBreakdownDynamic = useMemo(() => {
     const map: Record<string, { revenue: number; count: number }> = {};
-    filteredSales.forEach(s => {
-      const method = s.paymentMethod || 'Cash';
+    const addEntry = (method: string, amount: number) => {
       if (!map[method]) map[method] = { revenue: 0, count: 0 };
-      map[method].revenue += saleProductRevenue(s);
+      map[method].revenue += amount;
       map[method].count += 1;
+    };
+    filteredSales.forEach(s => {
+      const splitEntries = Array.isArray(s.paymentBreakdown) ? s.paymentBreakdown.filter((e: any) => Number(e?.amount) > 0) : [];
+      if (s.paymentMethod === 'Multi-Channel' && splitEntries.length > 0) {
+        splitEntries.forEach((entry: any) => addEntry(entry.method || 'Cash', Number(entry.amount) || 0));
+      } else {
+        addEntry(s.paymentMethod || 'Cash', saleProductRevenue(s));
+      }
     });
     return map;
   }, [filteredSales]);
@@ -2177,24 +2200,9 @@ export default function DashboardReports({
                       );
                     })
                 ) : (
-                  <>
-                  <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
-                    <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Cash</p>
-                    <h5 className="text-lg font-black text-slate-800 mt-1.5">{currency}{paymentBreakdown.Cash.toLocaleString()}</h5>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
-                    <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Card & Online</p>
-                    <h5 className="text-lg font-black text-slate-800 mt-1.5">{currency}{paymentBreakdown.CardAndOnline.toLocaleString()}</h5>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
-                    <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none">Mobile Money</p>
-                    <h5 className="text-lg font-black text-slate-800 mt-1.5">{currency}{paymentBreakdown.MobileMoney.toLocaleString()}</h5>
-                  </div>
-                  <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
-                    <p className="text-[10px] font-mono font-bold text-amber-700 uppercase tracking-widest leading-none">Store Credit</p>
-                    <h5 className="text-lg font-black text-amber-700 mt-1.5">{currency}{paymentBreakdown.Credit.toLocaleString()}</h5>
-                  </div>
-                  </>
+                  <p className="col-span-full text-xs text-slate-400 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-8 text-center">
+                    No active payment methods are configured.
+                  </p>
                 )
               )}
             </div>
@@ -4280,64 +4288,51 @@ export default function DashboardReports({
                           );
                         })
                     ) : (
-                      <>
-                        <div className={mobileReportKpiCardClass}>
-                          <div className="flex items-center space-x-1.5 text-emerald-600">
-                            <DollarSign className="w-4 h-4" />
-                            <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Cash</span>
-                          </div>
-                          <span className="text-sm font-black text-emerald-600 mt-2">{currency}{paymentBreakdown.Cash.toLocaleString()}</span>
-                        </div>
-                        <div className={mobileReportKpiCardClass}>
-                          <div className="flex items-center space-x-1.5 text-indigo-500">
-                            <CheckCircle className="w-4 h-4" />
-                            <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Card & Online</span>
-                          </div>
-                          <span className="text-sm font-black text-slate-800 mt-2">{currency}{paymentBreakdown.CardAndOnline.toLocaleString()}</span>
-                        </div>
-                        <div className={mobileReportKpiCardClass}>
-                          <div className="flex items-center space-x-1.5 text-amber-500">
-                            <Smartphone className="w-4 h-4" />
-                            <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Mobile Money</span>
-                          </div>
-                          <span className="text-sm font-black text-slate-800 mt-2">{currency}{paymentBreakdown.MobileMoney.toLocaleString()}</span>
-                        </div>
-                        <div className={mobileReportKpiCardClass}>
-                          <div className="flex items-center space-x-1.5 text-rose-500">
-                            <AlertTriangle className="w-4 h-4" />
-                            <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Store Credit</span>
-                          </div>
-                          <span className="text-sm font-black text-rose-600 mt-2">{currency}{paymentBreakdown.Credit.toLocaleString()}</span>
-                        </div>
-                      </>
+                      <p className="col-span-2 text-xs text-slate-400 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-8 text-center">
+                        No active payment methods are configured.
+                      </p>
                     )}
                   </div>
 
-                  {/* Channel weights summary cards */}
+                  {/* Channel weights summary cards - same real tenant-method data
+                      source as the cards above (paymentMethodEntries when
+                      configured channels match, else paymentBreakdownEntries
+                      keyed by the raw recorded method name), so this list can
+                      never show different methods than the cards do. */}
                   <div className="space-y-2.5 text-left">
                     <h4 className="text-xs font-semibold text-slate-800 font-sans px-1">Payment Modes Weight Proportions</h4>
                     <div className="space-y-2">
                       {(() => {
-                        const totalSum = Object.values(paymentBreakdown).reduce((a, b) => a + b, 0);
-                        return Object.entries(paymentBreakdown).map(([channel, amount]) => {
-                          const pct = totalSum > 0 ? (amount / totalSum) * 100 : 0;
+                        const proportionEntries = paymentMethodEntries.length > 0
+                          ? paymentMethodEntries.map(([key, { amount, count, label }]) => ({ key, amount, count, label }))
+                          : paymentBreakdownEntries.map(([method, { revenue, count }]) => ({ key: method, amount: revenue, count, label: method }));
+
+                        if (proportionEntries.length === 0) {
                           return (
-                            <div key={channel} className="bg-white border border-slate-200 px-4 py-3 rounded-xl shadow-xs flex items-center justify-between text-left">
-                              <div>
-                                <span className="text-sm font-bold text-slate-800 block">
-                                  {channel === 'CardAndOnline' ? 'Card & Paystack Gateway' :
-                                   channel === 'MobileMoney' ? 'Mobile Money Wallets' :
-                                   channel === 'BankTransfer' ? 'Bank Transfer' : channel}
-                                </span>
-                                <span className="text-xs text-slate-400 block mt-0.5 mt-0.5">Cleared settlement channel</span>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <span className="text-sm font-extrabold text-slate-900 block">{currency}{amount.toLocaleString()}</span>
-                                <span className="text-[11px] text-emerald-600 font-bold block mt-0.5">{pct.toFixed(1)}% weight</span>
-                              </div>
-                            </div>
+                            <p className="text-xs text-slate-400 bg-slate-50 border border-slate-100 rounded-xl px-4 py-6 text-center">
+                              No active payment methods are configured.
+                            </p>
                           );
-                        });
+                        }
+
+                        const totalSum = proportionEntries.reduce((a, e) => a + e.amount, 0);
+                        return proportionEntries
+                          .sort((a, b) => b.amount - a.amount)
+                          .map(({ key, amount, count, label }) => {
+                            const pct = totalSum > 0 ? (amount / totalSum) * 100 : 0;
+                            return (
+                              <div key={key} className="bg-white border border-slate-200 px-4 py-3 rounded-xl shadow-xs flex items-center justify-between text-left">
+                                <div>
+                                  <span className="text-sm font-bold text-slate-800 block">{label}</span>
+                                  <span className="text-xs text-slate-400 block mt-0.5">{count} transaction{count !== 1 ? 's' : ''}</span>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="text-sm font-extrabold text-slate-900 block">{currency}{Math.round(amount).toLocaleString()}</span>
+                                  <span className="text-[11px] text-emerald-600 font-bold block mt-0.5">{pct.toFixed(1)}% weight</span>
+                                </div>
+                              </div>
+                            );
+                          });
                       })()}
                     </div>
                   </div>

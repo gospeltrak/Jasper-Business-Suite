@@ -166,6 +166,20 @@ export default function DashboardProducts({
     }
     return () => { document.body.style.overflow = ''; };
   }, [mobileProductMenu, editingProduct, replenishProduct, adjustProduct, viewingProduct, productToDelete]);
+
+  // Mobile/tablet Add Product form gets a polished card layout below the xl
+  // breakpoint; desktop keeps the original plain layout unchanged.
+  const [isDesktopAddProductLayout, setIsDesktopAddProductLayout] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 1280px)').matches : true
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 1280px)');
+    const handleChange = () => setIsDesktopAddProductLayout(mq.matches);
+    handleChange();
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
+  }, []);
   
   const [brand, setBrand] = useState(''); // New Brand input field for manual product creation
   const [customCategories, setCustomCategories] = useState<string[]>([]);
@@ -685,9 +699,9 @@ export default function DashboardProducts({
   const [unit, setUnit] = useState(unitsList[0] || 'Pcs');
   const [costPrice, setCostPrice] = useState(0);
   const [sellingPrice, setSellingPrice] = useState(0);
-  const [shopStockQty, setShopStockQty] = useState(5);
-  const [storeStockQty, setStoreStockQty] = useState(10);
-  const [alertQty, setAlertQty] = useState(5);
+  const [shopStockQty, setShopStockQty] = useState(0);
+  const [storeStockQty, setStoreStockQty] = useState(0);
+  const [alertQty, setAlertQty] = useState(0);
   const [productImage, setProductImage] = useState<string>('');
   const [productImageFile, setProductImageFile] = useState<File | null>(null); // raw file for Supabase Storage upload
 
@@ -704,25 +718,25 @@ export default function DashboardProducts({
   const [sellInRetail, setSellInRetail] = useState(true);
   const [sellInWholesale, setSellInWholesale] = useState(false);
   const [wholesalePrice, setWholesalePrice] = useState(0);
-  const [minWholesaleQty, setMinWholesaleQty] = useState(10);
+  const [minWholesaleQty, setMinWholesaleQty] = useState(0);
   
   // Bulk-To-Unit Selling Form states
   const [isBulkProduct, setIsBulkProduct] = useState(false);
   const [sellingMode, setSellingMode] = useState<'standard' | 'scale' | 'pcs' | 'hybrid'>('scale');
   const [bulkUnit, setBulkUnit] = useState('KG');
-  const [bulkPurchaseQty, setBulkPurchaseQty] = useState<number | ''>(100);
+  const [bulkPurchaseQty, setBulkPurchaseQty] = useState<number | ''>('');
   const [sellUnit, setSellUnit] = useState('kg');
-  const [sellUnitQty, setSellUnitQty] = useState<number | ''>(0.25);
-  const [sellUnitPrice, setSellUnitPrice] = useState<number | ''>(500);
+  const [sellUnitQty, setSellUnitQty] = useState<number | ''>('');
+  const [sellUnitPrice, setSellUnitPrice] = useState<number | ''>('');
   const [costingMethod, setCostingMethod] = useState<'fifo' | 'average_price' | 'batch_price'>('fifo');
   const [allowPosMethodOverride, setAllowPosMethodOverride] = useState(false);
   const [allowScaleSelling, setAllowScaleSelling] = useState(false);
   const [purchaseUnit, setPurchaseUnit] = useState('Sack');
   const [baseUnit, setBaseUnit] = useState('Kg');
-  const [conversionToBaseUnit, setConversionToBaseUnit] = useState<number | ''>(100);
+  const [conversionToBaseUnit, setConversionToBaseUnit] = useState<number | ''>('');
   const [allowCustomQuantity, setAllowCustomQuantity] = useState(true);
-  const [dosesPerPacket, setDosesPerPacket] = useState<number | ''>(10);
-  const [tabsPerDose, setTabsPerDose] = useState<number | ''>(2);
+  const [dosesPerPacket, setDosesPerPacket] = useState<number | ''>('');
+  const [tabsPerDose, setTabsPerDose] = useState<number | ''>('');
   const [fullDosePrice, setFullDosePrice] = useState<number | ''>(0);
   const [halfDosePrice, setHalfDosePrice] = useState<number | ''>(0);
   const [tabPrice, setTabPrice] = useState<number | ''>(0);
@@ -1244,18 +1258,18 @@ export default function DashboardProducts({
       setCategory(categoriesList[0] || '');
       setCostPrice(0);
       setSellingPrice(0);
-      setShopStockQty(5);
-      setStoreStockQty(10);
-      setAlertQty(5);
+      setShopStockQty(0);
+      setStoreStockQty(0);
+      setAlertQty(0);
       setProductImage('');
       setProductImageFile(null);
       setSellInRetail(true);
       setSellInWholesale(false);
       setWholesalePrice(0);
-      setMinWholesaleQty(10);
+      setMinWholesaleQty(0);
       setIsBulkProduct(false);
-      setDosesPerPacket(10);
-      setTabsPerDose(2);
+      setDosesPerPacket('');
+      setTabsPerDose('');
       setFullDosePrice(0);
       setHalfDosePrice(0);
       setTabPrice(0);
@@ -1264,7 +1278,7 @@ export default function DashboardProducts({
       setAllowScaleSelling(false);
       setPurchaseUnit('Sack');
       setBaseUnit('Kg');
-      setConversionToBaseUnit(100);
+      setConversionToBaseUnit('');
       setAllowCustomQuantity(true);
       setIsOpen(false);
       setFormSuccess(false);
@@ -2049,16 +2063,27 @@ export default function DashboardProducts({
                   <span>⚠️ {formError}</span>
                 </div>
               )}
-              <div className="absolute top-0 right-6 -translate-y-1/2 bg-emerald-50 text-emerald-800 border border-emerald-100 px-3 py-1 rounded-full text-[10px] font-bold flex items-center space-x-1">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+              <div className={isDesktopAddProductLayout
+                ? "absolute top-0 right-6 -translate-y-1/2 bg-emerald-50 text-emerald-800 border border-emerald-100 px-3 py-1 rounded-full text-[10px] font-bold flex items-center space-x-1"
+                : "absolute top-0 right-6 -translate-y-1/2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white border border-emerald-500 px-3 py-1 rounded-full text-[10px] font-bold flex items-center space-x-1 shadow-sm shadow-emerald-500/30"}>
+                <Sparkles className={isDesktopAddProductLayout ? "w-3.5 h-3.5 text-emerald-600 animate-pulse" : "w-3.5 h-3.5 text-white animate-pulse"} />
                 <span>New Product</span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
                 {/* Column 1: Core Title, Category and Daymode Compression Upload */}
-                <div className="space-y-4">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">1. Descriptor & Visual Assets</h5>
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-emerald-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                  {isDesktopAddProductLayout ? (
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">1. Descriptor & Visual Assets</h5>
+                  ) : (
+                    <div className="flex items-center space-x-2 pb-1.5 border-b border-slate-200/70">
+                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/30">
+                        <Package className="w-3.5 h-3.5" />
+                      </span>
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Descriptor & Visual Assets</h5>
+                    </div>
+                  )}
                   
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Name / Title</label>
@@ -2104,6 +2129,7 @@ export default function DashboardProducts({
                     </div>
                   </div>
 
+                  <div className={isDesktopAddProductLayout ? "space-y-4" : "grid grid-cols-2 gap-3"}>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Brand</label>
                     <input 
@@ -2122,9 +2148,10 @@ export default function DashboardProducts({
                   </div>
 
                   {/* Canvas Compression image module */}
-                  <div className="space-y-2 pt-1">
+                  <div className={isDesktopAddProductLayout ? "space-y-2 pt-1" : "space-y-1"}>
                     <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Image</label>
                     
+                    {isDesktopAddProductLayout ? (
                     <div className="border border-dashed border-slate-200 rounded-xl p-3 bg-slate-50/50 flex items-center space-x-3.5">
                       {productImage ? (
                         <div className="w-14 h-14 rounded-lg bg-white border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center p-0.5 shadow-xs">
@@ -2153,6 +2180,32 @@ export default function DashboardProducts({
                         <p className="text-[9px] text-slate-400">Removes image background.</p>
                       </div>
                     </div>
+                    ) : (
+                    <div className="border border-dashed border-slate-200 rounded-xl p-2.5 bg-gradient-to-br from-slate-50 to-white flex flex-col items-center text-center space-y-1.5">
+                      {productImage ? (
+                        <div className="w-11 h-11 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center p-0.5 shadow-xs">
+                          <img src={productImage} alt="Product Base64 Preview" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                        </div>
+                      ) : (
+                        <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-slate-100 to-slate-50 border border-slate-200 text-slate-400 flex items-center justify-center flex-shrink-0">
+                          <Upload className="w-4 h-4" />
+                        </div>
+                      )}
+                      <div className="relative inline-block w-full">
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          ref={imageInputRef}
+                          onChange={handleProductImageUpload}
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                        />
+                        <button type="button" className="w-full py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 flex items-center justify-center space-x-1">
+                          <Upload className="w-3 h-3 text-slate-500" />
+                          <span>Upload</span>
+                        </button>
+                      </div>
+                    </div>
+                    )}
 
                     {isProcessingImage && (
                       <div className="bg-emerald-50 text-emerald-800 border border-emerald-100 rounded-xl p-2.5 text-[10px] font-mono leading-none flex items-center space-x-2">
@@ -2161,12 +2214,22 @@ export default function DashboardProducts({
                       </div>
                     )}
                   </div>
+                  </div>
 
                 </div>
 
                 {/* Column 2: Barcode Actions & Stock level details */}
-                <div className="space-y-4">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1.5">2. Barcode Controls & Stock</h5>
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-amber-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                  {isDesktopAddProductLayout ? (
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1.5">2. Barcode Controls & Stock</h5>
+                  ) : (
+                    <div className="flex items-center space-x-2 pb-1.5 border-b border-slate-200/70">
+                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-amber-500/30">
+                        <Layers className="w-3.5 h-3.5" />
+                      </span>
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Barcode Controls & Stock</h5>
+                    </div>
+                  )}
                   
                   <div className="space-y-1.5">
                     <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase block font-bold">
@@ -2233,14 +2296,25 @@ export default function DashboardProducts({
                 </div>
 
                 {/* Column 3: Pricing & Margins */}
-                <div className="space-y-4">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">3. Channel Rules & Costs</h5>
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-blue-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                  {isDesktopAddProductLayout ? (
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">3. Channel Rules & Costs</h5>
+                  ) : (
+                    <div className="flex items-center space-x-2 pb-1.5 border-b border-slate-200/70">
+                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-blue-500/30">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                      </span>
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Channel Rules & Costs</h5>
+                    </div>
+                  )}
                   
                   {/* Channel Toggles Section */}
-                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 space-y-2">
+                  <div className={isDesktopAddProductLayout ? "bg-slate-50 p-3 rounded-2xl border border-slate-200/60 space-y-2" : "bg-white p-3 rounded-2xl border border-slate-200/60 space-y-2"}>
                     <span className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Active Selling Channels</span>
                     <div className={`grid gap-2 ${transferBranches.length > 1 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                      <label className="flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300">
+                      <label className={isDesktopAddProductLayout
+                        ? "flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300"
+                        : `flex items-center justify-center space-x-1.5 p-2.5 rounded-xl border cursor-pointer transition-all active:scale-[0.97] ${sellInRetail ? 'bg-gradient-to-r from-emerald-600 to-teal-500 border-emerald-600 shadow-sm shadow-emerald-600/25' : 'bg-slate-50 border-slate-200 hover:border-slate-300'}`}>
                         <input 
                           type="checkbox" 
                           checked={sellInRetail} 
@@ -2250,18 +2324,22 @@ export default function DashboardProducts({
                               setSellingPrice(0);
                             }
                           }}
-                          className="accent-teal-600 w-3.5 h-3.5"
+                          className={isDesktopAddProductLayout ? "accent-teal-600 w-3.5 h-3.5" : "sr-only"}
                         />
-                        <span className="font-semibold text-[11px] text-slate-700">Sell Retail</span>
+                        {!isDesktopAddProductLayout && sellInRetail && <Check className="w-3 h-3 text-white flex-shrink-0" />}
+                        <span className={isDesktopAddProductLayout ? "font-semibold text-[11px] text-slate-700" : `font-bold text-[11px] ${sellInRetail ? 'text-white' : 'text-slate-600'}`}>Sell Retail</span>
                       </label>
-                      <label className="flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300">
+                      <label className={isDesktopAddProductLayout
+                        ? "flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300"
+                        : `flex items-center justify-center space-x-1.5 p-2.5 rounded-xl border cursor-pointer transition-all active:scale-[0.97] ${sellInWholesale ? 'bg-gradient-to-r from-emerald-600 to-teal-500 border-emerald-600 shadow-sm shadow-emerald-600/25' : 'bg-slate-50 border-slate-200 hover:border-slate-300'}`}>
                         <input 
                           type="checkbox" 
                           checked={sellInWholesale} 
                           onChange={(e) => setSellInWholesale(e.target.checked)}
-                          className="accent-teal-600 w-3.5 h-3.5"
+                          className={isDesktopAddProductLayout ? "accent-teal-600 w-3.5 h-3.5" : "sr-only"}
                         />
-                        <span className="font-semibold text-[11px] text-slate-700">Sell Wholesale</span>
+                        {!isDesktopAddProductLayout && sellInWholesale && <Check className="w-3 h-3 text-white flex-shrink-0" />}
+                        <span className={isDesktopAddProductLayout ? "font-semibold text-[11px] text-slate-700" : `font-bold text-[11px] ${sellInWholesale ? 'text-white' : 'text-slate-600'}`}>Sell Wholesale</span>
                       </label>
                     </div>
                   </div>
@@ -2349,9 +2427,16 @@ export default function DashboardProducts({
 
               <div className="space-y-4 pt-2 border-t border-slate-200">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Smart Batch Costing</h5>
-                    <p className="text-[10px] text-slate-400 mt-0.5">FIFO, average, and batch price control.</p>
+                  <div className="flex items-center space-x-2">
+                    {!isDesktopAddProductLayout && (
+                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-violet-500/30">
+                        <Sliders className="w-3.5 h-3.5" />
+                      </span>
+                    )}
+                    <div>
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Smart Batch Costing</h5>
+                      <p className="text-[10px] text-slate-400 mt-0.5">FIFO, average, and batch price control.</p>
+                    </div>
                   </div>
                   <label className="flex items-center space-x-2 text-[10px] font-bold text-slate-600 uppercase">
                     <input
@@ -2381,7 +2466,7 @@ export default function DashboardProducts({
                   ))}
                 </div>
                 {activeTenant.businessType !== 'pharmacy' && (
-                  <div className="grid grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                  <div className="grid grid-cols-3 md:grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3">
                     <div className="space-y-1">
                       <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
                       <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
@@ -2404,9 +2489,16 @@ export default function DashboardProducts({
 
               {activeTenant.businessType === 'pharmacy' && (
                 <div className="space-y-4 pt-2 border-t border-slate-200">
-                  <div>
-                    <span className="font-bold text-sm text-slate-800">Pharmacy Unit Hierarchy</span>
-                    <p className="text-[10.5px] text-slate-450 mt-0.5">Choose the product type, starting level, and how many units each level contains.</p>
+                  <div className="flex items-center space-x-2">
+                    {!isDesktopAddProductLayout && (
+                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/30">
+                        <Layers className="w-3.5 h-3.5" />
+                      </span>
+                    )}
+                    <div>
+                      <span className="font-bold text-sm text-slate-800">Pharmacy Unit Hierarchy</span>
+                      <p className="text-[10.5px] text-slate-450 mt-0.5">Choose the product type, starting level, and how many units each level contains.</p>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
                     <div className="space-y-1">
@@ -2467,7 +2559,7 @@ export default function DashboardProducts({
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Top Unit'} price</label>
-                      <input type="number" value={sellingPrice} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      <input type="number" value={sellingPrice || ''} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-bold text-slate-500 uppercase">Dose / middle price</label>
@@ -2487,7 +2579,14 @@ export default function DashboardProducts({
               {/* Bidhaa ya Jumla / Bulk Product SECTION */}
               <div className="space-y-4 pt-2 border-t border-slate-200">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-slate-800">Retail Package Selling</span>
+                  <div className="flex items-center space-x-2">
+                    {!isDesktopAddProductLayout && (
+                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/30">
+                        <Scale className="w-3.5 h-3.5" />
+                      </span>
+                    )}
+                    <span className="font-bold text-sm text-slate-800">Retail Package Selling</span>
+                  </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input 
                       type="checkbox" 
@@ -2614,7 +2713,9 @@ export default function DashboardProducts({
               <button
                 type="submit"
                 disabled={formSuccess || isProcessingImage}
-                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-505 disabled:bg-slate-150 disabled:text-slate-400 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-md shadow-emerald-550/10"
+                className={isDesktopAddProductLayout
+                  ? "w-full py-3.5 bg-emerald-600 hover:bg-emerald-505 disabled:bg-slate-150 disabled:text-slate-400 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-md shadow-emerald-550/10"
+                  : "w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:bg-slate-150 disabled:bg-none disabled:text-slate-400 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 cursor-pointer active:scale-[0.98] shadow-md shadow-emerald-600/25"}
               >
                 {formSuccess ? (
                   <>
