@@ -4317,7 +4317,7 @@ export default function DashboardReports({
                               <p className="text-[12px] font-bold text-emerald-800 dark:text-emerald-300 leading-tight">Shop Products</p>
                             </div>
                             <div className="space-y-2 text-[12px]">
-                              {showProfitCogs && <div className="flex justify-between items-center gap-2"><span className="text-slate-500 dark:text-slate-400">COGS Value</span><span className="font-mono font-bold text-slate-700 dark:text-slate-200">{currency}{Math.round(currentValuationTotals.shopCogs).toLocaleString()}</span></div>}
+                              {showProfitCogs && <div className="flex justify-between items-center gap-2"><span className="text-slate-500 dark:text-slate-400">Product Cost</span><span className="font-mono font-bold text-slate-700 dark:text-slate-200">{currency}{Math.round(currentValuationTotals.shopCogs).toLocaleString()}</span></div>}
                               <div className="flex justify-between items-center gap-2"><span className="text-slate-500 dark:text-slate-400">Retail Value</span><span className="font-mono font-bold text-slate-700 dark:text-slate-200">{currency}{Math.round(currentValuationTotals.shopSell).toLocaleString()}</span></div>
                               {showProfitCogs && (
                                 <div className="flex justify-between items-center gap-2 pt-2 mt-1 border-t border-emerald-200/70 dark:border-emerald-900/40">
@@ -4344,7 +4344,7 @@ export default function DashboardReports({
                               <p className="text-[12px] font-bold text-indigo-800 dark:text-indigo-300 leading-tight">Store Products</p>
                             </div>
                             <div className="space-y-2 text-[12px]">
-                              {showProfitCogs && <div className="flex justify-between items-center gap-2"><span className="text-slate-500 dark:text-slate-400">COGS Value</span><span className="font-mono font-bold text-slate-700 dark:text-slate-200">{currency}{Math.round(currentValuationTotals.storeCogs).toLocaleString()}</span></div>}
+                              {showProfitCogs && <div className="flex justify-between items-center gap-2"><span className="text-slate-500 dark:text-slate-400">Product Cost</span><span className="font-mono font-bold text-slate-700 dark:text-slate-200">{currency}{Math.round(currentValuationTotals.storeCogs).toLocaleString()}</span></div>}
                               <div className="flex justify-between items-center gap-2"><span className="text-slate-500 dark:text-slate-400">Retail Value</span><span className="font-mono font-bold text-slate-700 dark:text-slate-200">{currency}{Math.round(currentValuationTotals.storeSell).toLocaleString()}</span></div>
                               {showProfitCogs && (
                                 <div className="flex justify-between items-center gap-2 pt-2 mt-1 border-t border-indigo-200/70 dark:border-indigo-900/40">
