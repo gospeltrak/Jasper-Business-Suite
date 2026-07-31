@@ -4131,52 +4131,72 @@ export default function DashboardReports({
                       below 1280px via !important, which would silently break this
                       exact "two cards per row" requirement. The grid is driven purely
                       by the inline style below instead. */}
-                  <div className="grid gap-2.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.625rem' }}>
+                  <div className="grid gap-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.5rem' }}>
                     {[
                       {
                         label: 'Revenue', value: `${currency}${Math.round(totalSalesRevenue).toLocaleString()}`, sub: 'Gross sales',
                         icon: DollarSign,
-                        card: 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border-emerald-100 dark:border-emerald-900/40',
-                        iconWrap: 'bg-white/70 dark:bg-white/10 text-emerald-600 dark:text-emerald-400',
-                        valueColor: 'text-emerald-700 dark:text-emerald-300',
+                        card: 'bg-gradient-to-br from-emerald-50 via-emerald-50 to-teal-100 dark:from-emerald-950/50 dark:via-emerald-950/40 dark:to-teal-950/40 border-emerald-200/70 dark:border-emerald-900/40',
+                        iconWrap: 'bg-white text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 ring-1 ring-white/60 dark:ring-emerald-500/10',
+                        valueColor: 'text-emerald-800 dark:text-emerald-300',
+                        watermark: 'text-emerald-600/10 dark:text-emerald-300/10',
+                        badge: null as string | null,
+                        badgeColor: '',
                       },
                       {
                         label: 'Product Cost', value: `${currency}${Math.round(totalCOGS).toLocaleString()}`, sub: 'Cost of goods',
                         icon: Package,
-                        card: 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/30 border-blue-100 dark:border-blue-900/40',
-                        iconWrap: 'bg-white/70 dark:bg-white/10 text-blue-600 dark:text-blue-400',
-                        valueColor: 'text-blue-700 dark:text-blue-300',
+                        card: 'bg-gradient-to-br from-blue-50 via-blue-50 to-indigo-100 dark:from-blue-950/50 dark:via-blue-950/40 dark:to-indigo-950/40 border-blue-200/70 dark:border-blue-900/40',
+                        iconWrap: 'bg-white text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 ring-1 ring-white/60 dark:ring-blue-500/10',
+                        valueColor: 'text-blue-800 dark:text-blue-300',
+                        watermark: 'text-blue-600/10 dark:text-blue-300/10',
+                        badge: totalSalesRevenue > 0 ? `${Math.round((totalCOGS / totalSalesRevenue) * 100)}% of revenue` : null,
+                        badgeColor: 'bg-white/70 text-blue-700 dark:bg-white/10 dark:text-blue-300',
                       },
                       {
                         label: 'Expenses', value: `${currency}${Math.round(totalExpensesCharged).toLocaleString()}`, sub: 'Operating costs',
                         icon: Receipt,
-                        card: 'bg-gradient-to-br from-rose-50 to-orange-50 dark:from-rose-950/40 dark:to-orange-950/30 border-rose-100 dark:border-rose-900/40',
-                        iconWrap: 'bg-white/70 dark:bg-white/10 text-rose-600 dark:text-rose-400',
-                        valueColor: 'text-rose-700 dark:text-rose-300',
+                        card: 'bg-gradient-to-br from-rose-50 via-rose-50 to-orange-100 dark:from-rose-950/50 dark:via-rose-950/40 dark:to-orange-950/40 border-rose-200/70 dark:border-rose-900/40',
+                        iconWrap: 'bg-white text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 ring-1 ring-white/60 dark:ring-rose-500/10',
+                        valueColor: 'text-rose-800 dark:text-rose-300',
+                        watermark: 'text-rose-600/10 dark:text-rose-300/10',
+                        badge: totalSalesRevenue > 0 ? `${Math.round((totalExpensesCharged / totalSalesRevenue) * 100)}% of revenue` : null,
+                        badgeColor: 'bg-white/70 text-rose-700 dark:bg-white/10 dark:text-rose-300',
                       },
                       {
                         label: 'Net Profit', value: `${netProfit < 0 ? '-' : ''}${currency}${Math.abs(Math.round(netProfit)).toLocaleString()}`, sub: netProfit >= 0 ? 'Surplus' : 'Deficit',
                         icon: netProfit >= 0 ? TrendingUp : ArrowDownRight,
                         card: netProfit >= 0
-                          ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/40 dark:to-emerald-950/30 border-green-100 dark:border-green-900/40'
-                          : 'bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950/40 dark:to-red-950/30 border-rose-100 dark:border-rose-900/40',
-                        iconWrap: netProfit >= 0 ? 'bg-white/70 dark:bg-white/10 text-green-600 dark:text-green-400' : 'bg-white/70 dark:bg-white/10 text-rose-600 dark:text-rose-400',
-                        valueColor: netProfit >= 0 ? 'text-green-700 dark:text-green-300' : 'text-rose-700 dark:text-rose-300',
+                          ? 'bg-gradient-to-br from-green-50 via-green-50 to-emerald-100 dark:from-green-950/50 dark:via-green-950/40 dark:to-emerald-950/40 border-green-200/70 dark:border-green-900/40'
+                          : 'bg-gradient-to-br from-rose-50 via-rose-50 to-red-100 dark:from-rose-950/50 dark:via-rose-950/40 dark:to-red-950/40 border-rose-200/70 dark:border-rose-900/40',
+                        iconWrap: netProfit >= 0
+                          ? 'bg-white text-green-600 dark:bg-green-500/20 dark:text-green-400 ring-1 ring-white/60 dark:ring-green-500/10'
+                          : 'bg-white text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 ring-1 ring-white/60 dark:ring-rose-500/10',
+                        valueColor: netProfit >= 0 ? 'text-green-800 dark:text-green-300' : 'text-rose-800 dark:text-rose-300',
+                        watermark: netProfit >= 0 ? 'text-green-600/10 dark:text-green-300/10' : 'text-rose-600/10 dark:text-rose-300/10',
+                        badge: totalSalesRevenue > 0 ? `${(netProfit / totalSalesRevenue * 100).toFixed(1)}% margin` : null,
+                        badgeColor: netProfit >= 0 ? 'bg-white/70 text-green-700 dark:bg-white/10 dark:text-green-300' : 'bg-white/70 text-rose-700 dark:bg-white/10 dark:text-rose-300',
                       },
                     ].map((k, i) => {
                       const Icon = k.icon;
                       return (
                         <div
                           key={i}
-                          className={`${k.card} rounded-2xl p-4 border shadow-sm text-left min-w-0 animate-fade-in active:scale-[0.97] transition-all duration-200 motion-reduce:transition-none motion-reduce:animate-none`}
+                          className={`${k.card} relative overflow-hidden rounded-xl p-2.5 border shadow-sm text-left min-w-0 animate-fade-in active:scale-[0.97] transition-all duration-200 motion-reduce:transition-none motion-reduce:animate-none`}
                           style={{ animationDelay: `${i * 60}ms`, animationFillMode: 'backwards' }}
                         >
-                          <div className={`w-8 h-8 rounded-xl ${k.iconWrap} flex items-center justify-center mb-2 shrink-0`}>
-                            <Icon className="w-4 h-4" strokeWidth={2.2} />
+                          <Icon className={`absolute -right-2 -bottom-2 w-9 h-9 ${k.watermark} pointer-events-none`} strokeWidth={1.5} aria-hidden="true" />
+                          <div className="relative flex items-center justify-between gap-1.5 mb-1">
+                            <div className={`w-6 h-6 rounded-md ${k.iconWrap} flex items-center justify-center shrink-0 shadow-sm`}>
+                              <Icon className="w-3 h-3" strokeWidth={2.2} />
+                            </div>
+                            {k.badge && (
+                              <span className={`text-[7px] font-bold px-1 py-0.5 rounded leading-none whitespace-nowrap ${k.badgeColor}`}>{k.badge}</span>
+                            )}
                           </div>
-                          <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 truncate">{k.label}</p>
-                          <p className={`text-[17px] font-black leading-tight ${k.valueColor} font-mono truncate`}>{k.value}</p>
-                          <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">{k.sub}</p>
+                          <p className="relative text-[8.5px] font-bold text-slate-500 dark:text-slate-400 truncate uppercase tracking-wide">{k.label}</p>
+                          <p className={`relative text-[13px] font-black leading-tight ${k.valueColor} font-mono truncate mt-0.5`}>{k.value}</p>
+                          <p className="relative text-[8px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">{k.sub}</p>
                         </div>
                       );
                     })}
