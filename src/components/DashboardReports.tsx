@@ -227,6 +227,15 @@ export default function DashboardReports({
   const [velocitySortOrder, setVelocitySortOrder] = useState<'desc' | 'asc'>('desc');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Local state for the mobile/tablet Profit & Loss "Overall Product Value &
+  // Margin" section (current inventory valuation, independent of the report
+  // date range). Deliberately separate from searchTerm/selectedCategory above
+  // (which drive the Inventory tab's own product table) so the two tabs never
+  // cross-filter each other.
+  const [plValuationSegment, setPlValuationSegment] = useState<'shop' | 'store'>('shop');
+  const [plValuationSearch, setPlValuationSearch] = useState('');
+  const [plValuationSortBy, setPlValuationSortBy] = useState<'margin' | 'value' | 'name'>('margin');
+
   // Sync from header search — scoped to active report tab
   useEffect(() => {
     if (headerSearchQuery !== undefined) {
@@ -4115,23 +4124,62 @@ export default function DashboardReports({
             <div className="space-y-5 animate-fade-in">
               {reportTab === 'p&l' && (
                 <div className="space-y-5">
-                  {/* Summary Metrics Grid */}
-                  <div className="grid grid-cols-2 gap-2.5">
+                  {/* Summary Metrics Grid — premium gradient cards, exactly 2 per row.
+                      No "grid-cols-2" class name is used here on purpose: a global
+                      mobile-safety-net rule in index.css force-collapses any element
+                      whose class list contains that substring back to one column
+                      below 1280px via !important, which would silently break this
+                      exact "two cards per row" requirement. The grid is driven purely
+                      by the inline style below instead. */}
+                  <div className="grid gap-2.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.625rem' }}>
                     {[
-                      { label: 'Revenue', value: `${currency}${Math.round(totalSalesRevenue).toLocaleString()}`, color: 'text-emerald-600', dot: 'bg-emerald-500', sub: 'Gross sales' },
-                      { label: 'COGS', value: `${currency}${Math.round(totalCOGS).toLocaleString()}`, color: 'text-slate-700 dark:text-slate-200', dot: 'bg-amber-400', sub: 'Cost of goods' },
-                      { label: 'Expenses', value: `${currency}${Math.round(totalExpensesCharged).toLocaleString()}`, color: 'text-rose-600', dot: 'bg-rose-500', sub: 'Operating costs' },
-                      { label: 'Net Profit', value: `${netProfit < 0 ? '-' : ''}${currency}${Math.abs(Math.round(netProfit)).toLocaleString()}`, color: netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700', dot: netProfit >= 0 ? 'bg-emerald-500' : 'bg-rose-500', sub: netProfit >= 0 ? 'Surplus' : 'Deficit', highlight: true },
-                    ].map((k, i) => (
-                      <div key={i} className={`rounded-2xl p-4 border text-left ${k.highlight ? (netProfit >= 0 ? 'bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-800' : 'bg-rose-50 border-rose-100 dark:bg-rose-900/20 dark:border-rose-800') : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'} shadow-sm`}>
-                        <div className="flex items-center gap-1.5 mb-2">
-                          <span className={`w-1.5 h-1.5 rounded-full ${k.dot} shrink-0`} />
-                          <span className="text-[9.5px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{k.label}</span>
+                      {
+                        label: 'Revenue', value: `${currency}${Math.round(totalSalesRevenue).toLocaleString()}`, sub: 'Gross sales',
+                        icon: DollarSign,
+                        card: 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border-emerald-100 dark:border-emerald-900/40',
+                        iconWrap: 'bg-white/70 dark:bg-white/10 text-emerald-600 dark:text-emerald-400',
+                        valueColor: 'text-emerald-700 dark:text-emerald-300',
+                      },
+                      {
+                        label: 'Product Cost', value: `${currency}${Math.round(totalCOGS).toLocaleString()}`, sub: 'Cost of goods',
+                        icon: Package,
+                        card: 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/30 border-blue-100 dark:border-blue-900/40',
+                        iconWrap: 'bg-white/70 dark:bg-white/10 text-blue-600 dark:text-blue-400',
+                        valueColor: 'text-blue-700 dark:text-blue-300',
+                      },
+                      {
+                        label: 'Expenses', value: `${currency}${Math.round(totalExpensesCharged).toLocaleString()}`, sub: 'Operating costs',
+                        icon: Receipt,
+                        card: 'bg-gradient-to-br from-rose-50 to-orange-50 dark:from-rose-950/40 dark:to-orange-950/30 border-rose-100 dark:border-rose-900/40',
+                        iconWrap: 'bg-white/70 dark:bg-white/10 text-rose-600 dark:text-rose-400',
+                        valueColor: 'text-rose-700 dark:text-rose-300',
+                      },
+                      {
+                        label: 'Net Profit', value: `${netProfit < 0 ? '-' : ''}${currency}${Math.abs(Math.round(netProfit)).toLocaleString()}`, sub: netProfit >= 0 ? 'Surplus' : 'Deficit',
+                        icon: netProfit >= 0 ? TrendingUp : ArrowDownRight,
+                        card: netProfit >= 0
+                          ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/40 dark:to-emerald-950/30 border-green-100 dark:border-green-900/40'
+                          : 'bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950/40 dark:to-red-950/30 border-rose-100 dark:border-rose-900/40',
+                        iconWrap: netProfit >= 0 ? 'bg-white/70 dark:bg-white/10 text-green-600 dark:text-green-400' : 'bg-white/70 dark:bg-white/10 text-rose-600 dark:text-rose-400',
+                        valueColor: netProfit >= 0 ? 'text-green-700 dark:text-green-300' : 'text-rose-700 dark:text-rose-300',
+                      },
+                    ].map((k, i) => {
+                      const Icon = k.icon;
+                      return (
+                        <div
+                          key={i}
+                          className={`${k.card} rounded-2xl p-4 border shadow-sm text-left min-w-0 animate-fade-in active:scale-[0.97] transition-all duration-200 motion-reduce:transition-none motion-reduce:animate-none`}
+                          style={{ animationDelay: `${i * 60}ms`, animationFillMode: 'backwards' }}
+                        >
+                          <div className={`w-8 h-8 rounded-xl ${k.iconWrap} flex items-center justify-center mb-2 shrink-0`}>
+                            <Icon className="w-4 h-4" strokeWidth={2.2} />
+                          </div>
+                          <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 truncate">{k.label}</p>
+                          <p className={`text-[17px] font-black leading-tight ${k.valueColor} font-mono truncate`}>{k.value}</p>
+                          <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">{k.sub}</p>
                         </div>
-                        <p className={`text-[17px] font-black leading-none ${k.color} font-mono`}>{k.value}</p>
-                        <p className="text-[9px] text-slate-400 mt-1">{k.sub}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Margin trend chart */}
@@ -4217,6 +4265,198 @@ export default function DashboardReports({
                       </div>
                     </div>
                   )}
+
+                  {/* Overall Product Value & Margin — CURRENT inventory
+                      valuation, deliberately NOT controlled by startDateStr/
+                      endDateStr above (mirrors how currentValuationTotals /
+                      productValuationsRaw already behave for the Inventory
+                      tab — computed straight from live shopStockQty /
+                      storeStockQty, no date filter applied). Reuses those
+                      same existing values, no new calculation logic. */}
+                  {(() => {
+                    const showProfitCogs = rolePermissions?.reportsProfitCogs?.read !== false;
+                    const combinedCogs = currentValuationTotals.shopCogs + currentValuationTotals.storeCogs;
+                    const combinedSell = currentValuationTotals.shopSell + currentValuationTotals.storeSell;
+                    const combinedProfit = currentValuationTotals.shopProfit + currentValuationTotals.storeProfit;
+                    const combinedMarginPct = combinedSell > 0 ? (combinedProfit / combinedSell) * 100 : 0;
+                    const shopMarginPct = currentValuationTotals.shopSell > 0 ? (currentValuationTotals.shopProfit / currentValuationTotals.shopSell) * 100 : 0;
+                    const storeMarginPct = currentValuationTotals.storeSell > 0 ? (currentValuationTotals.storeProfit / currentValuationTotals.storeSell) * 100 : 0;
+
+                    const q = plValuationSearch.trim().toLowerCase();
+                    const segmentRows = productValuationsRaw
+                      .map(p => ({
+                        ...p,
+                        segCogs: plValuationSegment === 'shop' ? p.cogsShop : p.cogsStore,
+                        segSell: plValuationSegment === 'shop' ? p.sellShop : p.sellStore,
+                        segProfit: plValuationSegment === 'shop' ? p.profitShop : p.profitStore,
+                        segQty: plValuationSegment === 'shop' ? p.shopQty : p.storeQty,
+                      }))
+                      .filter(p => p.segQty > 0)
+                      .filter(p => !q || String(p.name || '').toLowerCase().includes(q) || String(p.sku || '').toLowerCase().includes(q))
+                      .sort((a, b) => {
+                        if (plValuationSortBy === 'name') return a.name.localeCompare(b.name);
+                        if (plValuationSortBy === 'value') return b.segSell - a.segSell;
+                        return b.segProfit - a.segProfit;
+                      });
+
+                    return (
+                      <div className="space-y-3 pt-1">
+                        <div>
+                          <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">Overall Product Value &amp; Margin</h3>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Current inventory valuation · Independent of selected report dates</p>
+                        </div>
+
+                        {/* Shop / Store cards */}
+                        <div className="grid gap-2.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.625rem' }}>
+                          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-100 dark:border-emerald-900/40 rounded-2xl p-4 shadow-sm min-w-0">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="w-8 h-8 rounded-xl bg-white/70 dark:bg-white/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                <Package className="w-4 h-4" strokeWidth={2.2} />
+                              </div>
+                              <span className="text-[8px] font-black text-emerald-700 dark:text-emerald-300 bg-white/60 dark:bg-white/10 rounded px-1.5 py-0.5 uppercase tracking-widest">Shop</span>
+                            </div>
+                            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Shop Products</p>
+                            <div className="mt-1.5 space-y-1 text-[11px]">
+                              {showProfitCogs && <div className="flex justify-between"><span className="text-slate-400">COGS Value</span><span className="font-mono font-bold text-slate-700 dark:text-slate-200">{currency}{Math.round(currentValuationTotals.shopCogs).toLocaleString()}</span></div>}
+                              <div className="flex justify-between"><span className="text-slate-400">Retail Value</span><span className="font-mono font-bold text-slate-700 dark:text-slate-200">{currency}{Math.round(currentValuationTotals.shopSell).toLocaleString()}</span></div>
+                              {showProfitCogs && <div className="flex justify-between pt-1 border-t border-emerald-100 dark:border-emerald-900/40"><span className="text-emerald-700 dark:text-emerald-300 font-semibold">Margin</span><span className="font-mono font-black text-emerald-700 dark:text-emerald-300">{currency}{Math.round(currentValuationTotals.shopProfit).toLocaleString()} <span className="text-[9px] font-bold">({shopMarginPct.toFixed(0)}%)</span></span></div>}
+                            </div>
+                            {showProfitCogs && (
+                              <div className="mt-2 h-1.5 bg-white/60 dark:bg-white/10 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.min(100, Math.max(0, shopMarginPct))}%` }} />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/30 border border-indigo-100 dark:border-indigo-900/40 rounded-2xl p-4 shadow-sm min-w-0">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="w-8 h-8 rounded-xl bg-white/70 dark:bg-white/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                                <Archive className="w-4 h-4" strokeWidth={2.2} />
+                              </div>
+                              <span className="text-[8px] font-black text-indigo-700 dark:text-indigo-300 bg-white/60 dark:bg-white/10 rounded px-1.5 py-0.5 uppercase tracking-widest">Store</span>
+                            </div>
+                            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Store Products</p>
+                            <div className="mt-1.5 space-y-1 text-[11px]">
+                              {showProfitCogs && <div className="flex justify-between"><span className="text-slate-400">COGS Value</span><span className="font-mono font-bold text-slate-700 dark:text-slate-200">{currency}{Math.round(currentValuationTotals.storeCogs).toLocaleString()}</span></div>}
+                              <div className="flex justify-between"><span className="text-slate-400">Retail Value</span><span className="font-mono font-bold text-slate-700 dark:text-slate-200">{currency}{Math.round(currentValuationTotals.storeSell).toLocaleString()}</span></div>
+                              {showProfitCogs && <div className="flex justify-between pt-1 border-t border-indigo-100 dark:border-indigo-900/40"><span className="text-indigo-700 dark:text-indigo-300 font-semibold">Margin</span><span className="font-mono font-black text-indigo-700 dark:text-indigo-300">{currency}{Math.round(currentValuationTotals.storeProfit).toLocaleString()} <span className="text-[9px] font-bold">({storeMarginPct.toFixed(0)}%)</span></span></div>}
+                            </div>
+                            {showProfitCogs && (
+                              <div className="mt-2 h-1.5 bg-white/60 dark:bg-white/10 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${Math.min(100, Math.max(0, storeMarginPct))}%` }} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Combined Product Value — visual highlight */}
+                        <div className="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-950 dark:to-slate-900 rounded-2xl p-4 shadow-sm text-white">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Combined Product Value</p>
+                          <p className="text-[20px] font-black font-mono mt-1">{currency}{Math.round(combinedSell).toLocaleString()}</p>
+                          <p className="text-[9px] text-slate-400 mt-0.5">Total retail value on hand</p>
+                          {showProfitCogs && (
+                            <div className="grid grid-cols-2 gap-3 mt-3 text-[11px]" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+                              <div>
+                                <p className="text-slate-400">Total COGS</p>
+                                <p className="font-mono font-bold">{currency}{Math.round(combinedCogs).toLocaleString()}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-400">Potential Margin</p>
+                                <p className="font-mono font-bold text-emerald-400">{currency}{Math.round(combinedProfit).toLocaleString()}</p>
+                              </div>
+                            </div>
+                          )}
+                          {showProfitCogs && (
+                            <div className="mt-3">
+                              <div className="flex justify-between text-[9px] text-slate-400 mb-1">
+                                <span>Overall Margin</span>
+                                <span className="font-bold text-emerald-400">{combinedMarginPct.toFixed(1)}%</span>
+                              </div>
+                              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all" style={{ width: `${Math.min(100, Math.max(0, combinedMarginPct))}%` }} />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Product Margin Breakdown */}
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+                          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 space-y-2.5">
+                            <span className="text-[10px] font-black tracking-widest uppercase text-slate-400">Product Margin Breakdown</span>
+
+                            {/* Segment selector */}
+                            <div className="grid gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.375rem' }}>
+                              {(['shop', 'store'] as const).map(seg => (
+                                <button
+                                  key={seg}
+                                  onClick={() => setPlValuationSegment(seg)}
+                                  className={`py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all ${plValuationSegment === seg ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400'}`}
+                                >
+                                  {seg === 'shop' ? 'Shop Products' : 'Store Products'}
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Search */}
+                            <div className="relative">
+                              <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                              <input
+                                type="text"
+                                placeholder="Search product or SKU..."
+                                value={plValuationSearch}
+                                onChange={(e) => setPlValuationSearch(e.target.value)}
+                                className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 min-h-[38px]"
+                              />
+                            </div>
+
+                            {/* Sort chips */}
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Sort:</span>
+                              {([
+                                { key: 'margin' as const, label: 'Margin' },
+                                { key: 'value' as const, label: 'Value' },
+                                { key: 'name' as const, label: 'Name' },
+                              ]).map(opt => (
+                                <button
+                                  key={opt.key}
+                                  onClick={() => setPlValuationSortBy(opt.key)}
+                                  className={`px-2 py-1 rounded-lg text-[9.5px] font-bold transition-all ${plValuationSortBy === opt.key ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="divide-y divide-slate-50 dark:divide-slate-800 max-h-[420px] overflow-y-auto">
+                            {segmentRows.length === 0 ? (
+                              <div className="p-6 flex flex-col items-center justify-center text-center">
+                                <Package className="w-8 h-8 text-slate-300 mb-2" />
+                                <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">No products in this segment</p>
+                                <p className="text-[10px] text-slate-400 mt-1 max-w-[200px]">{plValuationSearch ? 'No matches for your search.' : `No stock currently held in ${plValuationSegment === 'shop' ? 'Shop' : 'Store'}.`}</p>
+                              </div>
+                            ) : (
+                              segmentRows.slice(0, 100).map(p => {
+                                const marginPct = p.segSell > 0 ? (p.segProfit / p.segSell) * 100 : 0;
+                                return (
+                                  <div key={p.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <p className="text-[12px] font-bold text-slate-800 dark:text-slate-100 truncate max-w-[160px]">{p.name}</p>
+                                      <p className="text-[9px] font-mono text-slate-400 mt-0.5">SKU {p.sku || 'N/A'} · {formatProductQuantity(p.segQty, p.product)}</p>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      <p className="text-[12px] font-black font-mono text-slate-800 dark:text-slate-100">{currency}{Math.round(p.segSell).toLocaleString()}</p>
+                                      {showProfitCogs && <p className="text-[9px] font-mono text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">+{currency}{Math.round(p.segProfit).toLocaleString()} ({marginPct.toFixed(0)}%)</p>}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
