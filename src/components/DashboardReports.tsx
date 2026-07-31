@@ -1303,6 +1303,47 @@ export default function DashboardReports({
   const mobileReportKpiCardClass = "native-report-kpi-card bg-white dark:bg-slate-900 px-4 py-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-2 text-left min-w-0 active:scale-[0.97] transition-transform";
   const mobileReportToneKpiCardClass = "native-report-kpi-card px-4 py-4 rounded-2xl border shadow-sm flex flex-col gap-2 text-left min-w-0 active:scale-[0.97] transition-transform";
 
+  // Shared premium KPI card renderer (same visual language as the P&L mobile
+  // KPI cards): compact gradient card, watermark icon, small ring-badged icon
+  // chip, optional top-right pill badge. Reused across every report tab's
+  // mobile summary grid so they all share one consistent, non-monochrome look.
+  type ReportKpiCardConfig = {
+    label: string;
+    value: string;
+    sub?: string;
+    icon: React.ComponentType<{ className?: string; strokeWidth?: number; 'aria-hidden'?: boolean }>;
+    card: string;
+    iconWrap: string;
+    valueColor: string;
+    watermark: string;
+    badge?: string | null;
+    badgeColor?: string;
+  };
+  const renderReportKpiCard = (k: ReportKpiCardConfig, i: number) => {
+    const Icon = k.icon;
+    return (
+      <div
+        key={i}
+        className={`${k.card} relative overflow-hidden rounded-xl p-2.5 border shadow-sm text-left min-w-0 animate-fade-in active:scale-[0.97] transition-all duration-200 motion-reduce:transition-none motion-reduce:animate-none`}
+        style={{ animationDelay: `${i * 60}ms`, animationFillMode: 'backwards' }}
+      >
+        <Icon className={`absolute -right-2 -bottom-2 w-9 h-9 ${k.watermark} pointer-events-none`} strokeWidth={1.5} aria-hidden="true" />
+        <div className="relative flex items-center justify-between gap-1.5 mb-1">
+          <div className={`w-6 h-6 rounded-md ${k.iconWrap} flex items-center justify-center shrink-0 shadow-sm`}>
+            <Icon className="w-3 h-3" strokeWidth={2.2} />
+          </div>
+          {k.badge && (
+            <span className={`text-[7px] font-bold px-1 py-0.5 rounded leading-none whitespace-nowrap ${k.badgeColor || ''}`}>{k.badge}</span>
+          )}
+        </div>
+        <p className="relative text-[8.5px] font-bold text-slate-500 dark:text-slate-400 truncate uppercase tracking-wide">{k.label}</p>
+        <p className={`relative text-[13px] font-black leading-tight ${k.valueColor} font-mono truncate mt-0.5`}>{k.value}</p>
+        {k.sub && <p className="relative text-[8px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">{k.sub}</p>}
+      </div>
+    );
+  };
+  const reportKpiGridStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.5rem' };
+
   return (
     <div className="space-y-8 animate-fade-in pb-[calc(80px+env(safe-area-inset-bottom))]" id="reports-view-root">
       
@@ -4515,49 +4556,45 @@ export default function DashboardReports({
               {reportTab === 'sales-report' && (
                 <div className="space-y-4">
                   {/* Summary Metrics Grid */}
-                  <div className="grid gap-2.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.625rem' }}>
-                    {[
+                  <div className="grid gap-2" style={reportKpiGridStyle}>
+                    {([
                       {
                         label: 'Transactions', value: `${salesReportMetrics.totalOrders}`, sub: 'Tickets issued',
                         icon: Receipt,
-                        card: 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/30 border-blue-100 dark:border-blue-900/40',
-                        iconWrap: 'bg-white/70 dark:bg-white/10 text-blue-600 dark:text-blue-400',
-                        valueColor: 'text-blue-700 dark:text-blue-300',
+                        card: 'bg-gradient-to-br from-blue-50 via-blue-50 to-indigo-100 dark:from-blue-950/50 dark:via-blue-950/40 dark:to-indigo-950/40 border-blue-200/70 dark:border-blue-900/40',
+                        iconWrap: 'bg-white text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 ring-1 ring-white/60 dark:ring-blue-500/10',
+                        valueColor: 'text-blue-800 dark:text-blue-300',
+                        watermark: 'text-blue-600/10 dark:text-blue-300/10',
                       },
                       {
                         label: 'Revenue', value: `${currency}${Math.round(salesReportMetrics.totalRevenue).toLocaleString()}`, sub: 'Total income',
                         icon: DollarSign,
-                        card: 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border-emerald-100 dark:border-emerald-900/40',
-                        iconWrap: 'bg-white/70 dark:bg-white/10 text-emerald-600 dark:text-emerald-400',
-                        valueColor: 'text-emerald-700 dark:text-emerald-300',
+                        card: 'bg-gradient-to-br from-emerald-50 via-emerald-50 to-teal-100 dark:from-emerald-950/50 dark:via-emerald-950/40 dark:to-teal-950/40 border-emerald-200/70 dark:border-emerald-900/40',
+                        iconWrap: 'bg-white text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 ring-1 ring-white/60 dark:ring-emerald-500/10',
+                        valueColor: 'text-emerald-800 dark:text-emerald-300',
+                        watermark: 'text-emerald-600/10 dark:text-emerald-300/10',
                       },
                       {
                         label: 'Collected', value: `${currency}${Math.round(salesReportMetrics.paidRevenue).toLocaleString()}`, sub: 'Paid sales',
                         icon: CheckCircle,
-                        card: 'bg-gradient-to-br from-cyan-50 to-green-50 dark:from-cyan-950/40 dark:to-green-950/30 border-cyan-100 dark:border-cyan-900/40',
-                        iconWrap: 'bg-white/70 dark:bg-white/10 text-cyan-600 dark:text-cyan-400',
-                        valueColor: 'text-cyan-700 dark:text-cyan-300',
+                        card: 'bg-gradient-to-br from-cyan-50 via-cyan-50 to-sky-100 dark:from-cyan-950/50 dark:via-cyan-950/40 dark:to-sky-950/40 border-cyan-200/70 dark:border-cyan-900/40',
+                        iconWrap: 'bg-white text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400 ring-1 ring-white/60 dark:ring-cyan-500/10',
+                        valueColor: 'text-cyan-800 dark:text-cyan-300',
+                        watermark: 'text-cyan-600/10 dark:text-cyan-300/10',
+                        badge: salesReportMetrics.totalRevenue > 0 ? `${Math.round((salesReportMetrics.paidRevenue / salesReportMetrics.totalRevenue) * 100)}% of revenue` : null,
+                        badgeColor: 'bg-white/70 text-cyan-700 dark:bg-white/10 dark:text-cyan-300',
                       },
                       {
                         label: 'Credit Due', value: `${currency}${Math.round(salesReportMetrics.unpaidRevenue).toLocaleString()}`, sub: 'Outstanding',
                         icon: AlertCircle,
-                        card: 'bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950/40 dark:to-red-950/30 border-rose-100 dark:border-rose-900/40',
-                        iconWrap: 'bg-white/70 dark:bg-white/10 text-rose-600 dark:text-rose-400',
-                        valueColor: 'text-rose-700 dark:text-rose-300',
+                        card: 'bg-gradient-to-br from-rose-50 via-rose-50 to-orange-100 dark:from-rose-950/50 dark:via-rose-950/40 dark:to-orange-950/40 border-rose-200/70 dark:border-rose-900/40',
+                        iconWrap: 'bg-white text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 ring-1 ring-white/60 dark:ring-rose-500/10',
+                        valueColor: 'text-rose-800 dark:text-rose-300',
+                        watermark: 'text-rose-600/10 dark:text-rose-300/10',
+                        badge: salesReportMetrics.totalRevenue > 0 ? `${Math.round((salesReportMetrics.unpaidRevenue / salesReportMetrics.totalRevenue) * 100)}% of revenue` : null,
+                        badgeColor: 'bg-white/70 text-rose-700 dark:bg-white/10 dark:text-rose-300',
                       },
-                    ].map((k, i) => {
-                      const Icon = k.icon;
-                      return (
-                        <div key={i} className={`${k.card} rounded-2xl p-4 border shadow-sm text-left min-w-0 active:scale-[0.97] transition-all duration-150`}>
-                          <div className={`w-8 h-8 rounded-xl ${k.iconWrap} flex items-center justify-center mb-2 shrink-0`}>
-                            <Icon className="w-4 h-4" strokeWidth={2.2} />
-                          </div>
-                          <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 truncate">{k.label}</p>
-                          <p className={`text-[17px] font-black leading-tight ${k.valueColor} font-mono truncate`}>{k.value}</p>
-                          <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">{k.sub}</p>
-                        </div>
-                      );
-                    })}
+                    ] as ReportKpiCardConfig[]).map(renderReportKpiCard)}
                   </div>
 
                   {/* Search Bar for Mobile */}
@@ -4611,27 +4648,39 @@ export default function DashboardReports({
               {reportTab === 'payments' && (
                 <div className="space-y-4">
                   {/* Summary Metrics Grid — configured payment channels */}
-                  <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
+                  <div className="grid gap-2" style={reportKpiGridStyle}>
                     {Object.keys(paymentMethodTotals).length > 0 ? (
-                      paymentMethodEntries
-                        .sort((a, b) => b[1].amount - a[1].amount)
-                        .map(([key, { amount, count, label, category }]) => {
+                      (() => {
+                        const sortedEntries = paymentMethodEntries.slice().sort((a, b) => b[1].amount - a[1].amount);
+                        const totalAllChannels = sortedEntries.reduce((sum, [, v]) => sum + v.amount, 0);
+                        const themes = [
+                          { card: 'bg-gradient-to-br from-emerald-50 via-emerald-50 to-teal-100 dark:from-emerald-950/50 dark:via-emerald-950/40 dark:to-teal-950/40 border-emerald-200/70 dark:border-emerald-900/40', iconWrap: 'bg-white text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 ring-1 ring-white/60 dark:ring-emerald-500/10', valueColor: 'text-emerald-800 dark:text-emerald-300', watermark: 'text-emerald-600/10 dark:text-emerald-300/10', badgeColor: 'bg-white/70 text-emerald-700 dark:bg-white/10 dark:text-emerald-300' },
+                          { card: 'bg-gradient-to-br from-amber-50 via-amber-50 to-orange-100 dark:from-amber-950/50 dark:via-amber-950/40 dark:to-orange-950/40 border-amber-200/70 dark:border-amber-900/40', iconWrap: 'bg-white text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 ring-1 ring-white/60 dark:ring-amber-500/10', valueColor: 'text-amber-800 dark:text-amber-300', watermark: 'text-amber-600/10 dark:text-amber-300/10', badgeColor: 'bg-white/70 text-amber-700 dark:bg-white/10 dark:text-amber-300' },
+                          { card: 'bg-gradient-to-br from-blue-50 via-blue-50 to-indigo-100 dark:from-blue-950/50 dark:via-blue-950/40 dark:to-indigo-950/40 border-blue-200/70 dark:border-blue-900/40', iconWrap: 'bg-white text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 ring-1 ring-white/60 dark:ring-blue-500/10', valueColor: 'text-blue-800 dark:text-blue-300', watermark: 'text-blue-600/10 dark:text-blue-300/10', badgeColor: 'bg-white/70 text-blue-700 dark:bg-white/10 dark:text-blue-300' },
+                          { card: 'bg-gradient-to-br from-rose-50 via-rose-50 to-red-100 dark:from-rose-950/50 dark:via-rose-950/40 dark:to-red-950/40 border-rose-200/70 dark:border-rose-900/40', iconWrap: 'bg-white text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 ring-1 ring-white/60 dark:ring-rose-500/10', valueColor: 'text-rose-800 dark:text-rose-300', watermark: 'text-rose-600/10 dark:text-rose-300/10', badgeColor: 'bg-white/70 text-rose-700 dark:bg-white/10 dark:text-rose-300' },
+                          { card: 'bg-gradient-to-br from-violet-50 via-violet-50 to-purple-100 dark:from-violet-950/50 dark:via-violet-950/40 dark:to-purple-950/40 border-violet-200/70 dark:border-violet-900/40', iconWrap: 'bg-white text-violet-600 dark:bg-violet-500/20 dark:text-violet-400 ring-1 ring-white/60 dark:ring-violet-500/10', valueColor: 'text-violet-800 dark:text-violet-300', watermark: 'text-violet-600/10 dark:text-violet-300/10', badgeColor: 'bg-white/70 text-violet-700 dark:bg-white/10 dark:text-violet-300' },
+                          { card: 'bg-gradient-to-br from-cyan-50 via-cyan-50 to-sky-100 dark:from-cyan-950/50 dark:via-cyan-950/40 dark:to-sky-950/40 border-cyan-200/70 dark:border-cyan-900/40', iconWrap: 'bg-white text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400 ring-1 ring-white/60 dark:ring-cyan-500/10', valueColor: 'text-cyan-800 dark:text-cyan-300', watermark: 'text-cyan-600/10 dark:text-cyan-300/10', badgeColor: 'bg-white/70 text-cyan-700 dark:bg-white/10 dark:text-cyan-300' },
+                        ];
+                        return sortedEntries.map(([key, { amount, count, label, category }], i) => {
                           const isCredit = category === 'Credit' || label.toLowerCase().includes('credit');
                           const isMobile = category === 'telco';
                           const isBank = category === 'bank';
-                          const iconColor = isCredit ? 'text-rose-500' : isMobile ? 'text-amber-500' : isBank ? 'text-blue-500' : 'text-emerald-600';
-                          const valColor = isCredit ? 'text-rose-600' : isMobile ? 'text-amber-700' : isBank ? 'text-blue-700' : 'text-emerald-600';
-                          return (
-                            <div key={key} className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 shadow-sm text-left">
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <span className={`w-1.5 h-1.5 rounded-full ${isCredit ? 'bg-rose-500' : isMobile ? 'bg-amber-400' : isBank ? 'bg-blue-500' : 'bg-emerald-500'}`} />
-                                <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest truncate">{label}</span>
-                              </div>
-                              <p className={`text-[17px] font-black leading-none font-mono ${valColor}`}>{currency}{Math.round(amount).toLocaleString()}</p>
-                              <p className="text-[9px] text-slate-400 mt-1">{count} transaction{count !== 1 ? 's' : ''}</p>
-                            </div>
-                          );
-                        })
+                          const theme = isCredit ? themes[3] : isMobile ? themes[1] : isBank ? themes[2] : themes[i % themes.length === 3 ? 0 : i % themes.length];
+                          const pct = totalAllChannels > 0 ? Math.round((amount / totalAllChannels) * 100) : 0;
+                          return renderReportKpiCard({
+                            label,
+                            value: `${currency}${Math.round(amount).toLocaleString()}`,
+                            sub: `${count} transaction${count !== 1 ? 's' : ''}`,
+                            icon: isCredit ? AlertCircle : isBank ? DollarSign : isMobile ? Receipt : DollarSign,
+                            card: theme.card,
+                            iconWrap: theme.iconWrap,
+                            valueColor: theme.valueColor,
+                            watermark: theme.watermark,
+                            badge: totalAllChannels > 0 ? `${pct}% share` : null,
+                            badgeColor: theme.badgeColor,
+                          }, i);
+                        });
+                      })()
                     ) : (
                       <p className="col-span-2 text-xs text-slate-400 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-8 text-center">
                         No active payment methods are configured.
@@ -4693,38 +4742,41 @@ export default function DashboardReports({
                     const totalAssetVal = products.reduce((acc, curr) => acc + (curr.stockQty || 0) * curr.costPrice, 0);
                     return (
                       <>
-                        <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
-                          <div className={mobileReportKpiCardClass}>
-                            <div className="flex items-center space-x-1.5 text-indigo-500">
-                              <Package className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Shop Stock</span>
-                            </div>
-                            <span className="text-sm font-black text-slate-800 mt-2">{currency}{Math.round(totalShopVal).toLocaleString()}</span>
-                          </div>
-
-                          <div className={mobileReportKpiCardClass}>
-                            <div className="flex items-center space-x-1.5 text-amber-500">
-                              <Archive className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Backroom Store</span>
-                            </div>
-                            <span className="text-sm font-black text-slate-800 mt-2">{currency}{Math.round(totalStoreVal).toLocaleString()}</span>
-                          </div>
-
-                          <div className={mobileReportKpiCardClass}>
-                            <div className="flex items-center space-x-1.5 text-blue-500">
-                              <Tag className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Catalog SKUs</span>
-                            </div>
-                            <span className="text-sm font-black text-blue-600 mt-2">{products.length} Products</span>
-                          </div>
-
-                          <div className={`${mobileReportToneKpiCardClass} bg-emerald-50 border-emerald-150`}>
-                            <div className="flex items-center space-x-1.5 text-emerald-600">
-                              <Package className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Total Assets</span>
-                            </div>
-                            <span className="text-sm font-black text-emerald-800 mt-2">{currency}{Math.round(totalAssetVal).toLocaleString()}</span>
-                          </div>
+                        <div className="grid gap-2" style={reportKpiGridStyle}>
+                          {([
+                            {
+                              label: 'Shop Stock', value: `${currency}${Math.round(totalShopVal).toLocaleString()}`, sub: 'Front-of-store value',
+                              icon: Package,
+                              card: 'bg-gradient-to-br from-indigo-50 via-indigo-50 to-violet-100 dark:from-indigo-950/50 dark:via-indigo-950/40 dark:to-violet-950/40 border-indigo-200/70 dark:border-indigo-900/40',
+                              iconWrap: 'bg-white text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 ring-1 ring-white/60 dark:ring-indigo-500/10',
+                              valueColor: 'text-indigo-800 dark:text-indigo-300',
+                              watermark: 'text-indigo-600/10 dark:text-indigo-300/10',
+                            },
+                            {
+                              label: 'Backroom Store', value: `${currency}${Math.round(totalStoreVal).toLocaleString()}`, sub: 'Warehouse value',
+                              icon: Archive,
+                              card: 'bg-gradient-to-br from-amber-50 via-amber-50 to-orange-100 dark:from-amber-950/50 dark:via-amber-950/40 dark:to-orange-950/40 border-amber-200/70 dark:border-amber-900/40',
+                              iconWrap: 'bg-white text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 ring-1 ring-white/60 dark:ring-amber-500/10',
+                              valueColor: 'text-amber-800 dark:text-amber-300',
+                              watermark: 'text-amber-600/10 dark:text-amber-300/10',
+                            },
+                            {
+                              label: 'Catalog SKUs', value: `${products.length} Products`, sub: 'Active listings',
+                              icon: Tag,
+                              card: 'bg-gradient-to-br from-blue-50 via-blue-50 to-cyan-100 dark:from-blue-950/50 dark:via-blue-950/40 dark:to-cyan-950/40 border-blue-200/70 dark:border-blue-900/40',
+                              iconWrap: 'bg-white text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 ring-1 ring-white/60 dark:ring-blue-500/10',
+                              valueColor: 'text-blue-800 dark:text-blue-300',
+                              watermark: 'text-blue-600/10 dark:text-blue-300/10',
+                            },
+                            {
+                              label: 'Total Assets', value: `${currency}${Math.round(totalAssetVal).toLocaleString()}`, sub: 'Combined stock value',
+                              icon: TrendingUp,
+                              card: 'bg-gradient-to-br from-emerald-50 via-emerald-50 to-teal-100 dark:from-emerald-950/50 dark:via-emerald-950/40 dark:to-teal-950/40 border-emerald-200/70 dark:border-emerald-900/40',
+                              iconWrap: 'bg-white text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 ring-1 ring-white/60 dark:ring-emerald-500/10',
+                              valueColor: 'text-emerald-800 dark:text-emerald-300',
+                              watermark: 'text-emerald-600/10 dark:text-emerald-300/10',
+                            },
+                          ] as ReportKpiCardConfig[]).map(renderReportKpiCard)}
                         </div>
 
                         {/* List replacements */}
@@ -4828,22 +4880,25 @@ export default function DashboardReports({
                     return (
                       <div className="space-y-4 text-left">
                         {/* Summary Metrics Grid */}
-                        <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
-                          <div className={mobileReportKpiCardClass}>
-                            <div className="flex items-center space-x-1.5 text-blue-500">
-                              <Users className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Loyal Clients</span>
-                            </div>
-                            <span className="text-sm font-black text-slate-800 mt-2">{Object.keys(custMap).length} Profiles</span>
-                          </div>
-
-                          <div className={mobileReportKpiCardClass}>
-                            <div className="flex items-center space-x-1.5 text-emerald-500">
-                              <Users className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Active Staff</span>
-                            </div>
-                            <span className="text-sm font-black text-slate-800 mt-2">{Object.keys(staffMap).length} Operators</span>
-                          </div>
+                        <div className="grid gap-2" style={reportKpiGridStyle}>
+                          {([
+                            {
+                              label: 'Loyal Clients', value: `${Object.keys(custMap).length} Profiles`, sub: 'Repeat customers',
+                              icon: Users,
+                              card: 'bg-gradient-to-br from-blue-50 via-blue-50 to-indigo-100 dark:from-blue-950/50 dark:via-blue-950/40 dark:to-indigo-950/40 border-blue-200/70 dark:border-blue-900/40',
+                              iconWrap: 'bg-white text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 ring-1 ring-white/60 dark:ring-blue-500/10',
+                              valueColor: 'text-blue-800 dark:text-blue-300',
+                              watermark: 'text-blue-600/10 dark:text-blue-300/10',
+                            },
+                            {
+                              label: 'Active Staff', value: `${Object.keys(staffMap).length} Operators`, sub: 'Cashiers on record',
+                              icon: Users,
+                              card: 'bg-gradient-to-br from-emerald-50 via-emerald-50 to-teal-100 dark:from-emerald-950/50 dark:via-emerald-950/40 dark:to-teal-950/40 border-emerald-200/70 dark:border-emerald-900/40',
+                              iconWrap: 'bg-white text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 ring-1 ring-white/60 dark:ring-emerald-500/10',
+                              valueColor: 'text-emerald-800 dark:text-emerald-300',
+                              watermark: 'text-emerald-600/10 dark:text-emerald-300/10',
+                            },
+                          ] as ReportKpiCardConfig[]).map(renderReportKpiCard)}
                         </div>
 
                         {/* Customer spend segment */}
@@ -4894,22 +4949,25 @@ export default function DashboardReports({
                     return (
                       <div className="space-y-4 text-left">
                         {/* Summary Metrics Grid */}
-                        <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
-                          <div className={mobileReportKpiCardClass}>
-                            <div className="flex items-center space-x-1.5 text-rose-500">
-                              <Receipt className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Expense Logs</span>
-                            </div>
-                            <span className="text-sm font-black text-rose-600 mt-2">{filteredExpenses.length} Receipts</span>
-                          </div>
-
-                          <div className="bg-rose-50 border border-rose-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
-                            <div className="flex items-center space-x-1.5 text-rose-600">
-                              <DollarSign className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider font-mono">Aggregate Outflow</span>
-                            </div>
-                            <span className="text-sm font-black text-rose-800 mt-2">{currency}{Math.round(totalSpent).toLocaleString()}</span>
-                          </div>
+                        <div className="grid gap-2" style={reportKpiGridStyle}>
+                          {([
+                            {
+                              label: 'Expense Logs', value: `${filteredExpenses.length} Receipts`, sub: 'Entries recorded',
+                              icon: Receipt,
+                              card: 'bg-gradient-to-br from-orange-50 via-orange-50 to-amber-100 dark:from-orange-950/50 dark:via-orange-950/40 dark:to-amber-950/40 border-orange-200/70 dark:border-orange-900/40',
+                              iconWrap: 'bg-white text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 ring-1 ring-white/60 dark:ring-orange-500/10',
+                              valueColor: 'text-orange-800 dark:text-orange-300',
+                              watermark: 'text-orange-600/10 dark:text-orange-300/10',
+                            },
+                            {
+                              label: 'Aggregate Outflow', value: `${currency}${Math.round(totalSpent).toLocaleString()}`, sub: 'Total spent',
+                              icon: DollarSign,
+                              card: 'bg-gradient-to-br from-rose-50 via-rose-50 to-red-100 dark:from-rose-950/50 dark:via-rose-950/40 dark:to-red-950/40 border-rose-200/70 dark:border-rose-900/40',
+                              iconWrap: 'bg-white text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 ring-1 ring-white/60 dark:ring-rose-500/10',
+                              valueColor: 'text-rose-800 dark:text-rose-300',
+                              watermark: 'text-rose-600/10 dark:text-rose-300/10',
+                            },
+                          ] as ReportKpiCardConfig[]).map(renderReportKpiCard)}
                         </div>
 
                         {/* List representations */}
@@ -5043,38 +5101,43 @@ export default function DashboardReports({
 
                           return (
                             <>
-                              <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
-                                <div className={mobileReportKpiCardClass}>
-                                  <div className="flex items-center gap-1.5 mb-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                          <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest">Units Sold</span>
-                        </div>
-                        <p className="text-[17px] font-black leading-none text-slate-800 font-mono">{isAll ? `${totalUnits.toLocaleString()} mixed units` : formatProductQuantity(totalUnits, products.find(p => p.id === selectedMonitoredProductId))}</p>
-                                </div>
-
-                                <div className={mobileReportKpiCardClass}>
-                                  <div className="flex items-center gap-1.5 mb-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0" />
-                          <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest">Gross Income</span>
-                        </div>
-                        <p className="text-[17px] font-black leading-none text-emerald-600 font-mono">{currency}{Math.round(totalRevenue).toLocaleString()}</p>
-                                </div>
-
-                                <div className={mobileReportKpiCardClass}>
-                                  <div className="flex items-center space-x-1.5 text-indigo-505">
-                                    <Percent className="w-4 h-4" />
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Average Margin</span>
-                                  </div>
-                                  <span className="text-sm font-black text-indigo-700 mt-2">{Math.round(avgMargin)}%</span>
-                                </div>
-
-                                <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
-                                  <div className="flex items-center space-x-1.5 text-emerald-600">
-                                    <TrendingUp className="w-4 h-4" />
-                                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Net Gross Profit</span>
-                                  </div>
-                                  <span className="text-sm font-black text-emerald-800 mt-2">{currency}{Math.round(totalProfit).toLocaleString()}</span>
-                                </div>
+                              <div className="grid gap-2" style={reportKpiGridStyle}>
+                                {([
+                                  {
+                                    label: 'Units Sold', value: isAll ? `${totalUnits.toLocaleString()} mixed units` : formatProductQuantity(totalUnits, products.find(p => p.id === selectedMonitoredProductId)), sub: 'Total volume',
+                                    icon: Package,
+                                    card: 'bg-gradient-to-br from-indigo-50 via-indigo-50 to-violet-100 dark:from-indigo-950/50 dark:via-indigo-950/40 dark:to-violet-950/40 border-indigo-200/70 dark:border-indigo-900/40',
+                                    iconWrap: 'bg-white text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 ring-1 ring-white/60 dark:ring-indigo-500/10',
+                                    valueColor: 'text-indigo-800 dark:text-indigo-300',
+                                    watermark: 'text-indigo-600/10 dark:text-indigo-300/10',
+                                  },
+                                  {
+                                    label: 'Gross Income', value: `${currency}${Math.round(totalRevenue).toLocaleString()}`, sub: 'Total revenue',
+                                    icon: DollarSign,
+                                    card: 'bg-gradient-to-br from-emerald-50 via-emerald-50 to-teal-100 dark:from-emerald-950/50 dark:via-emerald-950/40 dark:to-teal-950/40 border-emerald-200/70 dark:border-emerald-900/40',
+                                    iconWrap: 'bg-white text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 ring-1 ring-white/60 dark:ring-emerald-500/10',
+                                    valueColor: 'text-emerald-800 dark:text-emerald-300',
+                                    watermark: 'text-emerald-600/10 dark:text-emerald-300/10',
+                                  },
+                                  {
+                                    label: 'Average Margin', value: `${Math.round(avgMargin)}%`, sub: 'Blended margin',
+                                    icon: Percent,
+                                    card: 'bg-gradient-to-br from-purple-50 via-purple-50 to-indigo-100 dark:from-purple-950/50 dark:via-purple-950/40 dark:to-indigo-950/40 border-purple-200/70 dark:border-purple-900/40',
+                                    iconWrap: 'bg-white text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 ring-1 ring-white/60 dark:ring-purple-500/10',
+                                    valueColor: 'text-purple-800 dark:text-purple-300',
+                                    watermark: 'text-purple-600/10 dark:text-purple-300/10',
+                                  },
+                                  {
+                                    label: 'Net Gross Profit', value: `${currency}${Math.round(totalProfit).toLocaleString()}`, sub: totalProfit >= 0 ? 'Surplus' : 'Deficit',
+                                    icon: TrendingUp,
+                                    card: 'bg-gradient-to-br from-green-50 via-green-50 to-emerald-100 dark:from-green-950/50 dark:via-green-950/40 dark:to-emerald-950/40 border-green-200/70 dark:border-green-900/40',
+                                    iconWrap: 'bg-white text-green-600 dark:bg-green-500/20 dark:text-green-400 ring-1 ring-white/60 dark:ring-green-500/10',
+                                    valueColor: 'text-green-800 dark:text-green-300',
+                                    watermark: 'text-green-600/10 dark:text-green-300/10',
+                                    badge: totalRevenue > 0 ? `${Math.round((totalProfit / totalRevenue) * 100)}% margin` : null,
+                                    badgeColor: 'bg-white/70 text-green-700 dark:bg-white/10 dark:text-green-300',
+                                  },
+                                ] as ReportKpiCardConfig[]).map(renderReportKpiCard)}
                               </div>
 
                               {/* Catalog Rankings list */}
@@ -5177,40 +5240,41 @@ export default function DashboardReports({
                     return (
                       <div className="space-y-4 font-sans text-left">
                         {/* Summary Metrics Grid */}
-                        <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
-                          <div className={mobileReportKpiCardClass}>
-                            <div className="flex items-center space-x-1.5 text-indigo-500">
-                              <ShoppingBag className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Retail Sales</span>
-                            </div>
-                            <span className="text-sm font-black text-slate-820 mt-1">{retailOrders} checkouts</span>
-                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">{currency}{Math.round(retailRevenue).toLocaleString()}</span>
-                          </div>
-
-                          <div className={mobileReportKpiCardClass}>
-                            <div className="flex items-center space-x-1.5 text-amber-500">
-                              <Archive className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider font-mono">Wholesale Sales</span>
-                            </div>
-                            <span className="text-sm font-black text-slate-820 mt-1">{wholesaleOrders} checkouts</span>
-                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">{currency}{Math.round(wholesaleRevenue).toLocaleString()}</span>
-                          </div>
-
-                          <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
-                            <div className="flex items-center space-x-1.5 text-emerald-600">
-                              <TrendingUp className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Retail Margin</span>
-                            </div>
-                            <span className="text-sm font-black text-emerald-800 mt-1">{currency}{Math.round(retailProfit).toLocaleString()}</span>
-                          </div>
-
-                          <div className="bg-emerald-50 border border-emerald-150 p-3 rounded-xl shadow-xs flex flex-col justify-between min-h-[84px] text-left">
-                            <div className="flex items-center space-x-1.5 text-emerald-600">
-                              <TrendingUp className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider font-mono">Wholesale Margin</span>
-                            </div>
-                            <span className="text-sm font-black text-emerald-800 mt-1">{currency}{Math.round(wholesaleProfit).toLocaleString()}</span>
-                          </div>
+                        <div className="grid gap-2" style={reportKpiGridStyle}>
+                          {([
+                            {
+                              label: 'Retail Sales', value: `${retailOrders} checkouts`, sub: `${currency}${Math.round(retailRevenue).toLocaleString()}`,
+                              icon: ShoppingBag,
+                              card: 'bg-gradient-to-br from-indigo-50 via-indigo-50 to-blue-100 dark:from-indigo-950/50 dark:via-indigo-950/40 dark:to-blue-950/40 border-indigo-200/70 dark:border-indigo-900/40',
+                              iconWrap: 'bg-white text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 ring-1 ring-white/60 dark:ring-indigo-500/10',
+                              valueColor: 'text-indigo-800 dark:text-indigo-300',
+                              watermark: 'text-indigo-600/10 dark:text-indigo-300/10',
+                            },
+                            {
+                              label: 'Wholesale Sales', value: `${wholesaleOrders} checkouts`, sub: `${currency}${Math.round(wholesaleRevenue).toLocaleString()}`,
+                              icon: Archive,
+                              card: 'bg-gradient-to-br from-amber-50 via-amber-50 to-orange-100 dark:from-amber-950/50 dark:via-amber-950/40 dark:to-orange-950/40 border-amber-200/70 dark:border-amber-900/40',
+                              iconWrap: 'bg-white text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 ring-1 ring-white/60 dark:ring-amber-500/10',
+                              valueColor: 'text-amber-800 dark:text-amber-300',
+                              watermark: 'text-amber-600/10 dark:text-amber-300/10',
+                            },
+                            {
+                              label: 'Retail Margin', value: `${currency}${Math.round(retailProfit).toLocaleString()}`, sub: retailRevenue > 0 ? `${Math.round((retailProfit / retailRevenue) * 100)}% margin` : 'No sales yet',
+                              icon: TrendingUp,
+                              card: 'bg-gradient-to-br from-emerald-50 via-emerald-50 to-teal-100 dark:from-emerald-950/50 dark:via-emerald-950/40 dark:to-teal-950/40 border-emerald-200/70 dark:border-emerald-900/40',
+                              iconWrap: 'bg-white text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 ring-1 ring-white/60 dark:ring-emerald-500/10',
+                              valueColor: 'text-emerald-800 dark:text-emerald-300',
+                              watermark: 'text-emerald-600/10 dark:text-emerald-300/10',
+                            },
+                            {
+                              label: 'Wholesale Margin', value: `${currency}${Math.round(wholesaleProfit).toLocaleString()}`, sub: wholesaleRevenue > 0 ? `${Math.round((wholesaleProfit / wholesaleRevenue) * 100)}% margin` : 'No sales yet',
+                              icon: TrendingUp,
+                              card: 'bg-gradient-to-br from-violet-50 via-violet-50 to-purple-100 dark:from-violet-950/50 dark:via-violet-950/40 dark:to-purple-950/40 border-violet-200/70 dark:border-violet-900/40',
+                              iconWrap: 'bg-white text-violet-600 dark:bg-violet-500/20 dark:text-violet-400 ring-1 ring-white/60 dark:ring-violet-500/10',
+                              valueColor: 'text-violet-800 dark:text-violet-300',
+                              watermark: 'text-violet-600/10 dark:text-violet-300/10',
+                            },
+                          ] as ReportKpiCardConfig[]).map(renderReportKpiCard)}
                         </div>
 
                         {/* Store Catalog product price comparison listing */}
@@ -5257,40 +5321,45 @@ export default function DashboardReports({
                     return (
                       <div className="space-y-4 font-sans text-left">
                         {/* Summary Metrics Grid */}
-                        <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
-                          <div className={mobileReportKpiCardClass}>
-                            <div className="flex items-center space-x-1.5 text-slate-500">
-                              <Truck className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider font-mono">Fulfillments</span>
-                            </div>
-                            <span className="text-sm font-black text-slate-800 mt-1">{validDeliveries.length} orders</span>
-                          </div>
-
-                          <div className={mobileReportKpiCardClass}>
-                            <div className="flex items-center space-x-1.5 text-indigo-500">
-                              <DollarSign className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider font-mono">Logistics Rev</span>
-                            </div>
-                            <span className="text-sm font-black text-slate-800 mt-1">{currency}{deliveryIncome.toLocaleString()}</span>
-                          </div>
-
-                          <div className={mobileReportKpiCardClass}>
-                            <div className="flex items-center space-x-1.5 text-rose-500">
-                              <Receipt className="w-4 h-4" />
-                              <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider font-mono">Fleet Outflow</span>
-                            </div>
-                            <span className="text-sm font-black text-rose-600 mt-1">{currency}{totalDeliveryExpenses.toLocaleString()}</span>
-                          </div>
-
-                          <div className={`${mobileReportToneKpiCardClass} ${netDeliveryProfit >= 0 ? 'bg-emerald-50 border-emerald-150' : 'bg-rose-50 border-rose-150'}`}>
-                            <div className="flex items-center space-x-1.5">
-                              <TrendingUp className={`w-4 h-4 ${netDeliveryProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`} />
-                              <span className={`text-[10px] font-bold uppercase tracking-wider font-mono block ${netDeliveryProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>Net value margin</span>
-                            </div>
-                            <span className={`text-sm font-black mt-1 ${netDeliveryProfit >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>
-                              {netDeliveryProfit >= 0 ? '+' : ''}{currency}{netDeliveryProfit.toLocaleString()}
-                            </span>
-                          </div>
+                        <div className="grid gap-2" style={reportKpiGridStyle}>
+                          {([
+                            {
+                              label: 'Fulfillments', value: `${validDeliveries.length} orders`, sub: 'Dispatched',
+                              icon: Truck,
+                              card: 'bg-gradient-to-br from-sky-50 via-sky-50 to-blue-100 dark:from-sky-950/50 dark:via-sky-950/40 dark:to-blue-950/40 border-sky-200/70 dark:border-sky-900/40',
+                              iconWrap: 'bg-white text-sky-600 dark:bg-sky-500/20 dark:text-sky-400 ring-1 ring-white/60 dark:ring-sky-500/10',
+                              valueColor: 'text-sky-800 dark:text-sky-300',
+                              watermark: 'text-sky-600/10 dark:text-sky-300/10',
+                            },
+                            {
+                              label: 'Logistics Rev', value: `${currency}${deliveryIncome.toLocaleString()}`, sub: 'Delivery fees',
+                              icon: DollarSign,
+                              card: 'bg-gradient-to-br from-indigo-50 via-indigo-50 to-violet-100 dark:from-indigo-950/50 dark:via-indigo-950/40 dark:to-violet-950/40 border-indigo-200/70 dark:border-indigo-900/40',
+                              iconWrap: 'bg-white text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 ring-1 ring-white/60 dark:ring-indigo-500/10',
+                              valueColor: 'text-indigo-800 dark:text-indigo-300',
+                              watermark: 'text-indigo-600/10 dark:text-indigo-300/10',
+                            },
+                            {
+                              label: 'Fleet Outflow', value: `${currency}${totalDeliveryExpenses.toLocaleString()}`, sub: 'Maintenance & fuel',
+                              icon: Receipt,
+                              card: 'bg-gradient-to-br from-rose-50 via-rose-50 to-orange-100 dark:from-rose-950/50 dark:via-rose-950/40 dark:to-orange-950/40 border-rose-200/70 dark:border-rose-900/40',
+                              iconWrap: 'bg-white text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 ring-1 ring-white/60 dark:ring-rose-500/10',
+                              valueColor: 'text-rose-800 dark:text-rose-300',
+                              watermark: 'text-rose-600/10 dark:text-rose-300/10',
+                            },
+                            {
+                              label: 'Net value margin', value: `${netDeliveryProfit >= 0 ? '+' : ''}${currency}${netDeliveryProfit.toLocaleString()}`, sub: netDeliveryProfit >= 0 ? 'Surplus' : 'Deficit',
+                              icon: TrendingUp,
+                              card: netDeliveryProfit >= 0
+                                ? 'bg-gradient-to-br from-green-50 via-green-50 to-emerald-100 dark:from-green-950/50 dark:via-green-950/40 dark:to-emerald-950/40 border-green-200/70 dark:border-green-900/40'
+                                : 'bg-gradient-to-br from-rose-50 via-rose-50 to-red-100 dark:from-rose-950/50 dark:via-rose-950/40 dark:to-red-950/40 border-rose-200/70 dark:border-rose-900/40',
+                              iconWrap: netDeliveryProfit >= 0
+                                ? 'bg-white text-green-600 dark:bg-green-500/20 dark:text-green-400 ring-1 ring-white/60 dark:ring-green-500/10'
+                                : 'bg-white text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 ring-1 ring-white/60 dark:ring-rose-500/10',
+                              valueColor: netDeliveryProfit >= 0 ? 'text-green-800 dark:text-green-300' : 'text-rose-800 dark:text-rose-300',
+                              watermark: netDeliveryProfit >= 0 ? 'text-green-600/10 dark:text-green-300/10' : 'text-rose-600/10 dark:text-rose-300/10',
+                            },
+                          ] as ReportKpiCardConfig[]).map(renderReportKpiCard)}
                         </div>
 
                         {/* List replacements */}
@@ -5375,21 +5444,25 @@ export default function DashboardReports({
                           </button>
                         </div>
 
-                        <div className="native-report-kpi-grid grid grid-cols-2 gap-3">
-                          <div className={mobileReportKpiCardClass}>
-                            <div className="flex items-center space-x-1.5 text-indigo-500">
-                              <Package className="h-4 w-4" />
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tracked SKUs</span>
-                            </div>
-                            <span className="mt-2 text-sm font-black text-slate-850 dark:text-white">{allSorted.length} products</span>
-                          </div>
-                          <div className={mobileReportKpiCardClass}>
-                            <div className="flex items-center space-x-1.5 text-emerald-600">
-                              <ArrowUpDown className="h-4 w-4" />
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Units Moved</span>
-                            </div>
-                            <span className="mt-2 text-sm font-black text-emerald-700">{totalVelocityUnits.toLocaleString()}</span>
-                          </div>
+                        <div className="grid gap-2" style={reportKpiGridStyle}>
+                          {([
+                            {
+                              label: 'Tracked SKUs', value: `${allSorted.length} products`, sub: 'In catalog',
+                              icon: Package,
+                              card: 'bg-gradient-to-br from-indigo-50 via-indigo-50 to-violet-100 dark:from-indigo-950/50 dark:via-indigo-950/40 dark:to-violet-950/40 border-indigo-200/70 dark:border-indigo-900/40',
+                              iconWrap: 'bg-white text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 ring-1 ring-white/60 dark:ring-indigo-500/10',
+                              valueColor: 'text-indigo-800 dark:text-indigo-300',
+                              watermark: 'text-indigo-600/10 dark:text-indigo-300/10',
+                            },
+                            {
+                              label: 'Units Moved', value: totalVelocityUnits.toLocaleString(), sub: 'Total volume sold',
+                              icon: ArrowUpDown,
+                              card: 'bg-gradient-to-br from-emerald-50 via-emerald-50 to-teal-100 dark:from-emerald-950/50 dark:via-emerald-950/40 dark:to-teal-950/40 border-emerald-200/70 dark:border-emerald-900/40',
+                              iconWrap: 'bg-white text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 ring-1 ring-white/60 dark:ring-emerald-500/10',
+                              valueColor: 'text-emerald-800 dark:text-emerald-300',
+                              watermark: 'text-emerald-600/10 dark:text-emerald-300/10',
+                            },
+                          ] as ReportKpiCardConfig[]).map(renderReportKpiCard)}
                         </div>
 
                         {/* Top card */}
