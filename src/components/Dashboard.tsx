@@ -2841,7 +2841,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       ) : null}
 
       {/* 0. HIGH-FIDELITY FLOATING TOAST STACK (Centered at top on mobile, max 3 stacked) */}
-      <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center space-y-2 w-full max-w-sm px-4 pointer-events-none">
+      <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] flex flex-col items-center space-y-2 w-full max-w-sm px-4 pointer-events-none">
         {toasts.map((t) => {
           let borderTheme = 'border-l-4 border-l-emerald-400';
           let bgTheme = 'bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800';

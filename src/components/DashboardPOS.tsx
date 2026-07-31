@@ -30,6 +30,7 @@ import {
   Coins,
   ShieldAlert,
   Check,
+  AlertCircle,
 
   History,
   UserCheck,
@@ -292,6 +293,8 @@ export default function DashboardPOS({
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'completed'>('idle');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [amountPaid, setAmountPaid] = useState<number>(0);
   const [referenceCode, setReferenceCode] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
@@ -926,6 +929,7 @@ export default function DashboardPOS({
     if (cart.length === 0) return;
 
     setPaymentStatus('idle');
+    setCheckoutError(null);
     setPaymentMethod('Cash');
     const availableDeliveryModes = systemSettings?.business?.deliveryPaymentModes && systemSettings.business.deliveryPaymentModes.length > 0 
       ? systemSettings.business.deliveryPaymentModes 
@@ -939,7 +943,17 @@ export default function DashboardPOS({
   };
 
   const submitPayment = async () => {
-    await finalizeSale();
+    if (isProcessingPayment) return;
+    setCheckoutError(null);
+    setIsProcessingPayment(true);
+    try {
+      await finalizeSale();
+    } catch (error: any) {
+      console.error('Checkout failed', error);
+      setCheckoutError(error?.message || 'Payment could not be completed. Please try again.');
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   const finalizeSale = async () => {
@@ -2163,13 +2177,20 @@ export default function DashboardPOS({
 
                 {/* Delivery Payment Mode removed (moved to basket) */}
 
+                {checkoutError && (
+                  <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-semibold">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{checkoutError}</span>
+                  </div>
+                )}
+
                 <button
                   type="button"
-                  disabled={paymentMethod === 'Multi-Channel' && multiAllocations.filter(row => Number(row.amount || 0) > 0).length === 0}
+                  disabled={isProcessingPayment || (paymentMethod === 'Multi-Channel' && multiAllocations.filter(row => Number(row.amount || 0) > 0).length === 0)}
                   onClick={submitPayment}
                   className="w-full py-4 font-bold rounded-2xl text-xs uppercase tracking-wider cursor-pointer active:scale-98 shadow-md bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/10 disabled:opacity-45 disabled:cursor-not-allowed disabled:active:scale-100"
                 >
-                  <span>Confirm Payment</span>
+                  <span>{isProcessingPayment ? 'Processing...' : 'Confirm Payment'}</span>
                 </button>
               </div>
             )}
