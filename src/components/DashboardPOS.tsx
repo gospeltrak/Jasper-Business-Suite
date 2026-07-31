@@ -299,6 +299,19 @@ export default function DashboardPOS({
   const [recipientWhatsApp, setRecipientWhatsApp] = useState('');
   const [receiptPdfStatus, setReceiptPdfStatus] = useState<string | null>(null);
 
+  // Checkout modal mobile/tablet-only layout gate (desktop stays pixel-identical)
+  const [isDesktopCheckoutLayout, setIsDesktopCheckoutLayout] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 1280px)').matches : true
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(min-width: 1280px)');
+    const handleChange = () => setIsDesktopCheckoutLayout(mql.matches);
+    handleChange();
+    mql.addEventListener('change', handleChange);
+    return () => mql.removeEventListener('change', handleChange);
+  }, []);
+
   const buildReceiptPdfData = (): ReceiptData | null => {
     if (!receiptResult) return null;
     const stores = systemSettings?.business?.registeredStores || [];
@@ -1883,22 +1896,25 @@ export default function DashboardPOS({
                 </div>
 
                 {/* Customer Assignment (New feature) */}
-                <div className="space-y-2 pb-2 border-b border-slate-100">
+                <div className={`space-y-2 pb-2 border-b border-slate-100 ${!isDesktopCheckoutLayout ? 'bg-gradient-to-br from-slate-50/80 to-white -mx-1 px-1 pt-1 rounded-xl' : ''}`}>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Customer Identity (Required for Credit Sales)</span>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div
+                    className="grid grid-cols-2 gap-2"
+                    style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.5rem' }}
+                  >
                     <input
                       type="text"
                       placeholder="Client Name"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2 rounded-xl text-slate-800 outline-none transition-all"
+                      className={`bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2 rounded-xl text-slate-800 outline-none transition-all min-w-0 ${!isDesktopCheckoutLayout ? 'focus:ring-2 focus:ring-emerald-100' : ''}`}
                     />
                     <input
                       type="text"
                       placeholder="Phone Number (Optional)"
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2 rounded-xl text-slate-800 outline-none transition-all font-mono"
+                      className={`bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2 rounded-xl text-slate-800 outline-none transition-all font-mono min-w-0 ${!isDesktopCheckoutLayout ? 'focus:ring-2 focus:ring-emerald-100' : ''}`}
                     />
                   </div>
                 </div>
@@ -1906,7 +1922,10 @@ export default function DashboardPOS({
                 {/* Manual payment recording selectors */}
                 <div className="space-y-3">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Choose Payment Method</label>
-                  <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-2">
+                  <div
+                    className={`grid gap-2 ${isDesktopCheckoutLayout ? 'grid-cols-2 min-[420px]:grid-cols-3' : 'grid-cols-3'}`}
+                    style={isDesktopCheckoutLayout ? undefined : { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}
+                  >
                     {(() => {
                       const baseModes = systemSettings?.business?.paymentModes && systemSettings.business.paymentModes.length > 0
                         ? systemSettings.business.paymentModes
@@ -1919,8 +1938,15 @@ export default function DashboardPOS({
                         const isMomo = mode.toLowerCase().includes('pesa') || mode.toLowerCase().includes('momo') || mode.toLowerCase().includes('mobile') || mode.toLowerCase().includes('mtn') || mode.toLowerCase().includes('paystack');
                         const isMulti = mode === 'Multi-Channel';
 
+                        const mobileSelectedClass = isMulti
+                          ? 'bg-gradient-to-br from-indigo-50 to-violet-50 border-indigo-300 text-indigo-700 shadow-sm'
+                          : 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-400 text-emerald-700 shadow-sm';
+                        const mobileUnselectedClass = 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300';
+                        const desktopSelectedClass = 'bg-emerald-50 border-emerald-450 text-emerald-755 shadow-sm';
+                        const desktopUnselectedClass = 'bg-slate-50 border-slate-250 text-slate-600 hover:border-slate-350';
+
                         return (
-                          <button
+                          <motion.button
                             key={mode}
                             type="button"
                             onClick={() => {
@@ -1937,16 +1963,26 @@ export default function DashboardPOS({
                                 setMultiAllocations([{ method: firstMethod, amount: Number(grandTotal.toFixed(2)), reference: '' }]);
                               }
                             }}
+                            whileTap={!isDesktopCheckoutLayout ? { scale: 0.94 } : undefined}
+                            animate={!isDesktopCheckoutLayout && isSelected ? { scale: [1, 1.05, 1] } : undefined}
+                            transition={{ duration: 0.26, ease: 'easeOut' }}
                             className={`relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border py-3 px-2 text-center transition-all cursor-pointer active:scale-95 ${
-                              isSelected
-                                ? 'bg-emerald-50 border-emerald-450 text-emerald-755 shadow-sm'
-                                : 'bg-slate-50 border-slate-250 text-slate-600 hover:border-slate-350'
+                              isDesktopCheckoutLayout
+                                ? (isSelected ? desktopSelectedClass : desktopUnselectedClass)
+                                : (isSelected ? mobileSelectedClass : mobileUnselectedClass)
                             }`}
                           >
                             {isSelected && (
-                              <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-white">
+                              <motion.span
+                                initial={!isDesktopCheckoutLayout ? { scale: 0, opacity: 0 } : false}
+                                animate={!isDesktopCheckoutLayout ? { scale: 1, opacity: 1 } : undefined}
+                                transition={{ duration: 0.2, ease: 'easeOut' }}
+                                className={`absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-white ${
+                                  !isDesktopCheckoutLayout && isMulti ? 'bg-indigo-600' : 'bg-emerald-600'
+                                }`}
+                              >
                                 <Check className="w-2.5 h-2.5" strokeWidth={3} />
-                              </span>
+                              </motion.span>
                             )}
                             {isCash ? (
                               <Receipt className={`w-5 h-5 ${isSelected ? 'text-emerald-600' : 'text-slate-405'}`} />
@@ -1958,7 +1994,7 @@ export default function DashboardPOS({
                               <CreditCard className={`w-5 h-5 ${isSelected ? 'text-emerald-600' : 'text-slate-405'}`} />
                             )}
                             <p className="font-bold text-[11px] leading-tight">{mode}</p>
-                          </button>
+                          </motion.button>
                         );
                       });
                     })()}
