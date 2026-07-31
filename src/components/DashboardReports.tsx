@@ -4223,22 +4223,49 @@ export default function DashboardReports({
               {reportTab === 'sales-report' && (
                 <div className="space-y-4">
                   {/* Summary Metrics Grid */}
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-2 gap-2.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.625rem' }}>
                     {[
-                      { label: 'Transactions', value: `${salesReportMetrics.totalOrders}`, sub: 'tickets issued', color: 'text-indigo-600', dot: 'bg-indigo-500' },
-                      { label: 'Revenue', value: `${currency}${Math.round(salesReportMetrics.totalRevenue).toLocaleString()}`, sub: 'gross income', color: 'text-emerald-600', dot: 'bg-emerald-500' },
-                      { label: 'Collected', value: `${currency}${Math.round(salesReportMetrics.paidRevenue).toLocaleString()}`, sub: 'paid channel', color: 'text-slate-700 dark:text-slate-100', dot: 'bg-teal-500' },
-                      { label: 'Credit Due', value: `${currency}${Math.round(salesReportMetrics.unpaidRevenue).toLocaleString()}`, sub: 'outstanding', color: 'text-rose-600', dot: 'bg-rose-500' },
-                    ].map((k, i) => (
-                      <div key={i} className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 shadow-sm text-left">
-                        <div className="flex items-center gap-1.5 mb-2">
-                          <span className={`w-1.5 h-1.5 rounded-full ${k.dot}`} />
-                          <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest">{k.label}</span>
+                      {
+                        label: 'Transactions', value: `${salesReportMetrics.totalOrders}`, sub: 'Tickets issued',
+                        icon: Receipt,
+                        card: 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/30 border-blue-100 dark:border-blue-900/40',
+                        iconWrap: 'bg-white/70 dark:bg-white/10 text-blue-600 dark:text-blue-400',
+                        valueColor: 'text-blue-700 dark:text-blue-300',
+                      },
+                      {
+                        label: 'Revenue', value: `${currency}${Math.round(salesReportMetrics.totalRevenue).toLocaleString()}`, sub: 'Total income',
+                        icon: DollarSign,
+                        card: 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border-emerald-100 dark:border-emerald-900/40',
+                        iconWrap: 'bg-white/70 dark:bg-white/10 text-emerald-600 dark:text-emerald-400',
+                        valueColor: 'text-emerald-700 dark:text-emerald-300',
+                      },
+                      {
+                        label: 'Collected', value: `${currency}${Math.round(salesReportMetrics.paidRevenue).toLocaleString()}`, sub: 'Paid sales',
+                        icon: CheckCircle,
+                        card: 'bg-gradient-to-br from-cyan-50 to-green-50 dark:from-cyan-950/40 dark:to-green-950/30 border-cyan-100 dark:border-cyan-900/40',
+                        iconWrap: 'bg-white/70 dark:bg-white/10 text-cyan-600 dark:text-cyan-400',
+                        valueColor: 'text-cyan-700 dark:text-cyan-300',
+                      },
+                      {
+                        label: 'Credit Due', value: `${currency}${Math.round(salesReportMetrics.unpaidRevenue).toLocaleString()}`, sub: 'Outstanding',
+                        icon: AlertCircle,
+                        card: 'bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950/40 dark:to-red-950/30 border-rose-100 dark:border-rose-900/40',
+                        iconWrap: 'bg-white/70 dark:bg-white/10 text-rose-600 dark:text-rose-400',
+                        valueColor: 'text-rose-700 dark:text-rose-300',
+                      },
+                    ].map((k, i) => {
+                      const Icon = k.icon;
+                      return (
+                        <div key={i} className={`${k.card} rounded-2xl p-4 border shadow-sm text-left min-w-0 active:scale-[0.97] transition-all duration-150`}>
+                          <div className={`w-8 h-8 rounded-xl ${k.iconWrap} flex items-center justify-center mb-2 shrink-0`}>
+                            <Icon className="w-4 h-4" strokeWidth={2.2} />
+                          </div>
+                          <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 truncate">{k.label}</p>
+                          <p className={`text-[17px] font-black leading-tight ${k.valueColor} font-mono truncate`}>{k.value}</p>
+                          <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">{k.sub}</p>
                         </div>
-                        <p className={`text-[17px] font-black leading-none ${k.color} font-mono`}>{k.value}</p>
-                        <p className="text-[9px] text-slate-400 mt-1">{k.sub}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Search Bar for Mobile */}
