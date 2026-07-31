@@ -1562,7 +1562,16 @@ export default function DashboardProducts({
     const LABEL_H_MM = 30;
     const totalHeightMm = chosenLabels.length * LABEL_H_MM;
 
-    const generateBarcodeHtmlString = (code: string) => {
+    // Barcode bar height is responsive to how much other content shares the
+    // label: more room is freed up in "only barcode" mode, so the bars grow
+    // to fill it for a cleaner look, but never exceed the 3cm (30mm) cap.
+    const BARCODE_HEIGHT_CAP_MM = 30;
+    const thermalBarHeightMm = Math.min(
+      printLayoutOption === 'only_barcode' ? 16 : printLayoutOption === 'name_barcode' ? 12 : 7.4,
+      BARCODE_HEIGHT_CAP_MM
+    );
+
+    const generateBarcodeHtmlString = (code: string, barHeightMm: number) => {
       const hash = code.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + 7;
       let barsHtml = '';
       for (let i = 0; i < 59; i++) {
@@ -1574,18 +1583,18 @@ export default function DashboardProducts({
           const w = (hash * (i + 17)) % 10;
           width = w < 4 ? '1.5px' : w < 7 ? '2.5px' : w < 9 ? '3.8px' : '5px';
         }
-        barsHtml += `<div style="height:28px;flex-shrink:0;background:${isBlack ? '#000' : 'transparent'};width:${width};"></div>`;
+        barsHtml += `<div style="height:${barHeightMm}mm;flex-shrink:0;background:${isBlack ? '#000' : 'transparent'};width:${width};"></div>`;
       }
       return `<div style="display:flex;justify-content:center;align-items:flex-end;width:100%;overflow:hidden;">${barsHtml}</div>`;
     };
 
     const labelsHtml = chosenLabels.map(item => `
-      <div style="width:50mm;height:${LABEL_H_MM}mm;box-sizing:border-box;padding:2mm 3mm;display:flex;flex-direction:column;justify-content:space-between;border-bottom:1px dashed #e2e8f0;background:#fff;page-break-inside:avoid;">
+      <div style="width:50mm;height:${LABEL_H_MM}mm;box-sizing:border-box;padding:2mm 3mm;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:0.5mm;border-bottom:1px dashed #e2e8f0;background:#fff;page-break-inside:avoid;">
         ${printLayoutOption !== 'only_barcode' ? `<p style="font-family:monospace;font-size:8px;font-weight:800;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0;">${escapeHtml(item.name)}</p>` : ''}
         ${printLayoutOption === 'name_price' ? `<p style="font-family:monospace;font-size:8px;font-weight:900;text-align:center;margin:0;">${currency}${item.sellingPrice.toLocaleString()}</p>` : ''}
         <div style="display:flex;flex-direction:column;align-items:center;">
-          ${generateBarcodeHtmlString(item.barcode || item.sku || item.id)}
-          <p style="font-family:monospace;font-size:7px;font-weight:700;text-align:center;margin:1px 0 0;letter-spacing:0.5px;">${escapeHtml(item.barcode || item.sku || '')}</p>
+          ${generateBarcodeHtmlString(item.barcode || item.sku || item.id, thermalBarHeightMm)}
+          <p style="font-family:monospace;font-size:7px;font-weight:700;text-align:center;margin:0.5px 0 0;letter-spacing:0.5px;">${escapeHtml(item.barcode || item.sku || '')}</p>
         </div>
       </div>`).join('');
 
@@ -1657,7 +1666,16 @@ export default function DashboardProducts({
       pages.push(chosenLabels.slice(i, i + PER_PAGE));
     }
 
-    const generateBarcodeHtmlString = (code: string) => {
+    // Barcode bar height is responsive to how much other content shares the
+    // sticker: more room is freed up in "only barcode" mode, so the bars
+    // grow to fill it for a cleaner look, but never exceed the 3cm (30mm) cap.
+    const BARCODE_HEIGHT_CAP_MM = 30;
+    const a4BarHeightMm = Math.min(
+      printLayoutOption === 'only_barcode' ? 24 : printLayoutOption === 'name_barcode' ? 16 : 9,
+      BARCODE_HEIGHT_CAP_MM
+    );
+
+    const generateBarcodeHtmlString = (code: string, barHeightMm: number) => {
       const hash = code.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + 7;
       let barsHtml = '';
       for (let i = 0; i < 59; i++) {
@@ -1669,7 +1687,7 @@ export default function DashboardProducts({
           const w = (hash * (i + 17)) % 10;
           width = w < 4 ? '1.5px' : w < 7 ? '2.5px' : w < 9 ? '3.8px' : '5px';
         }
-        barsHtml += `<div style="height:34px;flex-shrink:0;background:${isBlack ? '#000' : 'transparent'};width:${width};"></div>`;
+        barsHtml += `<div style="height:${barHeightMm}mm;flex-shrink:0;background:${isBlack ? '#000' : 'transparent'};width:${width};"></div>`;
       }
       return `<div style="display:flex;justify-content:center;align-items:flex-end;width:100%;overflow:hidden;">${barsHtml}</div>`;
     };
@@ -1689,7 +1707,7 @@ export default function DashboardProducts({
                 ${!onlyBarcode ? `<p class="prod-name">${escapeHtml(item.name)}</p>` : ''}
                 ${!onlyBarcode && withPrice ? `<div class="price-tag"><span class="price-badge">${currency}${item.sellingPrice.toLocaleString()}</span></div>` : ''}
                 <div class="barcode-wrap">
-                  ${generateBarcodeHtmlString(item.barcode || item.sku || item.id)}
+                  ${generateBarcodeHtmlString(item.barcode || item.sku || item.id, a4BarHeightMm)}
                   <p class="barcode-num">${escapeHtml(item.barcode || item.sku || '')}</p>
                 </div>
               </div>`);
@@ -1767,8 +1785,9 @@ export default function DashboardProducts({
       padding: 5px 6px 4px;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
+      gap: 0.6mm;
       background: #fff;
       overflow: hidden;
       height: 41mm;
@@ -1778,7 +1797,7 @@ export default function DashboardProducts({
     .price-tag { text-align: center; }
     .price-badge { background: #f1f5f9; color: #0f172a; font-weight: 900; font-size: 9px; padding: 1px 7px; border-radius: 3px; display: inline-block; }
     .barcode-wrap { display: flex; flex-direction: column; align-items: center; width: 100%; }
-    .barcode-num { font-family: monospace; font-size: 8px; font-weight: 700; color: #475569; margin-top: 2px; letter-spacing: 0.5px; }
+    .barcode-num { font-family: monospace; font-size: 8px; font-weight: 700; color: #475569; margin-top: 0.8px; letter-spacing: 0.5px; }
     .footer { position: absolute; bottom: 6mm; left: 10mm; right: 10mm; display: flex; justify-content: space-between; font-size: 7.5px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 3px; }
     @media print {
       body { background: transparent; }
