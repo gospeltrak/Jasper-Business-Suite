@@ -20,7 +20,7 @@ const JASPER_PUBLIC_LANDING_URL = 'https://jasper-business-suite.vercel.app/';
 const JASPER_PUBLIC_LANDING_HOST = new URL(JASPER_PUBLIC_LANDING_URL).hostname;
 
 type TenantDomainContext = {
-  kind: 'loading' | 'landing' | 'app' | 'tenant' | 'tenant-not-found' | 'tenant-inactive' | 'error';
+  kind: 'loading' | 'landing' | 'app' | 'auth' | 'admin' | 'affiliate' | 'partner' | 'tenant' | 'tenant-not-found' | 'tenant-inactive' | 'error';
   host?: string;
   baseDomain?: string;
   subdomain?: string;
@@ -121,7 +121,12 @@ export default function App() {
     let cancelled = false;
     const resolveCurrentHost = async () => {
       try {
-        const response = await fetch(`/api/tenant/resolve?host=${encodeURIComponent(window.location.host)}`, { cache: 'no-store' });
+        // ?portal= is a developer-only override (see api/tenant/resolve.ts) for
+        // simulating auth/admin/affiliate/partner subdomains on localhost or a
+        // Vercel preview URL, where real wildcard subdomains aren't reachable.
+        const portalOverride = new URLSearchParams(window.location.search).get('portal') || '';
+        const resolveUrl = `/api/tenant/resolve?host=${encodeURIComponent(window.location.host)}${portalOverride ? `&portal=${encodeURIComponent(portalOverride)}` : ''}`;
+        const response = await fetch(resolveUrl, { cache: 'no-store' });
         const payload = await response.json();
         if (cancelled) return;
         setTenantDomainContext({
@@ -295,6 +300,18 @@ export default function App() {
         return;
       }
     }
+    if (tenantDomainContext.kind === 'admin' && user) {
+      const isPlatformAdmin = user.role === 'SuperAdmin' || user.isSaaSStaff;
+      if (!isPlatformAdmin) {
+        recordStaffLogout(user);
+        setUser(null);
+        sessionStorage.removeItem('jasper_cashier_user');
+        setRedirectMessage('This login is for Orvix platform administrators only. Please use your business login instead.');
+        window.history.replaceState({}, '', '/login');
+        setCurrentPath('/login');
+        return;
+      }
+    }
     if (isDashboardRoute(currentPath) && !user) {
       setRedirectMessage('Please log in to continue.');
       window.history.replaceState({}, '', '/login');
@@ -382,6 +399,10 @@ export default function App() {
     const isPlatformAdmin = authenticatedUser.role === 'SuperAdmin' || authenticatedUser.isSaaSStaff;
     if (domainTenantId && !isPlatformAdmin && userTenantId !== domainTenantId) {
       setRedirectMessage(`This account does not belong to ${tenantDomainContext.tenant?.name || 'this business'}. Please use the correct business login.`);
+      return;
+    }
+    if (tenantDomainContext.kind === 'admin' && !isPlatformAdmin) {
+      setRedirectMessage('This login is for Orvix platform administrators only. Please use your business login instead.');
       return;
     }
     const storageTenantId = authenticatedUser.activeTenant || authenticatedUser.tenantId;
@@ -559,7 +580,27 @@ export default function App() {
             />
           );
         }
-        if (tenantDomainContext.kind === 'app') {
+        if (tenantDomainContext.kind === 'admin') {
+          return (
+            <LoginPage
+              onLogin={handleLoginSuccess}
+              onNavigate={navigateTo}
+              redirectMessage={redirectMessage}
+              isDark={isDark}
+              onToggleTheme={toggleTheme}
+              isSaasAdminPortal={true}
+              domainMode="app"
+              landingUrl={publicLandingUrl}
+            />
+          );
+        }
+        if (tenantDomainContext.kind === 'affiliate') {
+          return <AffiliatePortal onNavigate={navigateTo} forcedRole="affiliate" />;
+        }
+        if (tenantDomainContext.kind === 'partner') {
+          return <AffiliatePortal onNavigate={navigateTo} forcedRole="partner" />;
+        }
+        if (tenantDomainContext.kind === 'app' || tenantDomainContext.kind === 'auth') {
           return (
             <LoginPage
               onLogin={handleLoginSuccess}
