@@ -52,7 +52,7 @@ import { savePendingSaleOffline } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
 import { flushPendingTenantWorkspace, loadTenantWorkspace, markTenantProductsUpdated, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
-import { findPaymentChannel } from '../utils/paymentAccounts';
+import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
 import { markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
 import {
   attachPayloadSaleTombstones,
@@ -2036,7 +2036,19 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       ? 0
       : Math.min(saleIncome, Math.max(0, Number(sale.amountPaid ?? saleIncome)));
     if (collectedAmount > 0) {
-      const channels = systemSettings.paymentChannels || [];
+      // Reconcile against currently configured payment modes rather than reading
+      // systemSettings.paymentChannels raw: that array is only seeded/persisted the
+      // first time a tenant opens Money & Bank, so a tenant who never opened that
+      // screen (or who just added a new payment mode) would have no matching
+      // account here and every checkout would be blocked, regardless of the
+      // payment mode chosen. reconcilePaymentChannels auto-derives a channel for
+      // every active payment mode, matching the pattern already used in
+      // DashboardCashBank.tsx.
+      const channels = reconcilePaymentChannels(
+        getTreasuryPaymentMethods(systemSettings.business),
+        systemSettings.paymentChannels || [],
+        { currency: activeTenant.currencyCode },
+      );
       const rawBreakdown = sale.paymentBreakdown?.length
         ? sale.paymentBreakdown
         : [{ method: sale.paymentMethod || 'Cash', amount: collectedAmount }];
