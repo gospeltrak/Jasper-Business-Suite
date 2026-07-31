@@ -53,7 +53,7 @@ export default class DashboardScreenErrorBoundary extends React.Component<
           <h2 className="text-xl font-black text-slate-900 dark:text-white">This screen could not open</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
             {hasStaleChunk
-              ? 'A newer Jasper version is available. Reload the app to open this screen; your login and business data are safe.'
+              ? 'A newer Orvix version is available. Reload the app to open this screen; your login and business data are safe.'
               : 'Your login and business data are still safe. Retry the screen or return to the dashboard.'}
           </p>
           {developmentError && (

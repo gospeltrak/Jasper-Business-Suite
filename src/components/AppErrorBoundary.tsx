@@ -35,7 +35,7 @@ export default class AppErrorBoundary extends React.Component<AppErrorBoundaryPr
     return (
       <main className="min-h-[100dvh] bg-slate-50 px-6 py-12 text-slate-900 flex items-center justify-center">
         <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 text-center shadow-xl shadow-slate-200/60">
-          <img src="/jb-logo.png" alt="Jasper" className="mx-auto h-14 w-14 object-contain" />
+          <img src="/jb-logo.png" alt="Orvix" className="mx-auto h-14 w-14 object-contain" />
           <h1 className="mt-5 text-2xl font-black">Dashboard needs to reload</h1>
           <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
             Your login is safe, but this dashboard screen could not finish loading. Reload the latest app version and try again.

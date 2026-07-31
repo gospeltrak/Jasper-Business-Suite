@@ -198,7 +198,7 @@ export function initPlatformSync(): void {
 
 // ─── Default hardware inventory ───────────────────────────────────────────
 export const defaultHardwareInventory = [
-  { id: 'item-1', name: 'Jasper POS Thermal Printer', category: 'Printer',  stock: 0, price: 150000 },
+  { id: 'item-1', name: 'Orvix POS Thermal Printer', category: 'Printer',  stock: 0, price: 150000 },
   { id: 'item-2', name: 'Barcode Scanner',            category: 'Scanner',  stock: 0, price: 80000  },
   { id: 'item-3', name: 'Tablet + Standing Set',      category: 'Tablet',   stock: 0, price: 250000 },
   { id: 'item-4', name: 'Complete System Set',        category: 'Bundle',   stock: 0, price: 450000 },

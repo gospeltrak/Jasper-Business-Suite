@@ -93,7 +93,7 @@ export default function App() {
   const { isDark, toggleTheme } = useTheme();
   const { fetchLogoUrl, logoUrl } = useTenantLogo();
 
-  // The new Jasper reveal is the only loader shown across public entry,
+  // The new Orvix reveal is the only loader shown across public entry,
   // public auth navigation, and the first authenticated workspace entry.
   const [splashRequest, setSplashRequest] = useState<SplashRequest | null>({
     mode: 'generic',
@@ -157,7 +157,7 @@ export default function App() {
     setCurrentPath(normalizePath(path));
   };
 
-  // Public landing → login/signup always gets the complete Jasper reveal.
+  // Public landing → login/signup always gets the complete Orvix reveal.
   const navigateTo = (path: string) => {
     const nextPath = normalizePath(path);
     const isPublicLanding = currentPath === '/' || currentPath === '/home';
@@ -466,7 +466,7 @@ export default function App() {
       return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
           <div className="max-w-md rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:bg-slate-900 dark:border-slate-800">
-            <img src="/jb-logo.png" alt="Jasper Logo" className="mx-auto h-14 w-14 object-contain" />
+            <img src="/jb-logo.png" alt="Orvix Logo" className="mx-auto h-14 w-14 object-contain" />
             <h1 className="mt-4 text-2xl font-black text-slate-900 dark:text-white">
               {tenantDomainContext.kind === 'tenant-inactive' ? 'Business Domain Inactive' : 'Tenant Not Found'}
             </h1>

@@ -254,7 +254,7 @@ export default function SaaSReportsView() {
       <div className="flex justify-between items-start sm:items-center bg-slate-900/95 border border-slate-800 p-4 sm:p-5 rounded-3xl flex-col sm:flex-row gap-4 shadow-[0_16px_40px_rgba(2,6,23,0.22)] print:hidden">
         <div>
           <h2 className="text-base font-bold text-white uppercase tracking-wider font-mono">
-            Jasper Business Reports
+            Orvix Business Reports
           </h2>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-2xl">
             Audit platform P&L ratios, subscription revenue margins, hardware

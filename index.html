@@ -91,7 +91,7 @@
     <!-- Google Identity Services client for real Google login -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     
-    <title>Jasper</title>
+    <title>Orvix</title>
     <style>
       /* ── NATIVE APP STABILITY — no hover transforms, no bounce, no shake ── */
 
@@ -234,7 +234,7 @@
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
             .then((registration) => {
-              console.log('Jasper PWA Service Worker registered securely with scope:', registration.scope);
+              console.log('Orvix PWA Service Worker registered securely with scope:', registration.scope);
               registration.update().catch((error) => {
                 console.warn('Service Worker update check failed:', error);
               });

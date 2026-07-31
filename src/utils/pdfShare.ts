@@ -241,7 +241,7 @@ export function createReceiptPdfFromData(data: ReceiptData): File {
     terms.slice(0, 4).forEach((term, index) => text(`${index + 1}. ${term}`, margin, termsY + 19 + index * 17, { size: 8, color: muted }));
   }
   pdf.setDrawColor('#f1f5f9'); pdf.line(margin, H - 66, W - margin, H - 66);
-  text(data.footer || 'Powered by Jasper', W / 2, H - 48, { align: 'center', size: 6, color: '#cbd5e1' });
+  text(data.footer || 'Powered by Orvix', W / 2, H - 48, { align: 'center', size: 6, color: '#cbd5e1' });
 
   const cleanName = sanitizeFileName(`a4-receipt-${data.receiptId}.pdf`);
   return new File([pdf.output('blob')], cleanName, { type: 'application/pdf' });
@@ -370,7 +370,7 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
   y += 14;
   center('Thank you for shopping with us.', y, { size: 7, bold: true });
   y += 12;
-  center(data.footer || 'Powered by Jasper', y, { size: 6, color: muted });
+  center(data.footer || 'Powered by Orvix', y, { size: 6, color: muted });
   y += 10;
 
   return y;

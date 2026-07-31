@@ -42,7 +42,7 @@ const DEFAULT_TRANSLATIONS: Record<string, string> = {
   headlinePost: "Start Growing.",
   tagline: "Your business deserves a partner that works as hard as you do.",
   aboutTitle: "Online Sales Support For All Businesses",
-  aboutDesc: "We created Jasper so every sale, stock update, and setting change is confirmed in your online business database before it counts.",
+  aboutDesc: "We created Orvix so every sale, stock update, and setting change is confirmed in your online business database before it counts.",
   aboutSupport: "Real support offices around East Africa",
   aboutCurrency: "Automatic local tax settings",
   aboutEndpoints: "Over 2,400 active stores registered",
@@ -67,7 +67,7 @@ const DEFAULT_TRANSLATIONS: Record<string, string> = {
   socialInstagram: "https://instagram.com",
   socialTiktok: "https://tiktok.com",
   socialFacebook: "https://facebook.com",
-  footerCopyright: "© 2026 Jasper Network. All rights reserved."
+  footerCopyright: "© 2026 Orvix Network. All rights reserved."
 };
 
 type FeaturedLogo = {
@@ -651,7 +651,7 @@ export default function SaaSWebEditor() {
                     value={customValues.aboutDesc || ''}
                     onChange={(e) => handleInputChange('aboutDesc', e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500 font-sans resize-none"
-                    placeholder="We created Jasper because..."
+                    placeholder="We created Orvix because..."
                   />
                 </div>
 
@@ -743,7 +743,7 @@ export default function SaaSWebEditor() {
                     value={customValues.footerCopyright || ''}
                     onChange={(e) => handleInputChange('footerCopyright', e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500"
-                    placeholder="e.g. © 2026 Jasper Network. All rights reserved."
+                    placeholder="e.g. © 2026 Orvix Network. All rights reserved."
                   />
                 </div>
 

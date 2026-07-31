@@ -42,7 +42,7 @@ export function generateWhatsAppMessage(sale: Sale, tenant: Tenant): string {
 
   const vatBlock = `*VAT (${Math.round(tenant.taxRate * 100)}%):* ${currency}${Math.round(sale.tax).toLocaleString()}`;
 
-  const messageText = `🧾 *Jasper POS - Transactions Receipt*
+  const messageText = `🧾 *Orvix POS - Transactions Receipt*
 
 *Store:* ${tenant.name}
 *Receipt Ref:* ${sale.reference || `REC-${sale.id.toUpperCase().slice(0, 8)}`}
@@ -59,7 +59,7 @@ ${discountBlock}${deliveryBlock}${vatBlock}
 *GRAND TOTAL PAID:* *${currency}${Math.round(sale.total).toLocaleString()}*
 ------------------------------------------
 Thank you.
-Jasper receipt.`;
+Orvix receipt.`;
 
   return messageText;
 }

@@ -955,10 +955,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             safeSetTenantMapItem('jasper_products_map', 'products_map', currentMap);
           } catch { /* quota */ }
           saveData(tid, 'products_map', { [tid]: syncedProducts });
-          console.log(`[Jasper] Migrated ${migrated} product images to Storage.`);
+          console.log(`[Orvix] Migrated ${migrated} product images to Storage.`);
         }
       } catch (err) {
-        console.warn('[Jasper] Image migration failed:', err);
+        console.warn('[Orvix] Image migration failed:', err);
       }
     }, 8000);
 
@@ -2581,7 +2581,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   // Calculate size of offline sync queue
   const offlinePendingCount = activeSales.filter(s => s.syncStatus === 'pending').length;
 
-  // Dynamic branding selectors to personalize the user's Jasper
+  // Dynamic branding selectors to personalize the user's Orvix
   const currentThemeMode = systemSettings.company?.themeMode || 'light';
   const customBrandingLogo = currentThemeMode === 'dark'
     ? (systemSettings.business?.businessLogoDark || systemSettings.business?.businessLogoLight || systemSettings.business?.businessLogo)
@@ -4284,7 +4284,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                         </div>
                         <div>
                           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Jina — mfano</p>
-                          <p className="mt-1 text-base font-black text-slate-950">Jasper Business Suite</p>
+                          <p className="mt-1 text-base font-black text-slate-950">Orvix Business Suite</p>
                         </div>
                       </div>
                       <p className="mt-4 text-xs font-medium leading-5 text-amber-800">Hizi ni taarifa za mfano. Thibitisha Lipa Namba halisi kwa deployments kabla ya kutuma malipo.</p>
@@ -4332,7 +4332,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       href="https://wa.me/255655746552?text=Hello%20Jasper%20Deployments%2C%20I%20need%20help%20with%20offline%20subscription%20payment."
                       target="_blank"
                       rel="noopener noreferrer"
-                      aria-label="Contact Jasper deployments on WhatsApp"
+                      aria-label="Contact Orvix deployments on WhatsApp"
                       className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-2xl text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50"
                     >
                       <MessageSquare className="h-4 w-4" />

@@ -44,7 +44,7 @@ export default function JasperSplashScreen({
     <div
       role="status"
       aria-live="polite"
-      aria-label={logoSrc ? 'Loading your business workspace' : 'Loading Jasper'}
+      aria-label={logoSrc ? 'Loading your business workspace' : 'Loading Orvix'}
       className={`fixed inset-0 z-[9999] flex min-h-[100dvh] items-center justify-center bg-white px-6 transition-all duration-500 ${
         leaving ? 'pointer-events-none scale-[1.015] opacity-0' : 'opacity-100'
       }`}
@@ -85,7 +85,7 @@ export default function JasperSplashScreen({
               fontFamily: '"Avenir Next", "Century Gothic", "Trebuchet MS", sans-serif',
             }}
           >
-            Jasper
+            Orvix
           </div>
         )}
 

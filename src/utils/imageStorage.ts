@@ -1,7 +1,7 @@
 /**
  * imageStorage.ts
  *
- * Handles all image uploads for Jasper Business Suite.
+ * Handles all image uploads for Orvix Business Suite.
  *
  * Strategy:
  *   1. Compress the image in the browser (canvas → 400×400px, JPEG 75%)

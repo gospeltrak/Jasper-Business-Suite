@@ -3720,7 +3720,7 @@ export default function DashboardReports({
 
           // Function to export to CSV
           const handleExportDualChannelCSV = () => {
-            let csv = "Jasper - Dual-Channel Profit Audit Report\r\n";
+            let csv = "Orvix - Dual-Channel Profit Audit Report\r\n";
             csv += `Generational Range: ${startDateStr} to ${endDateStr}\r\n\r\n`;
             
             csv += "CHANNEL LEVEL PERFORMANCE SUMMARY\r\n";
@@ -5847,7 +5847,7 @@ export default function DashboardReports({
                 {/* Footer Notes */}
                 <div className="text-center text-[9px] text-slate-400 border-t border-dashed border-slate-200 pt-3 leading-relaxed">
                   <p>Thank you for shopping with</p>
-                  <p className="font-mono font-bold">Powered by Jasper</p>
+                  <p className="font-mono font-bold">Powered by Orvix</p>
                 </div>
 
               </div>
@@ -5858,7 +5858,7 @@ export default function DashboardReports({
               <button
                 type="button"
                 onClick={() => {
-                  alert("Opening Jasper Thermal Printer: Simulating direct 50mm POS thermal receipt print.");
+                  alert("Opening Orvix Thermal Printer: Simulating direct 50mm POS thermal receipt print.");
                 }}
                 className="py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase hover:bg-slate-800 transition-all text-center cursor-pointer active:scale-95 shadow-sm"
               >

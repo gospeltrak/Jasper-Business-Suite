@@ -186,7 +186,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       id: Math.random().toString(36).substr(2, 9),
       tenantId,
       moduleName: normalizeModuleName(moduleName),
-      title: 'Test Jasper Report',
+      title: 'Test Orvix Report',
       message: providerConfigured ? message : message + '\n\nWhatsApp provider is not configured yet. Test message saved as in-app notification.',
       notificationType: 'system_alert',
       deliveryChannel: providerConfigured && moduleConfig.enableWhatsapp ? 'whatsapp' : 'in_app',

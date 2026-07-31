@@ -92,7 +92,7 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
             </div>
             <h1 className="text-3xl font-black tracking-tight font-sans">Embedded Portal Studio</h1>
             <p className="text-slate-400 text-sm leading-relaxed font-light">
-              Transform Jasper into a premium, white-labeled inventory and Point of Sale module integrated seamlessly into your client&apos;s existing site. Sell website design services with a fully branded ERP engine running silently in the background!
+              Transform Orvix into a premium, white-labeled inventory and Point of Sale module integrated seamlessly into your client&apos;s existing site. Sell website design services with a fully branded ERP engine running silently in the background!
             </p>
           </div>
 
@@ -242,7 +242,7 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-xs font-bold text-slate-800 block">Strict White-Labeling</span>
-                    <span className="text-[10px] text-slate-400 font-light block">Hide any references to &quot;Jasper&quot;</span>
+                    <span className="text-[10px] text-slate-400 font-light block">Hide any references to &quot;Orvix&quot;</span>
                   </div>
                   <input
                     type="checkbox"
@@ -379,7 +379,7 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
                     {hideJasperBranding ? (
                       <span className="px-2 py-0.5 bg-slate-150 rounded-md text-[8.5px] tracking-wide font-black uppercase text-slate-500">Secure White-Label Connection</span>
                     ) : (
-                      <span>Engine: <span className="text-slate-600 font-bold">Jasper Enterprise</span></span>
+                      <span>Engine: <span className="text-slate-600 font-bold">Orvix Enterprise</span></span>
                     )}
                   </div>
                 </div>
@@ -432,7 +432,7 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
                         </h5>
                         
                         <p className="text-[11px] text-slate-450 leading-relaxed font-light">
-                          This represents the white-labeled register till loaded specifically for your client counters. Products, pricing catalogs, promos and cash receipts registered here bypass any Jasper branding, displaying only client colors (<span className="font-mono font-bold" style={{ color: primaryColor }}>{primaryColor}</span>) flawlessly.
+                          This represents the white-labeled register till loaded specifically for your client counters. Products, pricing catalogs, promos and cash receipts registered here bypass any Orvix branding, displaying only client colors (<span className="font-mono font-bold" style={{ color: primaryColor }}>{primaryColor}</span>) flawlessly.
                         </p>
                       </div>
 
@@ -531,7 +531,7 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
                       <div className="p-3 bg-emerald-50/40 border border-emerald-100/80 rounded-2xl text-left flex items-start space-x-2">
                         <Info className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
                         <p className="text-[10px] leading-relaxed text-slate-600">
-                          <strong>Automatic Locks Enforcement:</strong> Under this White-Label structure, if the end-customer fails to renew their custom designer subscription, you can disable their custom embedded portal instantly via your primary Jasper panel.
+                          <strong>Automatic Locks Enforcement:</strong> Under this White-Label structure, if the end-customer fails to renew their custom designer subscription, you can disable their custom embedded portal instantly via your primary Orvix panel.
                         </p>
                       </div>
                     </div>

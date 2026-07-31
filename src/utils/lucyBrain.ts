@@ -157,13 +157,13 @@ const buildHelpAnswer = (ctx: LucyContext, language: LucyLanguage, lower: string
   if (lower.includes('whatsapp') || lower.includes('send') || lower.includes('tuma')) {
     return language === 'sw'
       ? 'Kwa kutuma document kwa WhatsApp, mfumo unatakiwa kutengeneza PDF rasmi kwanza, kisha kuituma kwa namba ya mteja pamoja na ujumbe mfupi wa heshima. Kama WhatsApp Business API haijaunganishwa, Lucy atakuandalia ujumbe na kufungua WhatsApp ili utume.'
-      : 'For WhatsApp documents, Jasper should generate the official PDF first, then send it to the customer number with a short respectful message. If WhatsApp Business API is not connected yet, Lucy can prepare the message and open WhatsApp for sending.';
+      : 'For WhatsApp documents, Orvix should generate the official PDF first, then send it to the customer number with a short respectful message. If WhatsApp Business API is not connected yet, Lucy can prepare the message and open WhatsApp for sending.';
   }
 
   if (lower.includes('offline') || lower.includes('internet') || lower.includes('mtandao')) {
     return language === 'sw'
-      ? 'Jasper sasa inahitaji intaneti ili kusave mabadiliko ya biashara. Hii inalinda mauzo, stoki, settings na taarifa za tenant zisisave kwenye kifaa tu kisha zipotee au ku-overwrite cloud. Internet ikikatika, unganisha kwanza kabla ya kuendelea na mabadiliko.'
-      : 'Jasper now requires internet to save business changes. This protects sales, stock, settings, and tenant records from being saved only on one device and later lost or overwriting cloud data. If internet drops, reconnect before continuing with edits.';
+      ? 'Orvix sasa inahitaji intaneti ili kusave mabadiliko ya biashara. Hii inalinda mauzo, stoki, settings na taarifa za tenant zisisave kwenye kifaa tu kisha zipotee au ku-overwrite cloud. Internet ikikatika, unganisha kwanza kabla ya kuendelea na mabadiliko.'
+      : 'Orvix now requires internet to save business changes. This protects sales, stock, settings, and tenant records from being saved only on one device and later lost or overwriting cloud data. If internet drops, reconnect before continuing with edits.';
   }
 
   if (lower.includes('password') || lower.includes('login') || lower.includes('otp') || lower.includes('ingia')) {
@@ -190,44 +190,44 @@ const buildLandingAnswer = (message: string, language: LucyLanguage, lower: stri
 
   if (includesAny(lower, ['price', 'cost', 'package', 'packages', 'subscription', 'pricing', 'free trial', 'trial', 'bei', 'gharama', 'kifurushi', 'vifurushi', 'malipo', 'jaribio'])) {
     return language === 'sw'
-      ? 'Ndiyo, nikupe picha rahisi. Jasper huanza na free trial ili uone mfumo kwanza. Ruby ni kwa matumizi ya msingi, Diamond inaanza Lucy AI na ripoti nzuri zaidi, na Tanzanite ni kwa biashara inayotaka uwezo mkubwa zaidi kama forecasting. Kama unatumia promo code, trial inaweza kuwa ndefu zaidi kulingana na offer iliyopo. Una duka moja au matawi mengi? Nikijua hilo nitakushauri kifurushi kinachofaa.'
-      : 'Yes, here is the simple picture. Jasper starts with a free trial so you can feel the system first. Ruby is for essential operations, Diamond unlocks Lucy AI and stronger reports, and Tanzanite is for businesses that want higher power such as forecasting. If you use a promo code, the trial may be longer depending on the active offer. Do you run one shop or multiple branches? That helps me recommend the right package.';
+      ? 'Ndiyo, nikupe picha rahisi. Orvix huanza na free trial ili uone mfumo kwanza. Ruby ni kwa matumizi ya msingi, Diamond inaanza Lucy AI na ripoti nzuri zaidi, na Tanzanite ni kwa biashara inayotaka uwezo mkubwa zaidi kama forecasting. Kama unatumia promo code, trial inaweza kuwa ndefu zaidi kulingana na offer iliyopo. Una duka moja au matawi mengi? Nikijua hilo nitakushauri kifurushi kinachofaa.'
+      : 'Yes, here is the simple picture. Orvix starts with a free trial so you can feel the system first. Ruby is for essential operations, Diamond unlocks Lucy AI and stronger reports, and Tanzanite is for businesses that want higher power such as forecasting. If you use a promo code, the trial may be longer depending on the active offer. Do you run one shop or multiple branches? That helps me recommend the right package.';
   }
 
   if (includesAny(lower, ['pharmacy', 'medicine', 'drug', 'rx', 'dawa', 'duka la dawa'])) {
     return language === 'sw'
-      ? 'Pharmacy inaingia vizuri kwenye Jasper. Unaweza kupanga dawa kwa categories na units, kuuza kupitia POS, kufuatilia stoki, manunuzi, expenses, faida, na reports. Hatua nzuri ya kwanza ni kuweka units zako kama box, strip, tablet au bottle, kisha kupanga categories za dawa. Unataka nikueleze pharmacy setup hatua kwa hatua?'
-      : 'Pharmacy fits Jasper very well. You can organize medicine categories and units, sell through POS, track stock, purchases, expenses, profit, and reports. A good first step is setting units like box, strip, tablet, or bottle, then adding medicine categories. Would you like a step-by-step pharmacy setup flow?';
+      ? 'Pharmacy inaingia vizuri kwenye Orvix. Unaweza kupanga dawa kwa categories na units, kuuza kupitia POS, kufuatilia stoki, manunuzi, expenses, faida, na reports. Hatua nzuri ya kwanza ni kuweka units zako kama box, strip, tablet au bottle, kisha kupanga categories za dawa. Unataka nikueleze pharmacy setup hatua kwa hatua?'
+      : 'Pharmacy fits Orvix very well. You can organize medicine categories and units, sell through POS, track stock, purchases, expenses, profit, and reports. A good first step is setting units like box, strip, tablet, or bottle, then adding medicine categories. Would you like a step-by-step pharmacy setup flow?';
   }
 
   if (includesAny(lower, ['hotel', 'room', 'pms', 'booking', 'hoteli', 'chumba', 'vyumba'])) {
     return language === 'sw'
-      ? 'Kwa hotel, Jasper inaweza kusaidia kuona biashara kwa upande wa mauzo, gharama, stoki, reports, na usimamizi wa huduma. PMS/hotel tools zinalenga kurahisisha vyumba, bookings na mapato, huku owner akiona picha ya biashara kwa urahisi. Ni hotel ndogo ya vyumba vichache au una departments nyingi?'
-      : 'For hotels, Jasper helps with sales, expenses, stock, reports, and service management. The PMS/hotel tools are meant to simplify rooms, bookings, and revenue while the owner sees the business clearly. Is it a small hotel with a few rooms, or do you run multiple departments?';
+      ? 'Kwa hotel, Orvix inaweza kusaidia kuona biashara kwa upande wa mauzo, gharama, stoki, reports, na usimamizi wa huduma. PMS/hotel tools zinalenga kurahisisha vyumba, bookings na mapato, huku owner akiona picha ya biashara kwa urahisi. Ni hotel ndogo ya vyumba vichache au una departments nyingi?'
+      : 'For hotels, Orvix helps with sales, expenses, stock, reports, and service management. The PMS/hotel tools are meant to simplify rooms, bookings, and revenue while the owner sees the business clearly. Is it a small hotel with a few rooms, or do you run multiple departments?';
   }
 
   if (includesAny(lower, ['restaurant', 'food', 'table', 'kds', 'mgahawa', 'chakula', 'meza'])) {
     return language === 'sw'
-      ? 'Kwa restaurant, Jasper inalenga kufanya order, mauzo, stoki ya ingredients, expenses na reports ziwe rahisi kufuatilia. Unaweza kuanza na menu items, bei, staff wanaouza, kisha reports za mauzo ya siku. Unataka mfumo ukuongoze zaidi kwenye quick sale au restaurant setup?'
-      : 'For restaurants, Jasper helps you keep orders, sales, ingredient stock, expenses, and reports under control. You can start with menu items, prices, staff sales, then daily sales reports. Do you want a quick-sale setup or a fuller restaurant workflow?';
+      ? 'Kwa restaurant, Orvix inalenga kufanya order, mauzo, stoki ya ingredients, expenses na reports ziwe rahisi kufuatilia. Unaweza kuanza na menu items, bei, staff wanaouza, kisha reports za mauzo ya siku. Unataka mfumo ukuongoze zaidi kwenye quick sale au restaurant setup?'
+      : 'For restaurants, Orvix helps you keep orders, sales, ingredient stock, expenses, and reports under control. You can start with menu items, prices, staff sales, then daily sales reports. Do you want a quick-sale setup or a fuller restaurant workflow?';
   }
 
   if (includesAny(lower, ['offline', 'internet', 'network', 'sync', 'mtandao', 'bila internet'])) {
     return language === 'sw'
-      ? 'Kwa sasa Jasper inasave business data online-only. Ukiwa bila internet, unganisha kwanza kabla ya kufanya mauzo, kubadili bidhaa, stoki au settings. Hii inapunguza risk ya data kupotea au kifaa cha zamani kuandika juu ya cloud.'
-      : 'Jasper now saves business data online-only. If you are offline, reconnect before recording sales or changing products, stock, or settings. This reduces the risk of data loss or an old device overwriting cloud data.';
+      ? 'Kwa sasa Orvix inasave business data online-only. Ukiwa bila internet, unganisha kwanza kabla ya kufanya mauzo, kubadili bidhaa, stoki au settings. Hii inapunguza risk ya data kupotea au kifaa cha zamani kuandika juu ya cloud.'
+      : 'Orvix now saves business data online-only. If you are offline, reconnect before recording sales or changing products, stock, or settings. This reduces the risk of data loss or an old device overwriting cloud data.';
   }
 
   if (includesAny(lower, ['pos', 'sell', 'sales', 'cashier', 'receipt', 'uza', 'mauzo', 'risiti'])) {
     return language === 'sw'
       ? 'POS ndiyo sehemu ya kuuza haraka. Unaweka bidhaa, bei na stoki, halafu cashier anauza na mfumo unaandaa risiti, kupunguza stoki na kusaidia owner kuona mauzo. Ukianza leo, hatua tatu ni: sajili bidhaa, weka bei, fanya sale ya majaribio. Unauza bidhaa za rejareja, jumla, au huduma?'
-      : 'POS is the fast selling area. You add products, prices, and stock, then the cashier sells while Jasper prepares receipts, reduces stock, and helps the owner see sales. If you start today, the first three steps are: add products, set prices, make a test sale. Do you sell retail, wholesale, or services?';
+      : 'POS is the fast selling area. You add products, prices, and stock, then the cashier sells while Orvix prepares receipts, reduces stock, and helps the owner see sales. If you start today, the first three steps are: add products, set prices, make a test sale. Do you sell retail, wholesale, or services?';
   }
 
   if (includesAny(lower, ['stock', 'inventory', 'product', 'products', 'stoki', 'bidhaa', 'ghala'])) {
     return language === 'sw'
-      ? 'Stoki ni moyo wa biashara. Jasper hukusaidia kujua kilichopo, kinachouza, kilichokaribia kuisha, na faida inayotoka kwenye bidhaa. Ukiweka categories na units vizuri mwanzo, reports zako zinakuwa safi zaidi. Unataka nikupe mfano wa kupanga categories na units?'
-      : 'Stock is the heartbeat of the business. Jasper helps you know what you have, what is moving, what is nearly finished, and which products create profit. If categories and units are clean from the start, reports become much clearer. Would you like an example category and unit structure?';
+      ? 'Stoki ni moyo wa biashara. Orvix hukusaidia kujua kilichopo, kinachouza, kilichokaribia kuisha, na faida inayotoka kwenye bidhaa. Ukiweka categories na units vizuri mwanzo, reports zako zinakuwa safi zaidi. Unataka nikupe mfano wa kupanga categories na units?'
+      : 'Stock is the heartbeat of the business. Orvix helps you know what you have, what is moving, what is nearly finished, and which products create profit. If categories and units are clean from the start, reports become much clearer. Would you like an example category and unit structure?';
   }
 
   if (includesAny(lower, ['report', 'reports', 'profit', 'forecast', 'forecasting', 'ripoti', 'faida', 'utabiri'])) {
@@ -237,8 +237,8 @@ const buildLandingAnswer = (message: string, language: LucyLanguage, lower: stri
   }
 
   return language === 'sw'
-    ? `Nimekupata. Jasper ni mfumo wa kuendesha biashara kwa POS, stoki, manunuzi, expenses, reports, staff na Lucy AI. Ili nikujibu vizuri zaidi, niambie biashara yako ni ipi na changamoto yako kubwa ni nini leo: mauzo, stoki, ripoti, staff, au kufungua account?`
-    : `I hear you. Jasper helps run a business through POS, stock, purchases, expenses, reports, staff, and Lucy AI. To guide you well, tell me your business type and the biggest thing you want solved today: sales, stock, reports, staff, or getting started?`;
+    ? `Nimekupata. Orvix ni mfumo wa kuendesha biashara kwa POS, stoki, manunuzi, expenses, reports, staff na Lucy AI. Ili nikujibu vizuri zaidi, niambie biashara yako ni ipi na changamoto yako kubwa ni nini leo: mauzo, stoki, ripoti, staff, au kufungua account?`
+    : `I hear you. Orvix helps run a business through POS, stock, purchases, expenses, reports, staff, and Lucy AI. To guide you well, tell me your business type and the biggest thing you want solved today: sales, stock, reports, staff, or getting started?`;
 };
 
 export const createLucyResponse = (message: string, ctx: LucyContext = {}): LucyResponse => {
@@ -272,8 +272,8 @@ export const createLucyResponse = (message: string, ctx: LucyContext = {}): Lucy
       language,
       refused: true,
       text: language === 'sw'
-        ? 'Samahani, mimi Lucy nimetengenezwa kusaidia biashara yako na matumizi ya Jasper. Kwa swali hilo la nje ya biashara, tafadhali tumia Google, tovuti rasmi, au mtaalamu wa eneo hilo. Niko tayari kukusaidia kuhusu mauzo, stoki, POS, ripoti, settings, staff au documents.'
-        : 'I am sorry, I was made to help with your business and Jasper. For that question outside business operations, please use Google, official websites, or a qualified specialist. I can help with sales, stock, POS, reports, settings, staff, or documents.'
+        ? 'Samahani, mimi Lucy nimetengenezwa kusaidia biashara yako na matumizi ya Orvix. Kwa swali hilo la nje ya biashara, tafadhali tumia Google, tovuti rasmi, au mtaalamu wa eneo hilo. Niko tayari kukusaidia kuhusu mauzo, stoki, POS, ripoti, settings, staff au documents.'
+        : 'I am sorry, I was made to help with your business and Orvix. For that question outside business operations, please use Google, official websites, or a qualified specialist. I can help with sales, stock, POS, reports, settings, staff, or documents.'
     };
   }
 
@@ -318,8 +318,8 @@ export const createLucyResponse = (message: string, ctx: LucyContext = {}): Lucy
       language,
       refused: true,
       text: language === 'sw'
-        ? 'Samahani, sijaelewa kama hili linahusu biashara yako au matumizi ya Jasper. Niulize kuhusu mauzo, stoki, POS, ripoti, settings, WhatsApp documents, staff, manunuzi, au fedha.'
-        : 'I am sorry, I could not tell if this is about your business or Jasper. Ask me about sales, stock, POS, reports, settings, WhatsApp documents, staff, purchases, or cash.'
+        ? 'Samahani, sijaelewa kama hili linahusu biashara yako au matumizi ya Orvix. Niulize kuhusu mauzo, stoki, POS, ripoti, settings, WhatsApp documents, staff, manunuzi, au fedha.'
+        : 'I am sorry, I could not tell if this is about your business or Orvix. Ask me about sales, stock, POS, reports, settings, WhatsApp documents, staff, purchases, or cash.'
     };
   }
 

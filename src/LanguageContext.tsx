@@ -627,7 +627,7 @@ const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
     "system subscription options": "Chaguo za vifurushi vya mfumo",
     "manage active subscriptions and premium account plans easily to expand store limits.": "Simamia vifurushi na mipango ya akaunti ili kuongeza uwezo wa duka.",
     "no tenant suite available": "Hakuna akaunti ya biashara iliyopo",
-    "my jasper suite": "Jasper yangu",
+    "my jasper suite": "Orvix yangu",
     "profile settings": "Mipangilio ya wasifu",
     "preferences": "Mapendeleo",
     "system settings": "Mipangilio ya mfumo",

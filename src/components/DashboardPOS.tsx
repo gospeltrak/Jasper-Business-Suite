@@ -357,7 +357,7 @@ export default function DashboardPOS({
         status: (receiptResult.amountPaid ?? receiptResult.total) >= receiptResult.total ? 'Paid' : 'Pending',
         preparedByRole: 'Cashier',
         terms,
-        footer: 'Powered by Jasper',
+        footer: 'Powered by Orvix',
       };
   };
 
@@ -2311,7 +2311,7 @@ export default function DashboardPOS({
 
                   <div className="text-center font-normal text-[9.5px] text-slate-500 border-t border-dashed border-slate-200 pt-3 space-y-1">
                     <p className="font-sans font-medium">Thank you for shopping with us!</p>
-                    <p className="text-[8px] text-slate-400 font-mono">Powered by Jasper</p>
+                    <p className="text-[8px] text-slate-400 font-mono">Powered by Orvix</p>
                   </div>
                 </div>
 

@@ -1593,7 +1593,7 @@ export default function DashboardProducts({
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Jasper Thermal Labels</title>
+  <title>Orvix Thermal Labels</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     @page { size: 50mm ${totalHeightMm}mm; margin: 0; }
@@ -1615,7 +1615,7 @@ export default function DashboardProducts({
 <body>
   <div class="toolbar">
     <div>
-      <h2>Jasper Thermal Labels</h2>
+      <h2>Orvix Thermal Labels</h2>
       <p>${chosenLabels.length} label${chosenLabels.length !== 1 ? 's' : ''} · 50mm wide · ${totalHeightMm}mm total length</p>
     </div>
     <button class="btn" onclick="window.print()">🖨️ Print / Send to Thermal</button>
@@ -1703,7 +1703,7 @@ export default function DashboardProducts({
       <div class="a4-page">
         ${stickerRows.join('')}
         <div class="footer">
-          <span>Jasper</span>
+          <span>Orvix</span>
           <span>Page ${pageIdx + 1} / ${pages.length}</span>
           <span>${chosenLabels.length} label${chosenLabels.length !== 1 ? 's' : ''}</span>
         </div>
@@ -1714,7 +1714,7 @@ export default function DashboardProducts({
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Jasper A4 Sticker Sheet</title>
+  <title>Orvix A4 Sticker Sheet</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     @page { size: A4 portrait; margin: 0; }
@@ -1791,7 +1791,7 @@ export default function DashboardProducts({
 <body>
   <div class="toolbar">
     <div>
-      <h2>Jasper A4 Printable Sticker Sheet</h2>
+      <h2>Orvix A4 Printable Sticker Sheet</h2>
       <p>${chosenLabels.length} labels · ${pages.length} page${pages.length !== 1 ? 's' : ''} · 4×6 grid (24 per page)</p>
     </div>
     <button class="btn" onclick="window.print()">
@@ -3114,7 +3114,7 @@ export default function DashboardProducts({
               <div className="space-y-1">
                 <div className="flex items-center space-x-2">
                   <Printer className="w-5 h-5 text-emerald-400" />
-                  <h4 className="font-black text-sm uppercase tracking-wide">Jasper Print Driver Engine</h4>
+                  <h4 className="font-black text-sm uppercase tracking-wide">Orvix Print Driver Engine</h4>
                 </div>
                 <p className="text-[11px] text-slate-400 max-w-xl leading-relaxed">
                   Connect your thermal printer via USB, Bluetooth, or network to print labels.
@@ -3407,7 +3407,7 @@ export default function DashboardProducts({
               {/* Feedback messages */}
               {printJobSuccess && (
                 <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-center border border-emerald-100 font-bold text-[10px] uppercase tracking-wide animate-pulse">
-                  ✓ Print job successfully transmitted to Jasper printer. Check feed.
+                  ✓ Print job successfully transmitted to Orvix printer. Check feed.
                 </div>
               )}
 
@@ -3420,7 +3420,7 @@ export default function DashboardProducts({
                     className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-mono text-[11px] uppercase tracking-wider font-extrabold rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
                   >
                     <Printer className="w-4 h-4 text-emerald-400 animate-pulse" />
-                    <span>Print via Jasper Thermal Printer</span>
+                    <span>Print via Orvix Thermal Printer</span>
                   </button>
                   <p className="text-[9.5px] text-slate-400 text-center font-mono">
                     Ready to print 50×30mm labels.
@@ -3653,7 +3653,7 @@ export default function DashboardProducts({
               </div>
 
               <div className="text-[9.5px] italic text-slate-500 leading-relaxed pt-2">
-                "Printed successfully via active Jasper software. Live printer triggers are compatible with unified Windows PRN controllers & mobile thermal Bluetooth devices."
+                "Printed successfully via active Orvix software. Live printer triggers are compatible with unified Windows PRN controllers & mobile thermal Bluetooth devices."
               </div>
 
               {/* Tear outline mocks */}

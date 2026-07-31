@@ -47,7 +47,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
   const [sentHistory, setSentHistory] = useState(duressData.historyMessages);
 
   // Settings mock states
-  const [decoySaaSTitle, setDecoySaaSTitle] = useState('Jasper Lite Console');
+  const [decoySaaSTitle, setDecoySaaSTitle] = useState('Orvix Lite Console');
   const [billCycle, setBillCycle] = useState('Every 30 Days');
   const [webhookUrl, setWebhookUrl] = useState('https://api.jaspersaas.com/v1/webhooks/tz_notify');
 

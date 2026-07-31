@@ -339,8 +339,8 @@ export default function DashboardSalesList({
     const businessName = snapshot.businessName || snapshot.branchName || getBusinessDisplayName(activeTenant, systemSettings);
     const mainMessage = doc?.tagline || systemSettings?.invoiceSettings?.footerNote || 'Thank you for shopping with us.';
     // Fixed brand line — a configured business website is a different concept
-    // from "Powered by Jasper" attribution and must not replace it here.
-    const poweredBy = 'Powered by Jasper';
+    // from "Powered by Orvix" attribution and must not replace it here.
+    const poweredBy = 'Powered by Orvix';
     return { mainMessage, businessName, poweredBy };
   };
   const getDocumentBranding = (doc: SalesDocument) => {
@@ -3213,7 +3213,7 @@ export default function DashboardSalesList({
                     if (!terms.length) return null;
                     return <div className="border-t border-slate-100 pt-4"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mb-2">Terms &amp; Conditions</p><ol className="list-decimal list-inside space-y-1">{terms.map((term: string, index: number) => <li key={index} className="text-[11px] text-slate-500">{term}</li>)}</ol></div>;
                   })()}
-                  <div className="text-center border-t border-slate-100 pt-3"><p className="text-[8px] text-slate-300 font-mono">Powered by Jasper</p></div>
+                  <div className="text-center border-t border-slate-100 pt-3"><p className="text-[8px] text-slate-300 font-mono">Powered by Orvix</p></div>
                 </div>
               </div>
                 </div>
@@ -3409,7 +3409,7 @@ export default function DashboardSalesList({
                     *20260520TSUITE*
                   </span>
                   <p className="text-[9px] uppercase">Thank you for shopping with us.</p>
-                  <p className="text-[8px] text-slate-300 normal-case">Powered by Jasper</p>
+                  <p className="text-[8px] text-slate-300 normal-case">Powered by Orvix</p>
                 </div>
 
               </div>
