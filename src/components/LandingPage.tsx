@@ -132,8 +132,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     testimonialSub: "What other shop owners say",
     mustafaSay: "We needed cleaner records across devices. Since starting with Orvix's cloud cashier, our sales and stock updates stay aligned.",
     kwameSay: "Managing medicine lists was hard. Then we got Orvix—Lucy sorted everything out easily. Perfect.",
-    fatumaSay: "The hotel room booking works wonderfully. Our local receptionist team learned to use it in five minutes.",
-    mustafaRole: "Restaurant Owner • Dar es Salaam",
+    fatumaSay: "Switching between our shop branches and checking stock levels is effortless now. Our team learned to use it in five minutes.",
+    mustafaRole: "Wholesale Distributor • Dar es Salaam",
     kwameRole: "Dispensary Director • Kisumu",
     fatumaRole: "Managing Director • Arusha",
     pricingHeader: "Simple Prices",
@@ -144,7 +144,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     essentialName: "Essential",
     essentialDesc: "Best for small shops with a single bill counter.",
     standardName: "Standard",
-    standardDesc: "Perfect to run multi-branch shops, pharmacies, or hotels.",
+    standardDesc: "Perfect to run multi-branch shops, pharmacies, or wholesale stores.",
     premiumName: "Premium",
     premiumDesc: "Unlimited items built for big warehouses.",
     limitTrial: "Max 20 Products • 1 Store • 1 User",
@@ -229,10 +229,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     testimonialSub: "Maudhui kutoka kwa wamiliki wa maduka",
     mustafaSay: "Tulihitaji kumbukumbu safi kwenye vifaa vyote. Orvix imeweka mauzo na bidhaa zetu sawa.",
     kwameSay: "Kupanga orodha za dawa ilikuwa ngumu sana. Baada ya kupata Orvix, Lucy alimaliza tatizo huo kwa urahisi. Safi kabisa.",
-    fatumaSay: "Mfumo wa vyumba vya hoteli unafanya kazi vizuri. Wafanyakazi wetu walijifunza kuutumia kwa dakika tano tu.",
-    mustafaRole: "Mmiliki wa Mgahawa • Dar es Salaam",
+    fatumaSay: "Kubadili matawi na kuangalia stoki ya maduka yetu sasa ni rahisi sana. Wafanyakazi wetu walijifunza kuutumia kwa dakika tano tu.",
+    mustafaRole: "Msambazaji wa Jumla • Dar es Salaam",
     kwameRole: "Mkurugenzi wa Famasia • Kisumu",
-    fatumaRole: "Meneja wa Hoteli • Arusha",
+    fatumaRole: "Meneja Mkuu • Arusha",
     pricingHeader: "Bei Rahisi",
     pricingSub: "Chagua kifurushi kinachofaa duka lako",
     pricingDesc: "Anza na siku 10 bure, au siku 20 kwa kodi ya ofa. Unaweza kubadili kifurushi wakati wowote.",
@@ -241,7 +241,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     essentialName: "Msingi",
     essentialDesc: "Inafaa kwa maduka yenye keshia moja ili kufuatilia bidhaa na tarehe za mwisho.",
     standardName: "Kati",
-    standardDesc: "Inafaa kwa maduka yenye matawi mengi, famasia, au hoteli.",
+    standardDesc: "Inafaa kwa maduka yenye matawi mengi, famasia, au biashara za jumla.",
     premiumName: "Mkuu",
     premiumDesc: "Bidhaa zisizo na kikomo, inafaa sana kwa ghala kubwa la biashara.",
     limitTrial: "Bidhaa 20 • Duka 1 • Mtumiaji 1",
@@ -321,10 +321,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     testimonialSub: "Lo que dicen los dueños de tiendas",
     mustafaSay: "Perdíamos ventas cuando se caía el internet. Desde que usamos Orvix sin conexión, las ventas nunca se detienen.",
     kwameSay: "Controlar las medicinas era difícil. Lucy de Orvix ordenó todo fácilmente. Excelente.",
-    fatumaSay: "El sistema de reservas de hotel funciona genial. Las recepcionistas aprendieron en cinco minutos.",
-    mustafaRole: "Dueño de Restaurante • Dar es Salaam",
+    fatumaSay: "Cambiar entre nuestras sucursales y revisar el stock de las tiendas ahora es muy sencillo. Nuestro equipo aprendió a usarlo en cinco minutos.",
+    mustafaRole: "Distribuidor Mayorista • Dar es Salaam",
     kwameRole: "Director de Farmacia • Kisumu",
-    fatumaRole: "Directora de Hotel • Arusha",
+    fatumaRole: "Directora General • Arusha",
     pricingHeader: "Precios Simples",
     pricingSub: "Elige el mejor plan para tu tienda",
     pricingDesc: "Prueba gratis por 14 días. Elige un plan para continuar. Cambia de plan cuando quieras.",
@@ -408,10 +408,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     testimonialSub: "Ce que disent les propriétaires",
     mustafaSay: "On perdait des ventes en cas de coupure réseau. Depuis qu'on a Orvix sans internet, la caisse n'arrête pas.",
     kwameSay: "L'inventaire des remèdes était fatiguant. Notre assistante Lucy a tout réglé avec plaisir.",
-    fatumaSay: "Le planning des chambres d'hôtel est super. Nos agents ont appris à l'utiliser en cinq minutes seulement.",
-    mustafaRole: "Chef de Restaurant • Dar es Salaam",
+    fatumaSay: "Changer de succursale et vérifier le stock de nos boutiques est désormais très simple. Notre équipe a appris à l'utiliser en cinq minutes seulement.",
+    mustafaRole: "Distributeur Grossiste • Dar es Salaam",
     kwameRole: "Gérant de Pharmacie • Kisumu",
-    fatumaRole: "Directrice d'Hôtel • Arusha",
+    fatumaRole: "Directrice Générale • Arusha",
     pricingHeader: "Tarifs Simples",
     pricingSub: "Choisissez l'abonnement idéal pour votre magasin",
     pricingDesc: "Bénéficiez de 14 jours d'essai gratuit. Changez d'offre à tout moment.",
@@ -420,7 +420,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     essentialName: "Essentiel",
     essentialDesc: "Idéal pour les petits commerces avec un seul employé.",
     standardName: "Standard",
-    standardDesc: "Parfait pour gérer plusieurs boutiques, pharmacies ou hôtels.",
+    standardDesc: "Parfait pour gérer plusieurs boutiques, pharmacies ou grossistes.",
     premiumName: "Premium",
     premiumDesc: "Articles illimités pour les grands dépôts ou réseaux de revente.",
     limitTrial: "Max 20 Produits • 1 Boutique • 1 Utilisateur",
@@ -495,10 +495,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     testimonialSub: "Cosa dicono i nostri clienti",
     mustafaSay: "Avevamo bisogno di dati puliti su tutti i dispositivi. Con la cassa cloud di Orvix, vendite e stock restano allineati.",
     kwameSay: "Organizzare l'elenco dei farmaci era un tormento. Lucy di Orvix ha sistemato tutto in modo facile.",
-    fatumaSay: "Il sistema di prenotazione camere funziona molto bene. I dipendenti hanno imparato la cassa in cinque minuti.",
-    mustafaRole: "Proprietario Ristorante • Dar es Salaam",
+    fatumaSay: "Cambiare filiale e controllare le scorte dei nostri negozi ora è semplicissimo. Il nostro team ha imparato a usarlo in cinque minuti.",
+    mustafaRole: "Distributore all'Ingrosso • Dar es Salaam",
     kwameRole: "Direttore di Farmacia • Kisumu",
-    fatumaRole: "Direttrice d'Hotel • Arusha",
+    fatumaRole: "Direttrice Generale • Arusha",
     pricingHeader: "Prezzi Trasparenti",
     pricingSub: "Scegli l'abbonamento su misura per la tua attività",
     pricingDesc: "Attiva subito una prova gratuita di 14 giorni. Puoi cambiare piano quando preferisci.",
@@ -507,7 +507,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     essentialName: "Essenziale",
     essentialDesc: "L'ideale per i piccoli negozi gestiti da un singolo operatore.",
     standardName: "Standard",
-    standardDesc: "Perfetto per negozi multi-filiale, alberghi e farmacie.",
+    standardDesc: "Perfetto per negozi multi-filiale, grossisti e farmacie.",
     premiumName: "Premium",
     premiumDesc: "Prodotti illimitati per magazzini merci e reti distributive.",
     limitTrial: "Max 20 Prodotti • 1 Negozio • 1 Utente",
@@ -582,10 +582,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     testimonialSub: "ماذا يقول أصحاب المتاجر",
     mustafaSay: "كنا نخسر المبيعات عند عطل النت. مع كاشير جاسبر دون إنترنت، حركة البيع لم تتوقف أبداً لدينا.",
     kwameSay: "ترتيب قوائم وتواريخ الأدوية كان متعباً وصعباً. لوسي الذكية رتبت كل شيء بسهولة تامة.",
-    fatumaSay: "مراقبة وإدارة حجز الغرف بالفندق يسير بشكل ممتاز. موظفونا تعلموا تشغيلها بخمس دقائق.",
-    mustafaRole: "صاحب مطعم • دار السلام",
+    fatumaSay: "التنقل بين فروعنا ومتابعة مخزون متاجرنا أصبح سهلاً جداً الآن. تعلم فريقنا استخدامه خلال خمس دقائق فقط.",
+    mustafaRole: "موزع بالجملة • دار السلام",
     kwameRole: "مدير صيدلية • كيسومو",
-    fatumaRole: "إدارة الفندق • أروشا",
+    fatumaRole: "المديرة العامة • أروشا",
     pricingHeader: "أسعار مناسبة وبسيطة",
     pricingSub: "اختر الخطة التي تناسب حجم نشاطك التجاري",
     pricingDesc: "استفد من تجربة مجانية لمدة ١٤ يوماً. تستطيع التعديل أو الترقية وقتما تشاء.",
@@ -594,7 +594,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     essentialName: "الأساسي",
     essentialDesc: "الأفضل للمشاريع الناشئة التي تحتاج ماكينة محاسبة واحدة.",
     standardName: "القياسي",
-    standardDesc: "ممتاز جداً لإدارة عدة فروع ومنافذ صيدلية أو منشأة فندقية.",
+    standardDesc: "ممتاز جداً لإدارة عدة فروع ومنافذ صيدلية أو تجارة الجملة.",
     premiumName: "المتميز",
     premiumDesc: "منتجات غير محدودة موجه للمستودعات ومراكز العرض الكبرى.",
     limitTrial: "أقصى حد ٢٠ منتج • متجر واحد • مستخدم واحد",
@@ -667,12 +667,12 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     featGatewayDesc: "直连 M-Pesa, Tigo 及 Airtel Money 等主流通道，数秒内验证交易状态。",
     testimonialHeader: "成功的商家",
     testimonialSub: "听听其他店主怎么说",
-    mustafaSay: "以前网络不稳定时，我们的美食广场每天至少损失15%的生意。使用 Orvix 的离线功能后，收银从未中断过！",
+    mustafaSay: "以前网络不稳定时，我们各分店的销售和库存记录经常对不上。使用 Orvix 云端收银后，记录从未出错！",
     kwameSay: "药店以前药品的繁杂管理耗费了我们很多精力。有了 Orvix，智能助理 Lucy 帮我们打理得有言不虚。太好用了！",
-    fatumaSay: "酒店房间预订系统运行十分顺畅。前台人员都在短短五分钟内轻松学会使用了。",
-    mustafaRole: "餐厅老板 • 达累斯萨拉姆",
+    fatumaSay: "切换分店和查看店铺库存现在非常简单。我们的团队只用五分钟就学会了使用方法。",
+    mustafaRole: "批发经销商 • 达累斯萨拉姆",
     kwameRole: "药房总监 • 基苏木",
-    fatumaRole: "酒店经理 • 阿鲁沙",
+    fatumaRole: "总经理 • 阿鲁沙",
     pricingHeader: "价格清晰",
     pricingSub: "选择匹配您商铺规模的套餐",
     pricingDesc: "立即注册即可享受 14 天免费体验，随时调整或升级套餐方案。",
@@ -681,7 +681,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     essentialName: "创业起步",
     essentialDesc: "最适合配备单一收银窗口的小型成长门店。",
     standardName: "标准旗舰",
-    standardDesc: "多分店、连锁药房或精品酒店的首选配置。",
+    standardDesc: "多分店、连锁药房或批发商的首选配置。",
     premiumName: "尊贵批发",
     premiumDesc: "支持无限量添加商品，超大型物流或仓储不二之选。",
     limitTrial: "最多 20 种产品 • 1 家店面 • 1 名店员",
@@ -756,10 +756,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     testimonialSub: "बाकी दुकानदारों की जुबानी",
     mustafaSay: "इंटरनेट बंद होने पर हमारा नुकसान होता था. जब से हमने जैविक जैस्पर शुरू किया है, बिक्री कभी नहीं रुकती.",
     kwameSay: "दवाइयों की लिस्ट बनाना बहुत कठिन था. जैस्पर की लकी ने सब कुछ चुटकियों में आसान कर दिया.",
-    fatumaSay: "हलांकि होटल के कमरों की बुकिंग कमाल की है. हमारे कर्मचारियों ने इसे सिर्फ पांच मिनट में सीख लिया.",
-    mustafaRole: "रेस्टोरेंट मालिक • दार एस सलाम",
+    fatumaSay: "अपनी शाखाओं के बीच स्विच करना और दुकानों का स्टॉक जांचना अब बहुत आसान है. हमारी टीम ने इसे सिर्फ पांच मिनट में सीख लिया.",
+    mustafaRole: "थोक व्यापारी • दार एस सलाम",
     kwameRole: "फार्मेसी डायरेक्टर • किसुमू",
-    fatumaRole: "हॉस्टल मैनेजर • अरुशा",
+    fatumaRole: "जनरल मैनेजर • अरुशा",
     pricingHeader: "सीधी कीमतें",
     pricingSub: "अपनी दुकान के आकार के अनुसार सबसे अच्छा प्लान चुनें",
     pricingDesc: "14 दिन का फ्री ट्रायल आज ही शुरू करें. जब चाहें अपना प्लान बदलें.",
@@ -768,7 +768,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     essentialName: "ज़रूरी",
     essentialDesc: "छोटे दुकानदारों के लिए सबसे बढ़िया जहां केवल एक बिल काउंटर है.",
     standardName: "स्टैंडर्ड",
-    standardDesc: "बड़ी दुकानों, होटल या दवाइयों की दुकानों के लिए बेस्ट.",
+    standardDesc: "बड़ी दुकानों, थोक व्यापार या दवाइयों की दुकानों के लिए बेस्ट.",
     premiumName: "प्रीमियम",
     premiumDesc: "अनलिमिटेड सामान के साथ बड़े गोदामों के लिए संपूर्ण व्यवस्था.",
     limitTrial: "अधिकतम 20 सामान • 1 दुकान • 1 कर्मचारी",
@@ -875,9 +875,9 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       const saved = onlineStorage.getItem('jasper_custom_testimonials');
       return saved ? JSON.parse(saved) : [
         {
-          quote: "We needed cleaner checkout logs across devices during peak hours inside Mwenge food court. With Orvix's cloud-first saving, our cashier records stay aligned.",
+          quote: "We needed cleaner checkout logs across devices during peak trading hours across our branches. With Orvix's cloud-first saving, our cashier records stay aligned.",
           name: "Mustafa Al-Busaidy",
-          role: "Restaurant Owner • Dar es Salaam",
+          role: "Wholesale Distributor • Dar es Salaam",
           initials: "MA",
           color: "emerald"
         },
@@ -889,9 +889,9 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
           color: "teal"
         },
         {
-          quote: "Orvix's Hotel suite PMS checked-in our room listings flawlessly. Seasonal rates surge works with zero configuration, and having direct support in Swahili inside checkout from assistant makes training receptionist very easy.",
+          quote: "Switching between our shop branches and checking stock levels is effortless now. Having direct support in Swahili inside the assistant made training our team very easy.",
           name: "Fatuma Mrisho",
-          role: "Managing Director • Arusha Lodge",
+          role: "Managing Director • Arusha Retail Group",
           initials: "FM",
           color: "violet"
         }
@@ -980,8 +980,8 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       "Bakhresa Group",
       "Kariakoo Wholesalers",
       "Kisumu Pharmacy Ltd",
-      "Dar Food Court",
-      "Arusha Heights Hotel",
+      "Mbeya Wholesale Traders",
+      "Arusha Retail Group",
       "Mwanza Grains"
     ];
     // Merge or fallback
@@ -1009,24 +1009,20 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
       const lower = userMsg.toLowerCase();
       const categoryType = lower.includes('price') || lower.includes('cost') || lower.includes('subscription') || lower.includes('package')
         ? 'Subscription Interest'
-        : lower.includes('hotel') || lower.includes('room') || lower.includes('pms')
-          ? 'Hotel Sector Interest'
-          : lower.includes('pharmacy') || lower.includes('drug') || lower.includes('medicine') || lower.includes('rx')
-            ? 'Pharmacy Sector Interest'
-            : lower.includes('restaurant') || lower.includes('table') || lower.includes('food') || lower.includes('kds')
-              ? 'Restaurant Sector Interest'
-              : lower.includes('offline') || lower.includes('internet') || lower.includes('network') || lower.includes('mtandao')
-                ? 'Technical Resilience Query'
-                : lucy.refused
-                  ? 'Out-of-Scope Query'
-                  : 'Features Walkthrough';
-      const matchedNiche = lower.includes('hotel') || lower.includes('room') || lower.includes('pms')
-        ? 'hotel'
         : lower.includes('pharmacy') || lower.includes('drug') || lower.includes('medicine') || lower.includes('rx')
-          ? 'pharmacy'
-          : lower.includes('restaurant') || lower.includes('table') || lower.includes('food') || lower.includes('kds')
-            ? 'restaurant'
-            : 'general';
+          ? 'Pharmacy Sector Interest'
+          : lower.includes('wholesale') || lower.includes('jumla') || lower.includes('bulk')
+            ? 'Wholesale Sector Interest'
+            : lower.includes('offline') || lower.includes('internet') || lower.includes('network') || lower.includes('mtandao')
+              ? 'Technical Resilience Query'
+              : lucy.refused
+                ? 'Out-of-Scope Query'
+                : 'Features Walkthrough';
+      const matchedNiche = lower.includes('pharmacy') || lower.includes('drug') || lower.includes('medicine') || lower.includes('rx')
+        ? 'pharmacy'
+        : lower.includes('wholesale') || lower.includes('jumla') || lower.includes('bulk')
+          ? 'wholesale'
+          : 'general';
 
       setLucyMessages(prev => [...prev, { sender: 'lucy', text: lucy.text, time: timestamp }]);
       setIsLucyThinking(false);
@@ -1882,12 +1878,12 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
               >
                 💵 Vifurushi & Bei
               </button>
-              <button 
+              <button
                 type="button"
-                onClick={() => sendLucyMessage("Je, inafanya kazi hotelini?")}
+                onClick={() => sendLucyMessage("Je, inafanya kazi kwa biashara ya jumla?")}
                 className={`px-2 py-1 border text-[9px] rounded font-mono cursor-pointer transition-colors ${isDark ? 'bg-slate-900 hover:bg-slate-850 border-slate-800 text-slate-300' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'}`}
               >
-                🏨 Hotel & PMS
+                🏪 Jumla (Wholesale)
               </button>
               <button 
                 type="button"
