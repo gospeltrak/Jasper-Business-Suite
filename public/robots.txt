@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /login
+Disallow: /admin
+Disallow: /tools
+Disallow: /affiliate
+Disallow: /partner
+
+Sitemap: https://www.orvix.africa/sitemap.xml
