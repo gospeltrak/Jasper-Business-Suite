@@ -2591,7 +2591,19 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const branchContextBusinessName = String(
     branchContextSelectedBranch?.businessName || branchContextSelectedBranch?.branchName || ''
   ).trim();
-  const businessDisplayName = activeBranchBusinessName || branchContextBusinessName || activeProfileBusinessName || 'My Business';
+  // On the main/default branch (including the virtual compatibility-primary
+  // branch every tenant starts on before creating a physical branch), the
+  // branch RPC's businessName is sourced from tenants.name - a short name
+  // captured at signup, NOT the full name the user configures in Business
+  // Settings. Prefer the real Business Settings name there. Only prefer the
+  // branch-sourced name when a genuinely different (non-default) branch is
+  // active, since that branch's own configured identity is what the user
+  // wants shown in that case.
+  const effectiveSelectedBranchForName = branchContextSelectedBranch || activeBranchSelection.selectedBranch;
+  const isMainBranchActive = effectiveSelectedBranchForName?.isDefault !== false;
+  const businessDisplayName = isMainBranchActive
+    ? (activeProfileBusinessName || branchContextBusinessName || activeBranchBusinessName || 'My Business')
+    : (activeBranchBusinessName || branchContextBusinessName || activeProfileBusinessName || 'My Business');
   const onlineBusinessName = activeProfileBusinessName;
   const customBusinessName = businessDisplayName;
   const customBusinessAddressDetail = systemSettings.business?.businessAddress
