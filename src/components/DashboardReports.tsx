@@ -4223,7 +4223,7 @@ export default function DashboardReports({
               {reportTab === 'sales-report' && (
                 <div className="space-y-4">
                   {/* Summary Metrics Grid */}
-                  <div className="grid grid-cols-2 gap-2.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.625rem' }}>
+                  <div className="grid gap-2.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.625rem' }}>
                     {[
                       {
                         label: 'Transactions', value: `${salesReportMetrics.totalOrders}`, sub: 'Tickets issued',

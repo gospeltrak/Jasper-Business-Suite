@@ -2111,7 +2111,7 @@ export default function DashboardProducts({
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
+                  <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase block">Category</label>
                       <ModernSelect
@@ -2143,7 +2143,7 @@ export default function DashboardProducts({
                     </div>
                   </div>
 
-                  <div className={isDesktopAddProductLayout ? "space-y-4" : "grid grid-cols-2 gap-3"} style={isDesktopAddProductLayout ? undefined : { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
+                  <div className={isDesktopAddProductLayout ? "space-y-4" : "grid gap-3"} style={isDesktopAddProductLayout ? undefined : { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Brand</label>
                     <input 
@@ -2270,7 +2270,7 @@ export default function DashboardProducts({
                     <p className="text-[9px] text-slate-400">Leave empty to auto-create.</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3.5 border-b border-dashed border-slate-100 pb-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
+                  <div className="grid gap-3.5 border-b border-dashed border-slate-100 pb-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase block">Shop Stock ({activeTenant.businessType !== 'pharmacy' ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : pharmacyFormHierarchy.baseUnit})</label>
                       <input 
@@ -2325,7 +2325,7 @@ export default function DashboardProducts({
                   {/* Channel Toggles Section */}
                   <div className={isDesktopAddProductLayout ? "bg-slate-50 p-3 rounded-2xl border border-slate-200/60 space-y-2" : "bg-white p-3 rounded-2xl border border-slate-200/60 space-y-2"}>
                     <span className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Active Selling Channels</span>
-                    <div className={`grid gap-2 ${transferBranches.length > 1 ? 'grid-cols-3' : 'grid-cols-2'}`} style={{ display: 'grid', gridTemplateColumns: `repeat(${transferBranches.length > 1 ? 3 : 2}, minmax(0, 1fr))`, gap: '0.5rem' }}>
+                    <div className="grid gap-2" style={{ display: 'grid', gridTemplateColumns: `repeat(${transferBranches.length > 1 ? 3 : 2}, minmax(0, 1fr))`, gap: '0.5rem' }}>
                       <label className={isDesktopAddProductLayout
                         ? "flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300"
                         : `flex items-center justify-center space-x-1.5 p-2.5 rounded-xl border cursor-pointer transition-all active:scale-[0.97] ${sellInRetail ? 'bg-gradient-to-r from-emerald-600 to-teal-500 border-emerald-600 shadow-sm shadow-emerald-600/25' : 'bg-slate-50 border-slate-200 hover:border-slate-300'}`}>
@@ -2358,7 +2358,7 @@ export default function DashboardProducts({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
+                  <div className="grid gap-3.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase block">{isBulkProduct && activeTenant.businessType !== 'pharmacy' ? `Package Buy Cost (${purchaseUnit || 'Package'})` : 'Cost Buy Price'}</label>
                       <input 
@@ -2386,7 +2386,7 @@ export default function DashboardProducts({
                   </div>
 
                   {/* Wholesale Pricing & Minimum Quantity */}
-                  <div className="grid grid-cols-2 gap-3.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
+                  <div className="grid gap-3.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase block">
                         Wholesale Price {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
@@ -2462,7 +2462,7 @@ export default function DashboardProducts({
                     <span>Cashier Override</span>
                   </label>
                 </div>
-                <div className="grid grid-cols-3 gap-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}>
+                <div className="grid gap-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}>
                   {[
                     ['fifo', 'FIFO', 'Oldest batch sells first'],
                     ['average_price', 'Average Price', 'Profit uses weighted cost'],
@@ -2480,7 +2480,7 @@ export default function DashboardProducts({
                   ))}
                 </div>
                 {activeTenant.businessType !== 'pharmacy' && (
-                  <div className="grid grid-cols-3 md:grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3" style={{ display: 'grid', gridTemplateColumns: `repeat(${isTabletWidthOrWider ? 4 : 3}, minmax(0, 1fr))`, gap: '0.75rem' }}>
+                  <div className="grid gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3" style={{ display: 'grid', gridTemplateColumns: `repeat(${isTabletWidthOrWider ? 4 : 3}, minmax(0, 1fr))`, gap: '0.75rem' }}>
                     <div className="space-y-1">
                       <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
                       <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
