@@ -1899,7 +1899,7 @@ export default function DashboardPOS({
                 <div className={`space-y-2 pb-2 border-b border-slate-100 ${!isDesktopCheckoutLayout ? 'bg-gradient-to-br from-slate-50/80 to-white -mx-1 px-1 pt-1 rounded-xl' : ''}`}>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Customer Identity (Required for Credit Sales)</span>
                   <div
-                    className="grid grid-cols-2 gap-2"
+                    className="grid gap-2"
                     style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.5rem' }}
                   >
                     <input
@@ -1923,7 +1923,7 @@ export default function DashboardPOS({
                 <div className="space-y-3">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Choose Payment Method</label>
                   <div
-                    className={`grid gap-2 ${isDesktopCheckoutLayout ? 'grid-cols-2 min-[420px]:grid-cols-3' : 'grid-cols-3'}`}
+                    className={`grid gap-2 ${isDesktopCheckoutLayout ? 'grid-cols-2 min-[420px]:grid-cols-3' : ''}`}
                     style={isDesktopCheckoutLayout ? undefined : { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}
                   >
                     {(() => {
