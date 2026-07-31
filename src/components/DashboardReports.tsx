@@ -4482,9 +4482,18 @@ export default function DashboardReports({
                                 const marginPct = p.segSell > 0 ? (p.segProfit / p.segSell) * 100 : 0;
                                 return (
                                   <div key={p.id} className="px-4 py-3.5 flex items-center justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 leading-snug break-words">{p.name}</p>
-                                      <p className="text-[10px] font-mono text-slate-400 mt-1">SKU {p.sku || 'N/A'} · {formatProductQuantity(p.segQty, p.product)}</p>
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 overflow-hidden shrink-0 flex items-center justify-center p-1">
+                                        {p.product?.image ? (
+                                          <CachedImage src={p.product.image} alt={p.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                                        ) : (
+                                          <Package className="w-4 h-4 text-slate-300" />
+                                        )}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 leading-snug break-words">{p.name}</p>
+                                        <p className="text-[10px] font-mono text-slate-400 mt-1">SKU {p.sku || 'N/A'} · {formatProductQuantity(p.segQty, p.product)}</p>
+                                      </div>
                                     </div>
                                     <div className="text-right shrink-0">
                                       <p className="text-[13px] font-black font-mono text-slate-800 dark:text-slate-100">{currency}{Math.round(p.segSell).toLocaleString()}</p>
