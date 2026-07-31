@@ -98,7 +98,8 @@ test('critical sale actions remain wired to visible controls', async () => {
 test('header uses active business profile and has no decorative workspace search box', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const branchContextSource = await read('src/branches/BranchContext.tsx');
-  assert.match(dashboardSource, /const businessDisplayName = activeBranchBusinessName \|\| activeProfileBusinessName \|\| 'My Business'/);
+  assert.match(dashboardSource, /const businessDisplayName = activeBranchBusinessName \|\| branchContextBusinessName \|\| activeProfileBusinessName \|\| 'My Business'/);
+  assert.match(dashboardSource, /useOptionalBranchContext/);
   assert.match(dashboardSource, /setDatabaseBusinessName\(String\(syncedSettings\.business\?\.businessName/);
   assert.match(dashboardSource, /<BranchProvider\s+tenantKey=/);
   assert.match(dashboardSource, /jasper_branch_context_changed/);

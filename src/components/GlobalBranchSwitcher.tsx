@@ -117,6 +117,14 @@ export default function GlobalBranchSwitcher({ onManageBranches }: GlobalBranchS
     }
   };
 
+  // Primary label is deliberately static ("Switch Branch") so the trigger
+  // is always immediately usable - it never depends on branch data having
+  // resolved. The active branch's real name renders as a secondary line
+  // underneath: a loading skeleton while the very first fetch is still in
+  // flight, the real name once available, and nothing extra if a branch
+  // genuinely can't be resolved (the static primary label already gives
+  // the user a working action either way).
+  const activeBranchDisplayName = activeBranch?.businessName || activeBranch?.branchName || '';
   const closedButton = (
     <button
       ref={triggerRef}
@@ -134,11 +142,17 @@ export default function GlobalBranchSwitcher({ onManageBranches }: GlobalBranchS
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
           <span className="block truncate text-[11px] font-black text-slate-900 dark:text-white xl:text-xs">
-            {switchingBranch ? `Switching to ${switchingToBranchName || 'branch'}…` : activeBranch?.branchName || 'Loading branch…'}
+            {switchingBranch ? `Switching to ${switchingToBranchName || 'branch'}…` : 'Switch Branch'}
           </span>
-          {activeBranch?.isDefault ? <span className="hidden shrink-0 rounded bg-emerald-100 px-1 py-0.5 text-[7px] font-black uppercase text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 sm:inline">Main</span> : null}
+          {!switchingBranch && activeBranch?.isDefault ? <span className="hidden shrink-0 rounded bg-emerald-100 px-1 py-0.5 text-[7px] font-black uppercase text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 sm:inline">Main</span> : null}
         </span>
-        <span className="hidden truncate text-[9px] font-semibold text-slate-500 dark:text-slate-400 xl:block">{locationLabel(activeBranch) || 'Operational workspace'}</span>
+        {switchingBranch ? (
+          <span className="hidden truncate text-[9px] font-semibold text-slate-500 dark:text-slate-400 xl:block">{locationLabel(activeBranch) || 'Operational workspace'}</span>
+        ) : isLoading && !activeBranchDisplayName ? (
+          <span className="mt-1 hidden h-2.5 w-24 animate-pulse rounded bg-slate-150 dark:bg-slate-800 xl:block" aria-hidden="true" />
+        ) : (
+          <span className="hidden truncate text-[9px] font-semibold text-slate-500 dark:text-slate-400 xl:block">{activeBranchDisplayName || 'Operational workspace'}</span>
+        )}
       </span>
       <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
     </button>
@@ -156,11 +170,20 @@ export default function GlobalBranchSwitcher({ onManageBranches }: GlobalBranchS
         {filteredBranches.map(branch => {
           const selected = branch.id === snapshot?.context.activeBranchId
             || (branch.isCompatibilityPrimary && snapshot?.context.activeScope === 'compatibility_primary');
+          // Defensive fallback: the server now returns the real tenant/business
+          // name as branchName by default, but a genuine branch could still be
+          // literally named "Primary Branch" on record, or a stale cached
+          // snapshot from before that fix could still be in memory - in either
+          // case prefer the real businessName as the primary label so the
+          // placeholder never outranks a real name the user would recognize.
+          const primaryLabel = branch.branchName && branch.branchName !== 'Primary Branch'
+            ? branch.branchName
+            : (branch.businessName || branch.branchName);
           return (
             <button key={branch.id || 'compatibility-primary'} type="button" role="option" aria-selected={selected} onClick={() => void select(branch)} disabled={switchingBranch || branch.status !== 'active'} className={`flex min-h-16 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition disabled:opacity-50 ${selected ? 'bg-emerald-50 dark:bg-emerald-950/30' : 'hover:bg-slate-50 dark:hover:bg-slate-900'}`}>
               <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${selected ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300'}`}><Building2 className="h-5 w-5" /></span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2"><span className="truncate text-sm font-black text-slate-950 dark:text-white">{branch.branchName}</span>{branch.isDefault ? <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[8px] font-black uppercase text-slate-600 dark:bg-slate-800 dark:text-slate-300">Main Branch</span> : null}</span>
+                <span className="flex items-center gap-2"><span className="truncate text-sm font-black text-slate-950 dark:text-white">{primaryLabel}</span>{branch.isDefault ? <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[8px] font-black uppercase text-slate-600 dark:bg-slate-800 dark:text-slate-300">Main Branch</span> : null}</span>
                 <span className="mt-1 flex items-center gap-1 truncate text-[11px] font-medium text-slate-500 dark:text-slate-400"><MapPin className="h-3 w-3 shrink-0" />{locationLabel(branch) || branch.businessName || 'Location not set'}</span>
               </span>
               {selected ? <Check className="h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" /> : null}

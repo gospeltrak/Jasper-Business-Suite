@@ -63,7 +63,7 @@ import {
   writeLocalSaleTombstones,
 } from '../utils/saleSync';
 import { mergeSettingsForSync, stampSettingsForSync } from '../utils/settingsSync';
-import { BranchProvider } from '../branches/BranchContext';
+import { BranchProvider, useOptionalBranchContext } from '../branches/BranchContext';
 import GlobalBranchSwitcher from './GlobalBranchSwitcher';
 import {
   mergeScopedProducts,
@@ -646,6 +646,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     selectedBranch: null,
   });
   const [branchSwitching, setBranchSwitching] = useState(false);
+  // Direct read of the centralized branch context, in addition to the
+  // window-event-driven state above. The event only fires when
+  // BranchContext successfully publishes a snapshot; if that publish is
+  // ever missed (e.g. listener not yet mounted, or the very first render
+  // before any event has fired), this direct hook read still has the
+  // real, current snapshot, so the header never falls through to a
+  // placeholder while real branch data is actually available. Returns
+  // null for SuperAdmin (no BranchProvider mounted in that tree).
+  const branchContextValue = useOptionalBranchContext();
+  const branchContextSelectedBranch = branchContextValue?.snapshot?.context.selectedBranch || null;
 
   const [preloadedCart, setPreloadedCart] = useState<{
     items: SaleItem[];
@@ -2578,7 +2588,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     : (systemSettings.business?.businessLogoLight || systemSettings.business?.businessLogoDark || systemSettings.business?.businessLogo);
   
   const activeProfileBusinessName = String(databaseBusinessName || '').trim();
-  const businessDisplayName = activeBranchBusinessName || activeProfileBusinessName || 'My Business';
+  const branchContextBusinessName = String(
+    branchContextSelectedBranch?.businessName || branchContextSelectedBranch?.branchName || ''
+  ).trim();
+  const businessDisplayName = activeBranchBusinessName || branchContextBusinessName || activeProfileBusinessName || 'My Business';
   const onlineBusinessName = activeProfileBusinessName;
   const customBusinessName = businessDisplayName;
   const customBusinessAddressDetail = systemSettings.business?.businessAddress

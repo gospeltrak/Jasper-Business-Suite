@@ -154,3 +154,9 @@ export const useBranchContext = () => {
   if (!context) throw new Error('useBranchContext must be used inside BranchProvider.');
   return context;
 };
+
+// Same as useBranchContext(), but returns null instead of throwing when
+// rendered outside a BranchProvider (e.g. the SuperAdmin dashboard tree,
+// which intentionally never mounts BranchProvider). Use this in call sites
+// that may render for SuperAdmin; use useBranchContext() everywhere else.
+export const useOptionalBranchContext = () => useContext(BranchContext);
