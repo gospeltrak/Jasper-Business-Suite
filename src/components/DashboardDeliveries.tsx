@@ -98,6 +98,8 @@ interface DashboardDeliveriesProps {
   onSubTabChange?: (tab: 'queue' | 'riders' | 'notes' | 'accounting') => void;
   expenses?: any[];
   onAddExpense?: (exp: any) => void;
+  onEditDelivery?: (deliveryId: string, updates: { customerName?: string; customerPhone?: string; deliveryCost?: number; notes?: string }) => boolean;
+  onDeleteDelivery?: (deliveryId: string) => Promise<boolean>;
 }
 
 export default function DashboardDeliveries({
@@ -116,7 +118,9 @@ export default function DashboardDeliveries({
   defaultSubTab,
   onSubTabChange,
   expenses = [],
-  onAddExpense
+  onAddExpense,
+  onEditDelivery,
+  onDeleteDelivery
 }: DashboardDeliveriesProps) {
   const [activeSubTab, setActiveSubTab] = useState<'queue' | 'riders' | 'notes' | 'accounting'>('queue');
   
@@ -308,6 +312,50 @@ export default function DashboardDeliveries({
   const [newItemUnit, setNewItemUnit] = useState('PC');
   const [newItemQty, setNewItemQty] = useState(1);
   const [openDropdownRow, setOpenDropdownRow] = useState<string | null>(null);
+
+  // Dispatch Jobs (queue) compact list: action menu + View/Edit/Delete modals
+  const [openQueueActionId, setOpenQueueActionId] = useState<string | null>(null);
+  const [viewingDelivery, setViewingDelivery] = useState<Delivery | null>(null);
+  const [editingDelivery, setEditingDelivery] = useState<Delivery | null>(null);
+  const [editDeliveryCustomerName, setEditDeliveryCustomerName] = useState('');
+  const [editDeliveryCustomerPhone, setEditDeliveryCustomerPhone] = useState('');
+  const [editDeliveryCost, setEditDeliveryCost] = useState<number | ''>('');
+  const [editDeliveryNotes, setEditDeliveryNotes] = useState('');
+  const [isSavingDeliveryEdit, setIsSavingDeliveryEdit] = useState(false);
+  const [deletingDelivery, setDeletingDelivery] = useState<Delivery | null>(null);
+  const [isDeletingDelivery, setIsDeletingDelivery] = useState(false);
+
+  const openEditDeliveryModal = (del: Delivery) => {
+    setEditingDelivery(del);
+    setEditDeliveryCustomerName(del.customerName || '');
+    setEditDeliveryCustomerPhone(del.customerPhone || '');
+    setEditDeliveryCost(typeof del.deliveryCost === 'number' ? del.deliveryCost : '');
+    setEditDeliveryNotes(del.notes || '');
+  };
+
+  const handleSaveDeliveryEdit = () => {
+    if (!editingDelivery || !onEditDelivery) return;
+    setIsSavingDeliveryEdit(true);
+    const ok = onEditDelivery(editingDelivery.id, {
+      customerName: editDeliveryCustomerName.trim(),
+      customerPhone: editDeliveryCustomerPhone.trim(),
+      deliveryCost: editDeliveryCost === '' ? 0 : Number(editDeliveryCost),
+      notes: editDeliveryNotes,
+    });
+    setIsSavingDeliveryEdit(false);
+    if (ok !== false) setEditingDelivery(null);
+  };
+
+  const handleConfirmDeleteDelivery = async () => {
+    if (!deletingDelivery || !onDeleteDelivery) return;
+    setIsDeletingDelivery(true);
+    const ok = await onDeleteDelivery(deletingDelivery.id);
+    setIsDeletingDelivery(false);
+    if (ok) {
+      setDeletingDelivery(null);
+      if (viewingDelivery?.id === deletingDelivery.id) setViewingDelivery(null);
+    }
+  };
 
   const handleAddNoteItem = () => {
     if (!newItemDesc.trim()) return;
@@ -759,149 +807,372 @@ Vehicle Plate Number: ${plateNumber}
             </button>
           </div>
 
-          {/* Delivery Jobs List Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-5">
+          {/* Delivery Jobs Compact List */}
+          <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl shadow-sm overflow-hidden">
             {filteredDeliveries.length === 0 ? (
-              <div className="lg:col-span-2 2xl:col-span-3 text-center py-16 bg-white border border-slate-200 rounded-3xl text-sm font-mono text-slate-500 shadow-sm">
+              <div className="text-center py-16 text-sm font-mono text-slate-500">
                 <Truck className="w-8 h-8 mx-auto mb-3 text-slate-300" />
                 <p>No custom delivery dispatch queues recorded for this branch yet.</p>
               </div>
             ) : (
-              filteredDeliveries.map(del => {
-                const isPending = del.status === 'Pending Dispatch';
-                const isDispatched = del.status === 'Dispatched';
-                const isDelivered = del.status === 'Delivered';
-                const isCancelled = del.status === 'Cancelled';
+              <div className="divide-y divide-slate-100">
+                {filteredDeliveries.map(del => {
+                  const isPending = del.status === 'Pending Dispatch';
+                  const isDispatched = del.status === 'Dispatched';
+                  const isDelivered = del.status === 'Delivered';
+                  const isCancelled = del.status === 'Cancelled';
+                  const isActionOpen = openQueueActionId === del.id;
+                  const whenDate = new Date(del.dispatchedAt || del.timestamp);
 
-                return (
-                  <div 
-                    key={del.id}
-                    className={`bg-white border rounded-2xl md:rounded-3xl p-4 sm:p-5 flex flex-col justify-between transition-all relative shadow-sm min-w-0 ${
-                      isDelivered 
-                        ? 'border-slate-200 bg-slate-50/50 opacity-90' 
-                        : isCancelled 
-                          ? 'border-red-150 bg-red-50/10 opacity-75'
-                          : 'border-slate-220 hover:border-slate-350 hover:shadow-md'
-                    }`}
-                  >
-                    {/* Header badge status */}
-                    <div className="flex justify-between items-start gap-3 pb-3 border-b border-slate-100">
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold text-slate-400 block font-mono">ORDER REF: {del.saleId}</span>
-                        <h4 className="font-extrabold text-base sm:text-sm text-slate-900 tracking-tight mt-0.5 truncate">{del.customerName}</h4>
+                  return (
+                    <div
+                      key={del.id}
+                      className={`flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-2 px-4 sm:px-5 py-3 transition-colors ${
+                        isDelivered ? 'bg-slate-50/50' : isCancelled ? 'bg-red-50/10 opacity-75' : 'hover:bg-slate-50/70'
+                      }`}
+                    >
+                      {/* Order ref + status */}
+                      <div className="min-w-0 w-1/2 sm:w-auto sm:shrink-0 sm:basis-40">
+                        <button
+                          onClick={() => setViewingDelivery(del)}
+                          className="text-[10px] font-bold text-slate-400 block font-mono truncate hover:text-emerald-600 cursor-pointer text-left"
+                          title="View delivery details"
+                        >
+                          {del.saleId}
+                        </button>
+                        <span className={`inline-flex mt-1 px-2 py-0.5 rounded-lg text-[9px] font-bold tracking-wider uppercase font-sans ${
+                          isPending
+                            ? 'bg-amber-105 text-amber-700 border border-amber-200'
+                            : isDispatched
+                              ? 'bg-sky-105 text-sky-700 border border-sky-200'
+                              : isDelivered
+                                ? 'bg-emerald-105 text-emerald-700 border border-emerald-200'
+                                : 'bg-red-105 text-red-700 border border-red-200'
+                        }`}>
+                          {del.status}
+                        </span>
+                      </div>
+
+                      {/* Destination / customer */}
+                      <div className="min-w-0 flex-1 sm:basis-48 sm:flex-none">
+                        <p className="font-bold text-sm text-slate-900 truncate">{del.customerName || 'Walk-In Customer'}</p>
                         {del.customerPhone && (
-                          <span className="text-[11px] font-mono text-slate-500 flex items-center mt-0.5">
-                            <Smartphone className="w-3 h-3 text-slate-400 mr-1 shrink-0" />
-                            {del.customerPhone}
-                          </span>
+                          <p className="text-[11px] text-slate-500 font-mono truncate">{del.customerPhone}</p>
                         )}
                       </div>
-                      <span className={`px-2.5 py-1 rounded-lg text-[9.5px] font-bold tracking-wider uppercase font-sans ${
-                        isPending 
-                          ? 'bg-amber-105 text-amber-700 border border-amber-200' 
-                          : isDispatched 
-                            ? 'bg-sky-105 text-sky-700 border border-sky-200 animate-pulse' 
-                            : isDelivered 
-                              ? 'bg-emerald-105 text-emerald-700 border border-emerald-200' 
-                              : 'bg-red-105 text-red-700 border border-red-200'
-                      }`}>
-                        {del.status}
-                      </span>
-                    </div>
 
-                    {/* Basket items list */}
-                    <div className="py-3.5 space-y-1.5 flex-grow">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono block">Delivery Cargo</span>
-                      <div className="max-h-[108px] sm:max-h-[85px] overflow-y-auto space-y-1.1 scrollbar-thin">
-                        {del.items.map((item, idx) => (
-                          <div key={idx} className="flex justify-between text-xs text-slate-600">
-                            <span className="font-medium truncate max-w-[70%]">{item.productName}</span>
-                            <span className="font-bold font-mono text-slate-800 shrink-0 select-none">{formatSaleItemQuantity(item)}</span>
-                          </div>
-                        ))}
+                      {/* Delivery fee */}
+                      <div className="shrink-0 sm:basis-28">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono block sm:hidden">Fee</span>
+                        <span className="font-bold font-mono text-sky-600 text-sm">{currency}{Math.round(del.deliveryCost || 0).toLocaleString()}</span>
                       </div>
-                      
-                      {/* Fees */}
-                      <div className="pt-2 border-t border-slate-50 flex justify-between items-center text-xs">
-                        <span className="text-slate-500">Delivery Charge Paid:</span>
-                        <span className="font-bold font-mono text-sky-600">{currency}{Math.round(del.deliveryCost).toLocaleString()}</span>
-                      </div>
-                    </div>
 
-                    {/* Driver details assigned block */}
-                    {del.riderDetails ? (
-                      <div className="bg-slate-100/70 border border-slate-200 rounded-2xl p-3 space-y-1.5 mb-4 text-xs">
-                        <div className="flex items-center justify-between font-bold text-slate-700">
-                          <span className="uppercase text-[9px] text-slate-400 font-mono tracking-wider">Assigned Delivery Courier</span>
-                          <span className="capitalize text-[10px] text-emerald-600 border border-emerald-200 bg-white rounded px-1">{del.riderDetails.classification}</span>
-                        </div>
-                        <div className="space-y-0.5">
-                          <p className="font-black text-slate-800 text-xs">{del.riderDetails.name}</p>
-                          <p className="font-mono text-[10.5px] text-slate-500">{del.riderDetails.phone}</p>
-                          <p className="text-[10.5px] text-slate-600 font-sans mt-0.5">
-                            Vehicle: <span className="font-semibold capitalize text-slate-800">{del.riderDetails.vehicleColor} {del.riderDetails.vehicleType}</span> ({del.riderDetails.licensePlate})
-                          </p>
-                        </div>
-                        
-                        {/* Notify action on dispatcher tool */}
-                        <div className="pt-2 border-t border-slate-200 flex space-x-2">
-                          <button
-                            onClick={() => setWhatsAppTarget(del)}
-                            className="flex-grow bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 sm:py-1.5 px-2 rounded-xl sm:rounded-lg text-[11px] sm:text-[10.5px] transition-all cursor-pointer flex items-center justify-center space-x-1 min-h-[42px] sm:min-h-0"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>WhatsApp Note</span>
-                          </button>
-                        </div>
+                      {/* Date & time */}
+                      <div className="shrink-0 sm:basis-32">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono block sm:hidden">When</span>
+                        <span className="text-xs font-semibold text-slate-700 block">{whenDate.toLocaleDateString()}</span>
+                        <span className="text-[10.5px] text-slate-400 font-mono">{whenDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
-                    ) : (
-                      <div className="bg-amber-50/50 border border-dashed border-amber-200 rounded-2xl p-3.5 text-center text-xs text-amber-800 mb-4 font-sans leading-relaxed">
-                        <AlertCircle className="w-4 h-4 text-amber-600 mx-auto mb-1" />
-                        Awaiting carrier dispatch assignment.
-                      </div>
-                    )}
 
-                    {/* Operational controls */}
-                    <div className="flex space-x-2 border-t border-slate-100 pt-3">
-                      {isPending && (
+                      {/* Action menu */}
+                      <div className="relative shrink-0 ml-auto">
                         <button
-                          onClick={() => handleOpenDispatch(del)}
-                          className="w-full bg-slate-900 hover:bg-slate-850 text-white font-bold py-3 sm:py-2 px-3 rounded-2xl sm:rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer flex items-center justify-center space-x-1 min-h-[48px] sm:min-h-0"
+                          onClick={() => setOpenQueueActionId(isActionOpen ? null : del.id)}
+                          className="h-9 w-9 rounded-full hover:bg-slate-200/70 text-slate-500 hover:text-slate-700 flex items-center justify-center transition cursor-pointer"
                         >
-                          <Navigation className="w-3.5 h-3.5 text-sky-400" />
-                          <span>Dispatch Order</span>
+                          <MoreVertical className="w-4 h-4" />
                         </button>
-                      )}
+                        {isActionOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setOpenQueueActionId(null)} />
+                            <div className="absolute right-0 top-10 w-44 bg-white shadow-xl rounded-2xl border border-slate-200 py-1.5 z-50 animate-fade-in origin-top-right text-left text-xs font-bold text-slate-700 flex flex-col">
+                              <button
+                                className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                onClick={() => { setOpenQueueActionId(null); setViewingDelivery(del); }}
+                              >
+                                <Eye className="w-3.5 h-3.5 text-slate-400" />
+                                View Delivery
+                              </button>
+                              <button
+                                className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                onClick={() => { setOpenQueueActionId(null); openEditDeliveryModal(del); }}
+                              >
+                                <Edit className="w-3.5 h-3.5 text-blue-400" />
+                                Edit Delivery
+                              </button>
+                              <button
+                                className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center gap-2 cursor-pointer"
+                                onClick={() => { setOpenQueueActionId(null); setDeletingDelivery(del); }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Delete Delivery
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
-                      {isDispatched && (
-                        <>
-                          <button
-                            onClick={() => onUpdateDeliveryStatus(del.id, 'Delivered')}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 sm:py-2 px-3 rounded-2xl sm:rounded-xl text-xs flex-grow uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-1 min-h-[48px] sm:min-h-0"
-                          >
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            <span>Mark Delivered</span>
-                          </button>
-                          <button
-                            onClick={() => onUpdateDeliveryStatus(del.id, 'Cancelled')}
-                            className="bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 hover:text-red-600 font-bold py-3 sm:py-2 px-3 rounded-2xl sm:rounded-xl text-xs transition-all cursor-pointer flex items-center justify-center min-h-[48px] sm:min-h-0"
-                            title="Cancel Delivery Order"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </>
-                      )}
+      {/* VIEW DELIVERY MODAL — full details, moved from the old expanded card */}
+      {viewingDelivery && (() => {
+        const del = deliveries.find(d => d.id === viewingDelivery.id) || viewingDelivery;
+        const isPending = del.status === 'Pending Dispatch';
+        const isDispatched = del.status === 'Dispatched';
+        const isDelivered = del.status === 'Delivered';
+        const isCancelled = del.status === 'Cancelled';
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+            onClick={() => setViewingDelivery(null)}
+          >
+            <div
+              className="bg-white border rounded-2xl md:rounded-3xl shadow-2xl w-full max-w-md overflow-y-auto flex flex-col relative animate-scale-up max-h-[92vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setViewingDelivery(null)}
+                className="absolute top-4 right-4 p-1 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer z-10"
+              >
+                <X className="w-5 h-5" />
+              </button>
 
-                      {(isDelivered || isCancelled) && (
-                        <div className="w-full text-center text-[10.5px] text-slate-400 font-mono py-1">
-                          Completed on {new Date(del.dispatchedAt || del.timestamp).toLocaleDateString()}
-                        </div>
-                      )}
+              <div className="p-4 sm:p-5">
+                {/* Header badge status */}
+                <div className="flex justify-between items-start gap-3 pb-3 border-b border-slate-100 pr-8">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold text-slate-400 block font-mono">ORDER REF: {del.saleId}</span>
+                    <h4 className="font-extrabold text-base sm:text-sm text-slate-900 tracking-tight mt-0.5 truncate">{del.customerName}</h4>
+                    {del.customerPhone && (
+                      <span className="text-[11px] font-mono text-slate-500 flex items-center mt-0.5">
+                        <Smartphone className="w-3 h-3 text-slate-400 mr-1 shrink-0" />
+                        {del.customerPhone}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-lg text-[9.5px] font-bold tracking-wider uppercase font-sans shrink-0 ${
+                    isPending
+                      ? 'bg-amber-105 text-amber-700 border border-amber-200'
+                      : isDispatched
+                        ? 'bg-sky-105 text-sky-700 border border-sky-200 animate-pulse'
+                        : isDelivered
+                          ? 'bg-emerald-105 text-emerald-700 border border-emerald-200'
+                          : 'bg-red-105 text-red-700 border border-red-200'
+                  }`}>
+                    {del.status}
+                  </span>
+                </div>
+
+                {/* Basket items list */}
+                <div className="py-3.5 space-y-1.5">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono block">Delivery Cargo</span>
+                  <div className="max-h-[160px] overflow-y-auto space-y-1.1 scrollbar-thin">
+                    {del.items.map((item, idx) => (
+                      <div key={idx} className="flex justify-between text-xs text-slate-600">
+                        <span className="font-medium truncate max-w-[70%]">{item.productName}</span>
+                        <span className="font-bold font-mono text-slate-800 shrink-0 select-none">{formatSaleItemQuantity(item)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Fees */}
+                  <div className="pt-2 border-t border-slate-50 flex justify-between items-center text-xs">
+                    <span className="text-slate-500">Delivery Charge Paid:</span>
+                    <span className="font-bold font-mono text-sky-600">{currency}{Math.round(del.deliveryCost || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* Driver details assigned block */}
+                {del.riderDetails ? (
+                  <div className="bg-slate-100/70 border border-slate-200 rounded-2xl p-3 space-y-1.5 mb-4 text-xs">
+                    <div className="flex items-center justify-between font-bold text-slate-700">
+                      <span className="uppercase text-[9px] text-slate-400 font-mono tracking-wider">Assigned Delivery Courier</span>
+                      <span className="capitalize text-[10px] text-emerald-600 border border-emerald-200 bg-white rounded px-1">{del.riderDetails.classification}</span>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="font-black text-slate-800 text-xs">{del.riderDetails.name}</p>
+                      <p className="font-mono text-[10.5px] text-slate-500">{del.riderDetails.phone}</p>
+                      <p className="text-[10.5px] text-slate-600 font-sans mt-0.5">
+                        Vehicle: <span className="font-semibold capitalize text-slate-800">{del.riderDetails.vehicleColor} {del.riderDetails.vehicleType}</span> ({del.riderDetails.licensePlate})
+                      </p>
+                    </div>
+
+                    {/* Notify action on dispatcher tool */}
+                    <div className="pt-2 border-t border-slate-200 flex space-x-2">
+                      <button
+                        onClick={() => setWhatsAppTarget(del)}
+                        className="flex-grow bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 sm:py-1.5 px-2 rounded-xl sm:rounded-lg text-[11px] sm:text-[10.5px] transition-all cursor-pointer flex items-center justify-center space-x-1 min-h-[42px] sm:min-h-0"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>WhatsApp Note</span>
+                      </button>
                     </div>
                   </div>
-                );
-              })
-            )}
+                ) : (
+                  <div className="bg-amber-50/50 border border-dashed border-amber-200 rounded-2xl p-3.5 text-center text-xs text-amber-800 mb-4 font-sans leading-relaxed">
+                    <AlertCircle className="w-4 h-4 text-amber-600 mx-auto mb-1" />
+                    Awaiting carrier dispatch assignment.
+                  </div>
+                )}
+
+                {/* Operational controls */}
+                <div className="flex space-x-2 border-t border-slate-100 pt-3">
+                  {isPending && (
+                    <button
+                      onClick={() => { setViewingDelivery(null); handleOpenDispatch(del); }}
+                      className="w-full bg-slate-900 hover:bg-slate-850 text-white font-bold py-3 sm:py-2 px-3 rounded-2xl sm:rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer flex items-center justify-center space-x-1 min-h-[48px] sm:min-h-0"
+                    >
+                      <Navigation className="w-3.5 h-3.5 text-sky-400" />
+                      <span>Dispatch Order</span>
+                    </button>
+                  )}
+
+                  {isDispatched && (
+                    <>
+                      <button
+                        onClick={() => onUpdateDeliveryStatus(del.id, 'Delivered')}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 sm:py-2 px-3 rounded-2xl sm:rounded-xl text-xs flex-grow uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-1 min-h-[48px] sm:min-h-0"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        <span>Mark Delivered</span>
+                      </button>
+                      <button
+                        onClick={() => onUpdateDeliveryStatus(del.id, 'Cancelled')}
+                        className="bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 hover:text-red-600 font-bold py-3 sm:py-2 px-3 rounded-2xl sm:rounded-xl text-xs transition-all cursor-pointer flex items-center justify-center min-h-[48px] sm:min-h-0"
+                        title="Cancel Delivery Order"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+
+                  {(isDelivered || isCancelled) && (
+                    <div className="w-full text-center text-[10.5px] text-slate-400 font-mono py-1">
+                      Completed on {new Date(del.dispatchedAt || del.timestamp).toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* EDIT DELIVERY MODAL */}
+      {editingDelivery && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+          onClick={() => setEditingDelivery(null)}
+        >
+          <div
+            className="bg-white border rounded-2xl md:rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col relative animate-scale-up max-h-[92vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <h4 className="font-extrabold text-sm text-slate-900">Edit Delivery</h4>
+              <button onClick={() => setEditingDelivery(null)} className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4 overflow-y-auto">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Customer Name</label>
+                <input
+                  type="text"
+                  value={editDeliveryCustomerName}
+                  onChange={(e) => setEditDeliveryCustomerName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Customer Phone</label>
+                <input
+                  type="text"
+                  value={editDeliveryCustomerPhone}
+                  onChange={(e) => setEditDeliveryCustomerPhone(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Delivery Fee</label>
+                <input
+                  type="number"
+                  value={editDeliveryCost}
+                  onChange={(e) => setEditDeliveryCost(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Notes</label>
+                <textarea
+                  value={editDeliveryNotes}
+                  onChange={(e) => setEditDeliveryNotes(e.target.value)}
+                  rows={3}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500 resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 px-5 py-4 border-t border-slate-100">
+              <button
+                onClick={() => setEditingDelivery(null)}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveDeliveryEdit}
+                disabled={isSavingDeliveryEdit}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer"
+              >
+                {isSavingDeliveryEdit ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE DELIVERY CONFIRMATION */}
+      {deletingDelivery && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+          onClick={() => !isDeletingDelivery && setDeletingDelivery(null)}
+        >
+          <div
+            className="bg-white border rounded-2xl md:rounded-3xl shadow-2xl w-full max-w-sm p-5 flex flex-col relative animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <h4 className="font-extrabold text-sm text-slate-900">Delete this delivery?</h4>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed mb-4">
+              Order {deletingDelivery.saleId} for {deletingDelivery.customerName || 'this customer'} will be permanently removed.
+              {deletingDelivery.treasuryJournalId && ' Any delivery income already collected for it will be reversed from Money & Bank.'}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDeletingDelivery(null)}
+                disabled={isDeletingDelivery}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-700 font-bold py-2.5 rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeleteDelivery}
+                disabled={isDeletingDelivery}
+                className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer"
+              >
+                {isDeletingDelivery ? 'Deleting...' : 'Delete Delivery'}
+              </button>
+            </div>
           </div>
         </div>
       )}

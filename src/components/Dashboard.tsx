@@ -2320,6 +2320,109 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return true;
   };
 
+  const handleUpdateDeliveryDetails = (
+    deliveryId: string,
+    updates: { customerName?: string; customerPhone?: string; deliveryCost?: number; notes?: string },
+  ): boolean => {
+    if (blockOfflineBusinessWrite('delivery edit')) return false;
+    const currentDelivery = (deliveriesMap[activeTenant.id] || []).find(delivery => delivery.id === deliveryId);
+    if (!currentDelivery || !recordBelongsToActiveBranch(currentDelivery, activeBranchSelection)) {
+      addToast('Switch to the branch that owns this delivery before editing it.', 'error');
+      return false;
+    }
+
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
+    setDeliveriesMap(prev => {
+      const currentTenantDels = prev[activeTenant.id] || [];
+      return {
+        ...prev,
+        [activeTenant.id]: currentTenantDels.map(del =>
+          del.id === deliveryId
+            ? {
+                ...del,
+                ...(updates.customerName !== undefined ? { customerName: updates.customerName } : {}),
+                ...(updates.customerPhone !== undefined ? { customerPhone: updates.customerPhone } : {}),
+                ...(updates.deliveryCost !== undefined ? { deliveryCost: updates.deliveryCost } : {}),
+                ...(updates.notes !== undefined ? { notes: updates.notes } : {}),
+              }
+            : del
+        )
+      };
+    });
+
+    const newLog: SyncLog = {
+      id: 'l-' + Math.random().toString(36).substr(2, 9),
+      type: 'product_update',
+      status: 'success',
+      message: `Delivery ${deliveryId} details were edited.`,
+      timestamp: new Date().toISOString()
+    };
+    setLogs(prev => [newLog, ...prev]);
+    return true;
+  };
+
+  const handleDeleteDelivery = async (deliveryId: string): Promise<boolean> => {
+    if (blockOfflineBusinessWrite('delivery deletion')) return false;
+    const tenantId = activeTenant.id;
+    const currentDeliveries = deliveriesMap[tenantId] || [];
+    const currentDelivery = currentDeliveries.find(delivery => delivery.id === deliveryId);
+    if (!currentDelivery) return true;
+    if (!recordBelongsToActiveBranch(currentDelivery, activeBranchSelection)) {
+      addToast('Switch to the branch that owns this delivery before deleting it.', 'error');
+      return false;
+    }
+
+    const nextDeliveries = currentDeliveries.filter(delivery => delivery.id !== deliveryId);
+
+    const workspaceBase = {
+      branches: branchesMap[tenantId] || [],
+      branchStocks: branchStocksMap[tenantId] || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[tenantId] || [],
+      products: productsMap[tenantId] || [],
+      sales: salesMap[tenantId] || [],
+      expenses: expensesMap[tenantId] || [],
+      settings: systemSettings,
+      pendingDeliveryNotes: pendingDeliveryNotesMap[tenantId] || [],
+      purchases: purchasesMap[tenantId] || [],
+      productTombstones: readLocalProductTombstones(tenantId),
+    };
+
+    const saved = await saveTenantWorkspace(tenantId, { ...workspaceBase, deliveries: nextDeliveries });
+    if (!saved) {
+      addToast('Delivery could not be deleted from the database. Nothing was removed.', 'error');
+      return false;
+    }
+
+    if (currentDelivery.treasuryJournalId) {
+      try {
+        await reverseTreasuryEntry(
+          currentDelivery.treasuryJournalId,
+          currentDelivery.id,
+          `Deleted delivery ${currentDelivery.id}`,
+        );
+      } catch (error: any) {
+        await saveTenantWorkspace(tenantId, { ...workspaceBase, deliveries: currentDeliveries });
+        addToast(error?.message || 'Money & Bank could not reverse this delivery income safely.', 'error');
+        return false;
+      }
+    }
+
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
+    setDeliveriesMap(previous => ({ ...previous, [tenantId]: nextDeliveries }));
+    saveData(tenantId, 'deliveries_map', { [tenantId]: nextDeliveries });
+
+    setLogs(previous => [{
+      id: `delivery-delete-${deliveryId}-${Date.now()}`,
+      type: 'product_update',
+      status: 'success',
+      message: `Deleted delivery ${currentDelivery.id}${currentDelivery.treasuryJournalId ? ' and reversed its collected income' : ''}.`,
+      timestamp: new Date().toISOString(),
+    }, ...previous]);
+    return true;
+  };
+
   const handleCreateProduct = (newProd: Product) => {
     if (blockOfflineBusinessWrite('product creation')) return;
 
@@ -3669,6 +3772,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               onSubTabChange={(tab) => setDeliveriesSubTab(tab)}
               expenses={activeExpenses}
               onAddExpense={handleAddExpense}
+              onEditDelivery={handleUpdateDeliveryDetails}
+              onDeleteDelivery={handleDeleteDelivery}
             />
           )}
 
