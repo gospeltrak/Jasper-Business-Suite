@@ -75,6 +75,14 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <!-- Static Orvix manifest + apple-touch-icon so the landing page and
+         login screen are installable before a tenant workspace (and its own
+         personalized manifest, see PWAInstallBanner.tsx) ever loads. Once a
+         tenant user logs in, PWAInstallBanner swaps this for a per-tenant
+         manifest/icon so the installed app carries that business's own
+         branding instead. -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <script>
       (function() {
         function setViewportVars() {

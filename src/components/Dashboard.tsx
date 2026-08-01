@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PWAInstallBanner from './PWAInstallBanner';
+import { requestManualInstallPrompt } from '../utils/pwaInstallPrompt';
 import { useTranslation } from '../LanguageContext';
 import { useTenantLogo } from '../TenantLogoContext';
 import { useJasperNotifications } from '../JasperNotificationContext';
@@ -143,7 +144,8 @@ import {
   MapPin,
   MinusCircle,
   RefreshCw,
-  Handshake
+  Handshake,
+  Download
 } from 'lucide-react';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
@@ -3227,6 +3229,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                           <SettingsIcon className="w-4 h-4 text-slate-400" />
                           <span className="font-semibold">Settings</span>
                         </button>
+                        {user.role !== 'SuperAdmin' && (
+                          <button
+                            type="button"
+                            onClick={() => { requestManualInstallPrompt(); setShowUserMenu(false); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                          >
+                            <Download className="w-4 h-4 text-slate-400" />
+                            <span className="font-semibold">Install Orvix App</span>
+                          </button>
+                        )}
                         <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
                         <button
                           type="button"
@@ -4075,6 +4087,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   { id: 'sync', label: 'Sync', icon: RefreshCw, desc: isOfflineMode ? 'You are offline' : 'All data synced', color: isOfflineMode ? 'text-amber-600' : 'text-emerald-600', bg: isOfflineMode ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-emerald-50 dark:bg-emerald-500/10' },
                   { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
                   { id: 'subscription-modal', label: 'Subscription', icon: CardIcon, desc: 'Pay online or upload an offline receipt', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', alwaysShow: true },
+                  { id: 'install-orvix-app', label: 'Install Orvix App', icon: Download, desc: 'Add this app to your home screen', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', alwaysShow: true },
                 ]).filter(item => (item as any).alwaysShow || isTabAllowed(item.id)).map((item, idx, arr) => {
                   const Icon = item.icon;
                   return (
@@ -4087,6 +4100,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                             limitType: 'general',
                             description: 'Manage active subscriptions and premium account plans.',
                           });
+                        } else if (item.id === 'install-orvix-app') {
+                          requestManualInstallPrompt();
                         } else {
                           setActiveTab(item.id as any);
                         }

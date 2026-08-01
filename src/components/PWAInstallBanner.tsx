@@ -4,7 +4,13 @@ import {
   BeforeInstallPromptEvent,
   clearCapturedInstallPrompt,
   getCapturedInstallPrompt,
+  hasDismissedInstallPrompt,
+  hasInstalledPwa,
+  markInstallPromptDismissed,
+  markPwaInstalled,
   subscribeToInstallPrompt,
+  subscribeToInstalled,
+  subscribeToManualInstallTrigger,
 } from '../utils/pwaInstallPrompt';
 
 interface PWAInstallBannerProps {
@@ -105,9 +111,17 @@ function usePersonalizedManifest({ tenantId, businessName, businessLogo, enabled
   useEffect(() => {
     if (!enabled || !tenantId) return undefined;
     let cancelled = false;
-    let manifestLink: HTMLLinkElement | null = null;
+    // index.html ships one static <link rel="manifest"> / <link
+    // rel="apple-touch-icon"> pair so the landing/login page is installable
+    // pre-auth. Rather than appending a second manifest/icon link (which
+    // leaves two competing tags in the DOM with inconsistent cross-browser
+    // "which one wins" behavior), swap that existing element's href to the
+    // tenant-specific one and restore the original Orvix href on cleanup.
+    const existingManifestLink = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    const existingAppleIconLink = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
+    const originalManifestHref = existingManifestLink?.getAttribute('href') ?? null;
+    const originalAppleIconHref = existingAppleIconLink?.getAttribute('href') ?? null;
     let titleMeta: HTMLMetaElement | null = null;
-    let appleIcon: HTMLLinkElement | null = null;
     let manifestUrl: string | null = null;
 
     const name = safeBusinessName(businessName);
@@ -148,11 +162,10 @@ function usePersonalizedManifest({ tenantId, businessName, businessLogo, enabled
       manifestUrl = URL.createObjectURL(
         new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }),
       );
-      manifestLink = document.createElement('link');
-      manifestLink.rel = 'manifest';
-      manifestLink.href = manifestUrl;
-      manifestLink.dataset.tenantPwa = tenantId;
-      document.head.appendChild(manifestLink);
+      if (existingManifestLink) {
+        existingManifestLink.href = manifestUrl;
+        existingManifestLink.dataset.tenantPwa = tenantId;
+      }
 
       titleMeta = document.createElement('meta');
       titleMeta.name = 'apple-mobile-web-app-title';
@@ -160,18 +173,23 @@ function usePersonalizedManifest({ tenantId, businessName, businessLogo, enabled
       titleMeta.dataset.tenantPwa = tenantId;
       document.head.appendChild(titleMeta);
 
-      appleIcon = document.createElement('link');
-      appleIcon.rel = 'apple-touch-icon';
-      appleIcon.href = iconSource;
-      appleIcon.dataset.tenantPwa = tenantId;
-      document.head.appendChild(appleIcon);
+      if (existingAppleIconLink) {
+        existingAppleIconLink.href = iconSource;
+        existingAppleIconLink.dataset.tenantPwa = tenantId;
+      }
     })();
 
     return () => {
       cancelled = true;
-      manifestLink?.remove();
+      if (existingManifestLink) {
+        if (originalManifestHref !== null) existingManifestLink.setAttribute('href', originalManifestHref);
+        delete existingManifestLink.dataset.tenantPwa;
+      }
+      if (existingAppleIconLink) {
+        if (originalAppleIconHref !== null) existingAppleIconLink.setAttribute('href', originalAppleIconHref);
+        delete existingAppleIconLink.dataset.tenantPwa;
+      }
       titleMeta?.remove();
-      appleIcon?.remove();
       if (manifestUrl) URL.revokeObjectURL(manifestUrl);
     };
   }, [businessLogo, businessName, enabled, tenantId]);
@@ -203,7 +221,9 @@ export default function PWAInstallBanner(props: PWAInstallBannerProps) {
   const [show, setShow] = useState(false);
   const [platform, setPlatform] = useState<'android' | 'ios' | 'desktop' | null>(null);
   const [iosStep, setIosStep] = useState<'initial' | 'steps'>('initial');
+  const [manualUnavailable, setManualUnavailable] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const manualToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const name = useMemo(() => safeBusinessName(businessName), [businessName]);
   const host = typeof window === 'undefined' ? '' : window.location.host;
   const isDevelopmentPreview = Boolean((import.meta as any).env?.DEV) &&
@@ -213,6 +233,9 @@ export default function PWAInstallBanner(props: PWAInstallBannerProps) {
 
   useEffect(() => {
     if (!enabled || !tenantId || isInStandaloneMode()) return undefined;
+    // Show the automatic prompt at most once: never again after the user
+    // dismissed it, and never once the app is already installed.
+    if (hasDismissedInstallPrompt(tenantId) || hasInstalledPwa(tenantId)) return undefined;
 
     const reveal = (nextPlatform: 'android' | 'ios' | 'desktop') => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -228,6 +251,11 @@ export default function PWAInstallBanner(props: PWAInstallBannerProps) {
     };
 
     const unsubscribe = subscribeToInstallPrompt(receivePrompt);
+    const unsubscribeInstalled = subscribeToInstalled(() => {
+      markPwaInstalled(tenantId);
+      setShow(false);
+      setDeferredPrompt(null);
+    });
     const existingPrompt = getCapturedInstallPrompt();
     if (existingPrompt) receivePrompt(existingPrompt);
     else if (isIOSSafari()) reveal('ios');
@@ -235,11 +263,53 @@ export default function PWAInstallBanner(props: PWAInstallBannerProps) {
 
     return () => {
       unsubscribe();
+      unsubscribeInstalled();
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [enabled, isDevelopmentPreview, tenantId]);
 
-  const dismiss = () => setShow(false);
+  // Manual "Install Orvix App" entry point (profile menu / Settings). Stays
+  // available regardless of the automatic prompt's dismissal state.
+  useEffect(() => {
+    if (!tenantId) return undefined;
+
+    const showManualUnavailable = (message: string) => {
+      if (manualToastTimerRef.current) clearTimeout(manualToastTimerRef.current);
+      setManualUnavailable(message);
+      manualToastTimerRef.current = setTimeout(() => setManualUnavailable(null), 4500);
+    };
+
+    const unsubscribe = subscribeToManualInstallTrigger(() => {
+      if (isInStandaloneMode() || hasInstalledPwa(tenantId)) {
+        showManualUnavailable('Orvix is already installed on this device.');
+        return;
+      }
+      const existingPrompt = getCapturedInstallPrompt();
+      if (existingPrompt) {
+        setDeferredPrompt(existingPrompt);
+        setPlatform(isAndroid() ? 'android' : 'desktop');
+        setShow(true);
+        return;
+      }
+      if (isIOSSafari()) {
+        setIosStep('initial');
+        setPlatform('ios');
+        setShow(true);
+        return;
+      }
+      showManualUnavailable('Installation is not available in this browser yet. Try Chrome or Edge, or Safari on iPhone/iPad.');
+    });
+
+    return () => {
+      unsubscribe();
+      if (manualToastTimerRef.current) clearTimeout(manualToastTimerRef.current);
+    };
+  }, [tenantId]);
+
+  const dismiss = () => {
+    if (tenantId) markInstallPromptDismissed(tenantId);
+    setShow(false);
+  };
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
@@ -247,9 +317,24 @@ export default function PWAInstallBanner(props: PWAInstallBannerProps) {
     const { outcome } = await deferredPrompt.userChoice;
     clearCapturedInstallPrompt(deferredPrompt);
     setDeferredPrompt(null);
-    if (outcome === 'accepted') setShow(false);
-    else dismiss();
+    if (outcome === 'accepted') {
+      if (tenantId) markPwaInstalled(tenantId);
+      setShow(false);
+    } else {
+      dismiss();
+    }
   };
+
+  if (manualUnavailable) {
+    return (
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[200] flex justify-center px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 sm:left-auto sm:right-5 sm:w-[360px] sm:justify-end sm:px-0 sm:pb-5">
+        <div className="pointer-events-auto flex items-center gap-2.5 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 shadow-2xl">
+          <Download className="h-4 w-4 shrink-0 text-slate-400" />
+          <p className="text-[12px] font-semibold text-slate-200">{manualUnavailable}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!show || !enabled) return null;
 

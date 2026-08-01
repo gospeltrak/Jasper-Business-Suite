@@ -422,7 +422,11 @@ export default function App() {
     splashShownRef.current = true;
     setSplashRequest({
       mode: 'tenant',
-      logoSrc: resolvedTenantLogo || undefined,
+      // Tenant's own logo when set; otherwise fall back to the actual Orvix
+      // logo image (same asset used on the login screen) rather than no
+      // image at all, so the workspace-entry reveal always shows a real
+      // logo — tenant's if present, Orvix's if not.
+      logoSrc: resolvedTenantLogo || '/jb-logo.png',
       showTagline: false,
     });
     // Route immediately underneath the four-second tenant-branded reveal.
