@@ -611,6 +611,14 @@ export default function DashboardSalesList({
 
   // States for Direct Add Sale tab removed as all sales must be logged on POS view
 
+  // Shared by every "Edit Sale" entry point (desktop menu + mobile sheet) so the
+  // Sale Date field always defaults to the sale's actual date, never blank.
+  const computeSaleDateStr = (s: Sale): string => {
+    const d = s.timestamp ? new Date(s.timestamp) : new Date();
+    if (isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
   const [editFormFields, setEditFormFields] = useState<{
     customerName: string;
     customerPhone: string;
@@ -1710,7 +1718,7 @@ export default function DashboardSalesList({
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                   <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" /> View Sale
                                 </button>
-                                <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:initialPaid,amountDue:calculatedDue,items:[...sale.items],saleDate:(() => { const d = sale.timestamp ? new Date(sale.timestamp) : new Date(); return isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })()}); setActiveMenuId(null); setMenuPos(null); }}
+                                <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:initialPaid,amountDue:calculatedDue,items:[...sale.items],saleDate:computeSaleDateStr(sale)}); setActiveMenuId(null); setMenuPos(null); }}
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                   <Edit className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Edit Sale
                                 </button>
@@ -4010,58 +4018,69 @@ export default function DashboardSalesList({
             {/* Edit Body */}
             <div className="px-4 sm:px-6 py-4 overflow-y-auto overflow-x-hidden flex-1 space-y-5">
               
-              {/* Client meta details information */}
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Purchaser Client Name</label>
-                  <input
-                    type="text"
-                    value={editFormFields.customerName}
-                    onChange={(e) => setEditFormFields({ ...editFormFields, customerName: e.target.value })}
-                    placeholder="Walk-In Customer"
-                    className="w-full bg-slate-50 border border-slate-240 rounded-xl px-3 py-2 text-slate-800 text-xs font-semibold focus:outline-none focus:border-slate-800 focus:bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Purchaser Client Phone</label>
-                  <input
-                    type="text"
-                    value={editFormFields.customerPhone}
-                    onChange={(e) => setEditFormFields({ ...editFormFields, customerPhone: e.target.value })}
-                    placeholder="Phone number"
-                    className="w-full bg-slate-50 border border-slate-240 rounded-xl px-3 py-2 text-slate-800 text-xs font-semibold focus:outline-none focus:border-slate-800 focus:bg-white"
-                  />
+              {/* Customer Info */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm space-y-3">
+                <p className="text-[10px] uppercase font-mono font-black text-slate-400 tracking-wider flex items-center gap-1.5">
+                  <User className="w-3 h-3 text-slate-400" /> Customer Info
+                </p>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1 flex items-center gap-1"><User className="w-2.5 h-2.5" /> Client Name</label>
+                    <input
+                      type="text"
+                      value={editFormFields.customerName}
+                      onChange={(e) => setEditFormFields({ ...editFormFields, customerName: e.target.value })}
+                      placeholder="Walk-In Customer"
+                      className="w-full bg-slate-50 border border-slate-240 rounded-xl px-3 py-2 text-slate-800 text-xs font-semibold focus:outline-none focus:border-slate-800 focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1 flex items-center gap-1"><Phone className="w-2.5 h-2.5" /> Client Phone</label>
+                    <input
+                      type="text"
+                      value={editFormFields.customerPhone}
+                      onChange={(e) => setEditFormFields({ ...editFormFields, customerPhone: e.target.value })}
+                      placeholder="Phone number"
+                      className="w-full bg-slate-50 border border-slate-240 rounded-xl px-3 py-2 text-slate-800 text-xs font-semibold focus:outline-none focus:border-slate-800 focus:bg-white"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Sale Date</label>
-                  <input
-                    type="date"
-                    value={editFormFields.saleDate}
-                    onChange={(e) => setEditFormFields({ ...editFormFields, saleDate: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-240 rounded-xl px-3 py-2 text-slate-800 text-xs font-mono font-bold focus:outline-none focus:border-slate-800 focus:bg-white cursor-pointer"
-                  />
+              {/* Transaction Details */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm space-y-3">
+                <p className="text-[10px] uppercase font-mono font-black text-slate-400 tracking-wider flex items-center gap-1.5">
+                  <Calendar className="w-3 h-3 text-slate-400" /> Transaction Details
+                </p>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1 flex items-center gap-1"><Calendar className="w-2.5 h-2.5" /> Sale Date</label>
+                    <input
+                      type="date"
+                      value={editFormFields.saleDate}
+                      onChange={(e) => setEditFormFields({ ...editFormFields, saleDate: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-240 rounded-xl px-3 py-2 text-slate-800 text-xs font-mono font-bold focus:outline-none focus:border-slate-800 focus:bg-white cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1 flex items-center gap-1"><CreditCard className="w-2.5 h-2.5" /> Payment Method</label>
+                    <select
+                      value={editFormFields.paymentMethod}
+                      onChange={(e: any) => setEditFormFields({ ...editFormFields, paymentMethod: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-240 rounded-xl px-2.5 py-2 text-xs font-bold font-sans cursor-pointer focus:outline-none focus:border-slate-800 focus:bg-white"
+                    >
+                      <option value="Cash">Cash Channel</option>
+                      <option value="Card">Visa / Master Card</option>
+                      <option value="M-Pesa">M-Pesa Wallet</option>
+                      <option value="MTN MoMo">MTN MoMo API</option>
+                      <option value="Paystack">Direct Paystack Gateway</option>
+                      <option value="Airtel Money">Airtel Money</option>
+                      <option value="Credit">Issued Credit Sales</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Method</label>
-                  <select
-                    value={editFormFields.paymentMethod}
-                    onChange={(e: any) => setEditFormFields({ ...editFormFields, paymentMethod: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-240 rounded-xl px-2.5 py-2 text-xs font-bold font-sans cursor-pointer focus:outline-none focus:border-slate-800 focus:bg-white"
-                  >
-                    <option value="Cash">Cash Channel</option>
-                    <option value="Card">Visa / Master Card</option>
-                    <option value="M-Pesa">M-Pesa Wallet</option>
-                    <option value="MTN MoMo">MTN MoMo API</option>
-                    <option value="Paystack">Direct Paystack Gateway</option>
-                    <option value="Airtel Money">Airtel Money</option>
-                    <option value="Credit">Issued Credit Sales</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Adjust Amount Paid Initially</label>
+                  <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1 flex items-center gap-1"><Coins className="w-2.5 h-2.5" /> Adjust Amount Paid Initially</label>
                   <input
                     type="number"
                     value={editFormFields.amountPaid}
@@ -5240,7 +5259,8 @@ export default function DashboardSalesList({
                       paymentMethod: mobileActionsSale.paymentMethod,
                       amountPaid: initialPaid,
                       amountDue: calculatedDue,
-                      items: [...mobileActionsSale.items]
+                      items: [...mobileActionsSale.items],
+                      saleDate: computeSaleDateStr(mobileActionsSale)
                     });
                     setMobileActionsSale(null);
                   }}
