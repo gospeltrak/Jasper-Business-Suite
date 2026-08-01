@@ -628,6 +628,7 @@ export default function DashboardSalesList({
     items: SaleItem[];
     saleDate: string;
   } | null>(null);
+  const [editCartEmptyWarning, setEditCartEmptyWarning] = useState<string | null>(null);
 
   // Local interactive installment recording ledger (Key: Sale ID)
   const [installmentRecords, setInstallmentRecords] = useState<Record<string, Array<{
@@ -1718,7 +1719,7 @@ export default function DashboardSalesList({
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                   <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" /> View Sale
                                 </button>
-                                <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:initialPaid,amountDue:calculatedDue,items:[...sale.items],saleDate:computeSaleDateStr(sale)}); setActiveMenuId(null); setMenuPos(null); }}
+                                <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:initialPaid,amountDue:calculatedDue,items:[...sale.items],saleDate:computeSaleDateStr(sale)}); setEditCartEmptyWarning(null); setActiveMenuId(null); setMenuPos(null); }}
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                   <Edit className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Edit Sale
                                 </button>
@@ -4008,7 +4009,7 @@ export default function DashboardSalesList({
                 </div>
               </div>
               <button 
-                onClick={() => { setEditingSale(null); setEditFormFields(null); }}
+                onClick={() => { setEditingSale(null); setEditFormFields(null); setEditCartEmptyWarning(null); }}
                 className="p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer bg-transparent border-none shrink-0 ml-2"
               >
                 <X className="w-5 h-5" />
@@ -4148,10 +4149,16 @@ export default function DashboardSalesList({
                           <button
                             type="button"
                             onClick={() => {
+                              if (editFormFields.items.length <= 1) {
+                                setEditCartEmptyWarning('Cart cannot be empty. A sale must have at least one item.');
+                                window.setTimeout(() => setEditCartEmptyWarning(null), 3500);
+                                return;
+                              }
+                              setEditCartEmptyWarning(null);
                               const items = editFormFields.items.filter((_, idx) => idx !== index);
                               setEditFormFields({ ...editFormFields, items });
                             }}
-                            className="p-1.5 text-rose-500 hover:bg-rose-50 hover:text-rose-800 rounded-lg transition-all cursor-pointer border-none"
+                            className="w-7 h-7 flex items-center justify-center bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 hover:border-rose-300 hover:text-rose-800 rounded-lg transition-all cursor-pointer shrink-0"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -4165,6 +4172,12 @@ export default function DashboardSalesList({
                     </div>
                   )}
                 </div>
+                {editCartEmptyWarning && (
+                  <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-3 py-2 text-[11px] font-bold">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{editCartEmptyWarning}</span>
+                  </div>
+                )}
               </div>
 
               {/* Math preview */}
@@ -4207,16 +4220,22 @@ export default function DashboardSalesList({
                 onClick={() => {
                   setEditingSale(null);
                   setEditFormFields(null);
+                  setEditCartEmptyWarning(null);
                 }}
                 className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-600 font-bold hover:bg-slate-100 transition-colors cursor-pointer text-xs uppercase select-none"
               >
                 Cancel Changes
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => {
                   if (!editingSale || !editFormFields || !onUpdateSales) return;
+                  if (editFormFields.items.length === 0) {
+                    setEditCartEmptyWarning('Cart cannot be empty. A sale must have at least one item.');
+                    window.setTimeout(() => setEditCartEmptyWarning(null), 3500);
+                    return;
+                  }
                   const itemSubtotal = editFormFields.items.reduce((sum, item) => {
                     const isItemCash = item.discountType === 'cash';
                     const priceAfterDiscount = isItemCash
@@ -4261,6 +4280,7 @@ export default function DashboardSalesList({
                   onUpdateSales(newSales);
                   setEditingSale(null);
                   setEditFormFields(null);
+                  setEditCartEmptyWarning(null);
                 }}
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl border-none transition-colors text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow-sm select-none"
               >
@@ -5262,6 +5282,7 @@ export default function DashboardSalesList({
                       items: [...mobileActionsSale.items],
                       saleDate: computeSaleDateStr(mobileActionsSale)
                     });
+                    setEditCartEmptyWarning(null);
                     setMobileActionsSale(null);
                   }}
                   className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
