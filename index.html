@@ -170,29 +170,62 @@
       }
 
       /* ── iOS INPUT WHITE SCREEN FIX ── */
-      /* iOS renders a white autocomplete/autofill background over inputs.
-         Force consistent background on all inputs/textareas/selects */
+      /* iOS renders native chrome (default white fill + system focus ring) over
+         inputs unless native appearance is disabled. Disabling appearance is
+         enough on its own — an input keeps whatever background/text color its
+         own component classes (light or dark mode) already gave it through
+         focus. Do NOT add `background-color: inherit` here: `inherit` copies
+         the immediate parent's own background-color, and most input wrappers
+         in this app (plain positioning <div>/<label> elements) have no
+         background set at all, so on focus the input's real background gets
+         thrown away and replaced by whatever happens to be behind it —
+         frequently transparent/white, which in dark mode paints a white box
+         behind light-colored focused text and makes it unreadable. This bit
+         everyone, everywhere: every search box, combobox, and the Lucy AI
+         chat input all render through plain <input>/<textarea> elements. */
       input, textarea, select {
         -webkit-appearance: none;
         appearance: none;
       }
-      /* Prevent iOS from flashing white when input is focused */
       input:focus, textarea:focus, select:focus {
         outline: none;
-        /* iOS adds a white background on focus — override it */
-        background-color: inherit;
       }
-      /* Safari autofill yellow/white background fix */
+      /* Safari autofill yellow/white background fix — themed per color scheme
+         so a browser-flagged "autofill-eligible" field (name/phone/search
+         inputs are commonly flagged even while the user is just typing) does
+         not force a hardcoded white box behind dark-mode text. */
       input:-webkit-autofill,
       input:-webkit-autofill:hover,
       input:-webkit-autofill:focus,
       textarea:-webkit-autofill,
       select:-webkit-autofill {
-        -webkit-box-shadow: 0 0 0px 1000px white inset;
-        box-shadow: 0 0 0px 1000px white inset;
+        -webkit-box-shadow: 0 0 0px 1000px #ffffff inset;
+        box-shadow: 0 0 0px 1000px #ffffff inset;
         -webkit-text-fill-color: #1e293b;
         caret-color: #1e293b;
         transition: background-color 5000s ease-in-out 0s;
+      }
+      @media (prefers-color-scheme: dark) {
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus,
+        textarea:-webkit-autofill,
+        select:-webkit-autofill {
+          -webkit-box-shadow: 0 0 0px 1000px #1e293b inset;
+          box-shadow: 0 0 0px 1000px #1e293b inset;
+          -webkit-text-fill-color: #f1f5f9;
+          caret-color: #f1f5f9;
+        }
+      }
+      .dark input:-webkit-autofill,
+      .dark input:-webkit-autofill:hover,
+      .dark input:-webkit-autofill:focus,
+      .dark textarea:-webkit-autofill,
+      .dark select:-webkit-autofill {
+        -webkit-box-shadow: 0 0 0px 1000px #1e293b inset;
+        box-shadow: 0 0 0px 1000px #1e293b inset;
+        -webkit-text-fill-color: #f1f5f9;
+        caret-color: #f1f5f9;
       }
 
       /* Buttons — only opacity on active, NO hover transform */
