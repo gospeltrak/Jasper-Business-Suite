@@ -618,6 +618,7 @@ export default function DashboardSalesList({
     amountPaid: number;
     amountDue: number;
     items: SaleItem[];
+    saleDate: string;
   } | null>(null);
 
   // Local interactive installment recording ledger (Key: Sale ID)
@@ -1709,7 +1710,7 @@ export default function DashboardSalesList({
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                   <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" /> View Sale
                                 </button>
-                                <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:initialPaid,amountDue:calculatedDue,items:[...sale.items]}); setActiveMenuId(null); setMenuPos(null); }}
+                                <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:initialPaid,amountDue:calculatedDue,items:[...sale.items],saleDate:(() => { const d = sale.timestamp ? new Date(sale.timestamp) : new Date(); return isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })()}); setActiveMenuId(null); setMenuPos(null); }}
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                   <Edit className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Edit Sale
                                 </button>
@@ -3194,7 +3195,7 @@ export default function DashboardSalesList({
                         return <>
                           <div className="flex justify-between text-slate-500"><span>Subtotal</span><strong className="text-slate-800">{currency}{Math.round(subtotal).toLocaleString()}</strong></div>
                           {(selectedSale.discount || 0) > 0 && <div className="flex justify-between text-amber-600"><span>Discount</span><strong>-{currency}{Math.round(selectedSale.discount || 0).toLocaleString()}</strong></div>}
-                          {(selectedSale.tax || 0) > 0 && <div className="flex justify-between text-slate-500"><span>VAT / Tax</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.tax || 0).toLocaleString()}</strong></div>}
+                          {(selectedSale.vatStatus === 'vat' || (!selectedSale.vatStatus && (selectedSale.tax || 0) > 0)) && <div className="flex justify-between text-slate-500"><span>VAT / Tax</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.tax || 0).toLocaleString()}</strong></div>}
                           {(selectedSale.deliveryCost || 0) > 0 && <div className="flex justify-between text-slate-500"><span>Delivery</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.deliveryCost || 0).toLocaleString()}</strong></div>}
                           <div className="flex justify-between bg-slate-900 text-white rounded-xl px-4 py-3"><strong className="uppercase text-sm">Total</strong><strong className="text-base">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong></div>
                           <div className="flex justify-between text-slate-500 px-4"><span>Balance</span><strong className="text-slate-800">{currency}{Math.round(balance).toLocaleString()}</strong></div>
@@ -3912,6 +3913,7 @@ export default function DashboardSalesList({
                   const discountType = viewingSaleDetail.discountType || 'percent';
                   const computedDiscountAmount = discountType === 'percent' ? itemsSubtotal * (discountVal / 100) : discountVal;
                   const taxVal = viewingSaleDetail.tax || 0;
+                  const isVatSale = viewingSaleDetail.vatStatus === 'vat' || (!viewingSaleDetail.vatStatus && taxVal > 0);
                   const deliveryVal = viewingSaleDetail.deliveryCost || 0;
                   const grandTotalVal = viewingSaleDetail.total;
                   const isCredit = viewingSaleDetail.paymentMethod === 'Credit';
@@ -3933,7 +3935,7 @@ export default function DashboardSalesList({
                           <span className="font-mono">-{currency}{computedDiscountAmount.toLocaleString()}</span>
                         </div>
                       )}
-                      {taxVal > 0 && (
+                      {isVatSale && (
                         <div className="flex justify-between items-center text-slate-500 font-medium">
                           <span>Tax / VAT</span>
                           <span className="font-mono">+{currency}{taxVal.toLocaleString()}</span>
@@ -4033,6 +4035,15 @@ export default function DashboardSalesList({
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Sale Date</label>
+                  <input
+                    type="date"
+                    value={editFormFields.saleDate}
+                    onChange={(e) => setEditFormFields({ ...editFormFields, saleDate: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-240 rounded-xl px-3 py-2 text-slate-800 text-xs font-mono font-bold focus:outline-none focus:border-slate-800 focus:bg-white cursor-pointer"
+                  />
+                </div>
                 <div>
                   <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Method</label>
                   <select
@@ -4141,19 +4152,25 @@ export default function DashboardSalesList({
               {(() => {
                 const subAmt = editFormFields.items.reduce((sum, item) => {
                   const isItemCash = item.discountType === 'cash';
-                  const priceAfterDiscount = isItemCash 
+                  const priceAfterDiscount = isItemCash
                     ? Math.max(0, item.price - item.discount)
                     : item.price * (1 - item.discount / 100);
                   return sum + (priceAfterDiscount * item.qty);
                 }, 0);
-                const taxAmt = Math.round(subAmt * activeTenant.taxRate);
+                // Strict conditional tax: only recompute/show VAT if this sale was
+                // originally completed WITH tax. Never inject tax into a sale that
+                // was completed tax-free.
+                const originalIsVat = editingSale.vatStatus === 'vat' || (!editingSale.vatStatus && (editingSale.tax || 0) > 0);
+                const taxAmt = originalIsVat ? Math.round(subAmt * activeTenant.taxRate) : 0;
                 const totalAmt = subAmt + taxAmt;
                 return (
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-mono text-slate-600 flex justify-between">
-                    <div>
-                      <p className="text-[9px] uppercase font-sans text-slate-405 font-bold mb-0.5">VAT TAXES ESTIMATED ({activeTenant.taxRate * 100}%)</p>
-                      <p className="font-bold text-slate-700">{currency}{taxAmt.toLocaleString()}</p>
-                    </div>
+                    {originalIsVat && (
+                      <div>
+                        <p className="text-[9px] uppercase font-sans text-slate-405 font-bold mb-0.5">VAT TAXES ESTIMATED ({activeTenant.taxRate * 100}%)</p>
+                        <p className="font-bold text-slate-700">{currency}{taxAmt.toLocaleString()}</p>
+                      </div>
+                    )}
                     <div className="text-right">
                       <p className="text-[9px] uppercase font-sans text-slate-405 font-bold mb-0.5">NEW ESTIMATED TOTAL BILL</p>
                       <p className="text-sm font-black text-emerald-700">{currency}{totalAmt.toLocaleString()}</p>
@@ -4183,13 +4200,30 @@ export default function DashboardSalesList({
                   if (!editingSale || !editFormFields || !onUpdateSales) return;
                   const itemSubtotal = editFormFields.items.reduce((sum, item) => {
                     const isItemCash = item.discountType === 'cash';
-                    const priceAfterDiscount = isItemCash 
+                    const priceAfterDiscount = isItemCash
                       ? Math.max(0, item.price - item.discount)
                       : item.price * (1 - item.discount / 100);
                     return sum + (priceAfterDiscount * item.qty);
                   }, 0);
-                  const calculatedTax = Math.round(itemSubtotal * activeTenant.taxRate);
+                  // Strict conditional tax: preserve the sale's original vat/non-vat
+                  // status. A sale completed without tax must never have tax injected
+                  // just because it was edited; a sale completed with tax keeps being
+                  // recalculated from its (possibly-edited) items at the tenant rate.
+                  const originalIsVat = editingSale.vatStatus === 'vat' || (!editingSale.vatStatus && (editingSale.tax || 0) > 0);
+                  const calculatedTax = originalIsVat ? Math.round(itemSubtotal * activeTenant.taxRate) : 0;
                   const calculatedTotal = itemSubtotal + calculatedTax;
+
+                  // Sale Date: combine the (possibly-edited) calendar date with the
+                  // sale's original time-of-day so only the date actually changes.
+                  const updatedTimestamp = (() => {
+                    if (!editFormFields.saleDate) return editingSale.timestamp;
+                    const original = editingSale.timestamp ? new Date(editingSale.timestamp) : new Date();
+                    const hh = String(isNaN(original.getTime()) ? 0 : original.getHours()).padStart(2, '0');
+                    const mm = String(isNaN(original.getTime()) ? 0 : original.getMinutes()).padStart(2, '0');
+                    const ss = String(isNaN(original.getTime()) ? 0 : original.getSeconds()).padStart(2, '0');
+                    const target = new Date(`${editFormFields.saleDate}T${hh}:${mm}:${ss}.000Z`);
+                    return isNaN(target.getTime()) ? editingSale.timestamp : target.toISOString();
+                  })();
 
                   const updatedSale: Sale = {
                     ...editingSale,
@@ -4199,7 +4233,9 @@ export default function DashboardSalesList({
                     items: editFormFields.items,
                     tax: calculatedTax,
                     total: calculatedTotal,
-                    amountPaid: editFormFields.amountPaid
+                    amountPaid: editFormFields.amountPaid,
+                    timestamp: updatedTimestamp,
+                    vatStatus: originalIsVat ? 'vat' : editingSale.vatStatus,
                   };
 
                   const newSales = sales.map(s => s.id === editingSale.id ? updatedSale : s);

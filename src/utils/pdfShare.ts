@@ -108,6 +108,7 @@ export interface ReceiptData {
   }>;
   subtotal: number;
   tax?: number;
+  vatStatus?: 'vat' | 'non-vat';
   discount?: number;
   deliveryCost?: number;
   productTotal: number;
@@ -214,9 +215,10 @@ export function createReceiptPdfFromData(data: ReceiptData): File {
     text(value, W - margin, y, { size: 8, align: 'right', bold: true });
     y += 22;
   };
+  const isVatDoc = data.vatStatus === 'vat' || (!data.vatStatus && (data.tax || 0) > 0);
   totalRow('Subtotal', fmt(data.subtotal));
   if ((data.discount || 0) > 0) totalRow('Discount', `-${fmt(data.discount || 0)}`, '#b45309');
-  if ((data.tax || 0) > 0) totalRow('VAT / Tax', fmt(data.tax || 0));
+  if (isVatDoc) totalRow('VAT / Tax', fmt(data.tax || 0));
   if ((data.deliveryCost || 0) > 0) totalRow('Delivery', fmt(data.deliveryCost || 0));
   roundedBox(totalsX, y - 7, W - margin - totalsX, 38, 9, navy);
   text('TOTAL', totalsX + 14, y + 17, { size: 10, bold: true, color: '#ffffff' });
@@ -342,9 +344,10 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
     left(value, width - margin, y, { size: opts.size || 7.5, bold: true, align: 'right' });
     y += 12;
   };
+  const isVatDoc = data.vatStatus === 'vat' || (!data.vatStatus && (data.tax || 0) > 0);
   totalRow('Subtotal', fmt(data.subtotal));
   if ((data.discount || 0) > 0) totalRow('Discount', `-${fmt(data.discount || 0)}`);
-  if ((data.tax || 0) > 0) totalRow('VAT / Tax', fmt(data.tax || 0));
+  if (isVatDoc) totalRow('VAT / Tax', fmt(data.tax || 0));
   if ((data.deliveryCost || 0) > 0) totalRow('Delivery', fmt(data.deliveryCost || 0));
   y += 2;
   dashedLine(y);

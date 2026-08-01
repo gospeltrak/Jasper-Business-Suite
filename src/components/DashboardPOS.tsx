@@ -348,6 +348,7 @@ export default function DashboardPOS({
         }),
         subtotal: receiptResult.items.reduce((s, i) => s + i.qty * i.price, 0),
         tax: receiptResult.tax || 0,
+        vatStatus: receiptResult.vatStatus,
         discount: receiptResult.discount || 0,
         deliveryCost: receiptResult.deliveryCost || 0,
         productTotal: receiptResult.productTotal ?? (receiptResult.total - (receiptResult.deliveryCost || 0)),
