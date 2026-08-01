@@ -4484,13 +4484,22 @@ export default function DashboardProducts({
             <div className="tenant-form-body flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-4 sm:p-6 space-y-6 text-xs text-slate-600">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Visual Block & Classification summary */}
-                <div className="space-y-4">
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">1. Descriptor & Image</h5>
-                  
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-emerald-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                  {isDesktopAddProductLayout ? (
+                    <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">1. Descriptor & Image</h5>
+                  ) : (
+                    <div className="flex items-center space-x-2 pb-1.5 border-b border-slate-200/70 normal-case">
+                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/30">
+                        <Package className="w-3.5 h-3.5" />
+                      </span>
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Descriptor & Image</h5>
+                    </div>
+                  )}
+
                   <div className="space-y-1.5 normal-case font-semibold text-xs">
                     <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Product Name / Title</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       required
                       value={editForm.name || ''}
                       onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
@@ -4498,7 +4507,7 @@ export default function DashboardProducts({
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3.5">
+                  <div className="grid gap-3.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
                     <div className="space-y-1.5">
                       <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Category Classification</label>
                       <ModernSelect
@@ -4587,9 +4596,18 @@ export default function DashboardProducts({
                 </div>
 
                 {/* Stock levels block */}
-                <div className="space-y-4">
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">2. Barcode & Stocking</h5>
-                  
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-amber-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                  {isDesktopAddProductLayout ? (
+                    <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">2. Barcode & Stocking</h5>
+                  ) : (
+                    <div className="flex items-center space-x-2 pb-1.5 border-b border-slate-200/70 normal-case">
+                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-amber-500/30">
+                        <Layers className="w-3.5 h-3.5" />
+                      </span>
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Barcode & Stocking</h5>
+                    </div>
+                  )}
+
                   <div className="space-y-1.5 font-mono">
                     <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Retail barcode (SKU)</label>
                     <div className="flex flex-col gap-2 sm:flex-row">
@@ -4613,7 +4631,7 @@ export default function DashboardProducts({
                     <p className="text-[9.5px] text-slate-400 font-sans">Enter a barcode, or tap Generate Barcode to create one.</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 pb-1 font-mono">
+                  <div className="grid gap-3 pb-1 font-mono" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                     <div className="space-y-1">
                       <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Shop shelf ({activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'units') : 'Units'})</label>
                       <input 
@@ -4657,16 +4675,25 @@ export default function DashboardProducts({
                 </div>
 
                 {/* Sells & Margin statistics */}
-                <div className="space-y-4 font-mono">
-                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">3. Financial Margin metrics</h5>
-                  
+                <div className={isDesktopAddProductLayout ? "space-y-4 font-mono" : "bg-gradient-to-br from-blue-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4 font-mono"}>
+                  {isDesktopAddProductLayout ? (
+                    <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">3. Financial Margin metrics</h5>
+                  ) : (
+                    <div className="flex items-center space-x-2 pb-1.5 border-b border-slate-200/70 normal-case">
+                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-blue-500/30">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                      </span>
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Financial Margin metrics</h5>
+                    </div>
+                  )}
+
                   <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 space-y-2">
                     <span className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Active Selling Channels</span>
-                    <div className="grid grid-cols-2 gap-2 font-sans font-bold leading-none text-slate-700">
+                    <div className="grid gap-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.5rem' }}>
                       <label className="flex items-center space-x-1.5 bg-white p-2 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300">
-                        <input 
-                          type="checkbox" 
-                          checked={editForm.sellInRetail !== false} 
+                        <input
+                          type="checkbox"
+                          checked={editForm.sellInRetail !== false}
                           onChange={(e) => {
                             setEditForm(prev => ({ ...prev, sellInRetail: e.target.checked }));
                           }}
@@ -4686,7 +4713,7 @@ export default function DashboardProducts({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                     <div className="space-y-1">
                       <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{editForm.isBulkProduct && activeTenant.businessType !== 'pharmacy' ? `Package Buy Cost (${editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package'})` : 'Cost buy Price'}</label>
                       <input 
@@ -4721,7 +4748,7 @@ export default function DashboardProducts({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 border-b border-dashed border-slate-200 pb-3">
+                  <div className="grid gap-3 border-b border-dashed border-slate-200 pb-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                     <div className="space-y-1">
                       <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Wholesale price</label>
                       <input 
@@ -4782,7 +4809,7 @@ export default function DashboardProducts({
                     />
                   </div>
 
-                  <div className={`grid ${activeTenant.businessType === 'pharmacy' ? 'grid-cols-1' : 'grid-cols-2'} gap-3 pt-1`}>
+                  <div className="grid gap-3 pt-1" style={{ display: 'grid', gridTemplateColumns: `repeat(${activeTenant.businessType === 'pharmacy' ? 1 : 2}, minmax(0, 1fr))`, gap: '0.75rem' }}>
                     <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
                       <input
                         type="checkbox"
@@ -4821,7 +4848,7 @@ export default function DashboardProducts({
                   </div>
 
                   {activeTenant.businessType !== 'pharmacy' && (
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.75rem' }}>
                       <div className="space-y-1">
                         <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Package Name</label>
                         <input value={editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, purchaseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
@@ -4855,7 +4882,7 @@ export default function DashboardProducts({
                           <span className="font-bold text-[11px] text-slate-700 uppercase tracking-widest">Pharmacy Unit Hierarchy</span>
                           <p className="text-[10px] text-slate-450 mt-0.5">Edit pharmaceutical or non-pharmaceutical selling levels.</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-slate-500 uppercase">Product type</label>
                             <ModernSelect value={structure.productType} options={PHARMACY_PRODUCT_TYPE_OPTIONS} onChange={(nextValue) => setEditForm(prev => ({
@@ -4966,7 +4993,7 @@ export default function DashboardProducts({
                       </div>
 
                       {/* Inputs */}
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                         <div className="space-y-1">
                           <label className="text-[9.5px] font-bold text-slate-500 uppercase block">1 Package Contains</label>
                           <input type="number" step="0.001" value={editForm.conversionToBaseUnit ?? editForm.inventorySettings?.conversionToBaseUnit ?? editForm.bulkPurchaseQty ?? ''} onChange={e => {
@@ -4980,7 +5007,7 @@ export default function DashboardProducts({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                         <div className="space-y-1">
                           <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Quick Sale Portions</label>
                           {editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid' ? (
