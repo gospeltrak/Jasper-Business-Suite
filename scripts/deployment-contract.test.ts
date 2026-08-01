@@ -58,6 +58,22 @@ test('optional tenant branding cannot leave a successful login waiting forever',
   assert.match(appSource, /setUser\(authenticatedUser\)/);
 });
 
+test('workspace entry and branch switching stay fast and non-blocking', async () => {
+  const appSource = await read('src/App.tsx');
+  const splashSource = await read('src/components/JasperSplashScreen.tsx');
+  const branchContextSource = await read('src/branches/BranchContext.tsx');
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+
+  assert.match(appSource, /duration=\{1200\}/);
+  assert.match(splashSource, /duration = 1200/);
+  assert.match(branchContextSource, /branchSnapshotCache/);
+  assert.match(branchContextSource, /optimisticSnapshot/);
+  assert.match(branchContextSource, /publishBranchContext\(optimisticSnapshot\)/);
+  assert.match(dashboardSource, /branchWorkspaceCacheRef/);
+  assert.match(dashboardSource, /cachedWorkspace/);
+  assert.doesNotMatch(dashboardSource, /Switching branch workspace/);
+});
+
 test('subscription checkout uses the native plan summary without inline mobile-money fields', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const serverSource = await read('server.ts');
@@ -98,9 +114,8 @@ test('critical sale actions remain wired to visible controls', async () => {
 test('header uses active business profile and has no decorative workspace search box', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const branchContextSource = await read('src/branches/BranchContext.tsx');
-  assert.match(dashboardSource, /const isMainBranchActive = effectiveSelectedBranchForName\?\.isDefault !== false/);
-  assert.match(dashboardSource, /const businessDisplayName = isMainBranchActive[\s\S]{0,40}\?[\s\S]{0,120}activeProfileBusinessName \|\| branchContextBusinessName \|\| activeBranchBusinessName \|\| 'My Business'/);
-  assert.match(dashboardSource, /activeBranchBusinessName \|\| branchContextBusinessName \|\| activeProfileBusinessName \|\| 'My Business'\)/);
+  assert.match(dashboardSource, /const businessDisplayName = branchContextBusinessName/);
+  assert.match(dashboardSource, /branchContextBusinessName[\s\S]{0,100}activeBranchBusinessName[\s\S]{0,100}activeProfileBusinessName/);
   assert.match(dashboardSource, /useOptionalBranchContext/);
   assert.match(dashboardSource, /setDatabaseBusinessName\(String\(syncedSettings\.business\?\.businessName/);
   assert.match(dashboardSource, /<BranchProvider\s+tenantKey=/);

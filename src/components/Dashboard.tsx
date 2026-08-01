@@ -673,6 +673,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const localWorkspaceChangedAtRef = useRef(0);
   const skipNextWorkspaceSaveRef = useRef(false);
   const settingsSaveVersionRef = useRef(0);
+  const branchWorkspaceCacheRef = useRef(new Map<string, TenantWorkspace>());
   const LOCAL_WORKSPACE_PROTECTION_MS = 10000; // 10s — save completes in < 5s normally
 
   useEffect(() => {
@@ -788,8 +789,35 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         selectedBranch: detail?.selectedBranch || null,
       });
     };
+    const applyBranchWorkspace = (workspace: TenantWorkspace) => {
+      skipNextWorkspaceSaveRef.current = true;
+      setProductsMap(previous => ({ ...previous, [activeTenant.id]: workspace.products || [] }));
+      setBranchesMap(previous => ({ ...previous, [activeTenant.id]: workspace.branches || [] }));
+      setBranchStocksMap(previous => ({ ...previous, [activeTenant.id]: workspace.branchStocks || [] }));
+      setBranchStaffAssignmentsMap(previous => ({
+        ...previous,
+        [activeTenant.id]: workspace.branchStaffAssignments || [],
+      }));
+      setSalesMap(previous => ({ ...previous, [activeTenant.id]: workspace.sales || [] }));
+      setExpensesMap(previous => ({ ...previous, [activeTenant.id]: workspace.expenses || [] }));
+      setDeliveriesMap(previous => ({ ...previous, [activeTenant.id]: workspace.deliveries || [] }));
+      setPendingDeliveryNotesMap(previous => ({
+        ...previous,
+        [activeTenant.id]: workspace.pendingDeliveryNotes || [],
+      }));
+      setPurchasesMap(previous => ({ ...previous, [activeTenant.id]: workspace.purchases || [] }));
+      setSystemSettings(normalizeSystemSettings(activeTenant, workspace.settings));
+      cloudWorkspaceLoadedRef.current = true;
+    };
     const handleBranchContextChanged = async (event: Event) => {
-      applyBranchContext((event as CustomEvent).detail);
+      const detail = (event as CustomEvent).detail;
+      applyBranchContext(detail);
+      const cacheKey = `${detail?.activeScope || detail?.scope || 'branch'}:${detail?.activeBranchId || 'primary'}`;
+      const cachedWorkspace = branchWorkspaceCacheRef.current.get(cacheKey);
+      if (cachedWorkspace) {
+        applyBranchWorkspace(cachedWorkspace);
+        setBranchSwitching(false);
+      }
       try {
         const workspace = await loadTenantWorkspace(activeTenant.id);
         if (!active) return;
@@ -797,24 +825,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           addToast('The selected branch workspace could not be loaded. No previous-branch data was shown.', 'error');
           return;
         }
-        skipNextWorkspaceSaveRef.current = true;
-        setProductsMap(previous => ({ ...previous, [activeTenant.id]: workspace.products || [] }));
-        setBranchesMap(previous => ({ ...previous, [activeTenant.id]: workspace.branches || [] }));
-        setBranchStocksMap(previous => ({ ...previous, [activeTenant.id]: workspace.branchStocks || [] }));
-        setBranchStaffAssignmentsMap(previous => ({
-          ...previous,
-          [activeTenant.id]: workspace.branchStaffAssignments || [],
-        }));
-        setSalesMap(previous => ({ ...previous, [activeTenant.id]: workspace.sales || [] }));
-        setExpensesMap(previous => ({ ...previous, [activeTenant.id]: workspace.expenses || [] }));
-        setDeliveriesMap(previous => ({ ...previous, [activeTenant.id]: workspace.deliveries || [] }));
-        setPendingDeliveryNotesMap(previous => ({
-          ...previous,
-          [activeTenant.id]: workspace.pendingDeliveryNotes || [],
-        }));
-        setPurchasesMap(previous => ({ ...previous, [activeTenant.id]: workspace.purchases || [] }));
-        setSystemSettings(normalizeSystemSettings(activeTenant, workspace.settings));
-        cloudWorkspaceLoadedRef.current = true;
+        branchWorkspaceCacheRef.current.set(cacheKey, workspace);
+        applyBranchWorkspace(workspace);
       } finally {
         if (active) setBranchSwitching(false);
       }
@@ -2724,11 +2736,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   // branch-sourced name when a genuinely different (non-default) branch is
   // active, since that branch's own configured identity is what the user
   // wants shown in that case.
-  const effectiveSelectedBranchForName = branchContextSelectedBranch || activeBranchSelection.selectedBranch;
-  const isMainBranchActive = effectiveSelectedBranchForName?.isDefault !== false;
-  const businessDisplayName = isMainBranchActive
-    ? (activeProfileBusinessName || branchContextBusinessName || activeBranchBusinessName || 'My Business')
-    : (activeBranchBusinessName || branchContextBusinessName || activeProfileBusinessName || 'My Business');
+  const businessDisplayName = branchContextBusinessName
+    || activeBranchBusinessName
+    || activeProfileBusinessName
+    || 'My Business';
   const onlineBusinessName = activeProfileBusinessName;
   const customBusinessName = businessDisplayName;
   const customBusinessAddressDetail = systemSettings.business?.businessAddress
@@ -3504,14 +3515,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
           {/* Core workspace content viewports */}
           <main id="workspace-content" className={`relative flex-1 overflow-y-auto scrollbar-none overscroll-contain touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-3 sm:p-4 xl:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-5 xl:space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] xl:pb-6 min-h-0`}>
-            {branchSwitching ? (
-              <div className="absolute inset-0 z-40 flex items-center justify-center bg-white/90 backdrop-blur-sm dark:bg-slate-950/90" role="status" aria-live="polite">
-                <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white px-5 py-4 text-sm font-black text-slate-900 shadow-xl dark:border-emerald-900 dark:bg-slate-900 dark:text-white">
-                  <RefreshCcw className="h-5 w-5 animate-spin text-emerald-600" />
-                  Switching branch workspace…
-                </div>
-              </div>
-            ) : null}
             <DashboardScreenErrorBoundary
               resetKey={activeTab}
               onReturnToDashboard={() => setActiveTab(getDefaultDashboardTab())}

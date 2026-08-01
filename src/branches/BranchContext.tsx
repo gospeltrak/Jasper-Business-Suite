@@ -25,6 +25,7 @@ interface BranchContextValue {
 }
 
 const BranchContext = createContext<BranchContextValue | null>(null);
+const branchSnapshotCache = new Map<string, BranchWorkspaceSnapshot>();
 
 const publishBranchContext = (snapshot: BranchWorkspaceSnapshot | null) => {
   if (typeof window === 'undefined') return;
@@ -47,8 +48,9 @@ export function BranchProvider({
   tenantKey: string;
   children: React.ReactNode;
 }) {
-  const [snapshot, setSnapshot] = useState<BranchWorkspaceSnapshot | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedSnapshot = branchSnapshotCache.get(tenantKey) || null;
+  const [snapshot, setSnapshot] = useState<BranchWorkspaceSnapshot | null>(cachedSnapshot);
+  const [isLoading, setIsLoading] = useState(!cachedSnapshot);
   const [switchingBranch, setSwitchingBranch] = useState(false);
   const [switchingToBranchName, setSwitchingToBranchName] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -60,11 +62,12 @@ export function BranchProvider({
     refreshAbortRef.current?.abort();
     const controller = new AbortController();
     refreshAbortRef.current = controller;
-    setIsLoading(true);
+    if (!branchSnapshotCache.has(tenantKey)) setIsLoading(true);
     setError(null);
     try {
       const nextSnapshot = await loadBranchWorkspace(controller.signal);
       if (requestId === requestIdRef.current) {
+        branchSnapshotCache.set(tenantKey, nextSnapshot);
         setSnapshot(nextSnapshot);
         publishBranchContext(nextSnapshot);
       }
@@ -75,10 +78,12 @@ export function BranchProvider({
     } finally {
       if (requestId === requestIdRef.current) setIsLoading(false);
     }
-  }, []);
+  }, [tenantKey]);
 
   useEffect(() => {
-    setSnapshot(null);
+    const cached = branchSnapshotCache.get(tenantKey) || null;
+    setSnapshot(cached);
+    if (cached) publishBranchContext(cached);
     void refresh();
     return () => {
       requestIdRef.current += 1;
@@ -98,8 +103,26 @@ export function BranchProvider({
     const target = snapshot?.directory.branches.find(branch => branch.id === branchId)
       || (scope === 'compatibility_primary' ? snapshot?.directory.branches[0] : null);
     const targetName = target?.branchName || (scope === 'all_branches' ? 'All Branches' : 'Branch');
+    const previousSnapshot = snapshot;
+    const optimisticContext = snapshot ? {
+      ...snapshot.context,
+      activeBranchId: branchId,
+      activeScope: scope,
+      selectedBranch: target || null,
+      branches: snapshot.directory.branches.map(branch => ({
+        ...branch,
+        isSelected: branch.id === branchId,
+      })),
+    } : null;
+    const optimisticSnapshot = snapshot && optimisticContext
+      ? { ...snapshot, context: optimisticContext, directory: optimisticContext }
+      : null;
     setSwitchingBranch(true);
     setSwitchingToBranchName(targetName);
+    if (optimisticSnapshot) {
+      setSnapshot(optimisticSnapshot);
+      publishBranchContext(optimisticSnapshot);
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('jasper_branch_switch_started', {
         detail: { branchId, scope, branchName: targetName },
@@ -107,10 +130,13 @@ export function BranchProvider({
     }
     try {
       const context = await selectBranch(branchId, scope);
-      const next = snapshot ? { ...snapshot, context, directory: context } : null;
+      const next = previousSnapshot ? { ...previousSnapshot, context, directory: context } : null;
+      if (next) branchSnapshotCache.set(tenantKey, next);
       setSnapshot(next);
       publishBranchContext(next);
     } catch (nextError) {
+      setSnapshot(previousSnapshot);
+      publishBranchContext(previousSnapshot);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('jasper_branch_switch_failed', {
           detail: { branchId, scope, branchName: targetName },
@@ -121,7 +147,7 @@ export function BranchProvider({
       setSwitchingBranch(false);
       setSwitchingToBranchName(null);
     }
-  }, [snapshot, switchingBranch]);
+  }, [snapshot, switchingBranch, tenantKey]);
 
   const activatePrimary = useCallback(async () => {
     await activatePrimaryBranch();

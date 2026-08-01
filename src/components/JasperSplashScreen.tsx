@@ -9,7 +9,7 @@ interface JasperSplashScreenProps {
 
 export default function JasperSplashScreen({
   logoSrc,
-  duration = 4000,
+  duration = 1200,
   onFinish,
   showTagline = false,
 }: JasperSplashScreenProps) {
