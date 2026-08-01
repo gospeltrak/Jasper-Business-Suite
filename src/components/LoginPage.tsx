@@ -1643,13 +1643,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       <div className="sm:mx-auto sm:w-full sm:max-w-lg relative z-10 space-y-6">
         {/* Core Header */}
         <div className="text-center space-y-3 cursor-pointer" onClick={() => onNavigate('/')}>
-          <div className={`inline-flex p-3 rounded-2xl border items-center justify-center mb-1 hover:scale-105 transition-transform shadow-md ${isSaasAdminPortal ? 'bg-amber-50 border-amber-100' : 'bg-emerald-50 border-emerald-100'}`}>
+          <div className={`inline-flex p-3.5 rounded-2xl border items-center justify-center mb-1 hover:scale-105 transition-transform shadow-md ${isSaasAdminPortal ? 'bg-amber-50 border-amber-100' : 'bg-emerald-50 border-emerald-100'}`}>
             {isSaasAdminPortal ? (
               <Shield className="w-8 h-8 text-amber-600 stroke-[1.75]" />
             ) : loginScreenLogoUrl ? (
               <img src={loginScreenLogoUrl} alt="Orvix Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
             ) : (
-              <img src="/jb-logo.png" alt="Orvix Logo" className="w-10 h-10 object-contain animate-pulse" />
+              <img src="/jb-logo.png" alt="Orvix Logo" className="w-16 h-16 object-contain" />
             )}
           </div>
           <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
