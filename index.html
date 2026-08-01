@@ -2,7 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <!-- interactive-widget=resizes-content: makes the browser itself shrink the
+         actual layout viewport (so 100dvh / --app-height reflow instantly) when
+         the on-screen keyboard opens, instead of only shrinking the "visual"
+         viewport and leaving layout to catch up via JS on a delay. That JS-only
+         catch-up (still kept below in main.tsx as a fallback for older browsers
+         that ignore this directive) has a timing gap right as the keyboard
+         opens/closes where the fixed mobile shell (#dashboard-scaffold) is
+         still sized for the pre-keyboard height while the visible viewport is
+         already shorter, exposing an unpainted blank strip. Supported in
+         Chrome/Android 108+ and Safari/iOS 16.4+; older browsers simply ignore
+         the unrecognized token and keep relying on the JS fallback. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content" />
     <!-- Patch window.fetch writable to prevent TypeError when other scripts/extensions try to mock/assign it in read-only iframe environments -->
     <script>
       (function() {
