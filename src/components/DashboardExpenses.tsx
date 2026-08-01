@@ -164,6 +164,23 @@ export default function DashboardExpenses({
   const [formSuccess, setFormSuccess] = useState('');
   const [formError, setFormError] = useState('');
 
+  // Default Paid From Account to the tenant's default account (or the first
+  // configured one) as soon as the list is available, and keep it valid if
+  // the currently selected account disappears (e.g. deactivated). This lets
+  // the dropdown show only real, configured accounts with no blank
+  // placeholder option needed.
+  useEffect(() => {
+    if (paymentAccounts.length === 0) {
+      if (formPaidFromAccountId) setFormPaidFromAccountId('');
+      return;
+    }
+    const stillValid = paymentAccounts.some(account => account.id === formPaidFromAccountId);
+    if (!stillValid) {
+      const defaultAccount = paymentAccounts.find(account => account.isDefault) || paymentAccounts[0];
+      setFormPaidFromAccountId(defaultAccount.id);
+    }
+  }, [paymentAccounts, formPaidFromAccountId]);
+
   // Handle setting default category when categories load/change
   useEffect(() => {
     if (categories.length > 0 && !formCategory) {
@@ -1025,7 +1042,6 @@ export default function DashboardExpenses({
                 className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 dark:text-white font-medium cursor-pointer"
                 required
               >
-                <option value="">Select Money & Bank account</option>
                 {paymentAccounts.map(account => (
                   <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
                 ))}
@@ -1411,7 +1427,6 @@ export default function DashboardExpenses({
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Paid From Account</label>
                 <select value={editForm.paidFromAccountId} onChange={e => setEditForm(p => ({...p, paidFromAccountId: e.target.value}))}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 cursor-pointer">
-                  <option value="">Select Money & Bank account</option>
                   {paymentAccounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
                 </select>
               </div>
