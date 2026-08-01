@@ -152,7 +152,25 @@ export default function DashboardExpenses({
   ), [systemSettings.business, systemSettings.paymentChannels, activeTenant.currencyCode]);
   const paymentAccounts = reconciledPaymentAccounts
     .filter(account => account.category !== 'person' && account.status !== 'inactive' && account.status !== 'archived');
-  
+
+  // Persist the reconciled channels back into systemSettings. The actual
+  // treasury post (Dashboard.tsx's handleAddExpense) reads
+  // systemSettings.paymentChannels directly, not this component's local
+  // reconciliation above -- without saving it here, a freshly reconciled
+  // account (e.g. auto-generated from a Payment Mode that was never opened
+  // in Money & Bank) exists only in this screen's memory, the dropdown
+  // shows it, but submitting throws "Select an active Money & Bank
+  // account." because the id never made it into persisted settings.
+  useEffect(() => {
+    if (!onUpdateSystemSettings) return;
+    const current = systemSettings.paymentChannels || [];
+    if (JSON.stringify(reconciledPaymentAccounts) === JSON.stringify(current)) return;
+    void onUpdateSystemSettings({
+      ...systemSettings,
+      paymentChannels: reconciledPaymentAccounts,
+    });
+  }, [reconciledPaymentAccounts, systemSettings, onUpdateSystemSettings]);
+
   // File upload states
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFileName, setUploadedFileName] = useState('');
@@ -1055,7 +1073,7 @@ export default function DashboardExpenses({
 
             {/* File Upload Box: "place to upload pdf receipt" */}
             <div className="space-y-1">
-              <label className="block text-slate-600 dark:text-slate-400 font-extrabold">Upload PDF Receipt / Receipt Attachment</label>
+              <label className="block text-slate-600 dark:text-slate-400 font-extrabold">Upload PDF Receipt / Receipt Attachment <span className="font-semibold text-slate-400 normal-case">(Optional)</span></label>
               
               <div 
                 className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all ${
