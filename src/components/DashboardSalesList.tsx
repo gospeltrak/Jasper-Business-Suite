@@ -4024,7 +4024,7 @@ export default function DashboardSalesList({
                 <p className="text-[10px] uppercase font-mono font-black text-slate-400 tracking-wider flex items-center gap-1.5">
                   <User className="w-3 h-3 text-slate-400" /> Customer Info
                 </p>
-                <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="grid gap-3 text-xs" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
                   <div>
                     <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1 flex items-center gap-1"><User className="w-2.5 h-2.5" /> Client Name</label>
                     <input
@@ -4053,7 +4053,7 @@ export default function DashboardSalesList({
                 <p className="text-[10px] uppercase font-mono font-black text-slate-400 tracking-wider flex items-center gap-1.5">
                   <Calendar className="w-3 h-3 text-slate-400" /> Transaction Details
                 </p>
-                <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="grid gap-3 text-xs" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
                   <div>
                     <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1 flex items-center gap-1"><Calendar className="w-2.5 h-2.5" /> Sale Date</label>
                     <input
