@@ -597,9 +597,9 @@ export default function DashboardOverview({
           {[
             { label: 'Total Orders', value: filteredSales.length, sub: `${filteredSales.reduce((sum:number,s:any)=>sum+(s.items?.reduce((a:number,i:any)=>a+(i.qty||0),0)||0),0)} items sold`, color: '#2196F3', up: true },
             { label: `${timeframeLabel} Sales`, value: `${currency} ${Math.round(todayTotalRevenue).toLocaleString()}`, sub: todayTotalRevenue > 0 ? `↑ ${timeframeLabel}` : 'No sales yet', color: '#10B981', up: todayTotalRevenue > 0 },
-            { label: 'Expenses', value: `${currency} ${Math.round(totalExpensesAmt).toLocaleString()}`, sub: 'Total spending', color: '#ef4444', up: false },
-            { label: 'Profit', value: `${currency} ${Math.round(netProfit).toLocaleString()}`, sub: `${avgProfitMargin.toFixed(1)}% margin`, color: netProfit >= 0 ? '#00C853' : '#ef4444', up: netProfit >= 0 },
             { label: 'Purchases', value: `${currency} ${Math.round(simulatedPurchases).toLocaleString()}`, sub: `${filteredPurchases.length} orders`, color: '#7c3aed', up: false },
+            { label: 'Profit', value: `${currency} ${Math.round(netProfit).toLocaleString()}`, sub: `${avgProfitMargin.toFixed(1)}% margin`, color: netProfit >= 0 ? '#00C853' : '#ef4444', up: netProfit >= 0 },
+            { label: 'Expenses', value: `${currency} ${Math.round(totalExpensesAmt).toLocaleString()}`, sub: 'Total spending', color: '#ef4444', up: false },
             { label: 'Dues Owed', value: `${currency} ${Math.round(filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').reduce((sum:number,s:any)=>sum+(s.dueAmount||s.amountDue||0),0)).toLocaleString()}`, sub: `${filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').length} unpaid`, color: '#f59e0b', up: false },
           ].map((card, i) => (
             <div key={i} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 shadow-sm">
