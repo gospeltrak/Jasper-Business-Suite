@@ -234,18 +234,17 @@ export default function DashboardProducts({
     });
   };
 
-  // Self-healing, reactive list of categories that merges pre-loaded products and custom ones, and user settings
+  // Products are already scoped to the selected branch by Dashboard. Categories
+  // must therefore be derived from this branch-scoped list, never tenant-wide
+  // settings (which would make branch A categories appear in branch B).
   const categoriesList = useMemo(() => {
-    const defaultCats = systemSettings?.productStore?.categories && systemSettings.productStore.categories.length > 0
-      ? systemSettings.productStore.categories
-      : (isDemoTenant(activeTenant.id) ? ['Groceries', 'Beverages', 'Dairy', 'Cooking Oils', 'Household', 'Consumer Electronics', 'Apparel'] : []);
-    const set = new Set(defaultCats);
+    const set = new Set<string>();
     products.forEach(p => {
       if (p.category) set.add(p.category);
     });
     customCategories.forEach(c => set.add(c));
     return Array.from(set) as string[];
-  }, [products, customCategories, systemSettings]);
+  }, [products, customCategories]);
 
   const unitsList = useMemo(() => {
     if (activeTenant.businessType === 'pharmacy') {
@@ -2295,7 +2294,7 @@ export default function DashboardProducts({
                       <input 
                         type="number" 
                         min="0"
-                        step="0.001"
+                        step={isBulkProduct || allowScaleSelling || activeTenant.businessType === 'pharmacy' ? 0.001 : 1}
                         value={shopStockQty}
                         onChange={(e) => setShopStockQty(Math.max(0, parseFloat(e.target.value) || 0))}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
@@ -2306,7 +2305,7 @@ export default function DashboardProducts({
                       <input 
                         type="number" 
                         min="0"
-                        step="0.001"
+                        step={isBulkProduct || allowScaleSelling || activeTenant.businessType === 'pharmacy' ? 0.001 : 1}
                         value={storeStockQty}
                         onChange={(e) => setStoreStockQty(Math.max(0, parseFloat(e.target.value) || 0))}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
@@ -2320,7 +2319,7 @@ export default function DashboardProducts({
                     <input 
                       type="number" 
                       min="1"
-                      step="0.001"
+                      step="1"
                       value={alertQty}
                       onChange={(e) => setAlertQty(Math.max(0.001, parseFloat(e.target.value) || 0))}
                       className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none mt-1"
@@ -4637,7 +4636,7 @@ export default function DashboardProducts({
                       <input 
                         type="number" 
                         min="0"
-                        step="0.001"
+                        step={editForm.isBulkProduct || editForm.allowScaleSelling || activeTenant.businessType === 'pharmacy' ? 0.001 : 1}
                         value={editStockDraft.shop}
                         onChange={(e) => updateEditStockNumber('shopStockQty', 'shop', e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-mono outline-none"
@@ -4648,7 +4647,7 @@ export default function DashboardProducts({
                       <input 
                         type="number" 
                         min="0"
-                        step="0.001"
+                        step={editForm.isBulkProduct || editForm.allowScaleSelling || activeTenant.businessType === 'pharmacy' ? 0.001 : 1}
                         value={editStockDraft.store}
                         onChange={(e) => updateEditStockNumber('storeStockQty', 'store', e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-mono outline-none"
@@ -4661,7 +4660,7 @@ export default function DashboardProducts({
                     <input 
                       type="number" 
                       min="0"
-                      step="0.001"
+                      step="1"
                       value={editStockDraft.alert}
                       onChange={(e) => updateEditStockNumber('alertQty', 'alert', e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-mono outline-none"

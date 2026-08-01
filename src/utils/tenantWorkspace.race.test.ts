@@ -90,6 +90,7 @@ const baseWorkspace = (sales: any[]): any => ({
   pendingDeliveryNotes: [],
   purchases: [],
   productTombstones: {},
+  saleTombstones: {},
 });
 
 describe('saveTenantWorkspace write queue (out-of-order network completion)', () => {
@@ -111,7 +112,10 @@ describe('saveTenantWorkspace write queue (out-of-order network completion)', ()
     // Call B: fired shortly after, s1 already deleted (correct, newer
     // data). If writes for this tenant are properly queued, B's own
     // network write cannot even be issued until A's has fully completed.
-    const callB = saveTenantWorkspace(tenantId, baseWorkspace([{ id: 's2', amount: 200 }]));
+    const callB = saveTenantWorkspace(tenantId, {
+      ...baseWorkspace([{ id: 's2', amount: 200 }]),
+      saleTombstones: { s1: new Date().toISOString() },
+    });
 
     // Let A's (deliberately slow) network write resolve now. There are a
     // few real awaits (getConfiguredClient, the per-tenant queue chain)

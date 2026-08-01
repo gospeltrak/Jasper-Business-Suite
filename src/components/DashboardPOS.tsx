@@ -190,6 +190,7 @@ export default function DashboardPOS({
   }>>([]);
   const [deliveryCost, setDeliveryCost] = useState<number>(0);
   const [orderDiscount, setOrderDiscount] = useState<number>(0);
+  const [orderDiscountDraft, setOrderDiscountDraft] = useState('');
   const [orderDiscountType, setOrderDiscountType] = useState<'percent' | 'cash'>('percent');
 
   // Backdate date picker / Past day sales logic
@@ -234,6 +235,7 @@ export default function DashboardPOS({
       setCustomerPhone(preloadedCart.customerPhone || '');
       setVatStatus(preloadedCart.hasVat ? 'vat' : 'non-vat');
       setOrderDiscount(0);
+      setOrderDiscountDraft('');
       setOrderDiscountType('percent');
       
       if (preloadedCart.backdate) {
@@ -445,9 +447,9 @@ export default function DashboardPOS({
   // Custom categories list loaded dynamic from branch store settings.
   // Deduplicate case-insensitively — "Groceries" and "groceries" are the same.
   const configuredCategories = (() => {
-    const raw: string[] = systemSettings?.productStore?.categories && systemSettings.productStore.categories.length > 0
-      ? systemSettings.productStore.categories
-      : products.map(p => p.category?.trim()).filter(Boolean) as string[];
+    // `products` is already scoped to the selected branch by Dashboard.
+    // Tenant-wide settings must not leak another branch's categories into POS.
+    const raw = products.map(p => p.category?.trim()).filter(Boolean) as string[];
     // Deduplicate: keep first occurrence of each case-insensitive value
     const seen = new Set<string>();
     return raw.filter(c => {
@@ -1168,6 +1170,7 @@ export default function DashboardPOS({
     setCart([]);
     setDeliveryCost(0);
     setOrderDiscount(0);
+    setOrderDiscountDraft('');
     setOrderDiscountType('percent');
     setCustomerName('');
     setCustomerPhone('');
@@ -1752,6 +1755,7 @@ export default function DashboardPOS({
                   onChange={(e) => {
                     setOrderDiscountType(e.target.value as 'percent' | 'cash');
                     setOrderDiscount(0);
+                    setOrderDiscountDraft('');
                   }}
                   className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-[10px] font-extrabold text-slate-600 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
                 >
@@ -1759,14 +1763,20 @@ export default function DashboardPOS({
                   <option value="cash">{currency} Cash</option>
                 </select>
                 <input 
-                  type="number" 
+                  type="text"
+                  inputMode="numeric"
                   min="0"
                   max={orderDiscountType === 'percent' ? 100 : subtotal}
-                  value={orderDiscount || ''}
+                  value={orderDiscountDraft}
                   onChange={(e) => {
-                    const val = Math.max(0, parseFloat(e.target.value) || 0);
+                    const raw = e.target.value.replace(/[^\d]/g, '');
+                    setOrderDiscountDraft(raw);
+                    const val = Math.max(0, Number(raw) || 0);
                     const limit = orderDiscountType === 'percent' ? 100 : subtotal;
                     setOrderDiscount(Math.min(limit, val));
+                  }}
+                  onBlur={() => {
+                    setOrderDiscountDraft(orderDiscount > 0 ? String(orderDiscount) : '');
                   }}
                   placeholder="0"
                   className="w-18 bg-white text-right text-emerald-600 px-2 py-1 rounded-lg border border-slate-200 font-extrabold font-mono focus:outline-none focus:border-emerald-500 text-xs"

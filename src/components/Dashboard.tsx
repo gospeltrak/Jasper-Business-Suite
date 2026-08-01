@@ -54,7 +54,7 @@ import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolatio
 import { flushPendingTenantWorkspace, loadTenantWorkspace, markTenantProductsUpdated, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
 import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
-import { markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
+import { attachPayloadProductTombstones, markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
 import {
   attachPayloadSaleTombstones,
   markLocalSaleTombstone,
@@ -1722,7 +1722,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     };
 
     markTenantProductsUpdated(activeTenant.id, syncUpdatedAt);
-    saveData(activeTenant.id, 'products_map', { [activeTenant.id]: syncedProducts });
+    saveData(
+      activeTenant.id,
+      'products_map',
+      attachPayloadProductTombstones(
+        { [activeTenant.id]: syncedProducts },
+        activeTenant.id,
+        readLocalProductTombstones(activeTenant.id),
+      ),
+    );
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
 

@@ -507,7 +507,7 @@ async function saveTenantWorkspaceNow(
       ...workspaceToSave,
       sales: mergeSalesForSync(
         workspaceToSave.sales,
-        [],
+        mergeBase?.sales || [],
         mergedSaleTombstones,
       ),
       saleTombstones: mergedSaleTombstones,
