@@ -273,7 +273,7 @@ export default function DashboardSettings({
     .replace(/^-|-$/g, '')
     .slice(0, 63);
 
-  const baseDomain = ((import.meta as any).env?.VITE_APP_BASE_DOMAIN || 'ndiva.africa') as string;
+  const baseDomain = ((import.meta as any).env?.VITE_APP_BASE_DOMAIN || 'orvix.africa') as string;
   const lockedBusinessSlug = activeTenant.subdomainSlug || activeTenant.businessNameSlug || (businessForm.domainStatus === 'active' ? (businessForm.subdomainSlug || businessForm.businessNameSlug) : '');
   const currentBusinessSlug = String(lockedBusinessSlug || businessForm.subdomainSlug || businessForm.businessNameSlug || '');
   const isBusinessSlugLocked = !!lockedBusinessSlug;

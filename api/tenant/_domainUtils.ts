@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-export const DEFAULT_BASE_DOMAIN = 'ndiva.africa';
+export const DEFAULT_BASE_DOMAIN = 'orvix.africa';
 export const RESERVED_TENANT_SLUGS = new Set([
   'www', 'app', 'admin', 'superadmin', 'super-admin', 'api', 'auth', 'login', 'signup', 'register',
   'dashboard', 'support', 'help', 'mail', 'smtp', 'static', 'assets', 'cdn', 'root',

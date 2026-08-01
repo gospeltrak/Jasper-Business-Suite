@@ -1659,7 +1659,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             {isSaasAdminPortal
               ? 'Central Management Backoffice'
               : isTenantDomainLogin
-                ? `${resolvedTenant?.primaryDomain || `${resolvedTenant?.subdomainSlug || ''}.ndiva.africa`} secure business portal`
+                ? `${resolvedTenant?.primaryDomain || `${resolvedTenant?.subdomainSlug || ''}.orvix.africa`} secure business portal`
               : currentLang === 'sw'
                 ? 'Mfumo wa Kisasa wa Usimamizi wa Biashara na Mauzo'
                 : 'Next-Generation Unified POS & Enterprise Management Suite'}
