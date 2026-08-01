@@ -39,7 +39,7 @@ import {
 } from 'recharts';
 import { Tenant, Expense, Product, Sale, SystemSettings } from '../types';
 import { safeSetJsonItem } from '../utils/dataSafety';
-import { getMaskedAccountReference } from '../utils/paymentAccounts';
+import { getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
 
 
 
@@ -139,7 +139,18 @@ export default function DashboardExpenses({
   const [formTransactionMessage, setFormTransactionMessage] = useState('');
   const [formNote, setFormNote] = useState('');
   const [formPaidFromAccountId, setFormPaidFromAccountId] = useState('');
-  const paymentAccounts = (systemSettings.paymentChannels || [])
+  // Reconcile against the tenant's configured Payment Modes (Settings ->
+  // Business -> Payment Modes) the same way DashboardSettings and
+  // DashboardCashBank already do. Without this step, a payment mode the
+  // tenant enables in Settings never materializes into a selectable
+  // Money & Bank account here, leaving this dropdown empty even though the
+  // tenant has genuinely configured payment methods.
+  const reconciledPaymentAccounts = useMemo(() => reconcilePaymentChannels(
+    getTreasuryPaymentMethods(systemSettings.business),
+    systemSettings.paymentChannels || [],
+    { currency: activeTenant.currencyCode },
+  ), [systemSettings.business, systemSettings.paymentChannels, activeTenant.currencyCode]);
+  const paymentAccounts = reconciledPaymentAccounts
     .filter(account => account.category !== 'person' && account.status !== 'inactive' && account.status !== 'archived');
   
   // File upload states
@@ -1019,6 +1030,11 @@ export default function DashboardExpenses({
                   <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
                 ))}
               </select>
+              {paymentAccounts.length === 0 && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mt-1">
+                  No Money & Bank accounts found. Enable a Payment Mode in Settings → Business, or add an account in Money & Bank, then come back here.
+                </p>
+              )}
             </div>
 
             {/* File Upload Box: "place to upload pdf receipt" */}
