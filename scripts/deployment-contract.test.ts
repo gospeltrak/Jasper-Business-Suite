@@ -108,7 +108,7 @@ test('critical sale actions remain wired to visible controls', async () => {
   assert.match(salesSource, /setEditingSale\(sale\)/);
   assert.match(salesSource, /setViewPaymentsOpen\(true\)/);
   assert.doesNotMatch(salesSource, />\s*Thermal Receipt\s*</);
-  assert.match(dashboardSource, /saveData\(activeTenant\.id,\s*'sales_map'/);
+  assert.match(dashboardSource, /saveData\(\s*(?:activeTenant\.id|tid|tenantId),\s*'sales_map'/);
 });
 
 test('header uses active business profile and has no decorative workspace search box', async () => {
