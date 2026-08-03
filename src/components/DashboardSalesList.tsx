@@ -53,6 +53,7 @@ import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp 
 import CachedImage from './CachedImage';
 import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
 import { normalizeSubscriptionPlanId } from '../utils/subscription';
+import { getPaymentModeName } from '../utils/paymentAccounts';
 import {
   createCrossBranchCommercialDocument,
   convertCrossBranchCommercialDocument,
@@ -168,7 +169,7 @@ const DEFAULT_SETTLEMENTS: TillSettlement[] = [
 interface DashboardSalesListProps {
   activeTenant: Tenant;
   sales: Sale[];
-  onUpdateSales?: (updatedSales: Sale[]) => void;
+  onUpdateSales?: (updatedSales: Sale[]) => Promise<boolean> | boolean;
   onDeleteSale?: (sale: Sale) => Promise<boolean> | boolean;
   rolePermissions?: any;
   products?: Product[];
@@ -622,13 +623,35 @@ export default function DashboardSalesList({
   const [editFormFields, setEditFormFields] = useState<{
     customerName: string;
     customerPhone: string;
-    paymentMethod: 'Cash' | 'Card' | 'M-Pesa' | 'MTN MoMo' | 'Paystack' | 'Airtel Money' | 'Credit';
+    paymentMethod: string;
     amountPaid: number;
     amountDue: number;
     items: SaleItem[];
     saleDate: string;
   } | null>(null);
   const [editCartEmptyWarning, setEditCartEmptyWarning] = useState<string | null>(null);
+  const [editSaveError, setEditSaveError] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const editPaymentMethods = React.useMemo(() => {
+    const configured = (systemSettings?.business?.paymentModes || [])
+      .map(getPaymentModeName)
+      .filter(Boolean);
+    const channels = systemSettings?.paymentChannels || [];
+    const branchId = editingSale?.branchId;
+    const enabled = configured.filter(method => {
+      const matchingChannels = channels.filter(channel =>
+        String(channel.paymentMethod || channel.name || '').trim().toLowerCase() === method.toLowerCase()
+      );
+      if (matchingChannels.length === 0) return true;
+      return matchingChannels.some(channel =>
+        channel.status !== 'inactive'
+        && channel.status !== 'archived'
+        && (!channel.branchId || !branchId || channel.branchId === branchId)
+      );
+    });
+    const current = String(editingSale?.paymentMethod || '').trim();
+    return [...new Set(current && !enabled.includes(current) ? [current, ...enabled] : enabled)];
+  }, [editingSale?.branchId, editingSale?.paymentMethod, systemSettings?.business?.paymentModes, systemSettings?.paymentChannels]);
 
   // Local interactive installment recording ledger (Key: Sale ID)
   const [installmentRecords, setInstallmentRecords] = useState<Record<string, Array<{
@@ -4009,7 +4032,7 @@ export default function DashboardSalesList({
                 </div>
               </div>
               <button 
-                onClick={() => { setEditingSale(null); setEditFormFields(null); setEditCartEmptyWarning(null); }}
+                onClick={() => { if (isSavingEdit) return; setEditingSale(null); setEditFormFields(null); setEditCartEmptyWarning(null); setEditSaveError(null); }}
                 className="p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer bg-transparent border-none shrink-0 ml-2"
               >
                 <X className="w-5 h-5" />
@@ -4070,13 +4093,9 @@ export default function DashboardSalesList({
                       onChange={(e: any) => setEditFormFields({ ...editFormFields, paymentMethod: e.target.value })}
                       className="w-full bg-slate-50 border border-slate-240 rounded-xl px-2.5 py-2 text-xs font-bold font-sans cursor-pointer focus:outline-none focus:border-slate-800 focus:bg-white"
                     >
-                      <option value="Cash">Cash Channel</option>
-                      <option value="Card">Visa / Master Card</option>
-                      <option value="M-Pesa">M-Pesa Wallet</option>
-                      <option value="MTN MoMo">MTN MoMo API</option>
-                      <option value="Paystack">Direct Paystack Gateway</option>
-                      <option value="Airtel Money">Airtel Money</option>
-                      <option value="Credit">Issued Credit Sales</option>
+                      {editPaymentMethods.map(method => (
+                        <option key={method} value={method}>{method}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -4178,6 +4197,12 @@ export default function DashboardSalesList({
                     <span>{editCartEmptyWarning}</span>
                   </div>
                 )}
+                {editSaveError && (
+                  <div role="alert" className="flex items-center gap-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-3 py-2 text-[11px] font-bold">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{editSaveError}</span>
+                  </div>
+                )}
               </div>
 
               {/* Math preview */}
@@ -4218,10 +4243,13 @@ export default function DashboardSalesList({
               <button
                 type="button"
                 onClick={() => {
+                  if (isSavingEdit) return;
                   setEditingSale(null);
                   setEditFormFields(null);
                   setEditCartEmptyWarning(null);
+                  setEditSaveError(null);
                 }}
+                disabled={isSavingEdit}
                 className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-600 font-bold hover:bg-slate-100 transition-colors cursor-pointer text-xs uppercase select-none"
               >
                 Cancel Changes
@@ -4229,8 +4257,9 @@ export default function DashboardSalesList({
 
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   if (!editingSale || !editFormFields || !onUpdateSales) return;
+                  if (isSavingEdit) return;
                   if (editFormFields.items.length === 0) {
                     setEditCartEmptyWarning('Cart cannot be empty. A sale must have at least one item.');
                     window.setTimeout(() => setEditCartEmptyWarning(null), 3500);
@@ -4277,15 +4306,28 @@ export default function DashboardSalesList({
                   };
 
                   const newSales = sales.map(s => s.id === editingSale.id ? updatedSale : s);
-                  onUpdateSales(newSales);
-                  setEditingSale(null);
-                  setEditFormFields(null);
-                  setEditCartEmptyWarning(null);
+                  setIsSavingEdit(true);
+                  setEditSaveError(null);
+                  try {
+                    const saved = await onUpdateSales(newSales);
+                    if (!saved) {
+                      setEditSaveError('Sale was not saved. Your changes remain open; please check the connection and try again.');
+                      return;
+                    }
+                    setEditingSale(null);
+                    setEditFormFields(null);
+                    setEditCartEmptyWarning(null);
+                  } catch {
+                    setEditSaveError('Sale was not saved. Nothing was changed in the database.');
+                  } finally {
+                    setIsSavingEdit(false);
+                  }
                 }}
+                disabled={isSavingEdit}
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl border-none transition-colors text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow-sm select-none"
               >
                 <Check className="w-4 h-4 text-white" />
-                <span>Save Changes</span>
+                <span>{isSavingEdit ? 'Saving…' : 'Save Changes'}</span>
               </button>
             </div>
 

@@ -891,6 +891,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     try {
       const client: any = await getSecureDataBridgeClient();
       if (isPlaceholderSecureDataBridgeClient(client)) {
+        const isLocalDemoHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+        if (isLocalDemoHost && !isTenantDomainLogin) {
+          loginFailure = { status: 503 };
+          throw loginFailure;
+        }
         setError(toUserFacingError(
           { status: 503 },
           { language: currentLang, context: 'sign_in', fallbackCode: 'LOAD_ERROR' },

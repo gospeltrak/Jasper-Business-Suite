@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Tenant, Sale, Expense, PaymentChannel, LedgerEntry, User as AppUser, SystemSettings, Purchase } from '../types';
 import { isDemoTenant } from '../utils/tenantIsolation';
 import { safeSetJsonItem } from '../utils/dataSafety';
 import { findPaymentChannel, getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
-import { syncTreasuryPaymentAccounts } from '../utils/treasuryApi';
+import { postTreasuryEntry, syncTreasuryPaymentAccounts, transferTreasuryFunds } from '../utils/treasuryApi';
 import { 
   Landmark, 
   Wallet, 
@@ -222,6 +222,10 @@ export default function DashboardCashBank({
   const [attachedReceiptName, setAttachedReceiptName] = useState<string>('');
   const [attachedMuamalaName, setAttachedMuamalaName] = useState<string>('');
   const [settleSuccessMsg, setSettleSuccessMsg] = useState<string | null>(null);
+  const [settleError, setSettleError] = useState<string | null>(null);
+  const [isTransferSubmitting, setIsTransferSubmitting] = useState(false);
+  const transferAttemptKeyRef = useRef('');
+  const transferAttemptFingerprintRef = useRef('');
 
   // Search and general filter options
   const [auditSearch, setAuditSearch] = useState('');
@@ -443,8 +447,10 @@ export default function DashboardCashBank({
   };
 
   // Carry out safe transfer action between registers and accounts/wallets
-  const handleExecuteSettleTill = (e: React.FormEvent) => {
+  const handleExecuteSettleTill = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isTransferSubmitting) return;
+    setSettleError(null);
     const amountVal = parseFloat(settleAmount);
     if (isNaN(amountVal) || amountVal <= 0) {
       alert('⚠️ Please enter an amount higher than 0 TZS.');
@@ -463,9 +469,29 @@ export default function DashboardCashBank({
 
     const sourceChan = channels.find(c => c.id === settleSource);
     const targetChan = channels.find(c => c.id === settleTarget);
-    if (!sourceChan || !targetChan) return;
+    if (!sourceChan || !targetChan) {
+      setSettleError('Select valid source and destination accounts.');
+      return;
+    }
+    const sourceBalance = Number(channelBalances[settleSource]?.current || 0);
+    if (sourceBalance < amountVal) {
+      setSettleError('The source account does not have enough available balance.');
+      return;
+    }
 
-    const txId = `SETTLE-TX-${Date.now().toString().slice(-6)}`;
+    const transferFingerprint = JSON.stringify({
+      source: settleSource,
+      target: settleTarget,
+      amount: amountVal,
+      memo: settleMemo.trim(),
+      receipt: attachedReceiptName,
+      muamala: attachedMuamalaName,
+    });
+    const txId = transferAttemptKeyRef.current && transferAttemptFingerprintRef.current === transferFingerprint
+      ? transferAttemptKeyRef.current
+      : `SETTLE-TX-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    transferAttemptKeyRef.current = txId;
+    transferAttemptFingerprintRef.current = transferFingerprint;
     const timestampStr = new Date().toISOString();
     const authorizerName = user?.name || user?.email || 'Authorized Staff';
     const isPersonPayout = targetChan.category === 'person';
@@ -503,22 +529,68 @@ export default function DashboardCashBank({
       muamalaFile: attachedMuamalaName || undefined
     };
 
-    const updated = creditItem ? [...ledgerEntries, debitItem, creditItem] : [...ledgerEntries, debitItem];
-    saveLedgerState(updated);
-
-    setSettleAmount('');
-    setSettleMemo('');
-    setAttachedReceiptName('');
-    setAttachedMuamalaName('');
-    setShowRuleWarning(false);
-    setSettleSuccessMsg(
-      isPersonPayout
-        ? `Payment sent! ${amountVal.toLocaleString()} ${activeTenant.currencyCode || 'TZS'} recorded as outflow from "${sourceChan.name}" to "${targetChan.name}".`
-        : `Transfer Completed! Moved ${amountVal.toLocaleString()} ${activeTenant.currencyCode || 'TZS'} successfully from "${sourceChan.name}" to "${targetChan.name}".`
+    const openingBalances = Object.fromEntries(
+      channels.map(channel => [channel.id, Number(channelBalances[channel.id]?.current || 0)])
     );
-    setTimeout(() => {
-      setSettleSuccessMsg(null);
-    }, 6000);
+    setIsTransferSubmitting(true);
+    try {
+      if (isPersonPayout) {
+        await postTreasuryEntry({
+          channels,
+          sourceAccountKey: settleSource,
+          amount: amountVal,
+          direction: 'out',
+          sourceType: 'other',
+          sourceId: txId,
+          description: descText,
+          openingBalances,
+          metadata: {
+            destinationType: 'person',
+            destinationName: targetChan.name,
+            destinationReference: getMaskedAccountReference(targetChan),
+            receiptFile: attachedReceiptName || null,
+            muamalaFile: attachedMuamalaName || null,
+          },
+        });
+      } else {
+        await transferTreasuryFunds({
+          channels,
+          sourceAccountKey: settleSource,
+          destinationAccountKey: settleTarget,
+          amount: amountVal,
+          idempotencyKey: txId,
+          description: descText,
+          openingBalances,
+          metadata: {
+            receiptFile: attachedReceiptName || null,
+            muamalaFile: attachedMuamalaName || null,
+            authorizedBy: authorizerName,
+          },
+        });
+      }
+      const updated = creditItem ? [...ledgerEntries, debitItem, creditItem] : [...ledgerEntries, debitItem];
+      saveLedgerState(updated);
+
+      setSettleAmount('');
+      setSettleMemo('');
+      setAttachedReceiptName('');
+      setAttachedMuamalaName('');
+      setShowRuleWarning(false);
+      transferAttemptKeyRef.current = '';
+      transferAttemptFingerprintRef.current = '';
+      setSettleSuccessMsg(
+        isPersonPayout
+          ? `Payment sent! ${amountVal.toLocaleString()} ${activeTenant.currencyCode || 'TZS'} recorded as outflow from "${sourceChan.name}" to "${targetChan.name}".`
+          : `Transfer Completed! Moved ${amountVal.toLocaleString()} ${activeTenant.currencyCode || 'TZS'} successfully from "${sourceChan.name}" to "${targetChan.name}".`
+      );
+      setTimeout(() => {
+        setSettleSuccessMsg(null);
+      }, 6000);
+    } catch (error: any) {
+      setSettleError(error?.message || 'The transfer was not posted. No balances were changed.');
+    } finally {
+      setIsTransferSubmitting(false);
+    }
   };
 
   const handleCreateAccount = () => {
@@ -1029,6 +1101,12 @@ export default function DashboardCashBank({
                   <p className="text-[11px] text-emerald-800 font-medium">{settleSuccessMsg}</p>
                 </div>
               )}
+              {settleError && (
+                <div role="alert" className="flex items-start gap-2 p-3 bg-rose-50 border border-rose-100 rounded-xl">
+                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5"/>
+                  <p className="text-[11px] text-rose-800 font-medium">{settleError}</p>
+                </div>
+              )}
 
               <form onSubmit={handleExecuteSettleTill} className="space-y-3">
                 <div className="space-y-1.5">
@@ -1084,9 +1162,9 @@ export default function DashboardCashBank({
                   </div>
                 )}
 
-                <button type="submit"
+                <button type="submit" disabled={isTransferSubmitting}
                   className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black rounded-2xl transition-colors flex items-center justify-center gap-2">
-                  <Send className="w-4 h-4"/> Execute Transfer
+                  <Send className="w-4 h-4"/> {isTransferSubmitting ? 'Posting Transfer…' : 'Execute Transfer'}
                 </button>
               </form>
             </div>
@@ -1726,12 +1804,18 @@ export default function DashboardCashBank({
                   />
                 </div>
 
+                {settleError && (
+                  <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700">
+                    {settleError}
+                  </div>
+                )}
                 <button
                   type="submit"
+                  disabled={isTransferSubmitting}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-3 px-3 rounded-2xl sm:rounded-xl text-xs transition-all cursor-pointer shadow-sm flex items-center justify-center space-x-1 border-none min-h-[50px] sm:min-h-0"
                 >
                   <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Perform Money Transfer</span>
+                  <span>{isTransferSubmitting ? 'Posting Transfer…' : 'Perform Money Transfer'}</span>
                 </button>
               </form>
             </div>

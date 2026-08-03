@@ -98,8 +98,9 @@ interface DashboardDeliveriesProps {
   onSubTabChange?: (tab: 'queue' | 'riders' | 'notes' | 'accounting') => void;
   expenses?: any[];
   onAddExpense?: (exp: any) => void;
-  onEditDelivery?: (deliveryId: string, updates: { customerName?: string; customerPhone?: string; deliveryCost?: number; notes?: string }) => boolean;
+  onEditDelivery?: (deliveryId: string, updates: { customerName?: string; customerPhone?: string; deliveryCost?: number; notes?: string }) => Promise<boolean> | boolean;
   onDeleteDelivery?: (deliveryId: string) => Promise<boolean>;
+  activeBranchName?: string;
 }
 
 export default function DashboardDeliveries({
@@ -120,7 +121,8 @@ export default function DashboardDeliveries({
   expenses = [],
   onAddExpense,
   onEditDelivery,
-  onDeleteDelivery
+  onDeleteDelivery,
+  activeBranchName
 }: DashboardDeliveriesProps) {
   const [activeSubTab, setActiveSubTab] = useState<'queue' | 'riders' | 'notes' | 'accounting'>('queue');
   
@@ -333,10 +335,10 @@ export default function DashboardDeliveries({
     setEditDeliveryNotes(del.notes || '');
   };
 
-  const handleSaveDeliveryEdit = () => {
+  const handleSaveDeliveryEdit = async () => {
     if (!editingDelivery || !onEditDelivery) return;
     setIsSavingDeliveryEdit(true);
-    const ok = onEditDelivery(editingDelivery.id, {
+    const ok = await onEditDelivery(editingDelivery.id, {
       customerName: editDeliveryCustomerName.trim(),
       customerPhone: editDeliveryCustomerPhone.trim(),
       deliveryCost: editDeliveryCost === '' ? 0 : Number(editDeliveryCost),
@@ -669,40 +671,51 @@ Vehicle Plate Number: ${plateNumber}
   const deliveredDeliveries = deliveries.filter(del => del.status === 'Delivered').length;
   const deliveryIncomeTotal = deliveries.reduce((sum, del) => sum + (del.deliveryCost || 0), 0);
   const deliveryStats = [
-    { label: 'Pending', value: pendingDeliveries, tone: 'text-amber-700 bg-amber-50 border-amber-100' },
-    { label: 'On route', value: dispatchedDeliveries, tone: 'text-sky-700 bg-sky-50 border-sky-100' },
-    { label: 'Delivered', value: deliveredDeliveries, tone: 'text-emerald-700 bg-emerald-50 border-emerald-100' },
-    { label: 'Revenue', value: `${currency}${Math.round(deliveryIncomeTotal).toLocaleString()}`, tone: 'text-slate-800 bg-white border-slate-200' }
+    { label: 'Pending', value: pendingDeliveries, icon: Clock, tone: 'text-amber-800 bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200', iconTone: 'bg-amber-100 text-amber-700' },
+    { label: 'On route', value: dispatchedDeliveries, icon: Bike, tone: 'text-sky-800 bg-gradient-to-br from-sky-50 to-indigo-50 border-sky-200', iconTone: 'bg-sky-100 text-sky-700' },
+    { label: 'Delivered', value: deliveredDeliveries, icon: CheckCircle, tone: 'text-emerald-800 bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200', iconTone: 'bg-emerald-100 text-emerald-700' },
+    { label: 'Revenue', value: `${currency}${Math.round(deliveryIncomeTotal).toLocaleString()}`, icon: Printer, tone: 'text-white bg-gradient-to-br from-emerald-600 to-emerald-800 border-emerald-700', iconTone: 'bg-white/20 text-white' }
   ];
 
   return (
-    <div className="space-y-5 pb-24 md:pb-8">
+    <div className="space-y-3 sm:space-y-4 xl:space-y-5 pb-24 md:pb-8">
       {/* Tab Header Section */}
       <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl shadow-sm overflow-hidden">
-        <div className="p-4 sm:p-5 lg:p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-5">
+        <div className="p-3.5 sm:p-4 lg:p-5 xl:p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 xl:gap-5">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
                 <DeliveryMotorcycleIcon className="w-6 h-6 text-emerald-600" />
               </div>
               <div className="min-w-0">
                 <h3 className="text-lg sm:text-xl font-black text-slate-950 tracking-tight font-sans leading-tight">
                   Delivery Operations
                 </h3>
-                <p className="text-xs sm:text-sm text-slate-500 font-sans max-w-2xl mt-1 leading-relaxed">
+                <p className="text-[11px] sm:text-sm text-slate-500 font-sans max-w-2xl mt-0.5 sm:mt-1 leading-snug sm:leading-relaxed">
                   Dispatch orders, manage delivery notes, track riders, and reconcile logistics payments.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 xl:min-w-[520px]">
-            {deliveryStats.map((stat) => (
-              <div key={stat.label} className={`rounded-2xl border px-3 py-3 ${stat.tone}`}>
-                <span className="block text-[10px] font-black uppercase tracking-widest text-current/70 font-mono">{stat.label}</span>
-                <span className="block mt-1 text-lg font-black font-mono leading-none">{stat.value}</span>
-              </div>
-            ))}
+          <div className="mobile-tablet-kpi-grid grid grid-cols-2 gap-1.5 sm:gap-2.5 w-full xl:grid-cols-4 xl:w-auto xl:min-w-[520px]">
+            {deliveryStats.map((stat) => {
+              const StatIcon = stat.icon;
+              return (
+                <div key={stat.label} className={`relative min-w-0 overflow-hidden rounded-2xl border px-3 py-3 shadow-[0_6px_18px_rgba(15,23,42,0.08)] ${stat.tone}`} title={`${stat.label}: ${stat.value}`}>
+                  <div className="relative flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="block truncate text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-current/65 font-mono">{stat.label}</span>
+                      <span className="block mt-1.5 text-base sm:text-lg font-black font-mono tracking-tight leading-none whitespace-nowrap">{stat.value}</span>
+                    </div>
+                    <span className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${stat.iconTone}`}>
+                      <StatIcon className="w-4 h-4" />
+                    </span>
+                  </div>
+                  <span className="absolute -right-5 -bottom-7 h-16 w-16 rounded-full bg-current opacity-[0.035]" aria-hidden="true" />
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -755,13 +768,13 @@ Vehicle Plate Number: ${plateNumber}
         </div>
 
         {/* Mobile native-style section switcher */}
-        <div className="xl:hidden border-t border-slate-200 bg-slate-50 px-3 py-3">
-          <div className="grid grid-cols-2 gap-2">
+        <div className="xl:hidden border-t border-slate-200 bg-slate-100/80 px-2.5 sm:px-3 py-2.5 sm:py-3">
+          <div className="flex flex-nowrap items-stretch gap-1 p-1 rounded-2xl bg-white border border-slate-200 shadow-inner">
             {[
               { id: 'queue' as const, label: 'Jobs', icon: Clipboard },
               { id: 'riders' as const, label: 'Crew', icon: UserCheck },
               { id: 'notes' as const, label: 'Notes', icon: FileText },
-              { id: 'accounting' as const, label: 'Money', icon: Printer }
+              { id: 'accounting' as const, label: 'Report', icon: Printer }
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeSubTab === tab.id;
@@ -769,10 +782,10 @@ Vehicle Plate Number: ${plateNumber}
                 <button
                   key={tab.id}
                   onClick={() => handleSubTabChange(tab.id)}
-                  className={`min-h-[58px] rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-black transition-all ${
+                  className={`basis-0 flex-1 min-w-0 min-h-[44px] sm:min-h-[48px] rounded-xl border flex flex-row items-center justify-center gap-1.5 text-[10px] font-black transition-all ${
                     isActive
-                      ? 'bg-slate-950 text-white border-slate-950 shadow-sm'
-                      : 'bg-white text-slate-600 border-slate-200 active:bg-slate-100'
+                      ? 'bg-gradient-to-br from-emerald-600 to-emerald-800 text-white border-emerald-700 shadow-md'
+                      : 'bg-transparent text-slate-500 border-transparent active:bg-slate-100'
                   }`}
                 >
                   <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-300' : 'text-slate-400'}`} />
@@ -785,37 +798,38 @@ Vehicle Plate Number: ${plateNumber}
       </div>
 
       {activeSubTab === 'queue' && (
-        <div className="space-y-5">
+        <div className="space-y-3 sm:space-y-4 xl:space-y-5">
           {/* Quick Filters */}
-          <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-2xl md:rounded-3xl flex flex-col sm:flex-row gap-3 shadow-xs md:sticky md:top-0 md:z-10">
+          <div className="bg-white border border-slate-200 p-2.5 sm:p-3 xl:p-4 rounded-2xl md:rounded-3xl flex flex-row gap-2 sm:gap-3 shadow-xs md:sticky md:top-0 md:z-10">
             <div className="relative flex-grow">
               <input
                 type="text"
                 placeholder="Search deliveries..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl sm:rounded-xl text-sm sm:text-xs pl-11 pr-4 py-3 sm:py-2.5 text-slate-800 placeholder-slate-400 font-sans focus:outline-none focus:border-emerald-500"
+                className="w-full min-h-[48px] sm:min-h-0 bg-slate-50 border border-slate-200 rounded-xl text-sm sm:text-xs pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 text-slate-800 placeholder-slate-400 font-sans focus:outline-none focus:border-emerald-500"
               />
-              <Search className="absolute left-4 top-3.5 sm:top-3 w-4 h-4 text-slate-400 pointer-events-none" />
+              <Search className="absolute left-3.5 sm:left-4 top-4 sm:top-3 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
             <button 
               onClick={() => setIsAddDeliveryModalOpen(true)}
-              className="px-5 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm sm:text-xs rounded-2xl sm:rounded-xl shadow-sm transition-all focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 flex flex-row items-center justify-center shrink-0 cursor-pointer min-h-[48px] sm:min-h-0"
+              className="h-12 w-12 sm:h-auto sm:w-auto sm:px-5 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm sm:text-xs rounded-xl shadow-sm transition-all focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 flex flex-row items-center justify-center shrink-0 cursor-pointer"
+              aria-label="Create new delivery"
             >
-              <Plus className="w-4 h-4 mr-1.5" />
-              New Delivery
+              <Plus className="w-5 h-5 sm:w-4 sm:h-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">New Delivery</span>
             </button>
           </div>
 
           {/* Delivery Jobs Compact List */}
-          <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl shadow-sm overflow-hidden">
+          <div className="bg-transparent border-0 shadow-none overflow-visible xl:bg-white xl:border xl:border-slate-200 xl:rounded-3xl xl:shadow-sm xl:overflow-hidden">
             {filteredDeliveries.length === 0 ? (
               <div className="text-center py-16 text-sm font-mono text-slate-500">
                 <Truck className="w-8 h-8 mx-auto mb-3 text-slate-300" />
                 <p>No custom delivery dispatch queues recorded for this branch yet.</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
+              <div className="space-y-2.5 xl:space-y-0 xl:divide-y xl:divide-slate-100">
                 {filteredDeliveries.map(del => {
                   const isPending = del.status === 'Pending Dispatch';
                   const isDispatched = del.status === 'Dispatched';
@@ -827,12 +841,24 @@ Vehicle Plate Number: ${plateNumber}
                   return (
                     <div
                       key={del.id}
-                      className={`flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-2 px-4 sm:px-5 py-3 transition-colors ${
-                        isDelivered ? 'bg-slate-50/50' : isCancelled ? 'bg-red-50/10 opacity-75' : 'hover:bg-slate-50/70'
+                      className={`relative grid grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[9rem_minmax(0,1fr)_7rem_8rem_2.25rem] items-start xl:items-center gap-x-3 xl:gap-x-4 gap-y-1 xl:gap-y-2 pl-4 pr-2.5 sm:pr-3 xl:px-5 py-2 xl:py-1.5 transition-colors rounded-2xl xl:rounded-none border xl:border-0 shadow-[0_2px_12px_rgba(15,23,42,0.06)] xl:shadow-none ${
+                        isDelivered ? 'bg-slate-50/80 border-slate-200' : isCancelled ? 'bg-red-50/40 border-red-100 opacity-75' : 'bg-white border-slate-100 hover:bg-slate-50/70'
                       }`}
                     >
+                      <span
+                        aria-hidden="true"
+                        className={`absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full xl:hidden ${
+                          isPending
+                            ? 'bg-amber-400'
+                            : isDispatched
+                              ? 'bg-sky-500'
+                              : isDelivered
+                                ? 'bg-emerald-500'
+                                : 'bg-rose-500'
+                        }`}
+                      />
                       {/* Order ref + status */}
-                      <div className="min-w-0 w-1/2 sm:w-auto sm:shrink-0 sm:basis-40">
+                      <div className="min-w-0 col-start-1 row-start-1 xl:col-start-1 xl:row-start-1">
                         <button
                           onClick={() => setViewingDelivery(del)}
                           className="text-[10px] font-bold text-slate-400 block font-mono truncate hover:text-emerald-600 cursor-pointer text-left"
@@ -840,7 +866,7 @@ Vehicle Plate Number: ${plateNumber}
                         >
                           {del.saleId}
                         </button>
-                        <span className={`inline-flex mt-1 px-2 py-0.5 rounded-lg text-[9px] font-bold tracking-wider uppercase font-sans ${
+                        <span className={`inline-flex mt-0.5 px-2 py-0.5 rounded-lg text-[9px] font-bold tracking-wider uppercase font-sans ${
                           isPending
                             ? 'bg-amber-105 text-amber-700 border border-amber-200'
                             : isDispatched
@@ -854,31 +880,37 @@ Vehicle Plate Number: ${plateNumber}
                       </div>
 
                       {/* Destination / customer */}
-                      <div className="min-w-0 flex-1 sm:basis-48 sm:flex-none">
-                        <p className="font-bold text-sm text-slate-900 truncate">{del.customerName || 'Walk-In Customer'}</p>
-                        {del.customerPhone && (
-                          <p className="text-[11px] text-slate-500 font-mono truncate">{del.customerPhone}</p>
-                        )}
+                      <div className="min-w-0 col-span-2 row-start-2 xl:col-span-1 xl:col-start-2 xl:row-start-1">
+                        <p className="hidden xl:block text-[8px] font-black text-slate-400 uppercase tracking-widest font-mono">Delivered To</p>
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          <p className="font-extrabold text-[13px] sm:text-sm text-slate-900 break-words leading-tight">{del.customerName || 'Walk-In Customer'}</p>
+                          {del.customerPhone && (
+                            <p className="hidden xl:block text-[11px] text-slate-500 font-mono break-all">{del.customerPhone}</p>
+                          )}
+                        </div>
+                        <p className="text-[10.5px] text-slate-500 leading-tight truncate xl:whitespace-normal xl:break-words">
+                          <span className="hidden xl:inline font-semibold text-slate-600">{activeBranchName || activeTenant.name}</span>
+                          <span className="mx-1.5 text-slate-300" aria-hidden="true">•</span>
+                          {del.notes || 'Destination address not provided'}
+                        </p>
                       </div>
 
                       {/* Delivery fee */}
-                      <div className="shrink-0 sm:basis-28">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono block sm:hidden">Fee</span>
-                        <span className="font-bold font-mono text-sky-600 text-sm">{currency}{Math.round(del.deliveryCost || 0).toLocaleString()}</span>
+                      <div className="min-w-0 col-start-1 row-start-3 xl:col-start-3 xl:row-start-1">
+                        <span className="font-bold font-mono text-sky-600 text-xs xl:text-sm">{currency}{Math.round(del.deliveryCost || 0).toLocaleString()}</span>
                       </div>
 
                       {/* Date & time */}
-                      <div className="shrink-0 sm:basis-32">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono block sm:hidden">When</span>
-                        <span className="text-xs font-semibold text-slate-700 block">{whenDate.toLocaleDateString()}</span>
-                        <span className="text-[10.5px] text-slate-400 font-mono">{whenDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <div className="min-w-0 col-start-2 row-start-3 text-right xl:text-left xl:col-start-4 xl:row-start-1">
+                        <span className="text-[10px] xl:text-xs font-semibold text-slate-600 xl:text-slate-700 xl:block">{whenDate.toLocaleDateString()}</span>
+                        <span className="hidden xl:inline text-[10.5px] text-slate-400 font-mono">{whenDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
 
                       {/* Action menu */}
-                      <div className="relative shrink-0 ml-auto">
+                      <div className="relative col-start-2 row-start-1 xl:col-start-5 xl:row-start-1 justify-self-end">
                         <button
                           onClick={() => setOpenQueueActionId(isActionOpen ? null : del.id)}
-                          className="h-9 w-9 rounded-full hover:bg-slate-200/70 text-slate-500 hover:text-slate-700 flex items-center justify-center transition cursor-pointer"
+                          className="h-10 w-10 xl:h-8 xl:w-8 -mr-1 xl:mr-0 rounded-xl hover:bg-slate-200/70 text-slate-500 hover:text-slate-700 flex items-center justify-center transition cursor-pointer"
                         >
                           <MoreVertical className="w-4 h-4" />
                         </button>
@@ -1178,17 +1210,14 @@ Vehicle Plate Number: ${plateNumber}
       )}
 
       {activeSubTab === 'riders' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 xl:gap-6">
           {/* New Rider Registration Panel */}
-          <div className="bg-white border border-slate-200 p-4 sm:p-6 rounded-2xl md:rounded-3xl space-y-5 shadow-sm height-fit self-start">
-            <div className="space-y-1">
+          <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-2xl space-y-3 shadow-sm height-fit self-start">
+            <div>
               <h4 className="font-extrabold text-slate-900 tracking-tight text-sm flex items-center space-x-2">
                 <UserPlus className="w-[18px] h-[18px] text-emerald-600" />
                 <span>Register Store Driver / Rider</span>
               </h4>
-              <p className="text-[11px] text-slate-500 font-sans">
-                Save active shop delivery drivers or motorcycle riders to choose immediately during sales dispatch.
-              </p>
             </div>
 
             {riderSuccessMessage && (
@@ -1197,38 +1226,40 @@ Vehicle Plate Number: ${plateNumber}
               </div>
             )}
 
-            <form onSubmit={handleRegisterRiderSubmit} className="space-y-3.5 text-xs text-slate-700">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono">Driver/Rider Full Name</label>
+            <form onSubmit={handleRegisterRiderSubmit} className="space-y-2.5 text-[11px] text-slate-700">
+              <div className="mobile-tablet-kpi-grid grid grid-cols-2 gap-2">
+              <div className="space-y-1 min-w-0">
+                <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wide block">Full Name</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. John Mwangi"
+                  placeholder="John Mwangi"
                   value={newRiderName}
                   onChange={(e) => setNewRiderName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.1 outline-none focus:border-emerald-500 font-sans text-xs text-slate-800 font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-500 font-sans text-[11px] text-slate-800 placeholder:text-[10px] placeholder:text-slate-400"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono">Mobile WhatsApp Phone</label>
+              <div className="space-y-1 min-w-0">
+                <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wide block">Phone</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. +234 802 123 4567"
+                  placeholder="+234 802 123 4567"
                   value={newRiderPhone}
                   onChange={(e) => setNewRiderPhone(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.1 outline-none focus:border-emerald-500 font-mono text-xs text-slate-800"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-500 font-mono text-[10px] text-slate-800 placeholder:text-[9px] placeholder:text-slate-400"
                 />
               </div>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="mobile-tablet-kpi-grid grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono">Classification</label>
+                  <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wide block">Role</label>
                   <select
                     value={newRiderClassification}
                     onChange={(e) => setNewRiderClassification(e.target.value as any)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 cursor-pointer font-sans text-xs text-slate-800 font-bold"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 cursor-pointer font-sans text-[9px] text-slate-700"
                   >
                     <option value="rider">Rider (Motorcycle/Tuktuk)</option>
                     <option value="driver">Driver (Car/Truck)</option>
@@ -1236,11 +1267,11 @@ Vehicle Plate Number: ${plateNumber}
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono">Vehicle Option</label>
+                  <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wide block">Vehicle</label>
                   <select
                     value={newRiderVehicleType}
                     onChange={(e) => setNewRiderVehicleType(e.target.value as any)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 cursor-pointer font-sans text-xs text-slate-800 font-bold"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 cursor-pointer font-sans text-[9px] text-slate-700"
                   >
                     <option value="motorcycle">Motorcycle</option>
                     <option value="tuktuk">Tuktuk</option>
@@ -1249,36 +1280,36 @@ Vehicle Plate Number: ${plateNumber}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="mobile-tablet-kpi-grid grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono">Vehicle Color</label>
+                  <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wide block">Color</label>
                   <input
                     type="text"
-                    placeholder="e.g. Yellow / Red"
+                    placeholder="Yellow / Red"
                     value={newRiderVehicleColor}
                     onChange={(e) => setNewRiderVehicleColor(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.1 outline-none focus:border-emerald-500 font-sans text-xs text-slate-800"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-500 font-sans text-[11px] text-slate-800 placeholder:text-[10px] placeholder:text-slate-400"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono">Plate Number</label>
+                  <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wide block">Plate No.</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. KMRD 420A"
+                    placeholder="KMRD 420A"
                     value={newRiderLicensePlate}
                     onChange={(e) => setNewRiderLicensePlate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.1 outline-none focus:border-emerald-500 font-mono text-xs text-slate-800 uppercase"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-emerald-500 font-mono text-[10px] text-slate-800 uppercase placeholder:text-[9px] placeholder:text-slate-400"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono">
-                  Driver Signature PNG (Fits inside 500x500 px)
+                <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wide block">
+                  Signature PNG
                 </label>
-                <div className="flex items-center space-x-3 bg-slate-50 border border-slate-200 rounded-xl p-2.5">
+                <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-lg p-2">
                   <input
                     type="file"
                     accept="image/png"
@@ -1294,10 +1325,10 @@ Vehicle Plate Number: ${plateNumber}
                         reader.readAsDataURL(file);
                       }
                     }}
-                    className="block w-full text-xs text-slate-500
-                      file:mr-3 file:py-1 file:px-2.5
+                    className="block w-full text-[9px] text-slate-500
+                      file:mr-2 file:py-1 file:px-2
                       file:rounded-lg file:border-0
-                      file:text-[10px] file:font-bold
+                      file:text-[9px] file:font-bold
                       file:bg-emerald-50 file:text-emerald-700
                       hover:file:bg-emerald-100 cursor-pointer"
                   />
@@ -1310,12 +1341,11 @@ Vehicle Plate Number: ${plateNumber}
                     />
                   )}
                 </div>
-                <p className="text-[9.5px] text-slate-500 font-sans italic leading-tight">Use 500x500 PNG.</p>
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-2xl sm:rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer flex items-center justify-center space-x-1.5 select-none shadow-sm min-h-[48px]"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-[11px] transition-all cursor-pointer flex items-center justify-center space-x-1.5 select-none shadow-sm min-h-[42px]"
               >
                 <Plus className="w-[18px] h-[18px]" />
                 <span>Save In-house Rider</span>
@@ -1324,8 +1354,8 @@ Vehicle Plate Number: ${plateNumber}
           </div>
 
           {/* Registered Crew List */}
-          <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl md:rounded-3xl shadow-sm p-4 sm:p-6 overflow-hidden">
-            <h4 className="font-extrabold text-slate-900 tracking-tight text-sm pb-4 border-b border-slate-100 flex items-center space-x-2">
+          <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl md:rounded-3xl shadow-sm p-3.5 sm:p-5 overflow-hidden">
+            <h4 className="font-extrabold text-slate-900 tracking-tight text-sm pb-3 border-b border-slate-100 flex items-center space-x-2">
               <UserCheck className="w-[18px] h-[18px] text-emerald-600" />
               <span>Registered Branch Logistics Crew</span>
             </h4>
@@ -1373,9 +1403,9 @@ Vehicle Plate Number: ${plateNumber}
                   </tbody>
                   </table>
                 </div>
-                <div className="xl:hidden mt-4 space-y-3">
+                <div className="xl:hidden mt-3 space-y-2.5">
                 {activeRiders.map((crew) => (
-                  <div key={crew.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div key={crew.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_2px_10px_rgba(15,23,42,0.05)]">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-black text-slate-900 truncate">{crew.name}</p>
@@ -1389,12 +1419,12 @@ Vehicle Plate Number: ${plateNumber}
                         {crew.classification}
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 mt-4">
-                      <div className="rounded-xl bg-white border border-slate-200 p-3">
+                    <div className="mobile-tablet-kpi-grid grid grid-cols-2 gap-2 mt-2.5">
+                      <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
                         <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">Vehicle</span>
                         <span className="block mt-1 text-xs font-bold text-slate-800 capitalize">{crew.vehicleColor} {crew.vehicleType}</span>
                       </div>
-                      <div className="rounded-xl bg-white border border-slate-200 p-3">
+                      <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
                         <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">Plate</span>
                         <span className="block mt-1 text-xs font-black text-slate-900 font-mono">{crew.licensePlate}</span>
                       </div>
@@ -1409,14 +1439,14 @@ Vehicle Plate Number: ${plateNumber}
       )}
 
       {activeSubTab === 'notes' && (
-        <div className="space-y-6 select-text">
+        <div className="space-y-3 sm:space-y-4 select-text">
           {/* Active Editing Draft Mode Banner */}
           {activeEditingPendingNoteId && (
-            <div className="bg-indigo-600 text-white p-4 rounded-3xl space-y-2 text-xs shadow-md">
+            <div className="bg-emerald-700 text-white p-3 sm:p-4 rounded-2xl space-y-1.5 text-xs shadow-sm">
               <p className="font-extrabold flex items-center gap-1.5 text-sm">
                 <span>⚡ Resolve / Editing Pending Draft Mode Active</span>
               </p>
-              <p className="text-indigo-100 text-[11px]">
+              <p className="text-emerald-100 text-[11px]">
                 You are currently editing a template populated from a pending POS sale dispatch. Complete and save the note below to clear this draft.
               </p>
               <button
@@ -1433,7 +1463,7 @@ Vehicle Plate Number: ${plateNumber}
                   setNoteDeliveredByName('');
                   setNoteDeliveredBySignature('');
                 }}
-                className="bg-indigo-700 hover:bg-indigo-805 text-white font-extrabold px-3 py-1.5 rounded-xl text-[10px] cursor-pointer transition-all border border-indigo-500"
+                className="bg-emerald-800 hover:bg-emerald-900 text-white font-extrabold px-3 py-2 rounded-xl text-[10px] cursor-pointer transition-all border border-emerald-600"
               >
                 Cancel Editing Draft (Reset Form)
               </button>
@@ -1442,7 +1472,7 @@ Vehicle Plate Number: ${plateNumber}
 
           {/* Pending Delivery Drafts Section */}
           {pendingNotes && pendingNotes.length > 0 && (
-            <div className="bg-amber-50/75 border border-amber-205 p-5 rounded-3xl space-y-4 shadow-sm">
+            <div className="bg-amber-50/70 border border-amber-200 p-3 sm:p-4 rounded-2xl space-y-3 shadow-sm">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                 <div className="space-y-0.5">
                   <span className="text-[10px] bg-amber-100 text-amber-800 uppercase px-2 py-0.5 rounded font-black font-mono tracking-wider">
@@ -1452,9 +1482,6 @@ Vehicle Plate Number: ${plateNumber}
                     <DeliveryMotorcycleIcon className="w-4 h-4 text-amber-600" />
                     <span>Incomplete / Pending Delivery Notes</span>
                   </h4>
-                  <p className="text-[11px] text-slate-550">
-                    The following orders were sent for delivery. Choose one to fill in mandatory logistics details and finalize printing.
-                  </p>
                 </div>
                 <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full">
                   {pendingNotes.length} Pending
@@ -1477,7 +1504,7 @@ Vehicle Plate Number: ${plateNumber}
                       <tr 
                         key={note.id} 
                         className={`hover:bg-amber-50/20 transition-all ${
-                          activeEditingPendingNoteId === note.id ? 'bg-indigo-50/40' : ''
+                          activeEditingPendingNoteId === note.id ? 'bg-emerald-50/50' : ''
                         }`}
                       >
                         <td className="py-3 px-4 font-mono font-bold text-slate-800">
@@ -1515,7 +1542,7 @@ Vehicle Plate Number: ${plateNumber}
                                   setNoteDeliveredBySignature('');
                                 }
                               }}
-                              className="bg-indigo-600 hover:bg-indigo-550 text-white font-extrabold px-3 py-1.5 rounded-lg text-[10.5px] transition-all cursor-pointer flex items-center gap-1 shadow-sm border-none"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3 py-1.5 rounded-lg text-[10.5px] transition-all cursor-pointer flex items-center gap-1 shadow-sm border-none"
                             >
                               <span>✏️ Resolve / Edit Draft</span>
                             </button>
@@ -1545,8 +1572,8 @@ Vehicle Plate Number: ${plateNumber}
                 {pendingNotes.map((note) => (
                   <div
                     key={note.id}
-                    className={`rounded-2xl border bg-white p-4 shadow-sm ${
-                      activeEditingPendingNoteId === note.id ? 'border-indigo-200 bg-indigo-50/40' : 'border-amber-200/70'
+                    className={`rounded-2xl border bg-white p-3 shadow-sm ${
+                      activeEditingPendingNoteId === note.id ? 'border-emerald-200 bg-emerald-50/40' : 'border-amber-200/70'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -1584,7 +1611,7 @@ Vehicle Plate Number: ${plateNumber}
                             setNoteDeliveredBySignature('');
                           }
                         }}
-                        className="bg-indigo-600 hover:bg-indigo-550 text-white font-extrabold px-3 py-3 rounded-2xl text-[11px] transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm border-none min-h-[46px]"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3 py-2.5 rounded-xl text-[11px] transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm border-none min-h-[44px]"
                       >
                         Resolve / Edit Draft
                       </button>
@@ -1611,16 +1638,12 @@ Vehicle Plate Number: ${plateNumber}
           )}
 
           {/* Quick Order Loader bar */}
-          <div className="bg-white border border-slate-200 p-4 sm:p-5 rounded-2xl md:rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-            <div className="space-y-0.5">
-              <span className="text-[10px] bg-slate-100 text-slate-500 uppercase px-2 py-0.5 rounded font-bold font-mono">INTEGRATION WIDGET</span>
+          <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
+            <div>
               <h4 className="font-extrabold text-slate-800 text-sm tracking-tight flex items-center space-x-1.5">
                 <FileText className="w-4 h-4 text-emerald-600" />
-                <span>Fill Fields from Recent POS Deliveries</span>
+                <span>Load a Recent POS Delivery</span>
               </h4>
-              <p className="text-[11px] text-slate-500 font-sans">
-                Selecting a recent sales order will automatically pull its customer info & item catalog list into this template.
-              </p>
             </div>
             <div className="w-full md:w-80 shrink-0">
               <select
@@ -1642,10 +1665,10 @@ Vehicle Plate Number: ${plateNumber}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
             
             {/* Form Fields Side panel (Left - 5 columns) */}
-            <div className="lg:col-span-12 xl:col-span-5 bg-white border border-slate-200 p-4 sm:p-6 rounded-2xl md:rounded-3xl space-y-6 shadow-sm xl:max-h-[85vh] overflow-y-auto scrollbar-thin">
+            <div className="lg:col-span-12 xl:col-span-5 bg-white border border-slate-200 p-3.5 sm:p-5 rounded-2xl space-y-4 shadow-sm xl:max-h-[85vh] overflow-y-auto scrollbar-thin">
               <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
                 <h4 className="font-black text-slate-900 tracking-tight text-sm">Delivery Note Custom Fields</h4>
                 <button 
@@ -1677,7 +1700,7 @@ Vehicle Plate Number: ${plateNumber}
               <div className="space-y-3">
                 <span className="text-[10px] font-black text-slate-400 block tracking-wider uppercase font-mono border-b pb-1">1. Note Reference Metadata</span>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="mobile-tablet-kpi-grid grid grid-cols-2 xl:grid-cols-3 gap-2.5">
                   <div className="space-y-1">
                     <label className="text-[9.5px] font-bold text-slate-500 font-sans">Proforma Invoice No</label>
                     <input 
@@ -1709,18 +1732,18 @@ Vehicle Plate Number: ${plateNumber}
               </div>
 
               {/* Logistics & Transport details section */}
-              <div className="space-y-3 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
-                <span className="text-[10px] font-black text-indigo-700 block tracking-wider uppercase font-mono border-b pb-1">
+              <div className="space-y-3 p-3 bg-emerald-50/60 border border-emerald-100 rounded-2xl">
+                <span className="text-[10px] font-black text-emerald-700 block tracking-wider uppercase font-mono border-b border-emerald-100 pb-1">
                   2. Logistics & Fleet details (Mandatory)
                 </span>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="mobile-tablet-kpi-grid grid grid-cols-2 gap-2.5">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 font-sans block">Type of Transport</label>
                     <select
                       value={noteTransportType}
                       onChange={(e) => setNoteTransportType(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 cursor-pointer"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 outline-none text-xs font-semibold text-slate-800 focus:border-emerald-500 cursor-pointer"
                     >
                       <option value="">-- Choose Transport --</option>
                       <option value="Motorcycle (Rider)">Motorcycle (Rider)</option>
@@ -2386,7 +2409,7 @@ Vehicle Plate Number: ${plateNumber}
       )}
 
       {activeSubTab === 'accounting' && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {(() => {
             const deliveryIncome = deliveries.reduce((sum, d) => sum + (d.deliveryCost || 0), 0);
             const deliveryExpenses = expenses?.filter(e => e.category === 'Delivery Expense' || e.category === 'Delivery Maintainance') || [];
@@ -2395,35 +2418,39 @@ Vehicle Plate Number: ${plateNumber}
 
             return (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl md:rounded-3xl p-5 md:p-6 relative overflow-hidden shadow-sm">
+                <div className="mobile-tablet-kpi-grid grid grid-cols-2 xl:grid-cols-4 gap-2.5 md:gap-4">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3.5 md:p-4 relative overflow-hidden shadow-sm">
                     <div className="relative z-10">
-                      <span className="block text-xs font-mono uppercase font-black text-emerald-600 tracking-wider mb-2">Total Delivery Income</span>
-                      <span className="text-2xl md:text-3xl font-black font-mono text-emerald-900">{activeTenant.currency}{deliveryIncome.toLocaleString()}</span>
+                      <span className="block text-[9px] sm:text-[10px] font-mono uppercase font-black text-emerald-600 tracking-wider mb-1.5">Delivery Income</span>
+                      <span className="text-lg sm:text-xl font-black font-mono text-emerald-900">{activeTenant.currency}{deliveryIncome.toLocaleString()}</span>
                     </div>
                   </div>
-                  <div className="bg-rose-50 border border-rose-100 rounded-2xl md:rounded-3xl p-5 md:p-6 relative overflow-hidden shadow-sm">
+                  <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3.5 md:p-4 relative overflow-hidden shadow-sm">
                     <div className="relative z-10">
-                      <span className="block text-xs font-mono uppercase font-black text-rose-600 tracking-wider mb-2">Delivery Expenses</span>
-                      <span className="text-2xl md:text-3xl font-black font-mono text-rose-900">{activeTenant.currency}{totalDeliveryExpenses.toLocaleString()}</span>
+                      <span className="block text-[9px] sm:text-[10px] font-mono uppercase font-black text-rose-600 tracking-wider mb-1.5">Expenses</span>
+                      <span className="text-lg sm:text-xl font-black font-mono text-rose-900">{activeTenant.currency}{totalDeliveryExpenses.toLocaleString()}</span>
                     </div>
                   </div>
-                  <div className={`border rounded-2xl md:rounded-3xl p-5 md:p-6 relative overflow-hidden shadow-sm ${deliveryProfit >= 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-red-50 border-red-100'}`}>
+                  <div className={`border rounded-2xl p-3.5 md:p-4 relative overflow-hidden shadow-sm ${deliveryProfit >= 0 ? 'bg-teal-50 border-teal-100' : 'bg-red-50 border-red-100'}`}>
                     <div className="relative z-10">
-                      <span className={`block text-xs font-mono uppercase font-black tracking-wider mb-2 ${deliveryProfit >= 0 ? 'text-indigo-600' : 'text-red-600'}`}>Net Delivery Profit</span>
-                      <span className={`text-2xl md:text-3xl font-black font-mono ${deliveryProfit >= 0 ? 'text-indigo-900' : 'text-red-900'}`}>
+                      <span className={`block text-[9px] sm:text-[10px] font-mono uppercase font-black tracking-wider mb-1.5 ${deliveryProfit >= 0 ? 'text-teal-600' : 'text-red-600'}`}>Net Profit</span>
+                      <span className={`text-lg sm:text-xl font-black font-mono ${deliveryProfit >= 0 ? 'text-teal-900' : 'text-red-900'}`}>
                         {activeTenant.currency}{deliveryProfit.toLocaleString()}
                       </span>
                     </div>
                   </div>
+                  <div className="bg-sky-50 border border-sky-100 rounded-2xl p-3.5 md:p-4 relative overflow-hidden shadow-sm">
+                    <span className="block text-[9px] sm:text-[10px] font-mono uppercase font-black text-sky-600 tracking-wider mb-1.5">Deliveries</span>
+                    <span className="text-lg sm:text-xl font-black font-mono text-sky-900">{deliveries.length.toLocaleString()}</span>
+                  </div>
                 </div>
 
                 {/* Delivery Payment Methods Accounting */}
-                <div className="bg-slate-50/50 border border-slate-200 rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm">
-                  <h3 className="font-bold text-slate-700 tracking-tight mb-4 text-xs uppercase tracking-wider font-mono">
+                <div className="bg-slate-50/50 border border-slate-200 rounded-2xl p-3.5 md:p-4 shadow-sm">
+                  <h3 className="font-bold text-slate-700 tracking-tight mb-3 text-xs uppercase tracking-wider font-mono">
                     Payments Accounting
                   </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                  <div className="mobile-tablet-kpi-grid grid grid-cols-2 xl:grid-cols-4 gap-2.5">
                     {(() => {
                       const modeTotals = deliveries.reduce((acc, d) => {
                         const m = d.deliveryPaymentMethod || 'Cash';
@@ -2438,7 +2465,7 @@ Vehicle Plate Number: ${plateNumber}
                       }
 
                       return modeEntries.sort((a, b) => b[1] - a[1]).map(([mode, amount]) => (
-                        <div key={mode} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                        <div key={mode} className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col justify-between">
                           <span className="block text-[10px] uppercase font-bold text-slate-500 mb-1 tracking-wider">{mode}</span>
                           <span className="text-lg font-black font-mono text-slate-800">{activeTenant.currency}{Math.round(amount).toLocaleString()}</span>
                         </div>
@@ -2448,8 +2475,8 @@ Vehicle Plate Number: ${plateNumber}
                 </div>
 
                 {/* Delivery Form for Expense */}
-                <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm">
-                  <h3 className="font-bold text-slate-800 tracking-tight mb-4 flex items-center space-x-2">
+                <div className="bg-white border border-slate-200 rounded-2xl p-3.5 md:p-4 shadow-sm">
+                  <h3 className="font-bold text-slate-800 tracking-tight mb-3 flex items-center space-x-2 text-sm">
                     <Printer className="w-4 h-4 text-slate-400" />
                     <span>Log Delivery Expense (Oil, Maintenance, etc.)</span>
                   </h3>
@@ -2474,19 +2501,19 @@ Vehicle Plate Number: ${plateNumber}
                       form.reset();
                       alert('Delivery Expense Logged Successfully!');
                     }}
-                    className="grid grid-cols-1 md:grid-cols-[minmax(220px,1fr)_12rem_auto] md:items-end gap-4"
+                    className="flex flex-row items-end gap-2"
                   >
-                    <div className="space-y-1 min-w-0">
+                    <div className="space-y-1 min-w-0 flex-1">
                       <label className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider font-mono block">Description</label>
                       <input 
                         type="text" 
                         name="desc"
                         required
                         placeholder="e.g. Engine Oil for Bodaboda"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 outline-none focus:border-indigo-500"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 outline-none focus:border-emerald-500"
                       />
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1 w-24 sm:w-40 shrink-0">
                       <label className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider font-mono block">Amount ({activeTenant.currency})</label>
                       <input 
                         type="number" 
@@ -2494,18 +2521,18 @@ Vehicle Plate Number: ${plateNumber}
                         required
                         min="1"
                         placeholder="0.00"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-mono text-slate-800 outline-none focus:border-indigo-500"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono text-slate-800 outline-none focus:border-emerald-500"
                       />
                     </div>
-                    <button type="submit" className="px-6 py-3 md:py-2.5 bg-slate-900 text-white rounded-2xl md:rounded-xl text-xs font-bold transition-all hover:bg-slate-800 shrink-0 min-h-[48px] md:min-h-0">
-                      Add Expense
+                    <button type="submit" className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all hover:bg-emerald-700 shrink-0 min-h-[42px]">
+                      <span className="sm:hidden">Add</span><span className="hidden sm:inline">Add Expense</span>
                     </button>
                   </form>
                 </div>
 
-                {/* Delivery List Details */}
-                <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl overflow-hidden shadow-sm mt-6">
-                  <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 font-bold text-sm text-slate-800 flex items-center justify-between">
+                {/* Delivery records are managed from the Jobs screen. */}
+                <div className="hidden">
+                  <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 font-bold text-sm text-slate-800 flex items-center justify-between">
                     <span>Detailed Deliveries Record</span>
                     <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-mono">{deliveries.length} Records</span>
                   </div>
@@ -2630,7 +2657,7 @@ Vehicle Plate Number: ${plateNumber}
                         const isDropdownOpen = openDropdownRow === d.id;
                         const shortCode = d.id.startsWith('del-') ? d.id.substring(4, 9).toUpperCase() : d.id.substring(0, 5).toUpperCase();
                         return (
-                          <div key={d.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 relative">
+                          <div key={d.id} className="rounded-2xl border border-slate-200 bg-white p-3 relative shadow-sm">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Order {shortCode}</span>
@@ -2644,26 +2671,26 @@ Vehicle Plate Number: ${plateNumber}
                                 <MoreVertical className="w-4 h-4" />
                               </button>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 mt-4">
-                              <div className="rounded-xl bg-white border border-slate-200 p-3">
+                            <div className="mobile-tablet-kpi-grid grid grid-cols-2 gap-2 mt-2.5">
+                              <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
                                 <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">Status</span>
                                 <span className="block mt-1 text-xs font-bold text-slate-800">{d.status}</span>
                               </div>
-                              <div className="rounded-xl bg-white border border-slate-200 p-3">
+                              <div className="rounded-xl bg-emerald-50/60 border border-emerald-100 p-2.5">
                                 <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">Amount</span>
                                 <span className="block mt-1 text-xs font-black text-emerald-700 font-mono">{activeTenant.currency}{(d.deliveryCost || 0).toLocaleString()}</span>
                               </div>
-                              <div className="rounded-xl bg-white border border-slate-200 p-3">
+                              <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
                                 <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">Payment</span>
                                 <span className="block mt-1 text-xs font-bold text-slate-800 uppercase">{d.deliveryPaymentMethod || 'N/A'}</span>
                               </div>
-                              <div className="rounded-xl bg-white border border-slate-200 p-3">
+                              <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
                                 <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">Rider</span>
                                 <span className="block mt-1 text-xs font-bold text-slate-800 truncate">{d.riderDetails?.name || 'Unassigned'}</span>
                               </div>
                             </div>
                             {d.notes && (
-                              <p className="mt-3 text-xs text-slate-600 leading-relaxed bg-white border border-slate-200 rounded-xl p-3">{d.notes}</p>
+                              <p className="mt-2.5 text-[11px] text-slate-600 leading-relaxed bg-slate-50 border border-slate-100 rounded-xl p-2.5 line-clamp-2">{d.notes}</p>
                             )}
                             {isDropdownOpen && (
                               <>

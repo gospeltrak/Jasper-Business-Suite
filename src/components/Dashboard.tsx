@@ -75,7 +75,7 @@ import {
   type ActiveBranchSelection,
 } from '../branches/branchScope';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../utils/onlineOnly';
-import { getSecureDataBridgeClient } from '../secureDataBridge';
+import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../secureDataBridge';
 import { postTreasuryEntry, postTreasurySplitIncome, reverseTreasuryEntry } from '../utils/treasuryApi';
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../utils/subscriptionReminder';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
@@ -1698,19 +1698,33 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return true;
   };
 
-  const handleUpdateExpense = (updatedExpense: Expense) => {
-    if (blockOfflineBusinessWrite('expense update')) return;
+  const handleUpdateExpense = async (updatedExpense: Expense): Promise<boolean> => {
+    if (blockOfflineBusinessWrite('expense update')) return false;
     const existingExpense = (expensesMap[activeTenant.id] || []).find(item => item.id === updatedExpense.id);
-    if (!existingExpense || !recordBelongsToActiveBranch(existingExpense, activeBranchSelection)) return;
-
-    setExpensesMap(prev => ({
-      ...prev,
-      [activeTenant.id]: (prev[activeTenant.id] || []).map(e => (
-        e.id === updatedExpense.id
-          ? { ...updatedExpense, branchId: existingExpense.branchId }
-          : e
-      ))
-    }));
+    if (!existingExpense || !recordBelongsToActiveBranch(existingExpense, activeBranchSelection)) return false;
+    const nextExpenses = (expensesMap[activeTenant.id] || []).map(expense => (
+      expense.id === updatedExpense.id
+        ? { ...updatedExpense, branchId: existingExpense.branchId }
+        : expense
+    ));
+    localWorkspaceChangedAtRef.current = Date.now();
+    const saved = await saveTenantWorkspace(activeTenant.id, {
+      branches: branchesMap[activeTenant.id] || [],
+      branchStocks: branchStocksMap[activeTenant.id] || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+      products: productsMap[activeTenant.id] || [],
+      sales: salesMap[activeTenant.id] || [],
+      expenses: nextExpenses,
+      settings: systemSettings,
+      deliveries: deliveriesMap[activeTenant.id] || [],
+      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+      purchases: purchasesMap[activeTenant.id] || [],
+      productTombstones: readLocalProductTombstones(activeTenant.id),
+      saleTombstones: readLocalSaleTombstones(activeTenant.id),
+    });
+    if (!saved) return false;
+    setExpensesMap(prev => ({ ...prev, [activeTenant.id]: nextExpenses }));
+    return true;
   };
 
   const persistTenantProductsNow = (updatedProducts: Product[]) => {
@@ -1851,26 +1865,45 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     setLogs(prev => [newLog, ...prev]);
   };
 
-  const handleUpdateSales = (updatedSales: Sale[]) => {
-    if (blockOfflineBusinessWrite('sales ledger update')) return;
+  const handleUpdateSales = async (updatedSales: Sale[]): Promise<boolean> => {
+    if (blockOfflineBusinessWrite('sales ledger update')) return false;
 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     const syncUpdatedAt = new Date().toISOString();
-    const synchronizedScopedSales = updatedSales.map((sale) => ({
-      ...sale,
-      syncUpdatedAt: (sale as any).syncUpdatedAt || syncUpdatedAt,
-    }) as Sale);
+    const previousScopedSales = new Map(activeSales.map(sale => [sale.id, sale]));
+    const synchronizedScopedSales = updatedSales.map((sale) => {
+      const previous = previousScopedSales.get(sale.id);
+      return previous === sale ? sale : { ...sale, syncUpdatedAt };
+    });
     const synchronizedSales = replaceScopedBranchRecords(
       salesMap[activeTenant.id] || [],
       synchronizedScopedSales,
       activeBranchSelection,
     );
+    const workspace: TenantWorkspace = {
+      branches: branchesMap[activeTenant.id] || [],
+      branchStocks: branchStocksMap[activeTenant.id] || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+      products: productsMap[activeTenant.id] || [],
+      sales: synchronizedSales,
+      expenses: expensesMap[activeTenant.id] || [],
+      settings: systemSettings,
+      deliveries: deliveriesMap[activeTenant.id] || [],
+      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+      purchases: purchasesMap[activeTenant.id] || [],
+      productTombstones: readLocalProductTombstones(activeTenant.id),
+      saleTombstones: readLocalSaleTombstones(activeTenant.id),
+    };
+    const saved = await saveTenantWorkspace(activeTenant.id, workspace);
+    if (!saved) {
+      addToast('Sale changes could not be saved. Nothing was changed.', 'error');
+      return false;
+    }
     setSalesMap(prev => ({
       ...prev,
       [activeTenant.id]: synchronizedSales
     }));
-    void saveData(activeTenant.id, 'sales_map', { [activeTenant.id]: synchronizedSales });
     
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
@@ -1880,6 +1913,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [newLog, ...prev]);
+    return true;
   };
 
   const handleDeleteSale = async (sale: Sale): Promise<boolean> => {
@@ -2057,7 +2091,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const collectedAmount = sale.paymentStatus === 'unpaid'
       ? 0
       : Math.min(saleIncome, Math.max(0, Number(sale.amountPaid ?? saleIncome)));
-    if (collectedAmount > 0) {
+    const localDemoWithoutTreasury = collectedAmount > 0
+      && ['localhost', '127.0.0.1'].includes(window.location.hostname)
+      && isPlaceholderSecureDataBridgeClient(await getSecureDataBridgeClient());
+    if (collectedAmount > 0 && !localDemoWithoutTreasury) {
       // Reconcile against currently configured payment modes rather than reading
       // systemSettings.paymentChannels raw: that array is only seeded/persisted the
       // first time a tenant opens Money & Bank, so a tenant who never opened that
@@ -2340,10 +2377,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return true;
   };
 
-  const handleUpdateDeliveryDetails = (
+  const handleUpdateDeliveryDetails = async (
     deliveryId: string,
     updates: { customerName?: string; customerPhone?: string; deliveryCost?: number; notes?: string },
-  ): boolean => {
+  ): Promise<boolean> => {
     if (blockOfflineBusinessWrite('delivery edit')) return false;
     const currentDelivery = (deliveriesMap[activeTenant.id] || []).find(delivery => delivery.id === deliveryId);
     if (!currentDelivery || !recordBelongsToActiveBranch(currentDelivery, activeBranchSelection)) {
@@ -2353,23 +2390,33 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
-    setDeliveriesMap(prev => {
-      const currentTenantDels = prev[activeTenant.id] || [];
-      return {
-        ...prev,
-        [activeTenant.id]: currentTenantDels.map(del =>
-          del.id === deliveryId
-            ? {
-                ...del,
-                ...(updates.customerName !== undefined ? { customerName: updates.customerName } : {}),
-                ...(updates.customerPhone !== undefined ? { customerPhone: updates.customerPhone } : {}),
-                ...(updates.deliveryCost !== undefined ? { deliveryCost: updates.deliveryCost } : {}),
-                ...(updates.notes !== undefined ? { notes: updates.notes } : {}),
-              }
-            : del
-        )
-      };
+    const nextDeliveries = (deliveriesMap[activeTenant.id] || []).map(del =>
+      del.id === deliveryId
+        ? {
+            ...del,
+            ...(updates.customerName !== undefined ? { customerName: updates.customerName } : {}),
+            ...(updates.customerPhone !== undefined ? { customerPhone: updates.customerPhone } : {}),
+            ...(updates.deliveryCost !== undefined ? { deliveryCost: updates.deliveryCost } : {}),
+            ...(updates.notes !== undefined ? { notes: updates.notes } : {}),
+          }
+        : del
+    );
+    const saved = await saveTenantWorkspace(activeTenant.id, {
+      branches: branchesMap[activeTenant.id] || [],
+      branchStocks: branchStocksMap[activeTenant.id] || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+      products: productsMap[activeTenant.id] || [],
+      sales: salesMap[activeTenant.id] || [],
+      expenses: expensesMap[activeTenant.id] || [],
+      settings: systemSettings,
+      deliveries: nextDeliveries,
+      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+      purchases: purchasesMap[activeTenant.id] || [],
+      productTombstones: readLocalProductTombstones(activeTenant.id),
+      saleTombstones: readLocalSaleTombstones(activeTenant.id),
     });
+    if (!saved) return false;
+    setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: nextDeliveries }));
 
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
@@ -2585,18 +2632,32 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return true;
   };
 
-  const handleUpdatePurchases = (nextPurchases: Purchase[]) => {
-    if (blockOfflineBusinessWrite('purchase update')) return;
+  const handleUpdatePurchases = async (nextPurchases: Purchase[]): Promise<boolean> => {
+    if (blockOfflineBusinessWrite('purchase update')) return false;
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
-    setPurchasesMap(prev => {
-      const tenantPurchases = replaceScopedBranchRecords(
-        prev[activeTenant.id] || [],
-        nextPurchases,
-        activeBranchSelection,
-      );
-      return { ...prev, [activeTenant.id]: tenantPurchases };
+    const tenantPurchases = replaceScopedBranchRecords(
+      purchasesMap[activeTenant.id] || [],
+      nextPurchases,
+      activeBranchSelection,
+    );
+    const saved = await saveTenantWorkspace(activeTenant.id, {
+      branches: branchesMap[activeTenant.id] || [],
+      branchStocks: branchStocksMap[activeTenant.id] || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+      products: productsMap[activeTenant.id] || [],
+      sales: salesMap[activeTenant.id] || [],
+      expenses: expensesMap[activeTenant.id] || [],
+      settings: systemSettings,
+      deliveries: deliveriesMap[activeTenant.id] || [],
+      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+      purchases: tenantPurchases,
+      productTombstones: readLocalProductTombstones(activeTenant.id),
+      saleTombstones: readLocalSaleTombstones(activeTenant.id),
     });
+    if (!saved) return false;
+    setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: tenantPurchases }));
+    return true;
   };
 
   const handleDeletePurchase = async (purchaseId: string) => {
@@ -3785,6 +3846,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               onAddExpense={handleAddExpense}
               onEditDelivery={handleUpdateDeliveryDetails}
               onDeleteDelivery={handleDeleteDelivery}
+              activeBranchName={
+                branchContextSelectedBranch?.businessName
+                || branchContextSelectedBranch?.branchName
+                || activeBranchBusinessName
+                || activeTenant.name
+              }
             />
           )}
 

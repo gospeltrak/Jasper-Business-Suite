@@ -23,11 +23,18 @@ export interface TreasuryPostResult {
   balance: number;
 }
 
-interface SyncedTreasuryAccount {
+export interface SyncedTreasuryAccount {
   sourceKey: string;
   accountId: string;
   branchId: string;
   currency: string;
+}
+
+export interface TreasuryTransferResult {
+  journalId: string;
+  sourceBalance: number;
+  destinationBalance: number;
+  status: 'posted' | 'already_posted';
 }
 
 const toTreasuryType = (channel: PaymentChannel) => {
@@ -145,6 +152,47 @@ export async function syncTreasuryPaymentAccounts(
   );
   const client: any = await getSecureDataBridgeClient();
   return syncTreasuryAccounts(client, activeChannels, openingBalances);
+}
+
+export async function transferTreasuryFunds(input: {
+  channels: PaymentChannel[];
+  sourceAccountKey: string;
+  destinationAccountKey: string;
+  amount: number;
+  idempotencyKey: string;
+  description: string;
+  openingBalances?: Record<string, number>;
+  metadata?: Record<string, unknown>;
+}): Promise<TreasuryTransferResult> {
+  const amount = Number(input.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('A positive transfer amount is required.');
+  }
+  if (input.sourceAccountKey === input.destinationAccountKey) {
+    throw new Error('Source and destination accounts must be different.');
+  }
+  const syncedAccounts = await syncTreasuryPaymentAccounts(input.channels, input.openingBalances);
+  const source = syncedAccounts.find(account => account.sourceKey === input.sourceAccountKey);
+  const destination = syncedAccounts.find(account => account.sourceKey === input.destinationAccountKey);
+  if (!source?.accountId || !destination?.accountId) {
+    throw new Error('Both Money & Bank accounts must be active and synchronized.');
+  }
+  const client: any = await getSecureDataBridgeClient();
+  const { data, error } = await client.rpc('transfer_current_tenant_treasury_funds', {
+    p_source_account_id: source.accountId,
+    p_destination_account_id: destination.accountId,
+    p_amount: amount,
+    p_idempotency_key: input.idempotencyKey,
+    p_description: input.description,
+    p_metadata: input.metadata || {},
+  });
+  if (error) throw safeTreasuryError(error);
+  return {
+    journalId: String(data?.journalId || ''),
+    sourceBalance: Number(data?.sourceBalance || 0),
+    destinationBalance: Number(data?.destinationBalance || 0),
+    status: data?.status === 'already_posted' ? 'already_posted' : 'posted',
+  };
 }
 
 export async function postTreasurySplitIncome(input: {

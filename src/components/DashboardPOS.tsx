@@ -230,7 +230,7 @@ export default function DashboardPOS({
       });
       setCart(mapped);
       setDeliveryCost(Math.max(0, Number(preloadedCart.deliveryCost) || 0));
-      setPaymentMethod(preloadedCart.paymentMethod || 'Cash');
+      setPaymentMethod(preloadedCart.paymentMethod || '');
       setCustomerName(preloadedCart.customerName || '');
       setCustomerPhone(preloadedCart.customerPhone || '');
       setVatStatus(preloadedCart.hasVat ? 'vat' : 'non-vat');
@@ -288,7 +288,7 @@ export default function DashboardPOS({
   
   // Checkout Modal system
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
+  const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [deliveryPaymentMethod, setDeliveryPaymentMethod] = useState<string>('');
   const [multiAllocations, setMultiAllocations] = useState<Array<{ method: string; amount: number; reference: string }>>([]);
   const [vatStatus, setVatStatus] = useState<'vat' | 'non-vat'>('non-vat');
@@ -933,13 +933,13 @@ export default function DashboardPOS({
 
     setPaymentStatus('idle');
     setCheckoutError(null);
-    setPaymentMethod('Cash');
+    setPaymentMethod('');
     const availableDeliveryModes = systemSettings?.business?.deliveryPaymentModes && systemSettings.business.deliveryPaymentModes.length > 0 
       ? systemSettings.business.deliveryPaymentModes 
       : (systemSettings?.business?.paymentModes || ['Cash']);
     setDeliveryPaymentMethod(availableDeliveryModes[0]);
     setMultiAllocations([]);
-    setAmountPaid(Number(grandTotal.toFixed(2)));
+    setAmountPaid(0);
     setReferenceCode('');
     setPaymentNote('');
     setIsCheckoutOpen(true);
@@ -1064,7 +1064,10 @@ export default function DashboardPOS({
       };
     });
 
-    const normalizedAmountPaid = paymentMethod === 'Multi-Channel'
+    const effectivePaymentMethod = paymentMethod.trim() || 'Credit';
+    const normalizedAmountPaid = effectivePaymentMethod === 'Credit'
+      ? 0
+      : paymentMethod === 'Multi-Channel'
       ? Number(multiAllocations.reduce((sum, row) => sum + Math.max(0, Number(row.amount || 0)), 0).toFixed(2))
       : Math.max(0, Number(amountPaid || 0));
     const amountDue = Math.max(0, Number((grandTotal - normalizedAmountPaid).toFixed(2)));
@@ -1086,7 +1089,7 @@ export default function DashboardPOS({
       deliveryPaymentMethod: deliveryCost > 0 ? deliveryPaymentMethod : undefined,
       discount: orderDiscount,
       discountType: orderDiscountType,
-      paymentMethod: paymentMethod as any,
+      paymentMethod: effectivePaymentMethod as any,
       reference: cleanTransactionReference || Math.random().toString(36).substring(2, 8).toUpperCase(),
       tenantId: activeTenant.id,
       timestamp: (() => {
@@ -1124,7 +1127,9 @@ export default function DashboardPOS({
               reference: row.reference?.trim() || undefined,
             }))
             .filter(part => part.amount > 0 && part.method)
-        : [{ method: paymentMethod, amount: normalizedAmountPaid, reference: cleanTransactionReference || undefined }],
+        : normalizedAmountPaid > 0
+          ? [{ method: effectivePaymentMethod, amount: normalizedAmountPaid, reference: cleanTransactionReference || undefined }]
+          : [],
       channel: sellingChannel,
 
     };

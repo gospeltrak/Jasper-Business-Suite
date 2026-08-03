@@ -48,7 +48,7 @@ interface DashboardExpensesProps {
   expenses: Expense[];
   onAddExpense: (expense: Expense) => void | boolean | Promise<void | boolean>;
   onDeleteExpense?: (id: string) => void | boolean | Promise<void | boolean>;
-  onUpdateExpense?: (expense: Expense) => void;
+  onUpdateExpense?: (expense: Expense) => Promise<boolean> | boolean;
   userName?: string;
   sales?: Sale[];
   systemSettings: SystemSettings;
@@ -1454,7 +1454,7 @@ export default function DashboardExpenses({
                   Cancel
                 </button>
                 <button type="button"
-                  onClick={() => {
+                   onClick={async () => {
                     if (!editForm.description || !editForm.amount || !editForm.paidFromAccountId) return;
                     const account = paymentAccounts.find(candidate => candidate.id === editForm.paidFromAccountId);
                     if (!account) return;
@@ -1468,7 +1468,11 @@ export default function DashboardExpenses({
                       setEditExpenseError('A posted payment cannot be silently changed. Reverse/delete it, then record the corrected expense.');
                       return;
                     }
-                    onUpdateExpense?.({...editingExpense, description: editForm.description, amount: parseFloat(editForm.amount) || 0, category: editForm.category, note: editForm.note, paidFromAccountId: account.id, paymentMethod: account.paymentMethod || account.name});
+                    const saved = await onUpdateExpense?.({...editingExpense, description: editForm.description, amount: parseFloat(editForm.amount) || 0, category: editForm.category, note: editForm.note, paidFromAccountId: account.id, paymentMethod: account.paymentMethod || account.name});
+                    if (saved === false) {
+                      setEditExpenseError('Expense changes could not be saved. Nothing was changed in the database.');
+                      return;
+                    }
                     setEditingExpense(null);
                   }}
                   className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold cursor-pointer border-none transition-colors">

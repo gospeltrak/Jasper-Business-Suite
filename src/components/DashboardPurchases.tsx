@@ -37,7 +37,7 @@ interface DashboardPurchasesProps {
   onUpdateStocks: (updatedProducts: Product[]) => void;
   purchases: Purchase[];
   onAddPurchase: (purchase: Purchase) => void | boolean | Promise<void | boolean>;
-  onUpdatePurchases: (purchases: Purchase[]) => void;
+  onUpdatePurchases: (purchases: Purchase[]) => Promise<boolean> | boolean;
   onDeletePurchase: (purchaseId: string) => void | boolean | Promise<void | boolean>;
   systemSettings: SystemSettings;
 }
@@ -115,7 +115,7 @@ export default function DashboardPurchases({
     setEditPaidFromAccountId(purchase.paidFromAccountId || '');
   };
 
-  const saveEditedPurchase = () => {
+  const saveEditedPurchase = async () => {
     if (!editPurchase) return;
     const safePaid = Math.max(0, Math.min(editPurchase.totalAmount, Number(editAmountPaid) || 0));
     if (
@@ -128,7 +128,7 @@ export default function DashboardPurchases({
       setEditPurchaseError('A posted payment cannot be silently changed. Reverse/delete this purchase payment, then record the corrected purchase.');
       return;
     }
-    onUpdatePurchases(purchases.map((purchase) => purchase.id === editPurchase.id
+    const saved = await onUpdatePurchases(purchases.map((purchase) => purchase.id === editPurchase.id
       ? {
           ...purchase,
           amountPaid: safePaid,
@@ -139,6 +139,10 @@ export default function DashboardPurchases({
         }
       : purchase
     ));
+    if (!saved) {
+      setEditPurchaseError('Purchase changes could not be saved. Nothing was changed in the database.');
+      return;
+    }
     setEditPurchase(null);
   };
 
