@@ -1225,17 +1225,17 @@ export default function DashboardPOS({
       <div id="pos-view" className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8 lg:h-[calc(100dvh-130px)] lg:overflow-hidden">
         
         {/* Product selection grid (8/12 scope) */}
-        <div className="lg:col-span-7 xl:col-span-8 min-h-0 flex flex-col space-y-4 md:space-y-6">
+        <div className="lg:col-span-7 xl:col-span-8 min-h-0 flex flex-col space-y-4 md:space-y-6 xl:space-y-3">
           {/* Search and Categories controls */}
-          <div className="bg-white px-3 py-2.5 md:border border-slate-200 md:p-6 rounded-none md:rounded-3xl space-y-3 lg:space-y-4 shadow-none md:shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-100/70 border border-slate-200 rounded-2xl p-1 lg:p-1.5 relative md:mx-0">
+          <div className="bg-white px-3 py-2.5 md:border border-slate-200 md:p-6 xl:p-3.5 rounded-none md:rounded-3xl space-y-3 lg:space-y-4 xl:space-y-2.5 shadow-none md:shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-100/70 border border-slate-200 rounded-2xl p-1 lg:p-1.5 xl:p-1 relative md:mx-0">
               <div className="relative flex-grow">
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search Code, Barcode or Title..."
-                  className="w-full bg-transparent text-[13px] lg:text-sm pl-9 lg:pl-10 pr-20 lg:pr-24 py-2 lg:py-2.5 text-slate-800 placeholder-slate-400 font-sans font-medium outline-none border-none focus:ring-0"
+                  className="w-full bg-transparent text-[13px] lg:text-sm xl:text-xs pl-9 lg:pl-10 pr-20 lg:pr-24 py-2 lg:py-2.5 xl:py-1.5 text-slate-800 placeholder-slate-400 font-sans font-medium outline-none border-none focus:ring-0"
                 />
                 <Search className="absolute left-3 lg:left-3.5 top-1/2 -translate-y-1/2 w-4 lg:w-5 h-4 lg:h-5 text-slate-400 pointer-events-none" />
                 
@@ -1243,7 +1243,7 @@ export default function DashboardPOS({
                 <button 
                   type="button"
                   onClick={() => setIsScannerOpen(true)}
-                  className="absolute right-1.5 lg:right-2 top-1/2 -translate-y-1/2 p-1.5 lg:p-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg lg:rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center space-x-1 select-none"
+                  className="absolute right-1.5 lg:right-2 top-1/2 -translate-y-1/2 p-1.5 lg:p-2 xl:p-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg lg:rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center space-x-1 select-none"
                   title="Scan Barcode / QR EAN code with reader"
                 >
                   <Scan className="w-4 h-4 text-emerald-600 animate-pulse" />
@@ -1254,7 +1254,7 @@ export default function DashboardPOS({
             </div>
 
           {/* Selling Channel Selector and Warnings */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 xl:gap-2 pt-2 xl:pt-1.5 bg-slate-50 p-3 xl:p-2 rounded-2xl border border-slate-100">
             <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner w-fit">
               <button
                 type="button"
@@ -1262,7 +1262,7 @@ export default function DashboardPOS({
                   setSellingChannel('retail');
                   setPosWarning('Selling channel switched to RETAIL. Standard checkout prices applied.');
                 }}
-                className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                className={`flex items-center space-x-2 px-4 xl:px-3 py-1.5 xl:py-1 rounded-xl text-[11px] xl:text-[10px] font-bold transition-all cursor-pointer ${
                   sellingChannel === 'retail'
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-800'
@@ -1276,7 +1276,7 @@ export default function DashboardPOS({
                   setSellingChannel('wholesale');
                   setPosWarning('Selling channel switched to WHOLESALE. wholesale prices & min-qty check active.');
                 }}
-                className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                className={`flex items-center space-x-2 px-4 xl:px-3 py-1.5 xl:py-1 rounded-xl text-[11px] xl:text-[10px] font-bold transition-all cursor-pointer ${
                   sellingChannel === 'wholesale'
                     ? 'bg-teal-650 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-800'
@@ -1287,7 +1287,7 @@ export default function DashboardPOS({
             </div>
 
             <div className="text-right flex items-center space-x-2">
-              <span className={`px-2.5 py-1 text-[9px] font-black tracking-widest uppercase rounded-lg border ${
+              <span className={`px-2.5 xl:px-2 py-1 xl:py-0.5 text-[9px] xl:text-[8px] font-black tracking-widest uppercase rounded-lg border ${
                 sellingChannel === 'wholesale'
                   ? 'bg-teal-50 text-teal-800 border-teal-200 animate-pulse'
                   : 'bg-emerald-50 text-emerald-800 border-emerald-200'
@@ -1331,12 +1331,12 @@ export default function DashboardPOS({
           )}
 
           {/* Desktop Categories Pill List */}
-          <div className="hidden xl:flex flex-wrap items-center gap-2 pt-0.5">
+          <div className="hidden xl:flex flex-wrap items-center gap-1.5 pt-0">
             {categories.map(cat => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat === 'All' ? null : cat)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all uppercase cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all uppercase cursor-pointer ${
                   (cat === 'All' && !selectedCategory) || (selectedCategory === cat)
                     ? 'bg-emerald-600 text-white font-bold shadow-xs' 
                     : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-800 hover:bg-slate-200'
@@ -1393,7 +1393,7 @@ export default function DashboardPOS({
                   }}
                   className={`w-full min-w-0 bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${
                     showProductImages
-                      ? 'p-0 lg:p-5 flex flex-col justify-between overflow-hidden lg:overflow-visible lg:rounded-3xl'
+                      ? 'p-0 lg:p-5 xl:p-3 flex flex-col justify-between overflow-hidden lg:overflow-visible lg:rounded-3xl'
                       : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'
                   } ${
                     isOut 
@@ -1403,7 +1403,7 @@ export default function DashboardPOS({
                 >
                   {/* Product image — only shown if user uploaded one */}
                   {showProductImages && getProductImage(prod) !== '' && (
-                    <div className="w-full aspect-square lg:aspect-auto lg:h-36 bg-slate-50 border-b lg:border border-slate-100 rounded-t-xl lg:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
+                    <div className="w-full aspect-square lg:aspect-auto lg:h-36 xl:h-20 bg-slate-50 border-b lg:border border-slate-100 rounded-t-xl lg:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
                       <CachedImage 
                         src={getProductImage(prod)} 
                         alt={prod.name} 
@@ -1433,7 +1433,7 @@ export default function DashboardPOS({
                   )}
 
                   {/* Text details and bottom panel wrapper */}
-                  <div className={`${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-1.5 px-1.5 pb-2 sm:mt-2 sm:px-2 sm:pb-2.5 lg:px-0 lg:pb-0' : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'}`}>
+                  <div className={`${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-1.5 px-1.5 pb-2 sm:mt-2 sm:px-2 sm:pb-2.5 lg:px-0 lg:pb-0 xl:mt-1' : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'}`}>
                     {/* Product Metadata & Text layout */}
                     <div className="space-y-1 min-w-0">
                       <div className={`${showProductImages ? 'hidden lg:flex' : 'flex'} items-center justify-between gap-2`}>
@@ -1446,7 +1446,7 @@ export default function DashboardPOS({
                           </span>
                         )}
                       </div>
-                      <h5 className={`font-extrabold text-[10px] sm:text-xs text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 min-h-[1.75rem] sm:min-h-[2.25rem]' : 'truncate md:text-sm'}`} title={prod.name}>
+                      <h5 className={`font-extrabold text-[10px] sm:text-xs xl:text-[11px] text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 min-h-[1.75rem] sm:min-h-[2.25rem] xl:min-h-[1.75rem]' : 'truncate md:text-sm'}`} title={prod.name}>
                         {prod.name}
                       </h5>
                       {!showProductImages && (
@@ -1455,10 +1455,10 @@ export default function DashboardPOS({
                     </div>
 
                     {/* Pricing and Select CTA trigger */}
-                    <div className={`${showProductImages ? 'flex min-w-0 flex-col gap-1 pt-1.5 border-t border-slate-100 mt-1.5 lg:gap-2 lg:pt-2 lg:mt-2' : 'contents md:flex md:items-center md:gap-3 md:justify-end'} shrink-0`}>
+                    <div className={`${showProductImages ? 'flex min-w-0 flex-col gap-1 pt-1.5 border-t border-slate-100 mt-1.5 lg:gap-2 lg:pt-2 lg:mt-2 xl:gap-1 xl:pt-1.5 xl:mt-1.5' : 'contents md:flex md:items-center md:gap-3 md:justify-end'} shrink-0`}>
                       <div className="space-y-0.5">
                         <p className="hidden xl:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
-                        <span className="block max-w-full truncate text-[10px] sm:text-xs lg:text-[14px] font-black text-emerald-700 lg:text-slate-900 leading-none" title={`${currency}${Math.round(displayPrice).toLocaleString()}`}>{currency}{Math.round(displayPrice).toLocaleString()}</span>
+                        <span className="block max-w-full truncate text-[10px] sm:text-xs lg:text-[14px] xl:text-xs font-black text-emerald-700 lg:text-slate-900 leading-none" title={`${currency}${Math.round(displayPrice).toLocaleString()}`}>{currency}{Math.round(displayPrice).toLocaleString()}</span>
                         {prod.batches && prod.batches.some(batch => batch.status === 'active') && (
                           <span className={`${showProductImages ? 'block' : 'hidden xl:block'} text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5`}>
                             {getProductCostingMethod(prod).replace('_', ' ')}
@@ -1467,7 +1467,7 @@ export default function DashboardPOS({
                       </div>
                       {!isOut ? (
                         <div className="w-full text-right">
-                          <span className="w-full min-h-7 lg:min-h-9 bg-emerald-600 hover:bg-emerald-700 group-hover:bg-emerald-700 text-white text-[9px] lg:text-[10px] font-black px-1.5 lg:px-3 py-1.5 lg:py-2 rounded-lg lg:rounded-xl uppercase tracking-wider transition-all shadow-xs lg:shadow-md lg:shadow-emerald-600/20 inline-flex items-center justify-center gap-1">
+                          <span className="w-full min-h-7 lg:min-h-9 xl:min-h-7 bg-emerald-600 hover:bg-emerald-700 group-hover:bg-emerald-700 text-white text-[9px] lg:text-[10px] xl:text-[9px] font-black px-1.5 lg:px-3 py-1.5 lg:py-2 xl:py-1 rounded-lg lg:rounded-xl uppercase tracking-wider transition-all shadow-xs lg:shadow-md lg:shadow-emerald-600/20 inline-flex items-center justify-center gap-1">
                             <Plus className="hidden lg:block h-3.5 w-3.5" strokeWidth={3} />
                             <span className="lg:hidden">+ Add</span>
                             <span className="hidden lg:inline">Add</span>
