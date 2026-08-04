@@ -104,6 +104,18 @@ test('sales, delivery, purchases, expenses, and payroll use canonical treasury p
   assert.doesNotMatch(cashBank, /targetChannelId\s*=\s*'counter-01'/);
 });
 
+test('Money & Bank avoids duplicate account sync and excludes internal transfers from combined income', () => {
+  const dashboard = readFileSync(new URL('../src/components/Dashboard.tsx', import.meta.url), 'utf8');
+  const cashBank = readFileSync(new URL('../src/components/DashboardCashBank.tsx', import.meta.url), 'utf8');
+  assert.match(cashBank, /lastAccountSyncSignatureRef/);
+  assert.match(cashBank, /if \(lastAccountSyncSignatureRef\.current === syncSignature\) return/);
+  assert.match(cashBank, /isInternalTransfer[\s\S]+if \(isInternalTransfer\) return/);
+  assert.match(cashBank, /datePreset === '1week'\) relativeDays = 6/);
+  assert.match(cashBank, /datePreset === '1month'\) relativeDays = 29/);
+  assert.match(dashboard, /key=\{`\$\{activeTenant\.id\}:\$\{activeBranchSelection\.activeScope\}:/);
+  assert.match(dashboard, /branchScopeKey=/);
+});
+
 test('two-device session migration serializes admissions without deleting sessions', () => {
   const sql = readFileSync(
     new URL('../supabase/migrations/20260714000100_strict_two_device_sessions.sql', import.meta.url),

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Tenant, Sale, Expense, PaymentChannel, LedgerEntry, User as AppUser, SystemSettings, Purchase } from '../types';
 import { isDemoTenant } from '../utils/tenantIsolation';
 import { safeSetJsonItem } from '../utils/dataSafety';
@@ -44,6 +44,7 @@ interface DashboardCashBankProps {
   user?: AppUser;
   systemSettings?: SystemSettings;
   onUpdateSystemSettings?: (updated: SystemSettings) => void;
+  branchScopeKey?: string;
 }
 
 export default function DashboardCashBank({ 
@@ -54,7 +55,8 @@ export default function DashboardCashBank({
   purchases = [],
   user,
   systemSettings,
-  onUpdateSystemSettings
+  onUpdateSystemSettings,
+  branchScopeKey = 'default',
 }: DashboardCashBankProps) {
   const hasDemoSeedData = isDemoTenant(activeTenant.id);
   // Date interval settings state with user-friendly names
@@ -101,11 +103,13 @@ export default function DashboardCashBank({
     const end = new Date();
     const start = new Date();
     start.setDate(end.getDate() - days);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
     return { start: start.toISOString(), end: end.toISOString() };
   };
 
   const [startDateStr, setStartDateStr] = useState<string>(() => {
-    return getRelativeRange(30).start.slice(0, 10);
+    return getRelativeRange(29).start.slice(0, 10);
   });
   const [endDateStr, setEndDateStr] = useState<string>(() => {
     return new Date().toISOString().slice(0, 10);
@@ -121,11 +125,11 @@ export default function DashboardCashBank({
       startIso = range.start;
       endIso = range.end;
     } else if (datePreset === '1week') {
-      const range = getRelativeRange(7);
+      const range = getRelativeRange(6);
       startIso = range.start;
       endIso = range.end;
     } else if (datePreset === '1month') {
-      const range = getRelativeRange(30);
+      const range = getRelativeRange(29);
       startIso = range.start;
       endIso = range.end;
     } else {
@@ -226,6 +230,7 @@ export default function DashboardCashBank({
   const [isTransferSubmitting, setIsTransferSubmitting] = useState(false);
   const transferAttemptKeyRef = useRef('');
   const transferAttemptFingerprintRef = useRef('');
+  const lastAccountSyncSignatureRef = useRef('');
 
   // Search and general filter options
   const [auditSearch, setAuditSearch] = useState('');
@@ -237,8 +242,8 @@ export default function DashboardCashBank({
     if (datePreset !== 'custom') {
       let relativeDays = 30;
       if (datePreset === 'today') relativeDays = 0;
-      else if (datePreset === '1week') relativeDays = 7;
-      else if (datePreset === '1month') relativeDays = 30;
+      else if (datePreset === '1week') relativeDays = 6;
+      else if (datePreset === '1month') relativeDays = 29;
       
       const range = getRelativeRange(relativeDays);
       setStartDateStr(range.start.slice(0, 10));
@@ -425,16 +430,23 @@ export default function DashboardCashBank({
 
   useEffect(() => {
     if (!channels.length) return;
+    const syncSignature = `${activeTenant.id}:${branchScopeKey}:${channels
+      .map(channel => `${channel.id}:${channel.status || 'active'}`)
+      .sort()
+      .join('|')}`;
+    if (lastAccountSyncSignatureRef.current === syncSignature) return;
+    lastAccountSyncSignatureRef.current = syncSignature;
     const openingBalances = ledgerEntries.reduce<Record<string, number>>((balances, entry) => {
       balances[entry.channelId] = (balances[entry.channelId] || 0) + Number(entry.amount || 0);
       return balances;
     }, {});
     void syncTreasuryPaymentAccounts(channels, openingBalances).catch(() => {
+      lastAccountSyncSignatureRef.current = '';
       // Non-admin staff may read/post already synchronized accounts but cannot
       // change account definitions. Transaction handlers surface actionable
       // errors if an administrator has not synchronized them yet.
     });
-  }, [channels, ledgerEntries]);
+  }, [activeTenant.id, branchScopeKey, channels, ledgerEntries]);
 
   // Update cached file local records
   const saveLedgerState = (entriesList: LedgerEntry[]) => {
@@ -664,11 +676,11 @@ export default function DashboardCashBank({
     return `${sign}${absVal.toLocaleString()} ${activeTenant.currencyCode || 'TZS'}`;
   };
 
-  const activeTenantFilterLedger = ledgerEntries.filter(entry => {
+  const activeTenantFilterLedger = useMemo(() => ledgerEntries.filter(entry => {
     const isMatchedTenant = entry.tenantId === activeTenant.id;
     const isWithinDate = entry.timestamp >= filterStart && entry.timestamp <= filterEnd;
     return isMatchedTenant && isWithinDate;
-  });
+  }), [activeTenant.id, filterEnd, filterStart, ledgerEntries]);
 
   // Keep track of how much cash is in each device/account
   const getChannelAggregateBalances = () => {
@@ -701,7 +713,10 @@ export default function DashboardCashBank({
     return aggregates;
   };
 
-  const channelBalances = getChannelAggregateBalances();
+  const channelBalances = useMemo(
+    getChannelAggregateBalances,
+    [activeTenant.id, channels, filterEnd, filterStart, ledgerEntries],
+  );
 
   // Combine categories to get total amounts
   const getCategoryTotals = () => {
@@ -723,7 +738,7 @@ export default function DashboardCashBank({
     return { physicalTotal, telcoTotal, bankTotal };
   };
 
-  const categoryTotals = getCategoryTotals();
+  const categoryTotals = useMemo(getCategoryTotals, [channels, channelBalances]);
   const treasurySummaryCards = [
     {
       label: 'Available balance',
@@ -763,6 +778,12 @@ export default function DashboardCashBank({
     let countMoneyOut = 0;
 
     activeTenantFilterLedger.forEach(entry => {
+      const counterParty = entry.counterPartyChannelId
+        ? channels.find(channel => channel.id === entry.counterPartyChannelId)
+        : undefined;
+      const isInternalTransfer = entry.sourceType === 'SETTLE_TILL_DEPOSIT'
+        && counterParty?.category !== 'person';
+      if (isInternalTransfer) return;
       if (entry.entryType === 'credit' || entry.amount >= 0) {
         totalMoneyIn += entry.amount;
         countMoneyIn++;
@@ -787,7 +808,10 @@ export default function DashboardCashBank({
     };
   };
 
-  const combinedStats = getCombinedPerformanceStats();
+  const combinedStats = useMemo(
+    getCombinedPerformanceStats,
+    [activeTenantFilterLedger, channels, channelBalances],
+  );
 
   // Export report to CSV computer file
   const downloadAuditReportCSV = () => {
@@ -825,7 +849,7 @@ export default function DashboardCashBank({
   };
 
   // Free text search inside transaction log
-  const searchedAuditTrail = activeTenantFilterLedger.filter(entry => {
+  const searchedAuditTrail = useMemo(() => activeTenantFilterLedger.filter(entry => {
     // If a specific payment mode is selected, only show transactions belonging to it
     if (selectedChannelId !== 'all' && entry.channelId !== selectedChannelId) {
       return false;
@@ -839,7 +863,13 @@ export default function DashboardCashBank({
     const matchesPresetType = auditTypeFilter === 'ALL' || entry.sourceType === auditTypeFilter;
 
     return matchesSearch && matchesPresetType;
-  }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()), [
+    activeTenantFilterLedger,
+    auditSearch,
+    auditTypeFilter,
+    channels,
+    selectedChannelId,
+  ]);
 
   return (
     <div className="w-full pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-8 select-text">

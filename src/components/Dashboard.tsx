@@ -3865,7 +3865,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
           {/* TAB ROOT: Money & Bank Balance Matrix (Double-Entry Treasury Ledger) */}
           {activeTab === 'cash-bank-matrix' && (
-            <DashboardCashBank 
+            <DashboardCashBank
+              key={`${activeTenant.id}:${activeBranchSelection.activeScope}:${activeBranchSelection.activeBranchId || 'all'}`}
               activeTenant={activeTenant}
               sales={activeSales}
               expenses={activeExpenses}
@@ -3873,6 +3874,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               purchases={activePurchases}
               user={user}
               systemSettings={systemSettings}
+              branchScopeKey={`${activeBranchSelection.activeScope}:${activeBranchSelection.activeBranchId || 'all'}`}
               onUpdateSystemSettings={(updated) => {
                 persistSystemSettingsNow(updated);
               }}
