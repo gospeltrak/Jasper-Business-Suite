@@ -26,8 +26,6 @@ import {
   BookOpen,
   Store,
   Pill,
-  Utensils,
-  Hotel,
   ArrowLeft,
   Laptop,
   Globe,
@@ -54,6 +52,8 @@ import SaaSWebEditor from './SaaSWebEditor';
 import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../utils/onlineOnly';
+import { verifySuperAdminPassword } from '../utils/superAdminData';
+import { prepareSuperAdminMfa, SuperAdminMfaPrompt, verifySuperAdminMfa } from '../utils/superAdminMfa';
 
 export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'user-activity' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
 
@@ -92,6 +92,11 @@ export default function SuperSaaSAdminView({
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [enteredPassword, setEnteredPassword] = useState('');
+  const [mfaPrompt, setMfaPrompt] = useState<SuperAdminMfaPrompt | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaConfirmed, setMfaConfirmed] = useState(false);
+  const [mfaBusy, setMfaBusy] = useState(false);
+  const [mfaError, setMfaError] = useState('');
   const [shieldClickCount, setShieldClickCount] = useState(0);
   const [shieldClickTimer, setShieldClickTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
@@ -113,6 +118,39 @@ export default function SuperSaaSAdminView({
     setShieldClickTimer(timer);
   };
   const [failedAttempts, setFailedAttempts] = useState(0);
+
+  const beginMfaVerification = async () => {
+    setMfaBusy(true);
+    setMfaError('');
+    try {
+      const prompt = await prepareSuperAdminMfa();
+      if (!prompt) {
+        setMfaConfirmed(true);
+        return;
+      }
+      setMfaPrompt(prompt);
+    } catch (error: any) {
+      setMfaError(error?.message || 'MFA setup is temporarily unavailable.');
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
+  const confirmMfaVerification = async () => {
+    if (!mfaPrompt || !mfaCode.trim()) return;
+    setMfaBusy(true);
+    setMfaError('');
+    try {
+      await verifySuperAdminMfa(mfaPrompt, mfaCode);
+      setMfaPrompt(null);
+      setMfaCode('');
+      setMfaConfirmed(true);
+    } catch (error: any) {
+      setMfaError(error?.message || 'The authenticator code was not accepted.');
+    } finally {
+      setMfaBusy(false);
+    }
+  };
 
   // Forms inputs
   const [broadcastTarget, setBroadcastTarget] = useState<'subscribers' | 'affiliates'>('subscribers');
@@ -288,12 +326,21 @@ export default function SuperSaaSAdminView({
     reader.readAsDataURL(newTutorialFile);
   };
 
-  const handleVerifyPassword = () => {
-    const savedKey = onlineStorage.getItem('saas_encrypted_master_key');
-    const actualSecret = savedKey ? atob(savedKey) : '3698';
-
-    if (enteredPassword === actualSecret || enteredPassword === '3698' || enteredPassword === 'saas-secure-2026') {
+  const handleVerifyPassword = async () => {
+    if (!mfaConfirmed) {
+      setMfaError('Verify MFA before unlocking write mode.');
+      return;
+    }
+    let verified = false;
+    try {
+      verified = await verifySuperAdminPassword(enteredPassword);
+    } catch (error: any) {
+      alert(error?.message || 'Password verification is temporarily unavailable.');
+      return;
+    }
+    if (verified) {
       setIsUnlocked(true);
+      setMfaConfirmed(false);
       setFailedAttempts(0);
       setEnteredPassword('');
       alert('🔑 Access Granted. Secure admin cockpit overrides unlocked.');
@@ -674,13 +721,22 @@ export default function SuperSaaSAdminView({
       {/* Mobile password input */}
       {showPasswordInput && !isUnlocked && (
         <div className="md:hidden px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center gap-2">
-          <input type="password" placeholder="Admin password" value={enteredPassword}
-            onChange={e => setEnteredPassword(e.target.value)}
-            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono outline-none" />
-          <button onClick={handleVerifyPassword}
-            className="px-4 py-2 bg-emerald-500 text-slate-950 rounded-xl text-xs font-black cursor-pointer border-none">
-            Verify
-          </button>
+          {!mfaConfirmed ? (
+            <button onClick={beginMfaVerification} disabled={mfaBusy}
+              className="w-full px-4 py-2 bg-emerald-500 text-slate-950 rounded-xl text-xs font-black disabled:opacity-50">
+              {mfaBusy ? 'Preparing MFA…' : 'Verify Authenticator'}
+            </button>
+          ) : (
+            <>
+              <input type="password" placeholder="Super Admin password" value={enteredPassword}
+                onChange={e => setEnteredPassword(e.target.value)}
+                className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono outline-none" />
+              <button onClick={handleVerifyPassword}
+                className="px-4 py-2 bg-emerald-500 text-slate-950 rounded-xl text-xs font-black cursor-pointer border-none">
+                Verify
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -737,13 +793,22 @@ export default function SuperSaaSAdminView({
                     <Shield className="w-4 h-4 text-slate-400" />
                   </button>
                   <div className="flex items-center space-x-1.5 ml-1">
-                    <input type="password" placeholder="••••••••" value={enteredPassword}
-                      onChange={e => setEnteredPassword(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-xs text-white max-w-[105px] font-mono outline-none" />
-                    <button onClick={handleVerifyPassword}
-                      className="bg-emerald-500 text-slate-950 px-2.5 py-1 text-[10px] rounded font-extrabold uppercase cursor-pointer">
-                      Verify
-                    </button>
+                    {!mfaConfirmed ? (
+                      <button onClick={beginMfaVerification} disabled={mfaBusy}
+                        className="bg-emerald-500 text-slate-950 px-3 py-1 text-[10px] rounded font-extrabold uppercase disabled:opacity-50">
+                        {mfaBusy ? 'Preparing…' : 'Verify MFA'}
+                      </button>
+                    ) : (
+                      <>
+                        <input type="password" placeholder="Super Admin password" value={enteredPassword}
+                          onChange={e => setEnteredPassword(e.target.value)}
+                          className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-xs text-white max-w-[135px] font-mono outline-none" />
+                        <button onClick={handleVerifyPassword}
+                          className="bg-emerald-500 text-slate-950 px-2.5 py-1 text-[10px] rounded font-extrabold uppercase cursor-pointer">
+                          Verify
+                        </button>
+                      </>
+                    )}
                   </div>
                 </>
               )}
@@ -751,6 +816,35 @@ export default function SuperSaaSAdminView({
           )}
         </div>
       </div>
+
+      {mfaPrompt && (
+        <div className="fixed inset-0 z-[120] bg-slate-950/80 backdrop-blur-sm p-4 flex items-center justify-center">
+          <div className="w-full max-w-sm rounded-2xl border border-emerald-500/30 bg-slate-900 p-5 shadow-2xl">
+            <div className="flex items-center gap-2 mb-3">
+              <Shield className="w-5 h-5 text-emerald-400" />
+              <h3 className="text-base font-black text-white">
+                {mfaPrompt.mode === 'enroll' ? 'Set up Super Admin MFA' : 'Verify Super Admin MFA'}
+              </h3>
+            </div>
+            {mfaPrompt.mode === 'enroll' && (
+              <>
+                <p className="text-xs text-slate-300 mb-3">Scan this QR code using an authenticator app, then enter its current 6-digit code.</p>
+                {mfaPrompt.qrCode && <img src={mfaPrompt.qrCode} alt="Authenticator QR code" className="mx-auto w-48 h-48 rounded-xl bg-white p-2" />}
+                {mfaPrompt.secret && <p className="mt-2 break-all rounded-lg bg-slate-950 p-2 text-[10px] font-mono text-slate-300">Manual key: {mfaPrompt.secret}</p>}
+              </>
+            )}
+            {mfaPrompt.mode === 'challenge' && <p className="text-xs text-slate-300 mb-3">Enter the current 6-digit code from your authenticator app.</p>}
+            <input value={mfaCode} onChange={event => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              inputMode="numeric" autoComplete="one-time-code" placeholder="000000"
+              className="mt-3 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-center text-xl tracking-[0.4em] text-white outline-none focus:border-emerald-500" />
+            {mfaError && <p className="mt-2 text-xs text-rose-400">{mfaError}</p>}
+            <button onClick={confirmMfaVerification} disabled={mfaBusy || mfaCode.length !== 6}
+              className="mt-4 w-full rounded-xl bg-emerald-500 py-3 text-sm font-black text-slate-950 disabled:opacity-50">
+              {mfaBusy ? 'Verifying…' : 'Verify code'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main interactive subpage container */}
       <div id="saas-active-subpage-view" className="flex-1 min-h-0 overflow-y-auto flex flex-col w-full p-3 md:p-6 space-y-4 md:space-y-6 pb-24 md:pb-8">

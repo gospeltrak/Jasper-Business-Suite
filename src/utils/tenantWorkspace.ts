@@ -283,13 +283,14 @@ async function saveRemoteWorkspaceBackup(
   if (!workspaceHasBusinessData(workspace)) return;
 
   try {
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const counts = countWorkspaceItems(workspace);
     const { error } = await client
       .from('tenant_data')
       .upsert({
         tenant_id: tenantId,
-        data_key: `workspace_backup_${stamp}`,
+        // Supabase physical backups provide history; this bounded snapshot is
+        // only the latest application-level rollback guard.
+        data_key: 'workspace_backup_latest',
         payload: {
           reason,
           createdAt: new Date().toISOString(),

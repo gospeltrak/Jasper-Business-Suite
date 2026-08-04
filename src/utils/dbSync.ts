@@ -48,13 +48,14 @@ const isProductDataKey = (dataKey: string) => dataKey === 'products' || dataKey 
 async function saveRemoteDataBackup(client: any, tenantId: string, dataKey: string, payload: any, reason: string): Promise<void> {
   if (!payloadHasRecords(payload, tenantId)) return;
   try {
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const currentItems = getTenantArray(payload, tenantId);
     await client
       .from('tenant_data')
       .upsert({
         tenant_id: tenantId,
-        data_key: `data_backup_${dataKey}_${stamp}`,
+        // Keep one rolling safety snapshot per key. Timestamped keys caused
+        // unbounded tenant_data growth on active workspaces.
+        data_key: `data_backup_latest_${dataKey}`,
         payload: {
           reason,
           sourceDataKey: dataKey,

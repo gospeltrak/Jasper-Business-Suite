@@ -28,7 +28,7 @@ import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
 
 const DEFAULT_SECTIONS = [
   { id: 'landing-hero', label: 'Hero Section', desc: 'Main title, subtitle, registration call-to-action, and animated illustrations.' },
-  { id: 'about', label: 'Niche Selector / About Us', desc: 'Detailed business types (Retail, Pharmacy, Restaurant, Hotel) and regional metrics.' },
+  { id: 'about', label: 'Niche Selector / About Us', desc: 'Detailed business types (Retail, Wholesale, Pharmacy) and regional metrics.' },
   { id: 'marquee-partners', label: 'Partner Logos Marquee', desc: 'Infinite scrolling layout showcasing trusted business partners and logos.' },
   { id: 'testimonials', label: 'Success Stories', desc: 'What shop owners say (testimonials from Mustafa, Kwame, Fatuma).' },
   { id: 'pricing', label: 'Subscription Pricing Plans', desc: 'Price card matrix displaying Ruby, Diamond, and Tanzanite packages.' },

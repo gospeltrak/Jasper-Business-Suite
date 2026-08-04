@@ -9,8 +9,6 @@ import {
   UserPlus,
   Building,
   Pill,
-  Utensils,
-  Hotel,
   Sparkles,
   CheckCircle,
   MapPin,
@@ -322,7 +320,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   // Custom states during Google Signup
   const [googleOrgName, setGoogleOrgName] = useState('');
   const [googlePhone, setGooglePhone] = useState('');
-  const [googleBusinessType, setGoogleBusinessType] = useState<'retail' | 'pharmacy' | 'restaurant' | 'hotel'>('retail');
+  const [googleBusinessType, setGoogleBusinessType] = useState<'retail' | 'pharmacy'>('retail');
   const [googleCountry, setGoogleCountry] = useState<'Nigeria' | 'Kenya' | 'Ghana' | 'South Africa' | 'Tanzania'>('Kenya');
   const [googleCity, setGoogleCity] = useState('Nairobi');
 
@@ -1744,9 +1742,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   <option value="Retail">Retail</option>
                   <option value="Wholesale">Wholesale</option>
                   <option value="Retail & Wholesale">Retail & Wholesale</option>
-                  <option value="Restaurant">Restaurant</option>
                   <option value="Pharmacy">Pharmacy</option>
-                  <option value="Other">Other</option>
                 </select>
               </div>
 
@@ -2497,8 +2493,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     >
                       <option value="retail">Retail and Wholesale POS Suite</option>
                       <option value="pharmacy">Pharmacy & Clinical BestRx Suite</option>
-                      <option value="restaurant" disabled>Restaurant Dining & Kitchen POS Suite (Phase 2 - Coming Soon)</option>
-                      <option value="hotel" disabled>Hotel Property & PMS Calendar Suite (Phase 2 - Coming Soon)</option>
                     </select>
                     <div className="absolute right-3.5 top-3 pointer-events-none text-slate-500 text-xs font-light">
                       ▼

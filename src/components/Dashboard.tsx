@@ -36,9 +36,7 @@ const DashboardCashBank = lazyWithReload('DashboardCashBank', () => import('./Da
 import { saveData } from '../utils/dbSync';
 const DashboardPurchases = lazyWithReload('DashboardPurchases', () => import('./DashboardPurchases'));
 const DashboardDeliveries = lazyWithReload('DashboardDeliveries', () => import('./DashboardDeliveries'));
-const DashboardHotelPMS = lazyWithReload('DashboardHotelPMS', () => import('./DashboardHotelPMS'));
 const DashboardSandboxVerticals = lazyWithReload('DashboardSandboxVerticals', () => import('./DashboardSandboxVerticals'));
-const DashboardRestaurant = lazyWithReload('DashboardRestaurant', () => import('./DashboardRestaurant'));
 const DashboardWhiteLabel = lazyWithReload('DashboardWhiteLabel', () => import('./DashboardWhiteLabel'));
 const DashboardSettings = lazyWithReload('DashboardSettings', () => import('./DashboardSettings'));
 import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
@@ -114,9 +112,7 @@ import {
   Sparkles,
   Truck,
   Bike,
-  Bed,
   Pill,
-  Utensils,
   Globe,
   Clock,
   Settings as SettingsIcon,
@@ -423,8 +419,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     'admin-ad-placements',
     'admin-web-editor',
     'admin-settings',
-    'hotel-pms',
-    'restaurant-hub',
     'sandbox-pms',
     'overview',
     'pos',
@@ -446,8 +440,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
   const getDefaultDashboardTab = () => {
     if (user.role === 'SuperAdmin') return 'admin-dashboard';
-    if (activeTenant.businessType === 'hotel') return 'hotel-pms';
-    if (activeTenant.businessType === 'restaurant') return 'restaurant-hub';
     if (activeTenant.businessType === 'pharmacy') return 'sandbox-pms';
     return 'overview';
   };
@@ -1048,7 +1040,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         setLocalOffers(JSON.parse(rawOffers));
       } else {
         const fallbackOffers = [
-          { id: 'off-1', timestamp: new Date().toISOString(), title: 'SaaS Suite Easter Discount', code: 'UPGRADE20', badge: 'SAVE 20%', description: 'Get a 20% flat discount on unified consolidated bookkeeping & hotel PMS active models. Limited time discount.', isActive: true }
+          { id: 'off-1', timestamp: new Date().toISOString(), title: 'SaaS Suite Easter Discount', code: 'UPGRADE20', badge: 'SAVE 20%', description: 'Get a 20% flat discount on unified retail, wholesale, and pharmacy bookkeeping models. Limited time discount.', isActive: true }
         ];
         setLocalOffers(fallbackOffers);
       }
@@ -1098,7 +1090,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const rawRole = actingStaffId === 'logged-in-user' 
       ? user.role 
       : (systemSettings.staffs.find(s => s.id === actingStaffId)?.role || 'Seller');
-    return (rawRole === 'Seller' && activeTenant.businessType === 'restaurant') ? 'Waiter' : rawRole;
+    return rawRole;
   })();
 
   const getSimulatedPermissions = () => {
@@ -1203,10 +1195,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         return perms.settings?.read;
       case 'staff-members':
         return perms.settings?.read;
-      case 'hotel-pms':
-        return perms.settings?.read || perms.pos?.read;
-      case 'restaurant-hub':
-        return perms.pos?.read;
       case 'sandbox-pms':
         return perms.products?.read;
       default:
@@ -2698,11 +2686,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     if (matched) {
       setActiveTenant(matched);
       // Automatically adjust visual tab layout of active workspace
-      if (matched.businessType === 'hotel') {
-        setActiveTab('hotel-pms');
-      } else if (matched.businessType === 'restaurant') {
-        setActiveTab('restaurant-hub');
-      } else if (matched.businessType === 'pharmacy') {
+      if (matched.businessType === 'pharmacy') {
         setActiveTab('sandbox-pms');
       } else {
         setActiveTab('overview');
@@ -2809,12 +2793,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
   // Helper properties to resolve bottom navigation items dynamically
   const tab1Id = user.role === 'SuperAdmin' ? 'admin-dashboard' :
-                 activeTenant.businessType === 'hotel' ? 'hotel-pms' :
-                 activeTenant.businessType === 'restaurant' ? 'restaurant-hub' :
                  activeTenant.businessType === 'pharmacy' ? 'sandbox-pms' : 'overview';
   const tab1Label = user.role === 'SuperAdmin' ? 'Dashboard' :
-                    activeTenant.businessType === 'hotel' ? 'Rooms' :
-                    activeTenant.businessType === 'restaurant' ? 'Dining' :
                     activeTenant.businessType === 'pharmacy' ? 'Clinics' : 'Overview';
   const Tab1Icon = LayoutDashboard;
 
@@ -2843,23 +2823,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
         { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
       ]
-    : activeTenant.businessType === 'hotel' 
-      ? [
-          { id: 'expenses', label: 'Expenses', icon: Receipt },
-          { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-          { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
-          { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
-          { id: 'settings', label: 'System Settings', icon: SettingsIcon }
-        ]
-      : activeTenant.businessType === 'restaurant'
-        ? [
-            { id: 'expenses', label: 'Expenses', icon: Receipt },
-            { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-            { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
-            { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
-            { id: 'settings', label: 'System Settings', icon: SettingsIcon }
-          ]
-      : activeTenant.businessType === 'pharmacy'
+    : activeTenant.businessType === 'pharmacy'
         ? [
             { id: 'purchases-list', label: 'Pharma Purchases Journal', icon: Truck },
             { id: 'expenses', label: 'Expenses', icon: Receipt },
@@ -2902,25 +2866,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
         { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
       ]
-    : activeTenant.businessType === 'hotel' 
-      ? [
-          { id: 'hotel-pms', label: 'Room Matrix (PMS)', icon: Bed },
-          { id: 'expenses', label: 'Expenses', icon: Receipt },
-          { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-          { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
-          { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
-          { id: 'settings', label: 'System Settings', icon: SettingsIcon }
-        ]
-      : activeTenant.businessType === 'restaurant'
-        ? [
-            { id: 'restaurant-hub', label: 'Dining & KDS Hub', icon: Utensils },
-            { id: 'expenses', label: 'Expenses', icon: Receipt },
-            { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-            { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
-            { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
-            { id: 'settings', label: 'System Settings', icon: SettingsIcon }
-          ]
-        : activeTenant.businessType === 'pharmacy'
+    : activeTenant.businessType === 'pharmacy'
           ? [
               { id: 'sandbox-pms', label: 'Clinical Rx Intercept', icon: Pill },
               { id: 'pos', label: 'Pharmacist Till (POS)', icon: ShoppingCart },
@@ -3694,37 +3640,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             )}>
             <>
 
-          {/* TAB ROOT: Hotel Property Management Room Matrix (PMS) */}
-          {activeTab === 'hotel-pms' && (
-            <DashboardHotelPMS 
-              activeTenant={activeTenant} 
-              currentUser={user}
-              onAddSyncLog={(newLog) => {
-                setLogs(prev => [newLog, ...prev]);
-              }}
-            />
-          )}
-
-          {/* TAB ROOT: Restaurant Gastronomy, Dining Map, POS & KDS */}
-          {activeTab === 'restaurant-hub' && (
-            <DashboardRestaurant 
-              activeTenant={activeTenant} 
-              currentUser={user}
-              onAddSyncLog={(newLog) => {
-                const mappedLog: SyncLog = {
-                  id: newLog.id,
-                  type: 'auth_sync', 
-                  status: newLog.status === 'pending' ? 'pending' : newLog.status === 'failed' ? 'failed' : 'success',
-                  message: newLog.details,
-                  timestamp: newLog.timestamp
-                };
-                setLogs(prev => [mappedLog, ...prev]);
-              }}
-              onAddSale={handleAddSale}
-            />
-          )}
-
-          {/* TAB ROOT: Pharmacy and Restaurant Sandboxes */}
+          {/* TAB ROOT: Pharmacy workspace */}
           {activeTab === 'sandbox-pms' && (
             <DashboardSandboxVerticals 
               activeTenant={activeTenant} 

@@ -35,28 +35,6 @@ export const DEFAULT_TENANTS: Tenant[] = [
     businessType: 'retail',
   },
   {
-    id: 't-hotel-01',
-    name: 'Jasper Grand Peaks Hotel & Spa',
-    country: 'Kenya',
-    city: 'Nairobi',
-    currency: 'KSh',
-    currencyCode: 'KES',
-    taxRate: 0.16,
-    mobileMoneyProviders: ['M-Pesa', 'Airtel Money'],
-    businessType: 'hotel',
-  },
-  {
-    id: 't-restaurant-01',
-    name: 'Jasper Swahili Bistro & Grill',
-    country: 'Tanzania',
-    city: 'Dar es Salaam',
-    currency: 'TSh',
-    currencyCode: 'TZS',
-    taxRate: 0.18,
-    mobileMoneyProviders: ['M-Pesa', 'Mixx by Yas', 'Airtel Money'],
-    businessType: 'restaurant',
-  },
-  {
     id: 't-pharma-01',
     name: 'Jasper National Pharmacy',
     country: 'Tanzania',
@@ -107,24 +85,6 @@ export const DEMO_USERS = [
     phone: '+233 244 111 222',
   },
   {
-    email: 'hotel_mgr@jasper.com',
-    password: 'password123',
-    name: 'Serah Wambui',
-    role: 'Manager' as const,
-    tenantId: 't-hotel-01',
-    activeTenant: 't-hotel-01',
-    phone: '+254 722 000 111',
-  },
-  {
-    email: 'restaurant_mgr@jasper.com',
-    password: 'password123',
-    name: 'Chef Juma Omari',
-    role: 'Manager' as const,
-    tenantId: 't-restaurant-01',
-    activeTenant: 't-restaurant-01',
-    phone: '+255 713 555 777',
-  },
-  {
     email: 'pharmacy_mgr@jasper.com',
     password: 'password123',
     name: 'Dr. Amina Bello (RPh)',
@@ -136,7 +96,6 @@ export const DEMO_USERS = [
 ];
 
 export const DEFAULT_PRODUCTS: Record<string, Product[]> = {
-  't-hotel-01': [],
   't-pharma-01': [
     {
       id: 'p-ph-01',

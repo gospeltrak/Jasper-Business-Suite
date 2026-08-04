@@ -155,6 +155,9 @@ test('legacy hydration excludes backups and protected saves reuse one guard read
   const migrationSource = await read('supabase/migrations/20260729000300_runtime_load_indexes_rls.sql');
   assert.match(syncSource, /\.not\('data_key', 'like', 'workspace_backup_%'\)/);
   assert.match(syncSource, /\.not\('data_key', 'like', 'data_backup_%'\)/);
+  assert.match(syncSource, /data_backup_latest_\$\{dataKey\}/);
+  assert.match(await read('src/utils/tenantWorkspace.ts'), /data_key: 'workspace_backup_latest'/);
+  assert.doesNotMatch(syncSource, /data_backup_\$\{dataKey\}_\$\{stamp\}/);
   assert.doesNotMatch(syncSource, /const \{ data: remoteData, error: remoteError \}/);
   assert.match(storageSource, /PERSIST_DEBOUNCE_MS = 1000/);
   assert.match(storageSource, /serialized === lastPersistedSnapshot/);

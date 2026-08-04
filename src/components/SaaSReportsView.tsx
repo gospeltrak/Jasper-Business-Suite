@@ -215,11 +215,6 @@ export default function SaaSReportsView() {
   const pharmacyCount = tenants.filter(
     (t) => t.businessType === "pharmacy",
   ).length;
-  const restaurantCount = tenants.filter(
-    (t) => t.businessType === "restaurant",
-  ).length;
-  const hotelCount = tenants.filter((t) => t.businessType === "hotel").length;
-
   let nicheData = [
     { name: "Retail / Wholesale", value: retailCount, color: "#3b82f6" },
     { name: "Pharmacy Meds", value: pharmacyCount, color: "#10b981" },

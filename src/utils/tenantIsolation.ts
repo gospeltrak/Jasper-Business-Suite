@@ -7,8 +7,6 @@ const DEMO_TENANT_IDS = new Set([
   't-lagos-01',
   't-nairobi-02',
   't-accra-03',
-  't-hotel-01',
-  't-restaurant-01',
   't-pharma-01'
 ]);
 

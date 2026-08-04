@@ -9,8 +9,8 @@ import {
   updateSuperAffiliate,
   deleteSubAffiliate,
   deletePartner,
-  verifyAdminOverridePassword,
 } from '../utils/superAffiliateAdmin';
+import { verifySuperAdminPassword } from '../utils/superAdminData';
 
 const money = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
 const csvValue = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
@@ -116,8 +116,15 @@ export default function SuperAffiliateControlCenter({ initialTab = 'agents' }: {
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
-    if (!verifyAdminOverridePassword(deletePassword)) {
-      setDeleteError('Incorrect override password.');
+    let verified = false;
+    try {
+      verified = await verifySuperAdminPassword(deletePassword);
+    } catch (error: any) {
+      setDeleteError(error?.message || 'Password verification is temporarily unavailable.');
+      return;
+    }
+    if (!verified) {
+      setDeleteError('Incorrect Super Admin password.');
       return;
     }
     setDeleting(true);

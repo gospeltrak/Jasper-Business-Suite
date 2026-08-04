@@ -151,7 +151,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 <div className="space-y-3">
                   <h4 className="font-bold text-base tracking-tight border-b pb-1">2. Information We Collect</h4>
                   <p className="text-xs font-light">
-	                    To deliver reliable online enterprise resource planning, hotel occupancy statistics, pharmacy stock indicators,
+	                    To deliver reliable online enterprise resource planning, retail and wholesale inventory statistics, pharmacy stock indicators,
                     and virtual AI desk operations, we store:
                   </p>
                   <ul className="list-disc list-inside space-y-1.5 text-xs font-light ml-2">
@@ -412,7 +412,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   </h4>
                   <p className="text-xs font-light">
                     Please read these Terms and Conditions ("Terms", "Agreement") carefully before activating your account on Orvix.
-	                    This legally binding Agreement governs your utilization of the Orvix POS Online Cashier, Hotel PMS modules,
+	                    This legally binding Agreement governs your utilization of the Orvix POS Online Cashier, retail and wholesale modules,
                     Pharmacy management utilities, White-Label tools, and Lucy AI recommendations. By initiating your free trial or logging into our application terminals,
                     you irrevocably agree to respect these terms. Update agreements operate worldwide and protect our operational interests.
                   </p>
@@ -550,7 +550,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   </h4>
                   <p className="text-xs font-light">
                     Tafadhali soma Masharti na Vigezo hivi ("Masharti", "Makubaliano") kwa makini kabla ya kuwezesha akaunti yako kwenye Orvix.
-	                    Makubaliano haya ya kisheria yanatawala matumizi yako ya Keshia ya Orvix ya Mtandaoni (Online POS), usimamizi wa vyumba vya hoteli,
+	                    Makubaliano haya ya kisheria yanatawala matumizi yako ya Keshia ya Orvix ya Mtandaoni (Online POS), usimamizi wa retail na wholesale,
                     katalogi za famasia, huduma za kurekebisha muonekano, na ushauri wa kiakili kutoka kwa Lucy AI. Kwa kuanza jaribio lako la bure au kuingia kwenye mfumo,
                     unakubali masharti haya bila masharti yoyote. Maboresho ya masharti haya yanalinda haki zetu za uendeshaji biashara duniani kote.
                   </p>
@@ -619,7 +619,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <p className="text-xs font-light">
                     Kwa kiwango cha juu kabisa kinachoruhusiwa na sheria husika za nchi unakoendesha biashara yako (Kenya, Tanzania, Nigeria, nk),
                     Orvix, wakurugenzi wake, watengenezaji wake, na mawakala wake wa nyanjani <strong>hawatatakiwa kamwe kuwajibika kwa hasara yoyote ya moja kwa moja au isiyo ya moja kwa moja</strong>.
-                    Hii inajumuisha, lakini si tu: upotevu wa faida ya duka au hoteli, makosa ya hesabu za bidhaa, mipangilio isiyo sahihi ya viwango vya kisheria, wizi wa ndani unaofanywa na keshia wako,
+                    Hii inajumuisha, lakini si tu: upotevu wa faida ya duka au famasia, makosa ya hesabu za bidhaa, mipangilio isiyo sahihi ya viwango vya kisheria, wizi wa ndani unaofanywa na keshia wako,
                     au kushindwa kwa encrypted database kusawazisha data zote. Bila kuondoa haki au dhima ambayo sheria husika hairuhusu izuiwe au ipunguzwe, dhima yetu kuu ya kifedha haitazidi kiasi cha usajili ulichotulipa katika kipindi cha miezi minne (4) iliyopita kabla ya kutokea kwa mgogoro husika.
                   </p>
                 </div>

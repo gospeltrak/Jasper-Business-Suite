@@ -410,7 +410,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [conferenceMembers, setConferenceMembers] = useState([
     {
       id: "m1",
-      name: "Juma J. (Restaurant POS)",
+      name: "Juma J. (Retail POS)",
       role: "Speaker",
       avatar: "👨‍🍳",
       isMuted: false,
@@ -430,7 +430,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     },
     {
       id: "m3",
-      name: "Serah L. (Hotel PMS)",
+      name: "Serah L. (Pharmacy POS)",
       role: "Speaker",
       avatar: "👩‍💼",
       isMuted: true,
@@ -1486,8 +1486,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
       ctx.fillStyle = "#ffffff";
       ctx.font = "12px sans-serif";
-      ctx.fillText("For Retail, Wholesale, Restaurants,", 20, 110);
-      ctx.fillText("Pharmacies and Hospitality.", 20, 128);
+      ctx.fillText("For Retail, Wholesale and", 20, 110);
+      ctx.fillText("Pharmacy businesses.", 20, 128);
 
       ctx.fillStyle = "rgba(16, 185, 129, 0.1)";
       ctx.fillRect(20, 150, 260, 55);
@@ -1515,7 +1515,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       ctx.font = "20px sans-serif";
       ctx.fillText("✓ Secure cloud saving for every sale", 50, 230);
       ctx.fillText("✓ Accepts Mobile money Instantly", 50, 280);
-      ctx.fillText("✓ For Retail, Pharmacies & Restaurants", 50, 330);
+      ctx.fillText("✓ For Retail, Wholesale & Pharmacies", 50, 330);
       ctx.fillText("✓ Lucy assistant built-in for support", 50, 380);
 
       ctx.fillStyle = "rgba(16, 185, 129, 0.1)";
@@ -3019,8 +3019,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   {
                     id: "vid-1",
                     title:
-                      "Video Guide: Setting up a Dining Table QR Menu in 15 Minutes",
-                    desc: "Step-by-step video tutorial demonstrating the creation of digital restaurant QR menus, dining zones configuration, and printer allocation setups.",
+                      "Video Guide: Setting up Retail Product Categories in 15 Minutes",
+                    desc: "Step-by-step video tutorial demonstrating product category setup, stock organization, and printer allocation.",
                     category: "video",
                     fileSize: "42 MB",
                     duration: "15 mins stream",
@@ -4650,8 +4650,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                 Orvix
                               </h5>
                               <p className="text-[7.5px] text-slate-500 leading-normal">
-                                Manages cash, stocks, receipts, hotels,
-                                pharmacies, bar, or retail store branches.
+                                Manages cash, stocks, receipts, pharmacies,
+                                wholesale, or retail store branches.
                               </p>
                             </div>
                             <div className="space-y-1">

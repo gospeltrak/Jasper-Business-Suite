@@ -157,6 +157,20 @@ const apiRequest = async (path: string, init: RequestInit = {}) => {
   return payload;
 };
 
+export async function verifySuperAdminPassword(password: string): Promise<boolean> {
+  if (!password) return false;
+  try {
+    const result = await apiRequest('/api/super-admin/verify-password', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    });
+    return result?.verified === true;
+  } catch (error: any) {
+    if ([401, 403].includes(Number(error?.status || 0))) return false;
+    throw error;
+  }
+}
+
 async function fetchSuperAdminOverview(): Promise<SuperAdminOverview> {
   let apiError: Error | null = null;
 

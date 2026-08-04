@@ -12,7 +12,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test:error-contract": "tsx --test scripts/safe-error-contract.test.ts scripts/auth-error-contract.test.ts",
-    "test:deploy": "tsx --test scripts/deployment-contract.test.ts",
+    "test:deploy": "tsx --test scripts/deployment-contract.test.ts scripts/niche-scope-contract.test.ts scripts/platform-admin-authorization-contract.test.ts",
     "test:money-bank": "tsx --test scripts/payment-accounts-contract.test.ts",
     "verify:source": "node scripts/verify-deploy.mjs && npm run test:error-contract",
     "verify:deploy": "npm run verify:source && npm run lint && npm run test:deploy && npm run test:money-bank",

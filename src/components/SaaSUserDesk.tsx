@@ -25,22 +25,10 @@ import {
   mapSuperAdminUsers,
   resetSuperAdminUserPassword,
   SuperAdminUserRow,
-  updateSuperAdminUser
+  updateSuperAdminUser,
+  verifySuperAdminPassword
 } from '../utils/superAdminData';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
-
-// Encrypted persistence simulation
-const encryptValue = (val: string) => {
-  return btoa(unescape(encodeURIComponent(val))); // Secure client-side UTF-8 safe base64 obfuscation
-};
-
-const decryptValue = (val: string) => {
-  try {
-    return decodeURIComponent(escape(atob(val)));
-  } catch (e) {
-    return val;
-  }
-};
 
 interface SessionLog {
   loginTime: string;
@@ -185,16 +173,20 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   };
 
   // Star-only Admin Password verification
-  const verifySecureKey = (expectedKey: string = '3698'): boolean => {
+  const verifySecureKey = async (): Promise<boolean> => {
     if (isActionLocked) {
       alert(`🔒 Lockout active. Please wait ${lockoutTimeLeft}s before trying again.`);
       return false;
     }
 
-    const savedEncryptedKey = onlineStorage.getItem('saas_encrypted_master_key');
-    const actualSecret = savedEncryptedKey ? decryptValue(savedEncryptedKey) : expectedKey;
-
-    if (secureKeyInput === actualSecret || secureKeyInput === '3698' || secureKeyInput === 'saas-secure-2026') {
+    let verified = false;
+    try {
+      verified = await verifySuperAdminPassword(secureKeyInput);
+    } catch (error: any) {
+      alert(error?.message || 'Password verification is temporarily unavailable.');
+      return false;
+    }
+    if (verified) {
       setFailedAttempts(0);
       setSecureKeyInput('');
       return true;
@@ -220,7 +212,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
     e.preventDefault();
     if (!selectedUser) return;
 
-    if (!verifySecureKey()) return;
+    if (!(await verifySecureKey())) return;
 
     const updatedUser: UserAccount = {
       ...selectedUser,
@@ -252,7 +244,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
 
   const handleSuspendReactivate = async (targetStatus: 'Active' | 'Suspended') => {
     if (!selectedUser) return;
-    if (!verifySecureKey()) return;
+    if (!(await verifySecureKey())) return;
 
     const updatedUser: UserAccount = {
       ...selectedUser,
@@ -276,7 +268,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
     if (!selectedUser) return;
     if (!confirm(`Are you absolutely sure you want to permanently erase ${selectedUser.name} enterprise nodes from our system?`)) return;
     
-    if (!verifySecureKey()) return;
+    if (!(await verifySecureKey())) return;
 
     try {
       await deleteSuperAdminUser(selectedUser.id);
@@ -297,7 +289,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       return;
     }
     
-    if (!verifySecureKey()) return;
+    if (!(await verifySecureKey())) return;
 
     try {
       await resetSuperAdminUserPassword(selectedUser.id, newPasswordValue);

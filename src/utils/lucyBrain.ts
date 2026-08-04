@@ -25,7 +25,7 @@ const swahiliSignals = [
   'faida', 'hasara', 'fedha', 'duka', 'mfumo', 'bei', 'nunua', 'uza', 'muuzaji',
   'mteja', 'wateja', 'gharama', 'matumizi', 'malipo', 'akaunti', 'risiti', 'tuma',
   'fungua', 'nenda', 'onyesha', 'nipatie', 'nifanye', 'kiasi', 'mzigo', 'nahitaji',
-  'kujua', 'kifurushi', 'vifurushi', 'jaribio', 'hoteli', 'mgahawa'
+  'kujua', 'kifurushi', 'vifurushi', 'jaribio'
 ];
 
 const systemRiskSignals = [
@@ -40,12 +40,12 @@ const businessSignals = [
   'profit', 'loss', 'expense', 'cash', 'bank', 'supplier', 'customer', 'report',
   'invoice', 'quotation', 'receipt', 'delivery', 'purchase', 'pharmacy', 'medicine',
   'batch', 'fifo', 'average', 'dashboard', 'setting', 'staff', 'password', 'login',
-  'package', 'packages', 'subscription', 'trial', 'free trial', 'pricing', 'hotel',
-  'restaurant', 'wholesale', 'retail', 'affiliate', 'tenant', 'business suite',
+  'package', 'packages', 'subscription', 'trial', 'free trial', 'pricing',
+  'wholesale', 'retail', 'affiliate', 'tenant', 'business suite',
   'mauzo', 'uza', 'stoki', 'bidhaa', 'bei', 'faida', 'hasara', 'matumizi', 'fedha',
   'benki', 'msambazaji', 'mteja', 'ripoti', 'ankara', 'risiti', 'delivery',
   'manunuzi', 'dawa', 'mfumo', 'watumishi', 'ingia', 'kifurushi', 'vifurushi',
-  'gharama', 'jaribio', 'hoteli', 'mgahawa', 'jumla', 'rejareja'
+  'gharama', 'jaribio', 'jumla', 'rejareja'
 ];
 
 const generalKnowledgeSignals = [
@@ -184,8 +184,8 @@ const isShortGreeting = (lower: string) => {
 const buildLandingAnswer = (message: string, language: LucyLanguage, lower: string) => {
   if (isShortGreeting(lower)) {
     return language === 'sw'
-      ? 'Karibu sana. Nipo hapa kukuongoza taratibu: unaweza kuniambia aina ya biashara yako, au uniulize kuhusu bei, free trial, POS, stoki, reports, cloud sync, pharmacy, hotel au restaurant.'
-      : 'Welcome. I am here with you step by step: tell me your business type, or ask about pricing, free trial, POS, stock, reports, cloud sync, pharmacy, hotel, or restaurant.';
+      ? 'Karibu sana. Nipo hapa kukuongoza taratibu: unaweza kuniambia kama unatumia retail, wholesale au pharmacy, au uniulize kuhusu bei, free trial, POS, stoki, reports na cloud sync.'
+      : 'Welcome. I am here with you step by step: tell me whether you use retail, wholesale, or pharmacy, or ask about pricing, free trial, POS, stock, reports, and cloud sync.';
   }
 
   if (includesAny(lower, ['price', 'cost', 'package', 'packages', 'subscription', 'pricing', 'free trial', 'trial', 'bei', 'gharama', 'kifurushi', 'vifurushi', 'malipo', 'jaribio'])) {
@@ -198,18 +198,6 @@ const buildLandingAnswer = (message: string, language: LucyLanguage, lower: stri
     return language === 'sw'
       ? 'Pharmacy inaingia vizuri kwenye Orvix. Unaweza kupanga dawa kwa categories na units, kuuza kupitia POS, kufuatilia stoki, manunuzi, expenses, faida, na reports. Hatua nzuri ya kwanza ni kuweka units zako kama box, strip, tablet au bottle, kisha kupanga categories za dawa. Unataka nikueleze pharmacy setup hatua kwa hatua?'
       : 'Pharmacy fits Orvix very well. You can organize medicine categories and units, sell through POS, track stock, purchases, expenses, profit, and reports. A good first step is setting units like box, strip, tablet, or bottle, then adding medicine categories. Would you like a step-by-step pharmacy setup flow?';
-  }
-
-  if (includesAny(lower, ['hotel', 'room', 'pms', 'booking', 'hoteli', 'chumba', 'vyumba'])) {
-    return language === 'sw'
-      ? 'Kwa hotel, Orvix inaweza kusaidia kuona biashara kwa upande wa mauzo, gharama, stoki, reports, na usimamizi wa huduma. PMS/hotel tools zinalenga kurahisisha vyumba, bookings na mapato, huku owner akiona picha ya biashara kwa urahisi. Ni hotel ndogo ya vyumba vichache au una departments nyingi?'
-      : 'For hotels, Orvix helps with sales, expenses, stock, reports, and service management. The PMS/hotel tools are meant to simplify rooms, bookings, and revenue while the owner sees the business clearly. Is it a small hotel with a few rooms, or do you run multiple departments?';
-  }
-
-  if (includesAny(lower, ['restaurant', 'food', 'table', 'kds', 'mgahawa', 'chakula', 'meza'])) {
-    return language === 'sw'
-      ? 'Kwa restaurant, Orvix inalenga kufanya order, mauzo, stoki ya ingredients, expenses na reports ziwe rahisi kufuatilia. Unaweza kuanza na menu items, bei, staff wanaouza, kisha reports za mauzo ya siku. Unataka mfumo ukuongoze zaidi kwenye quick sale au restaurant setup?'
-      : 'For restaurants, Orvix helps you keep orders, sales, ingredient stock, expenses, and reports under control. You can start with menu items, prices, staff sales, then daily sales reports. Do you want a quick-sale setup or a fuller restaurant workflow?';
   }
 
   if (includesAny(lower, ['offline', 'internet', 'network', 'sync', 'mtandao', 'bila internet'])) {

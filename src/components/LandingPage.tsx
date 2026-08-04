@@ -29,8 +29,6 @@ import {
   Info,
   Building2,
   Pill,
-  UtensilsCrossed,
-  Hotel,
   Youtube,
   Instagram,
   Facebook,
@@ -946,7 +944,6 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
   const t = { ...tBase, ...customValues };
   
   // Custom interactive tab for the right column section of the hero
-  const [activeHeroTab, setActiveHeroTab] = useState<'retail' | 'restaurant' | 'pharmacy' | 'hotel'>('retail');
 
   // Privacy Policy and Terms and Conditions Modals
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
@@ -1562,8 +1559,6 @@ export default function LandingPage({ onNavigate, isDark = false, onToggleTheme 
             if (logoName.includes('Bakhresa')) LogoIcon = Building2;
             else if (logoName.includes('Kariakoo')) LogoIcon = ShoppingCart;
             else if (logoName.includes('Pharmacy')) LogoIcon = Pill;
-            else if (logoName.includes('Food')) LogoIcon = UtensilsCrossed;
-            else if (logoName.includes('Hotel')) LogoIcon = Hotel;
 
             return (
               <div 
