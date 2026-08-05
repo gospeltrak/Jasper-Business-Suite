@@ -1404,14 +1404,16 @@ Vehicle Plate Number: ${plateNumber}
               </div>
 
               <label className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={editMarkedDelivered}
-                  onChange={(e) => setEditMarkedDelivered(e.target.checked)}
-                  className="sr-only"
-                />
-                <span className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${editMarkedDelivered ? 'bg-emerald-600 border-emerald-600' : 'bg-white border-slate-400'}`}>
-                  {editMarkedDelivered && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
+                <span className="relative w-6 h-6 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={editMarkedDelivered}
+                    onChange={(e) => setEditMarkedDelivered(e.target.checked)}
+                    className="absolute inset-0 w-6 h-6 opacity-0 cursor-pointer"
+                  />
+                  <span className={`absolute inset-0 rounded-md border-2 flex items-center justify-center transition-colors ${editMarkedDelivered ? 'bg-emerald-600 border-emerald-600' : 'bg-white border-slate-400'}`}>
+                    {editMarkedDelivered && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
+                  </span>
                 </span>
                 <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Delivered</span>
               </label>
