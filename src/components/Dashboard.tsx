@@ -930,12 +930,17 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         let migrated = 0;
         const updatedProducts = [...products];
 
+        const migrationClient: any = await getSecureDataBridgeClient();
+        const { data: migrationSessionData } = await migrationClient.auth.getSession();
+        const migrationToken = migrationSessionData?.session?.access_token;
+        if (!migrationToken || cancelled) return;
+
         for (const prod of needsMigration) {
           if (cancelled) break;
           try {
             const response = await fetch('/api/images/migrate-product', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${migrationToken}` },
               body: JSON.stringify({ tenantId: tid, productId: prod.id, base64DataUrl: prod.image }),
             });
             const result = await response.json();

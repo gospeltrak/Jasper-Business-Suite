@@ -137,6 +137,28 @@ export default function DashboardSettings({
     return { ...base, themeMode: (base as any).themeMode || (isDark ? 'dark' : 'light') };
   });
   const [businessForm, setBusinessForm] = useState<BusinessSettings>(() => normalizeBusinessSettings(systemSettings?.business));
+  // The tenant's subdomain/business-name slug is assigned server-side at registration
+  // (and is immutable after that) and lives on the `tenants` table row, not inside
+  // systemSettings.business -- so it's fetched separately here rather than relying on
+  // businessForm, which would otherwise always look "not yet chosen".
+  const [fetchedTenantDomain, setFetchedTenantDomain] = useState<{ subdomainSlug: string | null; businessNameSlug: string | null; isDomainActive: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!activeTenant?.id) return;
+    let cancelled = false;
+    fetch(`/api/tenant/slug?tenantId=${encodeURIComponent(activeTenant.id)}`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (cancelled || !data) return;
+        setFetchedTenantDomain({
+          subdomainSlug: data.subdomainSlug || null,
+          businessNameSlug: data.businessNameSlug || null,
+          isDomainActive: data.isDomainActive !== false,
+        });
+      })
+      .catch(() => { /* non-critical: the slug section just falls back to "not yet set" */ });
+    return () => { cancelled = true; };
+  }, [activeTenant?.id]);
   const [productForm, setProductForm] = useState<ProductStoreSettings>(() => normalizeProductStoreSettings(systemSettings?.productStore));
   const [invoiceSettingsForm, setInvoiceSettingsForm] = useState<InvoiceSettings>(() => {
     return systemSettings?.invoiceSettings || {
@@ -274,7 +296,9 @@ export default function DashboardSettings({
     .slice(0, 63);
 
   const baseDomain = ((import.meta as any).env?.VITE_APP_BASE_DOMAIN || 'orvix.africa') as string;
-  const lockedBusinessSlug = activeTenant.subdomainSlug || activeTenant.businessNameSlug || (businessForm.domainStatus === 'active' ? (businessForm.subdomainSlug || businessForm.businessNameSlug) : '');
+  const lockedBusinessSlug = fetchedTenantDomain?.subdomainSlug || fetchedTenantDomain?.businessNameSlug
+    || activeTenant.subdomainSlug || activeTenant.businessNameSlug
+    || (businessForm.domainStatus === 'active' ? (businessForm.subdomainSlug || businessForm.businessNameSlug) : '');
   const currentBusinessSlug = String(lockedBusinessSlug || businessForm.subdomainSlug || businessForm.businessNameSlug || '');
   const isBusinessSlugLocked = !!lockedBusinessSlug;
   const currentBusinessDomain = currentBusinessSlug ? `${currentBusinessSlug}.${baseDomain}` : '';

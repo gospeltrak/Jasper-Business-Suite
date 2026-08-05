@@ -32,8 +32,29 @@ export default async function handler(req: any, res: any) {
   if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase backend client is not configured' });
 
   if (req.method === 'GET') {
-    const slug = cleanTenantSlug(req.query?.slug);
     const tenantId = String(req.query?.tenantId || '');
+
+    // No ?slug= given: return this tenant's own already-assigned domain (registration
+    // auto-assigns one and it's immutable after that), instead of an availability check.
+    // This is public info -- the same data is already derivable via /api/tenant/resolve
+    // by anyone who knows the domain, so no new disclosure here.
+    if (!req.query?.slug && isUuid(tenantId)) {
+      const { data: tenant, error } = await supabaseAdmin
+        .from('tenants')
+        .select('subdomain_slug, business_name_slug, primary_domain, is_domain_active')
+        .eq('id', tenantId)
+        .maybeSingle();
+      if (error) return res.status(400).json({ error: error.message });
+      const subdomainSlug = tenant?.subdomain_slug || null;
+      return res.status(200).json({
+        subdomainSlug,
+        businessNameSlug: tenant?.business_name_slug || null,
+        primaryDomain: tenant?.primary_domain || (subdomainSlug ? `${subdomainSlug}.${getBaseDomain()}` : null),
+        isDomainActive: tenant?.is_domain_active !== false,
+      });
+    }
+
+    const slug = cleanTenantSlug(req.query?.slug);
     if (!isTenantSlugValid(slug)) return res.status(400).json({ available: false, slug, error: 'Slug is invalid or reserved.' });
     let query = supabaseAdmin.from('tenants').select('id').eq('subdomain_slug', slug).limit(1);
     if (isUuid(tenantId)) query = query.neq('id', tenantId);
@@ -113,6 +134,11 @@ export default async function handler(req: any, res: any) {
     if (updateError) throw updateError;
     return res.status(200).json({ success: true, slug, domain, tenant: mapTenantDomainRecord(updatedTenant) });
   } catch (error: any) {
-    return res.status(400).json({ error: error?.message || 'Unable to save Business Name Slug.' });
+    // Supabase/Postgres errors carry code/details/hint; our own validation throws are
+    // plain Error objects with just a message — only the latter is safe to show verbatim.
+    const isRawDbError = Boolean(error?.code || error?.details || error?.hint);
+    return res.status(400).json({
+      error: isRawDbError ? 'Unable to save Business Name Slug. Please try again.' : (error?.message || 'Unable to save Business Name Slug.')
+    });
   }
 }

@@ -30,6 +30,13 @@ export const isTenantSlugValid = (value: unknown) => {
   return slug.length >= 2 && /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(slug) && !RESERVED_TENANT_SLUGS.has(slug);
 };
 
+// A Host header should only ever be a valid hostname (labels of letters/digits/hyphens
+// separated by dots). Rejecting anything else before it reaches a PostgREST `.or()`
+// filter string prevents a crafted Host/x-forwarded-host/?host= value containing `,`
+// or `(`/`)` from injecting extra filter clauses into the tenant lookup query.
+const SAFE_HOST_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/;
+export const isSafeHostFormat = (value: unknown) => SAFE_HOST_RE.test(String(value || ''));
+
 export const tenantDomainSelect = [
   'id',
   'name',

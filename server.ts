@@ -191,6 +191,11 @@ const isTenantSlugValid = (value: unknown) => {
   const slug = cleanTenantSlug(value);
   return slug.length >= 2 && /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(slug) && !RESERVED_TENANT_SLUGS.has(slug);
 };
+// A Host header should only ever be a valid hostname. Rejecting anything else before
+// it reaches a PostgREST `.or()` filter string prevents a crafted host value containing
+// `,` or `(`/`)` from injecting extra filter clauses into the tenant lookup query.
+const SAFE_HOST_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/;
+const isSafeHostFormat = (value: unknown) => SAFE_HOST_RE.test(String(value || ''));
 const getBusinessNameSlugCandidates = (businessName: unknown) => {
   const words = String(businessName || '')
     .toLowerCase()
@@ -518,13 +523,14 @@ const resolveTenantDomain = async (rawHost: unknown) => {
   if (!subdomain && !host.endsWith(`.${baseDomain}`)) {
     return { kind: 'app', host, baseDomain };
   }
-  if (!isTenantSlugValid(subdomain)) {
+  if (!isTenantSlugValid(subdomain) || !isSafeHostFormat(host)) {
     return { kind: 'tenant-not-found', host, baseDomain, subdomain, message: 'Tenant not found.' };
   }
 
+  const safeSlug = cleanTenantSlug(subdomain);
   const { data: tenant, error } = await adminTable('tenants')
     .select(tenantDomainSelect)
-    .or(`subdomain_slug.eq.${subdomain},primary_domain.eq.${host},custom_domain.eq.${host}`)
+    .or(`subdomain_slug.eq.${safeSlug},primary_domain.eq.${host},custom_domain.eq.${host}`)
     .maybeSingle();
   if (error) throw error;
   if (!tenant) {
@@ -1918,6 +1924,33 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  // Mirrors the standalone api/tenant/slug.ts GET handler: with no ?slug=, returns
+  // this tenant's own already-assigned (immutable-after-registration) domain instead
+  // of an availability check. Public info -- same as what /api/tenant/resolve exposes.
+  app.get('/api/tenant/slug', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase backend client is not configured' });
+    const tenantId = String(req.query?.tenantId || '');
+    if (!req.query?.slug && isUuid(tenantId)) {
+      const { data: tenant, error } = await adminTable('tenants')
+        .select('subdomain_slug, business_name_slug, primary_domain, is_domain_active')
+        .eq('id', tenantId)
+        .maybeSingle();
+      if (error) return res.status(400).json({ error: error.message });
+      const subdomainSlug = (tenant as any)?.subdomain_slug || null;
+      return res.status(200).json({
+        subdomainSlug,
+        businessNameSlug: (tenant as any)?.business_name_slug || null,
+        primaryDomain: (tenant as any)?.primary_domain || (subdomainSlug ? `${subdomainSlug}.${getBaseDomain()}` : null),
+        isDomainActive: (tenant as any)?.is_domain_active !== false,
+      });
+    }
+    const slug = cleanTenantSlug(req.query?.slug);
+    if (!isTenantSlugValid(slug)) return res.status(400).json({ available: false, slug, error: 'Slug is invalid or reserved.' });
+    const exists = await tenantSlugExists(slug, tenantId);
+    return res.json({ available: !exists, slug, domain: `${slug}.${getBaseDomain()}` });
+  });
+
   app.post('/api/tenant/slug', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, max-age=0');
     try {
@@ -1959,7 +1992,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (updateError) throw updateError;
       return res.json({ success: true, slug, domain, tenant: mapTenantDomainRecord(updatedTenant) });
     } catch (error: any) {
-      return res.status(400).json({ error: error?.message || 'Unable to save Business Name Slug.' });
+      const isRawDbError = Boolean(error?.code || error?.details || error?.hint);
+      return res.status(400).json({
+        error: isRawDbError ? 'Unable to save Business Name Slug. Please try again.' : (error?.message || 'Unable to save Business Name Slug.')
+      });
     }
   });
 
@@ -2670,7 +2706,13 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
       return res.status(201).json({ affiliate, authEmail, userId, isPartner: !!isPartner });
     } catch (error: any) {
-      return res.status(400).json({ error: error?.message || 'Affiliate registration failed.' });
+      // Supabase/Postgres errors carry code/details/hint; our own validation throws
+      // (e.g. "Referral code invalid") are plain Error objects with just a message —
+      // only the latter is safe to show verbatim to the client.
+      const isRawDbError = Boolean(error?.code || error?.details || error?.hint);
+      return res.status(400).json({
+        error: isRawDbError ? 'Affiliate registration failed. Please try again.' : (error?.message || 'Affiliate registration failed.')
+      });
     }
   });
 
@@ -3167,34 +3209,65 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
     } catch (err: any) {
       console.error('[Logo Persistence] Error:', err);
-      return res.status(Number(err?.status || 500)).json({ error: err?.message || 'Logo could not be saved securely.' });
+      // err.status is only set by our own controlled throws (e.g. requireTenantUser),
+      // whose message is safe to show; anything else (raw Supabase/Postgres errors)
+      // gets a generic message so internal schema/constraint details aren't leaked.
+      return res.status(Number(err?.status || 500)).json({
+        error: err?.status ? (err?.message || 'Logo could not be saved securely.') : 'Logo could not be saved securely.'
+      });
     }
   });
 
   // Bulk Sales Synchronization Endpoint (Background Sync Target)
   
   // ── IMAGE MIGRATION: base64 → Supabase Storage (server-side, bypasses RLS) ──
+  const PRODUCT_IMAGE_MAX_BYTES = 2_000_000; // 2 MB
+  const PRODUCT_IMAGE_TYPES: Record<string, { ext: string; magic: (buf: Buffer) => boolean }> = {
+    'image/png': { ext: 'png', magic: (b) => b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
+    'image/jpeg': { ext: 'jpg', magic: (b) => b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+    'image/webp': { ext: 'webp', magic: (b) => b.length >= 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP' },
+    'image/gif': { ext: 'gif', magic: (b) => b.length >= 6 && (b.toString('ascii', 0, 6) === 'GIF87a' || b.toString('ascii', 0, 6) === 'GIF89a') },
+  };
   app.post('/api/images/migrate-product', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     if (!supabaseAdmin) return res.status(503).json({ error: 'Storage service unavailable.' });
 
     const { tenantId, productId, base64DataUrl } = req.body;
-    if (!tenantId || !productId || !base64DataUrl) {
-      return res.status(400).json({ error: 'tenantId, productId and base64DataUrl are required.' });
+    if (!isUuid(tenantId)) {
+      return res.status(400).json({ error: 'Invalid tenant identifier.' });
     }
-    if (!base64DataUrl.startsWith('data:image')) {
+    if (!isSafeRecordToken(productId)) {
+      return res.status(400).json({ error: 'Invalid product identifier.' });
+    }
+    if (!base64DataUrl || typeof base64DataUrl !== 'string' || !base64DataUrl.startsWith('data:image')) {
       return res.status(400).json({ error: 'Invalid image data URL.' });
     }
 
     try {
+      await requireTenantUser(req, String(tenantId));
+
       // Parse base64
       const [header, data] = base64DataUrl.split(',');
       if (!data) return res.status(400).json({ error: 'Malformed base64 data URL.' });
       const mimeMatch = header.match(/data:(image\/\w+);base64/);
-      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-      const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
+      const mimeType = mimeMatch ? mimeMatch[1] : '';
+      const allowed = PRODUCT_IMAGE_TYPES[mimeType];
+      if (!allowed) {
+        return res.status(400).json({ error: 'Unsupported image type. Only PNG, JPEG, WEBP and GIF are accepted.' });
+      }
+      if (!/^[A-Za-z0-9+/=]+$/.test(data)) {
+        return res.status(400).json({ error: 'Invalid image data.' });
+      }
+
       const buffer = Buffer.from(data, 'base64');
-      const path = `${tenantId}/${productId}.${ext}`;
+      if (buffer.length > PRODUCT_IMAGE_MAX_BYTES) {
+        return res.status(413).json({ error: 'Image is too large. Please upload an image below 2 MB.' });
+      }
+      if (!allowed.magic(buffer)) {
+        return res.status(400).json({ error: 'File content does not match the declared image type.' });
+      }
+
+      const path = `${tenantId}/${productId}.${allowed.ext}`;
 
       const { error } = await supabaseAdmin.storage
         .from('product-images')
@@ -3202,7 +3275,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
       if (error) {
         console.error('[ImageMigration] Upload error:', error.message);
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: 'Image could not be saved. Please try again.' });
       }
 
       const { data: urlData } = supabaseAdmin.storage
@@ -3212,7 +3285,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       return res.json({ success: true, url: urlData.publicUrl });
     } catch (err: any) {
       console.error('[ImageMigration] Exception:', err);
-      return res.status(500).json({ error: err?.message || 'Migration failed.' });
+      return res.status(Number(err?.status || 500)).json({ error: err?.message || 'Migration failed.' });
     }
   });
 
@@ -3239,6 +3312,12 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
     if (!products || !Array.isArray(products)) {
       return res.status(400).json({ error: 'Invalid payload: products is required.' });
+    }
+
+    try {
+      await requireTenantUser(req, String(tenant?.id || ''));
+    } catch (authError: any) {
+      return res.status(Number(authError?.status || 401)).json({ error: authError?.message || 'Authentication required.' });
     }
 
     try {
@@ -3456,22 +3535,33 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
     let totalExpensesAmount = 0;
     let estimatedNetProfit = 0;
 
+    const body = req.body || {};
+    const tenantId = sanitizeScopeId(body.tenantId || body.activeTenant?.id || 'demo');
+
+    // Require real auth whenever a real backend is configured — previously this only
+    // ran `if (isUuid(tenantId))`, so an omitted/malformed tenantId silently fell back
+    // to the unauthenticated 'demo' bucket instead of being rejected.
+    if (supabaseAdmin) {
+      if (!isUuid(tenantId)) {
+        return res.status(400).json({ error: 'Invalid tenant identifier.' });
+      }
+      try {
+        await requireTenantUser(req, tenantId);
+      } catch (authError: any) {
+        return res.status(Number(authError?.status || 401)).json({ error: authError?.message || 'Authentication required.' });
+      }
+    }
+
     try {
-      const body = req.body || {};
       message = body.message;
       activeTab = body.activeTab;
       businessType = body.businessType;
       lang = body.lang;
-      const tenantId = sanitizeScopeId(body.tenantId || body.activeTenant?.id || 'demo');
       const planId = normalizeLucyPlanId(body.planId || body.activeTenant?.activePackageId || body.activeTenant?.selectedPackageId);
       const intent = classifyLucyIntent(message, body.intent);
       const limits = LUCY_LIMITS[planId];
       const { usage } = getLucyUsage(tenantId);
       const remaining = Math.max(0, limits[intent] - usage[intent]);
-
-      if (supabaseAdmin && isUuid(tenantId)) {
-        await requireTenantUser(req, tenantId);
-      }
 
       if (planId === 'ruby') {
         return res.status(403).json({

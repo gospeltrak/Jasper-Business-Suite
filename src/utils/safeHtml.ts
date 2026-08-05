@@ -1,10 +1,15 @@
 const BLOCKED_ELEMENTS = new Set(['script', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select', 'link', 'meta']);
 const URL_ATTRS = new Set(['href', 'src', 'xlink:href', 'action', 'formaction']);
 
-const isSafeUrl = (value: string) => {
+const isSafeUrl = (value: string, tag: string, attrName: string) => {
   try {
     const url = new URL(value, window.location.origin);
-    return ['https:', 'http:', 'mailto:', 'tel:', 'data:'].includes(url.protocol);
+    if (url.protocol === 'data:') {
+      // data: URLs can carry a full HTML/script document -- only allow them for actual
+      // inline images on <img src>, never on links, iframes, forms, or any other target.
+      return tag === 'img' && attrName === 'src' && /^data:image\//i.test(value);
+    }
+    return ['https:', 'http:', 'mailto:', 'tel:'].includes(url.protocol);
   } catch {
     return false;
   }
@@ -31,7 +36,7 @@ export function sanitizeTrustedHtml(html: string): string {
         element.removeAttribute(attribute.name);
         return;
       }
-      if (URL_ATTRS.has(name) && value && !isSafeUrl(value)) {
+      if (URL_ATTRS.has(name) && value && !isSafeUrl(value, tag, name)) {
         element.removeAttribute(attribute.name);
       }
     });

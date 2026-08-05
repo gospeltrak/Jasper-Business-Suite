@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo, FormEvent, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Tenant, Product, ProductBatch, SystemSettings } from '../types';
 import { isDemoTenant } from '../utils/tenantIsolation';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { 
   Plus, 
   Package, 
@@ -49,6 +50,14 @@ import ModernSelect, { ModernSelectOption } from './ui/ModernSelect';
 import DashboardBarcodeScanner from './DashboardBarcodeScanner';
 import { loadBranchWorkspace, transferStockBetweenBranches } from '../branches/branchApi';
 import type { BranchSummary } from '../branches/branchTypes';
+
+const getProductImageUploadToken = async (): Promise<string> => {
+  const client: any = await getSecureDataBridgeClient();
+  const { data } = await client.auth.getSession();
+  const token = data?.session?.access_token;
+  if (!token) throw new Error('Your secure session has expired. Sign in again.');
+  return token;
+};
 
 interface DashboardProductsProps {
   activeTenant: Tenant;
@@ -364,9 +373,10 @@ export default function DashboardProducts({
     let resolvedImageUrl = editForm.image;
     if (editForm.image && editForm.image.startsWith('data:image') && editingProduct?.id) {
       try {
+        const migrateToken = await getProductImageUploadToken();
         const migrateResp = await fetch('/api/images/migrate-product', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${migrateToken}` },
           body: JSON.stringify({ tenantId: activeTenant.id, productId: editingProduct.id, base64DataUrl: editForm.image }),
         });
         const migrateResult = await migrateResp.json();
@@ -1242,9 +1252,10 @@ export default function DashboardProducts({
     if (productImage && productImage.startsWith('data:image')) {
       try {
         setProcessingStatus('Uploading image to cloud storage...');
+        const migrateToken = await getProductImageUploadToken();
         const migrateResp = await fetch('/api/images/migrate-product', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${migrateToken}` },
           body: JSON.stringify({ tenantId: activeTenant.id, productId: newProd.id, base64DataUrl: productImage }),
         });
         const migrateResult = await migrateResp.json();

@@ -456,10 +456,18 @@ export default function DashboardForecasting({
   };
 
   const fetchGeneratorForecast = async () => {
+    const client = await getSecureDataBridgeClient();
+    const { data: sessionData } = await client.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if (!accessToken) {
+      throw new Error('Your secure session has expired. Sign in again.');
+    }
+
     const response = await fetch(`/api/forecast`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`
       },
       body: JSON.stringify({
         products: products,

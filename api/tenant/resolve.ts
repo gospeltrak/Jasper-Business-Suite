@@ -1,6 +1,8 @@
 import {
+  cleanTenantSlug,
   getBaseDomain,
   getSupabaseAdmin,
+  isSafeHostFormat,
   isTenantSlugValid,
   mapTenantDomainRecord,
   normalizeHost,
@@ -11,7 +13,7 @@ const PORTAL_NAMES = ['app', 'auth', 'admin', 'affiliate', 'partner'] as const;
 const OVERRIDABLE_KINDS = new Set(['app', 'auth', 'admin', 'affiliate', 'partner', 'landing']);
 
 async function resolveTenantSubdomain(res: any, subdomain: string, host: string, baseDomain: string) {
-  if (!isTenantSlugValid(subdomain)) {
+  if (!isTenantSlugValid(subdomain) || !isSafeHostFormat(host)) {
     return res.status(200).json({ kind: 'tenant-not-found', host, baseDomain, subdomain, message: 'Tenant not found.' });
   }
 
@@ -21,10 +23,11 @@ async function resolveTenantSubdomain(res: any, subdomain: string, host: string,
   }
 
   try {
+    const safeSlug = cleanTenantSlug(subdomain);
     const { data: tenant, error } = await supabaseAdmin
       .from('tenants')
       .select(tenantDomainSelect)
-      .or(`subdomain_slug.eq.${subdomain},primary_domain.eq.${host},custom_domain.eq.${host}`)
+      .or(`subdomain_slug.eq.${safeSlug},primary_domain.eq.${host},custom_domain.eq.${host}`)
       .maybeSingle();
     if (error) throw error;
     if (!tenant) {
