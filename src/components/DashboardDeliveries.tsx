@@ -1403,7 +1403,7 @@ Vehicle Plate Number: ${plateNumber}
                   type="checkbox"
                   checked={editMarkedDelivered}
                   onChange={(e) => setEditMarkedDelivered(e.target.checked)}
-                  className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0"
+                  className="w-5 h-5 accent-emerald-600 cursor-pointer shrink-0"
                 />
                 <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Delivered</span>
               </label>
