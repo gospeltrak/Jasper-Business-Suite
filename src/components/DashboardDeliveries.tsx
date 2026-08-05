@@ -87,7 +87,7 @@ interface DashboardDeliveriesProps {
   riders: DeliveryRider[];
   onAddRider: (rider: DeliveryRider) => void;
   onDispatchDelivery: (deliveryId: string, riderDetails: NonNullable<Delivery['riderDetails']>, riderId?: string, customerData?: { name: string, phone: string, location: string, paymentMethod?: string }) => void;
-  onUpdateDeliveryStatus: (deliveryId: string, status: Delivery['status']) => void;
+  onUpdateDeliveryStatus: (deliveryId: string, status: Delivery['status']) => Promise<boolean> | boolean | void;
   products?: Product[];
   systemSettings?: SystemSettings;
   sales?: Sale[];
@@ -331,7 +331,7 @@ export default function DashboardDeliveries({
   const [editDeliveryCustomerPhone, setEditDeliveryCustomerPhone] = useState('');
   const [editDeliveryAddress, setEditDeliveryAddress] = useState('');
   const [editDeliveryCost, setEditDeliveryCost] = useState<number | ''>('');
-  const [editDeliveryNotes, setEditDeliveryNotes] = useState('');
+  const [editMarkedDelivered, setEditMarkedDelivered] = useState(false);
   const [editUseStaffDriver, setEditUseStaffDriver] = useState<boolean>(true);
   const [editSelectedStaffId, setEditSelectedStaffId] = useState<string>('');
   const [editTempName, setEditTempName] = useState('');
@@ -350,7 +350,7 @@ export default function DashboardDeliveries({
     setEditDeliveryCustomerPhone(del.customerPhone || '');
     setEditDeliveryAddress(del.customerAddress || '');
     setEditDeliveryCost(typeof del.deliveryCost === 'number' ? del.deliveryCost : '');
-    setEditDeliveryNotes(del.notes || '');
+    setEditMarkedDelivered(del.status === 'Delivered');
 
     const matchedStaff = del.riderId ? activeStaffDrivers.find(s => s.id === del.riderId) : undefined;
     if (matchedStaff) {
@@ -410,12 +410,20 @@ export default function DashboardDeliveries({
     }
 
     setIsSavingDeliveryEdit(true);
+
+    if (editMarkedDelivered && editingDelivery.status !== 'Delivered') {
+      const statusOk = await onUpdateDeliveryStatus(editingDelivery.id, 'Delivered');
+      if (statusOk === false) {
+        setIsSavingDeliveryEdit(false);
+        return;
+      }
+    }
+
     const ok = await onEditDelivery(editingDelivery.id, {
       customerName: editDeliveryCustomerName.trim(),
       customerPhone: editDeliveryCustomerPhone.trim(),
       customerAddress: editDeliveryAddress.trim(),
       deliveryCost: editDeliveryCost === '' ? 0 : Number(editDeliveryCost),
-      notes: editDeliveryNotes,
       riderId,
       riderDetails,
     });
@@ -1390,15 +1398,15 @@ Vehicle Plate Number: ${plateNumber}
                 )}
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Notes</label>
-                <textarea
-                  value={editDeliveryNotes}
-                  onChange={(e) => setEditDeliveryNotes(e.target.value)}
-                  rows={3}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500 resize-none"
+              <label className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={editMarkedDelivered}
+                  onChange={(e) => setEditMarkedDelivered(e.target.checked)}
+                  className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0"
                 />
-              </div>
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Delivered</span>
+              </label>
             </div>
             <div className="flex gap-2 px-5 py-4 border-t border-slate-100">
               <button
