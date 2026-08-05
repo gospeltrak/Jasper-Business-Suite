@@ -278,10 +278,10 @@ export default function DashboardSalesList({
   ].filter(tab => tab.id !== 'settlement' || canUseTillSettlement);
 
   const mobileSalesSubTabs = [
-    { id: 'sales', icon: <Receipt className="w-[18px] h-[18px]" />, label: 'Receipts', color: '#4f46e5', activeBg: '#4f46e5' },
-    { id: 'debts', icon: <Coins className="w-[18px] h-[18px]" />, label: 'Debts', color: '#ea580c', activeBg: '#ea580c', badge: sales.filter(s => s.paymentMethod === 'Credit' && (s.total - (s.amountPaid !== undefined ? s.amountPaid : 0)) > 0).length },
-    { id: 'settlement', icon: <Building className="w-[18px] h-[18px]" />, label: 'Settle', color: '#7c3aed', activeBg: '#7c3aed' },
-    { id: 'documents', icon: <FileText className="w-[18px] h-[18px]" />, label: 'Quotes', color: '#0d9488', activeBg: '#0d9488' },
+    { id: 'sales', icon: <Receipt className="w-[18px] h-[18px]" />, label: 'Receipts', color: '#10b981', activeBg: '#10b981' },
+    { id: 'debts', icon: <Coins className="w-[18px] h-[18px]" />, label: 'Debts', color: '#10b981', activeBg: '#10b981', badge: sales.filter(s => s.paymentMethod === 'Credit' && (s.total - (s.amountPaid !== undefined ? s.amountPaid : 0)) > 0).length },
+    { id: 'settlement', icon: <Building className="w-[18px] h-[18px]" />, label: 'Settle', color: '#10b981', activeBg: '#10b981' },
+    { id: 'documents', icon: <FileText className="w-[18px] h-[18px]" />, label: 'Quotes', color: '#10b981', activeBg: '#10b981' },
   ].filter(tab => tab.id !== 'settlement' || canUseTillSettlement);
 
   const toNumber = (value: unknown, fallback = 0) => {
@@ -1209,35 +1209,35 @@ export default function DashboardSalesList({
       <div className="xl:hidden">
         {/* Gradient hero strip */}
         <div className="relative overflow-hidden rounded-3xl mx-0 mb-4"
-          style={{background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #6d28d9 100%)'}}>
+          style={{background: 'linear-gradient(135deg, #047857 0%, #059669 50%, #10b981 100%)', boxShadow: '0 4px 24px rgba(16,185,129,0.25)'}}>
           {/* Decorative blobs */}
-          <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full opacity-20" style={{background: 'rgba(255,255,255,0.3)'}} />
-          <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full opacity-15" style={{background: 'rgba(255,255,255,0.4)'}} />
+          <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full opacity-30" style={{background: 'rgba(255,255,255,0.35)'}} />
+          <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full opacity-25" style={{background: 'rgba(255,255,255,0.4)'}} />
 
           <div className="relative px-5 pt-5 pb-4">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-white/60 text-[11px] font-semibold uppercase tracking-widest mb-1">Sales Overview</p>
+                <p className="text-white/70 text-[11px] font-semibold uppercase tracking-widest mb-1">Sales Overview</p>
                 <p className="text-white font-black text-2xl leading-none">{currency}{Math.round(totalVolume).toLocaleString()}</p>
-                <p className="text-white/60 text-[11px] mt-1">{filteredSales.length} sale{filteredSales.length !== 1 ? 's' : ''}</p>
+                <p className="text-white/70 text-[11px] mt-1">{filteredSales.length} sale{filteredSales.length !== 1 ? 's' : ''}</p>
               </div>
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{background: 'rgba(255,255,255,0.15)'}}>
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{background: 'rgba(255,255,255,0.24)'}}>
                 <TrendingUp className="w-6 h-6 text-white" />
               </div>
             </div>
 
             {/* 3 mini KPI pills */}
             <div className="flex gap-2 mt-4">
-              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
-                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Credit</p>
+              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)'}}>
+                <p className="text-white/80 text-[9px] font-bold uppercase tracking-wider">Credit</p>
                 <p className="text-white font-black text-[13px] mt-0.5">{currency}{Math.round(creditsVolume).toLocaleString()}</p>
               </div>
-              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
-                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Cash</p>
-                <p className="text-white font-black text-[13px] mt-0.5">{currency}{Math.round(sales.filter(s=>s.paymentMethod==='Cash').reduce((sum,s)=>sum+(s.total||0),0)).toLocaleString()}</p>
+              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)'}}>
+                <p className="text-white/80 text-[9px] font-bold uppercase tracking-wider">Collected</p>
+                <p className="text-white font-black text-[13px] mt-0.5">{currency}{Math.round(amountCollectedVolume).toLocaleString()}</p>
               </div>
-              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'rgba(255,255,255,0.12)'}}>
-                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Pending</p>
+              <div className="flex-1 rounded-xl px-3 py-2" style={{background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)'}}>
+                <p className="text-white/80 text-[9px] font-bold uppercase tracking-wider">Pending</p>
                 <p className="text-white font-black text-[13px] mt-0.5">{pendingCount} due</p>
               </div>
             </div>
@@ -1834,7 +1834,27 @@ export default function DashboardSalesList({
           <div className="space-y-6 animate-fade-in" id="debts-ledger-portal">
             
             {/* KPI metrics row */}
-            <div className="mobile-tablet-kpi-grid gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(3, minmax(0, 1fr))' }}>
+
+            {/* MOBILE/TABLET — compact 2-up + full-width outstanding balance */}
+            <div className="xl:hidden space-y-2.5">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm min-w-0">
+                  <p className="text-[8.5px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none truncate">Total Credit</p>
+                  <h4 className="text-sm font-black text-slate-800 dark:text-white mt-1.5 truncate">{currency}{Math.round(totalDebtIssued).toLocaleString()}</h4>
+                </div>
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 border border-emerald-100 dark:border-emerald-900/40 rounded-xl min-w-0">
+                  <p className="text-[8.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest leading-none truncate">Collected</p>
+                  <h4 className="text-sm font-black text-emerald-700 dark:text-emerald-300 mt-1.5 truncate">{currency}{Math.round(totalDebtPaidIn).toLocaleString()}</h4>
+                </div>
+              </div>
+              <div className="w-full p-3.5 rounded-xl" style={{background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'}}>
+                <p className="text-[8.5px] font-mono font-bold text-white/80 uppercase tracking-widest leading-none">Outstanding Balance Receivable</p>
+                <h4 className="text-lg font-black text-white mt-1.5">{currency}{Math.round(totalDebtOutstanding).toLocaleString()}</h4>
+              </div>
+            </div>
+
+            {/* DESKTOP — unchanged original 3-card grid */}
+            <div className="hidden xl:grid mobile-tablet-kpi-grid gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(3, minmax(0, 1fr))' }}>
               <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
                 <p className="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none">Total Credit Credit-Sales</p>
                 <h4 className="text-xl font-black text-slate-800 dark:text-white mt-2">{currency}{Math.round(totalDebtIssued).toLocaleString()}</h4>
@@ -1882,141 +1902,232 @@ export default function DashboardSalesList({
                 const currentPercent = Math.min(100, percentPaid);
                 const isCleared = calculatedDue === 0;
 
-                return (
-                  <div key={s.id} className={`bg-white border rounded-2xl p-5 shadow-sm transition-all hover:shadow-md flex flex-col justify-between ${isCleared ? 'border-emerald-250 bg-emerald-50/20' : 'border-slate-200'}`}>
-                    <div className="space-y-4">
-                      
-                      {/* Customer core card row */}
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="text-[9px] font-mono font-black py-0.5 px-2 bg-slate-100 border border-slate-204 rounded text-slate-500 uppercase tracking-widest">
-                            Ref: {getSaleReference(s)}
-                          </span>
-                          <h4 className="text-sm font-bold text-slate-808 mt-2 flex items-center space-x-1.5 font-sans">
-                            <User className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{s.customerName || 'Anonymous Account-Tab'}</span>
-                          </h4>
-                          {s.customerPhone && (
-                            <p className="text-[10px] text-slate-500 flex items-center space-x-1.5 mt-0.5 font-mono">
-                              <Phone className="w-3 h-3 text-slate-400" />
-                              <span>{s.customerPhone}</span>
-                            </p>
-                          )}
-                        </div>
-                        
-                        <div className="text-right font-sans">
-                          <span className={`inline-flex items-center text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${isCleared ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800 animate-pulse'}`}>
-                            {isCleared ? 'Cleared' : 'Credit Due'}
-                          </span>
-                          <p className="text-xs font-mono font-black text-slate-900 mt-1">{currency}{totalVal.toLocaleString()}</p>
-                        </div>
-                      </div>
-
-                      {/* Purchased products list summary */}
-                      <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-[11px] space-y-1">
-                        <span className="block text-[8px] font-mono font-bold uppercase tracking-widest text-slate-400">Items summary</span>
-                        <div className="max-h-[70px] overflow-y-auto divide-y divide-slate-100">
-                          {s.items.map((item, idx) => (
-                            <div key={idx} className="flex justify-between py-1 font-sans text-slate-600 text-[11px]">
-                              <span>{formatSaleItemQuantity(item, products.find(product => product.id === item.productId))} × {item.productName}</span>
-                              <span className="font-mono">{currency}{item.price.toLocaleString()}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Collapsible Ledger Payment-In Remittance form (If not fully paid) */}
-                      {!isCleared ? (
-                        <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4 space-y-3">
-                          <span className="block text-[9px] font-mono font-black text-emerald-800 uppercase tracking-widest">Settle Outstanding Payment-In</span>
-                          <form
-                            onSubmit={(e) => {
-                              e.preventDefault();
-                              const form = e.currentTarget;
-                              const payAmt = parseFloat((form.elements.namedItem('pay-amount') as HTMLInputElement).value);
-                              const payMethod = (form.elements.namedItem('pay-method') as HTMLSelectElement).value;
-                              const payDateVal = (form.elements.namedItem('pay-date') as HTMLInputElement).value;
-                              const timestamp = payDateVal ? new Date(payDateVal).toISOString() : new Date().toISOString();
-                              if (payAmt > 0) {
-                                handleAddInstallment(s.id, payAmt, payMethod, timestamp);
-                                form.reset();
-                              }
-                            }}
-                            className="space-y-3"
-                          >
-                            <div className="grid grid-cols-3 gap-2">
-                              <div>
-                                <label className="block text-[8px] uppercase font-mono text-slate-500 font-bold mb-1">Pay-in Amount</label>
-                                <input
-                                  type="number"
-                                  name="pay-amount"
-                                  min="1"
-                                  max={calculatedDue}
-                                  defaultValue={calculatedDue}
-                                  required
-                                  className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-mono font-bold focus:outline-emerald-500 text-slate-800"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[8px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Channel</label>
-                                <select
-                                  name="pay-method"
-                                  className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold cursor-pointer font-sans text-slate-803 outline-none"
-                                >
-                                  <option value="Cash">Cash Drawer</option>
-                                  <option value="M-Pesa">M-Pesa Express</option>
-                                  <option value="MTN MoMo">MTN MoMo Net</option>
-                                  <option value="Card">Visa Debit Card</option>
-                                  <option value="Airtel Money">Airtel Money</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="block text-[8px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Date</label>
-                                <input
-                                  type="date"
-                                  name="pay-date"
-                                  defaultValue={new Date().toISOString().split('T')[0]}
-                                  required
-                                  className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-sans outline-none text-slate-800"
-                                />
-                              </div>
-                            </div>
-                            <button
-                              type="submit"
-                              className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] tracking-wider uppercase rounded-lg border-none transition-all cursor-pointer flex items-center justify-center space-x-1.5"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-white" />
-                              <span>Submit Payment-In Reference</span>
-                            </button>
-                          </form>
-                        </div>
-                      ) : (
-                        <div className="bg-emerald-100/50 border border-emerald-200 p-3 rounded-xl flex items-center space-x-2 text-emerald-800 font-bold text-[11px] font-sans">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                          <span>Cleared Account: Consolidated to tills ledger successfully!</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Progress indicator */}
-                    <div className="mt-4 space-y-1.5 font-sans">
-                      <div className="flex justify-between font-mono text-[10px] font-bold text-slate-500 uppercase leading-none">
-                        <span>Reconciliation</span>
-                        <span>{currentPercent}% Reconciled</span>
-                      </div>
-                      <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200">
-                        <div 
-                          className="bg-emerald-600 h-full rounded-full transition-all duration-300" 
-                          style={{ width: `${currentPercent}%` }}
+                const paymentInForm = (compact: boolean) => (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const form = e.currentTarget;
+                      const payAmt = parseFloat((form.elements.namedItem('pay-amount') as HTMLInputElement).value);
+                      const payMethod = (form.elements.namedItem('pay-method') as HTMLSelectElement).value;
+                      const payDateVal = (form.elements.namedItem('pay-date') as HTMLInputElement).value;
+                      const timestamp = payDateVal ? new Date(payDateVal).toISOString() : new Date().toISOString();
+                      if (payAmt > 0) {
+                        handleAddInstallment(s.id, payAmt, payMethod, timestamp);
+                        form.reset();
+                      }
+                    }}
+                    className="space-y-3"
+                  >
+                    <div className={compact ? 'grid grid-cols-1 sm:grid-cols-3 gap-2.5' : 'grid grid-cols-3 gap-2'}>
+                      <div>
+                        <label className={`block uppercase font-mono text-slate-500 font-bold mb-1 ${compact ? 'text-[9px]' : 'text-[8px]'}`}>Pay-in Amount</label>
+                        <input
+                          type="number"
+                          name="pay-amount"
+                          min="1"
+                          max={calculatedDue}
+                          defaultValue={calculatedDue}
+                          required
+                          className={`w-full bg-white border border-slate-200 rounded-lg font-mono font-bold focus:outline-emerald-500 text-slate-800 ${compact ? 'px-3 py-2.5 text-sm min-h-[42px]' : 'px-2 py-1 text-xs'}`}
                         />
                       </div>
-                      <div className="flex justify-between font-mono text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg mt-1.5">
-                        <span className="text-slate-500">Paid: {currency}{Math.round(calculatedPaid).toLocaleString()}</span>
-                        <span className="text-rose-600">Bal: {currency}{Math.round(calculatedDue).toLocaleString()}</span>
+                      <div>
+                        <label className={`block uppercase font-mono text-slate-500 font-bold mb-1 ${compact ? 'text-[9px]' : 'text-[8px]'}`}>Payment Channel</label>
+                        <select
+                          name="pay-method"
+                          className={`w-full bg-white border border-slate-200 rounded-lg cursor-pointer font-sans text-slate-803 outline-none ${compact ? 'px-3 py-2.5 text-xs min-h-[42px]' : 'px-2 py-1 text-[11px] font-bold'}`}
+                        >
+                          <option value="Cash">Cash Drawer</option>
+                          <option value="M-Pesa">M-Pesa Express</option>
+                          <option value="MTN MoMo">MTN MoMo Net</option>
+                          <option value="Card">Visa Debit Card</option>
+                          <option value="Airtel Money">Airtel Money</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={`block uppercase font-mono text-slate-500 font-bold mb-1 ${compact ? 'text-[9px]' : 'text-[8px]'}`}>Payment Date</label>
+                        <input
+                          type="date"
+                          name="pay-date"
+                          defaultValue={new Date().toISOString().split('T')[0]}
+                          required
+                          className={`w-full bg-white border border-slate-200 rounded-lg font-sans outline-none text-slate-800 ${compact ? 'px-3 py-2.5 text-xs min-h-[42px]' : 'px-2 py-1 text-xs'}`}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      className={`w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold tracking-wider uppercase rounded-lg border-none transition-all cursor-pointer flex items-center justify-center space-x-1.5 ${compact ? 'py-3 text-[11px] min-h-[44px]' : 'py-1.5 text-[10px]'}`}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-white" />
+                      <span>Submit Payment-In Reference</span>
+                    </button>
+                  </form>
+                );
+
+                return (
+                  <React.Fragment key={s.id}>
+                    {/* ── MOBILE/TABLET redesigned debt card ────────────────────── */}
+                    <div className="xl:hidden bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+                      {/* Gradient header strip */}
+                      <div className="relative px-4 pt-4 pb-3.5 overflow-hidden" style={{background: isCleared ? 'linear-gradient(135deg, #10b981 0%, #34d399 100%)' : 'linear-gradient(135deg, #047857 0%, #059669 55%, #10b981 100%)'}}>
+                        <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full opacity-25" style={{background: 'rgba(255,255,255,0.4)'}} />
+                        <div className="relative flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="text-[9px] font-mono font-bold text-white/70 uppercase tracking-widest">Ref: {getSaleReference(s)}</span>
+                            <h4 className="text-sm font-black text-white mt-1 flex items-center gap-1.5">
+                              <User className="w-3.5 h-3.5 text-white/80 shrink-0" />
+                              <span className="truncate">{s.customerName || 'Anonymous Account-Tab'}</span>
+                            </h4>
+                            {s.customerPhone && (
+                              <p className="text-[10.5px] text-white/80 flex items-center gap-1.5 mt-0.5 font-mono">
+                                <Phone className="w-3 h-3 text-white/70 shrink-0" />
+                                <span>{s.customerPhone}</span>
+                              </p>
+                            )}
+                          </div>
+                          <span className={`shrink-0 inline-flex items-center text-[9px] font-bold uppercase px-2.5 py-1 rounded-full ${isCleared ? 'bg-white/25 text-white' : 'bg-white text-emerald-700'}`}>
+                            {isCleared ? 'Cleared' : 'Credit Due'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-4 space-y-3.5">
+                        {/* Stat row: Total / Paid / Balance */}
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl py-2 px-1">
+                            <p className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wide">Total</p>
+                            <p className="text-xs font-black text-slate-800 dark:text-white mt-0.5 font-mono truncate">{currency}{Math.round(totalVal).toLocaleString()}</p>
+                          </div>
+                          <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl py-2 px-1">
+                            <p className="text-[8.5px] font-bold text-emerald-500 uppercase tracking-wide">Paid</p>
+                            <p className="text-xs font-black text-emerald-700 dark:text-emerald-300 mt-0.5 font-mono truncate">{currency}{Math.round(calculatedPaid).toLocaleString()}</p>
+                          </div>
+                          <div className="bg-rose-50 dark:bg-rose-900/20 rounded-xl py-2 px-1">
+                            <p className="text-[8.5px] font-bold text-rose-400 uppercase tracking-wide">Balance</p>
+                            <p className="text-xs font-black text-rose-600 dark:text-rose-300 mt-0.5 font-mono truncate">{currency}{Math.round(calculatedDue).toLocaleString()}</p>
+                          </div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[9.5px] font-bold text-slate-400 uppercase tracking-wide">
+                            <span>Reconciliation</span>
+                            <span className="text-emerald-600 dark:text-emerald-400">{currentPercent}%</span>
+                          </div>
+                          <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-300"
+                              style={{ width: `${currentPercent}%`, background: 'linear-gradient(90deg, #059669 0%, #34d399 100%)' }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Items summary */}
+                        <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700 rounded-xl p-3 text-[11px] space-y-1">
+                          <span className="block text-[8px] font-mono font-bold uppercase tracking-widest text-slate-400">Items summary</span>
+                          <div className="max-h-[70px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                            {s.items.map((item, idx) => (
+                              <div key={idx} className="flex justify-between py-1 font-sans text-slate-600 dark:text-slate-300 text-[11px]">
+                                <span className="truncate pr-2">{formatSaleItemQuantity(item, products.find(product => product.id === item.productId))} × {item.productName}</span>
+                                <span className="font-mono shrink-0">{currency}{item.price.toLocaleString()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Payment-in form or cleared state */}
+                        {!isCleared ? (
+                          <div className="bg-emerald-50/60 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-3.5 space-y-3">
+                            <span className="block text-[9px] font-mono font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-widest">Settle Outstanding Payment-In</span>
+                            {paymentInForm(true)}
+                          </div>
+                        ) : (
+                          <div className="bg-emerald-100/50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/40 p-3 rounded-xl flex items-center space-x-2 text-emerald-800 dark:text-emerald-300 font-bold text-[11px] font-sans">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span>Cleared Account: Consolidated to tills ledger successfully!</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                  </div>
+                    {/* ── DESKTOP — unchanged original card ─────────────────────── */}
+                    <div className={`hidden xl:flex bg-white border rounded-2xl p-5 shadow-sm transition-all hover:shadow-md flex-col justify-between ${isCleared ? 'border-emerald-250 bg-emerald-50/20' : 'border-slate-200'}`}>
+                      <div className="space-y-4">
+
+                        {/* Customer core card row */}
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-[9px] font-mono font-black py-0.5 px-2 bg-slate-100 border border-slate-204 rounded text-slate-500 uppercase tracking-widest">
+                              Ref: {getSaleReference(s)}
+                            </span>
+                            <h4 className="text-sm font-bold text-slate-808 mt-2 flex items-center space-x-1.5 font-sans">
+                              <User className="w-3.5 h-3.5 text-slate-400" />
+                              <span>{s.customerName || 'Anonymous Account-Tab'}</span>
+                            </h4>
+                            {s.customerPhone && (
+                              <p className="text-[10px] text-slate-500 flex items-center space-x-1.5 mt-0.5 font-mono">
+                                <Phone className="w-3 h-3 text-slate-400" />
+                                <span>{s.customerPhone}</span>
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="text-right font-sans">
+                            <span className={`inline-flex items-center text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${isCleared ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800 animate-pulse'}`}>
+                              {isCleared ? 'Cleared' : 'Credit Due'}
+                            </span>
+                            <p className="text-xs font-mono font-black text-slate-900 mt-1">{currency}{totalVal.toLocaleString()}</p>
+                          </div>
+                        </div>
+
+                        {/* Purchased products list summary */}
+                        <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-[11px] space-y-1">
+                          <span className="block text-[8px] font-mono font-bold uppercase tracking-widest text-slate-400">Items summary</span>
+                          <div className="max-h-[70px] overflow-y-auto divide-y divide-slate-100">
+                            {s.items.map((item, idx) => (
+                              <div key={idx} className="flex justify-between py-1 font-sans text-slate-600 text-[11px]">
+                                <span>{formatSaleItemQuantity(item, products.find(product => product.id === item.productId))} × {item.productName}</span>
+                                <span className="font-mono">{currency}{item.price.toLocaleString()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Collapsible Ledger Payment-In Remittance form (If not fully paid) */}
+                        {!isCleared ? (
+                          <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4 space-y-3">
+                            <span className="block text-[9px] font-mono font-black text-emerald-800 uppercase tracking-widest">Settle Outstanding Payment-In</span>
+                            {paymentInForm(false)}
+                          </div>
+                        ) : (
+                          <div className="bg-emerald-100/50 border border-emerald-200 p-3 rounded-xl flex items-center space-x-2 text-emerald-800 font-bold text-[11px] font-sans">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span>Cleared Account: Consolidated to tills ledger successfully!</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Progress indicator */}
+                      <div className="mt-4 space-y-1.5 font-sans">
+                        <div className="flex justify-between font-mono text-[10px] font-bold text-slate-500 uppercase leading-none">
+                          <span>Reconciliation</span>
+                          <span>{currentPercent}% Reconciled</span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200">
+                          <div
+                            className="bg-emerald-600 h-full rounded-full transition-all duration-300"
+                            style={{ width: `${currentPercent}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between font-mono text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg mt-1.5">
+                          <span className="text-slate-500">Paid: {currency}{Math.round(calculatedPaid).toLocaleString()}</span>
+                          <span className="text-rose-600">Bal: {currency}{Math.round(calculatedDue).toLocaleString()}</span>
+                        </div>
+                      </div>
+
+                    </div>
+                  </React.Fragment>
                 );
               })}
 
