@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { flushSync } from 'react-dom';
-import { Tenant, Delivery, DeliveryRider, SaleItem, Product, SystemSettings, Sale } from '../types';
+import { Tenant, Delivery, DeliveryRider, SaleItem, Product, SystemSettings, Sale, StaffSettings } from '../types';
 import { 
   Truck, 
   UserPlus, 
@@ -98,7 +98,15 @@ interface DashboardDeliveriesProps {
   onSubTabChange?: (tab: 'queue' | 'riders' | 'notes' | 'accounting') => void;
   expenses?: any[];
   onAddExpense?: (exp: any) => void;
-  onEditDelivery?: (deliveryId: string, updates: { customerName?: string; customerPhone?: string; deliveryCost?: number; notes?: string }) => Promise<boolean> | boolean;
+  onEditDelivery?: (deliveryId: string, updates: {
+    customerName?: string;
+    customerPhone?: string;
+    customerAddress?: string;
+    deliveryCost?: number;
+    notes?: string;
+    riderId?: string | null;
+    riderDetails?: Delivery['riderDetails'] | null;
+  }) => Promise<boolean> | boolean;
   onDeleteDelivery?: (deliveryId: string) => Promise<boolean>;
   activeBranchName?: string;
 }
@@ -321,8 +329,17 @@ export default function DashboardDeliveries({
   const [editingDelivery, setEditingDelivery] = useState<Delivery | null>(null);
   const [editDeliveryCustomerName, setEditDeliveryCustomerName] = useState('');
   const [editDeliveryCustomerPhone, setEditDeliveryCustomerPhone] = useState('');
+  const [editDeliveryAddress, setEditDeliveryAddress] = useState('');
   const [editDeliveryCost, setEditDeliveryCost] = useState<number | ''>('');
   const [editDeliveryNotes, setEditDeliveryNotes] = useState('');
+  const [editUseStaffDriver, setEditUseStaffDriver] = useState<boolean>(true);
+  const [editSelectedStaffId, setEditSelectedStaffId] = useState<string>('');
+  const [editTempName, setEditTempName] = useState('');
+  const [editTempPhone, setEditTempPhone] = useState('');
+  const [editTempClassification, setEditTempClassification] = useState<'rider' | 'driver'>('rider');
+  const [editTempVehicleType, setEditTempVehicleType] = useState<'motorcycle' | 'tuktuk' | 'car'>('motorcycle');
+  const [editTempVehicleColor, setEditTempVehicleColor] = useState('');
+  const [editTempLicensePlate, setEditTempLicensePlate] = useState('');
   const [isSavingDeliveryEdit, setIsSavingDeliveryEdit] = useState(false);
   const [deletingDelivery, setDeletingDelivery] = useState<Delivery | null>(null);
   const [isDeletingDelivery, setIsDeletingDelivery] = useState(false);
@@ -331,18 +348,76 @@ export default function DashboardDeliveries({
     setEditingDelivery(del);
     setEditDeliveryCustomerName(del.customerName || '');
     setEditDeliveryCustomerPhone(del.customerPhone || '');
+    setEditDeliveryAddress(del.customerAddress || '');
     setEditDeliveryCost(typeof del.deliveryCost === 'number' ? del.deliveryCost : '');
     setEditDeliveryNotes(del.notes || '');
+
+    const matchedStaff = del.riderId ? activeStaffDrivers.find(s => s.id === del.riderId) : undefined;
+    if (matchedStaff) {
+      setEditUseStaffDriver(true);
+      setEditSelectedStaffId(matchedStaff.id);
+    } else if (del.riderDetails) {
+      // Assigned rider is either a temporary driver, or a former staff record no longer
+      // present in the active list — keep their details visible/editable either way.
+      setEditUseStaffDriver(false);
+      setEditSelectedStaffId('');
+    } else {
+      setEditUseStaffDriver(true);
+      setEditSelectedStaffId('');
+    }
+    setEditTempName(del.riderDetails?.name || '');
+    setEditTempPhone(del.riderDetails?.phone || '');
+    setEditTempClassification(del.riderDetails?.classification || 'rider');
+    setEditTempVehicleType(del.riderDetails?.vehicleType || 'motorcycle');
+    setEditTempVehicleColor(del.riderDetails?.vehicleColor || '');
+    setEditTempLicensePlate(del.riderDetails?.licensePlate || '');
   };
 
   const handleSaveDeliveryEdit = async () => {
-    if (!editingDelivery || !onEditDelivery) return;
+    if (!editingDelivery || !onEditDelivery || isSavingDeliveryEdit) return;
+
+    let riderId: string | null = null;
+    let riderDetails: Delivery['riderDetails'] | null = null;
+
+    if (editUseStaffDriver) {
+      if (editSelectedStaffId) {
+        const staff = activeStaffDrivers.find(s => s.id === editSelectedStaffId);
+        if (staff) {
+          riderId = staff.id;
+          riderDetails = {
+            name: staff.name,
+            phone: staff.phone,
+            classification: staff.classification || 'rider',
+            vehicleType: staff.vehicleType || 'motorcycle',
+            vehicleColor: staff.vehicleColor || '',
+            licensePlate: staff.licensePlate || '',
+          };
+        }
+      }
+    } else if (editTempName.trim() || editTempPhone.trim() || editTempLicensePlate.trim()) {
+      if (!editTempName.trim() || !editTempPhone.trim() || !editTempLicensePlate.trim()) {
+        alert('Please fill out all temporary driver details (name, phone, and registration code).');
+        return;
+      }
+      riderDetails = {
+        name: editTempName.trim(),
+        phone: editTempPhone.trim(),
+        classification: editTempClassification,
+        vehicleType: editTempVehicleType,
+        vehicleColor: editTempVehicleColor || 'Grey',
+        licensePlate: editTempLicensePlate.trim().toUpperCase(),
+      };
+    }
+
     setIsSavingDeliveryEdit(true);
     const ok = await onEditDelivery(editingDelivery.id, {
       customerName: editDeliveryCustomerName.trim(),
       customerPhone: editDeliveryCustomerPhone.trim(),
+      customerAddress: editDeliveryAddress.trim(),
       deliveryCost: editDeliveryCost === '' ? 0 : Number(editDeliveryCost),
       notes: editDeliveryNotes,
+      riderId,
+      riderDetails,
     });
     setIsSavingDeliveryEdit(false);
     if (ok !== false) setEditingDelivery(null);
@@ -445,6 +520,10 @@ export default function DashboardDeliveries({
 
   const currency = activeTenant.currency;
   const activeRiders = riders.filter(r => r.tenantId === activeTenant.id);
+  // Persisted shop drivers/riders from the Staff module (branch-scoped upstream in systemSettings.staffs)
+  const activeStaffDrivers: StaffSettings[] = (systemSettings?.staffs || []).filter(
+    s => s.staffType === 'driver' || s.staffType === 'rider'
+  );
 
   const filteredProductsForSelect = products.filter(p => {
     if (!productSearchTerm.trim()) return false;
@@ -578,7 +657,7 @@ export default function DashboardDeliveries({
     const customerName = del.customerName || 'Customer';
     const dnNo = `#DN-${new Date(del.timestamp || Date.now()).getFullYear()}-${del.id.toUpperCase().replace('DLV-', '').replace('DLV_', '').slice(0, 6)}`;
     const formattedDate = new Date(del.timestamp || Date.now()).toLocaleDateString([], { dateStyle: 'medium' });
-    const deliveryAddress = del.notes || 'Specified drop-off location';
+    const deliveryAddress = del.customerAddress || del.notes || 'Specified drop-off location';
 
     const driverName = del.riderDetails.name;
     const driverPhone = del.riderDetails.phone;
@@ -891,7 +970,7 @@ Vehicle Plate Number: ${plateNumber}
                         <p className="text-[10.5px] text-slate-500 leading-tight truncate xl:whitespace-normal xl:break-words">
                           <span className="hidden xl:inline font-semibold text-slate-600">{activeBranchName || activeTenant.name}</span>
                           <span className="mx-1.5 text-slate-300" aria-hidden="true">•</span>
-                          {del.notes || 'Destination address not provided'}
+                          {del.customerAddress || del.notes || 'Destination address not provided'}
                         </p>
                       </div>
 
@@ -985,6 +1064,12 @@ Vehicle Plate Number: ${plateNumber}
                       <span className="text-[11px] font-mono text-slate-500 flex items-center mt-0.5">
                         <Smartphone className="w-3 h-3 text-slate-400 mr-1 shrink-0" />
                         {del.customerPhone}
+                      </span>
+                    )}
+                    {del.customerAddress && (
+                      <span className="text-[11px] text-slate-500 flex items-start mt-0.5">
+                        <MapPin className="w-3 h-3 text-slate-400 mr-1 mt-0.5 shrink-0" />
+                        <span className="break-words">{del.customerAddress}</span>
                       </span>
                     )}
                   </div>
@@ -1103,7 +1188,7 @@ Vehicle Plate Number: ${plateNumber}
           onClick={() => setEditingDelivery(null)}
         >
           <div
-            className="bg-white border rounded-2xl md:rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col relative animate-scale-up max-h-[92vh]"
+            className="bg-white border rounded-2xl md:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col relative animate-scale-up max-h-[92vh]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
@@ -1112,34 +1197,199 @@ Vehicle Plate Number: ${plateNumber}
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-5 space-y-4 overflow-y-auto">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Customer Name</label>
-                <input
-                  type="text"
-                  value={editDeliveryCustomerName}
-                  onChange={(e) => setEditDeliveryCustomerName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500"
-                />
+            <div className="p-5 space-y-5 overflow-y-auto">
+              {/* Row 1: Recipient Name + Phone */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Customer Name</label>
+                  <input
+                    type="text"
+                    placeholder="Recipient name"
+                    value={editDeliveryCustomerName}
+                    onChange={(e) => setEditDeliveryCustomerName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Phone Number</label>
+                  <input
+                    type="tel"
+                    placeholder="+255..."
+                    value={editDeliveryCustomerPhone}
+                    onChange={(e) => setEditDeliveryCustomerPhone(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Customer Phone</label>
-                <input
-                  type="text"
-                  value={editDeliveryCustomerPhone}
-                  onChange={(e) => setEditDeliveryCustomerPhone(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500"
-                />
+
+              {/* Row 2: Delivery Address + Delivery Amount */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Delivery Address</label>
+                  <textarea
+                    placeholder="Drop-off location..."
+                    value={editDeliveryAddress}
+                    onChange={(e) => setEditDeliveryAddress(e.target.value)}
+                    rows={2}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500 resize-none min-h-[46px]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Delivery Amount</label>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="0"
+                    value={editDeliveryCost}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      setEditDeliveryCost(raw === '' ? '' : Math.max(0, Number(raw)));
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Delivery Fee</label>
-                <input
-                  type="number"
-                  value={editDeliveryCost}
-                  onChange={(e) => setEditDeliveryCost(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500"
-                />
+
+              {/* Driver / Rider Selection */}
+              <div className="space-y-2.5 p-4 rounded-2xl border border-slate-200 bg-slate-50">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">Driver / Rider</label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setEditUseStaffDriver(true)}
+                    className={`py-2 px-3 text-xs font-bold rounded-xl transition-all cursor-pointer min-h-[38px] ${
+                      editUseStaffDriver
+                        ? 'bg-slate-900 text-white font-black shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-200/50'
+                    }`}
+                  >
+                    In-House / Shop Driver
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditUseStaffDriver(false)}
+                    className={`py-2 px-3 text-xs font-bold rounded-xl transition-all cursor-pointer min-h-[38px] ${
+                      !editUseStaffDriver
+                        ? 'bg-slate-900 text-white font-black shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-200/50'
+                    }`}
+                  >
+                    Temporary / External Driver
+                  </button>
+                </div>
+
+                {editUseStaffDriver ? (
+                  activeStaffDrivers.length === 0 ? (
+                    <div className="p-4 text-center border border-dashed rounded-2xl text-xs text-amber-800 bg-amber-50/60">
+                      No drivers/riders registered in Staff yet for {activeTenant.name}. Register one under Staff, or switch to "Temporary / External Driver" above.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 max-h-[220px] overflow-y-auto pr-0.5">
+                      {activeStaffDrivers.map(staff => (
+                        <button
+                          key={staff.id}
+                          type="button"
+                          onClick={() => setEditSelectedStaffId(staff.id)}
+                          className={`p-3 rounded-2xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
+                            editSelectedStaffId === staff.id
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-400'
+                              : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <p className="font-extrabold text-xs text-slate-900 truncate">{staff.name}</p>
+                            <p className="text-[10.5px] font-mono text-slate-500 mt-0.5">{staff.phone}</p>
+                            {(staff.vehicleType || staff.licensePlate) && (
+                              <p className="text-[10.5px] text-slate-500 mt-1 uppercase tracking-wider font-mono">
+                                {staff.vehicleColor} {staff.vehicleType} {staff.licensePlate ? `(${staff.licensePlate})` : ''}
+                              </p>
+                            )}
+                          </div>
+                          {staff.classification && (
+                            <span className="shrink-0 text-[9px] font-bold border border-emerald-200 bg-white text-emerald-700 px-2 py-0.5 rounded uppercase">
+                              {staff.classification}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Driver Name</label>
+                        <input
+                          type="text"
+                          placeholder="Driver name"
+                          value={editTempName}
+                          onChange={(e) => setEditTempName(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-emerald-500 text-xs font-bold text-slate-800"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Phone Number</label>
+                        <input
+                          type="tel"
+                          placeholder="+255..."
+                          value={editTempPhone}
+                          onChange={(e) => setEditTempPhone(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-emerald-500 text-xs font-mono text-slate-800"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Classification</label>
+                        <select
+                          value={editTempClassification}
+                          onChange={(e) => setEditTempClassification(e.target.value as any)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 cursor-pointer text-xs text-slate-800 font-bold"
+                        >
+                          <option value="rider">Rider (Motorcycle/Tuktuk)</option>
+                          <option value="driver">Driver (Car/Van)</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Vehicle Type</label>
+                        <select
+                          value={editTempVehicleType}
+                          onChange={(e) => setEditTempVehicleType(e.target.value as any)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 cursor-pointer text-xs text-slate-800 font-bold"
+                        >
+                          <option value="motorcycle">Motorcycle</option>
+                          <option value="tuktuk">Tuktuk</option>
+                          <option value="car">Car / Van</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Vehicle Color</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Silver"
+                          value={editTempVehicleColor}
+                          onChange={(e) => setEditTempVehicleColor(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-emerald-500 text-xs text-slate-800"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Registration / Plate</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. T123 ABC"
+                          value={editTempLicensePlate}
+                          onChange={(e) => setEditTempLicensePlate(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-emerald-500 text-xs uppercase text-slate-800"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
+
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Notes</label>
                 <textarea
@@ -1153,14 +1403,15 @@ Vehicle Plate Number: ${plateNumber}
             <div className="flex gap-2 px-5 py-4 border-t border-slate-100">
               <button
                 onClick={() => setEditingDelivery(null)}
-                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer"
+                disabled={isSavingDeliveryEdit}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-700 font-bold py-2.5 rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer min-h-[44px]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveDeliveryEdit}
                 disabled={isSavingDeliveryEdit}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wide transition-all cursor-pointer min-h-[44px]"
               >
                 {isSavingDeliveryEdit ? 'Saving...' : 'Save Changes'}
               </button>

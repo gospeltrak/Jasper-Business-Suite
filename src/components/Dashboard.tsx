@@ -2367,7 +2367,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
   const handleUpdateDeliveryDetails = async (
     deliveryId: string,
-    updates: { customerName?: string; customerPhone?: string; deliveryCost?: number; notes?: string },
+    updates: {
+      customerName?: string;
+      customerPhone?: string;
+      customerAddress?: string;
+      deliveryCost?: number;
+      notes?: string;
+      riderId?: string | null;
+      riderDetails?: Delivery['riderDetails'] | null;
+    },
   ): Promise<boolean> => {
     if (blockOfflineBusinessWrite('delivery edit')) return false;
     const currentDelivery = (deliveriesMap[activeTenant.id] || []).find(delivery => delivery.id === deliveryId);
@@ -2384,8 +2392,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             ...del,
             ...(updates.customerName !== undefined ? { customerName: updates.customerName } : {}),
             ...(updates.customerPhone !== undefined ? { customerPhone: updates.customerPhone } : {}),
+            ...(updates.customerAddress !== undefined ? { customerAddress: updates.customerAddress } : {}),
             ...(updates.deliveryCost !== undefined ? { deliveryCost: updates.deliveryCost } : {}),
             ...(updates.notes !== undefined ? { notes: updates.notes } : {}),
+            ...(updates.riderId !== undefined ? { riderId: updates.riderId === null ? undefined : updates.riderId } : {}),
+            ...(updates.riderDetails !== undefined ? { riderDetails: updates.riderDetails === null ? undefined : updates.riderDetails } : {}),
           }
         : del
     );
@@ -3752,7 +3763,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               onDispatchDelivery={handleDispatchDelivery}
               onUpdateDeliveryStatus={handleUpdateDeliveryStatus}
               products={activeProducts}
-              systemSettings={systemSettings}
+              systemSettings={{
+                ...systemSettings,
+                staffs: scopeBranchRecords<NonNullable<SystemSettings['staffs']>[number]>(
+                  systemSettings.staffs || [],
+                  activeBranchSelection,
+                ),
+              }}
               sales={activeSales}
               pendingNotes={activePendingDeliveryNotes}
               onUpdatePendingNotes={handleUpdatePendingDeliveryNotes}

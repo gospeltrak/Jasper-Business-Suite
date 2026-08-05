@@ -431,6 +431,7 @@ export interface Delivery {
   saleId: string;
   customerName: string;
   customerPhone: string;
+  customerAddress?: string;
   items: SaleItem[];
   totalAmount: number;
   deliveryCost: number;
