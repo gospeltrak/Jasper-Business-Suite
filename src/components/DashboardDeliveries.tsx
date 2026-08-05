@@ -411,14 +411,6 @@ export default function DashboardDeliveries({
 
     setIsSavingDeliveryEdit(true);
 
-    if (editMarkedDelivered && editingDelivery.status !== 'Delivered') {
-      const statusOk = await onUpdateDeliveryStatus(editingDelivery.id, 'Delivered');
-      if (statusOk === false) {
-        setIsSavingDeliveryEdit(false);
-        return;
-      }
-    }
-
     const ok = await onEditDelivery(editingDelivery.id, {
       customerName: editDeliveryCustomerName.trim(),
       customerPhone: editDeliveryCustomerPhone.trim(),
@@ -427,8 +419,21 @@ export default function DashboardDeliveries({
       riderId,
       riderDetails,
     });
+    if (ok === false) {
+      setIsSavingDeliveryEdit(false);
+      return;
+    }
+
+    if (editMarkedDelivered && editingDelivery.status !== 'Delivered') {
+      const statusOk = await onUpdateDeliveryStatus(editingDelivery.id, 'Delivered');
+      if (statusOk === false) {
+        setIsSavingDeliveryEdit(false);
+        return;
+      }
+    }
+
     setIsSavingDeliveryEdit(false);
-    if (ok !== false) setEditingDelivery(null);
+    setEditingDelivery(null);
   };
 
   const handleConfirmDeleteDelivery = async () => {

@@ -20,12 +20,6 @@ function syncViewportVars() {
   document.documentElement.style.setProperty('--browser-bottom-inset', `${bottomInset}px`);
 }
 
-syncViewportVars();
-window.addEventListener('resize', syncViewportVars, { passive: true });
-window.addEventListener('orientationchange', () => window.setTimeout(syncViewportVars, 250), { passive: true });
-window.visualViewport?.addEventListener('resize', syncViewportVars, { passive: true });
-window.visualViewport?.addEventListener('scroll', syncViewportVars, { passive: true });
-
 // iOS Safari: the app shell is `position: fixed` (to stop bounce/scroll glitches),
 // sized live from `--app-height` (window.visualViewport). When a text input inside
 // that fixed shell receives focus, iOS's own "scroll input above keyboard" behavior
@@ -35,6 +29,19 @@ window.visualViewport?.addEventListener('scroll', syncViewportVars, { passive: t
 function pinLayoutViewport() {
   window.scrollTo(0, 0);
 }
+
+syncViewportVars();
+window.addEventListener('resize', syncViewportVars, { passive: true });
+window.addEventListener('orientationchange', () => window.setTimeout(syncViewportVars, 250), { passive: true });
+// The keyboard closing (e.g. blurring one field to tap a checkbox) also fires a
+// visualViewport resize as its height grows back -- re-pin here too, not just on
+// focus/blur, since that resize is exactly when the layout/visual viewport can drift.
+function handleVisualViewportGeometryChange() {
+  syncViewportVars();
+  pinLayoutViewport();
+}
+window.visualViewport?.addEventListener('resize', handleVisualViewportGeometryChange, { passive: true });
+window.visualViewport?.addEventListener('scroll', handleVisualViewportGeometryChange, { passive: true });
 function isTextEntryElement(el: EventTarget | null): boolean {
   const target = el as HTMLElement | null;
   if (!target) return false;
