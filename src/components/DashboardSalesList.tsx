@@ -809,6 +809,9 @@ export default function DashboardSalesList({
   const pendingSyncCount = filteredSales.filter(s => s.syncStatus === 'pending').length;
   const creditsCount = filteredSales.filter(s => s.paymentMethod === 'Credit').length;
   const creditsVolume = filteredSales.filter(s => s.paymentMethod === 'Credit').reduce((acc, s) => acc + s.total, 0);
+  const getAmountPaidForSale = (s: Sale) => s.amountPaid !== undefined ? s.amountPaid : (s.paymentMethod === 'Credit' ? 0 : s.total);
+  const amountCollectedVolume = filteredSales.reduce((acc, s) => acc + getAmountPaidForSale(s), 0);
+  const amountCollectedCount = filteredSales.filter(s => getAmountPaidForSale(s) > 0).length;
   const pendingCount = filteredSales.filter(s => {
     const amountPaid = s.amountPaid !== undefined ? s.amountPaid : s.total;
     const pastInstallments = (installmentRecords[s.id] || []).reduce((sum, inst) => sum + inst.amount, 0);
@@ -1302,7 +1305,7 @@ export default function DashboardSalesList({
           {[
             { label: 'Total Sales', value: `${currency}${Math.round(totalVolume).toLocaleString()}`, sub: `${filteredSales.length} sales`, icon: <TrendingUp className="w-5 h-5" />, color: '#059669', iconBg: '#dcfce7' },
             { label: 'Credit Outstanding', value: `${currency}${Math.round(creditsVolume).toLocaleString()}`, sub: `${sales.filter(s=>s.paymentMethod==='Credit').length} credit sales`, icon: <CreditCard className="w-5 h-5" />, color: '#d97706', iconBg: '#fef3c7' },
-            { label: 'Cash Collected', value: `${currency}${Math.round(sales.filter(s=>s.paymentMethod==='Cash').reduce((sum,s)=>sum+(s.total||0),0)).toLocaleString()}`, sub: `${sales.filter(s=>s.paymentMethod==='Cash').length} cash sales`, icon: <Coins className="w-5 h-5" />, color: '#7c3aed', iconBg: '#ede9fe' },
+            { label: 'Amount Collected', value: `${currency}${Math.round(amountCollectedVolume).toLocaleString()}`, sub: `${amountCollectedCount} paid sales`, icon: <Coins className="w-5 h-5" />, color: '#7c3aed', iconBg: '#ede9fe' },
             { label: 'Amount Due', value: `${pendingCount}`, sub: 'outstanding bills', icon: <AlertCircle className="w-5 h-5" />, color: '#dc2626', iconBg: '#fee2e2' },
           ].map((kpi, i) => (
             <div key={i} className="rounded-2xl p-4 flex items-center gap-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm">
