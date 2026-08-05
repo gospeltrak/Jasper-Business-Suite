@@ -1854,21 +1854,23 @@ export default function DashboardSalesList({
             </div>
 
             {/* DESKTOP — unchanged original 3-card grid */}
-            <div className="hidden xl:grid mobile-tablet-kpi-grid gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(3, minmax(0, 1fr))' }}>
-              <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                <p className="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none">Total Credit Credit-Sales</p>
-                <h4 className="text-xl font-black text-slate-800 dark:text-white mt-2">{currency}{Math.round(totalDebtIssued).toLocaleString()}</h4>
-                <p className="text-[10px] text-slate-400 mt-1">Outstanding sales invoices marked as Credit tabs.</p>
-              </div>
-              <div className="bg-emerald-505 p-5 border border-emerald-250 rounded-2xl">
-                <p className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest leading-none">Total Payment-Ins Collected</p>
-                <h4 className="text-xl font-black text-emerald-800 dark:text-emerald-300 mt-2">{currency}{Math.round(totalDebtPaidIn).toLocaleString()}</h4>
-                <p className="text-[10px] text-emerald-600 mt-1">Total credit installments & payments-in received.</p>
-              </div>
-              <div className="bg-amber-505 p-5 border border-amber-250 rounded-2xl">
-                <p className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest leading-none">Outstanding Balance Receivable</p>
-                <h4 className="text-xl font-black text-amber-700 dark:text-amber-300 mt-2">{currency}{Math.round(totalDebtOutstanding).toLocaleString()}</h4>
-                <p className="text-[10px] text-amber-652 mt-1">Remaining customer dockets debt pending settlement.</p>
+            <div className="hidden xl:block">
+              <div className="mobile-tablet-kpi-grid gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(3, minmax(0, 1fr))' }}>
+                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                  <p className="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none">Total Credit Credit-Sales</p>
+                  <h4 className="text-xl font-black text-slate-800 dark:text-white mt-2">{currency}{Math.round(totalDebtIssued).toLocaleString()}</h4>
+                  <p className="text-[10px] text-slate-400 mt-1">Outstanding sales invoices marked as Credit tabs.</p>
+                </div>
+                <div className="bg-emerald-505 p-5 border border-emerald-250 rounded-2xl">
+                  <p className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest leading-none">Total Payment-Ins Collected</p>
+                  <h4 className="text-xl font-black text-emerald-800 dark:text-emerald-300 mt-2">{currency}{Math.round(totalDebtPaidIn).toLocaleString()}</h4>
+                  <p className="text-[10px] text-emerald-600 mt-1">Total credit installments & payments-in received.</p>
+                </div>
+                <div className="bg-amber-505 p-5 border border-amber-250 rounded-2xl">
+                  <p className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest leading-none">Outstanding Balance Receivable</p>
+                  <h4 className="text-xl font-black text-amber-700 dark:text-amber-300 mt-2">{currency}{Math.round(totalDebtOutstanding).toLocaleString()}</h4>
+                  <p className="text-[10px] text-amber-652 mt-1">Remaining customer dockets debt pending settlement.</p>
+                </div>
               </div>
             </div>
 
