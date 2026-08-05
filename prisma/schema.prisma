@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["public"]
+}
+
+// Phase 1 deliberately models only the additive migration control plane.
+// Tenant business tables remain behind the existing Supabase RLS/RPC layer.
+model WorkspaceMigrationState {
+  tenantId          String    @id @db.Uuid @map("tenant_id")
+  migrationVersion  String    @map("migration_version")
+  phase             String
+  readMode          String    @map("read_mode")
+  dualWriteEnabled  Boolean   @map("dual_write_enabled")
+  backfillCursor    Json      @map("backfill_cursor")
+  sourceCounts      Json      @map("source_counts")
+  targetCounts      Json      @map("target_counts")
+  sourceTotals      Json      @map("source_totals")
+  targetTotals      Json      @map("target_totals")
+  lastSourceHash    String?   @map("last_source_hash")
+  lastVerifiedAt    DateTime? @db.Timestamptz(6) @map("last_verified_at")
+  lastError         Json      @map("last_error")
+  updatedBy         String?   @db.Uuid @map("updated_by")
+  createdAt         DateTime  @db.Timestamptz(6) @map("created_at")
+  updatedAt         DateTime  @db.Timestamptz(6) @map("updated_at")
+
+  @@map("workspace_migration_state")
+  @@schema("public")
+}

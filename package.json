@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
+    "postinstall": "prisma generate",
     "prebuild": "npm run verify:deploy",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && node scripts/verify-deploy.mjs --artifacts",
     "start": "node dist/server.cjs",
@@ -14,14 +15,20 @@
     "test:error-contract": "tsx --test scripts/safe-error-contract.test.ts scripts/auth-error-contract.test.ts",
     "test:deploy": "tsx --test scripts/deployment-contract.test.ts scripts/niche-scope-contract.test.ts scripts/platform-admin-authorization-contract.test.ts",
     "test:money-bank": "tsx --test scripts/payment-accounts-contract.test.ts",
+    "test:prisma": "tsx --test scripts/prisma-adoption-contract.test.ts",
     "verify:source": "node scripts/verify-deploy.mjs && npm run test:error-contract",
-    "verify:deploy": "npm run verify:source && npm run lint && npm run test:deploy && npm run test:money-bank",
-    "seed:demo-branches": "tsx scripts/seed-demo-branches.ts"
-    ,"test": "vitest run src"
-    ,"test:watch": "vitest"
+    "verify:deploy": "npm run verify:source && npm run lint && npm run test:deploy && npm run test:money-bank && npm run test:prisma",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "prisma:pull": "prisma db pull",
+    "seed:demo-branches": "tsx scripts/seed-demo-branches.ts",
+    "test": "vitest run src",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
+    "@prisma/adapter-pg": "7.9.1",
+    "@prisma/client": "7.9.1",
     "@supabase/supabase-js": "^2.108.1",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
@@ -33,6 +40,7 @@
     "jspdf": "^4.2.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "pg": "8.16.3",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "recharts": "^3.8.1",
@@ -42,8 +50,10 @@
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
+    "@types/pg": "8.15.5",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
+    "prisma": "7.9.1",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
