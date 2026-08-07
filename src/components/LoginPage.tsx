@@ -1,4 +1,4 @@
-import { useState, FormEvent, useEffect, useRef } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { useTranslation } from '../LanguageContext';
 import {
   Store,
@@ -29,27 +29,7 @@ import { startCloudSession } from '../utils/sessionControl';
 import { toUserFacingError } from '../utils/safeError';
 import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
 import PrivacyAndTermsModals from './PrivacyAndTermsModals';
-
-declare global {
-  interface Window {
-    google?: any;
-  }
-}
-
-function decodeJwt(token: string) {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-
-    return JSON.parse(jsonPayload);
-  } catch {
-    console.warn('[auth] Google identity response could not be decoded.');
-    return null;
-  }
-}
+import TurnstileWidget from './TurnstileWidget';
 
 const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
@@ -205,6 +185,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [ownerName, setOwnerName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [regSecurityQuestion, setRegSecurityQuestion] = useState('');
   const [regSecurityAnswer, setRegSecurityAnswer] = useState('');
@@ -309,21 +290,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     };
   }, []);
 
-  // Google SSO states
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [googleStep, setGoogleStep] = useState<'select' | 'register'>('select');
-  const [selectedGoogleEmail, setSelectedGoogleEmail] = useState('');
-  const [selectedGoogleName, setSelectedGoogleName] = useState('');
-  const [customGoogleEmailInput, setCustomGoogleEmailInput] = useState('');
-  const [showCustomGoogleInput, setShowCustomGoogleInput] = useState(false);
-
-  // Custom states during Google Signup
-  const [googleOrgName, setGoogleOrgName] = useState('');
-  const [googlePhone, setGooglePhone] = useState('');
-  const [googleBusinessType, setGoogleBusinessType] = useState<'retail' | 'pharmacy'>('retail');
-  const [googleCountry, setGoogleCountry] = useState<'Nigeria' | 'Kenya' | 'Ghana' | 'South Africa' | 'Tanzania'>('Kenya');
-  const [googleCity, setGoogleCity] = useState('Nairobi');
-
   // Translation support
   const { lang: currentLang, setLang: setCurrentLang, t: tContext } = useTranslation();
 
@@ -337,72 +303,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
     return text;
   };
-
-  // Ref tracking to avoid stale enclosure in GIS callbacks
-  const handleSelectGoogleAccountRef = useRef<(email: string, name: string) => void>(() => {});
-  useEffect(() => {
-    handleSelectGoogleAccountRef.current = handleSelectGoogleAccount;
-  }, [handleSelectGoogleAccount]);
-
-  // Dynamic Google One-Tap & standard Sign In Initialization
-  useEffect(() => {
-    const googleClientId = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
-    if (!googleClientId) return;
-
-    const initGoogleGsi = () => {
-      if (window.google?.accounts?.id) {
-        try {
-          window.google.accounts.id.initialize({
-            client_id: googleClientId,
-            callback: (response: any) => {
-              const payload = decodeJwt(response.credential);
-              if (payload && payload.email) {
-                // Trigger oauth-verified registration or direct login action
-                handleSelectGoogleAccountRef.current(
-                  payload.email,
-                  payload.name || payload.email.split('@')[0]
-                );
-              } else {
-                setError(toUserFacingError(
-                  { status: 401 },
-                  { language: currentLang, context: 'sign_in', fallbackCode: 'AUTH_ERROR' },
-                ).message);
-              }
-            },
-            auto_select: false,
-            use_fedcm_for_prompt: false,
-            cancel_on_tap_outside: true,
-          });
-
-          // Trigger One Tap UI automatically on startup if NOT loaded inside a sandboxed iframe
-          const isSelfInIframe = window.self !== window.top;
-          if (!isSelfInIframe) {
-            window.google.accounts.id.prompt((notification: any) => {
-              if (notification.isNotDisplayed()) {
-                console.info('Google One Tap UI skipped or blocked: ', notification.getNotDisplayedReason());
-              }
-            });
-          } else {
-            console.info('Google One Tap UI bypassed automatically inside sandboxed iframe context.');
-          }
-        } catch (err) {
-          console.error('Google One Tap init failed: ', err);
-        }
-      }
-    };
-
-    if (window.google?.accounts?.id) {
-      initGoogleGsi();
-    } else {
-      const interval = setInterval(() => {
-        if (window.google?.accounts?.id) {
-          initGoogleGsi();
-          clearInterval(interval);
-        }
-      }, 600);
-      return () => clearInterval(interval);
-    }
-  }, []);
 
   const getAllSystemUsers = () => {
     const customUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
@@ -1303,6 +1203,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       setError('Please select a business industry niche first!');
       return;
     }
+    if ((import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setError('Please complete the security verification before continuing.');
+      return;
+    }
 
     // Registration requires internet — block if offline
     if (!navigator.onLine) {
@@ -1348,6 +1252,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           taxRate: mappedCurrency.tax,
           businessType,
           referralCode: affiliateCode.trim() || undefined,
+          turnstileToken,
         })
       });
       const registration = await registrationResponse.json().catch(() => ({}));
@@ -1443,194 +1348,33 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
   };
 
-  const handleGoogleLoginClick = () => {
+  // Real Google sign-in via Supabase's OAuth provider. Google/Supabase verify the
+  // identity server-side; this only kicks off the redirect. What happens after the
+  // user comes back (resolving which existing account this Gmail belongs to) is not
+  // implemented yet -- App.tsx's session-restore already safely no-ops if no matching
+  // public.users row exists, so this is safe to ship even before that piece lands.
+  const handleGoogleLoginClick = async () => {
     setError(null);
     setSuccessMessage(null);
-
-    const googleClientId = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
-    const isSelfInIframe = window.self !== window.top;
-
-    if (googleClientId && window.google?.accounts?.id && !isSelfInIframe) {
-      // Trigger Google Real auth prompt immediately
-      try {
-        window.google.accounts.id.prompt((notification: any) => {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            // One Tap is blocked or dismissed, fallback gracefully to the selection dialog modal
-            setSelectedGoogleEmail('');
-            setSelectedGoogleName('');
-            setGoogleStep('select');
-            setShowGoogleModal(true);
-          }
-        });
-      } catch (err) {
-        console.warn('Could not launch One Tap, opening modal instead:', err);
-        setSelectedGoogleEmail('');
-        setSelectedGoogleName('');
-        setGoogleStep('select');
-        setShowGoogleModal(true);
-      }
-    } else {
-      setSelectedGoogleEmail('');
-      setSelectedGoogleName('');
-      setGoogleStep('select');
-      setShowGoogleModal(true);
-    }
-  };
-
-  function handleSelectGoogleAccount(emailAddress: string, displayName: string) {
     setIsLoading(true);
-
-    // Check if user exists
-    const customUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
-    const combinedUsers = [...DEMO_USERS, ...customUsers];
-    const match = combinedUsers.find(u => u.email.toLowerCase() === emailAddress.toLowerCase());
-
-    if (match) {
-      // User is already registered! Log them in!
-      setTimeout(() => {
-        setIsLoading(false);
-        setShowGoogleModal(false);
-        triggerOnLoginWithSplash({
-          id: match.id || 'u-google-' + Math.random().toString(36).substr(2, 9),
-          email: match.email,
-          name: match.name,
-          role: match.role as any,
-          tenantId: match.tenantId,
-          activeTenant: match.activeTenant,
-          profileImage: match.profileImage,
-          phone: match.phone
-        });
-      }, 800);
-    } else {
-      // User is registering with Google - transition to complete profile metadata
-      setTimeout(() => {
-        setIsLoading(false);
-        setSelectedGoogleEmail(emailAddress);
-        setSelectedGoogleName(displayName);
-        setGoogleStep('register');
-      }, 400);
-    }
-  }
-
-  const handleGoogleRegisterSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    setError('Google account registration is not available yet. Please use WhatsApp/password registration so your account works securely on every device.');
-    setIsLoading(false);
-    return;
-    if (!selectedGoogleEmail || !selectedGoogleName || !googleOrgName || !googlePhone) {
-      setError('Please complete all profile details before continuing.');
-      return;
-    }
-
-    setIsLoading(true);
-
-    const currencyMapping = {
-      'Nigeria': { symbol: '₦', code: 'NGN', tax: 0.075 },
-      'Kenya': { symbol: 'KSh', code: 'KES', tax: 0.16 },
-      'Ghana': { symbol: 'GH₵', code: 'GHS', tax: 0.15 },
-      'South Africa': { symbol: 'R', code: 'ZAR', tax: 0.15 },
-      'Tanzania': { symbol: 'TSh', code: 'TZS', tax: 0.18 }
-    } as const;
-
-    const mappedCurrency = currencyMapping[googleCountry];
-    const newTenantId = 't-dyn-google-' + Math.floor(100 + Math.random() * 900);
-
-    const newTenant: Tenant = {
-      id: newTenantId,
-      name: googleOrgName,
-      country: googleCountry,
-      city: googleCity,
-      currency: mappedCurrency.symbol,
-      currencyCode: mappedCurrency.code,
-      taxRate: mappedCurrency.tax,
-      mobileMoneyProviders: googleCountry === 'Kenya' ? ['M-Pesa', 'Airtel Money'] : ['MTN MoMo'],
-      businessType: googleBusinessType
-    };
-
-    const userStartDate = new Date();
-    const hasReferral = !!affiliateCode.trim();
-    const trialDays = hasReferral ? 20 : 10;
-    const userEndDate = new Date(userStartDate);
-    userEndDate.setDate(userEndDate.getDate() + trialDays);
-
-    const newDynamicUser = {
-      id: 'u-dyn-google-' + Math.floor(100 + Math.random() * 900),
-      email: selectedGoogleEmail,
-      password: 'oauth-google-sign-in', // secure mock SSO key
-      name: selectedGoogleName,
-      role: 'Admin' as const,
-      tenantId: newTenantId,
-      activeTenant: newTenantId,
-      phone: googlePhone,
-      trial_start_date: userStartDate.toISOString(),
-      trial_end_date: userEndDate.toISOString(),
-      is_affiliate_lead: hasReferral,
-      referral_code_used: hasReferral ? affiliateCode.trim() : ''
-    };
-
-    // Store custom tenants dynamically in onlineStorage
-    const savedCustomTenants = JSON.parse(onlineStorage.getItem('jasper_custom_tenants') || '[]');
-    onlineStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, newTenant]));
-
-    // Store custom users dynamically in onlineStorage
-    const savedCustomUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
-    onlineStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, newDynamicUser]));
-
-    // Affiliate referral promo coupon registered if code was applied (optional config)
-    if (affiliateCode.trim()) {
-      const code = affiliateCode.trim().toUpperCase();
-      const referralLedger = JSON.parse(onlineStorage.getItem('jasper_referral_ledger') || '[]');
-      referralLedger.push({
-        id: 'ref-dyn-google-' + Math.floor(1000 + Math.random() * 9000),
-        affiliateCode: code,
-        subscriberName: googleOrgName,
-        package: '20-Day Extended Free Trial (Promo Applied)',
-        payoutStatus: 'Trial Mode',
-        registeredAt: new Date().toISOString().split('T')[0],
-        commission: 0
+    try {
+      const client: any = await getSecureDataBridgeClient();
+      const { error: oauthError } = await client.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin }
       });
-      onlineStorage.setItem('jasper_referral_ledger', JSON.stringify(referralLedger));
-
-      const initialSubState = {
-        planId: 'trial' as const,
-        trialStartedAt: new Date().toISOString(),
-        isSubscribedPaid: false,
-        simulatedDaysPassed: 0,
-        promoCodeUsed: code,
-        autoRenewEnabled: true,
-        paymentStatus: 'active' as const
-      };
-      onlineStorage.setItem('jasper_subscription_state', JSON.stringify(initialSubState));
-      registerAffiliateReferral(code, googleOrgName, newTenantId);
-    } else {
-      const initialSubState = {
-        planId: 'trial' as const,
-        trialStartedAt: new Date().toISOString(),
-        isSubscribedPaid: false,
-        simulatedDaysPassed: 0,
-        autoRenewEnabled: true,
-        paymentStatus: 'active' as const
-      };
-      onlineStorage.setItem('jasper_subscription_state', JSON.stringify(initialSubState));
-    }
-
-    setTimeout(() => {
+      if (oauthError) throw oauthError;
+      // On success the browser navigates away to Google immediately; isLoading is
+      // intentionally left true so the button doesn't flicker back before that happens.
+    } catch (err: any) {
+      const safeError = toUserFacingError(err, {
+        language: currentLang,
+        context: 'sign_in',
+        fallbackCode: 'AUTH_ERROR',
+      });
+      setError(safeError.message);
       setIsLoading(false);
-      setShowGoogleModal(false);
-      triggerOnLoginWithSplash({
-        id: newDynamicUser.id,
-        email: newDynamicUser.email,
-        name: newDynamicUser.name,
-        role: 'Admin',
-        tenantId: newTenantId,
-        activeTenant: newTenantId,
-        phone: googlePhone,
-        trial_start_date: newDynamicUser.trial_start_date,
-        trial_end_date: newDynamicUser.trial_end_date,
-        is_affiliate_lead: newDynamicUser.is_affiliate_lead,
-        referral_code_used: newDynamicUser.referral_code_used
-      });
-    }, 800);
+    }
   };
 
   const isInvalidCredentialsError = error?.startsWith('Invalid credentials');
@@ -2048,6 +1792,27 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 )}
               </button>
 
+              <div className="flex items-center gap-3 py-1">
+                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('googleOrSig')}</span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleGoogleLoginClick}
+                disabled={isLoading}
+                className="w-full py-3 border border-slate-200 hover:border-slate-300 disabled:opacity-55 rounded-2xl text-xs font-bold text-slate-700 transition-all cursor-pointer flex items-center justify-center gap-2.5"
+              >
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3h3.88c2.27-2.09 3.57-5.17 3.57-8.81z"/>
+                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3c-1.08.72-2.45 1.15-4.05 1.15-3.12 0-5.76-2.1-6.7-4.93H1.29v3.1C3.26 21.3 7.31 24 12 24z"/>
+                  <path fill="#FBBC05" d="M5.3 14.31A7.2 7.2 0 0 1 4.9 12c0-.8.14-1.58.4-2.31v-3.1H1.29A11.98 11.98 0 0 0 0 12c0 1.93.46 3.76 1.29 5.41l4.01-3.1z"/>
+                  <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.58 1.79l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.59l4.01 3.1c.94-2.83 3.58-4.92 6.7-4.92z"/>
+                </svg>
+                <span>{t('continueGoogle')}</span>
+              </button>
+
             </form>
           ) : (
             /* Registration screen with picker for the 4 dynamic business sectors */
@@ -2239,6 +2004,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </label>
               </div>
 
+              <div className="flex justify-center">
+                <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+              </div>
+
               <button
                 type="submit"
                 disabled={isLoading || !acceptedTenantLegal}
@@ -2269,286 +2038,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         </div>
       </div>
       </div>
-
-      {/* GOOGLE SSO FLOW MODAL */}
-      {showGoogleModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in font-sans">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden relative">
-
-            {/* Modal Header */}
-            <div className="px-6 py-5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                  <path fill="#EA4335" d="M12.24 10.285V14.4h6.887c-.648 2.42-2.519 4.114-5.137 4.114-3.467 0-6.277-2.81-6.277-6.277s2.81-6.277 6.277-6.277c1.551 0 2.966.565 4.062 1.49l3.056-3.057C19.167 2.147 15.932 1 12.24 1 5.48 1 0 6.48 0 13.22c0 6.74 5.48 12.22 12.24 12.22 6.41 0 11.536-4.595 11.536-11.39 0-.693-.06-1.344-.173-1.956H12.24z"/>
-                </svg>
-                <span className="text-xs font-mono font-black text-slate-500 uppercase tracking-widest">Google Consent Sheet</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowGoogleModal(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors text-lg font-bold bg-transparent border-none cursor-pointer p-1"
-              >
-                ✕
-              </button>
-            </div>
-
-            {googleStep === 'select' ? (
-              /* Account Chooser Step */
-              <div className="p-6 space-y-6">
-                <div className="text-center space-y-1.5">
-                  <h3 className="text-base font-black text-slate-800 tracking-tight">Sign in with Google</h3>
-                  <p className="text-xs text-slate-500 font-medium">to continue securely to your Orvix cabin workspace</p>
-                </div>
-
-                <div className="space-y-2.5 font-sans">
-                  {/* Account choice list */}
-
-                  {/* Option A: Preferred Gmail account */}
-                  <button
-                    type="button"
-                    onClick={() => handleSelectGoogleAccount('demo@example.com', 'Jane Doe')}
-                    className="w-full p-4 hover:bg-slate-50 border border-slate-150 hover:border-emerald-300 rounded-2xl text-left flex items-center justify-between transition-all cursor-pointer group"
-                  >
-                    <div className="flex items-center space-x-3.5">
-                      <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-sm tracking-wide shadow-inner">
-                        TA
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800 group-hover:text-emerald-700 transition-colors">Jane Doe (Owner)</p>
-                        <p className="text-[10.5px] font-mono text-slate-400">gospeltrak@gmail.com</p>
-                      </div>
-                    </div>
-                    <span className="text-[8.5px] font-mono bg-emerald-50 text-emerald-800 font-black border border-emerald-150/40 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                      Connected Profile
-                    </span>
-                  </button>
-
-                  {/* Option B: SaaS Central admin */}
-                  <button
-                    type="button"
-                    onClick={() => handleSelectGoogleAccount('saas.admin@jasper.com', 'Sarah Jasper')}
-                    className="w-full p-4 hover:bg-slate-50 border border-slate-200 hover:border-emerald-300 rounded-2xl text-left flex items-center justify-between transition-all cursor-pointer group"
-                  >
-                    <div className="flex items-center space-x-3.5">
-                      <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-sm tracking-wide shadow-inner">
-                        SJ
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800 group-hover:text-amber-700 transition-colors">Sarah Jasper (SaaS SuperAdmin)</p>
-                        <p className="text-[10.5px] font-mono text-slate-400">saas.admin@jasper.com</p>
-                      </div>
-                    </div>
-                    <span className="text-[8.5px] font-mono bg-amber-50 text-amber-850 font-black border border-amber-150/40 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                      Central Admin
-                    </span>
-                  </button>
-
-                  {/* Option C: Use custom Gmail */}
-                  {!showCustomGoogleInput ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowCustomGoogleInput(true)}
-                      className="w-full p-4 hover:bg-slate-50 border border-dashed border-slate-200 hover:border-emerald-400 rounded-2xl text-center text-xs font-bold text-slate-500 hover:text-emerald-700 transition-all cursor-pointer bg-slate-50/30"
-                    >
-                      ➕ Login with a different Gmail address...
-                    </button>
-                  ) : (
-                    <div className="p-4 border border-emerald-200 bg-emerald-50/15 rounded-2xl space-y-3 animate-fade-in">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block font-mono">Enter Custom Gmail Account Address</label>
-                      <div className="flex space-x-2">
-                        <input
-                          type="email"
-                          placeholder="e.g. dynamic.merchant@gmail.com"
-                          value={customGoogleEmailInput}
-                          onChange={(e) => setCustomGoogleEmailInput(e.target.value)}
-                          className="flex-1 bg-white border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none font-sans"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!customGoogleEmailInput.toLowerCase().endsWith('@gmail.com') && !customGoogleEmailInput.includes('@')) {
-                              alert('Please register with a valid Gmail address!');
-                              return;
-                            }
-                            const nicePart = customGoogleEmailInput.split('@')[0];
-                            const capitalizedNice = nicePart.charAt(0).toUpperCase() + nicePart.slice(1);
-                            handleSelectGoogleAccount(customGoogleEmailInput.trim().toLowerCase(), capitalizedNice);
-                          }}
-                          className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-500 cursor-pointer"
-                        >
-                          Select Account
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 flex items-center space-x-2 text-[10px] text-slate-400 font-sans leading-relaxed">
-                  <span>🔒</span>
-                  <span>Google shares verified profile details.</span>
-                </div>
-              </div>
-            ) : (
-              /* Profile details registration step for Google Sign-in */
-              <form onSubmit={handleGoogleRegisterSubmit} className="p-6 space-y-4 font-sans text-left">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-black text-slate-800 tracking-tight flex items-center space-x-1.5">
-                    <span>👑 Complete Google Signup Profile</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 leading-normal">
-                    We verified your Gmail <strong className="text-emerald-700 font-mono font-bold">{selectedGoogleEmail}</strong>. Please finalize your custom tenant configuration:
-                  </p>
-                </div>
-
-                {/* Email Pre-filled and Lock display */}
-                <div className="bg-emerald-50/40 p-3 rounded-2xl border border-emerald-100/50 flex items-center justify-between">
-                  <div>
-                    <span className="text-[8px] font-mono font-black text-emerald-800 uppercase block tracking-wider">Authorized Gmail Key</span>
-                    <span className="text-xs font-bold text-slate-700 font-mono">{selectedGoogleEmail}</span>
-                  </div>
-                  <span className="flex items-center space-x-1 text-[9px] font-mono text-emerald-700 font-black bg-emerald-100/75 p-1.5 rounded-lg border border-emerald-200">
-                    <span>🛡️ Verified Auth</span>
-                  </span>
-                </div>
-
-                {/* Grid 1: Name and Salon/Company Name */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Full Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={selectedGoogleName}
-                      onChange={(e) => setSelectedGoogleName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none font-sans"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block">Company Name</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Lagos Royal Retreat"
-                      value={googleOrgName}
-                      onChange={(e) => setGoogleOrgName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none font-sans"
-                    />
-                  </div>
-                </div>
-
-                {/* Contact Phone & Region Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="space-y-1.5 md:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-505 uppercase block">Region</label>
-                    <select
-                      value={googleCountry}
-                      onChange={(e) => {
-                        const selCountry = e.target.value as any;
-                        setGoogleCountry(selCountry);
-                        setGoogleCity(selCountry === 'Nigeria' ? 'Lagos' : selCountry === 'Tanzania' ? 'Dar es Salaam' : selCountry === 'Ghana' ? 'Accra' : selCountry === 'South Africa' ? 'Johannesburg' : 'Nairobi');
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-2 py-2 text-xs text-slate-800 outline-none cursor-pointer font-sans"
-                    >
-                      <option value="Kenya">Kenya (KES)</option>
-                      <option value="Nigeria">Nigeria (NGN)</option>
-                      <option value="Tanzania">Tanzania (TZS)</option>
-                      <option value="Ghana">Ghana (GHS)</option>
-                      <option value="South Africa">South Africa (ZAR)</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1.5 md:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-550 uppercase block">City Name Office</label>
-                    <input
-                      type="text"
-                      required
-                      value={googleCity}
-                      onChange={(e) => setGoogleCity(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-2.5 py-2 text-xs text-slate-800 outline-none font-sans"
-                    />
-                  </div>
-                  <div className="space-y-1.5 md:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-550 uppercase block">Contact Phone (Required)</label>
-                    <input
-                      type="tel"
-                      required
-                      placeholder="e.g. +234 81 2345 6789"
-                      value={googlePhone}
-                      onChange={(e) => setGooglePhone(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-2.5 py-2 text-xs text-slate-800 outline-none font-sans"
-                    />
-                  </div>
-                </div>
-
-                {/* Verticals Niche selector */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Select Sector vertical Niche (Mandatory)</label>
-                  <div className="relative font-sans">
-                    <select
-                      id="google-reg-business-niche"
-                      required
-                      value={googleBusinessType}
-                      onChange={(e) => setGoogleBusinessType(e.target.value as any)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none cursor-pointer font-sans font-bold appearance-none transition-all"
-                    >
-                      <option value="retail">Retail and Wholesale POS Suite</option>
-                      <option value="pharmacy">Pharmacy & Clinical BestRx Suite</option>
-                    </select>
-                    <div className="absolute right-3.5 top-3 pointer-events-none text-slate-500 text-xs font-light">
-                      ▼
-                    </div>
-                  </div>
-                </div>
-
-                {/* Optional Referral Code inside Google Signup */}
-                <div className="bg-emerald-50/25 p-2.5 rounded-xl border border-emerald-100 flex items-center justify-between">
-                  <div className="flex items-center space-x-1.5 select-none text-[9.5px]">
-                    <span className="text-[#0e7058] font-bold">💡 Promo Code Active:</span>
-                    <span className="font-mono bg-emerald-100 text-emerald-800 px-1 py-0.2 rounded font-black uppercase text-[8px]">
-                      {affiliateCode.trim() ? affiliateCode.toUpperCase() : 'NO_CODE'}
-                    </span>
-                  </div>
-                  {!affiliateCode.trim() && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const code = prompt('Enter coupon promo code (e.g. JASPER):');
-                        if (code) setAffiliateCode(code);
-                      }}
-                      className="text-[9.5px] font-bold text-emerald-700 hover:underline bg-transparent border-none cursor-pointer"
-                    >
-                      Add Promo Coupon
-                    </button>
-                  )}
-                </div>
-
-                {/* Submissions Action Buttons in Modal */}
-                <div className="pt-2 flex space-x-3 font-sans">
-                  <button
-                    type="button"
-                    onClick={() => setGoogleStep('select')}
-                    className="px-4 py-3 border border-slate-200 text-slate-550 rounded-xl hover:bg-slate-50 text-xs font-bold cursor-pointer"
-                  >
-                    Back to Selection
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-55 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-1.5 shadow"
-                  >
-                    {isLoading ? (
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <span>Confirm & Access Cabin</span>
-                    )}
-                  </button>
-                </div>
-              </form>
-            )}
-
-          </div>
-        </div>
-      )}
 
       <PrivacyAndTermsModals
         isOpen={tenantLegalModalType !== null}

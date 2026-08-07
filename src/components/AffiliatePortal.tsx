@@ -76,6 +76,7 @@ import {
   renderTermsContent,
 } from "./TermsTranslations";
 import { downloadPdfFromElement } from "../utils/pdfShare";
+import TurnstileWidget from "./TurnstileWidget";
 
 interface Affiliate {
   id: string;
@@ -128,6 +129,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [showRosterModal, setShowRosterModal] = useState(false);
   const [nidaNumber, setNidaNumber] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [tinNumber, setTinNumber] = useState("");
   const [firstName, setFirstName] = useState("");
   const [secondName, setSecondName] = useState("");
@@ -930,6 +932,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       }
     }
 
+    if ((import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
+      alert('Please complete the security verification before continuing.');
+      return;
+    }
+
     // ── REQUIRE ONLINE FOR REGISTRATION ────────────────────────────────────
     if (!isOnline()) {
       alert("❌ Usajili unahitaji mtandao wa intaneti.\n\nRegistration requires an internet connection. Please connect and try again.\n\nData zako hazijahifadhiwa — tafadhali jaribu tena ukiwa na mtandao.");
@@ -955,6 +962,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           isPartner: portalRole === 'partner',
           nidaNumber,
           tinNumber,
+          turnstileToken,
         }),
       });
       const result = await response.json().catch(() => ({}));
@@ -1982,6 +1990,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           Terms & Conditions
                         </button>
                       </label>
+                    </div>
+
+                    <div className="flex justify-center">
+                      <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
                     </div>
 
                     <button type="submit" disabled={!acceptedTerms}

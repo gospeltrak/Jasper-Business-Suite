@@ -142,6 +142,30 @@ const isStrongPassword = (value: unknown) => {
   return password.length >= 10 && /[A-Za-z]/.test(password) && /\d/.test(password);
 };
 
+const verifyTurnstileToken = async (token: unknown, remoteIp?: string): Promise<boolean> => {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!secret) {
+    // Not configured yet -- fail open rather than lock out registration entirely.
+    console.warn('[Turnstile] TURNSTILE_SECRET_KEY is not set; skipping verification.');
+    return true;
+  }
+  if (!token || typeof token !== 'string') return false;
+  try {
+    const body = new URLSearchParams({ secret, response: token });
+    if (remoteIp) body.set('remoteip', remoteIp);
+    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+    const data = await res.json();
+    return data?.success === true;
+  } catch (err) {
+    console.error('[Turnstile] Verification request failed:', err);
+    return false;
+  }
+};
+
 const getPhoneIdentityCandidates = (value: unknown) => {
   let digits = String(value || '').replace(/\D/g, '');
   if (digits.startsWith('00')) digits = digits.slice(2);
@@ -2600,7 +2624,12 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       nidaNumber,
       tinNumber,
       payoutPhone,
+      turnstileToken,
     } = req.body || {};
+    const turnstileOk = await verifyTurnstileToken(turnstileToken, req.ip);
+    if (!turnstileOk) {
+      return res.status(400).json({ error: 'Security verification failed. Please refresh the page and try again.' });
+    }
     const normalizedPhone = String(phone || '').replace(/\D/g, '');
     const normalizedCode = String(referralCode || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     if (!name?.trim() || normalizedPhone.length < 8 || !normalizedCode) {
@@ -2726,7 +2755,11 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       return sendExpectedSafeApiError(req, res, 'SAVE_ERROR', 503, 'registration');
     }
     
-    const { email, password, name, businessName, phone, country, city, currency, currencyCode, taxRate, businessType, referralCode, businessNameSlug, subdomainSlug } = req.body;
+    const { email, password, name, businessName, phone, country, city, currency, currencyCode, taxRate, businessType, referralCode, businessNameSlug, subdomainSlug, turnstileToken } = req.body;
+    const turnstileOk = await verifyTurnstileToken(turnstileToken, req.ip);
+    if (!turnstileOk) {
+      return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'registration');
+    }
     const emailValue = normalizeEmail(email);
     const requestedBusinessType = normalizeText(businessType, 60).toLowerCase();
     const canonicalBusinessType = requestedBusinessType === 'pharmacy'
