@@ -17,6 +17,7 @@ import {
 } from './shared/safeErrors.js';
 import { createSafeServerError } from './serverSafeErrors.js';
 import { isStrictPlatformAdminProfile } from './shared/platformAdminAuth.js';
+import { getPrismaClient, isPrismaConfigured } from './src/server/prisma.js';
 import { processWorkspaceNormalizationQueue } from './src/server/workspaceNormalizationWorker.js';
 
 dotenv.config();
@@ -4065,6 +4066,18 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
   // Health check route
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  app.get('/api/health/prisma', async (req, res) => {
+    if (!isPrismaConfigured()) {
+      return res.status(503).json({ status: 'unavailable', database: 'postgres', configured: false });
+    }
+    try {
+      await getPrismaClient().$queryRaw`SELECT 1`;
+      return res.json({ status: 'ok', database: 'postgres', configured: true });
+    } catch {
+      return res.status(503).json({ status: 'unavailable', database: 'postgres', configured: true });
+    }
   });
 
   app.all('/api/internal/workspace-normalization/process', async (req, res) => {
