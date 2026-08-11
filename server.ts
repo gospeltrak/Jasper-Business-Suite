@@ -17,6 +17,7 @@ import {
 } from './shared/safeErrors.js';
 import { createSafeServerError } from './serverSafeErrors.js';
 import { isStrictPlatformAdminProfile } from './shared/platformAdminAuth.js';
+import { processWorkspaceNormalizationQueue } from './src/server/workspaceNormalizationWorker.js';
 
 dotenv.config();
 
@@ -4064,6 +4065,26 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
   // Health check route
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  app.all('/api/internal/workspace-normalization/process', async (req, res) => {
+    const cronSecret = String(process.env.CRON_SECRET || '');
+    const authorization = String(req.headers.authorization || '');
+    if (cronSecret.length < 32 || !safeSecretEquals(authorization, `Bearer ${cronSecret}`)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (!['GET', 'POST'].includes(req.method)) {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+    try {
+      const result = await processWorkspaceNormalizationQueue();
+      return res.json({ ok: result.status !== 'failed', ...result });
+    } catch (error) {
+      return sendUnexpectedSafeApiError(req, res, error, {
+        fallbackCode: 'UNKNOWN_ERROR', context: 'default',
+        operation: 'workspace_normalization_worker', status: 503,
+      });
+    }
   });
 
   app.get('/api/health/gemini', async (req, res) => {
