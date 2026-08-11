@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { getPrismaClient } from './prisma';
+import { getPrismaClient } from './prisma.js';
 
 type ClaimedWorkspace = { tenant_id: string; workspace_updated_at: Date };
 type ReconciliationResult = { is_match: boolean };
