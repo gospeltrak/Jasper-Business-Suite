@@ -16,6 +16,8 @@ test('Prisma adoption preserves Supabase tenant and financial safety boundaries'
   assert.match(pkg, /"@prisma\/adapter-pg":\s*"7\.9\.1"/);
   assert.match(config, /process\.env\.DIRECT_URL[\s\S]+process\.env\.DATABASE_URL/);
   assert.match(schema, /model WorkspaceMigrationState/);
+  assert.match(schema, /provider\s*=\s*"prisma-client-js"/);
+  assert.match(runtime, /from '@prisma\/client'/);
   assert.doesNotMatch(schema, /model (Sale|Expense|TreasuryJournal|User)\b/);
   assert.match(guide, /without `BYPASSRLS`/);
   assert.match(guide, /financial mutations in the existing atomic RPCs/);

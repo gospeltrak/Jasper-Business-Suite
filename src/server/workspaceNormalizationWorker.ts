@@ -1,4 +1,4 @@
-import { Prisma } from '../generated/prisma/client';
+import { Prisma } from '@prisma/client';
 import { getPrismaClient } from './prisma';
 
 type ClaimedWorkspace = { tenant_id: string; workspace_updated_at: Date };
