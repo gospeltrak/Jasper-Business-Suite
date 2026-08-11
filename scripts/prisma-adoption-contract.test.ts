@@ -24,6 +24,8 @@ test('Prisma adoption preserves Supabase tenant and financial safety boundaries'
   assert.match(runtime, /__orvixPrisma/);
   assert.doesNotMatch(runtime, /VITE_/);
   assert.doesNotMatch(pkg, /prisma (migrate reset|db push)/);
+  assert.match(pkg, /"lint:prisma-server"/);
+  assert.match(pkg, /"verify:deploy":\s*"[^"]*lint:prisma-server/);
   assert.match(worker, /for update of outbox skip locked/i);
   assert.match(worker, /normalize_workspace_snapshot/);
   assert.match(worker, /reconcile_workspace_normalization/);
