@@ -187,8 +187,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [regPassword, setRegPassword] = useState('');
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [showRegPassword, setShowRegPassword] = useState(false);
-  const [regSecurityQuestion, setRegSecurityQuestion] = useState('');
-  const [regSecurityAnswer, setRegSecurityAnswer] = useState('');
   const [orgName, setOrgName] = useState('');
   const [businessType, setBusinessType] = useState<string>('Retail');
   const [country, setCountry] = useState<'Nigeria' | 'Kenya' | 'Ghana' | 'South Africa' | 'Tanzania'>('Tanzania');
@@ -207,6 +205,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [onboardingBusinessName, setOnboardingBusinessName] = useState('');
   const [onboardingBusinessType, setOnboardingBusinessType] = useState('Retail');
   const [onboardingCity, setOnboardingCity] = useState('Dar es Salaam');
+  const [onboardingPhone, setOnboardingPhone] = useState('');
 
   const [loginScreenLogoUrl, setLoginScreenLogoUrl] = useState<string | null>(null);
   const tenantLogoFromContext = (resolvedTenant?.company_settings as any)?.logo_url || (resolvedTenant?.company_settings as any)?.logoUrl || null;
@@ -566,8 +565,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const handleOnboardingSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!onboardingUser) return;
-    if (!onboardingBusinessName.trim()) {
-      setError('Please enter your business name.');
+    if (!onboardingBusinessName.trim() || normalizePhoneForWhatsapp(onboardingPhone).length < 10) {
+      setError('Please enter your business name and a valid phone number.');
+      return;
+    }
+    if (!acceptedTenantLegal) {
+      setError('Please accept the Terms & Conditions and Privacy Policy before registration.');
       return;
     }
 
@@ -576,58 +579,27 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
     try {
       const client: any = await getSecureDataBridgeClient();
-
-      // Create a brand new tenant row in the public table
-      const { data: newTenant, error: tenantError } = await client
-        .from('tenants')
-        .insert({
-          name: onboardingBusinessName,
-          country: country || 'Tanzania',
-          city: onboardingCity || 'Dar es Salaam',
-          currency: 'Tanzanian Shilling',
-          currency_code: 'TZS',
-          tax_rate: 0.18,
-          mobile_money_providers: [],
-          business_type: onboardingBusinessType,
-          company_settings: { logo_url: null, theme: 'default' },
-          business_settings: { allow_negative_stock: false, default_unit: 'pcs' },
-          invoice_settings: { show_tax: true, footer_note: 'Thank you for your business' }
-        })
-        .select()
-        .single();
-
-      if (tenantError) {
-        throw tenantError;
-      }
-
-      if (!newTenant) {
-        throw new Error('Tenant provisioning failed: no database row returned.');
-      }
-
-      // Record profile user row matching this auth id linked to their new tenant
-      const { error: userError } = await client
-        .from('users')
-        .upsert({
-          id: onboardingUser.id,
-          email: onboardingUser.email,
-          name: onboardingUser.name,
-          role: 'Admin',
-          tenant_id: newTenant.id,
-          active_tenant: newTenant.id,
-          phone: onboardingUser.phone || null,
-          is_duress: false,
-          is_saas_staff: false
-        });
-
-      if (userError) {
-        throw userError;
-      }
+      const { data: sessionData } = await client.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) throw new Error('Your Google session expired. Please sign in again.');
+      const response = await fetch('/api/auth/google/provision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          businessName: onboardingBusinessName.trim(), businessType: onboardingBusinessType,
+          phone: normalizePhoneForWhatsapp(onboardingPhone), country: 'Tanzania',
+          city: onboardingCity.trim() || 'Dar es Salaam', referralCode: affiliateCode.trim() || undefined,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result?.tenant || !result?.user) throw result;
+      const newTenant = result.tenant;
 
       const updatedUser: User = {
-        ...onboardingUser,
+        ...onboardingUser, ...result.user,
         tenantId: newTenant.id,
         activeTenant: newTenant.id,
-        role: 'Admin'
+        role: 'Admin', phone: normalizePhoneForWhatsapp(onboardingPhone)
       };
 
       // Store locally so cached components load instantly
@@ -643,40 +615,47 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       triggerOnLoginWithSplash(updatedUser);
 
     } catch (err: any) {
-      console.error('[Onboarding Flow Error]:', err);
-      // Fallback local onboarding matching live flow
-      const newTenantId = 't-dyn-' + Math.floor(100 + Math.random() * 900);
-      const fallbackTenant: Tenant = {
-        id: newTenantId,
-        name: onboardingBusinessName,
-        country: country || 'Tanzania',
-        city: onboardingCity || 'Dar es Salaam',
-        currency: 'TSh',
-        currencyCode: 'TZS',
-        taxRate: 0.18,
-        mobileMoneyProviders: [],
-        businessType: 'retail'
-      };
-
-      const updatedUser: User = {
-        ...onboardingUser,
-        tenantId: newTenantId,
-        activeTenant: newTenantId,
-        role: 'Admin'
-      };
-
-      const savedCustomTenants = JSON.parse(onlineStorage.getItem('jasper_custom_tenants') || '[]');
-      onlineStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, fallbackTenant]));
-
-      const savedCustomUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
-      onlineStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, updatedUser]));
-
+      console.warn('[auth] Google onboarding did not complete.');
+      setError(toUserFacingError(err, { language: currentLang, context: 'registration', fallbackCode: 'SAVE_ERROR' }).message);
       setIsLoading(false);
-      setOnboardingUser(null);
-      setSuccessMessage(`Workspace "${onboardingBusinessName}" provisioned successfully. (Offline fallback mode)`);
-      triggerOnLoginWithSplash(updatedUser);
     }
   };
+
+  useEffect(() => {
+    if (isSaasAdminPortal || onboardingUser) return;
+    let cancelled = false;
+    const resolveGoogleSession = async () => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('oauth') !== 'google') return;
+      setIsLoading(true);
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        const { data } = await client.auth.getSession();
+        const session = data?.session;
+        if (!session?.access_token) {
+          setError('Google sign-in was not completed. Please try again.');
+          setIsLoading(false);
+          return;
+        }
+        const response = await fetch('/api/auth/google/resolve', { headers: { Authorization: `Bearer ${session.access_token}` } });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw result;
+        if (cancelled) return;
+        if (result.status === 'existing' && result.user) triggerOnLoginWithSplash(result.user);
+        else {
+          const authUser = session.user;
+          setOnboardingUser({ id: authUser.id, email: authUser.email || '', name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Owner', role: 'Admin', tenantId: '', activeTenant: '' } as User);
+          setOwnerName(authUser.user_metadata?.full_name || '');
+          setOnboardingPhone(authUser.user_metadata?.phone || '');
+          setIsLoading(false);
+        }
+      } catch (err: any) {
+        if (!cancelled) { setError(toUserFacingError(err, { language: currentLang, context: 'sign_in', fallbackCode: 'AUTH_ERROR' }).message); setIsLoading(false); }
+      }
+    };
+    resolveGoogleSession();
+    return () => { cancelled = true; };
+  }, [isSaasAdminPortal, onboardingUser]);
 
   const triggerOnLoginWithSplash = (userPayload: any) => {
     const tenantId = userPayload.activeTenant || userPayload.tenantId;
@@ -1195,7 +1174,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       setError('Please read and accept the Terms & Conditions and Privacy Policy before registration.');
       return;
     }
-    if (!ownerName || !regEmail || !regPassword || !orgName || !regSecurityQuestion || !regSecurityAnswer) {
+    if (!ownerName || !regEmail || !regPassword || !orgName) {
       setError('Please fill in all registration inputs.');
       return;
     }
@@ -1292,8 +1271,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         tenantId: newTenant.id,
         activeTenant: newTenant.id,
         phone: cleanOwnerPhone || regEmail.trim(),
-        securityQuestion: regSecurityQuestion.trim(),
-        securityAnswer: normalizeSecurityAnswer(regSecurityAnswer),
         isSaaSStaff: false,
         trial_start_date: trialStartDate.toISOString(),
         trial_end_date: trialEndDate.toISOString(),
@@ -1311,8 +1288,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       onlineStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, {
         ...registeredUser,
         password: regPassword,
-        securityQuestion: regSecurityQuestion.trim(),
-        securityAnswer: normalizeSecurityAnswer(regSecurityAnswer)
       }]));
 
       onlineStorage.setItem('jasper_subscription_state', JSON.stringify({
@@ -1361,7 +1336,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       const client: any = await getSecureDataBridgeClient();
       const { error: oauthError } = await client.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin }
+        options: { redirectTo: `${window.location.origin}/login?oauth=google` }
       });
       if (oauthError) throw oauthError;
       // On success the browser navigates away to Google immediately; isLoading is
@@ -1465,6 +1440,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               </div>
 
               <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Phone Number</label>
+                <input type="tel" required value={onboardingPhone} placeholder="e.g. 0712 345 678" onChange={(e) => setOnboardingPhone(e.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none" />
+              </div>
+
+              <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Business Name</label>
                 <input
                   type="text"
@@ -1501,6 +1481,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none"
                 />
               </div>
+
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
+                <input type="checkbox" checked={acceptedTenantLegal} onChange={(e) => setAcceptedTenantLegal(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600" />
+                <span>I agree to Orvix's <button type="button" onClick={() => setTenantLegalModalType('terms')} className="font-bold text-emerald-700 underline">Terms</button> and <button type="button" onClick={() => setTenantLegalModalType('privacy')} className="font-bold text-emerald-700 underline">Privacy Policy</button>.</span>
+              </label>
 
               <button
                 type="submit"
@@ -1874,31 +1859,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                       {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Security Question</label>
-                  <input
-                    type="text"
-                    required
-                    value={regSecurityQuestion}
-                    placeholder="e.g. What is your first shop name?"
-                    onChange={(e) => setRegSecurityQuestion(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none font-sans"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Security Answer</label>
-                  <input
-                    type="text"
-                    required
-                    value={regSecurityAnswer}
-                    placeholder="Answer you will remember"
-                    onChange={(e) => setRegSecurityAnswer(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none font-sans"
-                  />
                 </div>
               </div>
 

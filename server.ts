@@ -2747,6 +2747,94 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  const getGoogleRequestUser = async (req: any) => {
+    if (!supabaseAdmin) return null;
+    const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    if (!token) return null;
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    const authUser = error ? null : data?.user;
+    return authUser?.app_metadata?.provider === 'google' || authUser?.identities?.some((identity: any) => identity.provider === 'google')
+      ? authUser : null;
+  };
+
+  app.get('/api/auth/google/resolve', async (req, res) => {
+    const authUser = await getGoogleRequestUser(req);
+    if (!authUser?.id || !authUser.email) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'sign_in');
+    const { data: profile, error } = await supabaseAdmin!
+      .from('users')
+      .select('id,email,name,role,role_key,account_type,tenant_id,active_tenant,phone,is_active,is_saas_staff,role_permissions,profile_image_url')
+      .or(`id.eq.${authUser.id},email.eq.${authUser.email.toLowerCase()}`)
+      .limit(2);
+    if (error) return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'AUTH_ERROR', context: 'sign_in', operation: 'google_account_resolve' });
+    if ((profile || []).length > 1) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 409, 'sign_in');
+    const userProfile: any = profile?.[0];
+    if (!userProfile) return res.json({ status: 'onboarding' });
+    if (userProfile.is_active === false) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'sign_in');
+    // Same verified email can safely adopt the Google Auth UUID after Supabase
+    // automatic identity linking. Tenant and role are never derived from OAuth metadata.
+    if (userProfile.id !== authUser.id) {
+      return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 409, 'sign_in');
+    }
+    return res.json({ status: 'existing', user: {
+      id: userProfile.id, email: userProfile.email || authUser.email,
+      name: userProfile.name || authUser.user_metadata?.full_name || 'User',
+      role: userProfile.account_type === 'super_admin' ? 'SuperAdmin' : (userProfile.role || 'Admin'),
+      tenantId: userProfile.tenant_id || 'platform-control', activeTenant: userProfile.active_tenant || userProfile.tenant_id || 'platform-control',
+      phone: userProfile.phone || null, isSaaSStaff: userProfile.is_saas_staff || false,
+      saasPermissions: userProfile.role_permissions || undefined, profileImage: userProfile.profile_image_url || undefined,
+    }});
+  });
+
+  app.post('/api/auth/google/provision', async (req, res) => {
+    const authUser = await getGoogleRequestUser(req);
+    if (!authUser?.id || !authUser.email) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'registration');
+    const businessName = normalizeText(req.body?.businessName, 160);
+    const phone = normalizeText(req.body?.phone, 40);
+    const city = normalizeText(req.body?.city, 80) || 'Dar es Salaam';
+    const requestedType = normalizeText(req.body?.businessType, 60).toLowerCase();
+    const businessType = requestedType === 'pharmacy' ? 'pharmacy' : ['retail','wholesale','retail & wholesale','retail and wholesale'].includes(requestedType) ? 'retail' : null;
+    if (!businessName || !businessType || getPhoneIdentityCandidates(phone).length === 0) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'registration');
+    try {
+      const [{ data: existingProfile }, { data: phoneProfiles }] = await Promise.all([
+        supabaseAdmin!.from('users').select('id,tenant_id').or(`id.eq.${authUser.id},email.eq.${authUser.email.toLowerCase()}`).limit(1),
+        supabaseAdmin!.from('users').select('id,phone').in('phone', getPhoneIdentityCandidates(phone)).limit(5),
+      ]);
+      if (existingProfile?.length || (phoneProfiles || []).some((p: any) => phoneIdentifiersMatch(p.phone, phone))) {
+        return sendExpectedSafeApiError(req, res, 'DUPLICATE_ERROR', 409, 'registration');
+      }
+      const now = new Date(); const end = new Date(now); end.setDate(end.getDate() + (String(req.body?.referralCode || '').trim() ? 20 : 10));
+      const slug = await generateUniqueTenantSlug(businessName);
+      const { data: tenant, error: tenantError } = await supabaseAdmin!.from('tenants').insert({
+        name: businessName, business_name: businessName, business_name_slug: slug, subdomain_slug: slug,
+        primary_domain: `${slug}.${getBaseDomain()}`, domain_status: 'active', is_domain_active: true,
+        country: 'Tanzania', city, currency: 'TSh', currency_code: 'TZS', tax_rate: 0.18,
+        business_type: businessType, mobile_money_providers: [], company_settings: {}, business_settings: {}, invoice_settings: {},
+        subscription_status: 'trial', subscription_start_date: now.toISOString(), subscription_end_date: end.toISOString(),
+        package_updated_at: now.toISOString(), package_change_type: 'google_registration', package_change_note: 'Google OAuth tenant registration',
+      } as any).select(tenantDomainSelect).single();
+      if (tenantError || !tenant) throw tenantError || new Error('Tenant creation returned no row.');
+      const { error: profileError } = await supabaseAdmin!.from('users').insert({
+        id: authUser.id, tenant_id: (tenant as any).id, active_tenant: (tenant as any).id,
+        email: authUser.email.toLowerCase(), name: normalizeText(authUser.user_metadata?.full_name, 160) || authUser.email.split('@')[0],
+        phone, role: 'Admin', is_saas_staff: false,
+      } as any);
+      if (profileError) { await supabaseAdmin!.from('tenants').delete().eq('id', (tenant as any).id); throw profileError; }
+      const workspace = createInitialTenantWorkspace(tenant);
+      const { error: workspaceError } = await supabaseAdmin!.from('tenant_workspaces').upsert({ tenant_id: (tenant as any).id, payload: workspace, updated_at: now.toISOString(), updated_by: authUser.id }, { onConflict: 'tenant_id' });
+      if (workspaceError) { await supabaseAdmin!.from('users').delete().eq('id', authUser.id); await supabaseAdmin!.from('tenants').delete().eq('id', (tenant as any).id); throw workspaceError; }
+      const tenantDataRows = [
+        ['products', []], ['sales', []], ['expenses', []], ['deliveries', []],
+        ['pendingDeliveryNotes', []], ['settings', workspace.settings],
+      ].map(([data_key, payload]) => ({ tenant_id: String((tenant as any).id), data_key, payload }));
+      const { error: tenantDataError } = await adminTable('tenant_data').upsert(tenantDataRows, { onConflict: 'tenant_id,data_key' });
+      if (tenantDataError) console.warn('[google registration] legacy tenant_data seed deferred:', tenantDataError.message);
+      try { await supabaseAdmin!.rpc('provision_primary_branch_for_new_tenant', { p_tenant_id: (tenant as any).id, p_actor_user_id: authUser.id }); } catch { /* additive compatibility */ }
+      return res.json({ tenant: { id: (tenant as any).id, name: (tenant as any).name, country: 'Tanzania', city, currency: 'TSh', currencyCode: 'TZS', taxRate: 0.18, mobileMoneyProviders: [], businessType }, user: { id: authUser.id, email: authUser.email, name: normalizeText(authUser.user_metadata?.full_name, 160) || authUser.email.split('@')[0], phone } });
+    } catch (error: any) {
+      return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'SAVE_ERROR', context: 'registration', operation: 'google_tenant_provision' });
+    }
+  });
+
   // SaaS Tenant & User Registration Setup Endpoint
   app.post('/api/auth/register', async (req, res) => {
     if (req.query?.mode === 'staff-login') {
