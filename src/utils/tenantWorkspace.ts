@@ -317,7 +317,9 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 
   try {
     if (typeof client.rpc === 'function') {
-      const scopedResult = await client.rpc('get_current_branch_workspace');
+      let scopedResult = await client.rpc('get_current_branch_workspace_v2');
+      const missingV2Rpc = ['PGRST202', '42883'].includes(String(scopedResult.error?.code || ''));
+      if (missingV2Rpc) scopedResult = await client.rpc('get_current_branch_workspace');
       if (!scopedResult.error && scopedResult.data?.payload) {
         const scoped = normalizeWorkspace(scopedResult.data.payload as TenantWorkspace);
         if (!scoped) return null;
