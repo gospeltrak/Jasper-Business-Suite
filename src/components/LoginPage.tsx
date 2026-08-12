@@ -30,6 +30,7 @@ import { toUserFacingError } from '../utils/safeError';
 import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
 import PrivacyAndTermsModals from './PrivacyAndTermsModals';
 import TurnstileWidget from './TurnstileWidget';
+import { prepareSuperAdminMfa, verifySuperAdminMfa, type SuperAdminMfaPrompt } from '../utils/superAdminMfa';
 
 const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
@@ -165,6 +166,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [error, setError] = useState<string | null>(null);
   const [hasActiveLoginAttempt, setHasActiveLoginAttempt] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingAdminUser, setPendingAdminUser] = useState<User | null>(null);
+  const [adminMfaPrompt, setAdminMfaPrompt] = useState<SuperAdminMfaPrompt | null>(null);
+  const [adminMfaCode, setAdminMfaCode] = useState('');
   const [loginOtpMode, setLoginOtpMode] = useState(false);
   const [loginOtp, setLoginOtp] = useState('');
   const [loginOtpInput, setLoginOtpInput] = useState('');
@@ -622,7 +626,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   };
 
   useEffect(() => {
-    if (isSaasAdminPortal || onboardingUser) return;
+    if (onboardingUser) return;
     let cancelled = false;
     const resolveGoogleSession = async () => {
       const params = new URLSearchParams(window.location.search);
@@ -649,7 +653,16 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw result;
         if (cancelled) return;
-        if (result.status === 'existing' && result.user) triggerOnLoginWithSplash(result.user);
+        if (result.status === 'existing' && result.user) {
+          const isPlatformAdmin = result.user.role === 'SuperAdmin';
+          if (isSaasAdminPortal && !isPlatformAdmin) throw new Error('This Google account is not authorized for Super Admin.');
+          if (!isSaasAdminPortal && isPlatformAdmin) throw new Error('Use the dedicated Super Admin login at /admin.');
+          if (isSaasAdminPortal) {
+            const prompt = await prepareSuperAdminMfa();
+            if (!prompt) triggerOnLoginWithSplash(result.user);
+            else { setPendingAdminUser(result.user); setAdminMfaPrompt(prompt); setIsLoading(false); }
+          } else triggerOnLoginWithSplash(result.user);
+        }
         else {
           const authUser = session.user;
           setOnboardingUser({ id: authUser.id, email: authUser.email || '', name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Owner', role: 'Admin', tenantId: '', activeTenant: '' } as User);
@@ -664,6 +677,19 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     resolveGoogleSession();
     return () => { cancelled = true; };
   }, [isSaasAdminPortal, onboardingUser]);
+
+  const handleAdminMfaSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!adminMfaPrompt || !pendingAdminUser || !adminMfaCode.trim()) return;
+    setIsLoading(true); setError(null);
+    try {
+      await verifySuperAdminMfa(adminMfaPrompt, adminMfaCode);
+      triggerOnLoginWithSplash(pendingAdminUser);
+    } catch {
+      setError('The Authenticator code was not accepted. Please try the current 6-digit code.');
+      setIsLoading(false);
+    }
+  };
 
   const triggerOnLoginWithSplash = (userPayload: any) => {
     const tenantId = userPayload.activeTenant || userPayload.tenantId;
@@ -1356,7 +1382,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       if (!(await verifyLoginTurnstile())) { setIsLoading(false); return; }
       const client: any = await getSecureDataBridgeClient();
       const staffInvite = new URLSearchParams(window.location.search).get('staffInvite');
-      const callback = new URL(`${window.location.origin}/login?oauth=google`);
+      const callbackUrl = isSaasAdminPortal
+        ? `${window.location.origin}/admin?oauth=google`
+        : `${window.location.origin}/login?oauth=google`;
+      const callback = new URL(callbackUrl);
       if (staffInvite) callback.searchParams.set('staffInvite', staffInvite);
       const { error: oauthError } = await client.auth.signInWithOAuth({
         provider: 'google',
@@ -1525,6 +1554,16 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   <span>Launch My Isolated Dashboard</span>
                 )}
               </button>
+            </form>
+          ) : adminMfaPrompt && pendingAdminUser ? (
+            <form className="space-y-5" onSubmit={handleAdminMfaSubmit}>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
+                <Shield className="mx-auto h-8 w-8 text-amber-700" />
+                <h3 className="mt-2 text-sm font-black text-slate-900">Verify Authenticator</h3>
+                <p className="mt-1 text-xs text-slate-600">Google identity verified. Enter the current 6-digit code to open Super Admin.</p>
+              </div>
+              <input autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={adminMfaCode} onChange={event => setAdminMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-4 text-center font-mono text-2xl font-black tracking-[0.4em] outline-none focus:border-amber-500" />
+              <button type="submit" disabled={isLoading || adminMfaCode.length !== 6} className="w-full rounded-2xl bg-amber-600 py-3.5 text-xs font-black uppercase tracking-wider text-white disabled:opacity-50">{isLoading ? 'Verifying…' : 'Verify & Open Admin'}</button>
             </form>
           ) : (authTab === 'signin' || isSaasAdminPortal) ? (
             /* Sign in screen */

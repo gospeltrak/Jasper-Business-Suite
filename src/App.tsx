@@ -183,6 +183,7 @@ export default function App() {
   const getSessionTenantId = (sessionUser: User) => sessionUser.tenantId || sessionUser.activeTenant || 'default';
 
   const getAuthenticatedRoute = (sessionUser: User) => {
+    if (sessionUser.role === 'SuperAdmin' || sessionUser.isSaaSStaff) return '/dashboard';
     if (sessionUser.role === 'Partner' || sessionUser.portal_role === 'partner') return '/partner';
     if (sessionUser.role === 'Affiliate' || sessionUser.portal_role === 'affiliate') return '/affiliate';
     return '/dashboard';
@@ -403,6 +404,10 @@ export default function App() {
     }
     if (tenantDomainContext.kind === 'admin' && !isPlatformAdmin) {
       setRedirectMessage('This login is for Orvix platform administrators only. Please use your business login instead.');
+      return;
+    }
+    if (isPlatformAdmin && tenantDomainContext.kind !== 'admin' && currentPath !== '/admin') {
+      setRedirectMessage('Super Admin must sign in through the dedicated /admin portal.');
       return;
     }
     const storageTenantId = authenticatedUser.activeTenant || authenticatedUser.tenantId;
