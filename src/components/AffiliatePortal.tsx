@@ -1387,8 +1387,21 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     if ((import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) { alert('Please complete the security verification before signing in.'); return; }
     const challenge = await fetch('/api/auth/turnstile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ turnstileToken }) });
     if (!challenge.ok) { setTurnstileToken(null); alert('Security verification expired. Please complete it again.'); return; }
+    const isGoogleRegistration = authMode !== 'login' || isPartnerSetupMode;
+    if (isGoogleRegistration) {
+      if (!firstName || !secondName || !phone || !nidaNumber || (portalRole !== 'partner' && !parentSuperCode.trim())) {
+        alert('Complete the registration form, including Gmail, phone, NIDA and Partner code, before continuing with Google.');
+        return;
+      }
+      sessionStorage.setItem('orvix_google_portal_registration', JSON.stringify({
+        name: `${firstName.trim()} ${secondName.trim()}`, phone, payoutMethod: paymentMethod,
+        payoutProvider: paymentMethod, mobileMoneyNumber: payoutPhone || phone, payoutPhone: payoutPhone || phone,
+        referralCode: `${firstName.substring(0, 5).replace(/[^A-Za-z0-9]/g, '').toUpperCase()}_${secondName.substring(0, 5).replace(/[^A-Za-z0-9]/g, '').toUpperCase()}_JAR_${Math.floor(100 + Math.random() * 900)}`,
+        parentSuperCode: parentSuperCode.trim(), isPartner: portalRole === 'partner', nidaNumber, tinNumber,
+      }));
+    }
     const client: any = await getSecureDataBridgeClient();
-    const { error } = await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/${portalRole}?oauth=google` } });
+    const { error } = await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/${portalRole}?oauth=google${isGoogleRegistration ? '&register=true' : ''}` } });
     if (error) alert('Google sign-in could not start. Please try again.');
   };
 
@@ -1401,13 +1414,25 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         const { data } = await client.auth.getSession();
         const token = data?.session?.access_token;
         if (!token) return;
-        const response = await fetch('/api/auth/google/portal-resolve', { headers: { Authorization: `Bearer ${token}` } });
+        const params = new URLSearchParams(window.location.search);
+        const pendingRegistration = params.get('register') === 'true' ? sessionStorage.getItem('orvix_google_portal_registration') : null;
+        const response = pendingRegistration
+          ? await fetch('/api/affiliate/register', {
+              method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ ...JSON.parse(pendingRegistration), googleRegistration: true }),
+            })
+          : await fetch('/api/auth/google/portal-resolve', { headers: { Authorization: `Bearer ${token}` } });
         const result = await response.json().catch(() => ({}));
-        if (!response.ok || !result?.profile || cancelled) throw result;
-        const profile = result.profile;
-        const mappedAff: Affiliate = { id: profile.id, name: profile.display_name, email: data.session.user.email || '', phone: profile.phone_whatsapp || '', paymentMethod: profile.payout_method || 'm-pesa', promoCode: profile.promo_code || profile.referral_code, isSuper: result.portalRole === 'partner', nidaNumber: profile.nida_number || '', tinNumber: profile.tin_number || '', payoutPhone: profile.payout_account || '' };
+        if (!response.ok || cancelled) throw result;
+        if (pendingRegistration) sessionStorage.removeItem('orvix_google_portal_registration');
+        const resolved = pendingRegistration
+          ? await fetch('/api/auth/google/portal-resolve', { headers: { Authorization: `Bearer ${token}` } }).then(item => item.json())
+          : result;
+        if (!resolved?.profile) throw resolved;
+        const profile = resolved.profile;
+        const mappedAff: Affiliate = { id: profile.id, name: profile.display_name, email: data.session.user.email || '', phone: profile.phone_whatsapp || '', paymentMethod: profile.payout_method || 'm-pesa', promoCode: profile.promo_code || profile.referral_code, isSuper: resolved.portalRole === 'partner', nidaNumber: profile.nida_number || '', tinNumber: profile.tin_number || '', payoutPhone: profile.payout_account || '' };
         void startCloudSession(token); onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(mappedAff)); setActiveAffiliate(mappedAff);
-        if (result.portalRole === 'partner') setDatabaseAgentWorkspaceEnabled(true); else setDatabaseWorkspaceEnabled(true);
+        if (resolved.portalRole === 'partner') setDatabaseAgentWorkspaceEnabled(true); else setDatabaseWorkspaceEnabled(true);
         setAuthMode('dashboard');
       } catch { if (!cancelled) alert('This Google account is not linked to an active Partner or Affiliate account.'); }
     };

@@ -2628,8 +2628,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       tinNumber,
       payoutPhone,
       turnstileToken,
+      googleRegistration,
     } = req.body || {};
-    const turnstileOk = await verifyTurnstileToken(turnstileToken, req.ip);
+    const turnstileOk = googleRegistration ? true : await verifyTurnstileToken(turnstileToken, req.ip);
     if (!turnstileOk) {
       return res.status(400).json({ error: 'Security verification failed. Please refresh the page and try again.' });
     }
@@ -2638,11 +2639,15 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     if (!name?.trim() || normalizedPhone.length < 8 || !normalizedCode) {
       return res.status(400).json({ error: 'Name, phone, and referral code are required.' });
     }
-    if (!isStrongPassword(password)) {
+    const googleUser = googleRegistration ? await getGoogleRequestUser(req) : null;
+    if (googleRegistration && (!googleUser?.id || !googleUser.email)) {
+      return res.status(401).json({ error: 'Verified Google session is required.' });
+    }
+    if (!googleRegistration && !isStrongPassword(password)) {
       return res.status(400).json({ error: 'Password must be 10+ characters and include letters and numbers.' });
     }
 
-    const authEmail = `affiliate-${normalizedPhone}@jasper.local`;
+    const authEmail = googleUser?.email ? normalizeEmail(googleUser.email) : `affiliate-${normalizedPhone}@jasper.local`;
     try {
       const [{ data: existingAffiliateCode }, { data: existingPartnerCode }] = await Promise.all([
         adminTable('affiliates').select('id').or(`referral_code.eq.${normalizedCode},promo_code.eq.${normalizedCode}`).maybeSingle(),
@@ -2670,15 +2675,22 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         parentPartner = data;
       }
 
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: authEmail,
-        password: String(password),
-        email_confirm: true,
-        user_metadata: { full_name: normalizeText(name), phone: normalizedPhone, account_type: isPartner ? 'partner' : 'affiliate' },
-      });
-      if (authError || !authData.user) throw new Error(authError?.message || 'Unable to create affiliate account.');
-
-      const userId = authData.user.id;
+      let userId = googleUser?.id || '';
+      let createdPasswordUser = false;
+      if (!userId) {
+        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+          email: authEmail,
+          password: String(password),
+          email_confirm: true,
+          user_metadata: { full_name: normalizeText(name), phone: normalizedPhone, account_type: isPartner ? 'partner' : 'affiliate' },
+        });
+        if (authError || !authData.user) throw new Error(authError?.message || 'Unable to create affiliate account.');
+        userId = authData.user.id;
+        createdPasswordUser = true;
+      } else {
+        const { data: conflictingProfile } = await adminTable('users').select('id,account_type').eq('id', userId).maybeSingle();
+        if (conflictingProfile) return res.status(409).json({ error: 'This Google account is already linked to an account.' });
+      }
       const { error: userError } = await adminTable('users').insert({
         id: userId,
         email: authEmail,
@@ -2692,7 +2704,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         is_active: true,
       });
       if (userError) {
-        await supabaseAdmin.auth.admin.deleteUser(userId);
+        if (createdPasswordUser) await supabaseAdmin.auth.admin.deleteUser(userId);
         throw userError;
       }
 
@@ -2732,7 +2744,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const { data: affiliate, error: affiliateError } = await insertQuery;
       if (affiliateError || !affiliate) {
         await adminTable('users').delete().eq('id', userId);
-        await supabaseAdmin.auth.admin.deleteUser(userId);
+        if (createdPasswordUser) await supabaseAdmin.auth.admin.deleteUser(userId);
         throw affiliateError || new Error('Affiliate profile was not created.');
       }
 
@@ -2796,7 +2808,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         .eq('tenant_id', admin.tenantId).eq('staff_workspace_id', staffId).eq('status', 'pending');
       const rawToken = randomBytes(32).toString('base64url');
       const tokenHash = createHash('sha256').update(rawToken).digest('hex');
-      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
       const { error } = await adminTable('staff_google_invitations').insert({
         token_hash: tokenHash, tenant_id: admin.tenantId, staff_workspace_id: staffId,
         email, staff_name: name, phone, role_key: role, permissions, branch_id: branchId,

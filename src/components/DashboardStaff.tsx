@@ -1316,7 +1316,7 @@ export default function DashboardStaff({
           </form>
           {invitationLink && (
             <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-              <p className="text-xs font-black text-emerald-900">Google staff invitation (expires in 48 hours)</p>
+              <p className="text-xs font-black text-emerald-900">Google staff invitation (expires in 24 hours)</p>
               <div className="mt-2 flex flex-col sm:flex-row gap-2">
                 <input readOnly value={invitationLink} className="min-h-[44px] flex-1 rounded-xl border border-emerald-200 bg-white px-3 text-xs font-semibold" />
                 <button type="button" onClick={() => void navigator.clipboard.writeText(invitationLink)} className="min-h-[44px] rounded-xl bg-emerald-700 px-4 text-xs font-black text-white">Copy link</button>

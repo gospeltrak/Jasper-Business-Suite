@@ -10,7 +10,7 @@ const migration = fs.readFileSync('supabase/migrations/20260812000200_staff_goog
 test('staff invitation stores only a hash and is time-limited and single-use', () => {
   assert.match(server, /randomBytes\(32\)/);
   assert.match(server, /createHash\('sha256'\)\.update\(rawToken\)/);
-  assert.match(server, /48 \* 60 \* 60 \* 1000/);
+  assert.match(server, /24 \* 60 \* 60 \* 1000/);
   assert.match(server, /\.eq\('status', 'pending'\).*select\('id'\)/s);
   assert.doesNotMatch(migration, /raw_token/i);
 });
