@@ -1378,6 +1378,9 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                               <p className="text-[10px] text-slate-500 mt-0.5">{aff.phone}</p>
                               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                 <span className="text-[9px] font-black text-amber-400 font-mono bg-amber-500/10 px-2 py-0.5 rounded">{aff.promoCode}</span>
+                                <span className="text-[9px] font-bold text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded">
+                                  Parent code: {partnerCode}
+                                </span>
                                 <TinBadge status={aff.tinStatus} />
                               </div>
                             </div>

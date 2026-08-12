@@ -19,4 +19,5 @@ test('sub-affiliates are loaded through authenticated partner ownership', () => 
   assert.match(server, /\.eq\('parent_super_agent_id', String\(partner\.id\)\)/);
   assert.match(desk, /\/api\/partner\/sub-affiliates/);
   assert.match(desk, /Array\.isArray\(result\.affiliates\)/);
+  assert.match(desk, /Parent code: \{partnerCode\}/);
 });
