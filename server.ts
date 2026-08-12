@@ -928,6 +928,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
   app.use(securityHeaders);
   app.use('/api/auth/register', rateLimit({ prefix: 'tenant-register', windowMs: 15 * 60 * 1000, max: 12 }));
+  app.use('/api/auth/turnstile', rateLimit({ prefix: 'auth-turnstile', windowMs: 15 * 60 * 1000, max: 30 }));
   app.use('/api/auth/staff-login', rateLimit({ prefix: 'staff-login', windowMs: 15 * 60 * 1000, max: 20 }));
   app.use('/api/super-admin/verify-password', rateLimit({ prefix: 'super-admin-reauth', windowMs: 15 * 60 * 1000, max: 8 }));
   app.use('/api/affiliate/register', rateLimit({ prefix: 'affiliate-register', windowMs: 15 * 60 * 1000, max: 12 }));
@@ -2783,6 +2784,24 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       phone: userProfile.phone || null, isSaaSStaff: userProfile.is_saas_staff || false,
       saasPermissions: userProfile.role_permissions || undefined, profileImage: userProfile.profile_image_url || undefined,
     }});
+  });
+
+  app.post('/api/auth/turnstile', async (req, res) => {
+    const verified = await verifyTurnstileToken(req.body?.turnstileToken, req.ip);
+    if (!verified) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'sign_in');
+    return res.json({ verified: true });
+  });
+
+  app.get('/api/auth/google/portal-resolve', async (req, res) => {
+    const authUser = await getGoogleRequestUser(req);
+    if (!authUser?.id || !authUser.email) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'sign_in');
+    const [{ data: partner }, { data: affiliate }] = await Promise.all([
+      adminTable('affiliate_partners').select('id,user_id,display_name,promo_code,phone_whatsapp,payout_account,payout_method,tin_number,nida_number,is_disabled').eq('user_id', authUser.id).maybeSingle(),
+      adminTable('affiliates').select('id,user_id,display_name,referral_code,promo_code,phone_whatsapp,payout_account,payout_method,tin_number,nida_number,is_disabled').eq('user_id', authUser.id).maybeSingle(),
+    ]);
+    const profile: any = partner || affiliate;
+    if (!profile || profile.is_disabled) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'sign_in');
+    return res.json({ portalRole: partner ? 'partner' : 'affiliate', profile });
   });
 
   app.post('/api/auth/google/provision', async (req, res) => {

@@ -685,11 +685,23 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     onLogin(userPayload);
   };
 
-  const handleLoginSubmit = (e: FormEvent) => {
+  const verifyLoginTurnstile = async () => {
+    if ((import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setError('Please complete the security verification before signing in.');
+      return false;
+    }
+    const response = await fetch('/api/auth/turnstile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ turnstileToken }) });
+    if (!response.ok) { setError('Security verification expired. Please complete it again.'); setTurnstileToken(null); return false; }
+    return true;
+  };
+
+  const handleLoginSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setHasActiveLoginAttempt(true);
     if (!emailChecked) {
       handleCheckEmail(e);
+    } else if (!(await verifyLoginTurnstile())) {
+      return;
     } else if (loginOtpMode) {
       triggerOtpLogin();
     } else {
@@ -1333,6 +1345,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setSuccessMessage(null);
     setIsLoading(true);
     try {
+      if (!(await verifyLoginTurnstile())) { setIsLoading(false); return; }
       const client: any = await getSecureDataBridgeClient();
       const { error: oauthError } = await client.auth.signInWithOAuth({
         provider: 'google',
@@ -1776,6 +1789,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   <span>Continue</span>
                 )}
               </button>
+
+              <div className="flex justify-center">
+                <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+              </div>
 
               <div className="flex items-center gap-3 py-1">
                 <div className="flex-1 h-px bg-slate-200" />

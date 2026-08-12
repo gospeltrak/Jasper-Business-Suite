@@ -1273,6 +1273,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       alert("Please enter your email and password");
       return;
     }
+    if ((import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
+      alert('Please complete the security verification before signing in.');
+      return;
+    }
+    const challenge = await fetch('/api/auth/turnstile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ turnstileToken }) });
+    if (!challenge.ok) { setTurnstileToken(null); alert('Security verification expired. Please complete it again.'); return; }
 
     try {
       const client: any = await getSecureDataBridgeClient();
@@ -1376,6 +1382,37 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     // this account.
     alert('❌ Akaunti hii haikupatikana.\n\nThis account could not be found. Please confirm your phone number and password, or register a new affiliate account.');
   };
+
+  const handleGooglePortalLogin = async () => {
+    if ((import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) { alert('Please complete the security verification before signing in.'); return; }
+    const challenge = await fetch('/api/auth/turnstile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ turnstileToken }) });
+    if (!challenge.ok) { setTurnstileToken(null); alert('Security verification expired. Please complete it again.'); return; }
+    const client: any = await getSecureDataBridgeClient();
+    const { error } = await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/${portalRole}?oauth=google` } });
+    if (error) alert('Google sign-in could not start. Please try again.');
+  };
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('oauth') !== 'google') return;
+    let cancelled = false;
+    const resolve = async () => {
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        const { data } = await client.auth.getSession();
+        const token = data?.session?.access_token;
+        if (!token) return;
+        const response = await fetch('/api/auth/google/portal-resolve', { headers: { Authorization: `Bearer ${token}` } });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result?.profile || cancelled) throw result;
+        const profile = result.profile;
+        const mappedAff: Affiliate = { id: profile.id, name: profile.display_name, email: data.session.user.email || '', phone: profile.phone_whatsapp || '', paymentMethod: profile.payout_method || 'm-pesa', promoCode: profile.promo_code || profile.referral_code, isSuper: result.portalRole === 'partner', nidaNumber: profile.nida_number || '', tinNumber: profile.tin_number || '', payoutPhone: profile.payout_account || '' };
+        void startCloudSession(token); onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(mappedAff)); setActiveAffiliate(mappedAff);
+        if (result.portalRole === 'partner') setDatabaseAgentWorkspaceEnabled(true); else setDatabaseWorkspaceEnabled(true);
+        setAuthMode('dashboard');
+      } catch { if (!cancelled) alert('This Google account is not linked to an active Partner or Affiliate account.'); }
+    };
+    resolve(); return () => { cancelled = true; };
+  }, []);
 
   const handleLogoutAffiliate = async () => {
     // Stop presence tracking immediately on logout
@@ -1856,10 +1893,14 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </div>
                     </div>
 
+                    <div className="flex justify-center"><TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
+
                     <button type="submit"
                       className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-2 text-slate-950 ${portalRole === 'partner' ? 'bg-amber-500 hover:bg-amber-400' : 'bg-emerald-500 hover:bg-emerald-400'}`}>
                       Sign In <ArrowRight className="w-4 h-4" />
                     </button>
+
+                    <button type="button" onClick={handleGooglePortalLogin} className="w-full py-3.5 rounded-2xl border border-slate-700 bg-white text-slate-800 font-black text-sm cursor-pointer">Continue with Google</button>
 
                     {/* Become an affiliate link — hidden on the Partner login, since that
                         portal is for the single Super Affiliate Agent signing in, not
