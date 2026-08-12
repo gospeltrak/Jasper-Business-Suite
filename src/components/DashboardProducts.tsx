@@ -50,6 +50,12 @@ import ModernSelect, { ModernSelectOption } from './ui/ModernSelect';
 import DashboardBarcodeScanner from './DashboardBarcodeScanner';
 import { loadBranchWorkspace, transferStockBetweenBranches } from '../branches/branchApi';
 import type { BranchSummary } from '../branches/branchTypes';
+import {
+  createProductCatalogueBackup,
+  getProductCatalogueBackupFileName,
+  parseProductCatalogueBackup,
+  prepareBackedUpProductsForImport,
+} from '../utils/productCatalogueBackup';
 
 const getProductImageUploadToken = async (): Promise<string> => {
   const client: any = await getSecureDataBridgeClient();
@@ -1411,6 +1417,20 @@ export default function DashboardProducts({
     document.body.removeChild(link);
   };
 
+  const downloadProductCatalogue = () => {
+    const backup = createProductCatalogueBackup(products, activeTenant);
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = getProductCatalogueBackupFileName(activeTenant.name, backup.exportedAt);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(objectUrl);
+    setCsvUploadSuccess(`Catalogue backup downloaded successfully (${products.length} products). Keep this file safe for the new account.`);
+  };
+
   const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1422,6 +1442,24 @@ export default function DashboardProducts({
     reader.onload = (evt) => {
       try {
         const text = evt.target?.result as string;
+        if (file.name.toLowerCase().endsWith('.json')) {
+          const backup = parseProductCatalogueBackup(text);
+          const importedItems = prepareBackedUpProductsForImport(backup, products);
+          if (subscriptionStatus) {
+            if (subscriptionStatus.isExpired) {
+              onTriggerUpgrade?.('expired');
+              return;
+            }
+            if (products.length + importedItems.length > subscriptionStatus.plan.maxProducts) {
+              onTriggerUpgrade?.('products');
+              return;
+            }
+          }
+          importedItems.forEach(item => onAddProduct(item));
+          setCsvUploadSuccess(`Catalogue restored successfully! Imported ${importedItems.length} products; matching barcodes were safely skipped.`);
+          if (csvInputRef.current) csvInputRef.current.value = '';
+          return;
+        }
         const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
         
         if (lines.length <= 1) {
@@ -2019,13 +2057,13 @@ export default function DashboardProducts({
                     <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div>
-                    <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Bulk Upload</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Download template</p>
+                    <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Template</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Download CSV</p>
                   </div>
                 </button>
 
                 <div className="relative">
-                  <input type="file" accept=".csv" ref={csvInputRef} onChange={handleCsvImport}
+                  <input type="file" accept=".csv,.json,application/json" ref={csvInputRef} onChange={handleCsvImport}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
                   <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
                     <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
@@ -2033,10 +2071,21 @@ export default function DashboardProducts({
                     </div>
                     <div>
                       <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Import</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Upload spreadsheet</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">CSV or backup</p>
                     </div>
                   </div>
                 </div>
+                <button
+                  onClick={downloadProductCatalogue}
+                  disabled={products.length === 0}
+                  className="col-span-2 flex items-center justify-center gap-3 p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 active:bg-emerald-100 text-left disabled:opacity-50"
+                >
+                  <Database className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                  <div>
+                    <p className="text-[12px] font-bold text-emerald-900 dark:text-emerald-100 leading-tight">Download Product Catalogue</p>
+                    <p className="text-[10px] text-emerald-700/70 dark:text-emerald-400 mt-0.5">Full restore backup · {products.length} products</p>
+                  </div>
+                </button>
               </div>
             </div>
 
@@ -2061,8 +2110,14 @@ export default function DashboardProducts({
                   <span>Bulk Template</span>
                 </button>
 
+                <button onClick={downloadProductCatalogue} disabled={products.length === 0}
+                  className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 text-xs font-bold text-emerald-800 dark:text-emerald-300 transition-colors disabled:opacity-50">
+                  <Database className="w-3.5 h-3.5" />
+                  <span>Download Catalogue</span>
+                </button>
+
                 <div className="relative h-9">
-                  <input type="file" accept=".csv" ref={csvInputRef} onChange={handleCsvImport}
+                  <input type="file" accept=".csv,.json,application/json" ref={csvInputRef} onChange={handleCsvImport}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
                   <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
                     <Upload className="w-3.5 h-3.5 text-blue-600" />
