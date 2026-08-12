@@ -16,6 +16,12 @@ test('Google OAuth returns to the resolver and new users complete business onboa
   assert.doesNotMatch(login.slice(login.indexOf('handleOnboardingSubmit'), login.indexOf('triggerOnLoginWithSplash')), /Offline fallback mode|\.from\('tenants'\)\.insert/);
 });
 
+test('tenant domain login has no portal subtitle and tenant registration button remains stable', () => {
+  assert.doesNotMatch(login, /secure business portal/i);
+  assert.doesNotMatch(login, /Spinning Up Isolated Tenant|Allocating Cloud DB Cluster/);
+  assert.match(login, /disabled=\{isLoading\}[\s\S]{0,350}<span>Join Us<\/span>/);
+});
+
 test('server trusts verified Google session but never OAuth role or tenant metadata', () => {
   assert.match(server, /supabaseAdmin\.auth\.getUser\(token\)/);
   assert.match(server, /app_metadata\?\.provider === 'google'/);

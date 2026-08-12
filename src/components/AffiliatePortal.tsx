@@ -134,6 +134,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [firstName, setFirstName] = useState("");
   const [secondName, setSecondName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [googleRegistrationVerified, setGoogleRegistrationVerified] = useState(false);
 
   // Active Logged In Affiliate Info state representation
   const [activeAffiliate, setActiveAffiliate] = useState<Affiliate | null>(
@@ -894,8 +895,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
   const handleRegisterAffiliate = async (e: any) => {
     e.preventDefault();
-    if (!firstName || !secondName || !phone || !password) {
-      alert("Please enter first name, second name, phone number, and password.");
+    if (!googleRegistrationVerified) {
+      alert('Please connect your Google account before completing registration.');
+      return;
+    }
+    if (!firstName || !secondName || !phone) {
+      alert("Please enter first name, second name, and phone number.");
       return;
     }
 
@@ -946,9 +951,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     const registeredName = `${firstName.trim()} ${secondName.trim()}`;
     const generatedReferralCode = `${firstName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_${secondName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_JAR_${Math.floor(100 + Math.random() * 900)}`;
     try {
+      const client: any = await getSecureDataBridgeClient();
+      const { data } = await client.auth.getSession();
+      const token = data?.session?.access_token;
+      if (!token) throw new Error('Your Google verification expired. Please connect Google again.');
       const response = await fetch('/api/affiliate/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           name: registeredName,
           phone,
@@ -963,6 +972,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           nidaNumber,
           tinNumber,
           turnstileToken,
+          googleRegistration: true,
         }),
       });
       const result = await response.json().catch(() => ({}));
@@ -970,19 +980,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         throw new Error(result?.error || 'Registration failed before the affiliate profile was connected.');
       }
 
-      const mappedAffiliate: Affiliate = {
-        id: result.affiliate.id,
-        name: registeredName,
-        email: result.authEmail || '',
-        phone,
-        paymentMethod,
-        promoCode: result.affiliate.promo_code || result.affiliate.referral_code || generatedReferralCode,
-        parentSuperId: result.affiliate.parent_super_agent_id,
-        isSuper: portalRole === 'partner',
-        nidaNumber: nidaNumber || '',
-        tinNumber: tinNumber || '',
-        payoutPhone: payoutPhone || phone,
-      };
+      const resolvedResponse = await fetch('/api/auth/google/portal-resolve', { headers: { Authorization: `Bearer ${token}` } });
+      const resolved = await resolvedResponse.json().catch(() => ({}));
+      if (!resolvedResponse.ok || !resolved?.profile) throw new Error(resolved?.error || 'The new profile could not be opened.');
+      const profile = resolved.profile;
+      const mappedAffiliate: Affiliate = { id: profile.id, name: profile.display_name, email: data.session.user.email || '', phone: profile.phone_whatsapp || phone, paymentMethod: profile.payout_method || paymentMethod, promoCode: profile.promo_code || profile.referral_code || generatedReferralCode, parentSuperId: profile.parent_super_agent_id, isSuper: resolved.portalRole === 'partner', nidaNumber: profile.nida_number || '', tinNumber: profile.tin_number || '', payoutPhone: profile.payout_account || payoutPhone || phone };
       const existing = JSON.parse(onlineStorage.getItem("jasper_affiliates") || "[]").filter((item: any) => item.id !== mappedAffiliate.id);
       onlineStorage.setItem("jasper_affiliates", JSON.stringify([mappedAffiliate, ...existing]));
       const immersive = JSON.parse(onlineStorage.getItem("saas_immersive_affiliates") || "[]").filter((item: any) => item.id !== mappedAffiliate.id);
@@ -993,10 +995,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         affiliateLink: `https://dukaplus.co.tz/ref/${mappedAffiliate.promoCode.toLowerCase()}`,
       }, ...immersive]));
 
-      setLoginEmail(phone);
-      setLoginPassword('');
-      setAuthMode('login');
-      alert(`Your ${portalRole === 'partner' ? 'partner' : 'affiliate'} account is ready. Sign in with your phone number and password.`);
+      void startCloudSession(token);
+      onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(mappedAffiliate));
+      setActiveAffiliate(mappedAffiliate);
+      if (resolved.portalRole === 'partner') setDatabaseAgentWorkspaceEnabled(true); else setDatabaseWorkspaceEnabled(true);
+      setGoogleRegistrationVerified(false);
+      setAuthMode('dashboard');
+      window.history.replaceState({}, document.title, resolved.portalRole === 'partner' ? '/partner' : '/affiliate');
       return;
     } catch (registrationError: any) {
       console.error('[affiliate registration] API registration failed:', registrationError);
@@ -1389,16 +1394,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     if (!challenge.ok) { setTurnstileToken(null); alert('Security verification expired. Please complete it again.'); return; }
     const isGoogleRegistration = authMode !== 'login' || isPartnerSetupMode;
     if (isGoogleRegistration) {
-      if (!firstName || !secondName || !phone || !nidaNumber || (portalRole !== 'partner' && !parentSuperCode.trim())) {
-        alert('Complete the registration form, including Gmail, phone, NIDA and Partner code, before continuing with Google.');
-        return;
-      }
-      sessionStorage.setItem('orvix_google_portal_registration', JSON.stringify({
-        name: `${firstName.trim()} ${secondName.trim()}`, phone, payoutMethod: paymentMethod,
-        payoutProvider: paymentMethod, mobileMoneyNumber: payoutPhone || phone, payoutPhone: payoutPhone || phone,
-        referralCode: `${firstName.substring(0, 5).replace(/[^A-Za-z0-9]/g, '').toUpperCase()}_${secondName.substring(0, 5).replace(/[^A-Za-z0-9]/g, '').toUpperCase()}_JAR_${Math.floor(100 + Math.random() * 900)}`,
-        parentSuperCode: parentSuperCode.trim(), isPartner: portalRole === 'partner', nidaNumber, tinNumber,
-      }));
+      sessionStorage.setItem('orvix_google_portal_registration_intent', portalRole);
     }
     const client: any = await getSecureDataBridgeClient();
     const { error } = await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/${portalRole}?oauth=google${isGoogleRegistration ? '&register=true' : ''}` } });
@@ -1415,19 +1411,22 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         const token = data?.session?.access_token;
         if (!token) return;
         const params = new URLSearchParams(window.location.search);
-        const pendingRegistration = params.get('register') === 'true' ? sessionStorage.getItem('orvix_google_portal_registration') : null;
-        const response = pendingRegistration
-          ? await fetch('/api/affiliate/register', {
-              method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ ...JSON.parse(pendingRegistration), googleRegistration: true }),
-            })
-          : await fetch('/api/auth/google/portal-resolve', { headers: { Authorization: `Bearer ${token}` } });
+        const isRegistrationReturn = params.get('register') === 'true';
+        const response = await fetch('/api/auth/google/portal-resolve', { headers: { Authorization: `Bearer ${token}` } });
         const result = await response.json().catch(() => ({}));
-        if (!response.ok || cancelled) throw result;
-        if (pendingRegistration) sessionStorage.removeItem('orvix_google_portal_registration');
-        const resolved = pendingRegistration
-          ? await fetch('/api/auth/google/portal-resolve', { headers: { Authorization: `Bearer ${token}` } }).then(item => item.json())
-          : result;
+        if (cancelled) return;
+        if (isRegistrationReturn && !response.ok) {
+          const intendedRole = sessionStorage.getItem('orvix_google_portal_registration_intent');
+          if (intendedRole === 'partner' || intendedRole === 'affiliate') setPortalRole(intendedRole);
+          sessionStorage.removeItem('orvix_google_portal_registration_intent');
+          setGoogleRegistrationVerified(true);
+          setAuthMode('register');
+          window.history.replaceState({}, document.title, intendedRole === 'partner' ? '/partner' : '/affiliate');
+          return;
+        }
+        if (!response.ok) throw result;
+        sessionStorage.removeItem('orvix_google_portal_registration_intent');
+        const resolved = result;
         if (!resolved?.profile) throw resolved;
         const profile = resolved.profile;
         const mappedAff: Affiliate = { id: profile.id, name: profile.display_name, email: data.session.user.email || '', phone: profile.phone_whatsapp || '', paymentMethod: profile.payout_method || 'm-pesa', promoCode: profile.promo_code || profile.referral_code, isSuper: resolved.portalRole === 'partner', nidaNumber: profile.nida_number || '', tinNumber: profile.tin_number || '', payoutPhone: profile.payout_account || '' };
@@ -1966,8 +1965,20 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     </button>
                   </form>
                 ) : (
-                  /* REGISTER FORM */
+                  /* GOOGLE-FIRST REGISTER FLOW */
+                  !googleRegistrationVerified ? (
+                    <div className="space-y-5">
+                      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-center">
+                        <h3 className="text-sm font-black text-white">Create your {portalRole === 'partner' ? 'Partner' : 'Affiliate'} account</h3>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-400">Connect Google first. Your registration form will open after your identity is confirmed.</p>
+                      </div>
+                      <div className="flex justify-center"><TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
+                      <button type="button" onClick={handleGooglePortalLogin} className="w-full py-3.5 rounded-2xl border border-slate-700 bg-white text-slate-800 font-black text-sm cursor-pointer">Continue with Google</button>
+                      <button type="button" onClick={() => setAuthMode('login')} className="w-full text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">â† Already have an account? Sign In</button>
+                    </div>
+                  ) : (
                   <form onSubmit={handleRegisterAffiliate} className="space-y-4">
+                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-center text-[10px] font-bold text-emerald-300">Google account verified. Complete your details below.</div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">First Name</label>
@@ -2040,10 +2051,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </div>
                     )}
 
-                    <div className="space-y-1.5">
+                    <div className="hidden space-y-1.5" aria-hidden="true">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password</label>
                       <div className="relative">
-                        <input type={showPassword ? 'text' : 'password'} required placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
+                        <input type={showPassword ? 'text' : 'password'} tabIndex={-1} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 pr-10 text-sm focus:border-emerald-500" />
                         <button type="button" onClick={() => setShowPassword(p => !p)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer">
@@ -2077,7 +2088,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         ← Already have an account? Sign In
                       </button>
                     </div>
-                  </form>
+                  </form>)
                 )}
               </div>
             </div>

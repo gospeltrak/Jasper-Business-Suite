@@ -1438,15 +1438,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
             {isSaasAdminPortal ? 'SaaS Core Authority' : tenantLoginTitle}
           </h2>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold tracking-normal leading-relaxed uppercase max-w-sm mx-auto">
-            {isSaasAdminPortal
-              ? 'Central Management Backoffice'
-              : isTenantDomainLogin
-                ? `${resolvedTenant?.primaryDomain || `${resolvedTenant?.subdomainSlug || ''}.orvix.africa`} secure business portal`
-              : currentLang === 'sw'
-                ? 'Mfumo wa Kisasa wa Usimamizi wa Biashara na Mauzo'
-                : 'Next-Generation Unified POS & Enterprise Management Suite'}
-          </p>
+          {!isTenantDomainLogin && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold tracking-normal leading-relaxed uppercase max-w-sm mx-auto">
+              {isSaasAdminPortal
+                ? 'Central Management Backoffice'
+                : currentLang === 'sw'
+                  ? 'Mfumo wa Kisasa wa Usimamizi wa Biashara na Mauzo'
+                  : 'Next-Generation Unified POS & Enterprise Management Suite'}
+            </p>
+          )}
         </div>
 
         {/* Warning or Success outputs */}
@@ -1553,14 +1553,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 disabled={isLoading}
                 className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-55 text-white font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 rounded-xl"
               >
-                {isLoading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Spinning Up Isolated Tenant...</span>
-                  </>
-                ) : (
-                  <span>Launch My Isolated Dashboard</span>
-                )}
+                <span>Join Us</span>
               </button>
             </form>
           ) : adminMfaPrompt && pendingAdminUser ? (
@@ -1892,7 +1885,32 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             </form>
           ) : (
             /* Registration screen with picker for the 4 dynamic business sectors */
-            <form className="space-y-5" onSubmit={handleRegisterSubmit}>
+            <>
+              <div className="space-y-5 animate-fade-in">
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center">
+                  <h3 className="text-sm font-black text-slate-900">Create your business account</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600">First connect your Google account. After Google confirms your identity, you will complete your business registration details.</p>
+                </div>
+                <div className="flex justify-center">
+                  <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGoogleLoginClick}
+                  disabled={isLoading}
+                  className="w-full py-3.5 border border-slate-200 hover:border-emerald-300 disabled:opacity-55 rounded-2xl text-xs font-bold text-slate-700 transition-all cursor-pointer flex items-center justify-center gap-2.5"
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3h3.88c2.27-2.09 3.57-5.17 3.57-8.81z"/>
+                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3c-1.08.72-2.45 1.15-4.05 1.15-3.12 0-5.76-2.1-6.7-4.93H1.29v3.1C3.26 21.3 7.31 24 12 24z"/>
+                    <path fill="#FBBC05" d="M5.3 14.31A7.2 7.2 0 0 1 4.9 12c0-.8.14-1.58.4-2.31v-3.1H1.29A11.98 11.98 0 0 0 0 12c0 1.93.46 3.76 1.29 5.41l4.01-3.1z"/>
+                    <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.58 1.79l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.59l4.01 3.1c.94-2.83 3.58-4.92 6.7-4.92z"/>
+                  </svg>
+                  <span>Continue with Google</span>
+                </button>
+                <p className="text-center text-[10px] leading-relaxed text-slate-500">Already registered with this Google account? You will be signed in instead of creating a duplicate account.</p>
+              </div>
+              {authTab !== 'register' && <form className="space-y-5" onSubmit={handleRegisterSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Full Name</label>
@@ -2064,17 +2082,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 disabled={isLoading || !acceptedTenantLegal}
                 className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-55 disabled:cursor-not-allowed text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2"
               >
-                {isLoading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Allocating Cloud DB Cluster...</span>
-                  </>
-                ) : (
-	                  <span>Join Us</span>
-                )}
+                <span>Join Us</span>
               </button>
 
-            </form>
+              </form>}
+            </>
           )}
 
 
