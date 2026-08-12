@@ -24,6 +24,13 @@ test('all Super Admin APIs enforce server profile authorization and writes requi
   assert.match(server, /super-admin-api'[\s\S]*max: 90/);
 });
 
+test('API mutations reject cross-site browser requests and costly tools require an active session', () => {
+  assert.match(server, /app\.use\('\/api', protectBrowserApiMutations\)/);
+  assert.match(server, /fetchSite === 'cross-site'/);
+  assert.match(server, /app\.post\('\/api\/tools\/remove-bg'[\s\S]*await requireActiveUser\(req\)/);
+  assert.match(server, /phone-lookup'[\s\S]*max: 10/);
+});
+
 test('legacy public policies are replaced with tenant, affiliate, partner, or platform ownership', () => {
   for (const policy of ['tenant_data_select','workspace_select','proofs_select','ap_select','rc_select','cl_select','mr_select','asl_select','mal_select']) {
     assert.match(migration, new RegExp(`drop policy if exists ${policy}`));

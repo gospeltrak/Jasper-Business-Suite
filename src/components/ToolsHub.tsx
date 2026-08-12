@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../LanguageContext';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { 
   ArrowLeft, 
   Sparkles, 
@@ -30,6 +31,14 @@ interface ToolsHubProps {
 export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHubProps) {
   // Localization: simple English, Swahili, and French.
   const { lang, setLang } = useTranslation();
+
+  const getApiAuthorization = async () => {
+    const client = await getSecureDataBridgeClient();
+    const { data } = client ? await client.auth.getSession() : { data: { session: null } };
+    const token = data.session?.access_token;
+    if (!token) throw new Error('Authentication required');
+    return `Bearer ${token}`;
+  };
 
   // Token quota: users have a daily quota of 2 free tokens
   const [tokens, setTokens] = useState<number>(() => {
@@ -448,10 +457,12 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
     const rawBase64 = bgImage.split(',')[1] || bgImage;
 
     try {
+      const authorization = await getApiAuthorization();
       const response = await fetch(`/api/tools/remove-bg`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: authorization,
         },
         body: JSON.stringify({
           image: rawBase64,
@@ -514,10 +525,12 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
     const rawBase64 = scaleImage.split(',')[1] || scaleImage;
 
     try {
+      const authorization = await getApiAuthorization();
       const response = await fetch(`/api/tools/remove-bg`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: authorization,
         },
         body: JSON.stringify({
           image: rawBase64,

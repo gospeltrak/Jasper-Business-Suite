@@ -1,5 +1,4 @@
 import { Suspense, useState, useEffect, useRef } from 'react';
-import LoginPage from './components/LoginPage';
 import JasperSplashScreen from './components/JasperSplashScreen';
 import { User, Tenant } from './types';
 import { useTheme } from './ThemeContext';
@@ -13,6 +12,7 @@ import { lazyWithReload } from './utils/lazyWithReload';
 // Route-level code splitting keeps the large business workspaces out of the
 // login bundle. No feature is removed; it is downloaded only when opened.
 const LandingPage = lazyWithReload('LandingPage', () => import('./components/LandingPage'));
+const LoginPage = lazyWithReload('LoginPage', () => import('./components/LoginPage'));
 const Dashboard = lazyWithReload('Dashboard', () => import('./components/Dashboard'));
 const AffiliatePortal = lazyWithReload('AffiliatePortal', () => import('./components/AffiliatePortal'));
 const ToolsHub = lazyWithReload('ToolsHub', () => import('./components/ToolsHub'));
@@ -126,17 +126,28 @@ export default function App() {
         // Vercel preview URL, where real wildcard subdomains aren't reachable.
         const portalOverride = new URLSearchParams(window.location.search).get('portal') || '';
         const resolveUrl = `/api/tenant/resolve?host=${encodeURIComponent(window.location.host)}${portalOverride ? `&portal=${encodeURIComponent(portalOverride)}` : ''}`;
-        const response = await fetch(resolveUrl, { cache: 'no-store' });
+        const cacheKey = `orvix_tenant_resolve:${resolveUrl}`;
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Date.now() - Number(parsed?.cachedAt || 0) < 60_000) {
+            setTenantDomainContext(parsed.value);
+            return;
+          }
+        }
+        const response = await fetch(resolveUrl, { cache: 'default' });
         const payload = await response.json();
         if (cancelled) return;
-        setTenantDomainContext({
+        const nextContext: TenantDomainContext = {
           kind: payload?.kind || 'app',
           host: payload?.host,
           baseDomain: payload?.baseDomain,
           subdomain: payload?.subdomain,
           tenant: payload?.tenant || null,
           message: payload?.message || payload?.warning || undefined
-        });
+        };
+        sessionStorage.setItem(cacheKey, JSON.stringify({ cachedAt: Date.now(), value: nextContext }));
+        setTenantDomainContext(nextContext);
       } catch (error) {
         if (!cancelled) {
           setTenantDomainContext({ kind: 'app', host: window.location.hostname, message: 'Domain resolver unavailable.' });

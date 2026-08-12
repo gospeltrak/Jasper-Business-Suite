@@ -1879,9 +1879,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   <h2 className="text-2xl font-black text-white tracking-tight">
                     {isPartnerSetupMode ? 'Create Partner Account' : (portalRole === 'partner' ? 'Partner Login' : (authMode === 'login' ? 'Affiliate Login' : 'Affiliate Portal'))}
                   </h2>
-                  <p className="text-xs text-slate-400">
-                    {isPartnerSetupMode ? 'Create a Partner account while capacity is available' : (portalRole === 'partner' ? 'Sign in to your Partner dashboard' : 'Sign in with your phone number and password')}
-                  </p>
+                  {(isPartnerSetupMode || authMode === 'login') && (
+                    <p className="text-xs text-slate-400">
+                      {isPartnerSetupMode ? 'Create a Partner account while capacity is available' : `Sign in to your ${portalRole === 'partner' ? 'Partner' : 'Affiliate'} dashboard`}
+                    </p>
+                  )}
                 </div>
 
                 {/* Login form */}
@@ -1974,7 +1976,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </div>
                       <div className="flex justify-center"><TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
                       <button type="button" onClick={handleGooglePortalLogin} className="w-full py-3.5 rounded-2xl border border-slate-700 bg-white text-slate-800 font-black text-sm cursor-pointer">Continue with Google</button>
-                      <button type="button" onClick={() => setAuthMode('login')} className="w-full text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">â† Already have an account? Sign In</button>
+                      <button type="button" onClick={() => setAuthMode('login')} className="w-full text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">Already have an account? Sign In</button>
                     </div>
                   ) : (
                   <form onSubmit={handleRegisterAffiliate} className="space-y-4">
@@ -2085,7 +2087,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     <div className="text-center">
                       <button type="button" onClick={() => setAuthMode('login')}
                         className="text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">
-                        ← Already have an account? Sign In
+                        Already have an account? Sign In
                       </button>
                     </div>
                   </form>)
@@ -5588,7 +5590,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         {/* End with Contact Support footer */}
         <div className="border-t border-slate-900 pt-8 pb-4 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-550 text-slate-500 font-mono gap-4">
           <span>
-            © 2026 Orvix • Verified Affiliate Shared Growth Ledger
+            Verified Affiliate Records
           </span>
           <button
             onClick={() => onNavigate("/")}

@@ -21,3 +21,10 @@ test('portal verifies Google before showing and submitting registration details'
   assert.match(portal, /\/api\/auth\/google\/portal-resolve/);
   assert.doesNotMatch(portal, /Complete the registration form,[^\n]+before continuing with Google/);
 });
+
+test('registration copy does not instruct Google users to use phone passwords', () => {
+  assert.doesNotMatch(portal, /Sign in with your phone number and password/);
+  assert.match(portal, /<span>\s*Verified Affiliate Records\s*<\/span>/);
+  assert.doesNotMatch(portal, /Verified Affiliate Shared Growth Ledger/);
+  assert.doesNotMatch(portal, /[â←].*Already have an account\? Sign In/);
+});

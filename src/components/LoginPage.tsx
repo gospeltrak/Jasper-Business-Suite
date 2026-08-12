@@ -241,7 +241,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     } else {
       // Fetch tenant logo by domain on load
       const domain = window.location.hostname;
-      fetch(`/api/tenant/logo-by-domain?domain=${encodeURIComponent(domain)}`)
+      fetch(`/api/tenant/logo-by-domain?domain=${encodeURIComponent(domain)}`, { cache: 'default' })
         .then(res => {
           const contentType = res.headers.get('content-type') || '';
           if (!res.ok || !contentType.includes('application/json')) return null;
@@ -1574,7 +1574,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
                     <Shield className="mx-auto h-8 w-8 text-amber-700" />
                     <h3 className="mt-2 text-sm font-black text-slate-900">Google + Authenticator required</h3>
-                    <p className="mt-1 text-xs text-slate-600">Phone and password login is disabled for Super Admin. Three rejected Authenticator codes revoke the session.</p>
                   </div>
                   <div className="flex justify-center"><TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
                   <button type="button" onClick={handleGoogleLoginClick} disabled={isLoading}

@@ -46,6 +46,7 @@ async function fetchPublicPlatformRecord<T>(recordType: string, scopeId: string)
 
 async function fetchSuperAdminPlatformRecord<T>(recordType: string, scopeId: string): Promise<T | undefined> {
   if (!safeRecordToken(recordType) || !safeRecordToken(scopeId)) return undefined;
+  if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/admin')) return undefined;
   const token = await getAccessToken();
   if (!token) return undefined;
   try {
@@ -72,8 +73,10 @@ export async function loadPlatformRecord<T>(
 ): Promise<T> {
   const scope = scopeId || GLOBAL_SCOPE;
 
-  const serverRecord = await fetchPublicPlatformRecord<T>(recordType, scope)
-    ?? await fetchSuperAdminPlatformRecord<T>(recordType, scope);
+  const publicRecord = await fetchPublicPlatformRecord<T>(recordType, scope);
+  const serverRecord = publicRecord !== undefined
+    ? publicRecord
+    : await fetchSuperAdminPlatformRecord<T>(recordType, scope);
   if (serverRecord !== undefined && serverRecord !== null) {
     try {
       onlineStorage.setItem(localKey(recordType, scope), JSON.stringify(serverRecord));

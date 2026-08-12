@@ -370,6 +370,30 @@ const securityHeaders = (req: express.Request, res: express.Response, next: expr
   next();
 };
 
+const isTrustedBrowserOrigin = (originValue: unknown) => {
+  const origin = String(originValue || '').trim().toLowerCase();
+  if (!origin) return true;
+  try {
+    const url = new URL(origin);
+    const hostname = url.hostname.toLowerCase();
+    if (url.protocol === 'https:' && (hostname === getBaseDomain() || hostname.endsWith(`.${getBaseDomain()}`))) return true;
+    return process.env.NODE_ENV !== 'production' &&
+      (hostname === 'localhost' || hostname === '127.0.0.1') &&
+      (url.protocol === 'http:' || url.protocol === 'https:');
+  } catch {
+    return false;
+  }
+};
+
+const protectBrowserApiMutations = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  const fetchSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
+  if (fetchSite === 'cross-site' || !isTrustedBrowserOrigin(req.headers.origin)) {
+    return res.status(403).json({ error: 'Cross-site API request denied.' });
+  }
+  return next();
+};
+
 async function requirePlatformAdmin(req: express.Request) {
   if (!supabaseUrl || !supabaseAnonKey) throw new Error('Supabase backend client is not configured');
   const token = getBearerToken(req);
@@ -454,6 +478,33 @@ async function requireTenantUser(req: express.Request, tenantId: string) {
     throw error;
   }
 
+  return authData.user;
+}
+
+async function requireActiveUser(req: express.Request) {
+  if (!supabaseAdmin) throw new Error('Supabase backend client is not configured');
+  const token = getBearerToken(req);
+  if (!token) {
+    const error: any = new Error('Authentication required');
+    error.status = 401;
+    throw error;
+  }
+  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !authData.user) {
+    const error: any = new Error('Invalid session');
+    error.status = 401;
+    throw error;
+  }
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('users')
+    .select('id,is_active')
+    .eq('id', authData.user.id)
+    .maybeSingle();
+  if (profileError || !profile || (profile as any).is_active === false) {
+    const error: any = new Error('Active account required');
+    error.status = 403;
+    throw error;
+  }
   return authData.user;
 }
 
@@ -569,6 +620,21 @@ const resolveTenantDomain = async (rawHost: unknown) => {
     return { kind: 'tenant-inactive', host, baseDomain, subdomain, tenant: mappedTenant, message: 'This business domain is not active.' };
   }
   return { kind: 'tenant', host, baseDomain, subdomain, tenant: mappedTenant };
+};
+
+const tenantDomainCache = new Map<string, { expiresAt: number; value: any }>();
+const resolveTenantDomainCached = async (rawHost: unknown) => {
+  const key = normalizeHost(rawHost);
+  const cached = tenantDomainCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const value = await resolveTenantDomain(rawHost);
+  tenantDomainCache.set(key, { expiresAt: Date.now() + 60_000, value });
+  if (tenantDomainCache.size > 500) {
+    for (const [host, entry] of tenantDomainCache) {
+      if (entry.expiresAt <= Date.now()) tenantDomainCache.delete(host);
+    }
+  }
+  return value;
 };
 
 const createInitialTenantSettings = (tenant: any) => ({
@@ -931,6 +997,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.use('/api/auth/register', rateLimit({ prefix: 'tenant-register', windowMs: 15 * 60 * 1000, max: 12 }));
   app.use('/api/auth/turnstile', rateLimit({ prefix: 'auth-turnstile', windowMs: 15 * 60 * 1000, max: 30 }));
   app.use('/api/auth/staff-login', rateLimit({ prefix: 'staff-login', windowMs: 15 * 60 * 1000, max: 20 }));
+  app.use('/api/auth/lookup-phone', rateLimit({ prefix: 'phone-lookup', windowMs: 15 * 60 * 1000, max: 10 }));
   app.use('/api/super-admin', rateLimit({ prefix: 'super-admin-api', windowMs: 60 * 1000, max: 90 }));
   app.use('/api/affiliate/register', rateLimit({ prefix: 'affiliate-register', windowMs: 15 * 60 * 1000, max: 12 }));
   app.use('/api/forecast', rateLimit({ prefix: 'forecast', windowMs: 60 * 1000, max: 20 }));
@@ -939,6 +1006,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.use('/api/tools/remove-bg', rateLimit({ prefix: 'remove-bg', windowMs: 60 * 1000, max: 10 }));
   app.use('/api/branches', rateLimit({ prefix: 'branches', windowMs: 60 * 1000, max: 120 }));
   app.use('/api', rateLimit({ prefix: 'api', windowMs: 60 * 1000, max: 240 }));
+  app.use('/api', protectBrowserApiMutations);
 
   app.use(express.json({ limit: '8mb' }));
 
@@ -1918,13 +1986,13 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   });
 
   app.get('/api/tenant/resolve', async (req, res) => {
-    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('Cache-Control', 'private, max-age=60, stale-while-revalidate=300');
     try {
       if (!supabaseAdmin) {
         return res.json({ kind: 'app', host: normalizeHost(req.query.host || req.headers['x-forwarded-host'] || req.headers.host), baseDomain: getBaseDomain() });
       }
       const host = req.query.host || req.headers['x-forwarded-host'] || req.headers.host;
-      return res.json(await resolveTenantDomain(host));
+      return res.json(await resolveTenantDomainCached(host));
     } catch (error: any) {
       console.warn('[Tenant Domain Resolve] Falling back to app mode:', error?.message || error);
       return res.status(200).json({
@@ -3292,6 +3360,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
   // API Route: Fetch tenant logo by specific tenantId dynamically on app load
   app.get('/api/tenant/logo-by-id', async (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300, stale-while-revalidate=3600');
     const tenantId = req.query.tenantId as string;
     try {
       if (!supabaseAdmin || !tenantId || !isUuid(tenantId)) {
@@ -3321,13 +3390,14 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
   // API Route: Fetch tenant logo by domain or subdomain dynamically on login screen load
   app.get('/api/tenant/logo-by-domain', async (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300, stale-while-revalidate=3600');
     const domain = normalizeHost(req.query.domain);
     try {
       if (!supabaseAdmin) {
         return res.json({ logoUrl: null });
       }
 
-      const resolved = await resolveTenantDomain(domain || req.headers.host);
+      const resolved = await resolveTenantDomainCached(domain || req.headers.host);
       const resolvedTenant = (resolved as any)?.tenant;
       const resolvedCompanySettings = typeof resolvedTenant?.company_settings === 'string'
         ? JSON.parse(resolvedTenant.company_settings)
@@ -3336,41 +3406,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         return res.json({ logoUrl: resolvedCompanySettings.logo_url || resolvedCompanySettings.logoUrl, tenantName: resolvedTenant?.name || null });
       }
 
-      const { data: tenants, error } = await supabaseAdmin
-        .from('tenants' as any)
-        .select('id, name, company_settings');
-
-      if (error || !tenants) {
-        return res.json({ logoUrl: null });
-      }
-
-      // Check for matching target domain or tenantId in the list
-      for (const tenant of tenants as any[]) {
-        const companySettings = typeof (tenant as any).company_settings === 'string'
-          ? JSON.parse((tenant as any).company_settings)
-          : (tenant as any).company_settings;
-        
-        if (companySettings && companySettings.logo_url) {
-          if (domain && (
-            (tenant as any).name?.toLowerCase().includes(domain.toLowerCase()) || 
-            (tenant as any).id?.toLowerCase().includes(domain.toLowerCase())
-          )) {
-            return res.json({ logoUrl: companySettings.logo_url, tenantName: (tenant as any).name });
-          }
-        }
-      }
-
-      // If no direct domain match, fallback to the first company settings that has a logo URL
-      for (const tenant of tenants as any[]) {
-        const companySettings = typeof (tenant as any).company_settings === 'string'
-          ? JSON.parse((tenant as any).company_settings)
-          : (tenant as any).company_settings;
-        
-        if (companySettings && companySettings.logo_url) {
-          return res.json({ logoUrl: companySettings.logo_url, tenantName: (tenant as any).name });
-        }
-      }
-
+      // Never scan or fall back to another tenant's branding. The domain
+      // resolver above is the only tenant-scoped source for this public route.
       return res.json({ logoUrl: null });
     } catch (err) {
       console.error('[Logo Fetch] Error fetching logo by domain:', err);
@@ -4238,8 +4275,12 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
   app.post('/api/tools/remove-bg', async (req, res) => {
     try {
       const { image, mimeType } = req.body;
-      if (!image) {
+      await requireActiveUser(req);
+      if (!image || typeof image !== 'string' || image.length > 3_000_000) {
         return res.status(400).json({ error: 'Missing image data (base64 string required)' });
+      }
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(String(mimeType || 'image/png'))) {
+        return res.status(400).json({ error: 'Unsupported image type.' });
       }
 
       // Safe check for the standard environment API key
