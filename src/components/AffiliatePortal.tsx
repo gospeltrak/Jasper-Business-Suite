@@ -921,8 +921,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         const { count } = await client
           .from('affiliate_partners')
           .select('id', { count: 'exact', head: true });
-        if ((count ?? 0) > 0) {
-          alert('❌ A Partner account already exists. This one-time setup link can only be used once and has now been disabled.');
+        if ((count ?? 0) >= 10) {
+          alert('The maximum of 10 Partner accounts has been reached.');
           setPortalRole('affiliate');
           return;
         }
@@ -1867,7 +1867,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 <div className="text-center space-y-2">
                   {isPartnerSetupMode && (
                     <div className="mb-2 px-3 py-1.5 bg-amber-500/15 border border-amber-500/30 rounded-full text-amber-400 text-[10px] font-black uppercase tracking-wider inline-block">
-                      ⚠️ One-Time Partner Setup Mode
+                      Partner Registration · Maximum 10
                     </div>
                   )}
                   <div className={`inline-flex p-3 rounded-2xl border items-center justify-center mb-1 ${portalRole === 'partner' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
@@ -1877,7 +1877,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     {isPartnerSetupMode ? 'Create Partner Account' : (portalRole === 'partner' ? 'Partner Login' : (authMode === 'login' ? 'Affiliate Login' : 'Affiliate Portal'))}
                   </h2>
                   <p className="text-xs text-slate-400">
-                    {isPartnerSetupMode ? 'This will create the one Super Affiliate Agent account' : (portalRole === 'partner' ? 'Sign in to your Super Affiliate Agent dashboard' : 'Sign in with your phone number and password')}
+                    {isPartnerSetupMode ? 'Create a Partner account while capacity is available' : (portalRole === 'partner' ? 'Sign in to your Partner dashboard' : 'Sign in with your phone number and password')}
                   </p>
                 </div>
 

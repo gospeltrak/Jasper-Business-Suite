@@ -143,6 +143,7 @@ const isStrongPassword = (value: unknown) => {
   const password = String(value || '');
   return password.length >= 10 && /[A-Za-z]/.test(password) && /\d/.test(password);
 };
+const MAX_AFFILIATE_PARTNERS = 10;
 
 const verifyTurnstileToken = async (token: unknown, remoteIp?: string): Promise<boolean> => {
   const secret = process.env.TURNSTILE_SECRET_KEY;
@@ -2660,7 +2661,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         const { count, error: countError } = await adminTable('affiliate_partners')
           .select('id', { count: 'exact', head: true });
         if (countError) throw countError;
-        if ((count || 0) > 0) return res.status(409).json({ error: 'A Partner account already exists.' });
+        if ((count || 0) >= MAX_AFFILIATE_PARTNERS) {
+          return res.status(409).json({ error: `The maximum of ${MAX_AFFILIATE_PARTNERS} Partner accounts has been reached.` });
+        }
       } else {
         const normalizedParentCode = String(parentSuperCode || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
         if (!normalizedParentCode) return res.status(400).json({ error: 'Partner code is required for affiliate registration.' });
