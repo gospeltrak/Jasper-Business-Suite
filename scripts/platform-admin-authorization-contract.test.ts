@@ -47,7 +47,7 @@ test('rejects inactive or tenant-bound super-admin profiles', () => {
   }), false);
 });
 
-test('admin write-mode uses server-side password verification and ships no shared override secret', () => {
+test('admin write-mode uses fresh MFA and ships no password override or shared secret', () => {
   const files = [
     'server.ts',
     'src/utils/superAdminData.ts',
@@ -59,9 +59,9 @@ test('admin write-mode uses server-side password verification and ships no share
   ].map((file) => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
 
   assert.doesNotMatch(files, /saas-secure-2026|saas_encrypted_master_key|['"]3698['"]/);
-  assert.match(files, /\/api\/super-admin\/verify-password/);
-  assert.match(files, /signInWithPassword/);
-  assert.match(files, /super-admin-reauth/);
+  assert.doesNotMatch(files, /\/api\/super-admin\/verify-password/);
+  assert.match(files, /prepareSuperAdminMfa\(true\)/);
+  assert.match(files, /signOut\(\{ scope: 'global' \}\)/);
   assert.match(files, /getAuthenticatorAssuranceLevel/);
   assert.match(files, /factorType:\s*['"]totp['"]/);
   assert.match(files, /MFA_REQUIRED/);

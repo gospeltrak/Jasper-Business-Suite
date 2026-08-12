@@ -157,18 +157,13 @@ const apiRequest = async (path: string, init: RequestInit = {}) => {
   return payload;
 };
 
-export async function verifySuperAdminPassword(password: string): Promise<boolean> {
-  if (!password) return false;
-  try {
-    const result = await apiRequest('/api/super-admin/verify-password', {
-      method: 'POST',
-      body: JSON.stringify({ password }),
-    });
-    return result?.verified === true;
-  } catch (error: any) {
-    if ([401, 403].includes(Number(error?.status || 0))) return false;
-    throw error;
-  }
+/** @deprecated Password re-authentication was removed. This compatibility
+ * export now confirms only that the current session already has AAL2. */
+export async function verifySuperAdminPassword(_unused: string): Promise<boolean> {
+  const client = await getSecureDataBridgeClient();
+  const { data, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error) throw error;
+  return data?.currentLevel === 'aal2';
 }
 
 async function fetchSuperAdminOverview(): Promise<SuperAdminOverview> {

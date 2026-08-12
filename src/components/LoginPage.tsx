@@ -169,6 +169,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [pendingAdminUser, setPendingAdminUser] = useState<User | null>(null);
   const [adminMfaPrompt, setAdminMfaPrompt] = useState<SuperAdminMfaPrompt | null>(null);
   const [adminMfaCode, setAdminMfaCode] = useState('');
+  const [adminMfaAttempts, setAdminMfaAttempts] = useState(0);
   const [loginOtpMode, setLoginOtpMode] = useState(false);
   const [loginOtp, setLoginOtp] = useState('');
   const [loginOtpInput, setLoginOtpInput] = useState('');
@@ -658,6 +659,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           if (isSaasAdminPortal && !isPlatformAdmin) throw new Error('This Google account is not authorized for Super Admin.');
           if (!isSaasAdminPortal && isPlatformAdmin) throw new Error('Use the dedicated Super Admin login at /admin.');
           if (isSaasAdminPortal) {
+            void fetch('/api/auth/super-admin-security-event', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ event: 'google_identity_verified' }) });
             const prompt = await prepareSuperAdminMfa();
             if (!prompt) triggerOnLoginWithSplash(result.user);
             else { setPendingAdminUser(result.user); setAdminMfaPrompt(prompt); setIsLoading(false); }
@@ -684,9 +686,24 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setIsLoading(true); setError(null);
     try {
       await verifySuperAdminMfa(adminMfaPrompt, adminMfaCode);
+      const client: any = await getSecureDataBridgeClient();
+      const { data } = await client.auth.getSession();
+      void fetch('/api/auth/super-admin-security-event', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data?.session?.access_token || ''}` }, body: JSON.stringify({ event: 'mfa_verified' }) });
+      setAdminMfaAttempts(0);
       triggerOnLoginWithSplash(pendingAdminUser);
     } catch {
-      setError('The Authenticator code was not accepted. Please try the current 6-digit code.');
+      const nextAttempts = adminMfaAttempts + 1;
+      setAdminMfaAttempts(nextAttempts);
+      setAdminMfaCode('');
+      const client: any = await getSecureDataBridgeClient();
+      const { data } = await client.auth.getSession();
+      void fetch('/api/auth/super-admin-security-event', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data?.session?.access_token || ''}` }, body: JSON.stringify({ event: nextAttempts >= 3 ? 'session_revoked_after_three_attempts' : 'mfa_rejected' }) });
+      if (nextAttempts >= 3) {
+        await client.auth.signOut({ scope: 'global' }).catch(() => null);
+        window.location.assign('/admin');
+        return;
+      }
+      setError(`The Authenticator code was not accepted. ${3 - nextAttempts} attempt(s) remaining.`);
       setIsLoading(false);
     }
   };
@@ -731,6 +748,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   const handleLoginSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (isSaasAdminPortal) {
+      setError('Super Admin password login is disabled. Continue with Google, then verify Authenticator.');
+      return;
+    }
     setHasActiveLoginAttempt(true);
     if (!emailChecked) {
       handleCheckEmail(e);
@@ -1052,19 +1073,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     // Default Fallback
     setTimeout(() => {
       const combinedUsers = getAllSystemUsers();
-
-      if (sameLoginIdentifier(cleanIdentifier, 'saas.admin@jasper.com') && cleanPassword !== 'password123') {
-        onLogin({
-          id: 'u-saas-duress',
-          email: 'saas.admin@jasper.com',
-          name: 'Jasper Controller',
-          role: 'SuperAdmin',
-          tenantId: 't-lagos-01',
-          activeTenant: 't-lagos-01',
-          isDuress: true
-        });
-        return;
-      }
 
       const match = combinedUsers.find(
         (u: any) => (sameLoginIdentifier(u.phone, cleanIdentifier) || sameLoginIdentifier(u.email, cleanIdentifier)) && String(u.password || '').trim() === cleanPassword
@@ -1568,6 +1576,20 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           ) : (authTab === 'signin' || isSaasAdminPortal) ? (
             /* Sign in screen */
             <form className="space-y-5" onSubmit={handleLoginSubmit}>
+              {isSaasAdminPortal ? (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
+                    <Shield className="mx-auto h-8 w-8 text-amber-700" />
+                    <h3 className="mt-2 text-sm font-black text-slate-900">Google + Authenticator required</h3>
+                    <p className="mt-1 text-xs text-slate-600">Phone and password login is disabled for Super Admin. Three rejected Authenticator codes revoke the session.</p>
+                  </div>
+                  <div className="flex justify-center"><TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
+                  <button type="button" onClick={handleGoogleLoginClick} disabled={isLoading}
+                    className="w-full rounded-2xl border border-slate-200 bg-white py-3.5 text-xs font-black text-slate-800 disabled:opacity-55">
+                    Continue with Google
+                  </button>
+                </div>
+              ) : <>
               {/* Warm Personalized Welcoming Banner */}
               {!isSaasAdminPortal && (
                 <div className="bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-800/30 rounded-2xl p-4 text-center shadow-xs animate-fade-in">
@@ -1864,6 +1886,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </svg>
                 <span>{t('continueGoogle')}</span>
               </button>
+
+              </>}
 
             </form>
           ) : (

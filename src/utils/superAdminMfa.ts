@@ -15,10 +15,10 @@ export async function getSuperAdminMfaLevel() {
   return data as { currentLevel: 'aal1' | 'aal2' | null; nextLevel: 'aal1' | 'aal2' | null };
 }
 
-export async function prepareSuperAdminMfa(): Promise<SuperAdminMfaPrompt | null> {
+export async function prepareSuperAdminMfa(forceFreshChallenge = false): Promise<SuperAdminMfaPrompt | null> {
   const client: any = await getSecureDataBridgeClient();
   const level = await getSuperAdminMfaLevel();
-  if (level.currentLevel === 'aal2') return null;
+  if (level.currentLevel === 'aal2' && !forceFreshChallenge) return null;
 
   const factorsResult = await client.auth.mfa.listFactors();
   if (factorsResult.error) throw factorsResult.error;

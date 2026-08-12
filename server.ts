@@ -931,7 +931,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.use('/api/auth/register', rateLimit({ prefix: 'tenant-register', windowMs: 15 * 60 * 1000, max: 12 }));
   app.use('/api/auth/turnstile', rateLimit({ prefix: 'auth-turnstile', windowMs: 15 * 60 * 1000, max: 30 }));
   app.use('/api/auth/staff-login', rateLimit({ prefix: 'staff-login', windowMs: 15 * 60 * 1000, max: 20 }));
-  app.use('/api/super-admin/verify-password', rateLimit({ prefix: 'super-admin-reauth', windowMs: 15 * 60 * 1000, max: 8 }));
+  app.use('/api/super-admin', rateLimit({ prefix: 'super-admin-api', windowMs: 60 * 1000, max: 90 }));
   app.use('/api/affiliate/register', rateLimit({ prefix: 'affiliate-register', windowMs: 15 * 60 * 1000, max: 12 }));
   app.use('/api/forecast', rateLimit({ prefix: 'forecast', windowMs: 60 * 1000, max: 20 }));
   app.use('/api/lucy', rateLimit({ prefix: 'lucy', windowMs: 60 * 1000, max: 30 }));
@@ -943,10 +943,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.use(express.json({ limit: '8mb' }));
 
   app.use('/api/super-admin', async (req, res, next) => {
-    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || req.path === '/verify-password') return next();
+    if (req.method === 'OPTIONS') return next();
     try {
       await requirePlatformAdmin(req);
-      if (readVerifiedTokenAal(getBearerToken(req)) !== 'aal2') {
+      if (!['GET', 'HEAD'].includes(req.method) && readVerifiedTokenAal(getBearerToken(req)) !== 'aal2') {
         return res.status(403).json({ error: 'Super Admin MFA verification is required.', code: 'MFA_REQUIRED' });
       }
       return next();
@@ -2130,25 +2130,6 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
-  app.post('/api/super-admin/verify-password', async (req, res) => {
-    res.setHeader('Cache-Control', 'no-store, max-age=0');
-    try {
-      const adminUser = await requirePlatformAdmin(req);
-      const password = String(req.body?.password || '');
-      if (!password || !supabaseUrl || !supabaseAnonKey || !adminUser.email) {
-        return res.status(401).json({ verified: false });
-      }
-      const verifier = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-      });
-      const { error } = await verifier.auth.signInWithPassword({ email: adminUser.email, password });
-      if (error) return res.status(401).json({ verified: false });
-      return res.json({ verified: true });
-    } catch (error: any) {
-      return platformAdminError(res, error);
-    }
-  });
-
   app.get('/api/super-admin/tenants/:tenantId/branch-access', async (req, res) => {
     try {
       await requirePlatformAdmin(req);
@@ -2916,6 +2897,24 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     const verified = await verifyTurnstileToken(req.body?.turnstileToken, req.ip);
     if (!verified) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'sign_in');
     return res.json({ verified: true });
+  });
+
+  app.post('/api/auth/super-admin-security-event', rateLimit({ windowMs: 15 * 60 * 1000, max: 20, prefix: 'super-admin-security-event' }), async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const event = normalizeText(req.body?.event, 80);
+      if (!['google_identity_verified', 'mfa_verified', 'mfa_rejected', 'session_revoked_after_three_attempts'].includes(event)) {
+        return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'sign_in');
+      }
+      await adminTable('super_admin_audit_logs').insert({
+        actor_user_id: adminUser.id,
+        action: event,
+        metadata: { ip: readClientIp(req), user_agent: normalizeText(req.headers['user-agent'], 240) },
+      });
+      return res.json({ recorded: true });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
   });
 
   app.get('/api/auth/google/portal-resolve', async (req, res) => {
