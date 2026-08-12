@@ -1434,6 +1434,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         void startCloudSession(token); onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(mappedAff)); setActiveAffiliate(mappedAff);
         if (resolved.portalRole === 'partner') setDatabaseAgentWorkspaceEnabled(true); else setDatabaseWorkspaceEnabled(true);
         setAuthMode('dashboard');
+        window.history.replaceState({}, document.title, resolved.portalRole === 'partner' ? '/partner' : '/affiliate');
       } catch { if (!cancelled) alert('This Google account is not linked to an active Partner or Affiliate account.'); }
     };
     resolve(); return () => { cancelled = true; };

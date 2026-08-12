@@ -29,7 +29,9 @@ test('Turnstile protects password and Google login across business and portal ac
   assert.match(login, /\/api\/auth\/turnstile/);
   assert.match(affiliate, /\/api\/auth\/turnstile/);
   assert.match(affiliate, /handleGooglePortalLogin/);
+  assert.match(affiliate, /resolved\.portalRole === 'partner' \? '\/partner' : '\/affiliate'/);
   assert.match(server, /app\.post\('\/api\/auth\/turnstile'/);
   assert.match(server, /app\.get\('\/api\/auth\/google\/portal-resolve'/);
+  assert.match(server, /affiliate_partners'[\s\S]*\.eq\('user_id', authUser\.id\)/);
   assert.doesNotMatch(server.slice(server.indexOf("app.get('/api/auth/google/portal-resolve'"), server.indexOf("app.post('/api/auth/google/provision'")), /user_metadata\?\.(?:role|account_type)/);
 });
