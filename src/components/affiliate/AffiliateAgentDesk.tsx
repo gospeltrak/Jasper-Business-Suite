@@ -494,6 +494,14 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       let dbRows: any[] = [];
       let authUserId = '';
 
+      const { data: sessionData } = await client.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (accessToken) {
+        const response = await fetch('/api/partner/sub-affiliates', { headers: { Authorization: `Bearer ${accessToken}` } });
+        const result = await response.json().catch(() => ({}));
+        if (response.ok && Array.isArray(result.affiliates)) dbRows = result.affiliates;
+      }
+
       const { data: authUser } = await client.auth.getUser();
       if (authUser?.user) authUserId = authUser.user.id;
 
@@ -511,7 +519,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       const dbCandidates = Array.from(new Set([...parentCandidates, resolvedPartnerId, authUserId].filter(Boolean)));
       const dbUuidCandidates = dbCandidates.filter(isUuidLike);
 
-      if (dbUuidCandidates.length) {
+      if (dbRows.length === 0 && dbUuidCandidates.length) {
         const { data } = await client.from('affiliates')
           .select(affiliateColumns)
           .in('parent_super_agent_id', dbUuidCandidates)

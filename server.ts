@@ -2930,6 +2930,29 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     return res.json({ portalRole: partner ? 'partner' : 'affiliate', profile });
   });
 
+  app.get('/api/partner/sub-affiliates', async (req, res) => {
+    const token = getBearerToken(req);
+    if (!token || !supabaseAdmin) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'session');
+    try {
+      const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !authData.user?.id) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'session');
+      const { data: partner, error: partnerError } = await adminTable('affiliate_partners')
+        .select('id,user_id,display_name,promo_code,status,is_disabled')
+        .eq('user_id', authData.user.id).maybeSingle();
+      if (partnerError || !partner || partner.is_disabled || String(partner.status || 'active').toLowerCase() !== 'active') {
+        return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'session');
+      }
+      const { data: affiliates, error } = await adminTable('affiliates')
+        .select('id,user_id,display_name,promo_code,referral_code,phone_whatsapp,payout_account,payout_method,tin_number,tin_status,total_revenue,gross_commission,withholding_tax,net_payout,customers_count,is_disabled,status,created_at,parent_super_agent_id,parent_agent_id')
+        .eq('parent_super_agent_id', String(partner.id))
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return res.json({ partner: { id: partner.id, name: partner.display_name, promoCode: partner.promo_code }, affiliates: affiliates || [] });
+    } catch (error) {
+      return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'LOAD_ERROR', context: 'session', operation: 'partner_sub_affiliates_load' });
+    }
+  });
+
   app.post('/api/auth/google/provision', async (req, res) => {
     const authUser = await getGoogleRequestUser(req);
     if (!authUser?.id || !authUser.email) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'registration');

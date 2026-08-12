@@ -1723,6 +1723,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     });
   };
 
+  if (authMode === 'dashboard' && databaseAgentWorkspaceEnabled) {
+    return <AffiliateAgentDesk onLogout={handleLogoutAffiliate} />;
+  }
+  if (authMode === 'dashboard' && databaseWorkspaceEnabled) {
+    return <AffiliateWorkspace onLogout={handleLogoutAffiliate} />;
+  }
+
   return (
     <div
       id="affiliate-portal-view"
@@ -1772,11 +1779,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           </button>
         </header>
 
-        {authMode === "dashboard" && databaseAgentWorkspaceEnabled ? (
-          <AffiliateAgentDesk onLogout={handleLogoutAffiliate} />
-        ) : authMode === "dashboard" && databaseWorkspaceEnabled ? (
-          <AffiliateWorkspace onLogout={handleLogoutAffiliate} />
-        ) : authMode === "dashboard" && activeAffiliate ? (
+        {authMode === "dashboard" && activeAffiliate ? (
           // Fallback — workspace flags not set yet, use forcedRole/isSuper to decide
           (() => {
             if (forcedRole === 'partner' || activeAffiliate.isSuper === true) {
