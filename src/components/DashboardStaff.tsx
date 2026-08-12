@@ -32,6 +32,7 @@ import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
 import { compressImageFile } from '../utils/imageCompression';
 import { getMaskedAccountReference } from '../utils/paymentAccounts';
 import { loadBranchWorkspace } from '../branches/branchApi';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 const currency = 'TSh';
 
@@ -262,6 +263,7 @@ export default function DashboardStaff({
 
   const [roleType, setRoleType] = useState<'standard' | 'delivery'>('standard');
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [profilePic, setProfilePic] = useState('');
@@ -304,6 +306,7 @@ export default function DashboardStaff({
   });
   const [payrollPeriod, setPayrollPeriod] = useState<PayrollPeriod>(() => getPeriodFromPreset('month'));
   const [successMessage, setSuccessMessage] = useState('');
+  const [invitationLink, setInvitationLink] = useState('');
 
   useEffect(() => {
     setStaffList(systemSettings.staffs || []);
@@ -425,15 +428,38 @@ export default function DashboardStaff({
     onUpdateSettings({ ...systemSettings, staffs: updatedStaffs });
   };
 
-  const handleRegisterStaff = (e: React.FormEvent) => {
+  const createGoogleInvitation = async (staff: StaffSettings) => {
+    if (!staff.email) throw new Error('Add the staff Gmail first.');
+    const client: any = await getSecureDataBridgeClient();
+    const { data } = await client.auth.getSession();
+    const accessToken = data?.session?.access_token;
+    if (!accessToken) throw new Error('Admin session is required.');
+    const response = await fetch('/api/staff/google-invitations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        staffId: staff.id, name: staff.name, email: staff.email, phone: staff.phone,
+        role: staff.role, branchId: staff.branchId || activeBranchContext?.id,
+        permissions: customRoles.find(item => item.name.toLowerCase() === staff.role.toLowerCase())?.permissions || {},
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.invitationUrl) throw new Error(result.error || 'Invitation link could not be created.');
+    setInvitationLink(result.invitationUrl);
+    return result.invitationUrl as string;
+  };
+
+  const handleRegisterStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || !phone || !password) return;
+    if (!fullName || !phone || !email) return;
 
     const newStaff: StaffSettings = {
       id: `staff-${Date.now()}`,
       name: fullName.trim(),
+      email: email.trim().toLowerCase(),
       phone: phone.trim(),
-      password: password.trim(),
+      password: password.trim() || undefined,
+      branchId: activeBranchContext?.id,
       role: roleType === 'delivery' ? classification : selectedRole,
       salary: Number(salaryAmount) || 0,
       salaryType,
@@ -459,8 +485,14 @@ export default function DashboardStaff({
     };
 
     persistStaffList([...staffList, newStaff]);
-    setSuccessMessage(`Staff member "${fullName}" registered successfully.`);
+    try {
+      await createGoogleInvitation(newStaff);
+      setSuccessMessage(`Staff member "${fullName}" saved. Share the secure Google invitation link below.`);
+    } catch {
+      setSuccessMessage(`Staff member "${fullName}" saved, but the Google invitation was not created. Open the staff profile and try again.`);
+    }
     setFullName('');
+    setEmail('');
     setPhone('');
     setPassword('');
     setProfilePic('');
@@ -476,8 +508,7 @@ export default function DashboardStaff({
 
     setTimeout(() => {
       setSuccessMessage('');
-      setActiveTab('list');
-    }, 1800);
+    }, 5000);
   };
 
   const handleDeleteStaff = (staffId: string) => {
@@ -1159,12 +1190,16 @@ export default function DashboardStaff({
                     <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="e.g. Omary Juma" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                   </label>
                   <label className="space-y-1.5">
-                    <span className="text-xs font-black text-slate-700">Phone Number (Login ID)</span>
+                    <span className="text-xs font-black text-slate-700">Phone Number</span>
                     <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 0712345678" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                   </label>
                   <label className="space-y-1.5 md:col-span-2">
-                    <span className="text-xs font-black text-slate-700">Password / PIN</span>
-                    <input type="text" required value={password} onChange={e => setPassword(e.target.value)} placeholder="Set staff password" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
+                    <span className="text-xs font-black text-slate-700">Gmail for Google invitation</span>
+                    <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="staff@gmail.com" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
+                  </label>
+                  <label className="space-y-1.5 md:col-span-2">
+                    <span className="text-xs font-black text-slate-700">Password / PIN (optional legacy login)</span>
+                    <input type="text" value={password} onChange={e => setPassword(e.target.value)} placeholder="Optional" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                   </label>
                   <label className="space-y-1.5">
                     <span className="text-xs font-black text-slate-700">Staff Type</span>
@@ -1279,6 +1314,15 @@ export default function DashboardStaff({
               </button>
             </div>
           </form>
+          {invitationLink && (
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-xs font-black text-emerald-900">Google staff invitation (expires in 48 hours)</p>
+              <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                <input readOnly value={invitationLink} className="min-h-[44px] flex-1 rounded-xl border border-emerald-200 bg-white px-3 text-xs font-semibold" />
+                <button type="button" onClick={() => void navigator.clipboard.writeText(invitationLink)} className="min-h-[44px] rounded-xl bg-emerald-700 px-4 text-xs font-black text-white">Copy link</button>
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -1639,6 +1683,10 @@ export default function DashboardStaff({
                       <span className="text-xs font-black text-slate-700">Phone / Username</span>
                       <input value={selectedStaff.phone} onChange={e => handleProfileFieldChange(selectedStaff.id, { phone: e.target.value })} className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none" />
                     </label>
+                    <label className="space-y-1.5 md:col-span-2">
+                      <span className="text-xs font-black text-slate-700">Gmail for Google login</span>
+                      <input type="email" value={selectedStaff.email || ''} onChange={e => handleProfileFieldChange(selectedStaff.id, { email: e.target.value.toLowerCase() })} placeholder="staff@gmail.com" className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none" />
+                    </label>
                     <label className="space-y-1.5">
                       <span className="text-xs font-black text-slate-700">Role / Position</span>
                       <input value={selectedStaff.role} onChange={e => handleProfileFieldChange(selectedStaff.id, { role: e.target.value })} className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none" />
@@ -1694,8 +1742,19 @@ export default function DashboardStaff({
                   </div>
                   <button
                     type="button"
+                    disabled={!selectedStaff.email}
+                    onClick={() => void createGoogleInvitation(selectedStaff)
+                      .then(() => setSuccessMessage('New Google invitation created. Copy and share the link below.'))
+                      .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Invitation could not be created.'))}
+                    className="mt-4 w-full min-h-[46px] rounded-2xl bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-black inline-flex items-center justify-center gap-2"
+                  >
+                    <Shield className="w-4 h-4" />
+                    Create / Replace Google Invitation
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => generateTemporaryPassword(selectedStaff)}
-                    className="mt-4 w-full min-h-[46px] rounded-2xl bg-indigo-600 text-white text-xs font-black inline-flex items-center justify-center gap-2"
+                    className="mt-2 w-full min-h-[46px] rounded-2xl border border-indigo-200 bg-white text-indigo-700 text-xs font-black inline-flex items-center justify-center gap-2"
                   >
                     <KeyRound className="w-4 h-4" />
                     Generate New Temporary Password
@@ -1704,6 +1763,12 @@ export default function DashboardStaff({
                     <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
                       <span className="block text-[10px] font-black uppercase text-emerald-700">Copy now</span>
                       <code className="mt-1 block text-lg font-black text-slate-950">{temporaryPassword}</code>
+                    </div>
+                  )}
+                  {invitationLink && (
+                    <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+                      <span className="block text-[10px] font-black uppercase text-emerald-700">Secure invitation link</span>
+                      <button type="button" onClick={() => void navigator.clipboard.writeText(invitationLink)} className="mt-2 min-h-[40px] w-full rounded-xl bg-emerald-700 px-3 text-xs font-black text-white">Copy link</button>
                     </div>
                   )}
                 </section>

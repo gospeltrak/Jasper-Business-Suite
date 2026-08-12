@@ -637,7 +637,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           setIsLoading(false);
           return;
         }
-        const response = await fetch('/api/auth/google/resolve', { headers: { Authorization: `Bearer ${session.access_token}` } });
+        const staffInvite = params.get('staffInvite');
+        const response = await fetch(staffInvite ? '/api/auth/google/accept-staff-invitation' : '/api/auth/google/resolve', {
+          method: staffInvite ? 'POST' : 'GET',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            ...(staffInvite ? { 'Content-Type': 'application/json' } : {}),
+          },
+          ...(staffInvite ? { body: JSON.stringify({ token: staffInvite }) } : {}),
+        });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw result;
         if (cancelled) return;
@@ -1347,9 +1355,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     try {
       if (!(await verifyLoginTurnstile())) { setIsLoading(false); return; }
       const client: any = await getSecureDataBridgeClient();
+      const staffInvite = new URLSearchParams(window.location.search).get('staffInvite');
+      const callback = new URL(`${window.location.origin}/login?oauth=google`);
+      if (staffInvite) callback.searchParams.set('staffInvite', staffInvite);
       const { error: oauthError } = await client.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: `${window.location.origin}/login?oauth=google` }
+        options: { redirectTo: callback.toString() }
       });
       if (oauthError) throw oauthError;
       // On success the browser navigates away to Google immediately; isLoading is

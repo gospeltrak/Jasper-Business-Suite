@@ -515,6 +515,7 @@ export interface StaffSettings {
   id: string;
   branchId?: string;
   name: string;
+  email?: string;
   phone: string;
   password?: string;
   role: string;

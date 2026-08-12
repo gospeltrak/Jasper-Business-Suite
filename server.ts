@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Type } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import lucyHandler from './api/lucy.js';
 import {
   type SafeErrorCode,
@@ -2757,6 +2757,117 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     return authUser?.app_metadata?.provider === 'google' || authUser?.identities?.some((identity: any) => identity.provider === 'google')
       ? authUser : null;
   };
+
+  const getTenantAdminRequestProfile = async (req: any) => {
+    if (!supabaseAdmin) return null;
+    const token = getBearerToken(req);
+    if (!token) return null;
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData.user?.id) return null;
+    const { data: profile } = await adminTable('users')
+      .select('id,tenant_id,active_tenant,role,role_key,account_type,is_active')
+      .eq('id', authData.user.id).maybeSingle();
+    const role = String(profile?.role_key || profile?.role || '').toLowerCase();
+    const allowed = profile?.is_active !== false && ['admin', 'owner', 'superadmin', 'super_admin'].some(value => role.includes(value));
+    const tenantId = String(profile?.active_tenant || profile?.tenant_id || '');
+    return allowed && isUuid(tenantId) ? { authUser: authData.user, profile, tenantId } : null;
+  };
+
+  app.post('/api/staff/google-invitations', rateLimit({ windowMs: 60_000, max: 20, prefix: 'staff-invite' }), async (req, res) => {
+    const admin = await getTenantAdminRequestProfile(req);
+    if (!admin) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'registration');
+    const staffId = normalizeText(req.body?.staffId, 180);
+    const name = normalizeText(req.body?.name, 160);
+    const email = normalizeEmail(req.body?.email);
+    const phone = normalizeText(req.body?.phone, 40);
+    const role = normalizeText(req.body?.role, 80) || 'Cashier';
+    const branchId = isUuid(req.body?.branchId) ? String(req.body.branchId) : null;
+    const permissions = req.body?.permissions && typeof req.body.permissions === 'object' && !Array.isArray(req.body.permissions)
+      ? req.body.permissions : {};
+    if (!staffId || !name || !email || !email.includes('@') || !phone) {
+      return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'registration');
+    }
+    try {
+      if (branchId) {
+        const { data: branch } = await adminTable('branches').select('id').eq('id', branchId).eq('tenant_id', admin.tenantId).maybeSingle();
+        if (!branch) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'registration');
+      }
+      await adminTable('staff_google_invitations').update({ status: 'revoked' })
+        .eq('tenant_id', admin.tenantId).eq('staff_workspace_id', staffId).eq('status', 'pending');
+      const rawToken = randomBytes(32).toString('base64url');
+      const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+      const { error } = await adminTable('staff_google_invitations').insert({
+        token_hash: tokenHash, tenant_id: admin.tenantId, staff_workspace_id: staffId,
+        email, staff_name: name, phone, role_key: role, permissions, branch_id: branchId,
+        created_by: admin.authUser.id, expires_at: expiresAt,
+      });
+      if (error) throw error;
+      const origin = normalizeText(req.headers.origin, 240) || `https://${getBaseDomain()}`;
+      return res.status(201).json({ invitationUrl: `${origin}/login?staffInvite=${encodeURIComponent(rawToken)}`, expiresAt });
+    } catch (error) {
+      return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'SAVE_ERROR', context: 'registration', operation: 'staff_google_invitation_create' });
+    }
+  });
+
+  app.get('/api/auth/staff-invitation', rateLimit({ windowMs: 60_000, max: 40, prefix: 'staff-invite-read' }), async (req, res) => {
+    const rawToken = String(req.query?.token || '');
+    if (rawToken.length < 32) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'sign_in');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const { data: invitation } = await adminTable('staff_google_invitations')
+      .select('staff_name,email,expires_at,status,tenants(name)').eq('token_hash', tokenHash).maybeSingle();
+    if (!invitation || invitation.status !== 'pending' || new Date(invitation.expires_at).getTime() <= Date.now()) {
+      return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 410, 'sign_in');
+    }
+    return res.json({ staffName: invitation.staff_name, email: invitation.email, businessName: invitation.tenants?.name || 'Business', expiresAt: invitation.expires_at });
+  });
+
+  app.post('/api/auth/google/accept-staff-invitation', rateLimit({ windowMs: 60_000, max: 12, prefix: 'staff-invite-accept' }), async (req, res) => {
+    const authUser = await getGoogleRequestUser(req);
+    const rawToken = String(req.body?.token || '');
+    if (!authUser?.id || !authUser.email || rawToken.length < 32) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'sign_in');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    try {
+      const { data: invitation } = await adminTable('staff_google_invitations').select('*').eq('token_hash', tokenHash).maybeSingle();
+      if (!invitation || invitation.status !== 'pending' || new Date(invitation.expires_at).getTime() <= Date.now()) {
+        return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 410, 'sign_in');
+      }
+      if (normalizeEmail(authUser.email) !== normalizeEmail(invitation.email)) {
+        return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'sign_in');
+      }
+      const { data: existing } = await adminTable('users').select('id,tenant_id,account_type').eq('email', invitation.email).maybeSingle();
+      if (existing && String(existing.id) !== authUser.id) return sendExpectedSafeApiError(req, res, 'DUPLICATE_ERROR', 409, 'sign_in');
+      const roleLower = String(invitation.role_key || '').toLowerCase();
+      const databaseRole = ['admin','manager','cashier'].includes(roleLower)
+        ? `${roleLower.charAt(0).toUpperCase()}${roleLower.slice(1)}` : 'Cashier';
+      const profile = {
+        id: authUser.id, email: invitation.email, name: invitation.staff_name, phone: invitation.phone,
+        tenant_id: invitation.tenant_id, active_tenant: invitation.tenant_id, role: databaseRole,
+        account_type: 'business_staff', role_key: invitation.role_key, role_permissions: invitation.permissions || {},
+        is_active: true, is_saas_staff: false,
+      };
+      const { error: profileError } = await adminTable('users').upsert(profile, { onConflict: 'id' });
+      if (profileError) throw profileError;
+      if (invitation.branch_id) {
+        const { error: assignmentError } = await adminTable('branch_staff_assignments').upsert({
+          tenant_id: invitation.tenant_id, branch_id: invitation.branch_id, staff_id: authUser.id,
+          role: invitation.role_key, permissions: invitation.permissions || {}, status: 'active',
+        }, { onConflict: 'tenant_id,branch_id,staff_id' });
+        if (assignmentError) throw assignmentError;
+      }
+      const { data: consumed, error: consumeError } = await adminTable('staff_google_invitations')
+        .update({ status: 'accepted', accepted_by: authUser.id, accepted_at: new Date().toISOString() })
+        .eq('id', invitation.id).eq('status', 'pending').select('id').maybeSingle();
+      if (consumeError || !consumed) throw consumeError || new Error('Invitation was already used.');
+      return res.json({ status: 'existing', user: {
+        id: authUser.id, email: invitation.email, name: invitation.staff_name, role: databaseRole,
+        tenantId: invitation.tenant_id, activeTenant: invitation.tenant_id, phone: invitation.phone,
+        saasPermissions: invitation.permissions || {},
+      }});
+    } catch (error) {
+      return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'AUTH_ERROR', context: 'sign_in', operation: 'staff_google_invitation_accept' });
+    }
+  });
 
   app.get('/api/auth/google/resolve', async (req, res) => {
     const authUser = await getGoogleRequestUser(req);
