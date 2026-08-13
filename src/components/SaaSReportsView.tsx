@@ -46,7 +46,9 @@ interface AffiliateAccount {
   name: string;
   revenueDate: number;
   totalEarnings?: number;
+  revenueGenerated?: number;
   isSuper?: boolean;
+  parentSuperId?: string;
 }
 
 const moneyValue = (value: unknown) => Number(value || 0);

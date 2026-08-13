@@ -1988,7 +1988,7 @@ export default function DashboardCashBank({
                       {datePreset === 'today' ? 'Today Only' : 
                        datePreset === '1week' ? 'Past 7 Days' : 
                        datePreset === '1month' ? 'Past 30 Days' : 
-                       datePreset === '3months' ? 'Past 3 Months' : 'Custom Interval'}
+                       'Custom Interval'}
                     </span>
                     <span className="text-[10px] font-mono text-slate-400 block mt-0.5">{startDateStr} to {endDateStr}</span>
                   </div>

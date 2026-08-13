@@ -435,6 +435,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
         requested_at: new Date().toISOString(),
         notes: `Withdrawal request. Gross: ${Math.round(Number(amount)).toLocaleString()}, Fee (2%): ${fee.toLocaleString()}, Net: ${netAmount.toLocaleString()}.`,
       },
+      undefined,
       workspace.profile.id,
     );
 

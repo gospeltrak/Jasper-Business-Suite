@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { formatSaleItemQuantity } from '../utils/unitFormatter';
 import { isDemoTenant } from '../utils/tenantIsolation';
 import { safeSetJsonItem } from '../utils/dataSafety';
-import { 
+import {
   Search, 
   Calendar, 
   Filter, 
@@ -523,7 +523,7 @@ export default function DashboardSalesList({
   const [newDocDeliveryCost, setNewDocDeliveryCost] = useState(0);
   const [newDocDiscountValue, setNewDocDiscountValue] = useState(0);
   const [newDocDiscountType, setNewDocDiscountType] = useState<'percent' | 'cash'>('percent');
-  const [newDocPaymentMethod, setNewDocPaymentMethod] = useState(() => systemSettings?.business?.paymentModes?.[0] || 'Cash');
+  const [newDocPaymentMethod, setNewDocPaymentMethod] = useState(() => getPaymentModeName(systemSettings?.business?.paymentModes?.[0] || 'Cash'));
   const [newDocHasVat, setNewDocHasVat] = useState(() => !!systemSettings?.invoiceSettings?.hasVatByDefault);
   const [crossBranchSources, setCrossBranchSources] = useState<CrossBranchDocumentSources | null>(null);
   const [crossBranchSourcesLoading, setCrossBranchSourcesLoading] = useState(false);
@@ -553,7 +553,7 @@ export default function DashboardSalesList({
       setNewDocDeliveryCost(0);
       setNewDocDiscountValue(0);
       setNewDocDiscountType('percent');
-      setNewDocPaymentMethod(systemSettings?.business?.paymentModes?.[0] || 'Cash');
+      setNewDocPaymentMethod(getPaymentModeName(systemSettings?.business?.paymentModes?.[0] || 'Cash'));
       if (canUseCrossBranchDocuments) {
         setCrossBranchSourcesLoading(true);
         setCrossBranchSourcesError('');
@@ -4412,7 +4412,7 @@ export default function DashboardSalesList({
                     ...editingSale,
                     customerName: editFormFields.customerName.trim() || undefined,
                     customerPhone: editFormFields.customerPhone.trim() || undefined,
-                    paymentMethod: editFormFields.paymentMethod,
+                    paymentMethod: editFormFields.paymentMethod as Sale['paymentMethod'],
                     items: editFormFields.items,
                     tax: calculatedTax,
                     total: calculatedTotal,
@@ -4639,9 +4639,10 @@ export default function DashboardSalesList({
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Payment</label>
                     <select value={newDocPaymentMethod} onChange={e => setNewDocPaymentMethod(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer">
-                      {(systemSettings?.business?.paymentModes?.length ? systemSettings.business.paymentModes : ['Cash', 'Card', 'M-Pesa', 'Bank']).map(mode => (
-                        <option key={mode} value={mode}>{mode}</option>
-                      ))}
+                      {(systemSettings?.business?.paymentModes?.length ? systemSettings.business.paymentModes : ['Cash', 'Card', 'M-Pesa', 'Bank']).map(mode => {
+                        const modeName = getPaymentModeName(mode);
+                        return <option key={modeName} value={modeName}>{modeName}</option>;
+                      })}
                     </select>
                   </div>
                   <div>

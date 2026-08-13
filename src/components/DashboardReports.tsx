@@ -1327,7 +1327,7 @@ export default function DashboardReports({
         className={`${k.card} relative overflow-hidden rounded-xl p-2.5 border shadow-sm text-left min-w-0 animate-fade-in active:scale-[0.97] transition-all duration-200 motion-reduce:transition-none motion-reduce:animate-none`}
         style={{ animationDelay: `${i * 60}ms`, animationFillMode: 'backwards' }}
       >
-        <Icon className={`absolute -right-2 -bottom-2 w-9 h-9 ${k.watermark} pointer-events-none`} strokeWidth={1.5} aria-hidden="true" />
+        <Icon className={`absolute -right-2 -bottom-2 w-9 h-9 ${k.watermark} pointer-events-none`} strokeWidth={1.5} aria-hidden={true} />
         <div className="relative flex items-center justify-between gap-1.5 mb-1">
           <div className={`w-6 h-6 rounded-md ${k.iconWrap} flex items-center justify-center shrink-0 shadow-sm`}>
             <Icon className="w-3 h-3" strokeWidth={2.2} />

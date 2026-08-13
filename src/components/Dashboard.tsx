@@ -464,7 +464,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const [branchStaffAssignmentsMap, setBranchStaffAssignmentsMap] = useState<Record<string, BranchStaffAssignment[]>>({});
   
   const [pendingDeliveryNotesMap, setPendingDeliveryNotesMap] = useState<Record<string, any[]>>({});
-  const [deliveriesSubTab, setDeliveriesSubTab] = useState<'queue' | 'riders' | 'notes'>('queue');
+  const [deliveriesSubTab, setDeliveriesSubTab] = useState<'queue' | 'riders' | 'notes' | 'accounting'>('queue');
 
   const [deliveriesMap, setDeliveriesMap] = useState<Record<string, Delivery[]>>(() => ({
     't-lagos-01': [
@@ -1263,7 +1263,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     show: boolean;
     title: string;
     description: string;
-    limitType: 'products' | 'stores' | 'staff' | 'expired';
+    limitType: 'general' | 'products' | 'stores' | 'staff' | 'expired';
   } | null>(null);
 
   useEffect(() => {
@@ -3852,7 +3852,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               userName={user.name}
               sales={activeSales}
               systemSettings={systemSettings}
-              onUpdateSystemSettings={persistSystemSettingsNow}
+              onUpdateSystemSettings={(updated) => {
+                persistSystemSettingsNow(updated);
+              }}
             />
           )}
 

@@ -186,7 +186,7 @@ export default function DashboardPOS({
     discountType: 'percent' | 'cash';
     dosageType?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
     tabsSelected?: number;
-    bulkSellMode?: 'scale' | 'pcs';
+    bulkSellMode?: 'scale' | 'pcs' | 'standard';
   }>>([]);
   const [deliveryCost, setDeliveryCost] = useState<number>(0);
   const [orderDiscount, setOrderDiscount] = useState<number>(0);
@@ -800,7 +800,7 @@ export default function DashboardPOS({
 
   const getCartUnitPrice = useCallback((item: {
     product: Product;
-    bulkSellMode?: 'scale' | 'pcs';
+    bulkSellMode?: 'scale' | 'pcs' | 'standard';
     dosageType?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
     tabsSelected?: number;
   }) => {
@@ -937,7 +937,7 @@ export default function DashboardPOS({
     const availableDeliveryModes = systemSettings?.business?.deliveryPaymentModes && systemSettings.business.deliveryPaymentModes.length > 0 
       ? systemSettings.business.deliveryPaymentModes 
       : (systemSettings?.business?.paymentModes || ['Cash']);
-    setDeliveryPaymentMethod(availableDeliveryModes[0]);
+    setDeliveryPaymentMethod(getPaymentModeName(availableDeliveryModes[0]));
     setMultiAllocations([]);
     setAmountPaid(0);
     setReferenceCode('');
@@ -1836,9 +1836,10 @@ export default function DashboardPOS({
                       const availableDeliveryModes = systemSettings?.business?.deliveryPaymentModes && systemSettings.business.deliveryPaymentModes.length > 0 
                         ? systemSettings.business.deliveryPaymentModes 
                         : (systemSettings?.business?.paymentModes || ['Cash', 'Mobile Money', 'Bank']);
-                      return availableDeliveryModes.map(mode => (
-                        <option key={mode} value={mode}>{mode}</option>
-                      ));
+                      return availableDeliveryModes.map(mode => {
+                        const modeName = getPaymentModeName(mode);
+                        return <option key={modeName} value={modeName}>{modeName}</option>
+                      });
                     })()}
                   </select>
                 </div>

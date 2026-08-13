@@ -1418,7 +1418,12 @@ export default function DashboardProducts({
   };
 
   const downloadProductCatalogue = () => {
-    const backup = createProductCatalogueBackup(products, activeTenant);
+    const backup = createProductCatalogueBackup(products, {
+      id: activeTenant.id,
+      name: activeTenant.name,
+      businessType: activeTenant.businessType || 'retail',
+      currency: activeTenant.currency || 'TZS',
+    });
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
     const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
