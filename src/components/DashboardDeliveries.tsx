@@ -2500,7 +2500,7 @@ Vehicle Plate Number: ${plateNumber}
                       ) : (
                         <div className="relative w-14 h-14 bg-white border-2 rounded-full flex items-center justify-center p-1.5 shrink-0" style={{ borderColor: computedInvoiceColor }}>
                           {/* Stylized delivery cart logo representing current brand */}
-                          <svg viewBox="0 0 100 100" className="w-full h-full fill-none stroke-current stroke-[6]" style={{ color: computedInvoiceColor }} referrerPolicy="no-referrer">
+                          <svg viewBox="0 0 100 100" className="w-full h-full fill-none stroke-current stroke-[6]" style={{ color: computedInvoiceColor }}>
                             <circle cx="35" cy="85" r="8" className="fill-current text-indigo-400" />
                             <circle cx="75" cy="85" r="8" className="fill-current text-indigo-400" />
                             <path d="M15 15 h15 l15 45 h30 l12 -30 h-62" strokeLinecap="round" strokeLinejoin="round" />

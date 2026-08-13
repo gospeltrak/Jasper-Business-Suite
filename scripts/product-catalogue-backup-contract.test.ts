@@ -12,7 +12,7 @@ const product: Product = {
   id: 'old-product', name: 'Protected Pharmacy Item', sku: '620001', barcode: '620001',
   category: 'Medicine', costPrice: 100, sellingPrice: 150, stockQty: 12,
   shopStockQty: 5, storeStockQty: 7, alertQty: 2, pharmacyProductType: 'pharmaceutical',
-  batches: [{ id: 'old-batch', productId: 'old-product', batchNumber: 'B1', purchaseDate: '2026-08-01', quantityPurchased: 12, quantityRemaining: 12, buyingPrice: 100 }],
+  batches: [{ id: 'old-batch', productId: 'old-product', batchNumber: 'B1', purchaseDate: '2026-08-01', quantityPurchased: 12, quantityRemaining: 12, buyingPrice: 100, status: 'active', createdBy: 'contract-test', createdAt: '2026-08-01T00:00:00.000Z' }],
 };
 
 test('catalogue backup round-trips full product data and uses a safe filename', () => {

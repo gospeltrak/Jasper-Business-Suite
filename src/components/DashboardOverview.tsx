@@ -1187,8 +1187,9 @@ export default function DashboardOverview({
                     strokeDasharray={`${238.76 * (data.percentage / 100)} 238.76`} 
                     strokeDashoffset={`-${238.76 * (data.offset / 100)}`} 
                     className="transition-all duration-300 hover:stroke-[17px] cursor-pointer"
-                    title={`${data.name}: ${data.percentage}%`}
-                  />
+                  >
+                    <title>{`${data.name}: ${data.percentage}%`}</title>
+                  </circle>
                 ))}
               </svg>
             </div>

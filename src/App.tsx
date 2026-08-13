@@ -620,7 +620,10 @@ export default function App() {
         if (tenantDomainContext.kind === 'partner') {
           return <AffiliatePortal onNavigate={navigateTo} forcedRole="partner" />;
         }
-        if (tenantDomainContext.kind === 'app' || tenantDomainContext.kind === 'auth') {
+        if (tenantDomainContext.kind === 'app') {
+          return <LandingPage isDark={isDark} onToggleTheme={toggleTheme} onNavigate={navigateTo} />;
+        }
+        if (tenantDomainContext.kind === 'auth') {
           return (
             <LoginPage
               onLogin={handleLoginSuccess}

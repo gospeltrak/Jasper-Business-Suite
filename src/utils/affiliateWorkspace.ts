@@ -15,6 +15,8 @@ export interface AffiliateWorkspaceProfile {
   payout_method: string | null;
   payout_account: string | null;
   profile_image_url: string | null;
+  currency?: string | null;
+  phone_whatsapp?: string | null;
 }
 
 export interface AffiliateTask {

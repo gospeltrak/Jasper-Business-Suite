@@ -327,6 +327,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     | "conferencing"
     | "hw-pos"
     | "hw-inventory"
+    | "reconciliation"
   >("overview");
   const [superManageSearch, setSuperManageSearch] = useState("");
 
@@ -1888,48 +1889,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                 {/* Login form */}
                 {authMode === 'login' ? (
-                  <form onSubmit={handleLoginAffiliate} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        placeholder="e.g. +255 712 345 678"
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                        className={`w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3.5 text-sm font-mono focus:ring-0 border-slate-700 ${portalRole === 'partner' ? 'focus:border-amber-500' : 'focus:border-emerald-500'}`}
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                        Password
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showLoginPassword ? 'text' : 'password'}
-                          required
-                          placeholder="••••••••"
-                          value={loginPassword}
-                          onChange={(e) => setLoginPassword(e.target.value)}
-                          className={`w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3.5 pr-11 text-sm focus:ring-0 border-slate-700 ${portalRole === 'partner' ? 'focus:border-amber-500' : 'focus:border-emerald-500'}`}
-                        />
-                        <button type="button" onClick={() => setShowLoginPassword(p => !p)}
-                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer">
-                          {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
+                  <div className="space-y-4">
                     <div className="flex justify-center"><TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
-
-                    <button type="submit"
-                      className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-2 text-slate-950 ${portalRole === 'partner' ? 'bg-amber-500 hover:bg-amber-400' : 'bg-emerald-500 hover:bg-emerald-400'}`}>
-                      Sign In <ArrowRight className="w-4 h-4" />
-                    </button>
-
                     <button type="button" onClick={handleGooglePortalLogin} className="w-full py-3.5 rounded-2xl border border-slate-700 bg-white text-slate-800 font-black text-sm cursor-pointer">Continue with Google</button>
 
                     {/* Become an affiliate link — hidden on the Partner login, since that
@@ -1946,7 +1907,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         </button>
                       </div>
                     )}
-                  </form>
+                  </div>
                 ) : portalRole === 'partner' && getPartnersCount() >= getPartnerCapacity() ? (
                   /* PARTNER CAPACITY REACHED */
                   <form onSubmit={handleWaitlistSubmit} className="space-y-5">
@@ -1994,7 +1955,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </div>
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="hidden" aria-hidden="true">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                         WhatsApp Number <span className="text-[9px] text-slate-500 normal-case font-normal">(used as login)</span>
                       </label>
@@ -3080,7 +3041,17 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
               // 3. TUTORIAL CLASSROOM SESSIONS (Material learning hub)
               if (superActiveTab === "sessions") {
-                const ALL_SESSIONS_MATERIALS = [
+                type SessionMaterial = {
+                  id: string;
+                  title: string;
+                  desc: string;
+                  category: string;
+                  fileSize: string;
+                  duration: string;
+                  format: string;
+                  sourceTutorial?: any;
+                };
+                const ALL_SESSIONS_MATERIALS: SessionMaterial[] = [
                   {
                     id: "doc-1",
                     title:
@@ -4453,7 +4424,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             className="px-2.5 py-1 text-slate-400 bg-slate-900 border border-slate-800 rounded-md hover:text-white">
                             CANCEL
                           </button>
-                          <button type="submit"
+                    <button type="button" hidden aria-hidden="true"
                             className="px-3 py-1 text-slate-950 bg-teal-400 hover:bg-teal-300 rounded-md font-extrabold uppercase transition-colors">
                             SAVE CHANGES
                           </button>

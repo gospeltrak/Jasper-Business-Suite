@@ -15,8 +15,6 @@ export default class DashboardScreenErrorBoundary extends React.Component<
   DashboardScreenErrorBoundaryProps,
   DashboardScreenErrorBoundaryState
 > {
-  declare readonly props: DashboardScreenErrorBoundaryProps;
-  declare setState: (state: Partial<DashboardScreenErrorBoundaryState>) => void;
   state: DashboardScreenErrorBoundaryState = { error: null };
 
   static getDerivedStateFromError(error: Error): DashboardScreenErrorBoundaryState {

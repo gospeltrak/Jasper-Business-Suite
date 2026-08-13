@@ -3,6 +3,7 @@ import { CompanySettings, BusinessSettings, ProductStoreSettings, StaffSettings,
 import { useTheme } from '../ThemeContext';
 import { useTenantLogo } from '../TenantLogoContext';
 import { DEFAULT_TENANTS } from '../data';
+import { getPaymentModeName } from '../utils/paymentAccounts';
 import { 
   Settings as SettingsIcon, 
   Building, 
@@ -592,7 +593,7 @@ export default function DashboardSettings({
     const paymentMode = newPaymentMode.trim();
     if (!paymentMode) return;
     const currentPaymentModes = businessForm.paymentModes || [];
-    if (!currentPaymentModes.includes(paymentMode)) {
+    if (!currentPaymentModes.some(mode => getPaymentModeName(mode) === paymentMode)) {
       const nextBusinessForm = {
         ...businessForm,
         paymentModes: [...currentPaymentModes, paymentMode]
@@ -605,7 +606,7 @@ export default function DashboardSettings({
   const handleRemovePaymentMode = (mode: string) => {
     const nextBusinessForm = {
       ...businessForm,
-      paymentModes: (businessForm.paymentModes || []).filter(m => m !== mode)
+        paymentModes: (businessForm.paymentModes || []).filter(m => getPaymentModeName(m) !== mode)
     };
     setBusinessForm(nextBusinessForm);
     persistBusinessSettings(nextBusinessForm);
@@ -1658,22 +1659,25 @@ export default function DashboardSettings({
 
                 <div className="space-y-3 font-sans">
                   <div className="flex flex-wrap gap-2">
-                    {(businessForm.paymentModes || []).map(mode => (
+                    {(businessForm.paymentModes || []).map(mode => {
+                      const modeName = getPaymentModeName(mode);
+                      return (
                       <span 
-                        key={mode} 
+                        key={modeName} 
                         className="inline-flex items-center space-x-1 px-3 py-1.5 bg-white border border-slate-220 rounded-xl text-xs font-bold text-slate-700 select-none shadow-xs"
                       >
-                        <span>{mode}</span>
+                        <span>{modeName}</span>
                         <button 
                           type="button" 
-                          onClick={() => handleRemovePaymentMode(mode)}
+                          onClick={() => handleRemovePaymentMode(modeName)}
                           className="hover:text-rose-600 cursor-pointer p-0.5"
                           title="Click to remove"
                         >
                           <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
                         </button>
                       </span>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden max-w-sm">

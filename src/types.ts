@@ -270,8 +270,10 @@ export interface SaleItem {
   productId: string;
   productName: string;
   qty: number;
+  quantity?: number;
   price: number;
   discount: number; // percentage
+  subtotal?: number;
   discountType?: 'percent' | 'cash';
   
   batchesUsed?: SaleBatchInfo[]; // Which batches were drawn from for this sale
@@ -316,13 +318,16 @@ export interface Sale {
   customerPhone?: string; // phone of the client
   staffName?: string; // cashier or recording staff
   reference: string;
+  receiptNo?: string;
   tenantId: string;
   timestamp: string; // ISO String
+  date?: string;
   syncUpdatedAt?: string;
   syncStatus: 'synced' | 'pending';
   cashierName: string;
   amountPaid?: number;
   amountDue?: number;
+  change?: number;
   paymentStatus?: 'paid' | 'partial' | 'unpaid';
   transactionReference?: string;
   paymentNote?: string;
@@ -368,8 +373,8 @@ export interface Expense {
 
 export interface SyncLog {
   id: string;
-  type: 'sale' | 'product_update' | 'inventory_audit' | 'auth_sync';
-  status: 'success' | 'warning' | 'pending' | 'failed';
+  type: 'sale' | 'product_update' | 'inventory_audit' | 'auth_sync' | 'system_action';
+  status: 'success' | 'warning' | 'pending' | 'failed' | 'error';
   message: string;
   timestamp: string;
 }
@@ -492,7 +497,7 @@ export interface BusinessSettings {
   businessLogo: string; // base64 or placeholder URL
   businessLogoLight?: string; // Day mode branding logo
   businessLogoDark?: string;  // Dark mode branding logo
-  paymentModes: string[] | PaymentModeConfig[];
+  paymentModes: Array<string | PaymentModeConfig>;
   deliveryPaymentModes?: string[];
   registeredStores: string[];
   tagline?: string;
@@ -662,7 +667,8 @@ export interface SalesDocument {
   notes?: string;
   timestamp: string; // Issue Date
   tenantId: string;
-  status: 'pending' | 'converted' | 'cancelled';
+  status: 'pending' | 'approved' | 'converted' | 'cancelled';
+  validUntil?: string;
   convertedSaleId?: string;
   convertedBranchSaleIds?: string[];
   convertedAt?: string;
@@ -751,7 +757,7 @@ export interface JasperNotification {
   moduleName: string;
   title: string;
   message: string;
-  notificationType: 'sale' | 'daily_summary' | 'weekly_summary' | 'monthly_summary' | 'profit_loss_report' | 'expense_report' | 'low_stock' | 'price_alert' | 'cash_alert' | 'stock_alert' | 'system_alert';
+  notificationType: 'sale' | 'report' | 'daily_summary' | 'weekly_summary' | 'monthly_summary' | 'profit_loss_report' | 'expense_report' | 'low_stock' | 'price_alert' | 'cash_alert' | 'stock_alert' | 'system_alert';
   reportPeriodStart?: string;
   reportPeriodEnd?: string;
   deliveryChannel: string;
