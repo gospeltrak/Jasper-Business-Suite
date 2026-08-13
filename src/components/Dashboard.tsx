@@ -3899,9 +3899,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               user={user}
               systemSettings={systemSettings}
               branchScopeKey={`${activeBranchSelection.activeScope}:${activeBranchSelection.activeBranchId || 'all'}`}
-              onUpdateSystemSettings={(updated) => {
-                persistSystemSettingsNow(updated);
-              }}
+              onUpdateSystemSettings={persistSystemSettingsNow}
             />
           )}
 
