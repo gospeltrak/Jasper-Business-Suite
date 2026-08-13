@@ -359,7 +359,12 @@ const rateLimit = (options: { windowMs: number; max: number; prefix: string }) =
 
 const securityHeaders = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
+  // The public landing page (public/orvix-landing/index.html) is embedded via a
+  // same-origin <iframe> inside LandingPage.tsx. X-Frame-Options: DENY blocks ALL
+  // framing, including same-origin, so it must use SAMEORIGIN here or the iframe
+  // fails to load and the whole "/" route appears broken. Every other route keeps
+  // the stricter DENY to prevent third-party clickjacking.
+  res.setHeader('X-Frame-Options', req.path.startsWith('/orvix-landing/') ? 'SAMEORIGIN' : 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
