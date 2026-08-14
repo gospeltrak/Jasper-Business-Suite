@@ -23,6 +23,7 @@ const landingBundle = fs.readFileSync('public/orvix-landing/app.js', 'utf8');
 const landingPage = fs.readFileSync('src/components/LandingPage.tsx', 'utf8');
 const webEditor = fs.readFileSync('src/components/SaaSWebEditor.tsx', 'utf8');
 const landingStyles = fs.readFileSync('public/orvix-landing/styles.css', 'utf8');
+const paymentPackageLockMigration = fs.readFileSync('supabase/migrations/20260814000200_lock_payment_proof_package.sql', 'utf8');
 
 test('Super Admin is Google and fresh-MFA only with three attempts', () => {
   assert.match(login, /Super Admin password login is disabled/);
@@ -180,6 +181,19 @@ test('Super Admin notifications are durable and critical payment mutations stay 
   assert.doesNotMatch(dashboard, /from\('tenant_payment_proofs'\)[\s\S]*\.insert/);
   assert.match(statusRequests, /\/api\/super-admin\/payment-proofs\/\$\{encodeURIComponent\(proof\.id\)\}\/reject/);
   assert.doesNotMatch(statusRequests, /from\('tenant_payment_proofs'\)[\s\S]*\.update/);
+});
+
+test('manual receipts are optimized images and payment approval cannot change the selected package', () => {
+  assert.match(dashboard, /manualActivationReceipt\.size > 2 \* 1024 \* 1024/);
+  assert.match(dashboard, /compressImageFile\(manualActivationReceipt,[\s\S]*maxWidth: 1600[\s\S]*mimeType: 'image\/webp'/);
+  assert.match(dashboard, /accept="image\/png,image\/jpeg,image\/webp"/);
+  assert.match(dashboard, /Jina la kampuni: \$\{activeTenant\.name\}/);
+  assert.match(dashboard, /Kifurushi nilicholipia: \$\{SUBSCRIPTION_PLANS\[selectedPlanId\]\.name\}/);
+  assert.match(server, /originalFileSize > 2 \* 1024 \* 1024/);
+  assert.match(server, /proof\.requested_package_id[\s\S]*!== packageId/);
+  assert.match(paymentPackageLockMigration, /before update of status on public\.tenant_payment_proofs/);
+  assert.match(paymentPackageLockMigration, /v_active_package_id is distinct from lower\(new\.requested_package_id\)/);
+  assert.doesNotMatch(paymentPackageLockMigration, /delete\s+from|truncate|drop\s+table/i);
 });
 
 test('legacy public policies are replaced with tenant, affiliate, partner, or platform ownership', () => {

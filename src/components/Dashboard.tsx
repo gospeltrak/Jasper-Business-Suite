@@ -76,6 +76,7 @@ import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../utils/
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../secureDataBridge';
 import { postTreasuryEntry, postTreasurySplitIncome, reverseTreasuryEntry } from '../utils/treasuryApi';
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../utils/subscriptionReminder';
+import { compressImageFile } from '../utils/imageCompression';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
 import { 
   getSubscriptionState, 
@@ -1323,13 +1324,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       setManualActivationMessage('Please add the transaction reference or payment details.');
       return;
     }
-    if (manualActivationReceipt.size > 5 * 1024 * 1024) {
-      setManualActivationMessage('Receipt must be 5 MB or smaller.');
+    if (manualActivationReceipt.size > 2 * 1024 * 1024) {
+      setManualActivationMessage('Receipt must be 2 MB or smaller.');
       return;
     }
-    const allowedReceiptTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    const allowedReceiptTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!allowedReceiptTypes.includes(manualActivationReceipt.type)) {
-      setManualActivationMessage('Use a JPG, PNG, WebP, or PDF receipt.');
+      setManualActivationMessage('Use a JPG, PNG, or WebP receipt.');
       return;
     }
 
@@ -1342,11 +1343,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       const { data: sessionData } = await client.auth.getSession();
       const token = sessionData?.session?.access_token;
       if (!token) throw new Error('Your secure session has expired. Sign in again.');
-      const receiptBase64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(new Error('Receipt file could not be read.'));
-        reader.readAsDataURL(manualActivationReceipt);
+      const receiptBase64 = await compressImageFile(manualActivationReceipt, {
+        maxWidth: 1600,
+        maxHeight: 1600,
+        quality: 0.85,
+        mimeType: 'image/webp',
       });
       const uploadResponse = await fetch('/api/subscriptions/payment-proof-file', {
         method: 'POST',
@@ -1356,8 +1357,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         },
         body: JSON.stringify({
           tenantId: activeTenant.id,
-          fileName: manualActivationReceipt.name,
-          fileType: manualActivationReceipt.type,
+          fileName: `${manualActivationReceipt.name.replace(/\.[^.]+$/, '')}.webp`,
+          fileType: 'image/webp',
+          originalFileSize: manualActivationReceipt.size,
           receiptBase64,
           requestedPackageId: selectedPlanId,
           note: `Package: ${selectedPlan.name}. ${manualActivationNote.trim()}`,
@@ -4454,12 +4456,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                         type="file"
                         id="receipt-upload"
                         className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-                        accept="image/*,.pdf"
+                        accept="image/png,image/jpeg,image/webp"
                         onChange={(event) => setManualActivationReceipt(event.target.files?.[0] || null)}
                       />
                       <div className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 text-slate-600">
                         <CloudLightning className="h-5 w-5" />
-                        <span className="truncate text-xs font-bold">{manualActivationReceipt ? manualActivationReceipt.name : 'Upload payment receipt'}</span>
+                        <span className="truncate text-xs font-bold">{manualActivationReceipt ? manualActivationReceipt.name : 'Upload PNG, JPG or WebP receipt (max 2 MB)'}</span>
                       </div>
                     </div>
 
@@ -4477,14 +4479,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     ) : null}
 
                     <a
-                      href="https://wa.me/255655746552?text=Hello%20Jasper%20Deployments%2C%20I%20need%20help%20with%20offline%20subscription%20payment."
+                      href={`https://wa.me/255655746552?text=${encodeURIComponent(`Habari Orvix, activation yangu imechelewa. Jina la kampuni: ${activeTenant.name}. Kifurushi nilicholipia: ${SUBSCRIPTION_PLANS[selectedPlanId].name}. Naomba msaada.`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label="Contact Orvix deployments on WhatsApp"
                       className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-2xl text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50"
                     >
                       <MessageSquare className="h-4 w-4" />
-                      Need help? Contact deployments
+                      Activation delayed? WhatsApp us
                     </a>
                   </div>
                 )}

@@ -2216,22 +2216,21 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const fileName = normalizeText(req.body?.fileName, 160);
       const fileType = String(req.body?.fileType || '').trim().toLowerCase();
       const receiptBase64 = String(req.body?.receiptBase64 || '');
+      const originalFileSize = Number(req.body?.originalFileSize || 0);
       const requestedPackageId = String(req.body?.requestedPackageId || '').trim().toLowerCase();
       const note = normalizeText(req.body?.note, 500);
-      const allowedTypes = new Map([
-        ['image/jpeg', 'jpg'],
-        ['image/png', 'png'],
-        ['image/webp', 'webp'],
-        ['application/pdf', 'pdf'],
-      ]);
+      const allowedTypes = new Map([['image/webp', 'webp']]);
 
       const submittingUser = await requireTenantUser(req, tenantId);
       if (!SUBSCRIPTION_PACKAGE_IDS.has(requestedPackageId) || !SUBSCRIPTION_PACKAGE_PRICES.has(requestedPackageId)) {
         return res.status(400).json({ error: 'Choose Ruby, Diamond, or Tanzanite.' });
       }
       if (!note) return res.status(400).json({ error: 'Transaction reference or payment details are required.' });
+      if (!Number.isFinite(originalFileSize) || originalFileSize <= 0 || originalFileSize > 2 * 1024 * 1024) {
+        return res.status(413).json({ error: 'Receipt must be 2 MB or smaller.' });
+      }
       if (!allowedTypes.has(fileType)) {
-        return res.status(400).json({ error: 'Use a JPG, PNG, WebP, or PDF receipt.' });
+        return res.status(400).json({ error: 'Receipt must be converted to WebP before upload.' });
       }
       const dataUrlPrefix = `data:${fileType};base64,`;
       if (!receiptBase64.startsWith(dataUrlPrefix)) {
@@ -2239,16 +2238,12 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       }
       const encoded = receiptBase64.slice(dataUrlPrefix.length);
       const fileBuffer = Buffer.from(encoded, 'base64');
-      if (!fileBuffer.length || fileBuffer.length > 5 * 1024 * 1024) {
-        return res.status(413).json({ error: 'Receipt must be 5 MB or smaller.' });
+      if (!fileBuffer.length || fileBuffer.length > 2 * 1024 * 1024) {
+        return res.status(413).json({ error: 'Optimized receipt must be 2 MB or smaller.' });
       }
-      const signatureMatches = fileType === 'image/png'
-        ? fileBuffer.length >= 8 && fileBuffer[0] === 0x89 && fileBuffer[1] === 0x50 && fileBuffer[2] === 0x4e && fileBuffer[3] === 0x47
-        : fileType === 'image/jpeg'
-          ? fileBuffer.length >= 3 && fileBuffer[0] === 0xff && fileBuffer[1] === 0xd8 && fileBuffer[2] === 0xff
-          : fileType === 'image/webp'
-            ? fileBuffer.length >= 12 && fileBuffer.toString('ascii', 0, 4) === 'RIFF' && fileBuffer.toString('ascii', 8, 12) === 'WEBP'
-            : fileBuffer.length >= 5 && fileBuffer.toString('ascii', 0, 5) === '%PDF-';
+      const signatureMatches = fileBuffer.length >= 12
+        && fileBuffer.toString('ascii', 0, 4) === 'RIFF'
+        && fileBuffer.toString('ascii', 8, 12) === 'WEBP';
       if (!signatureMatches) return res.status(400).json({ error: 'Receipt content does not match its declared file type.' });
 
       const { data: buckets, error: bucketsError } = await supabaseAdmin.storage.listBuckets();
@@ -2256,7 +2251,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (!buckets.some((bucket: any) => bucket.name === 'payment-proofs')) {
         const { error: bucketError } = await supabaseAdmin.storage.createBucket('payment-proofs', {
           public: false,
-          fileSizeLimit: 5 * 1024 * 1024,
+          fileSizeLimit: 2 * 1024 * 1024,
           allowedMimeTypes: Array.from(allowedTypes.keys()),
         });
         if (bucketError) throw bucketError;
@@ -2676,6 +2671,19 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       }
       if (paymentProofId && !isUuid(paymentProofId)) {
         return res.status(400).json({ error: 'Invalid payment proof identifier.' });
+      }
+      if (paymentProofId) {
+        const { data: proof, error: proofError } = await adminTable('tenant_payment_proofs')
+          .select('id, tenant_id, requested_package_id, status')
+          .eq('id', paymentProofId)
+          .maybeSingle();
+        if (proofError) throw proofError;
+        if (!proof || proof.tenant_id !== tenantId || proof.status !== 'pending') {
+          return res.status(400).json({ error: 'The payment proof is not pending for the selected tenant.' });
+        }
+        if (String(proof.requested_package_id || '').toLowerCase() !== packageId) {
+          return res.status(400).json({ error: 'The activated package must match the package on the payment proof.' });
+        }
       }
       if (!idempotencyKey) {
         return res.status(400).json({ error: 'An activation idempotency key is required.' });
