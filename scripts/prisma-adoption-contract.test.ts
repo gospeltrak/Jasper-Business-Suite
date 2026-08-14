@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { assertSafePrismaConnectionUrls } from '../src/server/prisma.ts';
 
 test('Prisma adoption preserves Supabase tenant and financial safety boundaries', () => {
   const pkg = readFileSync(new URL('../package.json', import.meta.url), 'utf8');
@@ -23,6 +24,13 @@ test('Prisma adoption preserves Supabase tenant and financial safety boundaries'
   assert.match(guide, /financial mutations in the existing atomic RPCs/);
   assert.match(runtime, /process\.env\.DATABASE_URL/);
   assert.match(runtime, /max:\s*2/);
+  assert.match(runtime, /connectionTimeoutMillis:\s*5_000/);
+  assert.match(runtime, /idleTimeoutMillis:\s*10_000/);
+  assert.match(runtime, /maxLifetimeSeconds:\s*300/);
+  assert.match(runtime, /runtimeUrl\.port !== '6543'/);
+  assert.match(runtime, /searchParams\.get\('pgbouncer'\) !== 'true'/);
+  assert.match(runtime, /directUrl\.port[^\n]+!== '5432'/);
+  assert.match(runtime, /DIRECT_URL must not reuse the pooled DATABASE_URL/);
   assert.match(runtime, /__orvixPrisma/);
   assert.doesNotMatch(runtime, /VITE_/);
   assert.doesNotMatch(pkg, /prisma (migrate reset|db push)/);
@@ -35,4 +43,30 @@ test('Prisma adoption preserves Supabase tenant and financial safety boundaries'
   assert.doesNotMatch(worker, /delete\s+from/i);
   assert.match(server, /process\.env\.CRON_SECRET/);
   assert.match(server, /safeSecretEquals\(authorization, `Bearer \$\{cronSecret\}`\)/);
+});
+
+test('production Prisma runtime rejects non-pooled Supabase connection URLs', () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousDirectUrl = process.env.DIRECT_URL;
+  process.env.NODE_ENV = 'production';
+  delete process.env.DIRECT_URL;
+
+  try {
+    assert.doesNotThrow(() => assertSafePrismaConnectionUrls(
+      'postgresql://postgres.project:password@region.pooler.supabase.com:6543/postgres?pgbouncer=true',
+    ));
+    assert.throws(
+      () => assertSafePrismaConnectionUrls('postgresql://postgres:password@db.project.supabase.co:5432/postgres'),
+      /transaction pooler on port 6543/,
+    );
+    assert.throws(
+      () => assertSafePrismaConnectionUrls('postgresql://postgres.project:password@region.pooler.supabase.com:6543/postgres'),
+      /pgbouncer=true/,
+    );
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousDirectUrl === undefined) delete process.env.DIRECT_URL;
+    else process.env.DIRECT_URL = previousDirectUrl;
+  }
 });
