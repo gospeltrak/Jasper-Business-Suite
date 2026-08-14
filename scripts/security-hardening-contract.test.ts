@@ -12,6 +12,8 @@ const login = fs.readFileSync('src/components/LoginPage.tsx', 'utf8');
 const admin = fs.readFileSync('src/components/SuperSaaSAdminView.tsx', 'utf8');
 const migration = fs.readFileSync('supabase/migrations/20260812000300_close_legacy_public_rls.sql', 'utf8');
 const productImageHandler = fs.readFileSync('api/images/migrate-product.ts', 'utf8');
+const repositoryAudit = fs.readFileSync('scripts/security-repository-audit.mjs', 'utf8');
+const packageJson = fs.readFileSync('package.json', 'utf8');
 
 test('Super Admin is Google and fresh-MFA only with three attempts', () => {
   assert.match(login, /Super Admin password login is disabled/);
@@ -105,6 +107,16 @@ test('tenant image uploads require JSON, tenant authorization, and verified file
   assert.match(productImageHandler, /Content-Type application\/json is required/);
   assert.match(productImageHandler, /allowed\.magic\(buffer\)/);
   assert.match(productImageHandler, /belongsToTenant/);
+});
+
+test('repository verification blocks tracked secrets and exposes a production dependency audit', () => {
+  assert.match(repositoryAudit, /git', \['ls-files', '-z'\]/);
+  assert.match(repositoryAudit, /\.env\.example/);
+  assert.match(repositoryAudit, /PRIVATE KEY/);
+  assert.match(repositoryAudit, /Secret values are intentionally redacted/);
+  assert.match(packageJson, /"security:secrets": "node scripts\/security-repository-audit\.mjs"/);
+  assert.match(packageJson, /"security:dependencies": "npm audit --audit-level=high --omit=dev"/);
+  assert.match(packageJson, /"verify:source": "[^"]*npm run security:secrets/);
 });
 
 test('legacy public policies are replaced with tenant, affiliate, partner, or platform ownership', () => {
