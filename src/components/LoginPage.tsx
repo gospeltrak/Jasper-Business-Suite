@@ -1534,6 +1534,34 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   </p>
                 </div>
               )}
+              {isTenantDomainLogin ? (
+                <div className="space-y-4" data-tenant-google-only="true">
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center dark:border-emerald-800/40 dark:bg-emerald-950/20">
+                    <Shield className="mx-auto h-7 w-7 text-emerald-700 dark:text-emerald-400" />
+                    <h3 className="mt-2 text-sm font-black text-slate-900 dark:text-slate-100">Secure Google sign-in</h3>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                      Owners, administrators and staff sign in with the Google account connected to this business.
+                    </p>
+                  </div>
+                  <div className="flex justify-center">
+                    <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGoogleLoginClick}
+                    disabled={isLoading}
+                    className="w-full py-3.5 border border-slate-200 bg-white hover:border-emerald-300 disabled:opacity-55 rounded-2xl text-xs font-bold text-slate-700 transition-all cursor-pointer flex items-center justify-center gap-2.5"
+                  >
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                      <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3h3.88c2.27-2.09 3.57-5.17 3.57-8.81z"/>
+                      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3c-1.08.72-2.45 1.15-4.05 1.15-3.12 0-5.76-2.1-6.7-4.93H1.29v3.1C3.26 21.3 7.31 24 12 24z"/>
+                      <path fill="#FBBC05" d="M5.3 14.31A7.2 7.2 0 0 1 4.9 12c0-.8.14-1.58.4-2.31v-3.1H1.29A11.98 11.98 0 0 0 0 12c0 1.93.46 3.76 1.29 5.41l4.01-3.1z"/>
+                      <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.58 1.79l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.59l4.01 3.1c.94-2.83 3.58-4.92 6.7-4.92z"/>
+                    </svg>
+                    <span>{isLoading ? 'Connecting securely…' : t('continueGoogle')}</span>
+                  </button>
+                </div>
+              ) : <>
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">
@@ -1820,6 +1848,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </svg>
                 <span>{t('continueGoogle')}</span>
               </button>
+
+              </>}
 
               </>}
 

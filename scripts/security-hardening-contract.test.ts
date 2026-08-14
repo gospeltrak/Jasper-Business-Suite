@@ -74,6 +74,15 @@ test('staff passwords are verified by Auth and purged from legacy workspace payl
   assert.match(loginPage, /if \(\(import\.meta as any\)\.env\?\.PROD\)[\s\S]*Local development demo fallback/);
 });
 
+test('tenant login is Google-only for owners, administrators, and staff', () => {
+  assert.match(loginPage, /isTenantDomainLogin \? \([\s\S]*data-tenant-google-only="true"/);
+  assert.match(loginPage, /Owners, administrators and staff sign in with the Google account connected to this business/);
+  const tenantGoogleStart = loginPage.indexOf('{isTenantDomainLogin ? (');
+  const tenantPasswordFallback = loginPage.indexOf('id="login-email"', tenantGoogleStart);
+  const tenantConditionalEnd = loginPage.indexOf('</>}', tenantPasswordFallback);
+  assert.ok(tenantGoogleStart >= 0 && tenantPasswordFallback > tenantGoogleStart && tenantConditionalEnd > tenantPasswordFallback);
+});
+
 test('legacy public policies are replaced with tenant, affiliate, partner, or platform ownership', () => {
   for (const policy of ['tenant_data_select','workspace_select','proofs_select','ap_select','rc_select','cl_select','mr_select','asl_select','mal_select']) {
     assert.match(migration, new RegExp(`drop policy if exists ${policy}`));
