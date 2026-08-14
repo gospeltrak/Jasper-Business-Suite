@@ -3,6 +3,7 @@
 // types when a route imports the shared app.
 import express from 'express';
 import path from 'path';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -608,7 +609,11 @@ async function requireNotificationInboxUser(req: express.Request) {
 
 const platformAdminError = (res: express.Response, error: any) => {
   const status = Number(error?.status || 500);
-  return res.status(status).json({ error: error?.message || 'Super Admin request failed' });
+  const code: SafeErrorCode = status === 401
+    ? 'AUTH_ERROR'
+    : status === 403 ? 'PERMISSION_ERROR'
+      : status === 404 ? 'NOT_FOUND' : status < 500 ? 'VALIDATION_ERROR' : 'UNKNOWN_ERROR';
+  return res.status(status).json(makeSafeErrorResponse(code, getRequestSafeErrorLanguage(res.req)));
 };
 
 const adminTable = (tableName: string) => {
@@ -4943,6 +4948,19 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
     }
   });
 
+  app.use('/api', (req, res) => (
+    sendExpectedSafeApiError(req, res, 'NOT_FOUND', 404, 'default')
+  ));
+
+  app.use((error: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => (
+    sendUnexpectedSafeApiError(req, res, error, {
+      fallbackCode: 'UNKNOWN_ERROR',
+      context: 'default',
+      operation: 'unhandled_api_request',
+      status: 500,
+    })
+  ));
+
   // Vite Integration & Routing Handler
   if (serveClient && process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
@@ -4956,10 +4974,17 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
     app.use(vite.middlewares);
   } else if (serveClient) {
     const distPath = path.join(process.cwd(), 'dist');
+    const appShellHtml = readFileSync(path.join(distPath, 'index.html'), 'utf8');
     // Serves compiled production assets from dist
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const explicitErrorStatus = new Map<string, number>([
+        ['/401', 401], ['/403', 403], ['/404', 404], ['/500', 500],
+      ]).get(req.path);
+      const knownAppPath = req.path === '/'
+        || ['/login', '/tools', '/admin', '/dashboard', '/sales', '/sales-list', '/reports', '/pos', '/products', '/settings'].includes(req.path)
+        || ['/login/', '/dashboard/', '/affiliate', '/partner'].some(prefix => req.path.startsWith(prefix));
+      res.status(explicitErrorStatus || (knownAppPath ? 200 : 404)).type('html').send(appShellHtml);
     });
   }
 

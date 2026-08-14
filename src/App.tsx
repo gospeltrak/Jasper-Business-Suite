@@ -8,6 +8,7 @@ import { endCloudSession, startCloudSession, touchCloudSession } from './utils/s
 import { pullFromCloud, pushToCloud } from './utils/dbSync';
 import { configureOnlineStorage, resetOnlineStorage } from './utils/onlineStorage';
 import { lazyWithReload } from './utils/lazyWithReload';
+import SystemErrorPage, { type SystemErrorStatus } from './components/SystemErrorPage';
 
 // Route-level code splitting keeps the large business workspaces out of the
 // login bundle. No feature is removed; it is downloaded only when opened.
@@ -504,19 +505,10 @@ export default function App() {
     }
 
     if (tenantDomainContext.kind === 'tenant-not-found' || tenantDomainContext.kind === 'tenant-inactive' || tenantDomainContext.kind === 'error') {
-      return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
-          <div className="max-w-md rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:bg-slate-900 dark:border-slate-800">
-            <img src="/jb-logo.png" alt="Orvix Logo" className="mx-auto h-14 w-14 object-contain" />
-            <h1 className="mt-4 text-2xl font-black text-slate-900 dark:text-white">
-              {tenantDomainContext.kind === 'tenant-inactive' ? 'Business Domain Inactive' : 'Tenant Not Found'}
-            </h1>
-            <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-              {tenantDomainContext.message || 'We could not find an active business for this domain.'}
-            </p>
-          </div>
-        </div>
-      );
+      const status: SystemErrorStatus = tenantDomainContext.kind === 'tenant-inactive'
+        ? 403
+        : tenantDomainContext.kind === 'error' ? 500 : 404;
+      return <SystemErrorPage status={status} onRetry={() => window.location.reload()} />;
     }
 
     if (currentPath === '/login' || currentPath.startsWith('/login/')) {
@@ -652,9 +644,16 @@ export default function App() {
             landingUrl={publicLandingUrl}
           />
         );
+      case '/401':
+        return <SystemErrorPage status={401} onHome={() => navigateTo('/login')} />;
+      case '/403':
+        return <SystemErrorPage status={403} onHome={() => navigateTo('/')} />;
+      case '/404':
+        return <SystemErrorPage status={404} onHome={() => navigateTo('/')} />;
+      case '/500':
+        return <SystemErrorPage status={500} onRetry={() => window.location.reload()} />;
       default:
-        // Default fallback serves our beautiful styled landing page
-        return <LandingPage isDark={isDark} onToggleTheme={toggleTheme} onNavigate={navigateTo} />;
+        return <SystemErrorPage status={404} onHome={() => navigateTo('/')} />;
     }
   };
 
@@ -666,7 +665,9 @@ export default function App() {
     const isScrollablePage = currentPath === '/'
       || currentPath === '/login'
       || currentPath.startsWith('/affiliate')
-      || currentPath.startsWith('/partner');
+      || currentPath.startsWith('/partner')
+      || ['/401', '/403', '/404', '/500'].includes(currentPath)
+      || !isDashboard;
 
     const html = document.documentElement;
     const root = document.getElementById('root');

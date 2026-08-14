@@ -24,6 +24,10 @@ const landingPage = fs.readFileSync('src/components/LandingPage.tsx', 'utf8');
 const webEditor = fs.readFileSync('src/components/SaaSWebEditor.tsx', 'utf8');
 const landingStyles = fs.readFileSync('public/orvix-landing/styles.css', 'utf8');
 const paymentPackageLockMigration = fs.readFileSync('supabase/migrations/20260814000200_lock_payment_proof_package.sql', 'utf8');
+const systemErrorPage = fs.readFileSync('src/components/SystemErrorPage.tsx', 'utf8');
+const appErrorBoundary = fs.readFileSync('src/components/AppErrorBoundary.tsx', 'utf8');
+const dashboardErrorBoundary = fs.readFileSync('src/components/DashboardScreenErrorBoundary.tsx', 'utf8');
+const safeErrors = fs.readFileSync('shared/safeErrors.ts', 'utf8');
 
 test('Super Admin is Google and fresh-MFA only with three attempts', () => {
   assert.match(login, /Super Admin password login is disabled/);
@@ -194,6 +198,20 @@ test('manual receipts are optimized images and payment approval cannot change th
   assert.match(paymentPackageLockMigration, /before update of status on public\.tenant_payment_proofs/);
   assert.match(paymentPackageLockMigration, /v_active_package_id is distinct from lower\(new\.requested_package_id\)/);
   assert.doesNotMatch(paymentPackageLockMigration, /delete\s+from|truncate|drop\s+table/i);
+});
+
+test('system error pages are localized and never render technical error details', () => {
+  for (const status of [401, 403, 404, 500]) assert.match(systemErrorPage, new RegExp(`${status}:`));
+  assert.match(systemErrorPage, /en:[\s\S]*sw:[\s\S]*fr:/);
+  assert.match(appErrorBoundary, /<SystemErrorPage status=\{500\}/);
+  assert.match(dashboardErrorBoundary, /<SystemErrorPage status=\{500\}/);
+  assert.doesNotMatch(appErrorBoundary, /this\.state\.error\.message|componentStack/);
+  assert.doesNotMatch(dashboardErrorBoundary, /developmentError|this\.state\.error\.message/);
+  assert.match(server, /app\.use\('\/api'[\s\S]*'NOT_FOUND', 404/);
+  assert.match(server, /const platformAdminError[\s\S]*makeSafeErrorResponse/);
+  assert.match(server, /\['\/401', 401\], \['\/403', 403\], \['\/404', 404\], \['\/500', 500\]/);
+  assert.match(server, /knownAppPath \? 200 : 404/);
+  assert.match(safeErrors, /SafeErrorLanguage = 'en' \| 'sw' \| 'fr'/);
 });
 
 test('legacy public policies are replaced with tenant, affiliate, partner, or platform ownership', () => {

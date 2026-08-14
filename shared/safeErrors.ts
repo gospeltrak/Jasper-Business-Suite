@@ -15,7 +15,7 @@ export const SAFE_ERROR_CODES = [
 ] as const;
 
 export type SafeErrorCode = (typeof SAFE_ERROR_CODES)[number];
-export type SafeErrorLanguage = 'en' | 'sw';
+export type SafeErrorLanguage = 'en' | 'sw' | 'fr';
 export type SafeErrorContext = 'default' | 'registration' | 'session' | 'sign_in';
 
 export interface SafeErrorPayload {
@@ -67,6 +67,21 @@ const SAFE_ERROR_MESSAGES: Record<SafeErrorLanguage, Record<SafeErrorCode, strin
     TIMEOUT_ERROR: 'Ombi limechukua muda mrefu. Tafadhali ujaribu tena.',
     UNKNOWN_ERROR: 'Hitilafu imetokea. Tafadhali ujaribu tena.',
   },
+  fr: {
+    AUTH_ERROR: 'Votre session est terminée. Veuillez vous reconnecter.',
+    PERMISSION_ERROR: "Vous n’êtes pas autorisé à effectuer cette action.",
+    VALIDATION_ERROR: 'Vérifiez les informations saisies puis réessayez.',
+    NETWORK_ERROR: 'Vérifiez votre connexion internet puis réessayez.',
+    NOT_FOUND: 'Les informations demandées sont introuvables.',
+    DUPLICATE_ERROR: 'Ces informations existent déjà. Vérifiez-les puis réessayez.',
+    PAYMENT_ERROR: 'Le paiement n’a pas abouti. Vérifiez les informations puis réessayez.',
+    FILE_UPLOAD_ERROR: 'Le fichier n’a pas été envoyé. Vérifiez son type et sa taille.',
+    SAVE_ERROR: 'Les modifications n’ont pas été enregistrées. Veuillez réessayer.',
+    DELETE_ERROR: 'Cet élément n’a pas été supprimé. Veuillez réessayer.',
+    LOAD_ERROR: 'Les informations n’ont pas pu être chargées. Veuillez réessayer.',
+    TIMEOUT_ERROR: 'La demande a pris trop de temps. Veuillez réessayer.',
+    UNKNOWN_ERROR: 'Un problème est survenu. Veuillez réessayer.',
+  },
 };
 
 const SAFE_CONTEXT_MESSAGES: Record<
@@ -107,10 +122,14 @@ const SAFE_CONTEXT_MESSAGES: Record<
       LOAD_ERROR: 'Muda wako salama wa kutumia mfumo haujasasishwa. Tafadhali ujaribu tena.',
     },
   },
+  fr: {},
 };
 
 export function normalizeSafeErrorLanguage(language: unknown): SafeErrorLanguage {
-  return String(language || '').trim().toLowerCase().startsWith('sw') ? 'sw' : 'en';
+  const normalized = String(language || '').trim().toLowerCase();
+  if (normalized.startsWith('sw')) return 'sw';
+  if (normalized.startsWith('fr')) return 'fr';
+  return 'en';
 }
 
 export function isSafeErrorCode(value: unknown): value is SafeErrorCode {
