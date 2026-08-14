@@ -59,12 +59,102 @@ type SaveTenantWorkspaceOptions = {
   allowSettingsWrite?: boolean;
 };
 
+type PaginatedWorkspaceCollection = 'sales' | 'expenses' | 'deliveries' | 'purchases';
+
+type WorkspacePageCursor = {
+  timestamp: string;
+  id: string;
+};
+
+type WorkspacePage = {
+  collection: PaginatedWorkspaceCollection;
+  records: any[];
+  hasMore: boolean;
+  nextCursor: WorkspacePageCursor | null;
+  readSource: 'normalized' | 'legacy_fallback';
+  fallbackRequired: boolean;
+};
+
+const PAGINATED_WORKSPACE_COLLECTIONS: PaginatedWorkspaceCollection[] = [
+  'sales',
+  'expenses',
+  'deliveries',
+  'purchases',
+];
+const WORKSPACE_PAGE_SIZE = 200;
+
 export const readCachedWorkspace = (tenantId: string): TenantWorkspace | null => {
   return runtimeWorkspaces.get(tenantId) || null;
 };
 
 const cacheWorkspace = (tenantId: string, workspace: TenantWorkspace) => {
   runtimeWorkspaces.set(tenantId, workspace);
+};
+
+const mergePageRecords = (current: any[], incoming: any[]): any[] => {
+  const merged = new Map<string, any>();
+  for (const record of [...current, ...incoming]) {
+    const id = String(record?.id || '').trim();
+    const key = id || `anonymous:${JSON.stringify(record)}`;
+    merged.set(key, record);
+  }
+  return Array.from(merged.values());
+};
+
+const loadNormalizedWorkspaceLedgers = async (client: any): Promise<Partial<TenantWorkspace> | null> => {
+  const records: Record<PaginatedWorkspaceCollection, any[]> = {
+    sales: [],
+    expenses: [],
+    deliveries: [],
+    purchases: [],
+  };
+  const cursors: Partial<Record<PaginatedWorkspaceCollection, WorkspacePageCursor>> = {};
+  let pending = [...PAGINATED_WORKSPACE_COLLECTIONS];
+
+  while (pending.length > 0) {
+    const pages = await Promise.all(pending.map(async (collection): Promise<WorkspacePage | null> => {
+      const cursor = cursors[collection];
+      const { data, error } = await client.rpc('get_current_branch_workspace_page', {
+        p_collection: collection,
+        p_limit: WORKSPACE_PAGE_SIZE,
+        p_cursor_timestamp: cursor?.timestamp || null,
+        p_cursor_id: cursor?.id || null,
+      });
+      if (error) {
+        console.warn(`[workspace] normalized ${collection} page error:`, error.message);
+        return null;
+      }
+      return data as WorkspacePage;
+    }));
+
+    if (pages.some(page => !page || page.fallbackRequired || page.readSource !== 'normalized')) {
+      return null;
+    }
+    if (pages.some((page, index) => page?.collection !== pending[index] || !Array.isArray(page.records))) {
+      return null;
+    }
+
+    const nextPending: PaginatedWorkspaceCollection[] = [];
+    let invalidProgress = false;
+    pages.forEach((page, index) => {
+      const collection = pending[index];
+      if (!page || page.collection !== collection || !Array.isArray(page.records)) return;
+      records[collection] = mergePageRecords(records[collection], page.records);
+      if (page.hasMore && page.nextCursor?.timestamp && page.nextCursor?.id) {
+        const previousCursor = cursors[collection];
+        if (previousCursor?.timestamp === page.nextCursor.timestamp && previousCursor.id === page.nextCursor.id) {
+          invalidProgress = true;
+          return;
+        }
+        cursors[collection] = page.nextCursor;
+        nextPending.push(collection);
+      }
+    });
+    if (invalidProgress) return null;
+    pending = nextPending;
+  }
+
+  return records;
 };
 
 const normalizeWorkspace = (workspace: Partial<TenantWorkspace> | null | undefined): TenantWorkspace | null => {
@@ -317,11 +407,24 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 
   try {
     if (typeof client.rpc === 'function') {
-      let scopedResult = await client.rpc('get_current_branch_workspace_v2');
+      let scopedResult = await client.rpc('get_current_branch_workspace_bootstrap_v3');
+      const missingV3Rpc = ['PGRST202', '42883'].includes(String(scopedResult.error?.code || ''));
+      if (missingV3Rpc) scopedResult = await client.rpc('get_current_branch_workspace_v2');
       const missingV2Rpc = ['PGRST202', '42883'].includes(String(scopedResult.error?.code || ''));
       if (missingV2Rpc) scopedResult = await client.rpc('get_current_branch_workspace');
       if (!scopedResult.error && scopedResult.data?.payload) {
-        const scoped = normalizeWorkspace(scopedResult.data.payload as TenantWorkspace);
+        let payload = scopedResult.data.payload as TenantWorkspace;
+        if (scopedResult.data.readSource === 'normalized_paginated') {
+          const ledgers = await loadNormalizedWorkspaceLedgers(client);
+          if (!ledgers) {
+            const fallback = await client.rpc('get_current_branch_workspace_v2');
+            if (fallback.error || !fallback.data?.payload) return null;
+            payload = fallback.data.payload as TenantWorkspace;
+          } else {
+            payload = { ...payload, ...ledgers };
+          }
+        }
+        const scoped = normalizeWorkspace(payload);
         if (!scoped) return null;
         writeLocalSaleTombstones(tenantId, scoped.saleTombstones || {});
         cacheWorkspace(tenantId, scoped);
