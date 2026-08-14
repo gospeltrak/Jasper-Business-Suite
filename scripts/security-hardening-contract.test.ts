@@ -11,6 +11,7 @@ const loginPage = fs.readFileSync('src/components/LoginPage.tsx', 'utf8');
 const login = fs.readFileSync('src/components/LoginPage.tsx', 'utf8');
 const admin = fs.readFileSync('src/components/SuperSaaSAdminView.tsx', 'utf8');
 const migration = fs.readFileSync('supabase/migrations/20260812000300_close_legacy_public_rls.sql', 'utf8');
+const productImageHandler = fs.readFileSync('api/images/migrate-product.ts', 'utf8');
 
 test('Super Admin is Google and fresh-MFA only with three attempts', () => {
   assert.match(login, /Super Admin password login is disabled/);
@@ -81,6 +82,29 @@ test('tenant login is Google-only for owners, administrators, and staff', () => 
   const tenantPasswordFallback = loginPage.indexOf('id="login-email"', tenantGoogleStart);
   const tenantConditionalEnd = loginPage.indexOf('</>}', tenantPasswordFallback);
   assert.ok(tenantGoogleStart >= 0 && tenantPasswordFallback > tenantGoogleStart && tenantConditionalEnd > tenantPasswordFallback);
+});
+
+test('tenant image uploads require JSON, tenant authorization, and verified file signatures', () => {
+  const logoRoute = server.slice(
+    server.indexOf("app.post('/api/tenant/logo'"),
+    server.indexOf('// Bulk Sales Synchronization Endpoint'),
+  );
+  const productRoute = server.slice(
+    server.indexOf("app.post('/api/images/migrate-product'"),
+    server.indexOf("app.post('/api/sales/sync'"),
+  );
+
+  assert.match(logoRoute, /req\.is\('application\/json'\)/);
+  assert.match(logoRoute, /await requireTenantUser\(req, String\(tenantId\)\)/);
+  assert.match(logoRoute, /allowedLogo\.magic\(buffer\)/);
+  assert.match(logoRoute, /allowedLogo\.ext/);
+  assert.match(productRoute, /req\.is\('application\/json'\)/);
+  assert.match(productRoute, /await requireTenantUser\(req, String\(tenantId\)\)/);
+  assert.match(productRoute, /allowed\.magic\(buffer\)/);
+  assert.match(productRoute, /Image could not be saved securely/);
+  assert.match(productImageHandler, /Content-Type application\/json is required/);
+  assert.match(productImageHandler, /allowed\.magic\(buffer\)/);
+  assert.match(productImageHandler, /belongsToTenant/);
 });
 
 test('legacy public policies are replaced with tenant, affiliate, partner, or platform ownership', () => {

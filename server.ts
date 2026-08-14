@@ -3583,9 +3583,19 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   });
 
   // API Route: Upload and persist company logo to Supabase storage + tenants table JSONB field
+  const LOGO_IMAGE_TYPES: Record<string, { ext: string; magic: (buf: Buffer) => boolean }> = {
+    'image/png': { ext: 'png', magic: (b) => b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
+    'image/jpeg': { ext: 'jpg', magic: (b) => b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+    'image/webp': { ext: 'webp', magic: (b) => b.length >= 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP' },
+    'image/gif': { ext: 'gif', magic: (b) => b.length >= 6 && (b.toString('ascii', 0, 6) === 'GIF87a' || b.toString('ascii', 0, 6) === 'GIF89a') },
+  };
+
   app.post('/api/tenant/logo', async (req, res) => {
     // Ensure response is always JSON — never HTML error pages
     res.setHeader('Content-Type', 'application/json');
+    if (!req.is('application/json')) {
+      return res.status(415).json({ error: 'Content-Type application/json is required.' });
+    }
     const { tenantId, logoBase64 } = req.body;
 
     if (!tenantId || !logoBase64 || !isUuid(tenantId)) {
@@ -3607,7 +3617,6 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       // Parse the base64 string
       let base64Data = logoBase64;
       let mimeType = 'image/png';
-      let extension = 'png';
 
       if (logoBase64.includes(';base64,')) {
         const parts = logoBase64.split(';base64,');
@@ -3615,10 +3624,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         base64Data = parts[1];
         if (mimePart.includes(':')) {
           mimeType = mimePart.split(':')[1];
-          extension = mimeType.split('/')[1] || 'png';
         }
       }
-      if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(mimeType)) {
+      const allowedLogo = LOGO_IMAGE_TYPES[mimeType];
+      if (!allowedLogo) {
         return res.status(400).json({ error: 'Unsupported logo image type.' });
       }
       if (!/^[A-Za-z0-9+/=]+$/.test(base64Data)) {
@@ -3630,7 +3639,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (buffer.length > 3_000_000) {
         return res.status(413).json({ error: 'Logo file is too large. Please upload an image below 3 MB.' });
       }
-      const fileName = `${tenantId}/logo.${extension}`;
+      if (!allowedLogo.magic(buffer)) {
+        return res.status(400).json({ error: 'Logo content does not match the declared image type.' });
+      }
+      const fileName = `${tenantId}/logo.${allowedLogo.ext}`;
 
       // Ensure the "logos" bucket exists
       try {
@@ -3724,6 +3736,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   };
   app.post('/api/images/migrate-product', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
+    if (!req.is('application/json')) {
+      return res.status(415).json({ error: 'Content-Type application/json is required.' });
+    }
     if (!supabaseAdmin) return res.status(503).json({ error: 'Storage service unavailable.' });
 
     const { tenantId, productId, base64DataUrl } = req.body;
@@ -3779,7 +3794,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       return res.json({ success: true, url: urlData.publicUrl });
     } catch (err: any) {
       console.error('[ImageMigration] Exception:', err);
-      return res.status(Number(err?.status || 500)).json({ error: err?.message || 'Migration failed.' });
+      const status = Number(err?.status || 500);
+      return res.status(status).json({ error: status < 500 ? (err?.message || 'Image upload denied.') : 'Image could not be saved securely.' });
     }
   });
 

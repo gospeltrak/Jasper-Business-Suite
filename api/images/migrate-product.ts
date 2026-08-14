@@ -20,6 +20,9 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+  if (!/^application\/json(?:\s*;|$)/i.test(String(req.headers?.['content-type'] || ''))) {
+    return res.status(415).json({ error: 'Content-Type application/json is required.' });
+  }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -86,6 +89,9 @@ export default async function handler(req: any, res: any) {
     }
 
     const buffer = Buffer.from(data, 'base64');
+    if (buffer.length === 0) {
+      return res.status(400).json({ error: 'Image data is empty.' });
+    }
     if (buffer.length > MAX_UPLOAD_BYTES) {
       return res.status(413).json({ error: 'Image is too large. Please upload an image below 2 MB.' });
     }
