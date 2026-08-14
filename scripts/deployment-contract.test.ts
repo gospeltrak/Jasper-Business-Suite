@@ -32,7 +32,8 @@ test('lazy screens recover safely after a deployment changes chunk filenames', a
 
   assert.match(dashboardSource, /lazyWithReload\('DashboardCashBank'/);
   assert.match(appSource, /lazyWithReload\('Dashboard'/);
-  assert.match(boundarySource, /Reload updated app/);
+  assert.match(boundarySource, /onRetry=\{this\.reloadUpdatedApp\}/);
+  assert.match(boundarySource, /window\.location\.reload\(\)/);
   assert.match(lazyLoaderSource, /window\.setTimeout\(\(\) => window\.location\.reload\(\), 0\)/);
   assert.match(lazyLoaderSource, /sessionStorage\.setItem/);
 });
