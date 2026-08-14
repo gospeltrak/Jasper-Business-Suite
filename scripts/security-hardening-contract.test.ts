@@ -19,6 +19,8 @@ const notificationSettings = fs.readFileSync('src/components/DashboardNotificati
 const platformNotificationsMigration = fs.readFileSync('supabase/migrations/20260814000100_platform_notifications.sql', 'utf8');
 const statusRequests = fs.readFileSync('src/components/SaaSStatusAndRequests.tsx', 'utf8');
 const pwaInstallBanner = fs.readFileSync('src/components/PWAInstallBanner.tsx', 'utf8');
+const landingBundle = fs.readFileSync('public/orvix-landing/app.js', 'utf8');
+const landingPage = fs.readFileSync('src/components/LandingPage.tsx', 'utf8');
 
 test('Super Admin is Google and fresh-MFA only with three attempts', () => {
   assert.match(login, /Super Admin password login is disabled/);
@@ -181,4 +183,13 @@ test('Super Admin PWA is separate and only launches from the More menu', () => {
   assert.match(pwaInstallBanner, /if \(!enabled \|\| !automaticPrompt \|\| !tenantId/);
   assert.match(pwaInstallBanner, /id: resolvedAppId/);
   assert.match(pwaInstallBanner, /start_url: resolvedStartUrl/);
+});
+
+test('landing language and login navigation are instant and deterministic', () => {
+  assert.match(landingBundle, /href="#pricing">Pricing<\/a><a href="#login">Login<\/a>/);
+  assert.match(landingBundle, /applyLandingLanguage\(option\.dataset\.lang\)/);
+  assert.match(landingBundle, /applyLandingLanguage\(savedLanguage\)/);
+  assert.match(landingBundle, /2 branches included; Can add more/);
+  assert.match(landingBundle, /if\(value==='WhatsApp report notifications'\)item\.remove\(\)/);
+  assert.match(landingPage, /if \(href === '#login'\)[\s\S]*onNavigate\('\/login'\)/);
 });

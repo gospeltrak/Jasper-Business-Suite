@@ -36,6 +36,12 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
       if (href === '#affiliate') {
         event.preventDefault();
         onNavigate('/affiliate');
+        return;
+      }
+
+      if (href === '#login') {
+        event.preventDefault();
+        onNavigate('/login');
       }
     };
 
