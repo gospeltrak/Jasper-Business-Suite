@@ -522,6 +522,7 @@ export interface StaffSettings {
   name: string;
   email?: string;
   phone: string;
+  /** @deprecated Legacy migration only. Never persist new plaintext credentials. */
   password?: string;
   role: string;
   salary: number;

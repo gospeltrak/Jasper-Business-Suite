@@ -764,11 +764,9 @@ export default function DashboardSettings({
   // HRM states for registering staffs
   const [credentialEditStaffId, setCredentialEditStaffId] = useState('');
   const [credentialEditPhone, setCredentialEditPhone] = useState('');
-  const [credentialEditPassword, setCredentialEditPassword] = useState('');
   const [staffForm, setStaffForm] = useState({
     name: '',
     phone: '',
-    password: '',
     role: (activeTenant.businessType === 'restaurant' ? 'Waiter' : 'Seller') as StaffSettings['role'],
     salary: 0,
     profileImage: '',
@@ -779,7 +777,6 @@ export default function DashboardSettings({
     const isOpen = credentialEditStaffId === staff.id;
     setCredentialEditStaffId(isOpen ? '' : staff.id);
     setCredentialEditPhone(isOpen ? '' : staff.phone);
-    setCredentialEditPassword('');
   };
 
   const persistStaffsList = (updatedStaffs: StaffSettings[]) => {
@@ -790,23 +787,19 @@ export default function DashboardSettings({
   };
 
   const handleSaveStaffCredentials = (staffId: string) => {
-    if (!credentialEditPhone.trim() || !credentialEditPassword.trim()) return;
+    if (!credentialEditPhone.trim()) return;
     const updatedStaffs = staffsList.map(staff =>
       staff.id === staffId
         ? {
             ...staff,
             phone: credentialEditPhone.trim(),
-            password: credentialEditPassword.trim(),
-            passwordUpdatedAt: new Date().toISOString(),
-            temporaryPasswordIssuedAt: new Date().toISOString()
           }
         : staff
     );
     persistStaffsList(updatedStaffs);
     setCredentialEditStaffId('');
     setCredentialEditPhone('');
-    setCredentialEditPassword('');
-    setSaveSuccess('Staff login credentials updated and saved.');
+    setSaveSuccess('Staff login ID updated. Use Staff Members to issue a secure Google invitation.');
     setTimeout(() => setSaveSuccess(null), 3500);
   };
 
@@ -819,7 +812,7 @@ export default function DashboardSettings({
 
   const handleRegisterStaff = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!staffForm.name || !staffForm.phone || !staffForm.password) return;
+    if (!staffForm.name || !staffForm.phone) return;
 
     if (subscriptionStatus) {
       if (subscriptionStatus.isExpired) {
@@ -836,7 +829,6 @@ export default function DashboardSettings({
       id: 'staff-' + Math.random().toString(36).substr(2, 9),
       name: staffForm.name,
       phone: staffForm.phone,
-      password: staffForm.password,
       role: staffForm.role,
       salary: Number(staffForm.salary) || 0,
       profileImage: staffForm.profileImage,
@@ -847,7 +839,6 @@ export default function DashboardSettings({
     setStaffForm({
       name: '',
       phone: '',
-      password: '',
       role: activeTenant.businessType === 'restaurant' ? 'Waiter' : 'Seller',
       salary: 0,
       profileImage: '',
@@ -2279,16 +2270,8 @@ export default function DashboardSettings({
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-455 font-mono">Staff Password</label>
-                    <input
-                      type="password"
-                      value={staffForm.password}
-                      onChange={(e) => setStaffForm(prev => ({ ...prev, password: e.target.value }))}
-                      placeholder="••••••••"
-                      className="w-full px-3 py-3 sm:py-2 bg-white border border-slate-200 rounded-xl font-semibold outline-none focus:ring-1 focus:ring-emerald-500 min-h-[46px] sm:min-h-0"
-                      required
-                    />
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-800">
+                    Passwords are not stored here. Issue a secure Google invitation from Staff Members.
                   </div>
 
                   <div className="space-y-1">
@@ -2431,7 +2414,7 @@ export default function DashboardSettings({
                                   Username: {staff.phone}
                                 </span>
                                 <span className="text-[10px] font-black uppercase text-emerald-700">
-                                  {staff.password ? 'Password set' : 'No password set'}
+                                  Supabase Auth protected
                                 </span>
                               </div>
                             </td>
@@ -2475,13 +2458,7 @@ export default function DashboardSettings({
                                       placeholder="Phone / Login ID"
                                       className="min-w-0 rounded-lg border border-white bg-white px-2 py-2 text-[11px] font-bold outline-none focus:border-indigo-400"
                                     />
-                                    <input
-                                      type="text"
-                                      value={credentialEditPassword}
-                                      onChange={(e) => setCredentialEditPassword(e.target.value)}
-                                      placeholder="Password / PIN"
-                                      className="min-w-0 rounded-lg border border-white bg-white px-2 py-2 text-[11px] font-bold outline-none focus:border-indigo-400"
-                                    />
+                                    <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-2 py-2 text-[10px] font-bold text-emerald-800">No workspace password</div>
                                   </div>
                                   <div className="mt-2 flex justify-end gap-2">
                                     <button
@@ -2563,7 +2540,7 @@ export default function DashboardSettings({
                           <div className="mt-4 rounded-xl bg-white border border-slate-200 p-3">
                             <span className="block text-[10px] font-black uppercase text-slate-400">Login Details</span>
                             <span className="mt-1 block text-[11px] font-mono text-slate-700 tracking-wide">Username: {staff.phone}</span>
-                            <span className="mt-1 block text-[10px] font-black uppercase text-emerald-700">{staff.password ? 'Password set' : 'No password set'}</span>
+                            <span className="mt-1 block text-[10px] font-black uppercase text-emerald-700">Supabase Auth protected</span>
                           </div>
 
                           <div className="grid grid-cols-3 gap-2 mt-3">
@@ -2602,13 +2579,7 @@ export default function DashboardSettings({
                                   placeholder="Phone / Login ID"
                                   className="w-full min-h-[44px] rounded-xl border border-white bg-white px-3 text-xs font-bold outline-none focus:border-indigo-400"
                                 />
-                                <input
-                                  type="text"
-                                  value={credentialEditPassword}
-                                  onChange={(e) => setCredentialEditPassword(e.target.value)}
-                                  placeholder="Password / PIN"
-                                  className="w-full min-h-[44px] rounded-xl border border-white bg-white px-3 text-xs font-bold outline-none focus:border-indigo-400"
-                                />
+                                <div className="w-full min-h-[44px] rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">No workspace password</div>
                               </div>
                               <div className="mt-3 grid grid-cols-2 gap-2">
                                 <button

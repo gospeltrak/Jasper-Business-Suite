@@ -265,7 +265,6 @@ export default function DashboardStaff({
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
   const [profilePic, setProfilePic] = useState('');
   const [selectedRole, setSelectedRole] = useState(customRoles[0]?.name || 'Seller');
   const [classification, setClassification] = useState<'rider' | 'driver'>('rider');
@@ -280,9 +279,8 @@ export default function DashboardStaff({
   const [salaryType, setSalaryType] = useState<NonNullable<StaffSettings['salaryType']>>('monthly');
   const [salaryStartDate, setSalaryStartDate] = useState(todayIsoDate());
   const [salaryNotes, setSalaryNotes] = useState('');
-  const [credentialStaffId, setCredentialStaffId] = useState('');
   const [credentialPhone, setCredentialPhone] = useState('');
-  const [credentialPassword, setCredentialPassword] = useState('');
+  const [credentialStaffId, setCredentialStaffId] = useState('');
   const [selectedStaff, setSelectedStaff] = useState<StaffSettings | null>(null);
   const [staffToRemove, setStaffToRemove] = useState<StaffSettings | null>(null);
   const [staffToPay, setStaffToPay] = useState<StaffSettings | null>(null);
@@ -294,7 +292,6 @@ export default function DashboardStaff({
   const [salaryPaymentNotes, setSalaryPaymentNotes] = useState('');
   const [salaryPaymentAttachment, setSalaryPaymentAttachment] = useState<{ name: string; data: string } | null>(null);
   const [activeBranchContext, setActiveBranchContext] = useState<{ id: string; name: string } | null>(null);
-  const [temporaryPassword, setTemporaryPassword] = useState('');
   const [allowanceForm, setAllowanceForm] = useState({
     name: 'Food allowance',
     customName: '',
@@ -458,7 +455,6 @@ export default function DashboardStaff({
       name: fullName.trim(),
       email: email.trim().toLowerCase(),
       phone: phone.trim(),
-      password: password.trim() || undefined,
       branchId: activeBranchContext?.id,
       role: roleType === 'delivery' ? classification : selectedRole,
       salary: Number(salaryAmount) || 0,
@@ -469,8 +465,6 @@ export default function DashboardStaff({
       department: department.trim(),
       status: 'active',
       dateJoined,
-      passwordUpdatedAt: new Date().toISOString(),
-      temporaryPasswordIssuedAt: new Date().toISOString(),
       allowances: [],
       profileImage: profilePic,
       ...(roleType === 'delivery'
@@ -494,7 +488,6 @@ export default function DashboardStaff({
     setFullName('');
     setEmail('');
     setPhone('');
-    setPassword('');
     setProfilePic('');
     setVehicleColor('');
     setLicensePlate('');
@@ -597,43 +590,8 @@ export default function DashboardStaff({
     setStaffToPay(null);
   };
 
-  const openCredentialEditor = (staff: StaffSettings) => {
-    const isOpen = credentialStaffId === staff.id;
-    setCredentialStaffId(isOpen ? '' : staff.id);
-    setCredentialPhone(isOpen ? '' : staff.phone);
-    setCredentialPassword('');
-  };
-
-  const handleSaveStaffCredentials = (staffId: string) => {
-    if (!credentialPhone.trim() || !credentialPassword.trim()) {
-      setSuccessMessage('Enter both staff phone/login ID and password.');
-      return;
-    }
-
-    const updatedStaffs = staffList.map(staff =>
-      staff.id === staffId
-        ? {
-            ...staff,
-            phone: credentialPhone.trim(),
-            password: credentialPassword.trim(),
-            passwordUpdatedAt: new Date().toISOString(),
-            temporaryPasswordIssuedAt: new Date().toISOString()
-          }
-        : staff
-    );
-
-    persistStaffList(updatedStaffs);
-    setCredentialStaffId('');
-    setCredentialPhone('');
-    setCredentialPassword('');
-    setTemporaryPassword(credentialPassword.trim());
-    setSuccessMessage('New temporary staff password generated. Copy it now; it will not be shown again after you close this message.');
-    setTimeout(() => setSuccessMessage(''), 2500);
-  };
-
   const openStaffProfile = (staff: StaffSettings) => {
     setSelectedStaff(staff);
-    setTemporaryPassword('');
     setAllowanceForm({
       name: 'Food allowance',
       customName: '',
@@ -645,6 +603,27 @@ export default function DashboardStaff({
     });
   };
 
+  const openCredentialEditor = (staff: StaffSettings) => {
+    const isOpen = credentialStaffId === staff.id;
+    setCredentialStaffId(isOpen ? '' : staff.id);
+    setCredentialPhone(isOpen ? '' : staff.phone);
+  };
+
+  const handleSaveStaffCredentials = (staffId: string) => {
+    const staff = staffList.find(item => item.id === staffId);
+    if (!staff || !credentialPhone.trim()) {
+      setSuccessMessage('Enter the staff phone/login ID.');
+      return;
+    }
+    const updatedStaff = { ...staff, phone: credentialPhone.trim() };
+    persistStaffList(staffList.map(item => item.id === staffId ? updatedStaff : item));
+    setCredentialStaffId('');
+    setCredentialPhone('');
+    void createGoogleInvitation(updatedStaff)
+      .then(() => setSuccessMessage('Login ID saved and a secure Google invitation was created.'))
+      .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Login ID saved, but invitation creation failed.'));
+  };
+
   const updateStaff = (staffId: string, updater: (staff: StaffSettings) => StaffSettings) => {
     const updatedStaffs = staffList.map(staff => staff.id === staffId ? updater(staff) : staff);
     persistStaffList(updatedStaffs);
@@ -654,24 +633,6 @@ export default function DashboardStaff({
 
   const handleProfileFieldChange = (staffId: string, patch: Partial<StaffSettings>) => {
     updateStaff(staffId, staff => ({ ...staff, ...patch }));
-  };
-
-  const generateTemporaryPassword = (staff: StaffSettings) => {
-    // Simple, memorable: FirstName + 4-digit number
-    // e.g. "John" → "John1847", "Mary Wanjiku" → "Mary4293"
-    const firstName = (staff.name || 'Staff').split(' ')[0];
-    const clean = firstName.charAt(0).toUpperCase() + firstName.slice(1, 8).toLowerCase();
-    const num = String(Math.floor(1000 + Math.random() * 9000)); // 4-digit: 1000–9999
-    const generated = `${clean}${num}`;
-
-    updateStaff(staff.id, current => ({
-      ...current,
-      password: generated,
-      passwordUpdatedAt: new Date().toISOString(),
-      temporaryPasswordIssuedAt: new Date().toISOString()
-    }));
-    setTemporaryPassword(generated);
-    setSuccessMessage('Temporary password generated. Copy it now; it will not be shown again after closing the profile.');
   };
 
   const handleAddAllowance = (staff: StaffSettings) => {
@@ -826,7 +787,7 @@ export default function DashboardStaff({
       `Department: ${staff.department || 'Not recorded'}`,
       `Status: ${staff.status || 'active'}`,
       `Date joined: ${staff.dateJoined || 'Not recorded'}`,
-      `Password status: ${staff.password ? 'Password set' : 'No password set'}`,
+      'Authentication: Supabase Auth protected; no workspace password stored',
       `Salary/wage amount: ${formatMoney(Number(staff.salary) || 0)}`,
       `Salary/wage frequency: ${staff.salaryType || 'monthly'}`,
       `Salary total for period: ${formatMoney(payroll.salaryTotal)}`,
@@ -877,13 +838,9 @@ export default function DashboardStaff({
             placeholder="Phone / Login ID"
             className="min-h-[44px] rounded-xl border border-white bg-white px-3 text-sm font-semibold outline-none focus:border-indigo-400"
           />
-          <input
-            type="text"
-            value={credentialPassword}
-            onChange={e => setCredentialPassword(e.target.value)}
-            placeholder="New password / PIN"
-            className="min-h-[44px] rounded-xl border border-white bg-white px-3 text-sm font-semibold outline-none focus:border-indigo-400"
-          />
+          <div className="min-h-[44px] rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
+            Authentication is protected by Supabase Auth. Passwords are never saved in workspace data.
+          </div>
         </div>
         <div className="mt-3 flex gap-2 justify-end">
           <button
@@ -976,11 +933,6 @@ export default function DashboardStaff({
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 flex items-center gap-2">
           <CheckCircle2 className="w-5 h-5" />
           <span className="min-w-0 flex-1">{successMessage}</span>
-          {temporaryPassword && (
-            <code className="rounded-xl bg-white px-3 py-1.5 text-xs font-black text-slate-950 border border-emerald-200">
-              {temporaryPassword}
-            </code>
-          )}
         </div>
       )}
 
@@ -989,7 +941,7 @@ export default function DashboardStaff({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
             <div>
               <h3 className="text-base font-black text-slate-950">Registered Staff</h3>
-              <p className="text-xs text-slate-500 mt-1">Admin can reset a staff login ID and password from this directory.</p>
+              <p className="text-xs text-slate-500 mt-1">Admin can update a login ID and issue a secure Google invitation.</p>
             </div>
             <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">{staffList.length} accounts</div>
           </div>
@@ -1197,10 +1149,9 @@ export default function DashboardStaff({
                     <span className="text-xs font-black text-slate-700">Gmail for Google invitation</span>
                     <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="staff@gmail.com" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                   </label>
-                  <label className="space-y-1.5 md:col-span-2">
-                    <span className="text-xs font-black text-slate-700">Password / PIN (optional legacy login)</span>
-                    <input type="text" value={password} onChange={e => setPassword(e.target.value)} placeholder="Optional" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
-                  </label>
+                  <div className="md:col-span-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800">
+                    Login credentials are created through the secure Google invitation and are never stored in workspace data.
+                  </div>
                   <label className="space-y-1.5">
                     <span className="text-xs font-black text-slate-700">Staff Type</span>
                     <select value={staffType} onChange={e => setStaffType(e.target.value as NonNullable<StaffSettings['staffType']>)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black outline-none focus:border-indigo-500">
@@ -1654,7 +1605,6 @@ export default function DashboardStaff({
                   aria-label="Close staff profile"
                   onClick={() => {
                     setSelectedStaff(null);
-                    setTemporaryPassword('');
                   }}
                   className="h-10 w-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center"
                 >
@@ -1730,14 +1680,14 @@ export default function DashboardStaff({
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-white border border-slate-200 p-3">
                       <Lock className="w-4 h-4 text-indigo-600 mb-2" />
-                      <span className="block text-[10px] font-black uppercase text-slate-400">Password status</span>
-                      <strong className="mt-1 block text-sm text-slate-900">{selectedStaff.password ? 'Password set' : 'No password set'}</strong>
-                      <p className="mt-1 text-[11px] text-slate-500">Raw passwords are not shown here.</p>
+                      <span className="block text-[10px] font-black uppercase text-slate-400">Authentication</span>
+                      <strong className="mt-1 block text-sm text-slate-900">Supabase Auth protected</strong>
+                      <p className="mt-1 text-[11px] text-slate-500">No password is stored in workspace data.</p>
                     </div>
                     <div className="rounded-2xl bg-white border border-slate-200 p-3">
                       <Clock className="w-4 h-4 text-amber-600 mb-2" />
-                      <span className="block text-[10px] font-black uppercase text-slate-400">Last reset</span>
-                      <strong className="mt-1 block text-sm text-slate-900">{formatDateTime(selectedStaff.passwordUpdatedAt || selectedStaff.temporaryPasswordIssuedAt)}</strong>
+                      <span className="block text-[10px] font-black uppercase text-slate-400">Invitation status</span>
+                      <strong className="mt-1 block text-sm text-slate-900">{selectedStaff.email ? 'Ready for secure invitation' : 'Gmail required'}</strong>
                     </div>
                   </div>
                   <button
@@ -1751,20 +1701,6 @@ export default function DashboardStaff({
                     <Shield className="w-4 h-4" />
                     Create / Replace Google Invitation
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => generateTemporaryPassword(selectedStaff)}
-                    className="mt-2 w-full min-h-[46px] rounded-2xl border border-indigo-200 bg-white text-indigo-700 text-xs font-black inline-flex items-center justify-center gap-2"
-                  >
-                    <KeyRound className="w-4 h-4" />
-                    Generate New Temporary Password
-                  </button>
-                  {temporaryPassword && (
-                    <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
-                      <span className="block text-[10px] font-black uppercase text-emerald-700">Copy now</span>
-                      <code className="mt-1 block text-lg font-black text-slate-950">{temporaryPassword}</code>
-                    </div>
-                  )}
                   {invitationLink && (
                     <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
                       <span className="block text-[10px] font-black uppercase text-emerald-700">Secure invitation link</span>

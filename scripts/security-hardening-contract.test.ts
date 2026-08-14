@@ -4,6 +4,10 @@ import test from 'node:test';
 
 const server = fs.readFileSync('server.ts', 'utf8');
 const vercel = fs.readFileSync('vercel.json', 'utf8');
+const dashboard = fs.readFileSync('src/components/Dashboard.tsx', 'utf8');
+const dashboardStaff = fs.readFileSync('src/components/DashboardStaff.tsx', 'utf8');
+const dashboardSettings = fs.readFileSync('src/components/DashboardSettings.tsx', 'utf8');
+const loginPage = fs.readFileSync('src/components/LoginPage.tsx', 'utf8');
 const login = fs.readFileSync('src/components/LoginPage.tsx', 'utf8');
 const admin = fs.readFileSync('src/components/SuperSaaSAdminView.tsx', 'utf8');
 const migration = fs.readFileSync('supabase/migrations/20260812000300_close_legacy_public_rls.sql', 'utf8');
@@ -56,6 +60,18 @@ test('production Turnstile is fail-closed and landing assets have a restrictive 
 test('platform record writes require JSON and public landing responses are cache bounded', () => {
   assert.match(server, /app\.put\('\/api\/super-admin\/platform-records\/:type\/:scope'[\s\S]*req\.is\('application\/json'\)/);
   assert.match(server, /stale-while-revalidate=300/);
+});
+
+test('staff passwords are verified by Auth and purged from legacy workspace payloads', () => {
+  assert.match(server, /signInWithPassword\(\{[\s\S]*email: normalizeEmail\(profile\.email\)[\s\S]*password/);
+  assert.match(server, /purgeLegacyWorkspaceStaffPassword/);
+  assert.match(server, /const \{ password: _removedPassword, \.\.\.safeStaff \}/);
+  assert.doesNotMatch(dashboard, /password:\s*'password123'/);
+  assert.doesNotMatch(dashboardStaff, /password:\s*(?:password|credentialPassword|generated)/);
+  assert.doesNotMatch(dashboardSettings, /password:\s*staffForm\.password/);
+  assert.doesNotMatch(loginPage, /jasper_password_overrides/);
+  assert.doesNotMatch(loginPage, /password:\s*staff\.password\s*\|\|\s*'password123'/);
+  assert.match(loginPage, /if \(\(import\.meta as any\)\.env\?\.PROD\)[\s\S]*Local development demo fallback/);
 });
 
 test('legacy public policies are replaced with tenant, affiliate, partner, or platform ownership', () => {

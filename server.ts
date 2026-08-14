@@ -1173,6 +1173,38 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   // first valid login, provision a normal Supabase Auth account and users row
   // so all later requests use the same authenticated, tenant-isolated path as
   // owner accounts. Invalid phone and password attempts share one response.
+  const purgeLegacyWorkspaceStaffPassword = async (options: {
+    tenantId: string; staffId?: string; phone?: string; authUserId: string; authEmail: string;
+  }) => {
+    const { data: workspace, error: workspaceError } = await adminTable('tenant_workspaces')
+      .select('payload').eq('tenant_id', options.tenantId).maybeSingle();
+    if (workspaceError) throw workspaceError;
+    const payload = (workspace as any)?.payload;
+    const settings = payload?.settings;
+    const staffs = Array.isArray(settings?.staffs) ? settings.staffs : [];
+    let changed = false;
+    const safeStaffs = staffs.map((item: any) => {
+      const matchesId = options.staffId && String(item?.id || '') === options.staffId;
+      const matchesPhone = options.phone && phoneIdentifiersMatch(item?.phone, options.phone);
+      if (!matchesId && !matchesPhone) return item;
+      const { password: _removedPassword, ...safeStaff } = item || {};
+      changed = changed || Object.prototype.hasOwnProperty.call(item || {}, 'password')
+        || safeStaff.authUserId !== options.authUserId || safeStaff.authEmail !== options.authEmail;
+      return {
+        ...safeStaff,
+        authUserId: options.authUserId,
+        authEmail: options.authEmail,
+        passwordUpdatedAt: new Date().toISOString(),
+      };
+    });
+    if (!changed) return;
+    const { error: updateError } = await adminTable('tenant_workspaces').update({
+      payload: { ...(payload || {}), settings: { ...(settings || {}), staffs: safeStaffs } },
+      updated_at: new Date().toISOString(),
+    }).eq('tenant_id', options.tenantId);
+    if (updateError) throw updateError;
+  };
+
   const handleStaffLogin = async (req: express.Request, res: express.Response) => {
     res.setHeader('Cache-Control', 'no-store, max-age=0');
     if (!supabaseAdmin) {
@@ -1186,6 +1218,42 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
 
     try {
+      // Provisioned staff credentials live only in Supabase Auth. Resolve the
+      // phone to an active staff profile, then let Auth verify the password.
+      const { data: provisionedProfiles, error: provisionedError } = await adminTable('users')
+        .select('id,email,phone,tenant_id,account_type,is_active')
+        .eq('account_type', 'business_staff')
+        .eq('is_active', true);
+      if (provisionedError) throw provisionedError;
+      const provisionedCandidates = (provisionedProfiles || []).filter((profile: any) =>
+        profile?.email && profile?.phone && phoneIdentifiersMatch(profile.phone, phone)
+      );
+      const verifiedProfiles: any[] = [];
+      for (const profile of provisionedCandidates) {
+        const verifier = createClient(supabaseUrl!, (supabaseAnonKey || supabaseServiceRoleKey)!, {
+          auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+        });
+        const { error: signInError } = await verifier.auth.signInWithPassword({
+          email: normalizeEmail(profile.email),
+          password,
+        });
+        if (!signInError) {
+          verifiedProfiles.push(profile);
+          await verifier.auth.signOut();
+        }
+      }
+      if (verifiedProfiles.length === 1) {
+        const verified = verifiedProfiles[0];
+        await purgeLegacyWorkspaceStaffPassword({
+          tenantId: String(verified.tenant_id), phone: String(verified.phone),
+          authUserId: String(verified.id), authEmail: normalizeEmail(verified.email),
+        });
+        return res.json({ email: normalizeEmail(verified.email) });
+      }
+      if (verifiedProfiles.length > 1) {
+        return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'sign_in', { email: null });
+      }
+
       const { data: workspaceRows, error: workspaceError } = await adminTable('tenant_workspaces')
         .select('tenant_id, payload');
       if (workspaceError) throw workspaceError;
@@ -1317,6 +1385,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
           throw profileCreateError;
         }
       }
+
+      // Complete the one-time legacy migration by keeping only non-secret Auth
+      // references in the workspace. The raw password must never be retained.
+      await purgeLegacyWorkspaceStaffPassword({ tenantId, staffId, phone: storedPhone, authUserId, authEmail });
 
       return res.json({ email: authEmail });
     } catch (error: any) {
@@ -3014,6 +3086,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         .update({ status: 'accepted', accepted_by: authUser.id, accepted_at: new Date().toISOString() })
         .eq('id', invitation.id).eq('status', 'pending').select('id').maybeSingle();
       if (consumeError || !consumed) throw consumeError || new Error('Invitation was already used.');
+      await purgeLegacyWorkspaceStaffPassword({
+        tenantId: String(invitation.tenant_id), staffId: String(invitation.staff_workspace_id),
+        phone: String(invitation.phone || ''), authUserId: authUser.id, authEmail: normalizeEmail(invitation.email),
+      });
       return res.json({ status: 'existing', user: {
         id: authUser.id, email: invitation.email, name: invitation.staff_name, role: databaseRole,
         tenantId: invitation.tenant_id, activeTenant: invitation.tenant_id, phone: invitation.phone,

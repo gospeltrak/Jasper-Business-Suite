@@ -242,9 +242,9 @@ const getInitialSystemSettings = (tenant: Tenant): SystemSettings => {
       brands: []
     },
     staffs: [
-      { id: 'st-01', name: 'John Mwangi', phone: '+254 722 123 456', role: 'Seller', salary: 35000, password: 'password123' },
-      { id: 'st-02', name: 'Babajide Cole', phone: '+234 802 111 2222', role: 'Delivery Rider / Permanent Driver', salary: 45000, password: 'password123' },
-      { id: 'st-03', name: 'Kofi Mensah', phone: '+233 244 888 999', role: 'Cashier', salary: 50000, password: 'password123' }
+      { id: 'st-01', name: 'John Mwangi', phone: '+254 722 123 456', role: 'Seller', salary: 35000 },
+      { id: 'st-02', name: 'Babajide Cole', phone: '+234 802 111 2222', role: 'Delivery Rider / Permanent Driver', salary: 45000 },
+      { id: 'st-03', name: 'Kofi Mensah', phone: '+233 244 888 999', role: 'Cashier', salary: 50000 }
     ]
   };
 };

@@ -311,14 +311,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const getAllSystemUsers = () => {
     const customUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
     const saasStaffs = JSON.parse(onlineStorage.getItem('jasper_saas_staffs') || '[]');
-    const passwordOverrides = JSON.parse(onlineStorage.getItem('jasper_password_overrides') || '{}');
-    const withPasswordOverride = (user: any) => {
-      const overrideKey = user.email || user.phone || user.id;
-      return overrideKey && passwordOverrides[overrideKey]
-        ? { ...user, password: passwordOverrides[overrideKey] }
-        : user;
-    };
-    const systemUsers = [...DEMO_USERS, ...customUsers, ...saasStaffs].map(withPasswordOverride);
+    const systemUsers = [...DEMO_USERS, ...customUsers, ...saasStaffs].map((user: any) => {
+      const { password: _removedPassword, ...safeUser } = user || {};
+      return safeUser;
+    });
     const resolveStaffPermissions = (settings: any, roleName: string) => {
       const roles = settings.customRoles?.length ? settings.customRoles : DEFAULT_CUSTOM_ROLES;
       const normalizedRole = (roleName || '').toLowerCase();
@@ -336,11 +332,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             if (settings.staffs && Array.isArray(settings.staffs)) {
               settings.staffs.forEach((staff: any) => {
                  const staffRole = staff.role || 'Cashier';
-                 systemUsers.push(withPasswordOverride({
+                 systemUsers.push({
                    id: staff.id,
                    email: staff.phone || staff.name.toLowerCase().replace(' ', '') + '@jasper.com',
                    phone: staff.phone || '',
-                   password: staff.password || 'password123',
                    name: staff.name,
                    role: staffRole,
                    tenantId: tenantId,
@@ -348,7 +343,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                    profileImage: staff.profileImage,
                    isSaaSStaff: true,
                    rolePermissions: resolveStaffPermissions(settings, staffRole)
-                 }));
+                 });
               });
             }
           } catch(e) {}
@@ -486,72 +481,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
-  const persistRecoveredPassword = (user: any, newPassword: string) => {
-    const updateList = (key: string) => {
-      const list = JSON.parse(onlineStorage.getItem(key) || '[]');
-      const updated = list.map((entry: any) => {
-        const sameUser = (entry.email && user.email && entry.email === user.email) || (entry.id && user.id && entry.id === user.id) || (entry.phone && user.phone && entry.phone === user.phone);
-        return sameUser ? { ...entry, password: newPassword } : entry;
-      });
-      onlineStorage.setItem(key, JSON.stringify(updated));
-    };
-
-    updateList('jasper_custom_users');
-    updateList('jasper_saas_staffs');
-
-    if (user.activeTenant || user.tenantId) {
-      const settingsKey = `jasper_settings_${user.activeTenant || user.tenantId}`;
-      const settings = JSON.parse(onlineStorage.getItem(settingsKey) || '{}');
-      if (Array.isArray(settings.staffs)) {
-        settings.staffs = settings.staffs.map((staff: any) => {
-          const sameStaff = (staff.id && user.id && staff.id === user.id) || (staff.phone && user.phone && staff.phone === user.phone);
-          return sameStaff ? { ...staff, password: newPassword } : staff;
-        });
-        onlineStorage.setItem(settingsKey, JSON.stringify(settings));
-      }
-    }
-
-    const overrides = JSON.parse(onlineStorage.getItem('jasper_password_overrides') || '{}');
-    if (user.email) overrides[user.email] = newPassword;
-    if (user.phone) overrides[user.phone] = newPassword;
-    if (user.id) overrides[user.id] = newPassword;
-    onlineStorage.setItem('jasper_password_overrides', JSON.stringify(overrides));
-  };
-
   const handleFinishRecovery = (e: FormEvent) => {
     e.preventDefault();
-    setRecoveryMessage(null);
-
-    if (!recoveryUser || !recoveryOtp) {
-      setRecoveryStep('identify');
-      setRecoveryMessage('Start the reset again.');
-      return;
-    }
-
-    if (recoveryInputOtp.trim() !== recoveryOtp) {
-      setRecoveryMessage('Wrong OTP. Check WhatsApp and try again.');
-      return;
-    }
-
-    if (recoveryNewPassword.trim().length < 4) {
-      setRecoveryMessage('New password must have at least 4 characters.');
-      return;
-    }
-
-    persistRecoveredPassword(recoveryUser, recoveryNewPassword.trim());
-    setEmail(recoveryUser.phone || recoveryUser.email || '');
-    setPassword(recoveryNewPassword.trim());
-    setEmailChecked(true);
-    setShowRecovery(false);
-    setRecoveryStep('identify');
-    setRecoveryIdentifier('');
-    setRecoveryWhatsapp('');
-    setRecoveryOtp('');
-    setRecoveryInputOtp('');
-    setRecoveryNewPassword('');
-    setRecoverySecurityAnswer('');
-    setRecoveryUser(null);
-    setSuccessMessage('Password reset successfully. You can sign in now.');
+    setRecoveryMessage('Password changes are protected by Supabase Auth. Continue with Google or contact your business administrator for a secure invitation.');
   };
 
   const handleCheckEmail = (e: FormEvent) => {
@@ -1070,11 +1002,21 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       return;
     }
 
-    // Default Fallback
-    setTimeout(() => {
-      const combinedUsers = getAllSystemUsers();
+    // Local demo fallback is never available in production. Production
+    // identities must be verified by Supabase Auth through the flow above.
+    if ((import.meta as any).env?.PROD) {
+      setHasActiveLoginAttempt(true);
+      setError(toUserFacingError(
+        loginFailure || { status: 401 },
+        { language: currentLang, context: 'sign_in', fallbackCode: 'AUTH_ERROR' },
+      ).message);
+      setIsLoading(false);
+      return;
+    }
 
-      const match = combinedUsers.find(
+    // Local development demo fallback
+    setTimeout(() => {
+      const match: any = DEMO_USERS.find(
         (u: any) => (sameLoginIdentifier(u.phone, cleanIdentifier) || sameLoginIdentifier(u.email, cleanIdentifier)) && String(u.password || '').trim() === cleanPassword
       );
 
