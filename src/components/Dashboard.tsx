@@ -2978,7 +2978,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     <div id="dashboard-scaffold" className="w-full h-dvh bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
       
       {/* PWA install banner — shows after login, not on login page */}
-      {user.role !== 'SuperAdmin' && activeTenant.id ? (
+      {user.role === 'SuperAdmin' ? (
+        <PWAInstallBanner
+          tenantId="super-admin"
+          businessName="Orvix Super Admin"
+          businessLogo="/icon-512.png"
+          appId="/admin"
+          startUrl="/admin"
+          automaticPrompt={false}
+        />
+      ) : activeTenant.id ? (
         <PWAInstallBanner
           tenantId={activeTenant.id}
           businessName={businessDisplayName}
@@ -4194,6 +4203,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   { id: 'admin-web-editor', label: 'Web Editor',  icon: Globe,       desc: 'Edit landing page content', color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-500/10' },
                   { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay, desc: 'Control dashboard and sticky ads', color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10' },
                   { id: 'admin-settings',   label: 'Settings',    icon: SettingsIcon,desc: 'System configuration',      color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
+                  { id: 'install-orvix-app', label: 'Install Admin App', icon: Download, desc: 'Add Super Admin to your home screen', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', alwaysShow: true },
                 ] : [
                   { id: 'sync', label: 'Sync', icon: RefreshCw, desc: isOfflineMode ? 'You are offline' : 'All data synced', color: isOfflineMode ? 'text-amber-600' : 'text-emerald-600', bg: isOfflineMode ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-emerald-50 dark:bg-emerald-500/10' },
                   { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },

@@ -18,6 +18,9 @@ interface PWAInstallBannerProps {
   businessName: string;
   businessLogo?: string | null;
   enabled?: boolean;
+  appId?: string;
+  startUrl?: string;
+  automaticPrompt?: boolean;
 }
 
 const isIOS = () =>
@@ -107,7 +110,14 @@ const createWhiteBackedIcon = (src: string): Promise<string> =>
     img.src = src;
   });
 
-function usePersonalizedManifest({ tenantId, businessName, businessLogo, enabled }: PWAInstallBannerProps) {
+function usePersonalizedManifest({
+  tenantId,
+  businessName,
+  businessLogo,
+  enabled,
+  appId,
+  startUrl,
+}: PWAInstallBannerProps) {
   useEffect(() => {
     if (!enabled || !tenantId) return undefined;
     let cancelled = false;
@@ -126,6 +136,8 @@ function usePersonalizedManifest({ tenantId, businessName, businessLogo, enabled
 
     const name = safeBusinessName(businessName);
     const encodedTenantId = encodeURIComponent(tenantId);
+    const resolvedStartUrl = startUrl || `/dashboard?tenant=${encodedTenantId}`;
+    const resolvedAppId = appId || resolvedStartUrl;
     const rawIconSource = businessLogo || createBusinessInitialsIcon(name);
 
     (async () => {
@@ -143,11 +155,11 @@ function usePersonalizedManifest({ tenantId, businessName, businessLogo, enabled
       }];
 
       const manifest = {
-        id: `/dashboard?tenant=${encodedTenantId}`,
+        id: resolvedAppId,
         name,
         short_name: shortBusinessName(name),
         description: `${name} business app`,
-        start_url: `/dashboard?tenant=${encodedTenantId}`,
+        start_url: resolvedStartUrl,
         scope: '/',
         display: 'standalone',
         display_override: ['standalone', 'fullscreen'],
@@ -192,7 +204,7 @@ function usePersonalizedManifest({ tenantId, businessName, businessLogo, enabled
       titleMeta?.remove();
       if (manifestUrl) URL.revokeObjectURL(manifestUrl);
     };
-  }, [businessLogo, businessName, enabled, tenantId]);
+  }, [appId, businessLogo, businessName, enabled, startUrl, tenantId]);
 }
 
 function BusinessIdentity({ businessName, businessLogo }: Pick<PWAInstallBannerProps, 'businessName' | 'businessLogo'>) {
@@ -216,7 +228,13 @@ function BusinessIdentity({ businessName, businessLogo }: Pick<PWAInstallBannerP
 }
 
 export default function PWAInstallBanner(props: PWAInstallBannerProps) {
-  const { tenantId, businessName, businessLogo, enabled = true } = props;
+  const {
+    tenantId,
+    businessName,
+    businessLogo,
+    enabled = true,
+    automaticPrompt = true,
+  } = props;
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [show, setShow] = useState(false);
   const [platform, setPlatform] = useState<'android' | 'ios' | 'desktop' | null>(null);
@@ -232,7 +250,7 @@ export default function PWAInstallBanner(props: PWAInstallBannerProps) {
   usePersonalizedManifest(props);
 
   useEffect(() => {
-    if (!enabled || !tenantId || isInStandaloneMode()) return undefined;
+    if (!enabled || !automaticPrompt || !tenantId || isInStandaloneMode()) return undefined;
     // Show the automatic prompt at most once: never again after the user
     // dismissed it, and never once the app is already installed.
     if (hasDismissedInstallPrompt(tenantId) || hasInstalledPwa(tenantId)) return undefined;
@@ -266,7 +284,7 @@ export default function PWAInstallBanner(props: PWAInstallBannerProps) {
       unsubscribeInstalled();
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [enabled, isDevelopmentPreview, tenantId]);
+  }, [automaticPrompt, enabled, isDevelopmentPreview, tenantId]);
 
   // Manual "Install Orvix App" entry point (profile menu / Settings). Stays
   // available regardless of the automatic prompt's dismissal state.

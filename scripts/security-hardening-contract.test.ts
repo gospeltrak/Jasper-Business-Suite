@@ -18,6 +18,7 @@ const notificationContext = fs.readFileSync('src/JasperNotificationContext.tsx',
 const notificationSettings = fs.readFileSync('src/components/DashboardNotificationsSettings.tsx', 'utf8');
 const platformNotificationsMigration = fs.readFileSync('supabase/migrations/20260814000100_platform_notifications.sql', 'utf8');
 const statusRequests = fs.readFileSync('src/components/SaaSStatusAndRequests.tsx', 'utf8');
+const pwaInstallBanner = fs.readFileSync('src/components/PWAInstallBanner.tsx', 'utf8');
 
 test('Super Admin is Google and fresh-MFA only with three attempts', () => {
   assert.match(login, /Super Admin password login is disabled/);
@@ -168,4 +169,16 @@ test('legacy public policies are replaced with tenant, affiliate, partner, or pl
   assert.match(migration, /private\.current_tenant_id/);
   assert.match(migration, /private\.current_affiliate_id/);
   assert.match(migration, /private\.is_platform_admin/);
+});
+
+test('Super Admin PWA is separate and only launches from the More menu', () => {
+  assert.match(dashboard, /businessName="Orvix Super Admin"/);
+  assert.match(dashboard, /appId="\/admin"/);
+  assert.match(dashboard, /startUrl="\/admin"/);
+  assert.match(dashboard, /automaticPrompt=\{false\}/);
+  assert.match(dashboard, /label: 'Install Admin App'/);
+  assert.match(dashboard, /item\.id === 'install-orvix-app'[\s\S]*requestManualInstallPrompt\(\)/);
+  assert.match(pwaInstallBanner, /if \(!enabled \|\| !automaticPrompt \|\| !tenantId/);
+  assert.match(pwaInstallBanner, /id: resolvedAppId/);
+  assert.match(pwaInstallBanner, /start_url: resolvedStartUrl/);
 });
