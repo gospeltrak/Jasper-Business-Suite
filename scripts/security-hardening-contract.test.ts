@@ -16,6 +16,8 @@ const repositoryAudit = fs.readFileSync('scripts/security-repository-audit.mjs',
 const packageJson = fs.readFileSync('package.json', 'utf8');
 const notificationContext = fs.readFileSync('src/JasperNotificationContext.tsx', 'utf8');
 const notificationSettings = fs.readFileSync('src/components/DashboardNotificationsSettings.tsx', 'utf8');
+const platformNotificationsMigration = fs.readFileSync('supabase/migrations/20260814000100_platform_notifications.sql', 'utf8');
+const statusRequests = fs.readFileSync('src/components/SaaSStatusAndRequests.tsx', 'utf8');
 
 test('Super Admin is Google and fresh-MFA only with three attempts', () => {
   assert.match(login, /Super Admin password login is disabled/);
@@ -135,6 +137,27 @@ test('notification inbox is server-authorized, tenant scoped, and in-app only', 
   assert.doesNotMatch(notificationContext, /setItem\('jasper_notifications'/);
   assert.match(notificationSettings, /In-app notifications/);
   assert.doesNotMatch(notificationSettings, /Send Test WhatsApp Report|WhatsApp Number for Reports/);
+});
+
+test('Super Admin notifications are durable and critical payment mutations stay server-side', () => {
+  assert.match(platformNotificationsMigration, /create table if not exists public\.platform_notification_events/);
+  assert.match(platformNotificationsMigration, /create table if not exists public\.platform_notification_reads/);
+  assert.match(platformNotificationsMigration, /force row level security/);
+  assert.match(platformNotificationsMigration, /revoke all on table public\.platform_notification_events from anon, authenticated/);
+  assert.match(platformNotificationsMigration, /platform_payment_proof_notification/);
+  assert.match(platformNotificationsMigration, /platform_affiliate_notification/);
+  assert.match(platformNotificationsMigration, /platform_partner_notification/);
+  assert.match(server, /from\('platform_notification_events'\)/);
+  assert.match(server, /from\('platform_notification_reads'\)\.upsert/);
+  const proofRoute = server.slice(
+    server.indexOf("app.post('/api/subscriptions/payment-proof-file'"),
+    server.indexOf("app.get('/api/super-admin/payment-proofs", server.indexOf("app.post('/api/subscriptions/payment-proof-file'")),
+  );
+  assert.match(proofRoute, /adminTable\('tenant_payment_proofs'\)[\s\S]*\.insert\(proofRecord\)/);
+  assert.match(proofRoute, /signatureMatches/);
+  assert.doesNotMatch(dashboard, /from\('tenant_payment_proofs'\)[\s\S]*\.insert/);
+  assert.match(statusRequests, /\/api\/super-admin\/payment-proofs\/\$\{encodeURIComponent\(proof\.id\)\}\/reject/);
+  assert.doesNotMatch(statusRequests, /from\('tenant_payment_proofs'\)[\s\S]*\.update/);
 });
 
 test('legacy public policies are replaced with tenant, affiliate, partner, or platform ownership', () => {

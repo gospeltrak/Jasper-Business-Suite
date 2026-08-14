@@ -1336,25 +1336,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     setManualActivationSubmitting(true);
     setManualActivationMessage(null);
     const selectedPlan = SUBSCRIPTION_PLANS[selectedPlanId];
-    const submittedAt = new Date().toISOString();
-    const requestRecord = {
-      id: crypto.randomUUID(),
-      tenant_id: activeTenant.id,
-      tenant_name: activeTenant.name,
-      requested_package_id: selectedPlanId,
-      requested_package_name: selectedPlan.name,
-      amount: selectedPlan.price,
-      currency: activeTenant.currency || 'TSh',
-      status: 'pending',
-      receipt_file_name: manualActivationReceipt.name,
-      receipt_file_type: manualActivationReceipt.type || 'unknown',
-      receipt_file_size: manualActivationReceipt.size,
-      note: `Package: ${selectedPlan.name}. ${manualActivationNote.trim()}`,
-      submitted_by: user.id,
-      submitted_at: submittedAt,
-      created_at: submittedAt,
-      updated_at: submittedAt
-    };
 
     try {
       const client: any = await getSecureDataBridgeClient();
@@ -1378,18 +1359,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           fileName: manualActivationReceipt.name,
           fileType: manualActivationReceipt.type,
           receiptBase64,
+          requestedPackageId: selectedPlanId,
+          note: `Package: ${selectedPlan.name}. ${manualActivationNote.trim()}`,
         }),
       });
       const uploadPayload = await uploadResponse.json().catch(() => ({}));
-      if (!uploadResponse.ok || !uploadPayload?.receiptPath) {
+      if (!uploadResponse.ok || !uploadPayload?.proof?.id) {
         throw new Error(uploadPayload?.error || 'Receipt upload failed.');
       }
-
-      const { error } = await client
-        .from('tenant_payment_proofs')
-        .insert({ ...requestRecord, receipt_file_url: uploadPayload.receiptPath });
-
-      if (error) throw error;
       setManualActivationMessage(`Activation request sent for ${selectedPlan.name}. Admin will verify the receipt.`);
       setManualActivationReceipt(null);
       setManualActivationNote('');

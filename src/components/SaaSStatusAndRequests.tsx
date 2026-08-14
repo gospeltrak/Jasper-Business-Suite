@@ -157,13 +157,16 @@ export default function SaaSStatusAndRequests() {
     setMessage(null);
     try {
       const client: any = await getSecureDataBridgeClient();
-      const now = new Date().toISOString();
-      const { error } = await client
-        .from('tenant_payment_proofs')
-        .update({ status: 'rejected', rejected_reason: rejectReason.trim(), updated_at: now })
-        .eq('id', proof.id);
-
-      if (error) throw error;
+      const { data: sessionData } = await client.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('Your secure session has expired. Sign in again.');
+      const response = await fetch(`/api/super-admin/payment-proofs/${encodeURIComponent(proof.id)}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason: rejectReason.trim() }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.proof) throw new Error(payload?.error || 'Payment request could not be rejected.');
       setProofs(prev => prev.map(p => p.id === proof.id ? { ...p, status: 'rejected', rejected_reason: rejectReason.trim() } : p));
       setMessage({ text: `Rejected. Reason sent to ${proof.tenant_name}.`, type: 'success' });
       setRejectingId(null);

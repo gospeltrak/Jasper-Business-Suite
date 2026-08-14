@@ -1111,7 +1111,33 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     try {
       const access = await requireNotificationInboxUser(req);
       if (access.isPlatformAdmin) {
-        return res.json({ scope: 'platform', notifications: [] });
+        const [{ data: events, error: eventsError }, { data: reads, error: readsError }] = await Promise.all([
+          supabaseAdmin!.from('platform_notification_events')
+            .select('id, event_type, module_name, title, message, priority, entity_type, entity_id, target_tenant_id, payload, created_at')
+            .order('created_at', { ascending: false })
+            .limit(150),
+          supabaseAdmin!.from('platform_notification_reads')
+            .select('event_id, read_at')
+            .eq('user_id', access.user.id),
+        ]);
+        if (eventsError) throw eventsError;
+        if (readsError) throw readsError;
+        const readIds = new Set((reads || []).map((row: any) => String(row.event_id)));
+        return res.json({
+          scope: 'platform',
+          notifications: (events || []).map((event: any) => ({
+            id: event.id,
+            tenantId: event.target_tenant_id || '',
+            moduleName: event.module_name,
+            title: event.title,
+            message: event.message,
+            notificationType: 'system_alert',
+            deliveryChannel: 'in_app',
+            status: 'sent',
+            isRead: readIds.has(String(event.id)),
+            createdAt: event.created_at,
+          })),
+        });
       }
       if (!isUuid(access.tenantId)) return res.status(403).json({ error: 'Active tenant is required.' });
 
@@ -1152,9 +1178,23 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.patch('/api/notifications/:recipientId/read', async (req, res) => {
     try {
       const access = await requireNotificationInboxUser(req);
-      if (access.isPlatformAdmin || !isUuid(access.tenantId) || !isUuid(req.params.recipientId)) {
+      if (!isUuid(req.params.recipientId)) {
         return res.status(403).json({ error: 'Notification access denied.' });
       }
+      if (access.isPlatformAdmin) {
+        const { data: event, error: eventError } = await supabaseAdmin!
+          .from('platform_notification_events').select('id').eq('id', req.params.recipientId).maybeSingle();
+        if (eventError) throw eventError;
+        if (!event) return res.status(404).json({ error: 'Notification not found.' });
+        const { error } = await supabaseAdmin!.from('platform_notification_reads').upsert({
+          event_id: event.id,
+          user_id: access.user.id,
+          read_at: new Date().toISOString(),
+        }, { onConflict: 'event_id,user_id' });
+        if (error) throw error;
+        return res.json({ success: true });
+      }
+      if (!isUuid(access.tenantId)) return res.status(403).json({ error: 'Notification access denied.' });
       const now = new Date().toISOString();
       const { data, error } = await supabaseAdmin!
         .from('branch_notification_recipients')
@@ -1177,7 +1217,19 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.patch('/api/notifications/read-all', async (req, res) => {
     try {
       const access = await requireNotificationInboxUser(req);
-      if (access.isPlatformAdmin || !isUuid(access.tenantId)) {
+      if (access.isPlatformAdmin) {
+        const { data: events, error: eventsError } = await supabaseAdmin!
+          .from('platform_notification_events').select('id').order('created_at', { ascending: false }).limit(500);
+        if (eventsError) throw eventsError;
+        const readAt = new Date().toISOString();
+        const rows = (events || []).map((event: any) => ({ event_id: event.id, user_id: access.user.id, read_at: readAt }));
+        if (rows.length) {
+          const { error } = await supabaseAdmin!.from('platform_notification_reads').upsert(rows, { onConflict: 'event_id,user_id' });
+          if (error) throw error;
+        }
+        return res.json({ success: true });
+      }
+      if (!isUuid(access.tenantId)) {
         return res.status(403).json({ error: 'Notification access denied.' });
       }
       const now = new Date().toISOString();
@@ -2158,10 +2210,13 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     res.setHeader('Cache-Control', 'no-store, max-age=0');
     try {
       if (!supabaseAdmin) return res.status(503).json({ error: 'Storage service is unavailable.' });
+      if (!req.is('application/json')) return res.status(415).json({ error: 'Content-Type application/json is required.' });
       const tenantId = String(req.body?.tenantId || '');
       const fileName = normalizeText(req.body?.fileName, 160);
       const fileType = String(req.body?.fileType || '').trim().toLowerCase();
       const receiptBase64 = String(req.body?.receiptBase64 || '');
+      const requestedPackageId = String(req.body?.requestedPackageId || '').trim().toLowerCase();
+      const note = normalizeText(req.body?.note, 500);
       const allowedTypes = new Map([
         ['image/jpeg', 'jpg'],
         ['image/png', 'png'],
@@ -2169,7 +2224,11 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         ['application/pdf', 'pdf'],
       ]);
 
-      await requireTenantUser(req, tenantId);
+      const submittingUser = await requireTenantUser(req, tenantId);
+      if (!SUBSCRIPTION_PACKAGE_IDS.has(requestedPackageId) || !SUBSCRIPTION_PACKAGE_PRICES.has(requestedPackageId)) {
+        return res.status(400).json({ error: 'Choose Ruby, Diamond, or Tanzanite.' });
+      }
+      if (!note) return res.status(400).json({ error: 'Transaction reference or payment details are required.' });
       if (!allowedTypes.has(fileType)) {
         return res.status(400).json({ error: 'Use a JPG, PNG, WebP, or PDF receipt.' });
       }
@@ -2182,6 +2241,14 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (!fileBuffer.length || fileBuffer.length > 5 * 1024 * 1024) {
         return res.status(413).json({ error: 'Receipt must be 5 MB or smaller.' });
       }
+      const signatureMatches = fileType === 'image/png'
+        ? fileBuffer.length >= 8 && fileBuffer[0] === 0x89 && fileBuffer[1] === 0x50 && fileBuffer[2] === 0x4e && fileBuffer[3] === 0x47
+        : fileType === 'image/jpeg'
+          ? fileBuffer.length >= 3 && fileBuffer[0] === 0xff && fileBuffer[1] === 0xd8 && fileBuffer[2] === 0xff
+          : fileType === 'image/webp'
+            ? fileBuffer.length >= 12 && fileBuffer.toString('ascii', 0, 4) === 'RIFF' && fileBuffer.toString('ascii', 8, 12) === 'WEBP'
+            : fileBuffer.length >= 5 && fileBuffer.toString('ascii', 0, 5) === '%PDF-';
+      if (!signatureMatches) return res.status(400).json({ error: 'Receipt content does not match its declared file type.' });
 
       const { data: buckets, error: bucketsError } = await supabaseAdmin.storage.listBuckets();
       if (bucketsError) throw bucketsError;
@@ -2204,7 +2271,44 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         });
       if (uploadError) throw uploadError;
 
-      return res.json({ receiptPath, fileName });
+      const { data: tenant, error: tenantError } = await adminTable('tenants')
+        .select('id, name, currency, currency_code')
+        .eq('id', tenantId)
+        .maybeSingle();
+      if (tenantError || !tenant) {
+        await supabaseAdmin.storage.from('payment-proofs').remove([receiptPath]);
+        throw tenantError || new Error('Tenant account was not found.');
+      }
+      const submittedAt = new Date().toISOString();
+      const proofRecord = {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        tenant_name: normalizeText(tenant.name, 160),
+        requested_package_id: requestedPackageId,
+        requested_package_name: requestedPackageId.charAt(0).toUpperCase() + requestedPackageId.slice(1),
+        amount: SUBSCRIPTION_PACKAGE_PRICES.get(requestedPackageId),
+        currency: normalizeText(tenant.currency_code || tenant.currency, 10) || 'TZS',
+        status: 'pending',
+        receipt_file_name: fileName,
+        receipt_file_type: fileType,
+        receipt_file_size: fileBuffer.length,
+        receipt_file_url: receiptPath,
+        note,
+        submitted_by: submittingUser.id,
+        submitted_at: submittedAt,
+        created_at: submittedAt,
+        updated_at: submittedAt,
+      };
+      const { data: proof, error: proofError } = await adminTable('tenant_payment_proofs')
+        .insert(proofRecord)
+        .select('id, status, requested_package_id, submitted_at')
+        .single();
+      if (proofError || !proof) {
+        await supabaseAdmin.storage.from('payment-proofs').remove([receiptPath]);
+        throw proofError || new Error('Payment request was not created.');
+      }
+
+      return res.status(201).json({ proof, receiptPath, fileName });
     } catch (error: any) {
       return res.status(Number(error?.status || 500)).json({ error: error?.message || 'Receipt upload failed.' });
     }
@@ -2238,6 +2342,34 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         metadata: { paymentProofId: proof.id },
       });
       return res.json({ signedUrl: data.signedUrl, expiresIn: 300 });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.post('/api/super-admin/payment-proofs/:proofId/reject', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const proofId = String(req.params.proofId || '');
+      const reason = normalizeText(req.body?.reason, 500);
+      if (!isUuid(proofId)) return res.status(400).json({ error: 'Invalid payment proof identifier.' });
+      if (!reason) return res.status(400).json({ error: 'A rejection reason is required.' });
+      const now = new Date().toISOString();
+      const { data: proof, error } = await adminTable('tenant_payment_proofs')
+        .update({
+          status: 'rejected',
+          rejected_reason: reason,
+          reviewed_at: now,
+          reviewed_by: adminUser.id,
+          updated_at: now,
+        })
+        .eq('id', proofId)
+        .eq('status', 'pending')
+        .select('id, tenant_id, tenant_name, status, rejected_reason, reviewed_at')
+        .maybeSingle();
+      if (error) throw error;
+      if (!proof) return res.status(409).json({ error: 'This payment request is no longer pending.' });
+      return res.json({ proof });
     } catch (error: any) {
       return platformAdminError(res, error);
     }
