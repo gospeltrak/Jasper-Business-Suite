@@ -575,6 +575,36 @@ async function requireActiveUser(req: express.Request) {
   return authData.user;
 }
 
+async function requireNotificationInboxUser(req: express.Request) {
+  if (!supabaseAdmin) throw new Error('Supabase backend client is not configured');
+  const user = await requireActiveUser(req);
+  const { data: profile, error } = await supabaseAdmin
+    .from('users')
+    .select('id, tenant_id, active_tenant, account_type, role, role_key, is_active')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (error || !profile) {
+    const denied: any = new Error('Notification access denied');
+    denied.status = 403;
+    throw denied;
+  }
+  const isPlatformAdmin = isStrictPlatformAdminProfile(profile);
+  const profileRoles = [(profile as any).role, (profile as any).role_key]
+    .map(value => String(value || '').trim().toLowerCase());
+  const isTenantAdmin = profileRoles.some(role => ['admin', 'owner', 'tenant_admin'].includes(role));
+  if (!isPlatformAdmin && !isTenantAdmin) {
+    const denied: any = new Error('Tenant administrator notification access required');
+    denied.status = 403;
+    throw denied;
+  }
+  return {
+    user,
+    profile,
+    isPlatformAdmin,
+    tenantId: String((profile as any).active_tenant || (profile as any).tenant_id || ''),
+  };
+}
+
 const platformAdminError = (res: express.Response, error: any) => {
   const status = Number(error?.status || 500);
   return res.status(status).json({ error: error?.message || 'Super Admin request failed' });
@@ -1076,6 +1106,95 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.use('/api', protectBrowserApiMutations);
 
   app.use(express.json({ limit: '8mb' }));
+
+  app.get('/api/notifications/inbox', async (req, res) => {
+    try {
+      const access = await requireNotificationInboxUser(req);
+      if (access.isPlatformAdmin) {
+        return res.json({ scope: 'platform', notifications: [] });
+      }
+      if (!isUuid(access.tenantId)) return res.status(403).json({ error: 'Active tenant is required.' });
+
+      const { data, error } = await supabaseAdmin!
+        .from('branch_notification_recipients')
+        .select('id, tenant_id, event_id, delivery_status, read_at, created_at, branch_notification_events!inner(id, tenant_id, module_name, event_type, title, message, created_at)')
+        .eq('tenant_id', access.tenantId)
+        .eq('recipient_user_id', access.user.id)
+        .eq('delivery_channel', 'in_app')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+
+      const notifications = (data || []).map((recipient: any) => {
+        const event = Array.isArray(recipient.branch_notification_events)
+          ? recipient.branch_notification_events[0]
+          : recipient.branch_notification_events;
+        return {
+          id: recipient.id,
+          tenantId: recipient.tenant_id,
+          moduleName: event?.module_name || 'system',
+          title: event?.title || 'System notification',
+          message: event?.message || '',
+          notificationType: event?.event_type || 'system_alert',
+          deliveryChannel: 'in_app',
+          status: recipient.delivery_status === 'delivered' ? 'sent' : 'pending',
+          isRead: Boolean(recipient.read_at),
+          createdAt: event?.created_at || recipient.created_at,
+        };
+      });
+      return res.json({ scope: 'tenant_admin', notifications });
+    } catch (error: any) {
+      const status = Number(error?.status || 500);
+      return res.status(status).json({ error: status < 500 ? error.message : 'Notification inbox is temporarily unavailable.' });
+    }
+  });
+
+  app.patch('/api/notifications/:recipientId/read', async (req, res) => {
+    try {
+      const access = await requireNotificationInboxUser(req);
+      if (access.isPlatformAdmin || !isUuid(access.tenantId) || !isUuid(req.params.recipientId)) {
+        return res.status(403).json({ error: 'Notification access denied.' });
+      }
+      const now = new Date().toISOString();
+      const { data, error } = await supabaseAdmin!
+        .from('branch_notification_recipients')
+        .update({ delivery_status: 'delivered', delivered_at: now, read_at: now, updated_at: now })
+        .eq('id', req.params.recipientId)
+        .eq('tenant_id', access.tenantId)
+        .eq('recipient_user_id', access.user.id)
+        .eq('delivery_channel', 'in_app')
+        .select('id')
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return res.status(404).json({ error: 'Notification not found.' });
+      return res.json({ success: true });
+    } catch (error: any) {
+      const status = Number(error?.status || 500);
+      return res.status(status).json({ error: status < 500 ? error.message : 'Notification could not be updated.' });
+    }
+  });
+
+  app.patch('/api/notifications/read-all', async (req, res) => {
+    try {
+      const access = await requireNotificationInboxUser(req);
+      if (access.isPlatformAdmin || !isUuid(access.tenantId)) {
+        return res.status(403).json({ error: 'Notification access denied.' });
+      }
+      const now = new Date().toISOString();
+      const { error } = await supabaseAdmin!
+        .from('branch_notification_recipients')
+        .update({ delivery_status: 'delivered', delivered_at: now, read_at: now, updated_at: now })
+        .eq('tenant_id', access.tenantId)
+        .eq('recipient_user_id', access.user.id)
+        .eq('delivery_channel', 'in_app')
+        .is('read_at', null);
+      if (error) throw error;
+      return res.json({ success: true });
+    } catch (error: any) {
+      const status = Number(error?.status || 500);
+      return res.status(status).json({ error: status < 500 ? error.message : 'Notifications could not be updated.' });
+    }
+  });
 
   app.use('/api/super-admin', async (req, res, next) => {
     if (req.method === 'OPTIONS') return next();

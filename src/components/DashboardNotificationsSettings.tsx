@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useJasperNotifications } from '../JasperNotificationContext';
-import { Save, Bell, Clock, Calendar, AlertTriangle, Send, User, MessageCircle } from 'lucide-react';
+import { Save, Bell, Clock, Calendar, AlertTriangle, User } from 'lucide-react';
 import { JasperModuleNotificationSettings } from '../types';
 
 interface DashboardNotificationsSettingsProps {
@@ -11,8 +11,6 @@ interface DashboardNotificationsSettingsProps {
   onPersistSettings?: (settings: JasperModuleNotificationSettings) => void | boolean | Promise<boolean>;
 }
 
-const validateWhatsapp = (value: string) => /^\+[1-9]\d{8,14}$/.test(value.trim());
-
 export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSettingsProps> = ({
   tenantId = 'default-tenant',
   moduleName = 'wholesale-retail',
@@ -20,7 +18,7 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
   persistedSettings,
   onPersistSettings,
 }) => {
-  const { getModuleSettings, updateModuleSettings, sendTestModuleWhatsappReport } = useJasperNotifications();
+  const { getModuleSettings, updateModuleSettings } = useJasperNotifications();
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const draftTouchedRef = useRef(false);
@@ -63,19 +61,15 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
     }));
   };
 
-  const validate = () => {
-    if (settings.enableWhatsapp && !validateWhatsapp(settings.whatsappNumber)) {
-      setError('Please enter WhatsApp number with country code, example +255712345678.');
-      return false;
-    }
-    return true;
-  };
-
   const handleSave = async () => {
-    if (!validate()) return;
     setError(null);
     const updated = {
       ...settings,
+      enableInApp: true,
+      enableWhatsapp: false,
+      enableEmail: false,
+      enableSms: false,
+      enablePush: false,
       tenantId,
       moduleName: activeMeta.id,
       updatedAt: new Date().toISOString(),
@@ -91,24 +85,6 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
     setSaveStatus(activeMeta.label + ' notification settings saved.');
     setTimeout(() => setSaveStatus(null), 3000);
   };
-
-  const handleTest = () => {
-    if (!validate()) return;
-    const result = sendTestModuleWhatsappReport(tenantId, activeMeta.id, activeMeta.label);
-    if (!result.ok) {
-      setError(result.message);
-      return;
-    }
-    setSaveStatus(result.message);
-    setTimeout(() => setSaveStatus(null), 4000);
-  };
-
-  const channelToggle = (key: keyof Pick<JasperModuleNotificationSettings, 'enableInApp' | 'enableWhatsapp'>, label: string) => (
-    <label className="flex items-center space-x-2 cursor-pointer bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
-      <input type="checkbox" checked={!!settings[key]} onChange={e => update({ [key]: e.target.checked } as Partial<JasperModuleNotificationSettings>)} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-      <span className="font-semibold text-slate-700 text-xs">{label}</span>
-    </label>
-  );
 
   const reportToggle = (key: keyof Pick<JasperModuleNotificationSettings, 'enableSaleNotifications' | 'enableMorningSummary' | 'enableEndDayProfitLoss' | 'enableEndDayExpenses' | 'enableWeeklySummary' | 'enableMonthlySummary' | 'enableLowStockAlerts' | 'enablePriceAlerts' | 'enableCashAlerts' | 'enableLossWarnings'>, title: string, desc?: string) => (
     <label className="flex items-start space-x-3 cursor-pointer p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-slate-300 transition-colors">
@@ -128,7 +104,7 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
             <Bell className="w-4 h-4 mr-2" /> Notifications & Auto Reports
           </h3>
           <p className="text-xs text-slate-500 font-sans mt-1">
-            Configure report receiver, In-app notifications, WhatsApp reports, schedules, and alert types.
+            Choose the reports and alerts the Tenant Admin receives inside Orvix.
           </p>
         </div>
         <button onClick={handleSave} className="flex items-center space-x-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-colors">
@@ -160,19 +136,10 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
 
       <section className="space-y-4">
         <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center"><User className="w-4 h-4 mr-2" /> 1. Report Receiver Details - {activeMeta.label}</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-500 mb-1">Receiver name</label>
             <input value={settings.receiverName} onChange={e => update({ receiverName: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="Owner or manager name" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">WhatsApp Number for Reports</label>
-            <input type="tel" value={settings.whatsappNumber} onChange={e => update({ whatsappNumber: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="Example: +255712345678" />
-            <p className="text-[10px] text-slate-400 mt-1">This number will receive {activeMeta.label} reports and notifications.</p>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">Backup WhatsApp number (optional)</label>
-            <input type="tel" value={settings.backupWhatsappNumber || ''} onChange={e => update({ backupWhatsappNumber: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none focus:border-slate-400 text-sm" placeholder="+255..." />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 mb-1">Role / position (optional)</label>
@@ -183,9 +150,9 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
 
       <section className="space-y-4">
         <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2">2. Notification Channels</h4>
-        <div className="flex flex-wrap gap-3">
-          {channelToggle('enableInApp', 'In-app notification')}
-          {channelToggle('enableWhatsapp', 'WhatsApp')}
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <p className="text-sm font-bold text-emerald-800">In-app notifications</p>
+          <p className="mt-1 text-xs text-emerald-700">Alerts stay securely inside the Tenant Admin workspace. External messaging channels are disabled.</p>
         </div>
       </section>
 
@@ -236,19 +203,6 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
         </div>
       </section>
 
-      <section className="space-y-4 border-t border-slate-100 pt-6">
-        <h4 className="font-bold text-slate-800 flex items-center"><MessageCircle className="w-4 h-4 mr-2" /> 5. Test Notification</h4>
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-start space-x-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-          <div className="text-amber-800 text-xs leading-relaxed space-y-3">
-            <p>Send a test WhatsApp report for {activeMeta.label}. If no WhatsApp provider is configured, the test will be saved as an in-app notification.</p>
-            <button onClick={handleTest} className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition-colors flex items-center space-x-2">
-              <Send className="w-4 h-4" />
-              <span>Send Test WhatsApp Report</span>
-            </button>
-          </div>
-        </div>
-      </section>
     </div>
   );
 };

@@ -335,7 +335,7 @@ function SubscriptionCheckoutStateBridge({
 function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
   const { getFallbackInitials } = useTenantLogo();
-  const { addSaleNotification, unreadCount, hydrateTenantModuleSettings } = useJasperNotifications();
+  const { addSaleNotification, unreadCount, hydrateTenantModuleSettings, configureInbox } = useJasperNotifications();
   const [showDashLangMenu, setShowDashLangMenu] = useState(false);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
 
@@ -1097,6 +1097,17 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       : (systemSettings.staffs.find(s => s.id === actingStaffId)?.role || 'Seller');
     return rawRole;
   })();
+
+  const canAccessNotificationInbox = user.role === 'SuperAdmin' || activeRoleName === 'Admin';
+
+  useEffect(() => {
+    configureInbox({
+      tenantId: user.role === 'SuperAdmin' ? '' : activeTenant.id,
+      userId: user.id,
+      role: user.role === 'SuperAdmin' ? 'SuperAdmin' : (activeRoleName === 'Admin' ? 'Admin' : activeRoleName),
+    });
+    if (!canAccessNotificationInbox) setIsNotificationCenterOpen(false);
+  }, [activeRoleName, activeTenant.id, canAccessNotificationInbox, configureInbox, user.id, user.role]);
 
   const getSimulatedPermissions = () => {
     if (actingStaffId === 'logged-in-user' && user.rolePermissions) return user.rolePermissions;
@@ -3322,7 +3333,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               </div>
 
               {/* Notification bell desk pivot */}
-              <div 
+              {canAccessNotificationInbox && <div
                 className="relative p-2 text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800"
                 onClick={() => {
                   setIsNotificationCenterOpen(true);
@@ -3332,7 +3343,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 <Bell className="w-4 h-4" />
                 {unreadCount > 0 && <div className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full border border-white" />}
                 {offlinePendingCount > 0 && unreadCount === 0 && <div className="absolute top-1 right-1 w-2 h-2 bg-[#ef4444] rounded-full border border-white" />}
-              </div>
+              </div>}
 
               {/* User Avatar Circle with dropdown */}
               <div className="relative">
@@ -3525,14 +3536,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 )}
               </div>
 
-              <div 
+              {canAccessNotificationInbox && <div
                 className="relative p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer"
                 onClick={() => setIsNotificationCenterOpen(true)}
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900" />}
                 {offlinePendingCount > 0 && unreadCount === 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#ef4444] rounded-full border-2 border-white dark:border-slate-900" />}
-              </div>
+              </div>}
             </div>
           </header>
 
@@ -4565,14 +4576,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         </div>
       )}
       
-      <NotificationCenterModal 
+      {canAccessNotificationInbox && <NotificationCenterModal
         isOpen={isNotificationCenterOpen} 
         onClose={() => setIsNotificationCenterOpen(false)} 
+        audienceLabel={user.role === 'SuperAdmin' ? 'Super Admin' : 'Tenant Admin'}
         onNavigateToReports={() => {
            setActiveTab('reports');
            setIsNotificationCenterOpen(false);
         }} 
-      />
+      />}
     </div>
   );
 }

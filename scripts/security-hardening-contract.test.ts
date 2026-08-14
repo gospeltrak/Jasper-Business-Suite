@@ -14,6 +14,8 @@ const migration = fs.readFileSync('supabase/migrations/20260812000300_close_lega
 const productImageHandler = fs.readFileSync('api/images/migrate-product.ts', 'utf8');
 const repositoryAudit = fs.readFileSync('scripts/security-repository-audit.mjs', 'utf8');
 const packageJson = fs.readFileSync('package.json', 'utf8');
+const notificationContext = fs.readFileSync('src/JasperNotificationContext.tsx', 'utf8');
+const notificationSettings = fs.readFileSync('src/components/DashboardNotificationsSettings.tsx', 'utf8');
 
 test('Super Admin is Google and fresh-MFA only with three attempts', () => {
   assert.match(login, /Super Admin password login is disabled/);
@@ -117,6 +119,22 @@ test('repository verification blocks tracked secrets and exposes a production de
   assert.match(packageJson, /"security:secrets": "node scripts\/security-repository-audit\.mjs"/);
   assert.match(packageJson, /"security:dependencies": "npm audit --audit-level=high --omit=dev"/);
   assert.match(packageJson, /"verify:source": "[^"]*npm run security:secrets/);
+});
+
+test('notification inbox is server-authorized, tenant scoped, and in-app only', () => {
+  const notificationApi = server.slice(
+    server.indexOf("app.get('/api/notifications/inbox'"),
+    server.indexOf("app.use('/api/super-admin'", server.indexOf("app.get('/api/notifications/inbox'")),
+  );
+  assert.match(server, /requireNotificationInboxUser/);
+  assert.match(server, /profileRoles\.some\(role => \['admin', 'owner', 'tenant_admin'\]\.includes\(role\)\)/);
+  assert.match(notificationApi, /recipient_user_id', access\.user\.id/);
+  assert.match(notificationApi, /tenant_id', access\.tenantId/);
+  assert.match(notificationApi, /delivery_channel', 'in_app'/);
+  assert.match(notificationContext, /fetch\('\/api\/notifications\/inbox'/);
+  assert.doesNotMatch(notificationContext, /setItem\('jasper_notifications'/);
+  assert.match(notificationSettings, /In-app notifications/);
+  assert.doesNotMatch(notificationSettings, /Send Test WhatsApp Report|WhatsApp Number for Reports/);
 });
 
 test('legacy public policies are replaced with tenant, affiliate, partner, or platform ownership', () => {

@@ -6,9 +6,10 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onNavigateToReports: () => void;
+  audienceLabel?: string;
 }
 
-export const NotificationCenterModal: React.FC<Props> = ({ isOpen, onClose, onNavigateToReports }) => {
+export const NotificationCenterModal: React.FC<Props> = ({ isOpen, onClose, onNavigateToReports, audienceLabel = 'Tenant Admin' }) => {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useJasperNotifications();
 
   if (!isOpen) return null;
@@ -17,13 +18,16 @@ export const NotificationCenterModal: React.FC<Props> = ({ isOpen, onClose, onNa
     <div className="fixed inset-0 z-50 flex items-start justify-end p-4 sm:p-6 lg:p-8 pointer-events-none">
       <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
       
-      <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm flex flex-col h-[600px] max-h-full pointer-events-auto transform transition-all relative z-10 animate-fade-in overflow-hidden">
+      <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-sm flex flex-col h-[600px] max-h-full pointer-events-auto transform transition-all relative z-10 animate-fade-in overflow-hidden">
         
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50">
           <div className="flex items-center space-x-2">
             <Bell className="w-5 h-5 text-slate-700" />
-            <h3 className="font-bold text-slate-800 tracking-tight">Notification Center</h3>
+            <div>
+              <h3 className="font-bold text-slate-800 dark:text-white tracking-tight">Notification Center</h3>
+              <p className="text-[10px] font-semibold text-slate-500">{audienceLabel} · In-app only</p>
+            </div>
             {unreadCount > 0 && (
               <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
                 {unreadCount} NEW

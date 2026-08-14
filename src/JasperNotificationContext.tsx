@@ -1,5 +1,8 @@
 import React, { createContext, useCallback, useContext, useState, useEffect } from 'react';
 import { JasperNotificationSettings, JasperModuleNotificationSettings, JasperNotification, JasperScheduledReport } from './types';
+import { getSecureDataBridgeClient } from './secureDataBridge';
+
+type NotificationInboxScope = { tenantId: string; userId: string; role: string };
 
 interface NotificationContextProps {
   settings: JasperNotificationSettings | null;
@@ -7,11 +10,12 @@ interface NotificationContextProps {
   notifications: JasperNotification[];
   scheduledReports: JasperScheduledReport[];
   unreadCount: number;
+  configureInbox: (scope: NotificationInboxScope) => void;
+  refreshInbox: () => Promise<void>;
   updateSettings: (newSettings: Partial<JasperNotificationSettings>) => void;
   getModuleSettings: (tenantId: string, moduleName: string) => JasperModuleNotificationSettings;
   updateModuleSettings: (tenantId: string, moduleName: string, updates: Partial<JasperModuleNotificationSettings>) => JasperModuleNotificationSettings;
   hydrateTenantModuleSettings: (tenantId: string, settings: JasperModuleNotificationSettings[]) => void;
-  sendTestModuleWhatsappReport: (tenantId: string, moduleName: string, moduleLabel?: string) => { ok: boolean; message: string };
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   addSaleNotification: (payload: {
@@ -70,7 +74,7 @@ const createDefaultModuleSettings = (tenantId: string, moduleName: string, globa
     smsPhoneNumber: global?.ownerPhone || '',
     timezone: global?.timezone || 'Africa/Dar_es_Salaam',
     enableInApp: global?.enableInApp ?? true,
-    enableWhatsapp: global?.enableWhatsapp ?? false,
+    enableWhatsapp: false,
     enableEmail: global?.enableEmail ?? false,
     enableSms: global?.enableSms ?? false,
     enablePush: global?.enablePush ?? false,
@@ -93,8 +97,6 @@ const createDefaultModuleSettings = (tenantId: string, moduleName: string, globa
   };
 };
 
-const hasValidWhatsappNumber = (value: string) => /^\+[1-9]\d{8,14}$/.test(value.trim());
-
 const NotificationContext = createContext<NotificationContextProps>({} as any);
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -102,16 +104,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [moduleSettings, setModuleSettings] = useState<JasperModuleNotificationSettings[]>([]);
   const [notifications, setNotifications] = useState<JasperNotification[]>([]);
   const [scheduledReports, setScheduledReports] = useState<JasperScheduledReport[]>([]);
+  const [inboxScope, setInboxScope] = useState<NotificationInboxScope | null>(null);
 
   useEffect(() => {
     const rawSettings = onlineStorage.getItem('jasper_notification_settings');
     const rawModuleSettings = onlineStorage.getItem('jasper_module_notification_settings');
-    const rawNotifs = onlineStorage.getItem('jasper_notifications');
     const rawReports = onlineStorage.getItem('jasper_scheduled_reports');
 
     if (rawSettings) setSettings(JSON.parse(rawSettings));
     if (rawModuleSettings) setModuleSettings(JSON.parse(rawModuleSettings));
-    if (rawNotifs) setNotifications(JSON.parse(rawNotifs));
     if (rawReports) setScheduledReports(JSON.parse(rawReports));
   }, []);
 
@@ -127,7 +128,62 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const saveNotifications = (newNotifs: JasperNotification[]) => {
     setNotifications(newNotifs);
-    onlineStorage.setItem('jasper_notifications', JSON.stringify(newNotifs));
+  };
+
+  const refreshInbox = useCallback(async () => {
+    if (!inboxScope || !['Admin', 'SuperAdmin'].includes(inboxScope.role)) {
+      setNotifications([]);
+      return;
+    }
+    try {
+      const client = await getSecureDataBridgeClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) {
+        setNotifications([]);
+        return;
+      }
+      const response = await fetch('/api/notifications/inbox', {
+        headers: { Accept: 'application/json', Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!response.ok) {
+        setNotifications([]);
+        return;
+      }
+      const payload = await response.json();
+      setNotifications(Array.isArray(payload?.notifications) ? payload.notifications : []);
+    } catch {
+      setNotifications([]);
+    }
+  }, [inboxScope]);
+
+  const configureInbox = useCallback((scope: NotificationInboxScope) => {
+    setInboxScope(current => (
+      current?.tenantId === scope.tenantId && current?.userId === scope.userId && current?.role === scope.role
+        ? current
+        : scope
+    ));
+  }, []);
+
+  useEffect(() => {
+    void refreshInbox();
+  }, [refreshInbox]);
+
+  const updateReadState = async (path: string, updater: (current: JasperNotification[]) => JasperNotification[]) => {
+    if (!inboxScope || !['Admin', 'SuperAdmin'].includes(inboxScope.role)) return;
+    const previous = notifications;
+    setNotifications(updater);
+    try {
+      const client = await getSecureDataBridgeClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error('Authentication required');
+      const response = await fetch(path, {
+        method: 'PATCH',
+        headers: { Accept: 'application/json', Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!response.ok) throw new Error('Notification update failed');
+    } catch {
+      setNotifications(previous);
+    }
   };
 
   const updateSettings = (updates: Partial<JasperNotificationSettings>) => {
@@ -174,40 +230,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
   }, []);
 
-  const sendTestModuleWhatsappReport = (tenantId: string, moduleName: string, moduleLabel = moduleName) => {
-    const moduleConfig = getModuleSettings(tenantId, moduleName);
-    if (moduleConfig.enableWhatsapp && !hasValidWhatsappNumber(moduleConfig.whatsappNumber)) {
-      return { ok: false, message: 'Please enter WhatsApp number with country code, example +255712345678.' };
-    }
-
-    const message = 'Module: ' + moduleLabel + '\nThis WhatsApp number is ready to receive ' + moduleLabel + ' reports.';
-    const providerConfigured = onlineStorage.getItem('jasper_whatsapp_provider_configured') === 'true';
-    const newNotif: JasperNotification = {
-      id: Math.random().toString(36).substr(2, 9),
-      tenantId,
-      moduleName: normalizeModuleName(moduleName),
-      title: 'Test Orvix Report',
-      message: providerConfigured ? message : message + '\n\nWhatsApp provider is not configured yet. Test message saved as in-app notification.',
-      notificationType: 'system_alert',
-      deliveryChannel: providerConfigured && moduleConfig.enableWhatsapp ? 'whatsapp' : 'in_app',
-      status: providerConfigured && moduleConfig.enableWhatsapp ? 'sent' : 'pending_configuration',
-      isRead: false,
-      createdAt: new Date().toISOString(),
-      sentAt: providerConfigured && moduleConfig.enableWhatsapp ? new Date().toISOString() : undefined
-    };
-    saveNotifications([newNotif, ...notifications]);
-    return {
-      ok: true,
-      message: providerConfigured ? 'Test WhatsApp report sent.' : 'WhatsApp provider is not configured yet. Test message saved as in-app notification.'
-    };
-  };
-
   const markAsRead = (id: string) => {
-    saveNotifications(notifications.map(n => n.id === id ? { ...n, isRead: true } : n));
+    void updateReadState(`/api/notifications/${encodeURIComponent(id)}/read`, current => current.map(n => n.id === id ? { ...n, isRead: true } : n));
   };
 
   const markAllAsRead = () => {
-    saveNotifications(notifications.map(n => ({ ...n, isRead: true })));
+    void updateReadState('/api/notifications/read-all', current => current.map(n => ({ ...n, isRead: true })));
   };
 
   const addSaleNotification = (payload: {
@@ -219,6 +247,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     cashierName: string;
     itemsSummary?: string;
   }) => {
+    if (!inboxScope || inboxScope.role !== 'Admin' || inboxScope.tenantId !== payload.tenantId) return;
     const activeSettings = settings || defaultSettings;
     const moduleConfig = getModuleSettings(payload.tenantId, payload.moduleName);
     if (!moduleConfig.enableSaleNotifications) return;
@@ -227,8 +256,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const allowedModules = activeSettings.enabledModules.map(normalizeModuleName);
       if (!allowedModules.includes(normalizeModuleName(payload.moduleName))) return;
     }
-
-    if (moduleConfig.enableWhatsapp && !hasValidWhatsappNumber(moduleConfig.whatsappNumber)) return;
 
     let msg = 'Module: ' + normalizeModuleName(payload.moduleName) + '\nSale: ' + payload.amount.toLocaleString() + ' TZS\nPayment: ' + payload.paymentMethod + '\nCashier: ' + payload.cashierName + '\nTime: ' + new Date().toLocaleTimeString();
     if (payload.profit !== undefined) {
@@ -245,8 +272,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       title: 'New Sale Recorded',
       message: msg,
       notificationType: 'sale',
-      deliveryChannel: moduleConfig.enableInApp ? 'in_app' : (moduleConfig.enableWhatsapp ? 'whatsapp' : 'in_app'),
-      status: moduleConfig.enableWhatsapp ? 'pending_configuration' : 'sent',
+      deliveryChannel: 'in_app',
+      status: 'sent',
       isRead: false,
       createdAt: new Date().toISOString()
     };
@@ -263,11 +290,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       notifications,
       scheduledReports,
       unreadCount,
+      configureInbox,
+      refreshInbox,
       updateSettings,
       getModuleSettings,
       updateModuleSettings,
       hydrateTenantModuleSettings,
-      sendTestModuleWhatsappReport,
       markAsRead,
       markAllAsRead,
       addSaleNotification
