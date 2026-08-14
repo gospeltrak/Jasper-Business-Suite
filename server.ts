@@ -726,6 +726,14 @@ const resolveTenantDomain = async (rawHost: unknown) => {
 };
 
 const tenantDomainCache = new Map<string, { expiresAt: number; value: any }>();
+const SUPER_ADMIN_OVERVIEW_CACHE_TTL_MS = 5_000;
+let superAdminOverviewCache: { expiresAt: number; value: Record<string, any[]> } | null = null;
+let superAdminOverviewRequest: Promise<Record<string, any[]>> | null = null;
+
+const invalidateSuperAdminOverviewCache = () => {
+  superAdminOverviewCache = null;
+};
+
 const resolveTenantDomainCached = async (rawHost: unknown) => {
   const key = normalizeHost(rawHost);
   const cached = tenantDomainCache.get(key);
@@ -1102,6 +1110,14 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.use('/api/auth/staff-login', rateLimit({ prefix: 'staff-login', windowMs: 15 * 60 * 1000, max: 20 }));
   app.use('/api/auth/lookup-phone', rateLimit({ prefix: 'phone-lookup', windowMs: 15 * 60 * 1000, max: 10 }));
   app.use('/api/super-admin', rateLimit({ prefix: 'super-admin-api', windowMs: 60 * 1000, max: 90 }));
+  app.use('/api/super-admin', (req, res, next) => {
+    if (req.method !== 'GET') {
+      res.on('finish', () => {
+        if (res.statusCode >= 200 && res.statusCode < 400) invalidateSuperAdminOverviewCache();
+      });
+    }
+    next();
+  });
   app.use('/api/affiliate/register', rateLimit({ prefix: 'affiliate-register', windowMs: 15 * 60 * 1000, max: 12 }));
   app.use('/api/forecast', rateLimit({ prefix: 'forecast', windowMs: 60 * 1000, max: 20 }));
   app.use('/api/lucy', rateLimit({ prefix: 'lucy', windowMs: 60 * 1000, max: 30 }));
@@ -2538,6 +2554,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       res.setHeader('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Vary', 'Authorization');
+      if (superAdminOverviewCache && superAdminOverviewCache.expiresAt > Date.now()) {
+        return res.json(superAdminOverviewCache.value);
+      }
       const requiredSelect = async (label: string, query: PromiseLike<any>) => {
         const result = await query;
         if (result?.error) {
@@ -2549,48 +2568,65 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         return result?.data || [];
       };
 
-      const [
-        tenants,
-        users,
-        workspaces,
-        sessions,
-        affiliates,
-        affiliatePartners,
-        referrals,
-        sourceTracking,
-        referredCustomers,
-        commissions,
-        payouts,
-        auditLogs
-      ] = await Promise.all([
-        requiredSelect('tenants', adminTable('tenants').select('*').order('name', { ascending: true })),
-        requiredSelect('users', adminTable('users').select('*').order('name', { ascending: true })),
-        requiredSelect('tenant_workspaces', adminTable('tenant_workspaces').select('*').order('updated_at', { ascending: false })),
-        requiredSelect('user_sessions', adminTable('user_sessions').select('*').order('last_activity_at', { ascending: false }).limit(500)),
-        requiredSelect('affiliates', adminTable('affiliates').select('*').order('created_at', { ascending: false })),
-        requiredSelect('affiliate_partners', adminTable('affiliate_partners').select('*').order('created_at', { ascending: false })),
-        requiredSelect('affiliate_referrals', adminTable('affiliate_referrals').select('*').order('created_at', { ascending: false }).limit(1000)),
-        requiredSelect('subscriber_source_tracking', adminTable('subscriber_source_tracking').select('*').order('created_at', { ascending: false }).limit(2000)),
-        requiredSelect('referred_customers', adminTable('referred_customers').select('id, tenant_id, customer_id, customer_name, phone_number, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, affiliate_id, sub_affiliate_id, parent_super_agent_id, commission_amount, commission_status, created_at').order('created_at', { ascending: false }).limit(2000)),
-        requiredSelect('affiliate_commissions', adminTable('affiliate_commissions').select('*').order('created_at', { ascending: false }).limit(1000)),
-        requiredSelect('affiliate_payouts', adminTable('affiliate_payouts').select('*').order('created_at', { ascending: false }).limit(1000)),
-        requiredSelect('super_admin_audit_logs', adminTable('super_admin_audit_logs').select('*').order('created_at', { ascending: false }).limit(250))
-      ]);
+      if (!superAdminOverviewRequest) {
+        superAdminOverviewRequest = (async () => {
+          const [
+            tenants,
+            users,
+            sessions,
+            onlineSessions,
+            affiliates,
+            affiliatePartners,
+            referrals,
+            sourceTracking,
+            referredCustomers,
+            commissions,
+            payouts,
+            auditLogs
+          ] = await Promise.all([
+            requiredSelect('tenants', adminTable('tenants').select('id,name,business_name,is_active,created_at,subscription_plan,selected_package_id,active_package_id,subscription_status,subscription_start_date,subscription_end_date,trial_start_date,trial_end_date,trial_ends_at,tax_rate,country,city,region,gps_latitude,gps_longitude,phone,email,company_settings,business_settings').order('name', { ascending: true })),
+            requiredSelect('users', adminTable('users').select('id,tenant_id,name,email,phone,username_phone,account_type,role,role_key,role_permissions,is_active,is_saas_staff,created_at,city,country,profile_image_url,referral_code_used,payment_status,trial_start_date,trial_end_date').order('name', { ascending: true })),
+            requiredSelect('user_sessions', adminTable('user_sessions').select('id,user_id,tenant_id,account_type,is_active,login_at,logout_at,last_activity_at,updated_at,device_label,ip_hint').order('last_activity_at', { ascending: false }).limit(500)),
+            requiredSelect('online_user_sessions', adminTable('user_sessions').select('id,user_id,tenant_id,account_type,role_key,is_active,login_at,logout_at,last_activity_at,updated_at,device_id,device_label').eq('is_active', true).is('logout_at', null).gte('last_activity_at', new Date(Date.now() - 7 * 60 * 1000).toISOString()).order('last_activity_at', { ascending: false }).limit(2000)),
+            requiredSelect('affiliates', adminTable('affiliates').select('id,user_id,display_name,referral_code,promo_code,status,parent_super_agent_id,parent_agent_id,total_revenue,gross_commission,withholding_tax,net_payout,customers_count,is_disabled,created_at').order('created_at', { ascending: false })),
+            requiredSelect('affiliate_partners', adminTable('affiliate_partners').select('id,user_id,display_name,promo_code,status,total_revenue,manager_commission,withholding_tax,net_payout,sub_affiliate_count,is_disabled,created_at').order('created_at', { ascending: false })),
+            requiredSelect('affiliate_referrals', adminTable('affiliate_referrals').select('id,affiliate_id,registered_user_id,registered_tenant_id,sub_affiliate_id,promo_code_used,referral_code,status,created_at').order('created_at', { ascending: false }).limit(1000)),
+            requiredSelect('subscriber_source_tracking', adminTable('subscriber_source_tracking').select('id,subscriber_user_id,tenant_id,affiliate_id,sub_affiliate_id,parent_super_agent_id:parent_agent_id,source_type,promo_code_used,referral_code_used,revenue_generated,status,created_at').order('created_at', { ascending: false }).limit(2000)),
+            requiredSelect('referred_customers', adminTable('referred_customers').select('id,tenant_id,customer_id,customer_name,phone_number,package_id,package_name,amount_paid,payment_status,subscription_start_date,subscription_end_date,promo_code_used,referral_code_used,affiliate_id,sub_affiliate_id,parent_super_agent_id,commission_amount,commission_status,created_at').order('created_at', { ascending: false }).limit(2000)),
+            requiredSelect('affiliate_commissions', adminTable('affiliate_commissions').select('id,affiliate_id,amount,gross_revenue,gross_commission,withholding_tax,net_payout,payout_status,status,created_at,available_at,paid_at').order('created_at', { ascending: false }).limit(1000)),
+            requiredSelect('affiliate_payouts', adminTable('affiliate_payouts').select('id,affiliate_id,amount,net_payout,currency,payout_method,payout_reference,status,requested_at,processed_at,created_at').order('created_at', { ascending: false }).limit(1000)),
+            requiredSelect('super_admin_audit_logs', adminTable('super_admin_audit_logs').select('id,actor_user_id,target_user_id,target_tenant_id,action,metadata,created_at').order('created_at', { ascending: false }).limit(250))
+          ]);
+          const value = {
+            tenants, users, workspaces: [], sessions, onlineSessions, affiliates, affiliatePartners,
+            referrals, sourceTracking, referredCustomers, commissions, payouts, auditLogs
+          };
+          superAdminOverviewCache = { value, expiresAt: Date.now() + SUPER_ADMIN_OVERVIEW_CACHE_TTL_MS };
+          return value;
+        })().finally(() => {
+          superAdminOverviewRequest = null;
+        });
+      }
 
-      return res.json({
-        tenants,
-        users,
-        workspaces,
-        sessions,
-        affiliates,
-        affiliatePartners,
-        referrals,
-        sourceTracking,
-        referredCustomers,
-        commissions,
-        payouts,
-        auditLogs
-      });
+      return res.json(await superAdminOverviewRequest);
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.get('/api/super-admin/tenants/:tenantId/workspace', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const tenantId = String(req.params.tenantId || '');
+      if (!isUuid(tenantId)) return res.status(400).json({ error: 'Invalid tenant identifier.' });
+      res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+      res.setHeader('Vary', 'Authorization');
+      const { data, error } = await adminTable('tenant_workspaces')
+        .select('tenant_id,payload,updated_at')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      if (error) throw error;
+      return res.json({ workspace: data || { tenant_id: tenantId, payload: {}, updated_at: null } });
     } catch (error: any) {
       return platformAdminError(res, error);
     }

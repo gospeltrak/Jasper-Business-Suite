@@ -6,6 +6,7 @@ export interface SuperAdminOverview {
   users: any[];
   workspaces: any[];
   sessions: any[];
+  onlineSessions: any[];
   affiliates: any[];
   affiliatePartners: any[];    // affiliate_partners table rows
   referrals: any[];
@@ -67,6 +68,13 @@ export interface SuperAdminMetrics {
   subscribersCount: number;
   activeTenants: number;
   activeSessions: number;
+  onlineDevices: number;
+  onlineBusinesses: number;
+  onlineTenantAdmins: number;
+  onlineTenantStaff: number;
+  onlineAffiliates: number;
+  onlinePartners: number;
+  onlineDeviceTypes: { Desktop: number; Tablet: number; Phone: number };
   totalIncome: number;
   affiliatePayouts: number;
   expenses: number;
@@ -98,6 +106,7 @@ const EMPTY_SUPER_ADMIN_OVERVIEW: SuperAdminOverview = {
   users: [],
   workspaces: [],
   sessions: [],
+  onlineSessions: [],
   affiliates: [],
   affiliatePartners: [],
   referrals: [],
@@ -113,6 +122,7 @@ const normalizeOverview = (overview?: Partial<SuperAdminOverview> | null): Super
   users: Array.isArray(overview?.users) ? overview.users : [],
   workspaces: Array.isArray(overview?.workspaces) ? overview.workspaces : [],
   sessions: Array.isArray(overview?.sessions) ? overview.sessions : [],
+  onlineSessions: Array.isArray(overview?.onlineSessions) ? overview.onlineSessions : [],
   affiliates: Array.isArray(overview?.affiliates) ? overview.affiliates : [],
   affiliatePartners: Array.isArray(overview?.affiliatePartners) ? overview.affiliatePartners : [],
   referrals: Array.isArray(overview?.referrals) ? overview.referrals : [],
@@ -189,7 +199,6 @@ async function fetchSuperAdminOverview(): Promise<SuperAdminOverview> {
       const [
         tenantsRes,
         usersRes,
-        workspacesRes,
         sessionsRes,
         affiliatesRes,
         affiliatePartnersRes,
@@ -201,8 +210,7 @@ async function fetchSuperAdminOverview(): Promise<SuperAdminOverview> {
       ] = await Promise.all([
         client.from('tenants').select('*').order('name', { ascending: true }),
         client.from('users').select('*').order('name', { ascending: true }),
-        client.from('tenant_workspaces').select('*'),
-        client.from('user_sessions').select('*').order('last_activity_at', { ascending: false }).limit(500),
+        client.from('user_sessions').select('id,user_id,tenant_id,account_type,role_key,is_active,login_at,logout_at,last_activity_at,updated_at,device_id,device_label,ip_hint').order('last_activity_at', { ascending: false }).limit(500),
         client.from('affiliates').select('*').order('created_at', { ascending: false }),
         client.from('affiliate_partners').select('*').order('created_at', { ascending: false }),
         client.from('affiliate_referrals').select('*').order('created_at', { ascending: false }).limit(1000),
@@ -215,8 +223,9 @@ async function fetchSuperAdminOverview(): Promise<SuperAdminOverview> {
         const fallbackOverview = normalizeOverview({
           tenants: tenantsRes.data || [],
           users: usersRes.data || [],
-          workspaces: workspacesRes.error ? [] : workspacesRes.data || [],
+          workspaces: [],
           sessions: sessionsRes.error ? [] : sessionsRes.data || [],
+          onlineSessions: sessionsRes.error ? [] : (sessionsRes.data || []).filter((session: any) => isSessionOnline(session)),
           affiliates: affiliatesRes.error ? [] : affiliatesRes.data || [],
           affiliatePartners: affiliatePartnersRes.error ? [] : affiliatePartnersRes.data || [],
           referrals: referralsRes.error ? [] : referralsRes.data || [],
@@ -313,6 +322,11 @@ export async function loadTenantBranchAccess(tenantId: string) {
     tenant: Record<string, any>;
     branchAccess: SuperAdminBranchAccess;
   }>;
+}
+
+export async function loadSuperAdminTenantWorkspace(tenantId: string, signal?: AbortSignal) {
+  const response = await apiRequest(`/api/super-admin/tenants/${encodeURIComponent(tenantId)}/workspace`, { signal });
+  return response?.workspace || { tenant_id: tenantId, payload: {}, updated_at: null };
 }
 
 export async function activateTenantPackage(
@@ -476,7 +490,7 @@ export const buildSuperAdminOnlinePresence = (
   const resolveIdentity = buildSessionIdentityResolver(safeOverview);
   const uniqueAccounts = new Map<string, SuperAdminPresenceEntry>();
 
-  [...safeOverview.sessions]
+  [...(safeOverview.onlineSessions.length ? safeOverview.onlineSessions : safeOverview.sessions)]
     .sort((a, b) => new Date(sessionActivityTimestamp(b)).getTime() - new Date(sessionActivityTimestamp(a)).getTime())
     .forEach((session) => {
       if (!isSessionOnline(session, nowMs)) return;
@@ -489,6 +503,50 @@ export const buildSuperAdminOnlinePresence = (
     });
 
   return Array.from(uniqueAccounts.values());
+};
+
+const onlineSessionDeviceKey = (session: any): string => {
+  const userId = String(session?.user_id || 'unknown-user');
+  const deviceId = String(session?.device_id || session?.id || 'unknown-device');
+  return `${userId}:${deviceId}`;
+};
+
+const onlineSessionDeviceType = (session: any): 'Desktop' | 'Tablet' | 'Phone' => {
+  const label = String(session?.device_label || '').toLowerCase();
+  if (label.includes('mobile') || label.includes('phone')) return 'Phone';
+  if (label.includes('tablet') || label.includes('ipad')) return 'Tablet';
+  return 'Desktop';
+};
+
+const buildOnlineOperationalMetrics = (overview: SuperAdminOverview, nowMs = Date.now()) => {
+  const sessions = (overview.onlineSessions.length ? overview.onlineSessions : overview.sessions)
+    .filter((session) => isSessionOnline(session, nowMs));
+  const resolveIdentity = buildSessionIdentityResolver(overview);
+  const devices = new Map<string, any>();
+  sessions.forEach((session) => devices.set(onlineSessionDeviceKey(session), session));
+
+  const accounts = buildSuperAdminOnlinePresence(overview, nowMs);
+  const onlineTenantAdmins = accounts.filter((entry) => entry.userType === 'tenant' && !entry.accountRole.toLowerCase().startsWith('staff')).length;
+  const onlineTenantStaff = accounts.filter((entry) => entry.userType === 'tenant' && entry.accountRole.toLowerCase().startsWith('staff')).length;
+  const onlineAffiliates = accounts.filter((entry) => entry.userType === 'affiliate').length;
+  const onlinePartners = accounts.filter((entry) => entry.userType === 'partner').length;
+  const onlineBusinesses = new Set(accounts.filter((entry) => entry.userType === 'tenant' && entry.businessName).map((entry) => entry.businessName)).size;
+  const onlineDeviceTypes = { Desktop: 0, Tablet: 0, Phone: 0 };
+  devices.forEach((session) => {
+    if (!resolveIdentity(session)) return;
+    onlineDeviceTypes[onlineSessionDeviceType(session)] += 1;
+  });
+
+  return {
+    onlineAccounts: accounts.length,
+    onlineDevices: Array.from(devices.values()).filter((session) => resolveIdentity(session)).length,
+    onlineBusinesses,
+    onlineTenantAdmins,
+    onlineTenantStaff,
+    onlineAffiliates,
+    onlinePartners,
+    onlineDeviceTypes,
+  };
 };
 
 export const buildSuperAdminVisitHistory = (
@@ -904,11 +962,19 @@ export function buildSuperAdminMetrics(overview: SuperAdminOverview): SuperAdmin
   });
 
   const colors = ['#34d399', '#60a5fa', '#f87171', '#f59e0b', '#a78bfa', '#22d3ee'];
+  const online = buildOnlineOperationalMetrics(safeOverview);
 
   return {
     subscribersCount: realTenants.length,
     activeTenants: realTenants.filter((tenant) => tenant.is_active !== false).length,
-    activeSessions: buildSuperAdminOnlinePresence(safeOverview).length,
+    activeSessions: online.onlineAccounts,
+    onlineDevices: online.onlineDevices,
+    onlineBusinesses: online.onlineBusinesses,
+    onlineTenantAdmins: online.onlineTenantAdmins,
+    onlineTenantStaff: online.onlineTenantStaff,
+    onlineAffiliates: online.onlineAffiliates,
+    onlinePartners: online.onlinePartners,
+    onlineDeviceTypes: online.onlineDeviceTypes,
     totalIncome: platformRevenue,
     affiliatePayouts,
     expenses,

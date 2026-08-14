@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Users, DollarSign, Activity, Receipt, PieChart as PieChartIcon, BarChart2, TrendingUp, TrendingDown, Share2, Wallet, Banknote, Landmark } from 'lucide-react';
+import { Users, DollarSign, Activity, Receipt, PieChart as PieChartIcon, BarChart2, TrendingUp, Share2, Landmark, Smartphone, Store, UserCog, Handshake } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { buildSuperAdminMetrics, loadSuperAdminOverview, SuperAdminMetrics } from '../utils/superAdminData';
 
@@ -23,6 +23,7 @@ export default function SaaSDashboardMetrics() {
           users: [],
           workspaces: [],
           sessions: [],
+          onlineSessions: [],
           affiliates: [],
           affiliatePartners: [],
           referredCustomers: [],
@@ -117,6 +118,20 @@ export default function SaaSDashboardMetrics() {
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+        <LiveMetric icon={Activity} label="Online accounts" value={metrics?.activeSessions || 0} />
+        <LiveMetric icon={Smartphone} label="Online devices" value={metrics?.onlineDevices || 0} />
+        <LiveMetric icon={Store} label="Businesses online" value={metrics?.onlineBusinesses || 0} />
+        <LiveMetric icon={Users} label="Tenant admins" value={metrics?.onlineTenantAdmins || 0} />
+        <LiveMetric icon={UserCog} label="Tenant staff" value={metrics?.onlineTenantStaff || 0} />
+        <LiveMetric icon={Share2} label="Affiliates online" value={metrics?.onlineAffiliates || 0} />
+        <LiveMetric icon={Handshake} label="Partners online" value={metrics?.onlinePartners || 0} />
+      </div>
+
+      <p className="text-[11px] text-slate-500">
+        Devices online: {metrics?.onlineDeviceTypes.Desktop || 0} desktop · {metrics?.onlineDeviceTypes.Tablet || 0} tablet · {metrics?.onlineDeviceTypes.Phone || 0} phone
+      </p>
+
       {/* Graphs Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
@@ -198,6 +213,16 @@ export default function SaaSDashboardMetrics() {
         </div>
 
       </div>
+    </div>
+  );
+}
+
+function LiveMetric({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3">
+      <Icon className="mb-2 h-4 w-4 text-emerald-400" />
+      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-black text-white">{value.toLocaleString()}</p>
     </div>
   );
 }

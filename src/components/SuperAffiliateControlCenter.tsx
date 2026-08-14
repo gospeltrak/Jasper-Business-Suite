@@ -4,6 +4,7 @@ import {
   AffiliateMonitoringData,
   AgentMonitoringRow,
   loadAffiliateMonitoringData,
+  loadSuperAffiliateDetail,
   SubAffiliateMonitoringRow,
   SuperAffiliateRow,
   updateSuperAffiliate,
@@ -47,6 +48,7 @@ export default function SuperAffiliateControlCenter({ initialTab = 'agents' }: {
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<SuperAffiliateRow | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loadingAffiliateId, setLoadingAffiliateId] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; kind: 'partner' | 'subAffiliate' } | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
@@ -111,6 +113,18 @@ export default function SuperAffiliateControlCenter({ initialTab = 'agents' }: {
       setError(e?.message || 'Update failed.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openAffiliateEditor = async (row: SubAffiliateMonitoringRow) => {
+    setLoadingAffiliateId(row.id);
+    setError('');
+    try {
+      setSelected(await loadSuperAffiliateDetail(row.id));
+    } catch (e: any) {
+      setError(e?.message || 'Unable to load the selected affiliate.');
+    } finally {
+      setLoadingAffiliateId('');
     }
   };
 
@@ -200,7 +214,7 @@ export default function SuperAffiliateControlCenter({ initialTab = 'agents' }: {
       </div>
 
       {activeTab === 'agents' && <AgentMonitoringSection rows={agentRows} totals={agentTotals} onExport={exportAgentPayouts} onDelete={(row) => setDeleteTarget({ id: row.agentId, name: row.agentName, kind: 'partner' })} />}
-      {activeTab === 'subAffiliates' && <SubAffiliateSection rows={subAffiliateRows} totals={subTotals} onExport={exportSubPayouts} onEdit={(row) => setSelected(data.affiliates.find((affiliate) => affiliate.id === row.id) || null)} onDelete={(row) => setDeleteTarget({ id: row.id, name: row.name, kind: 'subAffiliate' })} />}
+      {activeTab === 'subAffiliates' && <SubAffiliateSection rows={subAffiliateRows} totals={subTotals} onExport={exportSubPayouts} onEdit={openAffiliateEditor} loadingAffiliateId={loadingAffiliateId} onDelete={(row) => setDeleteTarget({ id: row.id, name: row.name, kind: 'subAffiliate' })} />}
 
       {selected && <div className="fixed inset-0 z-50 bg-black/70 p-4 grid place-items-center"><form onSubmit={(e) => { e.preventDefault(); save(); }} className="w-full max-w-lg bg-slate-950 border border-slate-700 rounded-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto"><div className="flex justify-between"><h2 className="font-bold">Affiliate profile</h2><button type="button" onClick={() => setSelected(null)}>Close</button></div><p className="text-sm text-slate-400">Edits are limited to approved identity, payout, and status fields. Commission math remains database-derived.</p><Field label="Phone / WhatsApp" value={selected.phone_whatsapp || ''} onChange={(v) => setSelected({ ...selected, phone_whatsapp: v })} /><Field label="NIDA" value={selected.nida_number || ''} onChange={(v) => setSelected({ ...selected, nida_number: v })} /><Field label="TIN" value={selected.tin_number || ''} onChange={(v) => setSelected({ ...selected, tin_number: v })} /><Field label="Mobile money number" value={selected.mobile_money_number || selected.payout_account || ''} onChange={(v) => setSelected({ ...selected, mobile_money_number: v, payout_account: v })} /><Field label="Mobile money provider" value={selected.mobile_money_provider || selected.payout_method || ''} onChange={(v) => setSelected({ ...selected, mobile_money_provider: v, payout_method: v })} /><label className="block text-sm">Status<select value={selected.status} onChange={(e) => setSelected({ ...selected, status: e.target.value })} className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2"><option value="active">Active</option><option value="pending">Pending</option><option value="suspended">Suspended</option></select></label><button disabled={saving} className="w-full bg-emerald-600 text-white rounded-md py-2.5 font-semibold">{saving ? 'Saving...' : 'Save profile'}</button></form></div>}
 
@@ -265,7 +279,7 @@ function AgentMonitoringSection({ rows, totals, onExport, onDelete }: { rows: Ag
   return <div className="space-y-4"><div className="flex justify-end"><button onClick={onExport} className="px-3 py-2 rounded-md bg-emerald-600 text-white text-sm font-semibold"><Download className="inline w-4 h-4 mr-2" />Download payout spreadsheet</button></div><div className="grid gap-3 md:grid-cols-4"><Metric label="Agents" value={rows.length.toLocaleString()} /><Metric label="Network revenue" value={totals.revenue > 0 ? money.format(totals.revenue) : 'No earnings yet'} /><Metric label="20% pool" value={totals.pool > 0 ? money.format(totals.pool) : '—'} /><Metric label="Agent 5% cut" value={totals.agentCut > 0 ? money.format(totals.agentCut) : '—'} /></div><div className="hidden lg:block overflow-x-auto border border-slate-800 rounded-lg"><table className="w-full text-sm"><thead className="bg-slate-900 text-slate-400 text-xs"><tr><th className="p-3 text-left">Agent</th><th className="p-3 text-left">Code / link</th><th className="p-3 text-center">Sub-affiliates</th><th className="p-3 text-center">Subscribers</th><th className="p-3 text-right">Revenue</th><th className="p-3 text-right">20% pool</th><th className="p-3 text-right">5% cut</th><th className="p-3 text-right">15% sub allocation</th><th className="p-3 text-right">Net</th><th className="p-3 text-left">Status</th><th className="p-3" /></tr></thead><tbody className="divide-y divide-slate-800">{rows.map((row) => <tr key={row.agentId}><td className="p-3"><b>{row.agentName}</b><span className="block text-xs text-slate-500">{row.phone || 'No phone'}</span><span className="block text-xs text-slate-500">{row.mobileMoneyProvider || 'No provider'} · {row.mobileMoneyNumber || '—'}</span></td><td className="p-3"><span className="font-mono text-xs text-emerald-300">{row.agentCode || 'Not assigned'}</span><span className="block text-[11px] text-slate-500">{row.agentLink || 'No link'}</span></td><td className="p-3 text-center">{row.subAffiliates}</td><td className="p-3 text-center">{row.subscribers}</td><td className="p-3 text-right">{row.revenue > 0 ? money.format(row.revenue) : '—'}</td><td className="p-3 text-right">{row.poolTotal > 0 ? money.format(row.poolTotal) : '—'}</td><td className="p-3 text-right">{row.agentCut > 0 ? money.format(row.agentCut) : '—'}</td><td className="p-3 text-right">{row.subAffiliatePool > 0 ? money.format(row.subAffiliatePool) : '—'}</td><td className="p-3 text-right text-emerald-300 font-bold">{row.netPayout > 0 ? money.format(row.netPayout) : '—'}</td><td className="p-3">{row.status}</td><td className="p-3 text-right"><button onClick={() => onDelete(row)} className="p-2 rounded hover:bg-rose-950 text-rose-500" title="Delete partner"><Trash2 className="w-4 h-4" /></button></td></tr>)}{!rows.length && <tr><td colSpan={11} className="p-8 text-center text-slate-500">No agent accounts found yet.</td></tr>}</tbody></table></div><div className="lg:hidden space-y-3">{rows.map((row) => (<article key={row.agentId} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3"><div className="flex items-start justify-between"><div><p className="font-black text-white">{row.agentName}</p><p className="text-xs text-slate-500 mt-0.5">{row.agentCode || 'No code'} · {row.status}</p></div><button onClick={() => onDelete(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950 text-rose-500"><Trash2 className="w-3.5 h-3.5" /></button></div><div className="grid grid-cols-2 gap-2 text-sm"><div><span className="text-slate-500 text-xs">Sub-affiliates</span><p className="font-semibold">{row.subAffiliates}</p></div><div><span className="text-slate-500 text-xs">Subscribers</span><p className="font-semibold">{row.subscribers}</p></div><div><span className="text-slate-500 text-xs">Revenue</span><p className="font-semibold">{row.revenue > 0 ? money.format(row.revenue) : 'No earnings yet'}</p></div><div><span className="text-slate-500 text-xs">Agent cut</span><p className="font-semibold">{row.agentCut > 0 ? money.format(row.agentCut) : '—'}</p></div></div></article>))}{!rows.length && <EmptyCard text="No agent accounts found yet." />}</div></div>;
 }
 
-function SubAffiliateSection({ rows, totals, onExport, onEdit, onDelete }: { rows: SubAffiliateMonitoringRow[]; totals: { revenue: number; commission: number; tax: number; net: number }; onExport: () => void; onEdit: (row: SubAffiliateMonitoringRow) => void; onDelete: (row: SubAffiliateMonitoringRow) => void }) {
+function SubAffiliateSection({ rows, totals, onExport, onEdit, loadingAffiliateId, onDelete }: { rows: SubAffiliateMonitoringRow[]; totals: { revenue: number; commission: number; tax: number; net: number }; onExport: () => void; onEdit: (row: SubAffiliateMonitoringRow) => void; loadingAffiliateId: string; onDelete: (row: SubAffiliateMonitoringRow) => void }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -313,7 +327,7 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit, onDelete }: { row
                 <td className="p-3 text-xs">{row.mobileMoneyProvider || 'No provider'}<span className="block text-slate-500">{row.mobileMoneyNumber || '—'} · {row.payoutStatus}</span></td>
                 <td className="p-3 text-right">
                   <button onClick={() => openAffiliateMirror(row)} className="p-2 rounded hover:bg-slate-800" title="Mirror affiliate"><Eye className="w-4 h-4" /></button>
-                  <button onClick={() => onEdit(row)} className="p-2 rounded hover:bg-slate-800" title="Edit"><Pencil className="w-4 h-4" /></button>
+                  <button disabled={loadingAffiliateId === row.id} onClick={() => onEdit(row)} className="p-2 rounded hover:bg-slate-800 disabled:opacity-50" title="Load affiliate details"><Pencil className="w-4 h-4" /></button>
                   <button onClick={() => onDelete(row)} className="p-2 rounded hover:bg-rose-950 text-rose-500" title="Delete sub-affiliate"><Trash2 className="w-4 h-4" /></button>
                 </td>
               </tr>
@@ -333,7 +347,7 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit, onDelete }: { row
               </div>
               <div className="flex gap-1">
                 <button onClick={() => openAffiliateMirror(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-400" title="Mirror affiliate"><Eye className="w-3.5 h-3.5" /></button>
-                <button onClick={() => onEdit(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-blue-400"><Pencil className="w-3.5 h-3.5" /></button>
+                <button disabled={loadingAffiliateId === row.id} onClick={() => onEdit(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-blue-400 disabled:opacity-50"><Pencil className="w-3.5 h-3.5" /></button>
                 <button onClick={() => onDelete(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950 text-rose-500"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
             </div>
