@@ -28,3 +28,9 @@ test('registration copy does not instruct Google users to use phone passwords', 
   assert.doesNotMatch(portal, /Verified Affiliate Shared Growth Ledger/);
   assert.doesNotMatch(portal, /[â←].*Already have an account\? Sign In/);
 });
+
+test('affiliate and partner login exposes Google as the only visible sign-in method', () => {
+  const loginUi = portal.slice(portal.indexOf("{authMode === 'login' ? ("), portal.indexOf(") : portalRole === 'partner'"));
+  assert.match(loginUi, /Continue with Google/);
+  assert.doesNotMatch(loginUi, /Phone Number|Password|handleLoginAffiliate|type="submit"/);
+});
