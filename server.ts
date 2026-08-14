@@ -65,8 +65,56 @@ const PUBLIC_PLATFORM_RECORD_TYPES = new Set([
   'global_ad_placement',
   'promotional_banners',
   'training_tutorials',
-  'web_editor_settings'
+  'public_landing_settings'
 ]);
+
+const PUBLIC_LANDING_TEXT_KEYS = new Set([
+  'coreBadge', 'headlinePre', 'headlinePost', 'tagline', 'aboutTitle', 'aboutDesc',
+  'aboutSupport', 'aboutCurrency', 'aboutEndpoints', 'contactPhone', 'contactPhoneLabel',
+  'contactEmail', 'contactEmailLabel', 'footerCol1Title', 'footerHome', 'footerFaq',
+  'footerPrivacy', 'footerTerms', 'footerContact', 'footerCol2Title', 'footerJoinAffiliate',
+  'footerAffiliateLogin', 'footerCol3Title', 'footerBecomePartner', 'footerPartnerLogin',
+  'footerCol4Title', 'socialYoutube', 'socialInstagram', 'socialTiktok', 'socialFacebook',
+  'footerCopyright'
+]);
+const PUBLIC_LANDING_SECTION_IDS = new Set([
+  'landing-hero', 'about', 'marquee-partners', 'testimonials', 'pricing', 'faqs', 'contact'
+]);
+
+const sanitizePublicLandingSettings = (value: unknown) => {
+  const source = value && typeof value === 'object' ? value as Record<string, any> : {};
+  const customValues = Object.fromEntries(
+    Object.entries(source.customValues || {})
+      .filter(([key, item]) => PUBLIC_LANDING_TEXT_KEYS.has(key) && typeof item === 'string')
+      .map(([key, item]) => [key, normalizeText(item, 500)])
+  );
+  const sectionsOrder = Array.isArray(source.sectionsOrder)
+    ? source.sectionsOrder.filter((id: unknown) => PUBLIC_LANDING_SECTION_IDS.has(String(id))).slice(0, 12)
+    : [];
+  const hiddenSections = Object.fromEntries(
+    Object.entries(source.hiddenSections || {})
+      .filter(([key, item]) => PUBLIC_LANDING_SECTION_IDS.has(key) && typeof item === 'boolean')
+  );
+  const featuredLogos = (Array.isArray(source.featuredLogos) ? source.featuredLogos : [])
+    .slice(0, 20)
+    .map((item: any) => {
+      const logoUrl = normalizeText(item?.logoUrl || item?.logo || item?.src, 2048);
+      let safeLogoUrl = '';
+      try {
+        const parsed = new URL(logoUrl);
+        if (parsed.protocol === 'https:') safeLogoUrl = parsed.toString();
+      } catch { /* invalid or non-HTTPS logo URL */ }
+      return {
+        id: normalizeText(item?.id || item?.tenantId, 80),
+        name: normalizeText(item?.name || item?.label || item?.companyName, 100),
+        logoUrl: safeLogoUrl,
+        initials: normalizeText(item?.initials, 4).toUpperCase(),
+      };
+    })
+    .filter((item: any) => item.id && item.name);
+
+  return { sectionsOrder, hiddenSections, customValues, featuredLogos };
+};
 
 const isUuid = (value: unknown) => UUID_RE.test(String(value || ''));
 const isSafeRecordToken = (value: unknown) => SAFE_RECORD_RE.test(String(value || ''));
@@ -148,9 +196,9 @@ const MAX_AFFILIATE_PARTNERS = 10;
 const verifyTurnstileToken = async (token: unknown, remoteIp?: string): Promise<boolean> => {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) {
-    // Not configured yet -- fail open rather than lock out registration entirely.
-    console.warn('[Turnstile] TURNSTILE_SECRET_KEY is not set; skipping verification.');
-    return true;
+    const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL_ENV);
+    console.warn(`[Turnstile] TURNSTILE_SECRET_KEY is not set; verification ${isProduction ? 'denied' : 'skipped in local development'}.`);
+    return !isProduction;
   }
   if (!token || typeof token !== 'string') return false;
   try {
@@ -369,6 +417,20 @@ const securityHeaders = (req: express.Request, res: express.Response, next: expr
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  if (req.path.startsWith('/orvix-landing/')) {
+    res.setHeader('Content-Security-Policy', [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "frame-ancestors 'self'",
+      "form-action 'self'",
+      "object-src 'none'",
+      "script-src 'self' 'sha256-+4ZACLmWNrkCmdB9Fqi4malsKm2fp80y5Pri+gSPmoU='",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data: https://cdn.simpleicons.org",
+      "connect-src 'self'",
+    ].join('; '));
+  }
   if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
@@ -2102,7 +2164,6 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
   app.get('/api/platform-records/:type/:scope?', async (req, res) => {
     try {
-      if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase backend client is not configured' });
       const recordType = sanitizeRecordType(req.params.type);
       const scopeId = sanitizeScopeId(req.params.scope);
       if (!isSafeRecordToken(recordType) || !isSafeRecordToken(scopeId)) {
@@ -2111,6 +2172,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (!PUBLIC_PLATFORM_RECORD_TYPES.has(recordType)) {
         return res.status(403).json({ error: 'This platform record is not public.' });
       }
+      if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase backend client is not configured' });
 
       const { data: platformRecord, error: platformError } = await adminTable('super_admin_platform_records')
         .select('payload, updated_at')
@@ -2119,8 +2181,15 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         .maybeSingle();
       if (platformError) throw platformError;
       if (platformRecord?.payload !== undefined) {
-        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        res.setHeader('Cache-Control', recordType === 'public_landing_settings'
+          ? 'public, max-age=60, stale-while-revalidate=300'
+          : 'no-store, max-age=0');
         return res.json({ payload: platformRecord.payload, updatedAt: platformRecord.updated_at || null });
+      }
+
+      if (recordType === 'public_landing_settings') {
+        res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+        return res.json({ payload: null, updatedAt: null });
       }
 
       const { data: legacyRecord, error: legacyError } = await adminTable('tenant_data')
@@ -2611,6 +2680,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.put('/api/super-admin/platform-records/:type/:scope', async (req, res) => {
     try {
       const adminUser = await requirePlatformAdmin(req);
+      if (!req.is('application/json')) {
+        return res.status(415).json({ error: 'Content-Type application/json is required.' });
+      }
       const recordType = sanitizeRecordType(req.params.type);
       const scopeId = sanitizeScopeId(req.params.scope);
       if (!isSafeRecordToken(recordType)) return res.status(400).json({ error: 'Invalid record type.' });
@@ -2629,6 +2701,20 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         .select('*')
         .single();
       if (error) throw error;
+
+      if (recordType === 'web_editor_settings') {
+        const publicPayload = sanitizePublicLandingSettings(payload);
+        const { error: publicRecordError } = await adminTable('super_admin_platform_records')
+          .upsert({
+            record_type: 'public_landing_settings',
+            scope_id: scopeId,
+            payload: publicPayload,
+            updated_by: adminUser.id,
+            created_by: adminUser.id,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'record_type,scope_id' });
+        if (publicRecordError) throw publicRecordError;
+      }
 
       await adminTable('super_admin_audit_logs').insert({
         actor_user_id: adminUser.id,

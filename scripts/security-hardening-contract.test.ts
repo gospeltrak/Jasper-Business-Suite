@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 const server = fs.readFileSync('server.ts', 'utf8');
+const vercel = fs.readFileSync('vercel.json', 'utf8');
 const login = fs.readFileSync('src/components/LoginPage.tsx', 'utf8');
 const admin = fs.readFileSync('src/components/SuperSaaSAdminView.tsx', 'utf8');
 const migration = fs.readFileSync('supabase/migrations/20260812000300_close_legacy_public_rls.sql', 'utf8');
@@ -29,6 +30,32 @@ test('API mutations reject cross-site browser requests and costly tools require 
   assert.match(server, /fetchSite === 'cross-site'/);
   assert.match(server, /app\.post\('\/api\/tools\/remove-bg'[\s\S]*await requireActiveUser\(req\)/);
   assert.match(server, /phone-lookup'[\s\S]*max: 10/);
+});
+
+test('public landing data is projected without exposing private Web Editor state', () => {
+  const publicRecordTypes = server.slice(server.indexOf('const PUBLIC_PLATFORM_RECORD_TYPES'), server.indexOf('const PUBLIC_LANDING_TEXT_KEYS'));
+  assert.doesNotMatch(publicRecordTypes, /'web_editor_settings'/);
+  assert.match(publicRecordTypes, /'public_landing_settings'/);
+  assert.match(server, /sanitizePublicLandingSettings/);
+  assert.match(server, /if \(!PUBLIC_PLATFORM_RECORD_TYPES\.has\(recordType\)\)[\s\S]*if \(!supabaseAdmin\)/);
+  assert.match(server, /recordType === 'web_editor_settings'[\s\S]*record_type: 'public_landing_settings'/);
+  assert.doesNotMatch(server.slice(server.indexOf('const sanitizePublicLandingSettings'), server.indexOf('const isUuid')), /partnerWaitlist|partnerCapacity/);
+});
+
+test('production Turnstile is fail-closed and landing assets have a restrictive CSP', () => {
+  assert.match(server, /const isProduction = process\.env\.NODE_ENV === 'production' \|\| Boolean\(process\.env\.VERCEL_ENV\)/);
+  assert.match(server, /return !isProduction/);
+  assert.match(server, /Content-Security-Policy/);
+  assert.match(server, /object-src 'none'/);
+  assert.match(server, /frame-ancestors 'self'/);
+  assert.match(server, /sha256-\+4ZACLmWNrkCmdB9Fqi4malsKm2fp80y5Pri\+gSPmoU=/);
+  assert.match(vercel, /Content-Security-Policy/);
+  assert.match(vercel, /object-src 'none'/);
+});
+
+test('platform record writes require JSON and public landing responses are cache bounded', () => {
+  assert.match(server, /app\.put\('\/api\/super-admin\/platform-records\/:type\/:scope'[\s\S]*req\.is\('application\/json'\)/);
+  assert.match(server, /stale-while-revalidate=300/);
 });
 
 test('legacy public policies are replaced with tenant, affiliate, partner, or platform ownership', () => {
