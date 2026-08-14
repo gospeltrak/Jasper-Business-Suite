@@ -130,9 +130,9 @@ footer address{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;g
 @media(max-width:360px){.wide-dashboard{height:448px}.taskharbor-hero{height:872px}}
 
 /* Seamless customer-logo loop and mobile-style desktop checkout stack */
-.logo-track{gap:0;padding:0;animation:logoRailSeamless 22s linear infinite}.logo-set{display:flex;align-items:center;gap:70px;flex:0 0 auto;padding-right:70px}.logo-set i{width:auto;min-width:64px;height:52px;flex:0 0 auto;padding:0 12px;border:0;background:transparent;box-shadow:none;display:grid;place-items:center;color:#2b7640;font-size:17px;font-weight:900;font-style:normal}@keyframes logoRailSeamless{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.logo-track{gap:0;padding:0;animation:logoRailSeamless 22s linear infinite}.logo-set{display:flex;align-items:center;gap:70px;flex:0 0 auto;padding-right:70px}.logo-set i{width:auto;min-width:64px;height:52px;flex:0 0 auto;padding:0 12px;border:0;background:transparent;box-shadow:none;display:grid;place-items:center;color:#2b7640;font-size:17px;font-weight:900;font-style:normal}.logo-set img{width:132px;height:52px;flex:0 0 auto;object-fit:contain}@keyframes logoRailSeamless{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @media(min-width:801px){.success-cards{width:100%;max-width:430px;height:300px;margin:0 auto}.success-cards article{width:172px;min-height:132px;padding:16px}.success-cards article:nth-child(1){left:0;top:66px}.success-cards article:nth-child(2){left:auto;right:0;top:0}.success-cards article:nth-child(3){right:14px;top:162px}.checkout-orbit{width:176px;height:176px;left:47%;top:54%}.checkout-orbit:before{inset:-20px}.checkout-orbit:after{inset:-36px}.checkout-orbit span{width:52px;height:52px;font-size:23px}}
-@media(max-width:800px){.logo-set{gap:36px;padding-right:36px}.logo-set i{min-width:52px;height:42px;padding:0 8px;font-size:14px}.logo-track{animation-duration:19s}}
+@media(max-width:800px){.logo-set{gap:36px;padding-right:36px}.logo-set i{min-width:52px;height:42px;padding:0 8px;font-size:14px}.logo-set img{width:104px;height:42px}.logo-track{animation-duration:19s}}
 
 h1,h2,.logo,.btn,.lucy button,.receipt>span,.pay-card b,.metrics b,.package-price strong,.package-price small{font-family:'Poppins',Inter,"Segoe UI",Arial,sans-serif}
 h1{font-weight:600}

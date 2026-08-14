@@ -71,6 +71,28 @@ const languageToggle=document.querySelector('.language-toggle'),languageMenu=doc
 const savedLanguage=localStorage.getItem('orvix-language')||'en',savedOption=document.querySelector(`.language-menu button[data-lang="${savedLanguage}"]`);if(savedOption){document.querySelectorAll('.language-menu button').forEach(item=>{const selected=item===savedOption;item.setAttribute('aria-selected',String(selected));item.querySelector('b').textContent=selected?'✓':''});languageToggle.querySelector('b').textContent=savedLanguage.toUpperCase();applyLandingLanguage(savedLanguage)}
 document.querySelector('#lucy-btn').addEventListener('click',()=>{document.querySelector('#lucy-answer').textContent='Today’s sales are TSh 84,500. Your strongest product is Vanilla Essence, while three items need a stock review.';applyLandingLanguage(document.documentElement.lang)});
 
+const renderCustomerLogos=(logos)=>{
+  const safeLogos=(Array.isArray(logos)?logos:[]).filter(logo=>logo&&typeof logo.logoUrl==='string'&&logo.logoUrl.startsWith('https://')).slice(0,20);
+  if(!safeLogos.length)return;
+  document.querySelectorAll('.logo-set').forEach((set,setIndex)=>{
+    set.replaceChildren();
+    safeLogos.forEach(logo=>{
+      const image=document.createElement('img');
+      image.src=logo.logoUrl;
+      image.alt=setIndex===0?`${logo.name||'Orvix customer'} logo`:'';
+      image.loading='lazy';
+      image.decoding='async';
+      image.referrerPolicy='no-referrer';
+      if(setIndex>0)image.setAttribute('aria-hidden','true');
+      set.appendChild(image);
+    });
+  });
+};
+fetch('/api/platform-records/public_landing_settings/global',{headers:{Accept:'application/json'}})
+  .then(response=>response.ok?response.json():null)
+  .then(result=>renderCustomerLogos(result?.record?.payload?.featuredLogos))
+  .catch(()=>{});
+
 const lucyWidget=document.querySelector('.lucy-widget'),lucyPanel=document.querySelector('.lucy-panel'),lucyLauncher=document.querySelector('.lucy-launcher'),lucyInput=document.querySelector('#lucy-input'),lucyMessages=document.querySelector('#lucy-messages');
 const toggleLucy=(open)=>{lucyPanel.hidden=!open;lucyLauncher.setAttribute('aria-expanded',String(open));lucyWidget.classList.toggle('open',open);if(open)setTimeout(()=>lucyInput.focus(),50)};
 lucyLauncher.addEventListener('click',()=>toggleLucy(lucyPanel.hidden));document.querySelector('.lucy-close').addEventListener('click',()=>toggleLucy(false));

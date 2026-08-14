@@ -78,7 +78,8 @@ const PUBLIC_LANDING_TEXT_KEYS = new Set([
   'footerCopyright'
 ]);
 const PUBLIC_LANDING_SECTION_IDS = new Set([
-  'landing-hero', 'about', 'marquee-partners', 'testimonials', 'pricing', 'faqs', 'contact'
+  'landing-hero', 'checkout', 'marquee-partners', 'business-fit', 'lucy', 'pricing', 'contact',
+  'about', 'testimonials', 'faqs'
 ]);
 
 const sanitizePublicLandingSettings = (value: unknown) => {
@@ -111,7 +112,7 @@ const sanitizePublicLandingSettings = (value: unknown) => {
         initials: normalizeText(item?.initials, 4).toUpperCase(),
       };
     })
-    .filter((item: any) => item.id && item.name);
+    .filter((item: any) => item.id && item.name && item.logoUrl);
 
   return { sectionsOrder, hiddenSections, customValues, featuredLogos };
 };
@@ -2995,6 +2996,67 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const { data, error } = await query;
       if (error) throw error;
       return res.json({ records: data || [] });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.post('/api/super-admin/landing-customer-logo', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      if (!req.is('application/json')) {
+        return res.status(415).json({ error: 'Content-Type application/json is required.' });
+      }
+      if (!supabaseAdmin) return res.status(503).json({ error: 'Secure storage is unavailable.' });
+
+      const customerName = normalizeText(req.body?.customerName, 100);
+      const originalFileSize = Number(req.body?.originalFileSize || 0);
+      const logoWebp = String(req.body?.logoWebp || '');
+      if (!customerName) return res.status(400).json({ error: 'Customer name is required.' });
+      if (!Number.isFinite(originalFileSize) || originalFileSize <= 0 || originalFileSize > 2 * 1024 * 1024) {
+        return res.status(413).json({ error: 'Logo must not exceed 2 MB.' });
+      }
+
+      const encodedLogo = /^data:image\/webp;base64,([A-Za-z0-9+/=]+)$/.exec(logoWebp)?.[1];
+      if (!encodedLogo) return res.status(400).json({ error: 'Logo must be a valid WebP image.' });
+      const buffer = Buffer.from(encodedLogo, 'base64');
+      const isWebp = buffer.length >= 12
+        && buffer.subarray(0, 4).toString('ascii') === 'RIFF'
+        && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+      if (!buffer.length || buffer.length > 750 * 1024 || !isWebp) {
+        return res.status(400).json({ error: 'Optimized logo content is invalid or too large.' });
+      }
+
+      const bucketName = 'tenant-logos';
+      const { data: buckets, error: bucketListError } = await supabaseAdmin.storage.listBuckets();
+      if (bucketListError) throw bucketListError;
+      if (!(buckets || []).some((bucket: any) => bucket.name === bucketName)) {
+        const { error: createBucketError } = await supabaseAdmin.storage.createBucket(bucketName, {
+          public: true,
+          fileSizeLimit: 2 * 1024 * 1024,
+          allowedMimeTypes: ['image/webp', 'image/png', 'image/jpeg'],
+        });
+        if (createBucketError) throw createBucketError;
+      }
+
+      const logoId = randomUUID();
+      const objectPath = `landing-customers/${logoId}.webp`;
+      const { error: uploadError } = await supabaseAdmin.storage.from(bucketName).upload(objectPath, buffer, {
+        contentType: 'image/webp',
+        cacheControl: '31536000',
+        upsert: false,
+      });
+      if (uploadError) throw uploadError;
+      const { data: publicUrlData } = supabaseAdmin.storage.from(bucketName).getPublicUrl(objectPath);
+      const logoUrl = publicUrlData?.publicUrl || '';
+      if (!logoUrl.startsWith('https://')) throw new Error('Secure logo URL was not created.');
+
+      await adminTable('super_admin_audit_logs').insert({
+        actor_user_id: adminUser.id,
+        action: 'landing_customer_logo_uploaded',
+        metadata: { logo_id: logoId, customer_name: customerName, object_path: objectPath },
+      });
+      return res.status(201).json({ logo: { id: `custom-${logoId}`, name: customerName, logoUrl } });
     } catch (error: any) {
       return platformAdminError(res, error);
     }

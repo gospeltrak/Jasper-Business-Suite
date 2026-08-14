@@ -25,15 +25,18 @@ import { DEFAULT_TENANTS } from '../data';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../utils/onlineOnly';
 import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
+import { compressImageFile } from '../utils/imageCompression';
+import { loadSuperAdminOverview } from '../utils/superAdminData';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 const DEFAULT_SECTIONS = [
-  { id: 'landing-hero', label: 'Hero Section', desc: 'Main title, subtitle, registration call-to-action, and animated illustrations.' },
-  { id: 'about', label: 'Niche Selector / About Us', desc: 'Detailed business types (Retail, Wholesale, Pharmacy) and regional metrics.' },
-  { id: 'marquee-partners', label: 'Partner Logos Marquee', desc: 'Infinite scrolling layout showcasing trusted business partners and logos.' },
-  { id: 'testimonials', label: 'Success Stories', desc: 'What shop owners say (testimonials from Mustafa, Kwame, Fatuma).' },
+  { id: 'landing-hero', label: 'Hero & Dashboard Preview', desc: 'Main marketing message, calls to action, and product preview.' },
+  { id: 'checkout', label: 'Fast Checkout', desc: 'Sale completion and payment confidence section.' },
+  { id: 'marquee-partners', label: 'Customer Logo Slideshow', desc: 'Logos of businesses currently using Orvix.' },
+  { id: 'business-fit', label: 'Business Fit', desc: 'Retail, wholesale, units, and branch flexibility.' },
+  { id: 'lucy', label: 'Lucy Assistant', desc: 'Business assistant introduction and chat preview.' },
   { id: 'pricing', label: 'Subscription Pricing Plans', desc: 'Price card matrix displaying Ruby, Diamond, and Tanzanite packages.' },
-  { id: 'faqs', label: 'FAQ Accordion Matrix', desc: 'Collapsible frequently asked questions for client objections self-service.' },
-  { id: 'contact', label: 'Assistance CTA Panel', desc: 'Direct phone & email links to dispatch localized service installer agents.' }
+  { id: 'contact', label: 'Final CTA & Contact', desc: 'Free trial, deployment contact, and footer links.' }
 ];
 
 const DEFAULT_TRANSLATIONS: Record<string, string> = {
@@ -138,12 +141,13 @@ export default function SaaSWebEditor() {
   });
 
   const [activeSubTab, setActiveSubTab] = useState<'ordering' | 'texts' | 'links' | 'logos' | 'partners' | 'ads'>('ordering');
-  const logoCandidates: FeaturedLogo[] = DEFAULT_TENANTS.map((tenant) => ({
+  const fallbackLogoCandidates: FeaturedLogo[] = DEFAULT_TENANTS.map((tenant) => ({
     id: tenant.id,
     name: tenant.name,
     logoUrl: onlineStorage.getItem(`jasper_tenant_logo_${tenant.id}`) || tenant.company_settings?.logo_url || "",
     initials: getInitials(tenant.name),
   }));
+  const [logoCandidates, setLogoCandidates] = useState<FeaturedLogo[]>(fallbackLogoCandidates);
   const [featuredLogos, setFeaturedLogos] = useState<FeaturedLogo[]>(() => {
     try {
       const saved = JSON.parse(onlineStorage.getItem('jasper_featured_logos') || '[]');
@@ -161,6 +165,8 @@ export default function SaaSWebEditor() {
     return saved ? JSON.parse(saved) : [];
   });
   const [saveNotification, setSaveNotification] = useState<string | null>(null);
+  const [customLogoName, setCustomLogoName] = useState('');
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const capacitySaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -176,6 +182,17 @@ export default function SaaSWebEditor() {
 
   useEffect(() => {
     let alive = true;
+    loadSuperAdminOverview()
+      .then((overview) => {
+        if (!alive) return;
+        const liveLogos = normalizeFeaturedLogos((overview.tenants || []).map((tenant: any) => ({
+          id: tenant.id,
+          name: tenant.business_name || tenant.name || 'Orvix Customer',
+          logoUrl: tenant.company_settings?.logo_url || tenant.company_settings?.logoUrl || '',
+        })));
+        if (liveLogos.length) setLogoCandidates(liveLogos);
+      })
+      .catch(() => {});
     loadPlatformRecord<any>('web_editor_settings', 'global', null)
       .then((settings) => {
         if (!alive || !settings) return;
@@ -324,6 +341,53 @@ export default function SaaSWebEditor() {
       if (exists) return prev.filter((logo) => logo.id !== candidate.id);
       return [...prev, candidate];
     });
+  };
+
+  const handleCustomLogoUpload = async (file: File | null) => {
+    if (!file) return;
+    if (!customLogoName.trim()) {
+      alert('Enter the customer name before uploading a logo.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Logo must not exceed 2 MB.');
+      return;
+    }
+    setIsUploadingLogo(true);
+    try {
+      const logoWebp = await compressImageFile(file, {
+        maxWidth: 640,
+        maxHeight: 320,
+        quality: 0.78,
+        mimeType: 'image/webp',
+      });
+      const client: any = await getSecureDataBridgeClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error('Super Admin session is required.');
+      const response = await fetch('/api/super-admin/landing-customer-logo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          customerName: customLogoName.trim(),
+          logoWebp,
+          originalFileSize: file.size,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result?.logo) throw new Error(result?.error || 'Logo upload failed.');
+      const uploaded = normalizeFeaturedLogos([result.logo])[0];
+      setLogoCandidates((prev) => [uploaded, ...prev.filter((item) => item.id !== uploaded.id)]);
+      setFeaturedLogos((prev) => [uploaded, ...prev.filter((item) => item.id !== uploaded.id)]);
+      setCustomLogoName('');
+      showToast('Customer logo optimized and ready to publish.');
+    } catch (error: any) {
+      alert(error?.message || 'Logo upload failed.');
+    } finally {
+      setIsUploadingLogo(false);
+    }
   };
 
   return (
@@ -960,8 +1024,38 @@ export default function SaaSWebEditor() {
             <div className="space-y-6">
               <div className="p-3.5 bg-slate-950/40 border border-slate-850 rounded-xl">
                 <p className="text-xs text-slate-400 leading-relaxed font-sans">
-                  <strong>Homepage Logos</strong>: choose customer/business logos to show in the trusted businesses strip on the public homepage.
+                  <strong>Customer Logo Slideshow</strong>: upload optimized customer logos or choose an existing business. Only the logo appears on the landing page; the customer name is kept for administration and accessibility.
                 </p>
+              </div>
+
+              <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-4">
+                <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                  <label className="space-y-1.5">
+                    <span className="block text-[10px] font-mono font-bold uppercase tracking-widest text-sky-400">Customer name</span>
+                    <input
+                      value={customLogoName}
+                      onChange={(event) => setCustomLogoName(event.target.value)}
+                      maxLength={100}
+                      placeholder="e.g. Kijiji Mart"
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-3 text-xs text-white outline-none focus:border-sky-500"
+                    />
+                  </label>
+                  <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-xs font-bold ${isUploadingLogo ? 'bg-slate-800 text-slate-500' : 'bg-sky-500 text-slate-950'}`}>
+                    <ImageIcon className="h-4 w-4" />
+                    <span>{isUploadingLogo ? 'Optimizing…' : 'Upload logo'}</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      disabled={isUploadingLogo}
+                      onChange={(event) => {
+                        void handleCustomLogoUpload(event.target.files?.[0] || null);
+                        event.target.value = '';
+                      }}
+                      className="sr-only"
+                    />
+                  </label>
+                </div>
+                <p className="mt-2 text-[10px] text-slate-500">Maximum 2 MB. The image is resized and converted to WebP before secure upload.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

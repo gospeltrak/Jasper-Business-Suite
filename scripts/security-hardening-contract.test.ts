@@ -21,6 +21,8 @@ const statusRequests = fs.readFileSync('src/components/SaaSStatusAndRequests.tsx
 const pwaInstallBanner = fs.readFileSync('src/components/PWAInstallBanner.tsx', 'utf8');
 const landingBundle = fs.readFileSync('public/orvix-landing/app.js', 'utf8');
 const landingPage = fs.readFileSync('src/components/LandingPage.tsx', 'utf8');
+const webEditor = fs.readFileSync('src/components/SaaSWebEditor.tsx', 'utf8');
+const landingStyles = fs.readFileSync('public/orvix-landing/styles.css', 'utf8');
 
 test('Super Admin is Google and fresh-MFA only with three attempts', () => {
   assert.match(login, /Super Admin password login is disabled/);
@@ -70,6 +72,22 @@ test('production Turnstile is fail-closed and landing assets have a restrictive 
 test('platform record writes require JSON and public landing responses are cache bounded', () => {
   assert.match(server, /app\.put\('\/api\/super-admin\/platform-records\/:type\/:scope'[\s\S]*req\.is\('application\/json'\)/);
   assert.match(server, /stale-while-revalidate=300/);
+});
+
+test('customer landing logos are optimized, authorized, and rendered from public URLs only', () => {
+  assert.match(webEditor, /file\.size > 2 \* 1024 \* 1024/);
+  assert.match(webEditor, /compressImageFile\(file,[\s\S]*maxWidth: 640[\s\S]*mimeType: 'image\/webp'/);
+  assert.match(webEditor, /Authorization: `Bearer \$\{session\.access_token\}`/);
+  assert.match(server, /app\.post\('\/api\/super-admin\/landing-customer-logo'[\s\S]*await requirePlatformAdmin\(req\)/);
+  assert.match(server, /originalFileSize > 2 \* 1024 \* 1024/);
+  assert.match(server, /\^data:image\\\/webp;base64/);
+  assert.match(server, /'RIFF'[\s\S]*'WEBP'/);
+  assert.match(server, /landing-customers\/\$\{logoId\}\.webp/);
+  assert.match(server, /contentType: 'image\/webp'[\s\S]*cacheControl: '31536000'[\s\S]*upsert: false/);
+  assert.match(landingBundle, /fetch\('\/api\/platform-records\/public_landing_settings\/global'/);
+  assert.match(landingBundle, /image\.src=logo\.logoUrl/);
+  assert.match(landingBundle, /set\.replaceChildren\(\)/);
+  assert.match(landingStyles, /\.logo-set img\{[^}]*object-fit:contain/);
 });
 
 test('staff passwords are verified by Auth and purged from legacy workspace payloads', () => {
