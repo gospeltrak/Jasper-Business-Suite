@@ -28,6 +28,8 @@ const systemErrorPage = fs.readFileSync('src/components/SystemErrorPage.tsx', 'u
 const appErrorBoundary = fs.readFileSync('src/components/AppErrorBoundary.tsx', 'utf8');
 const dashboardErrorBoundary = fs.readFileSync('src/components/DashboardScreenErrorBoundary.tsx', 'utf8');
 const safeErrors = fs.readFileSync('shared/safeErrors.ts', 'utf8');
+const serviceWorker = fs.readFileSync('public/sw.js', 'utf8');
+const appShell = fs.readFileSync('index.html', 'utf8');
 
 test('Super Admin is Google and fresh-MFA only with three attempts', () => {
   assert.match(login, /Super Admin password login is disabled/);
@@ -212,6 +214,20 @@ test('system error pages are localized and never render technical error details'
   assert.match(server, /\['\/401', 401\], \['\/403', 403\], \['\/404', 404\], \['\/500', 500\]/);
   assert.match(server, /knownAppPath \? 200 : 404/);
   assert.match(safeErrors, /SafeErrorLanguage = 'en' \| 'sw' \| 'fr'/);
+});
+
+test('installed PWAs automatically activate each new deployment without caching tenant data', () => {
+  assert.match(serviceWorker, /ORVIX_BUILD_VERSION = '__ORVIX_BUILD_VERSION__'/);
+  assert.match(serviceWorker, /self\.skipWaiting\(\)/);
+  assert.match(serviceWorker, /self\.clients\.claim\(\)/);
+  assert.match(serviceWorker, /caches\.keys\(\)[\s\S]*caches\.delete/);
+  assert.doesNotMatch(serviceWorker, /caches\.open|cache\.put|respondWith/);
+  assert.match(appShell, /controllerchange[\s\S]*window\.location\.reload\(\)/);
+  assert.match(appShell, /registration\.update\(\)[\s\S]*60000/);
+  assert.match(server, /app\.get\('\/sw\.js'/);
+  assert.match(server, /createHash\('sha256'\)\.update\(appShell\)\.digest\('hex'\)/);
+  assert.match(server, /Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0'/);
+  assert.match(server, /replace\('__ORVIX_BUILD_VERSION__', deploymentVersion\)/);
 });
 
 test('legacy public policies are replaced with tenant, affiliate, partner, or platform ownership', () => {

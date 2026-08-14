@@ -4948,6 +4948,28 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
     }
   });
 
+  app.get('/sw.js', (_req, res) => {
+    try {
+      const productionBuild = process.env.NODE_ENV === 'production';
+      const appShellPath = path.join(process.cwd(), productionBuild ? 'dist' : '', 'index.html');
+      const workerPath = path.join(process.cwd(), productionBuild ? 'dist' : 'public', 'sw.js');
+      const appShell = readFileSync(appShellPath, 'utf8');
+      const workerSource = readFileSync(workerPath, 'utf8');
+      const deploymentVersion = normalizeText(
+        process.env.VERCEL_GIT_COMMIT_SHA
+          || process.env.VERCEL_DEPLOYMENT_ID
+          || createHash('sha256').update(appShell).digest('hex'),
+        80,
+      );
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+      res.setHeader('Service-Worker-Allowed', '/');
+      return res.send(workerSource.replace('__ORVIX_BUILD_VERSION__', deploymentVersion));
+    } catch {
+      return res.status(503).type('text').send('PWA update service is temporarily unavailable.');
+    }
+  });
+
   app.use('/api', (req, res) => (
     sendExpectedSafeApiError(req, res, 'NOT_FOUND', 404, 'default')
   ));
