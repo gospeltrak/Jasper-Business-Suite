@@ -8,6 +8,7 @@ const platformRecords = fs.readFileSync('src/utils/superAdminPlatformRecords.ts'
 const logoContext = fs.readFileSync('src/TenantLogoContext.tsx', 'utf8');
 const affiliateAdmin = fs.readFileSync('src/utils/superAffiliateAdmin.ts', 'utf8');
 const superAdminData = fs.readFileSync('src/utils/superAdminData.ts', 'utf8');
+const runtimeIndexes = fs.readFileSync('supabase/migrations/20260814120002_super_admin_runtime_indexes.sql', 'utf8');
 
 test('tenant resolution is deduplicated and cached per exact host request', () => {
   assert.match(app, /orvix_tenant_resolve:\$\{resolveUrl\}/);
@@ -75,4 +76,13 @@ test('affiliate monitoring avoids tenant scans and loads sensitive affiliate det
   assert.doesNotMatch(monitoringLoader, /from\('affiliates'\)\.select\('[^']*nida_number/);
   assert.match(detailLoader, /\.eq\('id', id\)/);
   assert.match(detailLoader, /nida_number/);
+});
+
+test('runtime indexes match live sessions and affiliate reporting query shapes', () => {
+  assert.match(runtimeIndexes, /create index concurrently if not exists user_sessions_online_activity_idx/);
+  assert.match(runtimeIndexes, /where is_active = true and logout_at is null/);
+  assert.match(runtimeIndexes, /referred_customers_partner_created_idx/);
+  assert.match(runtimeIndexes, /referred_customers_promo_created_idx/);
+  assert.match(runtimeIndexes, /commission_ledger_sub_affiliate_idx/);
+  assert.doesNotMatch(runtimeIndexes, /\b(delete|update|truncate|drop)\b/i);
 });
