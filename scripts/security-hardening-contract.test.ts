@@ -85,9 +85,10 @@ test('staff passwords are verified by Auth and purged from legacy workspace payl
 });
 
 test('tenant login is Google-only for owners, administrators, and staff', () => {
-  assert.match(loginPage, /isTenantDomainLogin \? \([\s\S]*data-tenant-google-only="true"/);
+  assert.match(loginPage, /const tenantGoogleOnlySignIn = !isSaasAdminPortal/);
+  assert.match(loginPage, /tenantGoogleOnlySignIn \? \([\s\S]*data-tenant-google-only="true"/);
   assert.match(loginPage, /Owners, administrators and staff sign in with the Google account connected to this business/);
-  const tenantGoogleStart = loginPage.indexOf('{isTenantDomainLogin ? (');
+  const tenantGoogleStart = loginPage.indexOf('{tenantGoogleOnlySignIn ? (');
   const tenantPasswordFallback = loginPage.indexOf('id="login-email"', tenantGoogleStart);
   const tenantConditionalEnd = loginPage.indexOf('</>}', tenantPasswordFallback);
   assert.ok(tenantGoogleStart >= 0 && tenantPasswordFallback > tenantGoogleStart && tenantConditionalEnd > tenantPasswordFallback);

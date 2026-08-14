@@ -216,6 +216,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const tenantLogoFromContext = (resolvedTenant?.company_settings as any)?.logo_url || (resolvedTenant?.company_settings as any)?.logoUrl || null;
   const tenantLoginTitle = resolvedTenant?.name || (domainMode === 'tenant' ? 'Business Login' : 'Orvix');
   const isTenantDomainLogin = domainMode === 'tenant' && !!resolvedTenant?.id;
+  const tenantGoogleOnlySignIn = !isSaasAdminPortal;
   const handleBackToLandingHub = () => {
     if (landingUrl) {
       const targetUrl = new URL(landingUrl, window.location.origin);
@@ -1534,7 +1535,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   </p>
                 </div>
               )}
-              {isTenantDomainLogin ? (
+              {tenantGoogleOnlySignIn ? (
                 <div className="space-y-4" data-tenant-google-only="true">
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center dark:border-emerald-800/40 dark:bg-emerald-950/20">
                     <Shield className="mx-auto h-7 w-7 text-emerald-700 dark:text-emerald-400" />
