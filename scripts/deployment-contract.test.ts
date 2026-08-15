@@ -373,6 +373,16 @@ test('quotation and proforma preview, print and WhatsApp share one A4 template a
   assert.match(salesSource, /\{invoiceFooter\.poweredBy\}/);
 });
 
+test('sales invoice and receipt exports use recognizable document filenames', async () => {
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  assert.equal(
+    (salesSource.match(/fileName: format === 'a4' \? buildInvoiceFileName\(sale\) : buildReceiptFileName\(sale\)/g) || []).length,
+    2,
+  );
+  assert.match(salesSource, /return `sales-invoice-\$\{safeBusiness\}-\$\{safeReference\}\.pdf`/);
+  assert.match(salesSource, /return `receipt-\$\{safeBusiness\}-\$\{safeReference\}\.pdf`/);
+});
+
 test('expense deletion requires an inspectable in-app confirmation', async () => {
   const expenseSource = await read('src/components/DashboardExpenses.tsx');
   assert.doesNotMatch(expenseSource, /window\.confirm\(['"]Delete this expense/);

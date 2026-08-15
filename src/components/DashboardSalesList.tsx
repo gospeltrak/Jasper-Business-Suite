@@ -951,7 +951,7 @@ export default function DashboardSalesList({
       setPdfShareStatus('Preparing PDF...');
       await shareElementPdfToWhatsApp({
         elementId: format === 'a4' ? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template',
-        fileName: `${format === 'a4' ? 'sales-invoice' : 'pos-receipt'}-${sale.reference || sale.id}.pdf`,
+        fileName: format === 'a4' ? buildInvoiceFileName(sale) : buildReceiptFileName(sale),
         phone: phone || sale.customerPhone,
         message: `Hello ${sale.customerName || 'customer'}, please find attached your ${format === 'a4' ? 'sales invoice' : 'POS receipt'} PDF from ${getBusinessDisplayName(activeTenant, systemSettings)}. Thank you.`,
         format
@@ -969,7 +969,7 @@ export default function DashboardSalesList({
       setPdfShareStatus('Generating printable PDF...');
       await printPdfFromElement({
         elementId: format === 'a4' ? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template',
-        fileName: `${format === 'a4' ? 'sales-invoice' : 'pos-receipt'}-${sale.reference || sale.id}.pdf`,
+        fileName: format === 'a4' ? buildInvoiceFileName(sale) : buildReceiptFileName(sale),
         format
       });
       setPdfShareStatus('PDF opened for printing.');
@@ -989,6 +989,16 @@ export default function DashboardSalesList({
       .replace(/^-+|-+$/g, '')
       .slice(0, 48) || 'sale';
     return `sales-invoice-${safeBusiness}-${safeReference}.pdf`;
+  };
+
+  const buildReceiptFileName = (sale: Sale) => {
+    const bizName = getBusinessDisplayName(activeTenant, systemSettings).trim();
+    const safeBusiness = bizName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 36) || 'Business';
+    const safeReference = String(sale.reference || sale.id || 'receipt')
+      .replace(/[^a-zA-Z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48) || 'receipt';
+    return `receipt-${safeBusiness}-${safeReference}.pdf`;
   };
 
   // Print thermal receipt — works with USB and Bluetooth thermal printers
