@@ -53,7 +53,7 @@ import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp 
 import CachedImage from './CachedImage';
 import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
 import { normalizeSubscriptionPlanId } from '../utils/subscription';
-import { getPaymentModeName } from '../utils/paymentAccounts';
+import { findPaymentChannel, getPaymentModeName } from '../utils/paymentAccounts';
 import { calculateSalesDocumentTotals } from '../utils/salesDocumentTotals';
 import {
   createCrossBranchCommercialDocument,
@@ -529,6 +529,8 @@ export default function DashboardSalesList({
   const [newDocDiscountValue, setNewDocDiscountValue] = useState(0);
   const [newDocDiscountType, setNewDocDiscountType] = useState<'percent' | 'cash'>('percent');
   const [newDocPaymentMethod, setNewDocPaymentMethod] = useState(() => getPaymentModeName(systemSettings?.business?.paymentModes?.[0] || 'Cash'));
+  const [newDocPaymentAccountNumber, setNewDocPaymentAccountNumber] = useState(() => systemSettings?.invoiceSettings?.accountNumber || '');
+  const [newDocPaymentAccountName, setNewDocPaymentAccountName] = useState(() => systemSettings?.invoiceSettings?.accountName || '');
   const [newDocHasVat, setNewDocHasVat] = useState(() => !!systemSettings?.invoiceSettings?.hasVatByDefault);
   const [crossBranchSources, setCrossBranchSources] = useState<CrossBranchDocumentSources | null>(null);
   const [crossBranchSourcesLoading, setCrossBranchSourcesLoading] = useState(false);
@@ -556,6 +558,13 @@ export default function DashboardSalesList({
     });
     return [...new Set(enabled.length > 0 ? enabled : ['Cash'])];
   }, [systemSettings?.business?.paymentModes, systemSettings?.paymentChannels]);
+  const getDocumentPaymentAccount = React.useCallback((method: string) => {
+    const channel = findPaymentChannel(systemSettings?.paymentChannels || [], method);
+    return {
+      accountNumber: channel?.accountNumber || systemSettings?.invoiceSettings?.accountNumber || '',
+      accountName: systemSettings?.invoiceSettings?.accountName || channel?.name || channel?.provider || '',
+    };
+  }, [systemSettings?.invoiceSettings?.accountName, systemSettings?.invoiceSettings?.accountNumber, systemSettings?.paymentChannels]);
 
   useEffect(() => {
     if (!conversionNotice) return;
@@ -574,6 +583,9 @@ export default function DashboardSalesList({
       setNewDocDiscountValue(0);
       setNewDocDiscountType('percent');
       setNewDocPaymentMethod(documentPaymentMethods[0]);
+      const paymentAccount = getDocumentPaymentAccount(documentPaymentMethods[0]);
+      setNewDocPaymentAccountNumber(paymentAccount.accountNumber);
+      setNewDocPaymentAccountName(paymentAccount.accountName);
       if (canUseCrossBranchDocuments) {
         setCrossBranchSourcesLoading(true);
         setCrossBranchSourcesError('');
@@ -591,13 +603,19 @@ export default function DashboardSalesList({
           .finally(() => setCrossBranchSourcesLoading(false));
       }
     }
-  }, [showNewDocModal, canUseCrossBranchDocuments, documentPaymentMethods]); // reset only when opening
+  }, [showNewDocModal, canUseCrossBranchDocuments, documentPaymentMethods, getDocumentPaymentAccount]); // reset only when opening
 
   useEffect(() => {
     if (!documentPaymentMethods.includes(newDocPaymentMethod)) {
       setNewDocPaymentMethod(documentPaymentMethods[0]);
     }
   }, [documentPaymentMethods, newDocPaymentMethod]);
+
+  useEffect(() => {
+    const paymentAccount = getDocumentPaymentAccount(newDocPaymentMethod);
+    setNewDocPaymentAccountNumber(paymentAccount.accountNumber);
+    setNewDocPaymentAccountName(paymentAccount.accountName);
+  }, [getDocumentPaymentAccount, newDocPaymentMethod]);
 
   useEffect(() => {
     if (viewingDocument) {
@@ -1062,7 +1080,7 @@ export default function DashboardSalesList({
       id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       type: newDocType,
       documentNumber: nextNum,
-      customerName: newDocCustomerName || 'General Customer',
+      customerName: newDocCustomerName || 'Customer',
       customerPhone: newDocCustomerPhone || '',
       customerAddress: newDocCustomerAddress || '',
       items: newDocItems.map(item => ({ ...item, discount: 0, discountType: 'percent' })),
@@ -1075,6 +1093,9 @@ export default function DashboardSalesList({
       taxRate: newDocTaxRate,
       deliveryCost: Number(newDocDeliveryCost) || 0,
       paymentMethod: newDocPaymentMethod,
+      paymentAccountNumber: newDocPaymentAccountNumber.trim() || undefined,
+      paymentAccountName: newDocPaymentAccountName.trim() || undefined,
+      paymentAmount: newDocGrandTotal,
       timestamp: new Date(`${newDocDate || new Date().toISOString().split('T')[0]}T12:00:00`).toISOString(),
       tenantId: activeTenant.id,
       status: 'pending',
@@ -1550,7 +1571,7 @@ export default function DashboardSalesList({
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="font-extrabold text-slate-900 text-[14px] leading-tight truncate">
-                        {sale.customerName || 'Walk-in Customer'}
+                        {sale.customerName || 'Customer'}
                       </p>
                       <p className="text-[10px] text-slate-400 font-mono mt-0.5">
                         #{sale.reference || sale.id.substring(0,6)} · {sale.items.length} line item{sale.items.length === 1 ? '' : 's'}
@@ -1681,7 +1702,7 @@ export default function DashboardSalesList({
 
                       {/* Customer */}
                       <td className="py-3.5 px-4">
-                        <p className="font-semibold text-slate-800 text-[12px]">{sale.customerName || <span className="text-slate-400 italic font-normal">Walk-in</span>}</p>
+                        <p className="font-semibold text-slate-800 text-[12px]">{sale.customerName || <span className="text-slate-400 italic font-normal">Customer</span>}</p>
                         {sale.customerPhone && <p className="text-[10px] text-slate-400 font-mono">{sale.customerPhone}</p>}
                       </td>
 
@@ -2012,7 +2033,7 @@ export default function DashboardSalesList({
                             <span className="text-[9px] font-mono font-bold text-white/70 uppercase tracking-widest">Ref: {getSaleReference(s)}</span>
                             <h4 className="text-sm font-black text-white mt-1 flex items-center gap-1.5">
                               <User className="w-3.5 h-3.5 text-white/80 shrink-0" />
-                              <span className="truncate">{s.customerName || 'Anonymous Account-Tab'}</span>
+                              <span className="truncate">{s.customerName || 'Customer'}</span>
                             </h4>
                             {s.customerPhone && (
                               <p className="text-[10.5px] text-white/80 flex items-center gap-1.5 mt-0.5 font-mono">
@@ -2098,7 +2119,7 @@ export default function DashboardSalesList({
                             </span>
                             <h4 className="text-sm font-bold text-slate-808 mt-2 flex items-center space-x-1.5 font-sans">
                               <User className="w-3.5 h-3.5 text-slate-400" />
-                              <span>{s.customerName || 'Anonymous Account-Tab'}</span>
+                              <span>{s.customerName || 'Customer'}</span>
                             </h4>
                             {s.customerPhone && (
                               <p className="text-[10px] text-slate-500 flex items-center space-x-1.5 mt-0.5 font-mono">
@@ -3122,7 +3143,7 @@ export default function DashboardSalesList({
                     <div className="px-4 pb-3">
                       {/* Customer + date */}
                       <p className="font-extrabold text-slate-900 text-[13px] leading-tight truncate">
-                        {doc.customerName || 'Walk-in Customer'}
+                        {doc.customerName || 'Customer'}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-[10px] text-slate-400 font-mono">
@@ -3205,7 +3226,7 @@ export default function DashboardSalesList({
                   </button>
                   <div className="min-w-0">
                     <p className="text-white text-xs font-black truncate leading-tight">Sales Invoice — {selectedSale.reference || selectedSale.id.slice(0, 8).toUpperCase()}</p>
-                    <p className="text-white/40 text-[10px] font-mono truncate">{selectedSale.customerName || 'Walk-In'} · {new Date(selectedSale.timestamp).toLocaleDateString()}</p>
+                    <p className="text-white/40 text-[10px] font-mono truncate">{selectedSale.customerName || 'Customer'} · {new Date(selectedSale.timestamp).toLocaleDateString()}</p>
                   </div>
                 </div>
 
@@ -3297,7 +3318,7 @@ export default function DashboardSalesList({
                   `}</style>
 
                 {/* Standard A4 template used by every downloaded sales invoice. */}
-                <div className="p-10 space-y-8">
+                <div className="p-8 space-y-5">
                   <div className="flex items-start justify-between gap-8">
                     <div className="min-w-0">
                       {(((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings)) ? (
@@ -3322,7 +3343,6 @@ export default function DashboardSalesList({
                       <div className="inline-block bg-indigo-600 text-white text-sm font-black uppercase tracking-wider px-5 py-2 rounded-xl mb-2">Sales Invoice</div>
                       <p className="text-slate-400">No: <strong className="text-slate-800">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</strong></p>
                       <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
-                      <p className="text-slate-400">Prepared by: <span className="text-slate-700">{selectedSale.cashierName || 'Admin'}</span></p>
                       {(() => {
                         const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
                         const status = paid >= selectedSale.total ? 'Paid' : 'Pending';
@@ -3331,17 +3351,28 @@ export default function DashboardSalesList({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-6 bg-slate-50 rounded-2xl p-5 border border-slate-100">
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">Bill To</p>
-                      <p className="font-black text-slate-800 text-sm">{selectedSale.customerName || 'Walk-In Customer'}</p>
+                  <div className="flex items-start justify-between gap-6 bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 font-mono">Customer</p>
+                      <p className="font-black text-slate-800 text-sm">{selectedSale.customerName || 'Customer'}</p>
                       {selectedSale.customerPhone && <p className="text-xs text-slate-500 mt-1">{selectedSale.customerPhone}</p>}
                     </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">From</p>
-                      <p className="font-black text-slate-800 text-sm">{getBusinessDisplayName(activeTenant, systemSettings)}</p>
-                      <p className="text-xs text-slate-500 mt-1">{selectedSale.cashierName || 'Admin'}</p>
-                    </div>
+                    {(() => {
+                      const channel = findPaymentChannel(systemSettings?.paymentChannels || [], selectedSale.paymentMethod);
+                      const accountNumber = channel?.accountNumber || systemSettings?.invoiceSettings?.accountNumber;
+                      const accountName = systemSettings?.invoiceSettings?.accountName || channel?.name || channel?.provider;
+                      return (
+                        <div className="shrink-0 min-w-[220px] text-xs">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 text-right font-mono">Payment Details</p>
+                          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                            <span className="text-slate-400">Mode</span><strong className="text-right text-slate-700">{selectedSale.paymentMethod}</strong>
+                            {accountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{accountNumber}</strong></>}
+                            {accountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{accountName}</strong></>}
+                            <span className="text-slate-400">Amount</span><strong className="text-right text-slate-900 font-mono">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <table className="w-full text-left text-xs border-collapse">
@@ -3385,9 +3416,21 @@ export default function DashboardSalesList({
                     </div>
                   </div>
 
-                  <div className="border-t border-slate-100 pt-6 flex items-end justify-between gap-8">
-                    <div className="flex-1"><div className="h-10 border-b border-slate-300 mb-1.5"/><p className="text-xs font-semibold text-slate-700">{selectedSale.cashierName || 'Admin'}</p><p className="text-[10px] text-slate-400">Authorized Person</p></div>
-                    <div className="flex-1 text-right"><div className="h-10 border-b border-slate-300 mb-1.5"/><p className="text-[10px] text-slate-400">Authorized Signature</p></div>
+                  <div className="border-t border-slate-100 pt-5 flex justify-end">
+                    <div className="w-64 text-right">
+                      {(() => {
+                        const responsibleStaff = systemSettings?.staffs?.find(staff =>
+                          staff.name.toLowerCase() === (selectedSale.cashierName || currentUser?.name || '').toLowerCase()
+                        );
+                        const signature = responsibleStaff?.signatureImage || systemSettings?.invoiceSettings?.signatureImage;
+                        return signature ? (
+                          <div className="h-10 mb-1.5 flex justify-end items-end">
+                            <img src={signature} alt="Signature" className="max-h-10 max-w-[160px] object-contain" referrerPolicy="no-referrer" />
+                          </div>
+                        ) : <div className="h-10 border-b border-slate-300 mb-1.5" />;
+                      })()}
+                      <p className="text-[10px] text-slate-400">Authorized Signature</p>
+                    </div>
                   </div>
                   {(() => {
                     const rawTerms = systemSettings?.invoiceSettings?.termsAndConditions;
@@ -4040,7 +4083,7 @@ export default function DashboardSalesList({
                 <div className="space-y-1 min-w-0">
                   <span className="block text-[8px] uppercase font-mono font-bold text-slate-400 tracking-wider">Customer</span>
                   <span className="font-extrabold text-indigo-950 text-[11px] break-words">
-                    {viewingSaleDetail.customerName || 'Walk-In Customer'}
+                    {viewingSaleDetail.customerName || 'Customer'}
                   </span>
                 </div>
               </div>
@@ -4203,7 +4246,7 @@ export default function DashboardSalesList({
                       type="text"
                       value={editFormFields.customerName}
                       onChange={(e) => setEditFormFields({ ...editFormFields, customerName: e.target.value })}
-                      placeholder="Walk-In Customer"
+                      placeholder="Customer"
                       className="w-full bg-slate-50 border border-slate-240 rounded-xl px-3 py-2 text-slate-800 text-xs font-semibold focus:outline-none focus:border-slate-800 focus:bg-white"
                     />
                   </div>
@@ -4526,7 +4569,7 @@ export default function DashboardSalesList({
               <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 space-y-2.5 text-xs text-slate-600 font-sans">
                 <div className="flex justify-between">
                   <span>Customer:</span>
-                  <span className="font-bold text-slate-800">{saleToDelete.customerName || 'Walk-In Client'}</span>
+                  <span className="font-bold text-slate-800">{saleToDelete.customerName || 'Customer'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Method / Date:</span>
@@ -4599,10 +4642,10 @@ export default function DashboardSalesList({
       {/* DIALOG: NEW DOCUMENT CREATOR MODAL */}
       {showNewDocModal && createPortal((
         <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="relative bg-white dark:bg-slate-900 w-full sm:max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden" style={{maxHeight:'96dvh'}}>
+          <div className="relative bg-white dark:bg-slate-900 w-full sm:max-w-3xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden" style={{maxHeight:'94dvh'}}>
 
             {/* ── Header ── */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
               <div>
                 <h3 className="text-[15px] font-black text-slate-900 dark:text-white">New Document</h3>
                 <p className="text-[10px] text-slate-400 mt-0.5">Quotation or Proforma Invoice</p>
@@ -4614,18 +4657,18 @@ export default function DashboardSalesList({
             </div>
 
             {/* ── Scrollable body ── */}
-            <div className="overflow-y-auto flex-1 px-5 py-5 space-y-5">
+            <div className="overflow-y-auto flex-1 px-4 py-3 space-y-3">
 
               {/* Doc type picker — single row, badge + label */}
               <div className="flex gap-2">
                 {(['price quote', 'proforma invoice'] as const).map(t => (
                   <button key={t} type="button" onClick={() => setNewDocType(t)}
-                    className={`flex-1 flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl cursor-pointer border-2 transition-all ${
+                    className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer border transition-all ${
                       newDocType === t
                         ? 'bg-indigo-600 border-indigo-600 text-white'
                         : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
                     }`}>
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-[9px] font-black ${newDocType === t ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-[8px] font-black ${newDocType === t ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
                       {t === 'price quote' ? 'QUO' : 'PFI'}
                     </div>
                     <span className="text-[13px] font-bold leading-tight">{getDocumentLabel(t)}</span>
@@ -4636,46 +4679,37 @@ export default function DashboardSalesList({
               {/* Client details */}
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Client Details</p>
-                <div className="flex gap-2">
-                  <div className="flex-1 min-w-0">
+                <div className="grid grid-cols-[minmax(0,1fr)_120px] sm:grid-cols-[minmax(0,1.1fr)_150px_minmax(0,1.5fr)] gap-2">
+                  <div className="min-w-0">
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Client Name</label>
                     <input type="text" placeholder="e.g. Lipa Traders Ltd" value={newDocCustomerName}
                       onChange={e => setNewDocCustomerName(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20" />
                   </div>
-                  <div className="w-[128px] shrink-0">
+                  <div className="min-w-0">
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Phone</label>
                     <input type="text" placeholder="+255 7XX…" value={newDocCustomerPhone}
                       onChange={e => setNewDocCustomerPhone(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20" />
                   </div>
-                </div>
-                <div className="mt-2">
+                  <div className="col-span-2 sm:col-span-1 min-w-0">
                   <label className="text-[10px] font-bold text-slate-500 block mb-1">Client Address</label>
                   <textarea placeholder="e.g. P.O. Box 1234, Kariakoo, Dar es Salaam, Tanzania" value={newDocCustomerAddress}
                     onChange={e => setNewDocCustomerAddress(e.target.value)}
-                    rows={2}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 resize-none leading-relaxed" />
+                    rows={1}
+                    className="w-full min-h-[42px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 resize-none leading-relaxed" />
+                  </div>
                 </div>
               </div>
 
               {/* Date + payment + delivery */}
               <div className="space-y-2">
                 <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-[0.12em]">Settings</p>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Date</label>
                     <input type="date" value={newDocDate} onChange={e => setNewDocDate(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Payment</label>
-                    <select value={newDocPaymentMethod} onChange={e => setNewDocPaymentMethod(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer">
-                      {documentPaymentMethods.map(modeName => (
-                        <option key={modeName} value={modeName}>{modeName}</option>
-                      ))}
-                    </select>
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Delivery ({currency})</label>
@@ -4691,6 +4725,41 @@ export default function DashboardSalesList({
                   <span className="text-[12px] font-semibold text-slate-600 dark:text-slate-400">Include VAT ({Math.round(newDocTaxRate * 100)}%)</span>
                   <span className="text-[10px] text-slate-400 hidden sm:inline">· Applied after discount</span>
                 </label>
+              </div>
+
+              <div className="rounded-xl border border-indigo-100 dark:border-indigo-900 bg-indigo-50/60 dark:bg-indigo-950/20 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-widest">Payment Details</p>
+                  <span className="text-[9px] text-indigo-400">Amount updates automatically</span>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                  <div className="min-w-0">
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Payment Mode</label>
+                    <select value={newDocPaymentMethod} onChange={e => setNewDocPaymentMethod(e.target.value)}
+                      className="w-full min-h-[42px] bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900 rounded-xl px-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                      {documentPaymentMethods.map(modeName => (
+                        <option key={modeName} value={modeName}>{modeName}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="min-w-0">
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Account Number</label>
+                    <input type="text" value={newDocPaymentAccountNumber}
+                      onChange={e => setNewDocPaymentAccountNumber(e.target.value)} placeholder="Account / Till number"
+                      className="w-full min-h-[42px] bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900 rounded-xl px-3 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Account Name</label>
+                    <input type="text" value={newDocPaymentAccountName}
+                      onChange={e => setNewDocPaymentAccountName(e.target.value)} placeholder="Account holder name"
+                      className="w-full min-h-[42px] bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900 rounded-xl px-3 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Amount ({currency})</label>
+                    <input type="text" readOnly value={newDocGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      className="w-full min-h-[42px] bg-indigo-100/70 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 rounded-xl px-3 text-xs font-black text-indigo-800 dark:text-indigo-200 font-mono cursor-default" />
+                  </div>
+                </div>
               </div>
 
               {canUseCrossBranchDocuments && (
@@ -4736,7 +4805,7 @@ export default function DashboardSalesList({
               {/* Product search */}
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Add Products</p>
-                <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-3 space-y-2.5 border border-slate-200 dark:border-slate-700">
+                <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 space-y-2 border border-slate-200 dark:border-slate-700">
                   {/* Search box */}
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
@@ -4863,7 +4932,7 @@ export default function DashboardSalesList({
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Items ({newDocItems.length})</p>
                   <div className="space-y-1.5">
                     {newDocItems.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5">
+                      <div key={idx} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
                         <div className="flex-1 min-w-0">
                           <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{item.productName}</p>
                           <p className="text-[10px] text-slate-400 font-mono mt-0.5">{item.qty} × {currency}{item.price}</p>
@@ -4885,14 +4954,14 @@ export default function DashboardSalesList({
               )}
 
               {newDocItems.length === 0 && (
-                <div className="py-8 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
+                <div className="py-5 text-center rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700">
                   <p className="text-slate-400 text-sm">No items added yet</p>
                   <p className="text-slate-300 text-xs mt-1">Search and add products above</p>
                 </div>
               )}
 
               {newDocItems.length > 0 && (
-                <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-3.5 space-y-2.5">
+                <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
                   <div>
                     <p className="text-xs font-black text-slate-800 dark:text-slate-100">Order Discount</p>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400">One discount for all products.</p>
@@ -4933,15 +5002,15 @@ export default function DashboardSalesList({
             </div>
 
             {/* ── Footer ── */}
-            <div className="shrink-0 px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-2">
+            <div className="shrink-0 px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-2">
               <button type="button" onClick={() => setShowNewDocModal(false)}
-                className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold text-sm cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold text-sm cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
                 Cancel
               </button>
               <button type="button"
                 disabled={newDocItems.length === 0 || documentMutationPending || (canUseCrossBranchDocuments && (!newDocIssuingBranchId || crossBranchSourcesLoading || !!crossBranchSourcesError))}
                 onClick={() => void handleCreateCommercialDocument()}
-                className="flex-[2] py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-black text-sm cursor-pointer transition-colors border-none">
+                className="flex-[2] py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-black text-sm cursor-pointer transition-colors border-none">
                 {documentMutationPending ? 'Saving…' : `Create ${getDocumentLabel(newDocType)}`}
               </button>
             </div>
@@ -4959,9 +5028,6 @@ export default function DashboardSalesList({
         const activeStaff = systemSettings?.staffs?.find(
           s => s.name.toLowerCase() === (currentUser?.name || '').toLowerCase()
         );
-        const preparerName = activeStaff?.name || currentUser?.name || systemSettings?.invoiceSettings?.authorisedPerson || 'Jane Doe';
-        const preparerRole = activeStaff?.role || currentUser?.role || 'Accounts & Finance Dept';
-
         const docTypeLabel = getDocumentLabel(viewingDocument.type);
 
         return (
@@ -4982,7 +5048,7 @@ export default function DashboardSalesList({
                 </button>
                 <div className="min-w-0">
                   <p className="text-white text-xs font-black truncate leading-tight">{docTypeLabel} — {viewingDocument.documentNumber}</p>
-                  <p className="text-white/40 text-[10px] font-mono truncate">{viewingDocument.customerName || 'No Customer'} · {new Date(viewingDocument.timestamp).toLocaleDateString()}</p>
+                  <p className="text-white/40 text-[10px] font-mono truncate">{viewingDocument.customerName || 'Customer'} · {new Date(viewingDocument.timestamp).toLocaleDateString()}</p>
                 </div>
               </div>
 
@@ -5136,10 +5202,10 @@ export default function DashboardSalesList({
                   `}</style>
 
                   {/* ── DOCUMENT CONTENT (same as before, just inside new shell) ── */}
-                  <div className="p-10 space-y-8">
+                  <div className="p-8 space-y-5">
 
                     {/* Header: logo + doc meta */}
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+                    <div className="flex items-start justify-between gap-5">
                       <div className="min-w-0">
                         {documentBranding.logo ? (
                           <img
@@ -5173,7 +5239,6 @@ export default function DashboardSalesList({
                         <p className="text-slate-400">No: <strong className="text-slate-800">{viewingDocument.documentNumber}</strong></p>
                         <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(viewingDocument.timestamp).toLocaleDateString([], {dateStyle: 'long'})}</span></p>
                         {viewingDocument.validUntil && <p className="text-slate-400">Valid Until: <span className="text-slate-700">{new Date(viewingDocument.validUntil).toLocaleDateString()}</span></p>}
-                        <p className="text-slate-400">Prepared by: <span className="text-slate-700">{preparerName}</span></p>
                         <div className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-2 py-0.5 rounded-lg mt-1 ${
                           viewingDocument.status === 'pending' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
                           viewingDocument.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
@@ -5185,18 +5250,24 @@ export default function DashboardSalesList({
                     </div>
 
                     {/* Bill To */}
-                    <div className="grid grid-cols-2 gap-6 bg-slate-50 rounded-2xl p-5 border border-slate-100">
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">Bill To</p>
-                        <p className="font-black text-slate-800 text-sm">{viewingDocument.customerName || 'Walk-In Customer'}</p>
+                    <div className="flex items-start justify-between gap-6 bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 font-mono">Customer</p>
+                        <p className="font-black text-slate-800 text-sm">{viewingDocument.customerName || 'Customer'}</p>
                         {viewingDocument.customerPhone && <p className="text-xs text-slate-500 mt-0.5">{viewingDocument.customerPhone}</p>}
                         {viewingDocument.customerAddress && <p className="text-xs text-slate-500 mt-0.5">{viewingDocument.customerAddress}</p>}
                       </div>
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">From</p>
-                        <p className="font-black text-slate-800 text-sm">{getBusinessDisplayName(activeTenant, systemSettings)}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">{preparerRole}</p>
-                      </div>
+                      {viewingDocument.paymentMethod && (
+                        <div className="shrink-0 min-w-[220px] text-xs">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 text-right font-mono">Payment Details</p>
+                          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                            <span className="text-slate-400">Mode</span><strong className="text-right text-slate-700">{viewingDocument.paymentMethod}</strong>
+                            {viewingDocument.paymentAccountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{viewingDocument.paymentAccountNumber}</strong></>}
+                            {viewingDocument.paymentAccountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{viewingDocument.paymentAccountName}</strong></>}
+                            <span className="text-slate-400">Amount</span><strong className="text-right text-slate-900 font-mono">{money(viewingDocument.paymentAmount ?? totals.total)}</strong>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Items Table */}
@@ -5278,16 +5349,8 @@ export default function DashboardSalesList({
                     </div>
 
                     {/* Signature row — Authorized Person Name (left) | Signature (right) */}
-                    <div className="border-t border-slate-100 pt-6">
-                      <div className="flex items-end justify-between gap-8">
-                        {/* Left: Authorized Person Name */}
-                        <div className="flex-1 min-w-0">
-                          <div className="h-10 border-b border-slate-300 mb-1.5" />
-                          <p className="text-xs font-semibold text-slate-700 truncate">{preparerName}</p>
-                          <p className="text-[10px] text-slate-400">{preparerRole}</p>
-                        </div>
-                        {/* Right: Authorized Signature */}
-                        <div className="flex-1 min-w-0 text-right">
+                    <div className="border-t border-slate-100 pt-5 flex justify-end">
+                        <div className="w-64 text-right">
                           {(() => {
                             const sigImg = activeStaff?.signatureImage || systemSettings?.invoiceSettings?.signatureImage;
                             return sigImg ? (
@@ -5300,7 +5363,6 @@ export default function DashboardSalesList({
                           })()}
                           <p className="text-[10px] text-slate-400">Authorized Signature</p>
                         </div>
-                      </div>
                     </div>
 
                     {/* Terms & Conditions — from Invoice Settings, shown below signature */}
@@ -5388,7 +5450,7 @@ export default function DashboardSalesList({
               {/* Header Title Information */}
               <div className="px-5 pb-3 pt-1 text-left shrink-0">
                 <h3 className="text-base font-extrabold text-slate-800 leading-tight">
-                  {mobileActionsSale.customerName || 'Walk-In Customer'} — <span className="font-mono text-indigo-700">#{getSaleReference(mobileActionsSale)}</span>
+                  {mobileActionsSale.customerName || 'Customer'} — <span className="font-mono text-indigo-700">#{getSaleReference(mobileActionsSale)}</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-1 flex items-center justify-between">
                   <span>Total Due: <strong className="font-extrabold text-slate-900">{currency}{Math.round(mobileActionsSale.total).toLocaleString()}</strong></span>

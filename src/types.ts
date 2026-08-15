@@ -661,6 +661,9 @@ export interface SalesDocument {
   discountType?: 'percent' | 'cash';
   deliveryCost?: number;
   paymentMethod?: string;
+  paymentAccountNumber?: string;
+  paymentAccountName?: string;
+  paymentAmount?: number;
   hasVat?: boolean;
   taxRate?: number;
   customerName: string;
