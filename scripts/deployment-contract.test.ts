@@ -330,6 +330,17 @@ test('delivery notes load tenant-scoped source records without manual item editi
   assert.doesNotMatch(deliverySource, /onClick=\{\(\) => handleDeleteNoteItem\(item\.id\)\}/);
 });
 
+test('delivery note WhatsApp sharing mounts the selected note and shares its PDF', async () => {
+  const deliverySource = await read('src/components/DashboardDeliveries.tsx');
+  const pdfSource = await read('src/utils/pdfShare.ts');
+  assert.match(deliverySource, /flushSync\(\(\) => \{\s*handleLoadFromOrder\(del\);\s*setActiveSubTab\('notes'\);\s*\}\)/);
+  assert.match(deliverySource, /shareElementPdfToWhatsApp\(\{\s*elementId: 'delivery-note-print-area'/);
+  assert.match(deliverySource, /fileName: `delivery-note-\$\{dnNo\}\.pdf`/);
+  assert.match(pdfSource, /const pdfFile = await createPdfFromElement\(options\)/);
+  assert.match(pdfSource, /navigator\.share\(\{ files, title: pdfFile\.name, text: message \}\)/);
+  assert.match(pdfSource, /downloadBlob\(pdfFile, pdfFile\.name\)/);
+});
+
 test('expense deletion requires an inspectable in-app confirmation', async () => {
   const expenseSource = await read('src/components/DashboardExpenses.tsx');
   assert.doesNotMatch(expenseSource, /window\.confirm\(['"]Delete this expense/);
