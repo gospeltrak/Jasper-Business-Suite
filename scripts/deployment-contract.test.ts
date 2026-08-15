@@ -364,6 +364,15 @@ test('A4 sales invoice preview, download, print and WhatsApp use one template', 
   );
 });
 
+test('quotation and proforma preview, print and WhatsApp share one A4 template and footer', async () => {
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  assert.match(salesSource, /id="sales-document-a4-pdf-template"/);
+  assert.match(salesSource, /shareElementPdfToWhatsApp\(\{\s*elementId: 'sales-document-a4-pdf-template'/);
+  assert.match(salesSource, /printPdfFromElement\(\{\s*elementId: 'sales-document-a4-pdf-template'/);
+  assert.match(salesSource, /\{invoiceFooter\.mainMessage\}/);
+  assert.match(salesSource, /\{invoiceFooter\.poweredBy\}/);
+});
+
 test('expense deletion requires an inspectable in-app confirmation', async () => {
   const expenseSource = await read('src/components/DashboardExpenses.tsx');
   assert.doesNotMatch(expenseSource, /window\.confirm\(['"]Delete this expense/);
