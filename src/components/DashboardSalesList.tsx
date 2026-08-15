@@ -1809,10 +1809,6 @@ export default function DashboardSalesList({
                                     className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                     <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" /> POS Receipt
                                   </button>
-                                  <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(true); setActiveMenuId(null); setMenuPos(null); }}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-                                    <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> A4 Invoice
-                                  </button>
                                   <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(true); setWhatsappPhone((sale.customerPhone||'').replace(/[^0-9]/g,'')); setActiveMenuId(null); setMenuPos(null); }}
                                     className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-50">
                                     <MessageSquare className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Send via WhatsApp
@@ -1823,7 +1819,7 @@ export default function DashboardSalesList({
                                   <div className="border-t border-slate-100 mt-1 pt-1">
                                     <button onClick={() => { openDeleteSaleConfirmation(sale); setActiveMenuId(null); setMenuPos(null); }}
                                       className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold text-rose-600 hover:bg-rose-50">
-                                      <Trash2 className="w-3.5 h-3.5 shrink-0" /> Delete Sale
+                                      <Trash2 className="w-3.5 h-3.5 shrink-0" /> Cancel Receipt
                                     </button>
                                   </div>
                                 )}
@@ -3457,12 +3453,6 @@ export default function DashboardSalesList({
                 </div>
                 <div className="flex items-center space-x-2">
                   <button 
-                    onClick={() => setViewA4InvoiceOpen(true)}
-                    className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded font-bold"
-                  >
-                    A4 View
-                  </button>
-                  <button 
                     onClick={() => setSelectedSale(null)}
                     className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
                   >
@@ -3486,7 +3476,6 @@ export default function DashboardSalesList({
                   )}
                   <h4 className="text-sm font-black tracking-tight text-slate-800 text-uppercase">{getBusinessDisplayName(activeTenant, systemSettings)}</h4>
                   <p className="text-[10px] text-slate-500 uppercase">{activeTenant.city}</p>
-                  <p className="text-[10px] text-slate-400 leading-normal mt-1.5 font-bold text-slate-500">TAX REGISTER INVOICE DEBT VOUCHER</p>
                 </div>
 
                 {/* Core Docket Information details */}
@@ -3581,16 +3570,10 @@ export default function DashboardSalesList({
                           </div>
                         )}
                         {isVat && (
-                          <>
-                            <div className="flex justify-between">
-                              <span>TAX COMPLIANCE REGISTER</span>
-                              <span>{`VAT (${Math.round(activeTenant.taxRate * 100)}%)`}</span>
-                            </div>
-                            <div className="flex justify-between text-slate-500">
-                              <span>VAT VALUE CHARGED</span>
-                              <span>{currency}{Math.round(taxAmt).toLocaleString()}</span>
-                            </div>
-                          </>
+                          <div className="flex justify-between text-slate-500">
+                            <span>{`VAT (${Math.round(activeTenant.taxRate * 100)}%)`}</span>
+                            <span>{currency}{Math.round(taxAmt).toLocaleString()}</span>
+                          </div>
                         )}
                       </>
                     );
@@ -3602,7 +3585,7 @@ export default function DashboardSalesList({
                     </div>
                   )}
                   <div className="flex justify-between font-bold text-slate-900 border-t border-slate-200/60 pt-2 text-[11px]">
-                    <span>TOTAL INVOICE PRICE</span>
+                    <span>TOTAL PRICE</span>
                     <span className="font-black text-slate-900">{currency}{Math.round(selectedSale.total).toLocaleString()}</span>
                   </div>
 
@@ -3630,9 +3613,6 @@ export default function DashboardSalesList({
 
                 {/* Bottom footer bar codes */}
                 <div className="text-center space-y-1.5 pt-4 border-t border-dashed border-slate-200 text-slate-400">
-                  <span className="inline-block tracking-[0.3em] font-mono font-bold text-[13px] bg-slate-50 border border-slate-200 px-3 py-1 text-slate-800 rounded select-none">
-                    *20260520TSUITE*
-                  </span>
                   <p className="text-[9px] uppercase">Thank you for shopping with us.</p>
                   <p className="text-[8px] text-slate-300 normal-case">Powered by Orvix</p>
                 </div>
@@ -3663,18 +3643,31 @@ export default function DashboardSalesList({
                   </button>
                 </div>
 
-                <div className="gap-2.5 flex">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => setSelectedSale(null)}
-                    className="flex-grow py-2.5 border border-slate-300 hover:bg-slate-100 rounded-xl font-bold font-sans text-xs uppercase cursor-pointer text-slate-600 transition-colors"
+                    className="min-w-0 py-2.5 border border-slate-300 hover:bg-slate-100 rounded-xl font-bold font-sans text-[10px] sm:text-xs uppercase cursor-pointer text-slate-600 transition-colors"
                     disabled={isReceiptPrinting}
                   >
-                    Close Ticket
+                    Close
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const sale = selectedSale;
+                      setSelectedSale(null);
+                      openDeleteSaleConfirmation(sale);
+                    }}
+                    disabled={isReceiptPrinting || (rolePermissions && rolePermissions.deleteSale?.write === false)}
+                    className="min-w-0 py-2.5 border border-rose-200 bg-rose-50 hover:bg-rose-100 rounded-xl font-bold font-sans text-[10px] sm:text-xs uppercase cursor-pointer text-rose-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Cancel Receipt
                   </button>
                   
                   <button
                     onClick={simulatePrint}
-                    className="flex-grow py-2.5 bg-slate-900 hover:bg-slate-800 text-white hover:text-emerald-450 border-none rounded-xl font-bold font-sans text-xs uppercase cursor-pointer flex items-center justify-center space-x-1.5 transition-colors"
+                    className="min-w-0 py-2.5 bg-slate-900 hover:bg-slate-800 text-white hover:text-emerald-450 border-none rounded-xl font-bold font-sans text-[10px] sm:text-xs uppercase cursor-pointer flex items-center justify-center space-x-1.5 transition-colors"
                     disabled={isReceiptPrinting}
                   >
                     {isReceiptPrinting ? (
@@ -3685,7 +3678,7 @@ export default function DashboardSalesList({
                     ) : (
                       <>
                         <Printer className="w-3.5 h-3.5 text-emerald-455" />
-                        <span>Reprint Slip</span>
+                        <span>Print</span>
                       </>
                     )}
                   </button>
@@ -4539,8 +4532,8 @@ export default function DashboardSalesList({
               <div className="flex items-center space-x-2">
                 <Trash2 className="w-5 h-5 text-rose-400 animate-bounce" />
                 <div>
-                  <h4 className="text-sm font-black tracking-tight">Delete Transaction Record</h4>
-                  <span className="text-[10px] font-mono text-rose-450 uppercase tracking-widest block font-bold leading-none mt-1">WARNING: IRREVERSIBLE OPERATION</span>
+                  <h4 className="text-sm font-black tracking-tight">Cancel Receipt</h4>
+                  <span className="text-[10px] font-mono text-rose-450 uppercase tracking-widest block font-bold leading-none mt-1">Confirm before continuing</span>
                 </div>
               </div>
               <button 
@@ -4558,10 +4551,10 @@ export default function DashboardSalesList({
                 <span className="text-xl">⚠️</span>
                 <div className="space-y-1 font-sans">
                   <p className="text-xs text-slate-700 font-semibold leading-relaxed">
-                    You are attempting to completely erase checkouout record <strong className="font-bold text-rose-700 font-mono">{saleToDelete.reference || saleToDelete.id.toUpperCase()}</strong>.
+                    You are about to cancel receipt <strong className="font-bold text-rose-700 font-mono">{saleToDelete.reference || saleToDelete.id.toUpperCase()}</strong>.
                   </p>
                   <p className="text-[11px] text-slate-500 leading-normal">
-                    This will void the receipt.
+                    The sale will be reversed safely, including its stock and payment records.
                   </p>
                 </div>
               </div>
@@ -4608,7 +4601,7 @@ export default function DashboardSalesList({
                     if (onDeleteSale) {
                       const deleted = await onDeleteSale(saleToDelete);
                       if (!deleted) {
-                        setDeleteSaleError('Sale could not be deleted. Check your branch access and permissions, then try again.');
+                        setDeleteSaleError('Receipt could not be cancelled. Check your branch access and permissions, then try again.');
                         return;
                       }
                     } else if (onUpdateSales) {
@@ -4622,7 +4615,7 @@ export default function DashboardSalesList({
                     });
                     setSaleToDelete(null);
                   } catch {
-                    setDeleteSaleError('Sale could not be deleted safely. Nothing was removed.');
+                    setDeleteSaleError('Receipt could not be cancelled safely. Nothing was changed.');
                   } finally {
                     setIsDeletingSale(false);
                   }
@@ -4631,7 +4624,7 @@ export default function DashboardSalesList({
                 className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60 text-white font-black rounded-xl border-none transition-all text-xs uppercase flex items-center space-x-1.5 cursor-pointer shadow-md select-none"
               >
                 {isDeletingSale ? <RefreshCw className="w-4 h-4 animate-spin text-white" /> : <Trash2 className="w-4 h-4 text-white" />}
-                <span>{isDeletingSale ? 'Deleting…' : 'Confirm Delete'}</span>
+                <span>{isDeletingSale ? 'Cancelling…' : 'Confirm Cancel'}</span>
               </button>
             </div>
 
@@ -5576,28 +5569,6 @@ export default function DashboardSalesList({
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </button>
 
-                {/* 5. Invoice */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedSale(mobileActionsSale);
-                    setViewA4InvoiceOpen(true);
-                    setMobileActionsSale(null);
-                  }}
-                  className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
-                >
-                  <div className="flex items-center space-x-3.5">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 select-none">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <span className="text-sm font-bold text-slate-800 block">Invoice</span>
-                      <span className="text-[10px] text-slate-400 block mt-0.5">Print standard A4 PDF document</span>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </button>
-
                 {/* 5b. Add to Delivery */}
                 {onSendToDeliveryNote && (
                   <button
@@ -5624,7 +5595,7 @@ export default function DashboardSalesList({
                 {/* Divider below main actions */}
                 <div className="my-2 border-t border-slate-100" />
 
-                {/* 6. Delete Sale */}
+                {/* 6. Cancel Receipt */}
                 <button
                   type="button"
                   onClick={() => {
@@ -5647,8 +5618,8 @@ export default function DashboardSalesList({
                       <Trash2 className="w-5 h-5" />
                     </div>
                     <div>
-                      <span className={`text-sm font-black block ${rolePermissions && rolePermissions.deleteSale?.write === false ? 'text-slate-400' : 'text-rose-700'}`}>Delete Sale</span>
-                      <span className="text-[10px] text-slate-400 block mt-0.5">Void transaction indices permanently</span>
+                      <span className={`text-sm font-black block ${rolePermissions && rolePermissions.deleteSale?.write === false ? 'text-slate-400' : 'text-rose-700'}`}>Cancel Receipt</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Reverse payment and restore stock safely</span>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-rose-400 flex items-center justify-center" />
