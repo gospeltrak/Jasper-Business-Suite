@@ -98,9 +98,8 @@ test('critical sale actions remain wired to visible controls', async () => {
     'View Sale',
     'Edit Sale',
     'POS Receipt',
-    'A4 Invoice',
     'Send via WhatsApp',
-    'Delete Sale',
+    'Cancel Receipt',
     'Record as Sale',
   ]) {
     assert.match(salesSource, new RegExp(action), `Missing sale action: ${action}`);
@@ -313,8 +312,8 @@ test('sale deletion remains tenant-scoped and updates canonical related data', a
   assert.match(dashboardSource, /Sale could not be deleted from the database\. Nothing was removed\./);
   assert.match(salesSource, /await onDeleteSale\(saleToDelete\)/);
   assert.match(salesSource, /setIsDeletingSale\(true\)/);
-  assert.match(salesSource, /Sale could not be deleted safely\. Nothing was removed\./);
-  assert.match(salesSource, /Deleting…/);
+  assert.match(salesSource, /Receipt could not be cancelled safely\. Nothing was changed\./);
+  assert.match(salesSource, /Cancelling…/);
 });
 
 test('expense deletion requires an inspectable in-app confirmation', async () => {
