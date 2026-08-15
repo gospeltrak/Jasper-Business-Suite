@@ -265,8 +265,11 @@ export default function DashboardDeliveries({
   const [selectedRiderForNoteId, setSelectedRiderForNoteId] = useState('');
   const [driverType, setDriverType] = useState<'system' | 'external'>('system');
   const [externalDriverName, setExternalDriverName] = useState('');
-  const [productSearchTerm, setProductSearchTerm] = useState('');
-  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [externalDriverPhone, setExternalDriverPhone] = useState('');
+  const [externalDriverClassification, setExternalDriverClassification] = useState<'rider' | 'driver'>('rider');
+  const [externalDriverVehicleType, setExternalDriverVehicleType] = useState<'motorcycle' | 'tuktuk' | 'car'>('motorcycle');
+  const [externalDriverVehicleColor, setExternalDriverVehicleColor] = useState('');
+  const [externalDriverLicensePlate, setExternalDriverLicensePlate] = useState('');
 
   // Dynamically computed supplier details
   const computedLogo = ((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || '';
@@ -277,7 +280,24 @@ export default function DashboardDeliveries({
   const computedCompanyEmail = systemSettings?.business?.businessEmail || '';
   const computedTIN = systemSettings?.invoiceSettings?.tin || systemSettings?.invoiceSettings?.tinNumber || '';
   const computedInvoiceColor = systemSettings?.invoiceSettings?.invoiceColor || '#102d68';
-  const selectedRiderForNote = riders.find(r => r.id === selectedRiderForNoteId);
+  const noteDriverOptions: DeliveryRider[] = [
+    ...riders.filter(rider => rider.tenantId === activeTenant.id),
+    ...(systemSettings?.staffs || [])
+      .filter(staff => staff.status !== 'inactive' && (staff.staffType === 'driver' || staff.staffType === 'rider'))
+      .map(staff => ({
+        id: staff.id,
+        name: staff.name,
+        phone: staff.phone,
+        vehicleType: staff.vehicleType || 'motorcycle',
+        classification: staff.classification || (staff.staffType === 'driver' ? 'driver' : 'rider'),
+        vehicleColor: staff.vehicleColor || '',
+        licensePlate: staff.licensePlate || '',
+        tenantId: activeTenant.id,
+        branchId: staff.branchId,
+        signatureImage: staff.signatureImage,
+      })),
+  ].filter((driver, index, all) => all.findIndex(candidate => candidate.id === driver.id) === index);
+  const selectedRiderForNote = noteDriverOptions.find(r => r.id === selectedRiderForNoteId);
   
   // Dynamic table items
   const [noteItems, setNoteItems] = useState<Array<{id:string;description:string;unit:string;qty:number}>>([]);
@@ -285,23 +305,32 @@ export default function DashboardDeliveries({
   const [invoiceSearchResults, setInvoiceSearchResults] = useState<any[]>([]);
   const [linkedInvoiceRef, setLinkedInvoiceRef] = useState('');
 
-  // Search sales/invoices by reference number, customer name, or date
+  // Search only the tenant/branch-scoped records supplied by Dashboard.
   const handleInvoiceSearch = (query: string) => {
     setInvoiceSearchQuery(query);
     setLinkedInvoiceRef('');
-    if (!query.trim() || !sales?.length) { setInvoiceSearchResults([]); return; }
+    if (!query.trim()) { setInvoiceSearchResults([]); return; }
     const q = query.toLowerCase().trim();
-    const results = (sales || []).filter(s =>
-      (s.reference && s.reference.toLowerCase().includes(q)) ||
-      (s.id && s.id.toLowerCase().includes(q)) ||
-      (s.customerName && s.customerName.toLowerCase().includes(q)) ||
-      (s.timestamp && s.timestamp.startsWith(q))
-    ).slice(0, 8);
-    setInvoiceSearchResults(results);
+    const saleMatches = (sales || []).filter(s =>
+      [s.reference, s.id, s.customerName].some(value => value?.toLowerCase().includes(q))
+      || s.timestamp?.startsWith(q)
+    ).map(record => ({ kind: 'sale', record, reference: record.reference || record.id }));
+    const deliveryMatches = (deliveries || []).filter(delivery =>
+      [delivery.id, delivery.saleId, delivery.customerName].some(value => value?.toLowerCase().includes(q))
+    ).map(record => ({ kind: record.status === 'Pending Dispatch' ? 'delivery' : 'dispatch', record, reference: record.id }));
+    const pendingMatches = (pendingNotes || []).filter(note =>
+      [note.id, note.saleId, note.reference, note.customerName].some(value => String(value || '').toLowerCase().includes(q))
+    ).map(record => ({ kind: 'delivery', record, reference: record.id || record.saleId || record.reference }));
+
+    const uniqueResults = [...deliveryMatches, ...pendingMatches, ...saleMatches]
+      .filter((result, index, all) => all.findIndex(candidate => `${candidate.kind}:${candidate.reference}` === `${result.kind}:${result.reference}`) === index)
+      .slice(0, 8);
+    setInvoiceSearchResults(uniqueResults);
   };
 
   // Pull products from a selected sale/invoice into the delivery note
   const handleLoadFromSale = (sale: any) => {
+    const linkedDelivery = deliveries.find(delivery => delivery.saleId === sale.id || delivery.saleId === sale.reference);
     const items = (sale.items || []).map((item: any, idx: number) => ({
       id: (idx + 1).toString(),
       description: item.productName || item.name || 'Item',
@@ -314,13 +343,69 @@ export default function DashboardDeliveries({
     setInvoiceSearchResults([]);
     // Auto-fill customer info
     if (sale.customerName) setNoteDeliveryToTitle(sale.customerName);
-    if (sale.customerPhone) setNoteDeliveryToAddress(`Phone: ${sale.customerPhone}`);
+    const destination = sale.customerAddress || sale.deliveryAddress || linkedDelivery?.customerAddress || linkedDelivery?.notes;
+    setNoteDeliveryToAddress([destination, sale.customerPhone ? `Phone: ${sale.customerPhone}` : ''].filter(Boolean).join(' · '));
     if (sale.reference || sale.id) setNotePINo((sale.reference || sale.id).replace(/[^0-9A-Za-z-]/g, '').slice(0, 12));
+    if (linkedDelivery?.riderDetails || linkedDelivery?.riderId) {
+      applyDeliveryDriver(linkedDelivery);
+    } else {
+      setSelectedRiderForNoteId('');
+      setNoteDeliveredByName('');
+      setNoteDeliveredBySignature('');
+      setNoteTransportType('');
+      setNoteVehiclePlate('');
+    }
   };
 
-  const [newItemDesc, setNewItemDesc] = useState('');
-  const [newItemUnit, setNewItemUnit] = useState('PC');
-  const [newItemQty, setNewItemQty] = useState(1);
+  const applyDeliveryDriver = (delivery: Delivery) => {
+    const rider = delivery.riderId ? noteDriverOptions.find(item => item.id === delivery.riderId) : undefined;
+    if (rider) {
+      setDriverType('system');
+      setSelectedRiderForNoteId(rider.id);
+      setNoteDeliveredByName(rider.name);
+      setNoteDeliveredBySignature(rider.name.split(' ').map(word => word[0]).join('').toUpperCase());
+    } else if (delivery.riderDetails) {
+      const details = delivery.riderDetails;
+      setDriverType('external');
+      setSelectedRiderForNoteId('');
+      setExternalDriverName(details.name || '');
+      setExternalDriverPhone(details.phone || '');
+      setExternalDriverClassification(details.classification || 'rider');
+      setExternalDriverVehicleType(details.vehicleType || 'motorcycle');
+      setExternalDriverVehicleColor(details.vehicleColor || '');
+      setExternalDriverLicensePlate(details.licensePlate || '');
+      setNoteDeliveredByName(details.name || '');
+      setNoteDeliveredBySignature((details.name || '').split(' ').filter(Boolean).map(word => word[0]).join('').toUpperCase());
+    }
+    if (delivery.riderDetails) {
+      const details = delivery.riderDetails;
+      setNoteTransportType(`${details.vehicleType.charAt(0).toUpperCase()}${details.vehicleType.slice(1)}`);
+      setNoteVehiclePlate(details.licensePlate || '');
+    }
+  };
+
+  const handleLoadFromDelivery = (delivery: Delivery) => {
+    handleLoadFromOrder(delivery);
+    const reference = delivery.id || delivery.saleId;
+    setLinkedInvoiceRef(reference);
+    setInvoiceSearchQuery(reference);
+    setInvoiceSearchResults([]);
+    setNotePINo(reference.replace(/[^0-9A-Za-z-]/g, '').slice(0, 12));
+    setNoteDeliveryToAddress([
+      delivery.customerAddress || delivery.notes,
+      delivery.customerPhone ? `Phone: ${delivery.customerPhone}` : '',
+    ].filter(Boolean).join(' · '));
+    if (delivery.riderDetails || delivery.riderId) {
+      applyDeliveryDriver(delivery);
+    } else {
+      setSelectedRiderForNoteId('');
+      setNoteDeliveredByName('');
+      setNoteDeliveredBySignature('');
+      setNoteTransportType('');
+      setNoteVehiclePlate('');
+    }
+  };
+
   const [openDropdownRow, setOpenDropdownRow] = useState<string | null>(null);
 
   // Dispatch Jobs (queue) compact list: action menu + View/Edit/Delete modals
@@ -447,32 +532,11 @@ export default function DashboardDeliveries({
     }
   };
 
-  const handleAddNoteItem = () => {
-    if (!newItemDesc.trim()) return;
-    const newId = (noteItems.length > 0 ? (Math.max(...noteItems.map(item => parseInt(item.id) || 0)) + 1).toString() : '1');
-    setNoteItems([
-      ...noteItems,
-      {
-        id: newId,
-        description: newItemDesc.trim(),
-        unit: newItemUnit.trim(),
-        qty: newItemQty
-      }
-    ]);
-    setNewItemDesc('');
-    setNewItemUnit('PC');
-    setNewItemQty(1);
-  };
-
-  const handleDeleteNoteItem = (id: string) => {
-    setNoteItems(noteItems.filter(item => item.id !== id));
-  };
-
   const handleLoadFromOrder = (del: Delivery) => {
     setNoteDeliveryToTitle(del.customerName);
     setNoteDeliveryToAddress(del.customerPhone ? `Phone: ${del.customerPhone}` : 'Custom delivery path');
     setNotePINo(del.id?.replace(/[^0-9]/g, '').slice(0, 6) || Math.floor(Math.random() * 900000 + 100000).toString());
-    const mapped = del.items.map((item, idx) => ({
+    const mapped = (del.items || []).map((item, idx) => ({
       id: (idx + 1).toString(),
       description: item.productName,
       unit: item.unit || item.baseUnit || item.sellUnit || 'PC',
@@ -537,31 +601,6 @@ export default function DashboardDeliveries({
   const activeStaffDrivers: StaffSettings[] = (systemSettings?.staffs || []).filter(
     s => s.staffType === 'driver' || s.staffType === 'rider'
   );
-
-  const filteredProductsForSelect = products.filter(p => {
-    if (!productSearchTerm.trim()) return false;
-    const term = productSearchTerm.toLowerCase();
-    return (
-      p.name.toLowerCase().includes(term) ||
-      (p.barcode && p.barcode.toLowerCase().includes(term)) ||
-      (p.sku && p.sku.toLowerCase().includes(term))
-    );
-  });
-
-  const handleSelectProductFromSearch = (p: Product) => {
-    const newId = (noteItems.length > 0 ? (Math.max(...noteItems.map(item => parseInt(item.id) || 0)) + 1).toString() : '1');
-    setNoteItems([
-      ...noteItems,
-      {
-        id: newId,
-        description: p.name,
-        unit: 'PC',
-        qty: 1
-      }
-    ]);
-    setProductSearchTerm('');
-    setShowSearchResults(false);
-  };
 
   // Pre-fill fields or trigger dispatch
   const handleOpenDispatch = (del: Delivery) => {
@@ -1906,38 +1945,10 @@ Vehicle Plate Number: ${plateNumber}
             </div>
           )}
 
-          {/* Quick Order Loader bar */}
-          <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
-            <div>
-              <h4 className="font-extrabold text-slate-800 text-sm tracking-tight flex items-center space-x-1.5">
-                <FileText className="w-4 h-4 text-emerald-600" />
-                <span>Load a Recent POS Delivery</span>
-              </h4>
-            </div>
-            <div className="w-full md:w-80 shrink-0">
-              <select
-                onChange={(e) => {
-                  const selectedId = e.target.value;
-                  const found = deliveries.find(d => d.id === selectedId);
-                  if (found) handleLoadFromOrder(found);
-                }}
-                defaultValue=""
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-emerald-500 cursor-pointer"
-              >
-                <option value="" disabled>-- Select Recent POS Delivery --</option>
-                {deliveries.map(del => (
-                  <option key={del.id} value={del.id}>
-                    {del.customerName} - {del.id} ({del.items.length} items)
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
             
             {/* Form Fields Side panel (Left - 5 columns) */}
-            <div className="lg:col-span-12 xl:col-span-5 bg-white border border-slate-200 p-3.5 sm:p-5 rounded-2xl space-y-4 shadow-sm xl:max-h-[85vh] overflow-y-auto scrollbar-thin">
+            <div className="lg:col-span-12 xl:col-span-5 bg-white border border-slate-200 p-3.5 sm:p-5 rounded-2xl space-y-4 shadow-sm xl:max-h-[85vh] overflow-y-auto scrollbar-thin flex flex-col">
               <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
                 <h4 className="font-black text-slate-900 tracking-tight text-sm">Delivery Note Custom Fields</h4>
                 <button 
@@ -2061,8 +2072,8 @@ Vehicle Plate Number: ${plateNumber}
               </div>
 
               {/* 3b. Invoice / Sales Order Lookup */}
-              <div className="space-y-3">
-                <span className="text-[10px] font-black text-slate-400 block tracking-wider uppercase font-mono border-b pb-1">3. Load from Invoice / Sales Order</span>
+              <div className="space-y-3 order-first">
+                <span className="text-[10px] font-black text-slate-400 block tracking-wider uppercase font-mono border-b pb-1">Invoice / Sales / Delivery / Dispatch Number</span>
                 <div className="relative">
                   <div className="flex gap-2 items-center">
                     <div className="relative flex-1">
@@ -2071,7 +2082,7 @@ Vehicle Plate Number: ${plateNumber}
                       </svg>
                       <input
                         type="text"
-                        placeholder="Search by invoice no, order ref, or customer name…"
+                        placeholder="Enter invoice, sale, delivery or dispatch number…"
                         value={invoiceSearchQuery}
                         onChange={(e) => handleInvoiceSearch(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-8 py-2 text-xs font-medium text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
@@ -2091,17 +2102,17 @@ Vehicle Plate Number: ${plateNumber}
                   {/* Search results dropdown */}
                   {invoiceSearchResults.length > 0 && (
                     <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden max-h-60 overflow-y-auto">
-                      {invoiceSearchResults.map((sale: any) => (
-                        <button key={sale.id} type="button" onClick={() => handleLoadFromSale(sale)}
+                      {invoiceSearchResults.map((result: any) => (
+                        <button key={`${result.kind}-${result.reference}`} type="button" onClick={() => result.kind === 'sale' ? handleLoadFromSale(result.record) : handleLoadFromDelivery(result.record)}
                           className="w-full text-left px-4 py-3 hover:bg-emerald-50 border-b border-slate-50 last:border-0 transition-colors cursor-pointer border-none bg-transparent">
                           <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="text-xs font-black text-slate-900 truncate">{sale.reference || sale.id}</p>
-                              <p className="text-[10px] text-slate-500 truncate">{sale.customerName || 'No customer name'} · {new Date(sale.timestamp).toLocaleDateString()}</p>
+                              <p className="text-xs font-black text-slate-900 truncate">{result.reference}</p>
+                              <p className="text-[10px] text-slate-500 truncate">{result.record.customerName || 'Customer'} · {new Date(result.record.timestamp).toLocaleDateString()}</p>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className="text-[10px] font-bold text-emerald-600">{(sale.items || []).length} items</p>
-                              <p className="text-[9px] text-slate-400 font-mono">{sale.paymentMethod || 'Cash'}</p>
+                              <p className="text-[10px] font-bold text-emerald-600">{(result.record.items || []).length} items</p>
+                              <p className="text-[9px] text-slate-400 font-mono uppercase">{result.kind}</p>
                             </div>
                           </div>
                         </button>
@@ -2110,122 +2121,22 @@ Vehicle Plate Number: ${plateNumber}
                   )}
 
                   {invoiceSearchQuery.trim() && invoiceSearchResults.length === 0 && !linkedInvoiceRef && (
-                    <p className="text-[10px] text-slate-400 mt-1.5 ml-1">No matching invoice/order found — add items manually below.</p>
+                    <p className="text-[10px] text-slate-400 mt-1.5 ml-1">No matching tenant record was found.</p>
                   )}
                 </div>
                 {!linkedInvoiceRef && !invoiceSearchQuery && (
-                  <p className="text-[10px] text-slate-400">Search above to auto-fill items, or skip and add manually.</p>
+                  <p className="text-[10px] text-slate-400">Select a source record to load customer, destination, items and assigned transport.</p>
                 )}
               </div>
 
               {/* Table Note Items Builder */}
               <div className="space-y-3 pb-3">
-                <span className="text-[10px] font-black text-slate-400 block tracking-wider uppercase font-mono border-b pb-1">4. Delivery Items list ({noteItems.length})</span>
+                <span className="text-[10px] font-black text-slate-400 block tracking-wider uppercase font-mono border-b pb-1">Loaded Delivery Items ({noteItems.length})</span>
                 
-                {/* Loader from Products search query box */}
-                {products && products.length > 0 && (
-                  <div className="bg-slate-50 p-2.5 rounded-2xl space-y-1.5 border border-slate-200 relative">
-                    <span className="text-[9px] font-black font-mono text-indigo-650 uppercase tracking-widest block">Search Catalog Product (Name or Barcode)</span>
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                      <input 
-                        type="text"
-                        placeholder="Search product name, code or barcode..."
-                        value={productSearchTerm}
-                        onChange={(e) => {
-                          setProductSearchTerm(e.target.value);
-                          setShowSearchResults(true);
-                        }}
-                        onFocus={() => setShowSearchResults(true)}
-                        className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-7 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-505"
-                      />
-                      {productSearchTerm && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProductSearchTerm('');
-                            setShowSearchResults(false);
-                          }}
-                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Popover floating search results */}
-                    {showSearchResults && productSearchTerm.trim().length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 shadow-xl rounded-xl max-h-[140px] overflow-y-auto z-40 divide-y divide-slate-100">
-                        {filteredProductsForSelect.length === 0 ? (
-                          <div className="p-2.5 text-center text-slate-400 text-[10px] font-mono">No matching code or name</div>
-                        ) : (
-                          filteredProductsForSelect.map(p => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => handleSelectProductFromSearch(p)}
-                              className="w-full text-left px-3 py-2 hover:bg-indigo-50/50 transition-colors flex items-center justify-between text-[11px] font-medium cursor-pointer"
-                            >
-                              <div className="min-w-0 pr-2 col-span-2">
-                                <p className="font-extrabold text-slate-800 truncate">{p.name}</p>
-                                <p className="text-[9px] text-slate-500 font-mono">Barcode: {p.barcode || 'N/A'}</p>
-                              </div>
-                              <span className="shrink-0 text-[10px] font-black text-indigo-650 bg-indigo-55 px-2 py-0.5 rounded">
-                                {currency}{p.sellingPrice.toLocaleString()}
-                              </span>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="bg-slate-50 p-3 rounded-2xl space-y-2 border border-slate-200">
-                  <span className="text-[9.5px] font-black font-mono text-slate-500 uppercase block">Manual Line Addition</span>
-                  <div className="space-y-2">
-                    <input 
-                      type="text"
-                      placeholder="Enter line details (e.g. Toilet Rim Block)"
-                      value={newItemDesc}
-                      onChange={(e) => setNewItemDesc(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 outline-none text-xs font-bold text-slate-800 focus:border-emerald-500"
-                    />
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <div className="sm:col-span-2">
-                        <input 
-                          type="text"
-                          placeholder="Unit (e.g. PC, Boxes, Set)"
-                          value={newItemUnit}
-                          onChange={(e) => setNewItemUnit(e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 outline-none text-xs font-sans text-slate-800"
-                        />
-                      </div>
-                      <div>
-                        <input 
-                          type="number"
-                          placeholder="Qty"
-                          min="1"
-                          value={newItemQty}
-                          onChange={(e) => setNewItemQty(Math.max(1, parseInt(e.target.value) || 0))}
-                          className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 outline-none font-mono text-xs font-bold text-slate-800 text-center"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleAddNoteItem}
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-1.5 rounded text-xs select-none cursor-pointer transition-all uppercase"
-                    >
-                      + Add Item line
-                    </button>
-                  </div>
-                </div>
-
-                {/* Items preview table list with delete button */}
+                {/* Source-linked items are intentionally read-only. */}
                 <div className="max-h-[220px] overflow-y-auto border border-slate-100 rounded-xl divide-y">
                   {noteItems.length === 0 ? (
-                    <div className="p-4 text-center text-slate-400 text-[10.5px] font-mono">No items. Create one column above.</div>
+                    <div className="p-4 text-center text-slate-400 text-[10.5px] font-mono">Select a source record above to load its items.</div>
                   ) : (
                     noteItems.map((item, index) => (
                       <div key={item.id} className="p-2.5 flex items-center justify-between hover:bg-slate-50 transition-colors text-xs gap-2">
@@ -2233,14 +2144,6 @@ Vehicle Plate Number: ${plateNumber}
                           <p className="font-extrabold text-slate-800 truncate">{index + 1}. {item.description}</p>
                           <p className="text-[10px] text-slate-500">Unit: <span className="font-bold text-slate-700">{item.unit}</span> | Qty: <span className="font-extrabold text-indigo-700 font-mono">{item.qty}</span></p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteNoteItem(item.id)}
-                          className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 text-xs cursor-pointer select-none"
-                          title="Delete line item"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
                       </div>
                     ))
                   )}
@@ -2261,7 +2164,7 @@ Vehicle Plate Number: ${plateNumber}
                         setDriverType('system');
                         setExternalDriverName('');
                         // Reset to first available rider
-                        const firstRider = activeRiders[0];
+                        const firstRider = noteDriverOptions[0];
                         if (firstRider) {
                           setSelectedRiderForNoteId(firstRider.id);
                           setNoteDeliveredByName(firstRider.name);
@@ -2315,9 +2218,11 @@ Vehicle Plate Number: ${plateNumber}
                       onChange={(e) => {
                         const rId = e.target.value;
                         setSelectedRiderForNoteId(rId);
-                        const matched = riders.find(item => item.id === rId);
+                        const matched = noteDriverOptions.find(item => item.id === rId);
                         if (matched) {
                           setNoteDeliveredByName(matched.name);
+                          setNoteTransportType(`${matched.vehicleType.charAt(0).toUpperCase()}${matched.vehicleType.slice(1)}`);
+                          setNoteVehiclePlate(matched.licensePlate || '');
                           // Initials from system driver name
                           const initials = matched.name.split(' ').map((w: string) => w[0]).join('').toUpperCase();
                           setNoteDeliveredBySignature(initials);
@@ -2329,7 +2234,7 @@ Vehicle Plate Number: ${plateNumber}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs font-semibold text-slate-700 py-1.5 outline-none cursor-pointer focus:border-indigo-500"
                     >
                       <option value="">-- Select a rider --</option>
-                      {activeRiders.map(item => (
+                      {noteDriverOptions.map(item => (
                         <option key={item.id} value={item.id}>{item.name} ({item.licensePlate} - {item.classification.toUpperCase()})</option>
                       ))}
                     </select>
@@ -2341,24 +2246,54 @@ Vehicle Plate Number: ${plateNumber}
                   </div>
                 )}
 
-                {/* External Driver — manual name entry */}
+                {/* Temporary driver fields mirror the Dispatch Order structure. */}
                 {driverType === 'external' && (
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 font-sans block">External Driver Name</label>
-                    <input
-                      type="text"
-                      placeholder="Enter driver full name…"
-                      value={externalDriverName}
-                      onChange={(e) => {
-                        const name = e.target.value;
-                        setExternalDriverName(name);
-                        setNoteDeliveredByName(name);
-                        // Auto-generate initials as signature
-                        const initials = name.trim().split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase()).join('');
-                        setNoteDeliveredBySignature(initials || '');
-                      }}
-                      className="w-full bg-slate-50 border border-amber-200 rounded-lg px-2.5 py-1.5 outline-none text-xs font-bold text-slate-800 focus:border-amber-400"
-                    />
+                  <div className="space-y-2.5 rounded-xl border border-amber-200 bg-amber-50/40 p-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Temporary driver name"
+                        value={externalDriverName}
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          setExternalDriverName(name);
+                          setNoteDeliveredByName(name);
+                          setNoteDeliveredBySignature(name.trim().split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase()).join(''));
+                        }}
+                        className="w-full bg-white border border-amber-200 rounded-lg px-2.5 py-1.5 outline-none text-xs font-bold text-slate-800 focus:border-amber-400"
+                      />
+                      <input
+                        type="tel"
+                        placeholder="Phone number"
+                        value={externalDriverPhone}
+                        onChange={(e) => setExternalDriverPhone(e.target.value)}
+                        className="w-full bg-white border border-amber-200 rounded-lg px-2.5 py-1.5 outline-none text-xs text-slate-800 focus:border-amber-400"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select value={externalDriverClassification} onChange={(e) => setExternalDriverClassification(e.target.value as 'rider' | 'driver')}
+                        className="w-full bg-white border border-amber-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800">
+                        <option value="rider">Rider</option>
+                        <option value="driver">Driver</option>
+                      </select>
+                      <select value={externalDriverVehicleType} onChange={(e) => {
+                        const vehicleType = e.target.value as 'motorcycle' | 'tuktuk' | 'car';
+                        setExternalDriverVehicleType(vehicleType);
+                        setNoteTransportType(`${vehicleType.charAt(0).toUpperCase()}${vehicleType.slice(1)}`);
+                      }} className="w-full bg-white border border-amber-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800">
+                        <option value="motorcycle">Motorcycle</option>
+                        <option value="tuktuk">Tuktuk</option>
+                        <option value="car">Car / Van</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input type="text" placeholder="Vehicle colour" value={externalDriverVehicleColor} onChange={(e) => setExternalDriverVehicleColor(e.target.value)}
+                        className="w-full bg-white border border-amber-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800" />
+                      <input type="text" placeholder="Registration plate" value={externalDriverLicensePlate} onChange={(e) => {
+                        setExternalDriverLicensePlate(e.target.value);
+                        setNoteVehiclePlate(e.target.value);
+                      }} className="w-full bg-white border border-amber-200 rounded-lg px-2.5 py-1.5 text-xs font-mono uppercase text-slate-800" />
+                    </div>
                     {externalDriverName.trim() && (
                       <p className="text-[10px] text-amber-600 font-semibold mt-0.5">
                         ✓ Initials signature: {externalDriverName.trim().split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase()).join('')}

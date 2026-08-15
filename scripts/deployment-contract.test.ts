@@ -316,6 +316,20 @@ test('sale deletion remains tenant-scoped and updates canonical related data', a
   assert.match(salesSource, /Cancelling…/);
 });
 
+test('delivery notes load tenant-scoped source records without manual item editing', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const deliverySource = await read('src/components/DashboardDeliveries.tsx');
+  assert.match(dashboardSource, /deliveries=\{activeDeliveries\}/);
+  assert.match(dashboardSource, /sales=\{activeSales\}/);
+  assert.match(dashboardSource, /pendingNotes=\{activePendingDeliveryNotes\}/);
+  assert.match(deliverySource, /Invoice \/ Sales \/ Delivery \/ Dispatch Number/);
+  assert.match(deliverySource, /const handleLoadFromDelivery = \(delivery: Delivery\)/);
+  assert.match(deliverySource, /const applyDeliveryDriver = \(delivery: Delivery\)/);
+  assert.match(deliverySource, /const noteDriverOptions: DeliveryRider\[\]/);
+  assert.match(deliverySource, /Source-linked items are intentionally read-only/);
+  assert.doesNotMatch(deliverySource, /onClick=\{\(\) => handleDeleteNoteItem\(item\.id\)\}/);
+});
+
 test('expense deletion requires an inspectable in-app confirmation', async () => {
   const expenseSource = await read('src/components/DashboardExpenses.tsx');
   assert.doesNotMatch(expenseSource, /window\.confirm\(['"]Delete this expense/);
