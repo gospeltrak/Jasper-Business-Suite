@@ -341,6 +341,18 @@ test('delivery note WhatsApp sharing mounts the selected note and shares its PDF
   assert.match(pdfSource, /downloadBlob\(pdfFile, pdfFile\.name\)/);
 });
 
+test('POS receipt preview, print and WhatsApp use the same narrow receipt data', async () => {
+  const posSource = await read('src/components/DashboardPOS.tsx');
+  const pdfSource = await read('src/utils/pdfShare.ts');
+  assert.match(posSource, /id="pos-receipt-pdf-template"/);
+  assert.match(posSource, /const receiptData = buildReceiptPdfData\(\)/);
+  assert.match(posSource, /sharePosReceiptPdf\(\s*receiptData,/);
+  assert.match(posSource, /const pdfFile = createPosReceiptPdfFromData\(receiptData\)/);
+  assert.doesNotMatch(posSource, /createReceiptPdfFromData\(receiptData\)/);
+  assert.match(pdfSource, /export function createPosReceiptPdfFromData\(data: ReceiptData\)/);
+  assert.match(pdfSource, /const pdfFile = createPosReceiptPdfFromData\(data\)/);
+});
+
 test('expense deletion requires an inspectable in-app confirmation', async () => {
   const expenseSource = await read('src/components/DashboardExpenses.tsx');
   assert.doesNotMatch(expenseSource, /window\.confirm\(['"]Delete this expense/);
