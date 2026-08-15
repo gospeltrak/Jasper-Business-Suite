@@ -39,6 +39,10 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     signinTab: "Sign In",
     registerTab: "Create Account",
     secureGoogle: "Secure Google sign-in",
+    createBusinessAccount: "Create your business account",
+    connectGoogleFirst: "Connect your Google account first. After Google verifies your identity, you’ll complete your business registration.",
+    existingGoogleAccount: "Already registered with this Google account? You will be signed in.",
+    backToOrvixHome: "Back to Orvix Home",
     emailLabel: "Phone Number or Email",
     passLabel: "Password",
     ownerName: "Your Full Name",
@@ -65,6 +69,10 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     signinTab: "Ingia",
     registerTab: "Fungua Akaunti",
     secureGoogle: "Ingia kwa Google kwa Usalama",
+    createBusinessAccount: "Fungua akaunti ya biashara yako",
+    connectGoogleFirst: "Kwanza unganisha akaunti yako ya Google. Baada ya Google kuthibitisha utambulisho wako, utakamilisha usajili wa biashara yako.",
+    existingGoogleAccount: "Tayari umesajiliwa kwa akaunti hii ya Google? Utaingizwa moja kwa moja.",
+    backToOrvixHome: "Rudi Nyumbani Orvix",
     emailLabel: "Namba ya Simu au Barua Pepe",
     passLabel: "Nenosiri",
     ownerName: "Jina Lako Kamili",
@@ -115,6 +123,10 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "Gérez les ventes, le stock, l'argent et votre entreprise au même endroit",
     signinTab: "Connexion",
     secureGoogle: "Connexion Google sécurisée",
+    createBusinessAccount: "Créez votre compte professionnel",
+    connectGoogleFirst: "Connectez d’abord votre compte Google. Après la vérification de votre identité, vous terminerez l’inscription de votre entreprise.",
+    existingGoogleAccount: "Déjà inscrit avec ce compte Google ? Vous serez connecté automatiquement.",
+    backToOrvixHome: "Retour à l’accueil Orvix",
     registerTab: "Créer un Compte",
     emailLabel: "Téléphone ou E-mail",
     passLabel: "Mot de Passe",
@@ -1858,8 +1870,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             <>
               <div className="space-y-5 animate-fade-in">
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center">
-                  <h3 className="text-sm font-black text-slate-900">Create your business account</h3>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-600">First connect your Google account. After Google confirms your identity, you will complete your business registration details.</p>
+                  <h3 className="text-sm font-black text-slate-900">{t('createBusinessAccount')}</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600">{t('connectGoogleFirst')}</p>
                 </div>
                 <div className="flex justify-center">
                   <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
@@ -1876,9 +1888,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <path fill="#FBBC05" d="M5.3 14.31A7.2 7.2 0 0 1 4.9 12c0-.8.14-1.58.4-2.31v-3.1H1.29A11.98 11.98 0 0 0 0 12c0 1.93.46 3.76 1.29 5.41l4.01-3.1z"/>
                     <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.58 1.79l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.59l4.01 3.1c.94-2.83 3.58-4.92 6.7-4.92z"/>
                   </svg>
-                  <span>Continue with Google</span>
+                  <span>{t('continueGoogle')}</span>
                 </button>
-                <p className="text-center text-[10px] leading-relaxed text-slate-500">Already registered with this Google account? You will be signed in instead of creating a duplicate account.</p>
+                <p className="text-center text-[10px] leading-relaxed text-slate-500">{t('existingGoogleAccount')}</p>
               </div>
               {authTab !== 'register' && <form className="space-y-5" onSubmit={handleRegisterSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2066,7 +2078,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             onClick={handleBackToLandingHub}
             className="text-xs text-slate-400 hover:text-emerald-600 font-bold transition-all bg-transparent border-none cursor-pointer"
           >
-            ← Back to Orvix Landing Hub
+            ← {t('backToOrvixHome')}
           </button>
         </div>
       </div>
