@@ -19,7 +19,7 @@ test('Google OAuth returns to the resolver and new users complete business onboa
 test('tenant domain login has no portal subtitle and tenant registration button remains stable', () => {
   assert.doesNotMatch(login, /secure business portal/i);
   assert.doesNotMatch(login, /Spinning Up Isolated Tenant|Allocating Cloud DB Cluster/);
-  assert.match(login, /disabled=\{isLoading\}[\s\S]{0,350}<span>Join Us<\/span>/);
+  assert.match(login, /disabled=\{isLoading\}[\s\S]{0,350}<span>\{t\('registerTab'\)\}<\/span>/);
 });
 
 test('server trusts verified Google session but never OAuth role or tenant metadata', () => {
