@@ -59,6 +59,7 @@ const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
     "discard": "Cancel"
   },
   sw: {
+    "smart pos & business management": "POS Mahiri na Usimamizi wa Biashara",
     "bulkProduct": "Bidhaa ya Jumla / Bulk Product",
     "sellByWeightOrPcs": "Uza kwa uzito au vipande",
     "buyIn": "Nunua kwa",
@@ -1197,6 +1198,7 @@ const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
     "africa commerce o s": "نظام التجارة الأفريقي"
   },
   fr: {
+    "smart pos & business management": "POS intelligent et gestion d’entreprise",
     "bulkProduct": "Bidhaa ya Jumla / Bulk Product",
     "sellByWeightOrPcs": "Uza kwa uzito au vipande",
     "buyIn": "Nunua kwa",
@@ -1746,21 +1748,32 @@ function translateNode(node: Node, language: LanguageType) {
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<LanguageType>(() => {
-    const cached = onlineStorage.getItem('jasper_lang');
-    return (cached && ['en', 'sw', 'fr'].includes(cached))
-      ? (cached as LanguageType)
+    const cached = window.localStorage.getItem('jasper_lang') || onlineStorage.getItem('jasper_lang');
+    if (cached && ['en', 'sw', 'fr'].includes(cached)) return cached as LanguageType;
+
+    const legacyLandingLanguage = window.localStorage.getItem('orvix-language') || onlineStorage.getItem('orvix-language');
+    if (legacyLandingLanguage && ['en', 'sw', 'fr'].includes(legacyLandingLanguage)) {
+      return legacyLandingLanguage as LanguageType;
+    }
+
+    const browserLanguage = typeof navigator !== 'undefined'
+      ? navigator.language.toLowerCase().split('-')[0]
+      : 'en';
+    return ['en', 'sw', 'fr'].includes(browserLanguage)
+      ? browserLanguage as LanguageType
       : 'en';
   });
 
   useEffect(() => {
-    const saved = onlineStorage.getItem('jasper_lang');
-    if (!saved || !['en', 'sw', 'fr'].includes(saved)) {
-      onlineStorage.setItem('jasper_lang', 'en');
-    }
-  }, []);
+    window.localStorage.setItem('jasper_lang', lang);
+    window.localStorage.removeItem('orvix-language');
+    onlineStorage.setItem('jasper_lang', lang);
+    onlineStorage.removeItem('orvix-language');
+  }, [lang]);
 
   const setLang = (newLang: LanguageType) => {
     setLangState(newLang);
+    window.localStorage.setItem('jasper_lang', newLang);
     onlineStorage.setItem('jasper_lang', newLang);
     window.dispatchEvent(new CustomEvent('jasper_lang_changed', { detail: newLang }));
   };

@@ -38,6 +38,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "Run sales, stock, money, and your business in one place",
     signinTab: "Sign In",
     registerTab: "Create Account",
+    secureGoogle: "Secure Google sign-in",
     emailLabel: "Phone Number or Email",
     passLabel: "Password",
     ownerName: "Your Full Name",
@@ -63,6 +64,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "Simamia mauzo, bidhaa, fedha na biashara sehemu moja",
     signinTab: "Ingia",
     registerTab: "Fungua Akaunti",
+    secureGoogle: "Ingia kwa Google kwa Usalama",
     emailLabel: "Namba ya Simu au Barua Pepe",
     passLabel: "Nenosiri",
     ownerName: "Jina Lako Kamili",
@@ -112,6 +114,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcome: "Bienvenue sur Orvix",
     welcomeSub: "Gérez les ventes, le stock, l'argent et votre entreprise au même endroit",
     signinTab: "Connexion",
+    secureGoogle: "Connexion Google sécurisée",
     registerTab: "Créer un Compte",
     emailLabel: "Téléphone ou E-mail",
     passLabel: "Mot de Passe",
@@ -1385,9 +1388,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold tracking-normal leading-relaxed uppercase max-w-sm mx-auto">
               {isSaasAdminPortal
                 ? 'Central Management Backoffice'
-                : currentLang === 'sw'
-                  ? 'Mfumo wa Kisasa wa Usimamizi wa Biashara na Mauzo'
-                  : 'Next-Generation Unified POS & Enterprise Management Suite'}
+                : 'Smart POS & Business Management'}
             </p>
           )}
         </div>
@@ -1426,7 +1427,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               onClick={() => { setAuthTab('register'); setError(null); }}
               className={`py-3 rounded-xl transition-all cursor-pointer text-center ${authTab === 'register' ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:text-slate-700 bg-transparent border-none'}`}
             >
-	            Join Us
+	            {t('registerTab')}
             </button>
           </div>
         )}
@@ -1496,7 +1497,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 disabled={isLoading}
                 className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-55 text-white font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 rounded-xl"
               >
-                <span>Join Us</span>
+                <span>{t('registerTab')}</span>
               </button>
             </form>
           ) : adminMfaPrompt && pendingAdminUser ? (
@@ -1539,10 +1540,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 <div className="space-y-4" data-tenant-google-only="true">
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center dark:border-emerald-800/40 dark:bg-emerald-950/20">
                     <Shield className="mx-auto h-7 w-7 text-emerald-700 dark:text-emerald-400" />
-                    <h3 className="mt-2 text-sm font-black text-slate-900 dark:text-slate-100">Secure Google sign-in</h3>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                      Owners, administrators and staff sign in with the Google account connected to this business.
-                    </p>
+                    <h3 className="mt-2 text-sm font-black text-slate-900 dark:text-slate-100">{t('secureGoogle')}</h3>
                   </div>
                   <div className="flex justify-center">
                     <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
@@ -2054,7 +2052,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 disabled={isLoading || !acceptedTenantLegal}
                 className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-55 disabled:cursor-not-allowed text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2"
               >
-                <span>Join Us</span>
+                <span>{t('registerTab')}</span>
               </button>
 
               </form>}
