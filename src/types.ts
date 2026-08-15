@@ -662,6 +662,7 @@ export interface SalesDocument {
   deliveryCost?: number;
   paymentMethod?: string;
   hasVat?: boolean;
+  taxRate?: number;
   customerName: string;
   customerPhone?: string;
   customerAddress?: string;

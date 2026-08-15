@@ -54,6 +54,7 @@ import CachedImage from './CachedImage';
 import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
 import { normalizeSubscriptionPlanId } from '../utils/subscription';
 import { getPaymentModeName } from '../utils/paymentAccounts';
+import { calculateSalesDocumentTotals } from '../utils/salesDocumentTotals';
 import {
   createCrossBranchCommercialDocument,
   convertCrossBranchCommercialDocument,
@@ -315,25 +316,29 @@ export default function DashboardSalesList({
     const legacySubtotal = (doc.items || []).reduce((sum, item) => sum + getLegacyLineTotal(item), 0);
     const legacyDiscount = Math.max(0, rawSubtotal - legacySubtotal);
     const discountAmount = Math.max(0, toNumber(doc.discountAmount, legacyDiscount));
+    const taxableAmount = Math.max(0, rawSubtotal - discountAmount);
+    const legacyTax = Math.max(0, toNumber(doc.tax));
     return {
       ...doc,
       discountAmount,
       discountValue: Math.max(0, toNumber(doc.discountValue, discountAmount)),
       discountType: doc.discountType || 'cash',
+      hasVat: doc.hasVat ?? (legacyTax > 0),
+      taxRate: doc.taxRate ?? (legacyTax > 0 && taxableAmount > 0
+        ? legacyTax / taxableAmount
+        : (activeTenant.taxRate ?? 0.18)),
       items: (doc.items || []).map(item => ({ ...item, discount: 0, discountType: 'percent' })),
     };
   };
   const getDocumentTotals = (doc: SalesDocument) => {
-    const subTotal = (doc.items || []).reduce((sum, item) => sum + getLineTotal(item), 0);
-    const discount = Math.min(subTotal, Math.max(0, toNumber(doc.discountAmount)));
-    const tax = doc.hasVat ? toNumber(doc.tax, Math.max(0, subTotal - discount) * (activeTenant.taxRate || 0.18)) : toNumber(doc.tax);
-    const delivery = toNumber(doc.deliveryCost);
-    const storedTotal = toNumber(doc.total, NaN);
-    const total = Number.isFinite(storedTotal) && storedTotal > 0
-      ? storedTotal
-      : Math.max(0, subTotal - discount) + tax + delivery;
-    const paid = toNumber((doc as any).paidAmount);
-    return { subTotal, discount, tax, delivery, total, paid, balance: Math.max(0, total - paid) };
+    return calculateSalesDocumentTotals({
+      items: doc.items,
+      discountAmount: doc.discountAmount,
+      deliveryCost: doc.deliveryCost,
+      hasVat: !!doc.hasVat,
+      taxRate: doc.taxRate ?? activeTenant.taxRate ?? 0.18,
+      paidAmount: (doc as SalesDocument & { paidAmount?: number }).paidAmount,
+    });
   };
   const getInvoiceFooter = (doc?: SalesDocument) => {
     const snapshot = (doc?.brandingSnapshot || {}) as Record<string, any>;
@@ -536,6 +541,21 @@ export default function DashboardSalesList({
     title: string;
     message: string;
   } | null>(null);
+  const documentPaymentMethods = React.useMemo(() => {
+    const configured = (systemSettings?.business?.paymentModes || [])
+      .map(getPaymentModeName)
+      .filter(Boolean);
+    const channels = systemSettings?.paymentChannels || [];
+    const enabled = configured.filter(method => {
+      const matchingChannels = channels.filter(channel =>
+        String(channel.paymentMethod || channel.name || '').trim().toLowerCase() === method.toLowerCase()
+      );
+      return matchingChannels.length === 0 || matchingChannels.some(channel =>
+        channel.status !== 'inactive' && channel.status !== 'archived'
+      );
+    });
+    return [...new Set(enabled.length > 0 ? enabled : ['Cash'])];
+  }, [systemSettings?.business?.paymentModes, systemSettings?.paymentChannels]);
 
   useEffect(() => {
     if (!conversionNotice) return;
@@ -553,7 +573,7 @@ export default function DashboardSalesList({
       setNewDocDeliveryCost(0);
       setNewDocDiscountValue(0);
       setNewDocDiscountType('percent');
-      setNewDocPaymentMethod(getPaymentModeName(systemSettings?.business?.paymentModes?.[0] || 'Cash'));
+      setNewDocPaymentMethod(documentPaymentMethods[0]);
       if (canUseCrossBranchDocuments) {
         setCrossBranchSourcesLoading(true);
         setCrossBranchSourcesError('');
@@ -571,7 +591,13 @@ export default function DashboardSalesList({
           .finally(() => setCrossBranchSourcesLoading(false));
       }
     }
-  }, [showNewDocModal, canUseCrossBranchDocuments]); // reset only when opening
+  }, [showNewDocModal, canUseCrossBranchDocuments, documentPaymentMethods]); // reset only when opening
+
+  useEffect(() => {
+    if (!documentPaymentMethods.includes(newDocPaymentMethod)) {
+      setNewDocPaymentMethod(documentPaymentMethods[0]);
+    }
+  }, [documentPaymentMethods, newDocPaymentMethod]);
 
   useEffect(() => {
     if (viewingDocument) {
@@ -605,10 +631,16 @@ export default function DashboardSalesList({
   const newDocDiscountAmount = newDocDiscountType === 'percent'
     ? newDocSubtotal * cappedDiscountValue / 100
     : cappedDiscountValue;
-  const newDocTaxableAmount = Math.max(0, newDocSubtotal - newDocDiscountAmount);
-  const newDocTaxRate = activeTenant.taxRate || 0.18;
-  const newDocTaxAmount = newDocHasVat ? newDocTaxableAmount * newDocTaxRate : 0;
-  const newDocGrandTotal = newDocTaxableAmount + newDocTaxAmount + Math.max(0, Number(newDocDeliveryCost) || 0);
+  const newDocTaxRate = activeTenant.taxRate ?? 0.18;
+  const newDocTotals = calculateSalesDocumentTotals({
+    items: newDocItems,
+    discountAmount: newDocDiscountAmount,
+    deliveryCost: newDocDeliveryCost,
+    hasVat: newDocHasVat,
+    taxRate: newDocTaxRate,
+  });
+  const newDocTaxAmount = newDocTotals.tax;
+  const newDocGrandTotal = newDocTotals.total;
 
   // States for Direct Add Sale tab removed as all sales must be logged on POS view
 
@@ -1040,6 +1072,7 @@ export default function DashboardSalesList({
       discountValue: cappedDiscountValue,
       discountType: newDocDiscountType,
       hasVat: newDocHasVat,
+      taxRate: newDocTaxRate,
       deliveryCost: Number(newDocDeliveryCost) || 0,
       paymentMethod: newDocPaymentMethod,
       timestamp: new Date(`${newDocDate || new Date().toISOString().split('T')[0]}T12:00:00`).toISOString(),
@@ -4639,10 +4672,9 @@ export default function DashboardSalesList({
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Payment</label>
                     <select value={newDocPaymentMethod} onChange={e => setNewDocPaymentMethod(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer">
-                      {(systemSettings?.business?.paymentModes?.length ? systemSettings.business.paymentModes : ['Cash', 'Card', 'M-Pesa', 'Bank']).map(mode => {
-                        const modeName = getPaymentModeName(mode);
-                        return <option key={modeName} value={modeName}>{modeName}</option>;
-                      })}
+                      {documentPaymentMethods.map(modeName => (
+                        <option key={modeName} value={modeName}>{modeName}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -5129,7 +5161,9 @@ export default function DashboardSalesList({
                         {documentBranding.email && <p className="text-[11px] text-slate-500">Email: {documentBranding.email}</p>}
                         {/* TIN and VAT — from Company Level Settings (invoiceSettings) */}
                         {systemSettings?.invoiceSettings?.tinNumber && <p className="text-[11px] text-slate-500 font-mono">TIN: {systemSettings.invoiceSettings.tinNumber}</p>}
-                        {systemSettings?.invoiceSettings?.vatNumber && <p className="text-[11px] text-slate-500 font-mono">VAT: {systemSettings.invoiceSettings.vatNumber}</p>}
+                        {viewingDocument.hasVat && systemSettings?.invoiceSettings?.vatNumber && (
+                          <p className="text-[11px] text-slate-500 font-mono">VAT: {systemSettings.invoiceSettings.vatNumber}</p>
+                        )}
                       </div>
 
                       <div className="text-right space-y-1 font-mono text-xs shrink-0">
@@ -5214,9 +5248,9 @@ export default function DashboardSalesList({
                             <span className="font-bold">-{money(totals.discount)}</span>
                           </div>
                         )}
-                        {viewingDocument.hasVat && (
+                        {viewingDocument.hasVat && totals.tax > 0 && (
                           <div className="flex justify-between text-slate-500 pb-1">
-                            <span>VAT ({Math.round((activeTenant.taxRate || 0.18) * 100)}%)</span>
+                            <span>VAT ({Math.round((viewingDocument.taxRate ?? activeTenant.taxRate ?? 0.18) * 100)}%)</span>
                             <span className="font-bold text-slate-700">{money(totals.tax)}</span>
                           </div>
                         )}
