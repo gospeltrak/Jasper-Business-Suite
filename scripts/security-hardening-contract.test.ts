@@ -254,8 +254,8 @@ test('Super Admin PWA is separate and only launches from the More menu', () => {
 
 test('landing language and login navigation are instant and deterministic', () => {
   assert.match(landingBundle, /href="#pricing">Pricing<\/a><a href="#login">Login<\/a>/);
-  assert.match(landingBundle, /applyLandingLanguage\(option\.dataset\.lang\)/);
-  assert.match(landingBundle, /applyLandingLanguage\(savedLanguage\)/);
+  assert.match(landingBundle, /syncLanguagePicker\(option\.dataset\.lang\)/);
+  assert.match(landingBundle, /syncLanguagePicker\(savedLanguage\)/);
   assert.match(landingBundle, /2 branches included; Can add more/);
   assert.match(landingBundle, /if\(value==='WhatsApp report notifications'\)item\.remove\(\)/);
   assert.match(landingPage, /if \(href === '#login'\)[\s\S]*onNavigate\('\/login'\)/);
