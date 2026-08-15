@@ -353,6 +353,17 @@ test('POS receipt preview, print and WhatsApp use the same narrow receipt data',
   assert.match(pdfSource, /const pdfFile = createPosReceiptPdfFromData\(data\)/);
 });
 
+test('A4 sales invoice preview, download, print and WhatsApp use one template', async () => {
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  assert.match(salesSource, /id="sales-invoice-a4-pdf-template"/);
+  assert.match(salesSource, /downloadPdfFromElement\(\{\s*elementId: 'sales-invoice-a4-pdf-template'/);
+  assert.match(salesSource, /elementId: format === 'a4' \? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template'/);
+  assert.equal(
+    (salesSource.match(/elementId: format === 'a4' \? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template'/g) || []).length,
+    2,
+  );
+});
+
 test('expense deletion requires an inspectable in-app confirmation', async () => {
   const expenseSource = await read('src/components/DashboardExpenses.tsx');
   assert.doesNotMatch(expenseSource, /window\.confirm\(['"]Delete this expense/);
