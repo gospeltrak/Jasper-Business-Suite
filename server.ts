@@ -20,6 +20,7 @@ import { createSafeServerError } from './serverSafeErrors.js';
 import { isStrictPlatformAdminProfile } from './shared/platformAdminAuth.js';
 import { getPrismaClient, isPrismaConfigured } from './src/server/prisma.js';
 import { processWorkspaceNormalizationQueue } from './src/server/workspaceNormalizationWorker.js';
+import { sendTelegramAlert } from './src/server/telegramAlerts.js';
 
 dotenv.config();
 
@@ -388,6 +389,70 @@ const isLucySecurityProbe = (message: unknown) => {
 
 const readClientIp = (req: express.Request) =>
   String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
+
+// Records a row on the Super Admin "Security Activity" screen and, when a
+// message is given, pings the owner's Telegram immediately. Best-effort:
+// never throws, so a logging failure can't break the request that triggered it.
+const logSecurityThreatEvent = async (input: {
+  eventType: string;
+  ipAddress?: string;
+  identifier?: string;
+  details?: Record<string, unknown>;
+  telegramMessage?: string;
+}) => {
+  try {
+    await adminTable('security_threat_events').insert({
+      event_type: input.eventType,
+      ip_address: input.ipAddress || null,
+      identifier: input.identifier || null,
+      details: input.details || {},
+    });
+  } catch (err: any) {
+    console.error('[SecurityThreatEvent] insert failed:', err?.message || err);
+  }
+  if (input.telegramMessage) {
+    void sendTelegramAlert(input.telegramMessage);
+  }
+};
+
+// In-memory cache of blocked IPs so the check on every request is a cheap Set
+// lookup instead of a database round trip. Refreshed periodically and updated
+// immediately whenever the block/unblock endpoints run.
+const blockedIpCache = new Set<string>();
+let blockedIpCacheLoadedAt = 0;
+const BLOCKED_IP_CACHE_TTL_MS = 30_000;
+
+const refreshBlockedIpCache = async () => {
+  try {
+    const { data, error } = await adminTable('ip_blocklist')
+      .select('ip_address')
+      .is('unblocked_at', null);
+    if (error) throw error;
+    blockedIpCache.clear();
+    (data || []).forEach((row: any) => {
+      if (row?.ip_address) blockedIpCache.add(String(row.ip_address));
+    });
+    blockedIpCacheLoadedAt = Date.now();
+  } catch (err: any) {
+    console.error('[IpBlocklist] cache refresh failed:', err?.message || err);
+  }
+};
+
+const blockIpMiddleware = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (Date.now() - blockedIpCacheLoadedAt > BLOCKED_IP_CACHE_TTL_MS) {
+    await refreshBlockedIpCache();
+  }
+  const ip = readClientIp(req);
+  if (ip !== 'unknown' && blockedIpCache.has(ip)) {
+    void logSecurityThreatEvent({
+      eventType: 'blocked_ip_attempt',
+      ipAddress: ip,
+      details: { path: req.path, method: req.method },
+    });
+    return res.status(403).json({ error: 'Access denied.' });
+  }
+  next();
+};
 
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 const rateLimit = (options: { windowMs: number; max: number; prefix: string }) =>
@@ -1105,6 +1170,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.set('trust proxy', 1);
 
   app.use(securityHeaders);
+  app.use(blockIpMiddleware);
   app.use('/api/auth/register', rateLimit({ prefix: 'tenant-register', windowMs: 15 * 60 * 1000, max: 12 }));
   app.use('/api/auth/turnstile', rateLimit({ prefix: 'auth-turnstile', windowMs: 15 * 60 * 1000, max: 30 }));
   app.use('/api/auth/staff-login', rateLimit({ prefix: 'staff-login', windowMs: 15 * 60 * 1000, max: 20 }));
@@ -2325,6 +2391,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         throw proofError || new Error('Payment request was not created.');
       }
 
+      void sendTelegramAlert(
+        `💰 <b>Payment approval needed</b>\n${normalizeText(tenant.name, 160)} submitted a receipt for the ${proofRecord.requested_package_name} plan.\nAmount: ${proofRecord.currency} ${proofRecord.amount}\nOpen Super Admin → Approvals to review.`
+      );
+
       return res.status(201).json({ proof, receiptPath, fileName });
     } catch (error: any) {
       return res.status(Number(error?.status || 500)).json({ error: error?.message || 'Receipt upload failed.' });
@@ -2386,6 +2456,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         .maybeSingle();
       if (error) throw error;
       if (!proof) return res.status(409).json({ error: 'This payment request is no longer pending.' });
+      void sendTelegramAlert(`❌ <b>Payment rejected</b>\n${proof.tenant_name} — ${reason}`);
       return res.json({ proof });
     } catch (error: any) {
       return platformAdminError(res, error);
@@ -2745,6 +2816,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         p_idempotency_key: idempotencyKey
       });
       if (error) throw error;
+      void sendTelegramAlert(`✅ <b>Payment approved</b>\n${packageId.charAt(0).toUpperCase() + packageId.slice(1)} package activated for ${durationDays} days.\nReason: ${reason}`);
       return res.json(data);
     } catch (error: any) {
       return platformAdminError(res, error);
@@ -3503,12 +3575,129 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (!['google_identity_verified', 'mfa_verified', 'mfa_rejected', 'session_revoked_after_three_attempts'].includes(event)) {
         return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'sign_in');
       }
+      const clientIp = readClientIp(req);
+      const userAgent = normalizeText(req.headers['user-agent'], 240);
       await adminTable('super_admin_audit_logs').insert({
         actor_user_id: adminUser.id,
         action: event,
-        metadata: { ip: readClientIp(req), user_agent: normalizeText(req.headers['user-agent'], 240) },
+        metadata: { ip: clientIp, user_agent: userAgent },
       });
+      if (event === 'mfa_rejected' || event === 'session_revoked_after_three_attempts') {
+        void logSecurityThreatEvent({
+          eventType: `super_admin_${event}`,
+          ipAddress: clientIp,
+          identifier: adminUser.email || adminUser.id,
+          details: { userAgent },
+          telegramMessage: event === 'session_revoked_after_three_attempts'
+            ? `🚨 <b>Super Admin login blocked</b>\nSomeone failed the Super Admin sign-in 3 times and was locked out.\nIP: <code>${clientIp}</code>\nTime: ${new Date().toLocaleString('en-GB', { timeZone: 'Africa/Dar_es_Salaam' })}`
+            : `⚠️ <b>Super Admin MFA rejected</b>\nA wrong verification code was entered for the Super Admin account.\nIP: <code>${clientIp}</code>\nTime: ${new Date().toLocaleString('en-GB', { timeZone: 'Africa/Dar_es_Salaam' })}`,
+        });
+      }
       return res.json({ recorded: true });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.get('/api/super-admin/security/events', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const { data, error } = await adminTable('security_threat_events')
+        .select('id,event_type,ip_address,identifier,details,created_at')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return res.json({ events: data || [] });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.get('/api/super-admin/security/blocklist', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const { data, error } = await adminTable('ip_blocklist')
+        .select('ip_address,reason,blocked_by,blocked_at,unblocked_at')
+        .is('unblocked_at', null)
+        .order('blocked_at', { ascending: false });
+      if (error) throw error;
+      return res.json({ blocked: data || [] });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.post('/api/super-admin/security/block-ip', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const ip = normalizeText(req.body?.ip, 64);
+      const reason = normalizeText(req.body?.reason, 300) || 'Blocked by Super Admin';
+      if (!ip) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'session');
+      const { error } = await adminTable('ip_blocklist').upsert({
+        ip_address: ip,
+        reason,
+        blocked_by: adminUser.id,
+        blocked_at: new Date().toISOString(),
+        unblocked_at: null,
+      }, { onConflict: 'ip_address' });
+      if (error) throw error;
+      blockedIpCache.add(ip);
+      void logSecurityThreatEvent({
+        eventType: 'ip_blocked_by_admin',
+        ipAddress: ip,
+        identifier: adminUser.email || adminUser.id,
+        details: { reason },
+      });
+      return res.json({ blocked: true });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.post('/api/super-admin/security/unblock-ip', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const ip = normalizeText(req.body?.ip, 64);
+      if (!ip) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'session');
+      const { error } = await adminTable('ip_blocklist')
+        .update({ unblocked_at: new Date().toISOString() })
+        .eq('ip_address', ip);
+      if (error) throw error;
+      blockedIpCache.delete(ip);
+      void logSecurityThreatEvent({
+        eventType: 'ip_unblocked_by_admin',
+        ipAddress: ip,
+        identifier: adminUser.email || adminUser.id,
+      });
+      return res.json({ unblocked: true });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.get('/api/super-admin/security/geo/:ip', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const ip = normalizeText(req.params.ip, 64);
+      if (!ip || ip === 'unknown') return res.json({ ip, location: null });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+      try {
+        const geoRes = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, { signal: controller.signal });
+        const geoData = await geoRes.json().catch(() => ({}));
+        if (geoData?.error) return res.json({ ip, location: null });
+        return res.json({
+          ip,
+          location: {
+            city: geoData.city || null,
+            region: geoData.region || null,
+            country: geoData.country_name || null,
+            isp: geoData.org || null,
+          },
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
     } catch (error: any) {
       return platformAdminError(res, error);
     }

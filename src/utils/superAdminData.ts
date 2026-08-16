@@ -268,6 +268,52 @@ export async function loadSuperAdminOverview(): Promise<SuperAdminOverview> {
   return overviewRequest;
 }
 
+export interface SecurityThreatEvent {
+  id: string;
+  event_type: string;
+  ip_address: string | null;
+  identifier: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface BlockedIp {
+  ip_address: string;
+  reason: string | null;
+  blocked_by: string | null;
+  blocked_at: string;
+  unblocked_at: string | null;
+}
+
+export async function loadSecurityEvents(): Promise<SecurityThreatEvent[]> {
+  const response = await apiRequest('/api/super-admin/security/events');
+  return Array.isArray(response?.events) ? response.events : [];
+}
+
+export async function loadIpBlocklist(): Promise<BlockedIp[]> {
+  const response = await apiRequest('/api/super-admin/security/blocklist');
+  return Array.isArray(response?.blocked) ? response.blocked : [];
+}
+
+export async function blockIpAddress(ip: string, reason: string) {
+  return apiRequest('/api/super-admin/security/block-ip', {
+    method: 'POST',
+    body: JSON.stringify({ ip, reason }),
+  });
+}
+
+export async function unblockIpAddress(ip: string) {
+  return apiRequest('/api/super-admin/security/unblock-ip', {
+    method: 'POST',
+    body: JSON.stringify({ ip }),
+  });
+}
+
+export async function loadIpGeo(ip: string): Promise<{ city: string | null; region: string | null; country: string | null; isp: string | null } | null> {
+  const response = await apiRequest(`/api/super-admin/security/geo/${encodeURIComponent(ip)}`);
+  return response?.location || null;
+}
+
 export async function updateSuperAdminUser(userId: string, payload: Record<string, unknown>) {
   return apiRequest(`/api/super-admin/users/${encodeURIComponent(userId)}`, {
     method: 'PATCH',

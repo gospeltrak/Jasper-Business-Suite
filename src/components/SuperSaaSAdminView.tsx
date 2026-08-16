@@ -43,6 +43,7 @@ import SaaSUserActivityView from './SaaSUserActivityView';
 import SaaSDashboardMetrics from './SaaSDashboardMetrics';
 import SaaSExpensesView from './SaaSExpensesView';
 import SaaSInbox from './SaaSInbox';
+import SecurityActivityView from './SecurityActivityView';
 import SaaSHardwarePOS from './SaaSHardwarePOS';
 import SaaSHardwareInventory from './SaaSHardwareInventory';
 import SaaSHardwareSales from './SaaSHardwareSales';
@@ -54,7 +55,7 @@ import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatf
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../utils/onlineOnly';
 import { prepareSuperAdminMfa, SuperAdminMfaPrompt, verifySuperAdminMfa } from '../utils/superAdminMfa';
 
-export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'user-activity' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
+export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'user-activity' | 'expenses' | 'chats' | 'inbox' | 'security' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
 
 export interface SuperSaaSAdminViewProps {
   activeAdminSubTab?: SuperAdminWorkspaceTab;
@@ -1157,6 +1158,11 @@ export default function SuperSaaSAdminView({
         {/* ======================= TAB 4: INBOX ======================= */}
         {activeTab === 'inbox' && (
           <SaaSInbox />
+        )}
+
+        {/* ======================= TAB: SECURITY ACTIVITY ======================= */}
+        {activeTab === 'security' && (
+          <SecurityActivityView />
         )}
 
         {/* ======================= TAB 5: AD EXCHANGE SSP ======================= */}

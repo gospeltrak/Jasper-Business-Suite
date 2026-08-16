@@ -126,6 +126,7 @@ import {
   Volume2,
   MessageSquare,
   Inbox,
+  ShieldAlert,
   Layers,
   MonitorPlay,
   Menu,
@@ -2824,6 +2825,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         { id: 'admin-expenses', label: 'Expenses', icon: Receipt },
         { id: 'admin-chats', label: 'Chats / Broadcasts', icon: MessageSquare },
         { id: 'admin-inbox', label: 'User Inbox', icon: Inbox },
+        { id: 'admin-security', label: 'Security Activity', icon: ShieldAlert },
         { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay },
         { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
         { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
@@ -2867,6 +2869,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         { id: 'admin-expenses', label: 'Expenses', icon: Receipt },
         { id: 'admin-chats', label: 'Chats', icon: MessageSquare },
         { id: 'admin-inbox', label: 'Inbox', icon: Inbox },
+        { id: 'admin-security', label: 'Security Activity', icon: ShieldAlert },
         { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay },
         { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
         { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
@@ -4026,6 +4029,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   activeTab === 'admin-expenses' ? 'expenses' :
                  activeTab === 'admin-chats' ? 'chats' :
                  activeTab === 'admin-inbox' ? 'inbox' :
+                 activeTab === 'admin-security' ? 'security' :
                  activeTab === 'admin-promotions' ? 'promotions' :
                  activeTab === 'admin-ad-placements' ? 'ad-placements' :
                  activeTab === 'admin-web-editor' ? 'web-editor' :
@@ -4047,6 +4051,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     subTab === 'expenses' ? 'admin-expenses' :
                    subTab === 'chats' ? 'admin-chats' :
                    subTab === 'inbox' ? 'admin-inbox' :
+                   subTab === 'security' ? 'admin-security' :
                    subTab === 'promotions' ? 'admin-promotions' :
                    subTab === 'ad-placements' ? 'admin-ad-placements' :
                    subTab === 'web-editor' ? 'admin-web-editor' :
