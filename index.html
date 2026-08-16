@@ -341,14 +341,25 @@
           navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
             .then((registration) => {
               console.log('Orvix PWA update service is ready.');
-              registration.update().catch(() => {
-                console.warn('PWA update check is temporarily unavailable.');
-              });
-              window.setInterval(() => {
+              var checkForUpdate = function() {
                 registration.update().catch(() => {
                   console.warn('PWA update check is temporarily unavailable.');
                 });
-              }, 60000);
+              };
+              checkForUpdate();
+              window.setInterval(checkForUpdate, 60000);
+              // An installed PWA is usually launched from a device home
+              // screen icon into an already-registered service worker, not
+              // a fresh page load — the load-time check above only runs
+              // once per open. Re-checking whenever the app regains focus
+              // or comes back from the background is what actually catches
+              // an update on a device that was closed/backgrounded when a
+              // new version was deployed.
+              document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') checkForUpdate();
+              });
+              window.addEventListener('focus', checkForUpdate);
+              window.addEventListener('pageshow', checkForUpdate);
             })
             .catch(() => {
               console.error('PWA update service could not start.');
