@@ -65,7 +65,7 @@ test('workspace entry and branch switching stay fast and non-blocking', async ()
   const branchContextSource = await read('src/branches/BranchContext.tsx');
   const dashboardSource = await read('src/components/Dashboard.tsx');
 
-  assert.match(appSource, /duration=\{1200\}/);
+  assert.match(appSource, /duration=\{splashRequest\.mode === 'tenant' \? 3000 : 1200\}/);
   assert.match(splashSource, /duration = 1200/);
   assert.match(branchContextSource, /branchSnapshotCache/);
   assert.match(branchContextSource, /optimisticSnapshot/);
@@ -353,22 +353,25 @@ test('POS receipt preview, print and WhatsApp use the same narrow receipt data',
   assert.match(pdfSource, /const pdfFile = createPosReceiptPdfFromData\(data\)/);
 });
 
-test('A4 sales invoice preview, download, print and WhatsApp use one template', async () => {
+test('A4 sales invoice preview, download and WhatsApp use one template', async () => {
+  // Print was replaced by Download on the A4 invoice toolbar (compact
+  // Send/Download/Close action bar) — POS receipt keeps its own Print.
   const salesSource = await read('src/components/DashboardSalesList.tsx');
   assert.match(salesSource, /id="sales-invoice-a4-pdf-template"/);
   assert.match(salesSource, /downloadPdfFromElement\(\{\s*elementId: 'sales-invoice-a4-pdf-template'/);
   assert.match(salesSource, /elementId: format === 'a4' \? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template'/);
   assert.equal(
     (salesSource.match(/elementId: format === 'a4' \? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template'/g) || []).length,
-    2,
+    1,
   );
 });
 
-test('quotation and proforma preview, print and WhatsApp share one A4 template and footer', async () => {
+test('quotation and proforma preview, download and WhatsApp share one A4 template and footer', async () => {
+  // Print was replaced by Download on the quotation/document viewer toolbar.
   const salesSource = await read('src/components/DashboardSalesList.tsx');
   assert.match(salesSource, /id="sales-document-a4-pdf-template"/);
   assert.match(salesSource, /shareElementPdfToWhatsApp\(\{\s*elementId: 'sales-document-a4-pdf-template'/);
-  assert.match(salesSource, /printPdfFromElement\(\{\s*elementId: 'sales-document-a4-pdf-template'/);
+  assert.match(salesSource, /downloadPdfFromElement\(\{\s*elementId: 'sales-document-a4-pdf-template'/);
   assert.match(salesSource, /\{invoiceFooter\.mainMessage\}/);
   assert.match(salesSource, /\{invoiceFooter\.poweredBy\}/);
 });
@@ -377,7 +380,7 @@ test('sales invoice and receipt exports use recognizable document filenames', as
   const salesSource = await read('src/components/DashboardSalesList.tsx');
   assert.equal(
     (salesSource.match(/fileName: format === 'a4' \? buildInvoiceFileName\(sale\) : buildReceiptFileName\(sale\)/g) || []).length,
-    2,
+    1,
   );
   assert.match(salesSource, /return `sales-invoice-\$\{safeBusiness\}-\$\{safeReference\}\.pdf`/);
   assert.match(salesSource, /return `receipt-\$\{safeBusiness\}-\$\{safeReference\}\.pdf`/);
