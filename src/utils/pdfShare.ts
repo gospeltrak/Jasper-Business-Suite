@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { toCanvas as htmlToCanvas } from 'html-to-image';
 import { buildWhatsAppLink } from './whatsapp';
 
 const sanitizeFileName = (name: string) =>
@@ -443,7 +443,7 @@ type PdfShareOptions = {
   format?: 'a4' | 'receipt';
   includeHidden?: boolean;
   /**
-   * Visual A4 capture uses html2canvas. Set false for report-style documents
+   * Visual A4 capture uses html-to-image. Set false for report-style documents
    * so modern CSS color functions cannot break export; the fallback produces
    * a searchable, table-aware jsPDF document instead.
    */
@@ -531,6 +531,21 @@ const drawTable = (
 
   if (!rows.length) return yStart;
 
+  // Mirror each column's real text-right/text-center alignment from the
+  // source header cells, instead of forcing every column to the left —
+  // numeric columns otherwise read as an unaligned wall of digits.
+  const headerRowEl = Array.from(table.querySelectorAll('tr')).find(row => includeHidden || isElementVisible(row));
+  const columnAligns: Array<'left' | 'center' | 'right'> = headerRowEl
+    ? Array.from(headerRowEl.children)
+      .filter(cell => includeHidden || isElementVisible(cell))
+      .map(cell => {
+        const cellClass = cell.className.toString();
+        if (cellClass.includes('text-right')) return 'right';
+        if (cellClass.includes('text-center')) return 'center';
+        return 'left';
+      })
+    : [];
+
   const columnCount = Math.max(...rows.map(row => row.length));
   const colWidth = contentWidth / Math.max(columnCount, 1);
   let y = yStart;
@@ -544,16 +559,22 @@ const drawTable = (
   };
   const renderRow = (row: string[], rowIndex: number, isHeader = false) => {
     const { wrappedCells, rowHeight } = measureRow(row);
-    pdf.setFillColor(isHeader ? '#e2e8f0' : rowIndex % 2 ? '#ffffff' : '#f8fafc');
+    pdf.setFillColor(isHeader ? '#111111' : rowIndex % 2 ? '#ffffff' : '#f3f4f6');
     pdf.rect(horizontalMargin, y - 10, contentWidth, rowHeight, 'F');
-    pdf.setDrawColor('#e2e8f0');
+    pdf.setDrawColor('#d1d5db');
     pdf.line(horizontalMargin, y - 10, horizontalMargin + contentWidth, y - 10);
 
     wrappedCells.forEach((lines, colIndex) => {
       pdf.setFont('helvetica', isHeader ? 'bold' : 'normal');
       pdf.setFontSize(isHeader ? 7.5 : 7);
-      pdf.setTextColor(isHeader ? '#334155' : '#0f172a');
-      pdf.text(lines, horizontalMargin + colIndex * colWidth + 3, y);
+      pdf.setTextColor(isHeader ? '#ffffff' : '#111827');
+      const align = columnAligns[colIndex] || 'left';
+      const cellX = align === 'right'
+        ? horizontalMargin + (colIndex + 1) * colWidth - 4
+        : align === 'center'
+          ? horizontalMargin + colIndex * colWidth + colWidth / 2
+          : horizontalMargin + colIndex * colWidth + 3;
+      pdf.text(lines, cellX, y, { align });
     });
     y += rowHeight;
   };
@@ -604,18 +625,12 @@ const applyBrandedReportChrome = async (
     const left = 38;
     const right = pageWidth - 38;
 
-    let logoRendered = false;
-    if (logoData) {
-      try {
-        const imageType = logoData.includes('image/png') ? 'PNG' : 'JPEG';
-        pdf.addImage(logoData, imageType, left, 24, 52, 34, undefined, 'FAST');
-        logoRendered = true;
-      } catch {
-        // Fall back to the business initial below.
-      }
-    }
+    // White backing behind the logo (same convention as the receipt/A4
+    // generators) keeps a transparent-background logo legible, and the logo
+    // is the one full-color element on an otherwise black-and-grey page.
+    const logoRendered = logoData ? placeContainedImage(pdf, logoData, left, 24, 52, 34) : false;
     if (!logoRendered) {
-      pdf.setFillColor('#4f46e5');
+      pdf.setFillColor('#111111');
       pdf.roundedRect(left, 24, 34, 34, 8, 8, 'F');
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(17);
@@ -658,6 +673,9 @@ const applyBrandedReportChrome = async (
     pdf.setTextColor('#94a3b8');
     pdf.text('CONFIDENTIAL BUSINESS REPORT', left, pageHeight - 25);
     pdf.text(`${branding.businessName}  •  Page ${pageNumber} of ${pageCount}`, right, pageHeight - 25, { align: 'right' });
+    pdf.setFontSize(6);
+    pdf.setTextColor('#cbd5e1');
+    pdf.text('Powered by Orvix', pageWidth / 2, pageHeight - 25, { align: 'center' });
   }
 };
 
@@ -665,7 +683,7 @@ const waitForDocumentAssets = async (root: HTMLElement) => {
   if (document.fonts?.ready) await document.fonts.ready;
   await Promise.all(Array.from(root.querySelectorAll('img')).map(async (image) => {
     if (image.complete) {
-      try { await image.decode(); } catch { /* html2canvas will use the available image */ }
+      try { await image.decode(); } catch { /* the capture will use the available image */ }
       return;
     }
     await new Promise<void>((resolve) => {
@@ -710,19 +728,20 @@ const createVisualA4Pdf = async (source: HTMLElement) => {
 
   try {
     await waitForDocumentAssets(clone);
-    const canvas = await html2canvas(clone, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: false,
+    const captureOptions = {
+      pixelRatio: 2,
       backgroundColor: '#ffffff',
-      logging: false,
       width: 794,
       height: Math.max(1123, clone.scrollHeight),
-      windowWidth: 794,
-      windowHeight: Math.max(1123, clone.scrollHeight),
-      scrollX: 0,
-      scrollY: 0,
-    });
+    };
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await htmlToCanvas(clone, captureOptions);
+    } catch {
+      // A blocked/slow Google Fonts fetch must not fail the whole export —
+      // retry rendering with the browser's fallback font instead.
+      canvas = await htmlToCanvas(clone, { ...captureOptions, skipFonts: true });
+    }
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
@@ -867,19 +886,34 @@ export async function createPdfFromElement({
     seenText.add(textValue);
 
     const tag = el.tagName.toLowerCase();
+    const classStr = el.className.toString();
     const isHeading = /^h[1-4]$/.test(tag);
-    const isSmall = tag === 'span' || el.className.toString().includes('text-[9');
+    // Section titles (e.g. "Profit & Loss", "Operations Charge Metrics") use
+    // this exact uppercase+bold-weight combination throughout every report
+    // tab. Flagging them lets each section start with real separation
+    // instead of reading as one continuous, undifferentiated block of text.
+    const isSectionTitle = !isHeading && classStr.includes('uppercase') && /font-(black|extrabold|bold)/.test(classStr);
+    const isSmall = tag === 'span' || classStr.includes('text-[9');
     const fontSize = format === 'receipt'
-      ? (isHeading ? 9 : isSmall ? 6.5 : 7.2)
-      : (tag === 'h1' ? 17 : tag === 'h2' ? 14 : isHeading ? 11 : isSmall ? 8 : 9.2);
+      ? (isHeading ? 9 : isSectionTitle ? 8.5 : isSmall ? 6.5 : 7.2)
+      : (tag === 'h1' ? 17 : tag === 'h2' ? 14 : isHeading ? 11 : isSectionTitle ? 10 : isSmall ? 8 : 9.2);
+
+    if (isSectionTitle && y > pageTop + 4) {
+      y = ensurePageSpace(pdf, y, fontSize + 20, pageTop, pageBottom);
+      y += 10;
+      pdf.setDrawColor('#d1d5db');
+      pdf.line(margin, y, margin + contentWidth, y);
+      y += 10;
+    }
+
     const needed = Math.max(16, Math.ceil(textValue.length / 70) * (fontSize + 3));
     y = ensurePageSpace(pdf, y, needed, pageTop, pageBottom);
     y = appendWrappedText(pdf, textValue, margin, y, contentWidth, {
       fontSize,
-      bold: isHeading || /total|balance|invoice|receipt|delivery note|quotation|proforma/i.test(textValue),
-      color: isHeading ? '#0f172a' : '#334155',
+      bold: isHeading || isSectionTitle || /total|balance|invoice|receipt|delivery note|quotation|proforma/i.test(textValue),
+      color: (isHeading || isSectionTitle) ? '#000000' : '#334155',
       lineGap: format === 'receipt' ? 1 : 2,
-    }) + (isHeading ? 5 : 2);
+    }) + (isHeading || isSectionTitle ? 6 : 2);
   });
 
   if (y === pageTop) {
