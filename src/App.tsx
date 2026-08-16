@@ -720,7 +720,7 @@ export default function App() {
       {splashRequest && (
         <JasperSplashScreen
           logoSrc={splashRequest.mode === 'tenant' ? splashRequest.logoSrc : undefined}
-          duration={1200}
+          duration={splashRequest.mode === 'tenant' ? 3000 : 1200}
           showTagline={splashRequest.showTagline}
           onFinish={() => {
             const pendingPath = splashRequest.pendingPath;
