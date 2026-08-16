@@ -198,7 +198,11 @@ export interface Product {
   sellUnitPrice?: number;
   bulkToUnitsRatio?: number;
   sellingMode?: 'standard' | 'scale' | 'pcs' | 'hybrid';
-  
+  /** 'open-ended': total quantity unknown upfront (e.g. a cable roll) — priced
+   * per unit only, depleted manually via "Mark as Finished" instead of a count. */
+  stockTrackingMode?: 'quantity' | 'open-ended';
+  markedFinished?: boolean;
+
   // Batch feature fields
   sellingMethod?: LegacySellingMethod;
   inventorySettings?: ProductInventorySettings;

@@ -457,6 +457,8 @@ export default function DashboardProducts({
           sellUnitPrice: editForm.isBulkProduct ? editPricePerBase : undefined,
           bulkToUnitsRatio: editForm.isBulkProduct ? editConversionToBase : undefined,
           sellingMode: editForm.isBulkProduct ? editForm.sellingMode : undefined,
+          stockTrackingMode: editForm.isBulkProduct ? (editForm.stockTrackingMode || 'quantity') : undefined,
+          markedFinished: editForm.isBulkProduct ? !!editForm.markedFinished : undefined,
           costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
           sellingMethod: mapCostingMethodToLegacy(editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo'),
           allowPosMethodOverride: !!editForm.allowPosMethodOverride,
@@ -752,6 +754,9 @@ export default function DashboardProducts({
   // Bulk-To-Unit Selling Form states
   const [isBulkProduct, setIsBulkProduct] = useState(false);
   const [sellingMode, setSellingMode] = useState<'standard' | 'scale' | 'pcs' | 'hybrid'>('scale');
+  // 'open-ended': total quantity isn't known upfront (e.g. a cable roll) — only
+  // a price per unit is set, and stock is depleted manually via "Mark as Finished".
+  const [stockTrackingMode, setStockTrackingMode] = useState<'quantity' | 'open-ended'>('quantity');
   const [bulkUnit, setBulkUnit] = useState('KG');
   const [bulkPurchaseQty, setBulkPurchaseQty] = useState<number | ''>('');
   const [sellUnit, setSellUnit] = useState('kg');
@@ -1244,6 +1249,7 @@ export default function DashboardProducts({
         sellUnitPrice: retailPricePerBaseUnit,
         bulkToUnitsRatio: retailConversionToBaseUnit,
         sellingMode,
+        stockTrackingMode,
       })
     };
 
@@ -2583,9 +2589,118 @@ export default function DashboardProducts({
                       <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                     </div>
                     <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
-                      <input type="checkbox" checked={allowScaleSelling} onChange={(e) => setAllowScaleSelling(e.target.checked)} className="accent-emerald-600" />
+                      <input type="checkbox" checked={allowScaleSelling} onChange={(e) => {
+                        setAllowScaleSelling(e.target.checked);
+                        setIsBulkProduct(e.target.checked);
+                        if (e.target.checked && !sellingMode) setSellingMode('scale');
+                      }} className="accent-emerald-600" />
                       Fraction Sale
                     </label>
+                  </div>
+                )}
+
+                {allowScaleSelling && activeTenant.businessType !== 'pharmacy' && (
+                  <div className="p-4 bg-slate-50 border border-emerald-100 rounded-2xl space-y-4">
+                    {/* Mode Selector */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Sell Mode</label>
+                      <div className="flex bg-white rounded-lg p-1 border border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => setSellingMode('scale')}
+                          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'scale' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
+                        >
+                          {t('scaleMode')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSellingMode('pcs')}
+                          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'pcs' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
+                        >
+                          {t('pcsMode')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSellingMode('hybrid')}
+                          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'hybrid' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
+                        >
+                          {t('hybridMode')}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Open-ended stock — for items like a cable roll where the exact
+                        total quantity isn't known upfront, only a price per unit. */}
+                    <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+                      <input type="checkbox" checked={stockTrackingMode === 'open-ended'} onChange={(e) => setStockTrackingMode(e.target.checked ? 'open-ended' : 'quantity')} className="accent-emerald-600" />
+                      Unknown total quantity (price by unit only)
+                    </label>
+                    {stockTrackingMode === 'open-ended' && (
+                      <p className="text-[9.5px] text-slate-400 -mt-2">
+                        For a cable roll or similar: enter a rough estimate below (or a large number) so it never shows as low/out of stock by accident. When the roll actually finishes, open Edit Product and tick "Mark as Finished".
+                      </p>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Quick Sale Portions</label>
+                        {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
+                           <div className="flex space-x-1 overflow-x-auto scrollbar-hide flex-wrap gap-y-1">
+                             {[
+                               { label: '1/4', value: 0.25 },
+                               { label: '1/2', value: 0.5 },
+                               { label: '3/4', value: 0.75 },
+                               { label: '1', value: 1 },
+                             ].map(f => (
+                               <button type="button" key={f.label} onClick={() => { setSellUnit(baseUnit); setSellUnitQty(f.value); }} className="px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 rounded">{f.label} {baseUnit}</button>
+                             ))}
+                           </div>
+                        ) : (
+                           <input type="text" value={sellUnit} onChange={e => setSellUnit(e.target.value)} placeholder="Per piece" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Default Portion Qty</label>
+                        {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
+                          <div className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl font-bold text-slate-700">
+                            {sellUnitQty === 0.25 ? '1/4' : sellUnitQty === 0.5 ? '1/2' : sellUnitQty === 0.75 ? '3/4' : '1'} {baseUnit}
+                          </div>
+                        ) : (
+                          <input type="number" step="1" value={sellUnitQty} onChange={e => setSellUnitQty(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Price per 1 {baseUnit || 'unit'}</label>
+                      <input type="number" value={sellUnitPrice} onChange={e => setSellUnitPrice(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold" />
+                    </div>
+
+                    {/* Auto-calculation display */}
+                    {stockTrackingMode !== 'open-ended' && (
+                      <div className="bg-emerald-600 text-white rounded-2xl p-4 space-y-2 text-xs font-mono shadow-md shadow-emerald-600/20">
+                        <div className="flex justify-between font-bold">
+                          <span>{t('totalUnitsFromPurchase')}</span>
+                          <span>1 {purchaseUnit || 'package'} = {formatProductQuantity(Number(conversionToBaseUnit) || 0, { unit: baseUnit } as Product)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Whole package sale value</span>
+                          <span>{currency}{((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Cost of purchase:</span>
+                          <span>{currency}{costPrice.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between font-bold border-t border-emerald-500 pt-2 text-emerald-100">
+                          <span>{t('grossProfit')}:</span>
+                          <span>{currency}{(((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)) - costPrice).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-emerald-100">
+                          <span>{t('breakevenUnits')}:</span>
+                          <span>{formatProductQuantity(Math.ceil(costPrice / (Number(sellUnitPrice) || 1)), { unit: sellUnit || baseUnit } as Product)}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2678,139 +2793,6 @@ export default function DashboardProducts({
                   </div>
                 </div>
               )}
-
-              {/* Bidhaa ya Jumla / Bulk Product SECTION */}
-              <div className="space-y-4 pt-2 border-t border-slate-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    {!isDesktopAddProductLayout && (
-                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/30">
-                        <Scale className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                    <span className="font-bold text-sm text-slate-800">Retail Package Selling</span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only peer" 
-                      checked={isBulkProduct} 
-                      onChange={(e) => setIsBulkProduct(e.target.checked)}
-                    />
-                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-                  </label>
-                </div>
-                
-                {isBulkProduct && (
-                  <div className="p-4 bg-slate-50 border border-emerald-100 rounded-2xl space-y-4">
-                    {/* Mode Selector */}
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Sell Mode</label>
-                      <div className="flex bg-white rounded-lg p-1 border border-slate-200">
-                        <button 
-                          type="button"
-                          onClick={() => setSellingMode('scale')}
-                          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'scale' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
-                        >
-                          {t('scaleMode')}
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => setSellingMode('pcs')}
-                          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'pcs' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
-                        >
-                          {t('pcsMode')}
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => setSellingMode('hybrid')}
-                          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'hybrid' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
-                        >
-                          {t('hybridMode')}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Inputs */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">1 {purchaseUnit || 'Package'} contains</label>
-                        <input type="number" step="0.001" value={conversionToBaseUnit} onChange={e => {
-                          const value = e.target.value === '' ? '' : Number(e.target.value);
-                          setConversionToBaseUnit(value);
-                          setBulkPurchaseQty(value);
-                        }} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Base Unit</label>
-                        <input value={baseUnit} onChange={e => {
-                          setBaseUnit(e.target.value);
-                          setSellUnit(e.target.value);
-                        }} placeholder="kg, litre, pcs" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Quick Sale Portions</label>
-                        {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
-                           <div className="flex space-x-1 overflow-x-auto scrollbar-hide flex-wrap gap-y-1">
-                             {[
-                               { label: '1/4', value: 0.25 },
-                               { label: '1/2', value: 0.5 },
-                               { label: '3/4', value: 0.75 },
-                               { label: '1', value: 1 },
-                             ].map(f => (
-                               <button type="button" key={f.label} onClick={() => { setSellUnit(baseUnit); setSellUnitQty(f.value); }} className="px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 rounded">{f.label} {baseUnit}</button>
-                             ))}
-                           </div>
-                        ) : (
-                           <input type="text" value={sellUnit} onChange={e => setSellUnit(e.target.value)} placeholder="Per piece" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Default Portion Qty</label>
-                        {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
-                          <div className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl font-bold text-slate-700">
-                            {sellUnitQty === 0.25 ? '1/4' : sellUnitQty === 0.5 ? '1/2' : sellUnitQty === 0.75 ? '3/4' : '1'} {baseUnit}
-                          </div>
-                        ) : (
-                          <input type="number" step="1" value={sellUnitQty} onChange={e => setSellUnitQty(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Price per 1 {baseUnit || 'unit'}</label>
-                      <input type="number" value={sellUnitPrice} onChange={e => setSellUnitPrice(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold" />
-                    </div>
-
-                    {/* Auto-calculation display */}
-                    <div className="bg-emerald-600 text-white rounded-2xl p-4 space-y-2 text-xs font-mono shadow-md shadow-emerald-600/20">
-                      <div className="flex justify-between font-bold">
-                        <span>{t('totalUnitsFromPurchase')}</span>
-                        <span>1 {purchaseUnit || 'package'} = {formatProductQuantity(Number(conversionToBaseUnit) || 0, { unit: baseUnit } as Product)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Whole package sale value</span>
-                        <span>{currency}{((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Cost of purchase:</span>
-                        <span>{currency}{costPrice.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between font-bold border-t border-emerald-500 pt-2 text-emerald-100">
-                        <span>{t('grossProfit')}:</span>
-                        <span>{currency}{(((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)) - costPrice).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between font-bold text-emerald-100">
-                        <span>{t('breakevenUnits')}:</span>
-                        <span>{formatProductQuantity(Math.ceil(costPrice / (Number(sellUnitPrice) || 1)), { unit: sellUnit || baseUnit } as Product)}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
 
               {/* Commit Trigger */}
               <button
@@ -4909,10 +4891,18 @@ export default function DashboardProducts({
                         <input
                           type="checkbox"
                           checked={!!(editForm.allowScaleSelling ?? editForm.inventorySettings?.allowScaleSelling)}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, allowScaleSelling: e.target.checked }))}
+                          onChange={(e) => setEditForm(prev => ({
+                            ...prev,
+                            allowScaleSelling: e.target.checked,
+                            isBulkProduct: e.target.checked,
+                            sellingMode: prev.sellingMode || 'scale',
+                            bulkPurchaseQty: prev.bulkPurchaseQty || 100,
+                            sellUnitQty: prev.sellUnitQty || 1,
+                            sellUnitPrice: prev.sellUnitPrice || 0,
+                          }))}
                           className="accent-emerald-600"
                         />
-                        Scale Selling
+                        Fraction Sale
                       </label>
                     )}
                   </div>
@@ -5013,27 +5003,40 @@ export default function DashboardProducts({
                 </div>
               )}
 
-              {/* Edit Bidhaa ya Jumla / Bulk Product SECTION */}
+              {/* Edit Bidhaa ya Jumla / Bulk Product SECTION — driven by the single
+                  "Fraction Sale" toggle above, not a second switch. */}
               <div className="px-5 pb-5">
                 <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                  <div className="bg-slate-50 border-b border-slate-200 px-4 py-2.5 flex justify-between items-center">
-                    <div className="flex items-center space-x-2">
-                      <Scale className="w-3.5 h-3.5 text-slate-500" />
-                      <span className="font-bold text-[11px] text-slate-700 uppercase tracking-widest">Retail Package Selling</span>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={!!editForm.isBulkProduct} 
-                        onChange={(e) => setEditForm(prev => ({ ...prev, isBulkProduct: e.target.checked, sellingMode: prev.sellingMode || 'scale', bulkPurchaseQty: prev.bulkPurchaseQty || 100, sellUnitQty: prev.sellUnitQty || 1, sellUnitPrice: prev.sellUnitPrice || 0 }))}
-                        className="sr-only peer" 
-                      />
-                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
-                    </label>
+                  <div className="bg-slate-50 border-b border-slate-200 px-4 py-2.5 flex items-center space-x-2">
+                    <Scale className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="font-bold text-[11px] text-slate-700 uppercase tracking-widest">Fraction Sale Settings</span>
                   </div>
-                  
+
                   {editForm.isBulkProduct && (
                     <div className="p-4 bg-white border-t border-slate-200 space-y-4">
+                      {/* Open-ended stock — for items like a cable roll where the exact
+                          total quantity isn't known upfront, only a price per unit. */}
+                      <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+                        <input
+                          type="checkbox"
+                          checked={editForm.stockTrackingMode === 'open-ended'}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, stockTrackingMode: e.target.checked ? 'open-ended' : 'quantity' }))}
+                          className="accent-emerald-600"
+                        />
+                        Unknown total quantity (price by unit only)
+                      </label>
+                      {editForm.stockTrackingMode === 'open-ended' && (
+                        <label className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-[10px] font-bold text-amber-700 uppercase">
+                          <input
+                            type="checkbox"
+                            checked={!!editForm.markedFinished}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, markedFinished: e.target.checked, shopStockQty: e.target.checked ? 0 : prev.shopStockQty, storeStockQty: e.target.checked ? 0 : prev.storeStockQty }))}
+                            className="accent-amber-600"
+                          />
+                          Mark as Finished (out of stock)
+                        </label>
+                      )}
+
                       {/* Mode Selector */}
                       <div>
                         <label className="text-[9.5px] font-bold text-slate-500 uppercase block mb-1.5">{t('sellByWeightOrPcs')}</label>
