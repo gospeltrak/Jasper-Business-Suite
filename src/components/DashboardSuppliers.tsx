@@ -138,20 +138,21 @@ export default function DashboardSuppliers({
         </div>
 
         {/* Directory switcher slider tabs */}
-        <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shrink-0">
+        <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shrink-0 w-full sm:w-auto overflow-x-auto">
           <button
             onClick={() => {
               setActivePartnerTab('suppliers');
               setSearchQuery('');
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center space-x-1.5 ${
+            className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
               activePartnerTab === 'suppliers'
                 ? 'bg-white text-slate-800 shadow-xs'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Truck className="w-3.5 h-3.5" />
-            <span>Supplier List</span>
+            <Truck className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline">Supplier List</span>
+            <span className="sm:hidden">Suppliers</span>
           </button>
 
           <button
@@ -159,29 +160,31 @@ export default function DashboardSuppliers({
               setActivePartnerTab('performance');
               setSearchQuery('');
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center space-x-1.5 ${
+            className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
               activePartnerTab === 'performance'
                 ? 'bg-white text-amber-600 shadow-xs font-bold'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Award className="w-3.5 h-3.5 text-amber-500" />
-            <span>Supplier Performance</span>
+            <Award className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span className="hidden sm:inline">Supplier Performance</span>
+            <span className="sm:hidden">Performance</span>
           </button>
-          
+
           <button
             onClick={() => {
               setActivePartnerTab('customers');
               setSearchQuery('');
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center space-x-1.5 ${
+            className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
               activePartnerTab === 'customers'
                 ? 'bg-white text-emerald-600 shadow-xs'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <User className="w-3.5 h-3.5" />
-            <span>Customer Reports</span>
+            <User className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline">Customer Reports</span>
+            <span className="sm:hidden">Customers</span>
           </button>
         </div>
       </div>
@@ -312,9 +315,16 @@ export default function DashboardSuppliers({
               const isRepExpanded = activeReportSupplierId === sup.id;
 
               return (
-                <div key={sup.id} className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col justify-between shadow-sm hover:border-emerald-500 hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+                <div key={sup.id}
+                  className="bg-white rounded-2xl pl-5 pr-5 py-5 flex flex-col justify-between transition-all duration-300 relative overflow-hidden group"
+                  style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}
+                >
+                  <span
+                    className="absolute left-0 top-0 bottom-0 w-1"
+                    style={{ background: totalCreditDebt > 0 ? '#f59e0b' : '#22c55e' }}
+                  />
                   <div className="space-y-4 z-10 relative">
-                    
+
                     {/* Header tags */}
                     <div className="flex items-start justify-between">
                       <div className="p-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-2xl">
@@ -442,7 +452,80 @@ export default function DashboardSuppliers({
                     <p className="text-[10px] text-slate-400">Go to Purchases to restock.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <>
+                    {/* Mobile/tablet card list — the wide 8-column table below is desktop-only */}
+                    <div className="md:hidden space-y-2.5">
+                      {supPurchases.map(pc => {
+                        const outstandingAmt = pc.totalAmount - pc.amountPaid;
+                        return (
+                          <div key={pc.id} className="bg-slate-50 rounded-2xl p-3.5 relative overflow-hidden" style={{ border: '1px solid #e2e8f0' }}>
+                            <span
+                              className="absolute left-0 top-0 bottom-0 w-1"
+                              style={{ background: outstandingAmt > 0 ? '#f59e0b' : '#22c55e' }}
+                            />
+                            <div className="flex items-start justify-between gap-2 pl-1.5">
+                              <div className="min-w-0">
+                                <p className="font-mono font-bold text-slate-800 text-xs truncate">{pc.id}</p>
+                                <p className="text-[10px] text-slate-400 font-mono mt-0.5">{new Date(pc.timestamp).toLocaleString()}</p>
+                              </div>
+                              {pc.destination === 'shop' ? (
+                                <span className="inline-flex items-center gap-1 bg-sky-50 text-sky-700 border border-sky-100 text-[9px] font-extrabold uppercase py-0.5 px-2 rounded-md shrink-0">
+                                  <Store className="w-3 h-3" /><span>Shop</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-100 text-[9px] font-extrabold uppercase py-0.5 px-2 rounded-md shrink-0">
+                                  <Archive className="w-3 h-3" /><span>Store</span>
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="pl-1.5 mt-2.5 space-y-1">
+                              {pc.items.map((it, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-[10.5px] font-mono">
+                                  <span className="text-slate-600 truncate max-w-[70%]">{it.productName}</span>
+                                  <span className="text-slate-900 font-black shrink-0">x{it.qty}</span>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="pl-1.5 mt-3 pt-3 border-t border-slate-200 grid grid-cols-3 gap-2 text-center font-mono">
+                              <div>
+                                <span className="block text-[8.5px] text-slate-400 uppercase">Invoiced</span>
+                                <span className="block text-[11px] font-bold text-slate-800">{currency}{Math.round(pc.totalAmount).toLocaleString()}</span>
+                              </div>
+                              <div>
+                                <span className="block text-[8.5px] text-slate-400 uppercase">Paid</span>
+                                <span className="block text-[11px] font-bold text-emerald-600">{currency}{Math.round(pc.amountPaid).toLocaleString()}</span>
+                              </div>
+                              <div>
+                                <span className="block text-[8.5px] text-slate-400 uppercase">Due</span>
+                                <span className={`block text-[11px] font-black ${outstandingAmt > 0 ? 'text-amber-600' : 'text-slate-400 font-normal'}`}>
+                                  {outstandingAmt > 0 ? `${currency}${Math.round(outstandingAmt).toLocaleString()}` : 'Paid'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="pl-1.5 mt-2.5">
+                              {pc.deliveryStatus === 'Full order delivered' ? (
+                                <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9.5px] py-0.5 px-2 rounded-md font-bold">
+                                  <CheckCircle className="w-3.5 h-3.5" /><span>Full Order Delivered</span>
+                                </span>
+                              ) : pc.deliveryStatus === 'Partial' ? (
+                                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-100 text-[9.5px] py-0.5 px-2 rounded-md font-bold">
+                                  <AlertCircle className="w-3.5 h-3.5" /><span>Partial Delivered</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 text-[9.5px] py-0.5 px-2 rounded-md font-bold">
+                                  <AlertCircle className="w-3.5 h-3.5" /><span>Pending Delivery</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                  <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left" id="supplier-audits-subtable">
                       <thead>
                         <tr className="bg-slate-50 text-[9px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-200">
@@ -543,6 +626,7 @@ export default function DashboardSuppliers({
                       </tbody>
                     </table>
                   </div>
+                  </>
                 )}
               </div>
             );
@@ -679,7 +763,114 @@ export default function DashboardSuppliers({
               </button>
             </div>
 
-            <div className="overflow-x-auto font-sans">
+            {/* Mobile/tablet card list — the wide 9-column table below is desktop-only */}
+            <div className="md:hidden space-y-2.5 font-sans">
+              {suppliers.map(sup => {
+                const seedVal = sup.name.charCodeAt(0) + sup.name.charCodeAt(sup.name.length - 1) || 12;
+                const supPurchases = purchases.filter(p => p.supplierId === sup.id);
+                const totalPurch = supPurchases.reduce((sum, p) => sum + p.totalAmount, 0);
+                const totalPaid = supPurchases.reduce((sum, p) => sum + p.amountPaid, 0);
+                const totalDue = Math.max(0, totalPurch - totalPaid);
+
+                const pendingCount = supPurchases.filter(p => p.deliveryStatus === 'Pending').length;
+                const partialCount = supPurchases.filter(p => p.deliveryStatus === 'Partial').length;
+
+                const baseDeliveryHours = (seedVal % 36) + 12;
+                const avgDeliveryHours = supPurchases.length > 0 ? (baseDeliveryHours + (supPurchases.length % 5) * 3) : baseDeliveryHours;
+                const avgDays = parseFloat((avgDeliveryHours / 24).toFixed(1));
+
+                const baseOtd = 98 - (seedVal % 8);
+                const otdRate = supPurchases.length > 0 ? Math.max(60, baseOtd - (pendingCount * 12) - (partialCount * 5)) : baseOtd;
+
+                const baseReturnPercentage = (seedVal % 5) / 2 + 0.4;
+                const anomalyAdd = partialCount * 0.8;
+                const returnRate = parseFloat(Math.min(10, baseReturnPercentage + anomalyAdd).toFixed(1));
+
+                const standing = otdRate < 80
+                  ? { label: 'Under Review', color: '#ef4444' }
+                  : otdRate < 93
+                    ? { label: 'Reliable', color: '#0284c7' }
+                    : { label: 'Elite Partner', color: '#22c55e' };
+
+                return (
+                  <div key={sup.id} className="bg-white rounded-2xl p-4 relative overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+                    <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: standing.color }} />
+                    <div className="flex items-start justify-between gap-2 pl-1.5">
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-800 text-sm truncate">{sup.name}</p>
+                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">Rep: {sup.contactPerson} · {supPurchases.length} orders</p>
+                      </div>
+                      <span
+                        className="text-[9.5px] py-0.5 px-2 rounded-md font-bold shrink-0"
+                        style={{ background: `${standing.color}15`, color: standing.color }}
+                      >
+                        {standing.label}
+                      </span>
+                    </div>
+
+                    <div className="pl-1.5 mt-3 grid grid-cols-4 gap-2 text-center font-mono">
+                      <div>
+                        <span className="block text-[8.5px] text-slate-400 uppercase">Purchased</span>
+                        <span className="block text-[10.5px] font-bold text-slate-800">{currency}{Math.round(totalPurch).toLocaleString()}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[8.5px] text-slate-400 uppercase">Delivery</span>
+                        <span className="block text-[10.5px] font-bold text-slate-700">{avgDays}d</span>
+                      </div>
+                      <div>
+                        <span className="block text-[8.5px] text-slate-400 uppercase">On-Time</span>
+                        <span className="block text-[10.5px] font-black text-emerald-600">{otdRate}%</span>
+                      </div>
+                      <div>
+                        <span className="block text-[8.5px] text-slate-400 uppercase">Return</span>
+                        <span className="block text-[10.5px] font-bold text-red-600">{returnRate}%</span>
+                      </div>
+                    </div>
+
+                    <div className="pl-1.5 mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                      <div className="font-mono text-[10.5px]">
+                        <span className="text-slate-400 uppercase text-[8.5px] block">Credit Balance</span>
+                        {totalDue > 0 ? (
+                          <span className="font-black text-amber-600">{currency}{Math.round(totalDue).toLocaleString()}</span>
+                        ) : (
+                          <span className="font-medium text-slate-400">None</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => {
+                          const csvReport = `Supplier Performance Report
+Export Date,${new Date().toLocaleDateString()}
+Vendor,${sup.name}
+Representative,${sup.contactPerson}
+Phone,${sup.phone}
+Email,${sup.email}
+Total Orders Recorded,${supPurchases.length}
+Total Purchases Value,${currency}${Math.round(totalPurch)}
+Average Delivery Duration,${avgDays} Days
+On-Time Shipment Rate,${otdRate}%
+Fulfillment Anomaly/Return Rate,${returnRate}%
+Outstanding Payments Due,${currency}${Math.round(totalDue)}
+Corporate Performance Rating,${otdRate >= 93 ? 'Five Stars - Elite Category' : otdRate >= 80 ? 'Four Stars - Standard Approved' : 'Under Investigation'}
+`;
+                          const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvReport);
+                          const link = document.createElement("a");
+                          link.setAttribute("href", encodedUri);
+                          link.setAttribute("download", `B2B_Perf_${sup.name.replace(/\s+/g, '_')}.csv`);
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        }}
+                        className="text-[10px] bg-slate-900 hover:bg-slate-800 text-white font-extrabold uppercase px-2.5 py-1.5 rounded-lg cursor-pointer"
+                      >
+                        Get A4 Audit
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto font-sans">
               <table className="w-full text-left" id="supplier-performance-analytical-board">
                 <thead>
                   <tr className="bg-slate-50 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
@@ -801,9 +992,13 @@ Corporate Performance Rating,${otdRate >= 93 ? 'Five Stars - Elite Category' : o
               const totalVal = cust.totalSpent;
               
               return (
-                <div key={cust.phone + cust.name} className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col justify-between shadow-sm hover:border-emerald-500 hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+                <div key={cust.phone + cust.name}
+                  className="bg-white rounded-2xl pl-5 pr-5 py-5 flex flex-col justify-between transition-all duration-300 relative overflow-hidden group"
+                  style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}
+                >
+                  <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: '#6366f1' }} />
                   <div className="space-y-4.5 z-10 relative">
-                    
+
                     {/* Header tags */}
                     <div className="flex items-start justify-between">
                       <div className="p-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-2xl">

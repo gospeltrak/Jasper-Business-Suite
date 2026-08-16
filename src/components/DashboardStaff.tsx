@@ -1049,9 +1049,18 @@ export default function DashboardStaff({
             ) : (
               staffList.map(staff => {
                 const summary = staffSummaries.get(staff.id) || buildStaffSummary(staff);
+                const showPayStaff = payrollEnabled && canPayPayroll;
                 return (
-                  <article key={staff.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex items-start gap-3">
+                  <article
+                    key={staff.id}
+                    className="rounded-2xl bg-white p-4 relative overflow-hidden"
+                    style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}
+                  >
+                    <span
+                      className="absolute left-0 top-0 bottom-0 w-1"
+                      style={{ background: summary.isOnline ? '#22c55e' : '#cbd5e1' }}
+                    />
+                    <div className="flex items-start gap-3 pl-1.5">
                       {renderAvatar(staff, 'w-14 h-14')}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
@@ -1062,12 +1071,22 @@ export default function DashboardStaff({
                           {renderStatus(summary.isOnline)}
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          <span className="rounded-full bg-white border border-slate-200 px-2.5 py-1 text-[10px] font-black uppercase text-slate-700">{staff.role}</span>
-                          <span className="rounded-full bg-white border border-slate-200 px-2.5 py-1 text-[10px] font-black text-slate-500">{formatDateTime(summary.lastLogin)}</span>
+                          <span className="rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1 text-[10px] font-black uppercase text-slate-700">{staff.role}</span>
+                          <span className="rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1 text-[10px] font-black text-slate-500">{formatDateTime(summary.lastLogin)}</span>
                         </div>
                       </div>
                     </div>
-                    <div className="mt-4 grid grid-cols-3 gap-2">
+                    <div className={`mt-4 pl-1.5 grid gap-2 ${showPayStaff ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                      {showPayStaff && (
+                        <button
+                          type="button"
+                          onClick={() => openSalaryPayment(staff)}
+                          className="min-h-[46px] rounded-2xl bg-emerald-50 text-emerald-700 text-xs font-black inline-flex items-center justify-center gap-2"
+                        >
+                          <Wallet className="w-4 h-4" />
+                          Pay Staff
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => openStaffProfile(staff)}
@@ -1099,7 +1118,9 @@ export default function DashboardStaff({
                       </span>
                       )}
                     </div>
-                    {renderCredentialEditor(staff, true)}
+                    <div className="pl-1.5">
+                      {renderCredentialEditor(staff, true)}
+                    </div>
                   </article>
                 );
               })

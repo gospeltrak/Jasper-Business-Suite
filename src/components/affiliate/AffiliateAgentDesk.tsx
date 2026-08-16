@@ -1230,15 +1230,15 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           {/* ══ RECONCILIATION ══ */}
           {activeTab === 'reconciliation' && (
             <div className="space-y-6">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="text-lg font-black text-white">Monthly Reconciliation</h2>
                   <p className="text-xs text-slate-400 mt-0.5">20% split: 5% manager + 15% sub-affiliate gross · WHT shown for all affiliates</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <input type="month" value={reconMonth} onChange={e => setReconMonth(e.target.value)}
                     className="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs outline-none focus:border-amber-500" />
-                  <button className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer border-none">
+                  <button className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer border-none shrink-0">
                     <Download className="w-3.5 h-3.5" /> Export
                   </button>
                 </div>
