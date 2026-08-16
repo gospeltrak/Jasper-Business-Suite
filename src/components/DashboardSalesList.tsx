@@ -49,7 +49,7 @@ import {
   ScanLine,
   RefreshCw
 } from 'lucide-react';
-import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
+import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
 import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
 import { normalizeSubscriptionPlanId } from '../utils/subscription';
@@ -174,6 +174,15 @@ interface DashboardSalesListProps {
   onDeleteSale?: (sale: Sale) => Promise<boolean> | boolean;
   rolePermissions?: any;
   products?: Product[];
+  /**
+   * Full tenant-wide product catalog, unscoped by the dashboard's active
+   * branch selection. Used only by the cross-branch document wizard, which
+   * must be able to resolve product names/details for whichever branch the
+   * user picks there, not just the branch currently active on the dashboard.
+   */
+  allTenantProducts?: Product[];
+  /** The branch the user is currently operating the dashboard from. */
+  activeBranchId?: string | null;
   systemSettings?: SystemSettings;
   onPreloadCartForPOS?: (
     items: SaleItem[],
@@ -198,6 +207,8 @@ export default function DashboardSalesList({
   onDeleteSale,
   rolePermissions,
   products = [],
+  allTenantProducts,
+  activeBranchId,
   systemSettings,
   onPreloadCartForPOS,
   currentUser,
@@ -592,9 +603,15 @@ export default function DashboardSalesList({
         void loadCrossBranchDocumentSources()
           .then(sources => {
             setCrossBranchSources(sources);
-            const defaultBranch = sources.branches.find(branch => branch.isDefault) || sources.branches[0];
-            setNewDocIssuingBranchId(current => current || defaultBranch?.id || '');
-            setDocWizardSourceBranchId(current => current || defaultBranch?.id || '');
+            // Default to the branch the user is actually operating from, not
+            // the tenant's designated default branch — otherwise a staff
+            // member working from a secondary branch opens the wizard
+            // pre-pointed at a different branch's products every time.
+            const preferredBranch = sources.branches.find(branch => branch.id === activeBranchId)
+              || sources.branches.find(branch => branch.isDefault)
+              || sources.branches[0];
+            setNewDocIssuingBranchId(current => current || preferredBranch?.id || '');
+            setDocWizardSourceBranchId(current => current || preferredBranch?.id || '');
           })
           .catch(error => {
             setCrossBranchSources(null);
@@ -603,7 +620,7 @@ export default function DashboardSalesList({
           .finally(() => setCrossBranchSourcesLoading(false));
       }
     }
-  }, [showNewDocModal, canUseCrossBranchDocuments, documentPaymentMethods, getDocumentPaymentAccount]); // reset only when opening
+  }, [showNewDocModal, canUseCrossBranchDocuments, documentPaymentMethods, getDocumentPaymentAccount, activeBranchId]); // reset only when opening
 
   useEffect(() => {
     if (!documentPaymentMethods.includes(newDocPaymentMethod)) {
@@ -637,7 +654,7 @@ export default function DashboardSalesList({
       .map(product => product.productId)
   ), [crossBranchSources, docWizardSourceBranchId]);
   const documentPickerProducts = canUseCrossBranchDocuments && crossBranchSources
-    ? products.filter(product => branchSourceProductIds.has(product.id))
+    ? (allTenantProducts && allTenantProducts.length ? allTenantProducts : products).filter(product => branchSourceProductIds.has(product.id))
     : products;
   const newDocSubtotal = React.useMemo(
     () => newDocItems.reduce((sum, item) => sum + (toNumber(item.qty) * toNumber(item.price)), 0),
@@ -930,17 +947,17 @@ export default function DashboardSalesList({
     }
   };
 
-  const printPdfDocument = async (doc: SalesDocument) => {
+  const downloadPdfDocument = async (doc: SalesDocument) => {
     try {
-      setPdfShareStatus('Generating printable PDF...');
-      await printPdfFromElement({
+      setPdfShareStatus('📄 Generating PDF...');
+      await downloadPdfFromElement({
         elementId: 'sales-document-a4-pdf-template',
         fileName: `${normalizeDocType(doc.type).replace(/\s+/g, '-')}-${doc.documentNumber}.pdf`,
         format: 'a4'
       });
-      setPdfShareStatus('PDF opened for printing.');
+      setPdfShareStatus('✅ Document downloaded.');
     } catch (err: any) {
-      setPdfShareStatus(err?.message || 'Could not prepare PDF.');
+      setPdfShareStatus('Download failed: ' + (err?.message || 'Please try again.'));
     } finally {
       setTimeout(() => setPdfShareStatus(null), 4000);
     }
@@ -964,17 +981,33 @@ export default function DashboardSalesList({
     }
   };
 
-  const printSalePdf = async (sale: Sale, format: 'a4' | 'receipt' = 'a4') => {
+  const downloadInvoicePdf = async (sale: Sale) => {
     try {
-      setPdfShareStatus('Generating printable PDF...');
-      await printPdfFromElement({
-        elementId: format === 'a4' ? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template',
-        fileName: format === 'a4' ? buildInvoiceFileName(sale) : buildReceiptFileName(sale),
-        format
+      setPdfShareStatus('📄 Generating PDF...');
+      await downloadPdfFromElement({
+        elementId: 'sales-invoice-a4-pdf-template',
+        fileName: buildInvoiceFileName(sale),
+        format: 'a4'
       });
-      setPdfShareStatus('PDF opened for printing.');
+      setPdfShareStatus('✅ Invoice downloaded.');
     } catch (err: any) {
-      setPdfShareStatus(err?.message || 'Could not prepare PDF.');
+      setPdfShareStatus('Download failed: ' + (err?.message || 'Please try again.'));
+    } finally {
+      setTimeout(() => setPdfShareStatus(null), 4000);
+    }
+  };
+
+  const downloadReceiptPdf = async (sale: Sale) => {
+    try {
+      setPdfShareStatus('📄 Generating PDF...');
+      await downloadPdfFromElement({
+        elementId: 'sales-receipt-pdf-template',
+        fileName: buildReceiptFileName(sale),
+        format: 'receipt'
+      });
+      setPdfShareStatus('✅ Receipt downloaded.');
+    } catch (err: any) {
+      setPdfShareStatus('Download failed: ' + (err?.message || 'Please try again.'));
     } finally {
       setTimeout(() => setPdfShareStatus(null), 4000);
     }
@@ -1026,6 +1059,21 @@ export default function DashboardSalesList({
       .mt-1 { margin-top: 2px; } .mt-1\\.5 { margin-top: 3px; } .mt-2 { margin-top: 4px; } .mb-2 { margin-bottom: 4px; }
       .text-sm { font-size: 12px; } .text-xs { font-size: 11px; }
       .w-full { width: 100%; } .max-w-\\[70\\%\\] { max-width: 70%; }
+      /* Store logo — without an explicit cap here the print stylesheet falls
+         back to the page-width-only "img { max-width: 100% }" rule above, so
+         the logo prints far larger than it appears in every other receipt. */
+      .max-h-12 { max-height: 48px; } .max-w-\\[140px\\] { max-width: 140px; }
+      .object-contain { object-fit: contain; }
+      /* Arbitrary Tailwind font sizes used throughout the receipt — without
+         these every line silently collapses to the 11px body default,
+         flattening the label/total/footer size hierarchy seen in Preview. */
+      .text-\\[8px\\] { font-size: 8px; } .text-\\[9px\\] { font-size: 9px; }
+      .text-\\[9\\.5px\\] { font-size: 9.5px; } .text-\\[10px\\] { font-size: 10px; }
+      .text-\\[10\\.5px\\] { font-size: 10.5px; } .text-\\[11px\\] { font-size: 11px; }
+      .space-y-0\\.5 > * + * { margin-top: 1px; } .space-y-1\\.5 > * + * { margin-top: 3px; }
+      .pt-1\\.5 { padding-top: 3px; } .pt-2 { padding-top: 4px; } .ml-1 { margin-left: 2px; }
+      .tracking-wider { letter-spacing: 0.05em; } .tracking-tight { letter-spacing: -0.025em; }
+      .leading-tight { line-height: 1.25; } .shrink-0 { flex-shrink: 0; }
     `;
 
     // Create hidden iframe — works on Android Chrome without popup blocker
@@ -1047,28 +1095,6 @@ export default function DashboardSalesList({
       } catch {}
       setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 3000);
     }, 600);
-  };
-
-  const downloadSalePdf = async (sale: Sale) => {
-    try {
-      setPdfShareStatus('📄 Generating PDF...');
-      // Use the same DOM-screenshot engine as Print/WhatsApp (both already
-      // read #sales-invoice-a4-pdf-template) instead of a separate,
-      // hand-coded jsPDF invoice that had drifted out of sync with the real
-      // template — different layout, and its own stale footer text. This
-      // guarantees Download always matches what Preview shows.
-      await downloadPdfFromElement({
-        elementId: 'sales-invoice-a4-pdf-template',
-        fileName: buildInvoiceFileName(sale),
-        format: 'a4'
-      });
-      setPdfShareStatus('✅ Invoice downloaded.');
-    } catch (err: any) {
-      console.error('[Download PDF]', err);
-      setPdfShareStatus('Download failed: ' + (err?.message || 'Please try again.'));
-    } finally {
-      setTimeout(() => setPdfShareStatus(null), 5000);
-    }
   };
 
   const resetNewDocumentForm = () => {
@@ -1162,9 +1188,20 @@ export default function DashboardSalesList({
     }
   };
 
+  // A document whose items were sourced from more than one branch cannot be
+  // recorded as a single sale from here — it must go through the dedicated
+  // cross-branch conversion flow instead.
+  const isMixedBranchDocument = (doc: SalesDocument) => new Set(
+    (doc.items || []).map(item => item.sourceBranchId).filter(Boolean)
+  ).size > 1;
+
   const sendDocumentToSales = async (doc: SalesDocument) => {
     if (doc.status === 'converted') {
       alert(`This ${getDocumentLabel(doc.type)} has already been recorded as a sale.`);
+      return;
+    }
+    if (isMixedBranchDocument(doc)) {
+      alert('This document mixes products from two branches and cannot be recorded from here.');
       return;
     }
 
@@ -1820,9 +1857,15 @@ export default function DashboardSalesList({
                                     <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" /> POS Receipt
                                   </button>
                                   <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(true); setWhatsappPhone((sale.customerPhone||'').replace(/[^0-9]/g,'')); setActiveMenuId(null); setMenuPos(null); }}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-50">
-                                    <MessageSquare className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Send via WhatsApp
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                                    <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" /> A4 Invoice
                                   </button>
+                                  {onSendToDeliveryNote && (
+                                    <button onClick={() => { onSendToDeliveryNote(sale); setActiveMenuId(null); setMenuPos(null); }}
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-indigo-600 hover:bg-indigo-50">
+                                      <DeliveryMotorcycleIcon className="w-3.5 h-3.5 text-indigo-500 shrink-0" size={14} /> Send to Delivery
+                                    </button>
+                                  )}
                                 </div>
 
                                 {(!rolePermissions || rolePermissions.deleteSale?.write !== false) && (
@@ -3180,14 +3223,23 @@ export default function DashboardSalesList({
                             <span>View</span>
                           </button>
                           {doc.status === 'pending' ? (
-                            <button
-                              type="button"
-                              onClick={() => sendDocumentToSales(doc)}
-                              className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 bg-emerald-600 text-white border-none"
-                            >
-                              <ArrowRight className="w-3 h-3" />
-                              <span>Record</span>
-                            </button>
+                            isMixedBranchDocument(doc) ? (
+                              <span
+                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-400 flex items-center gap-1"
+                                title="Mixes products from two branches — cannot be recorded as a sale from here."
+                              >
+                                <span>Multi-branch</span>
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => sendDocumentToSales(doc)}
+                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 bg-emerald-600 text-white border-none"
+                              >
+                                <ArrowRight className="w-3 h-3" />
+                                <span>Record</span>
+                              </button>
+                            )
                           ) : (
                             <span className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-400 flex items-center gap-1">
                               <Check className="w-3 h-3 text-emerald-500" />
@@ -3244,13 +3296,6 @@ export default function DashboardSalesList({
 
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
-                    onClick={() => downloadSalePdf(selectedSale)}
-                    className="hidden sm:flex h-8 px-3 bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold rounded-lg cursor-pointer transition-all items-center gap-1.5"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download</span>
-                  </button>
-                  <button
                     onClick={() => shareSalePdf(selectedSale, selectedSale.customerPhone, 'a4')}
                     className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer text-white"
                     title="Send via WhatsApp"
@@ -3258,11 +3303,11 @@ export default function DashboardSalesList({
                     <MessageSquare className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => printSalePdf(selectedSale, 'a4')}
+                    onClick={() => downloadInvoicePdf(selectedSale)}
                     className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer text-white"
-                    title="Print"
+                    title="Download"
                   >
-                    <Printer className="w-4 h-4" />
+                    <Download className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => { setSelectedSale(null); setViewA4InvoiceOpen(false); setDocZoom(1.0); }}
@@ -3273,22 +3318,18 @@ export default function DashboardSalesList({
                 </div>
               </div>
 
-              {/* ── BOTTOM ACTION BAR — minimal, mobile-friendly ── */}
-              <div className="shrink-0 bg-[#1e1e1e] border-t border-[#2a2a2a] px-4 py-3 flex items-center justify-center gap-2 print:hidden">
-                <button onClick={() => downloadSalePdf(selectedSale)}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-colors">
-                  <Download className="w-3.5 h-3.5" /><span>Download PDF</span>
-                </button>
+              {/* ── BOTTOM ACTION BAR — mobile only; desktop/tablet use the compact toolbar above ── */}
+              <div className="sm:hidden shrink-0 bg-[#1e1e1e] border-t border-[#2a2a2a] px-3 py-2 flex items-center justify-center gap-1.5 print:hidden">
                 <button onClick={() => shareSalePdf(selectedSale, selectedSale.customerPhone, 'a4')}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors">
-                  <MessageSquare className="w-3.5 h-3.5" /><span>Send PDF</span>
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors">
+                  <MessageSquare className="w-3.5 h-3.5" /><span>Send</span>
                 </button>
-                <button onClick={() => printSalePdf(selectedSale, 'a4')}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
-                  <Printer className="w-3.5 h-3.5" /><span>Print</span>
+                <button onClick={() => downloadInvoicePdf(selectedSale)}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
+                  <Download className="w-3.5 h-3.5" /><span>Download</span>
                 </button>
                 <button onClick={() => { setSelectedSale(null); setViewA4InvoiceOpen(false); setDocZoom(1.0); }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-red-500/60 text-white text-[11px] font-bold transition-colors">
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white/10 hover:bg-red-500/60 text-white text-[11px] font-bold transition-colors">
                   <X className="w-3.5 h-3.5" /><span>Close</span>
                 </button>
               </div>
@@ -3630,67 +3671,61 @@ export default function DashboardSalesList({
               </div>
 
               {/* Print action bottom drawer */}
-              <div className="detail-footer p-4 bg-slate-50 border-t border-slate-200 space-y-3">
-                {/* WhatsApp Quick Link */}
-                <div className="flex gap-2 items-center">
-                  <div className="relative flex-grow">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-[10px]">+</span>
-                    <input
-                      type="text"
-                      placeholder="WhatsApp phone (e.g. 234803...)"
-                      value={whatsappPhone}
-                      onChange={(e) => setWhatsappPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                      className="w-full bg-white border border-slate-300 rounded-xl text-[11px] pl-5 pr-2 py-1.5 font-mono text-slate-800 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
+              <div className="detail-footer p-4 bg-slate-50 border-t border-slate-200 space-y-2">
+                {/* WhatsApp phone number */}
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-[10px]">+</span>
+                  <input
+                    type="text"
+                    placeholder="WhatsApp phone (e.g. 234803...)"
+                    value={whatsappPhone}
+                    onChange={(e) => setWhatsappPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                    className="w-full bg-white border border-slate-300 rounded-xl text-[11px] pl-5 pr-2 py-1.5 font-mono text-slate-800 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5">
                   <button
                     type="button"
                     onClick={() => shareSalePdf(selectedSale, whatsappPhone, 'receipt')}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 hover:text-white text-white rounded-xl text-xs font-bold whitespace-nowrap decoration-transparent flex items-center justify-center space-x-1"
+                    className="min-w-0 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold font-sans text-[9px] sm:text-[10px] uppercase cursor-pointer flex items-center justify-center gap-1 transition-colors"
                   >
-                    <MessageSquare className="w-3.5 h-3.5 text-white shrink-0" />
-                    <span>Send PDF</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => setSelectedSale(null)}
-                    className="min-w-0 py-2.5 border border-slate-300 hover:bg-slate-100 rounded-xl font-bold font-sans text-[10px] sm:text-xs uppercase cursor-pointer text-slate-600 transition-colors"
-                    disabled={isReceiptPrinting}
-                  >
-                    Close
+                    <MessageSquare className="w-3 h-3" />
+                    <span>Send</span>
                   </button>
 
                   <button
-                    type="button"
-                    onClick={() => {
-                      const sale = selectedSale;
-                      setSelectedSale(null);
-                      openDeleteSaleConfirmation(sale);
-                    }}
-                    disabled={isReceiptPrinting || (rolePermissions && rolePermissions.deleteSale?.write === false)}
-                    className="min-w-0 py-2.5 border border-rose-200 bg-rose-50 hover:bg-rose-100 rounded-xl font-bold font-sans text-[10px] sm:text-xs uppercase cursor-pointer text-rose-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => downloadReceiptPdf(selectedSale)}
+                    className="min-w-0 h-9 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded-lg font-bold font-sans text-[9px] sm:text-[10px] uppercase cursor-pointer text-indigo-700 transition-colors flex items-center justify-center gap-1"
                   >
-                    Cancel Receipt
+                    <Download className="w-3 h-3" />
+                    <span>Download</span>
                   </button>
-                  
+
                   <button
                     onClick={simulatePrint}
-                    className="min-w-0 py-2.5 bg-slate-900 hover:bg-slate-800 text-white hover:text-emerald-450 border-none rounded-xl font-bold font-sans text-[10px] sm:text-xs uppercase cursor-pointer flex items-center justify-center space-x-1.5 transition-colors"
+                    className="min-w-0 h-9 bg-slate-900 hover:bg-slate-800 text-white hover:text-emerald-450 border-none rounded-lg font-bold font-sans text-[9px] sm:text-[10px] uppercase cursor-pointer flex items-center justify-center gap-1 transition-colors"
                     disabled={isReceiptPrinting}
                   >
                     {isReceiptPrinting ? (
                       <>
-                        <Clock className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-                        <span className="text-emerald-400">PRINT...</span>
+                        <Clock className="w-3 h-3 animate-spin text-emerald-400" />
+                        <span className="text-emerald-400">Wait…</span>
                       </>
                     ) : (
                       <>
-                        <Printer className="w-3.5 h-3.5 text-emerald-455" />
+                        <Printer className="w-3 h-3 text-emerald-455" />
                         <span>Print</span>
                       </>
                     )}
+                  </button>
+
+                  <button
+                    onClick={() => setSelectedSale(null)}
+                    className="min-w-0 h-9 border border-slate-300 hover:bg-slate-100 rounded-lg font-bold font-sans text-[9px] sm:text-[10px] uppercase cursor-pointer text-slate-600 transition-colors"
+                    disabled={isReceiptPrinting}
+                  >
+                    Close
                   </button>
                 </div>
               </div>
@@ -5086,7 +5121,7 @@ export default function DashboardSalesList({
               {/* Right: actions */}
               <div className="flex items-center gap-1.5 shrink-0">
                 {/* Record as Sale */}
-                {viewingDocument.status === 'pending' && (
+                {viewingDocument.status === 'pending' && !isMixedBranchDocument(viewingDocument) && (
                   <button
                     type="button"
                     onClick={() => sendDocumentToSales(viewingDocument)}
@@ -5114,14 +5149,14 @@ export default function DashboardSalesList({
                   <MessageSquare className="w-4 h-4" />
                 </button>
 
-                {/* Print */}
+                {/* Download */}
                 <button
                   type="button"
-                  onClick={() => printPdfDocument(viewingDocument)}
+                  onClick={() => downloadPdfDocument(viewingDocument)}
                   className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer text-white"
-                  title="Print Document"
+                  title="Download"
                 >
-                  <Printer className="w-4 h-4" />
+                  <Download className="w-4 h-4" />
                 </button>
 
                 {/* Close */}
@@ -5154,7 +5189,7 @@ export default function DashboardSalesList({
                   <ZoomIn className="w-3.5 h-3.5" />
                 </button>
               </div>
-              {viewingDocument.status === 'pending' && (
+              {viewingDocument.status === 'pending' && !isMixedBranchDocument(viewingDocument) && (
                 <button
                   type="button"
                   onClick={() => sendDocumentToSales(viewingDocument)}
@@ -5399,24 +5434,24 @@ export default function DashboardSalesList({
               </div>
             </div>
 
-            {/* ── BOTTOM ACTION BAR — minimal ── */}
-            <div className="shrink-0 bg-[#1e1e1e] border-t border-[#2a2a2a] px-4 py-3 flex items-center justify-center gap-2 print:hidden">
-              {viewingDocument.status === 'pending' && (
+            {/* ── BOTTOM ACTION BAR — mobile only; desktop/tablet use the compact toolbar above ── */}
+            <div className="sm:hidden shrink-0 bg-[#1e1e1e] border-t border-[#2a2a2a] px-3 py-2 flex items-center justify-center gap-1.5 print:hidden">
+              {viewingDocument.status === 'pending' && !isMixedBranchDocument(viewingDocument) && (
                 <button type="button" onClick={() => { sendDocumentToSales(viewingDocument); setViewingDocument(null); }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors">
-                  <ArrowRight className="w-3.5 h-3.5" /><span>Record as Sale</span>
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors">
+                  <ArrowRight className="w-3.5 h-3.5" /><span>Record</span>
                 </button>
               )}
               <button type="button" onClick={() => { viewingDocument.customerPhone?.trim() ? sharePdfDocument(viewingDocument, viewingDocument.customerPhone) : setDocumentSendOpen(prev => !prev); }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
-                <MessageSquare className="w-3.5 h-3.5" /><span>Send PDF</span>
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
+                <MessageSquare className="w-3.5 h-3.5" /><span>Send</span>
               </button>
-              <button type="button" onClick={() => printPdfDocument(viewingDocument)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
-                <Printer className="w-3.5 h-3.5" /><span>Print</span>
+              <button type="button" onClick={() => downloadPdfDocument(viewingDocument)}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
+                <Download className="w-3.5 h-3.5" /><span>Download</span>
               </button>
               <button type="button" onClick={() => { setViewingDocument(null); setDocZoom(1.0); }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-red-500/60 text-white text-[11px] font-bold transition-colors">
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white/10 hover:bg-red-500/60 text-white text-[11px] font-bold transition-colors">
                 <X className="w-3.5 h-3.5" /><span>Close</span>
               </button>
             </div>

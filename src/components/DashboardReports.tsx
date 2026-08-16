@@ -5905,7 +5905,7 @@ export default function DashboardReports({
         {/* Dynamic content wrapper based on active reportTab */}
         <div className="space-y-4">
           <h2 className="text-sm font-extrabold uppercase font-mono tracking-wider border-b pb-1.5 border-slate-200">
-            Active Statement Segment: {reportTab.replace('-', ' ').toUpperCase()}
+            {(REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report').toUpperCase()}
           </h2>
 
           {/* TAB: P&L SUMMARY */}

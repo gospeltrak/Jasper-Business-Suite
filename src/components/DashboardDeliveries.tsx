@@ -27,7 +27,7 @@ import {
   MoreVertical,
   Eye
 } from 'lucide-react';
-import { printPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
+import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
 import { formatSaleItemQuantity } from '../utils/unitFormatter';
 
@@ -556,6 +556,46 @@ export default function DashboardDeliveries({
       setDeliveryPdfStatus('PDF opened for printing.');
     } catch (err: any) {
       setDeliveryPdfStatus(err?.message || 'Could not prepare delivery note PDF.');
+    } finally {
+      setTimeout(() => setDeliveryPdfStatus(null), 4000);
+    }
+  };
+
+  const handleDownloadNote = async () => {
+    try {
+      setDeliveryPdfStatus('Generating delivery note PDF...');
+      await downloadPdfFromElement({
+        elementId: 'delivery-note-print-area',
+        fileName: `delivery-note-${notePINo || Date.now()}.pdf`,
+        format: 'a4'
+      });
+      setDeliveryPdfStatus('✅ Delivery note downloaded.');
+    } catch (err: any) {
+      setDeliveryPdfStatus('Download failed: ' + (err?.message || 'Please try again.'));
+    } finally {
+      setTimeout(() => setDeliveryPdfStatus(null), 4000);
+    }
+  };
+
+  const handleDownloadNoteForDelivery = async (del: Delivery) => {
+    const dnNo = `DN-${new Date(del.timestamp || Date.now()).getFullYear()}-${del.id.toUpperCase().replace('DLV-', '').replace('DLV_', '').slice(0, 6)}`;
+    try {
+      setDeliveryPdfStatus('Preparing delivery note PDF...');
+      // See openWhatsAppLink above — the printable note only exists in the
+      // DOM while the Notes tab is active, so this must load the delivery
+      // into the composer and switch tabs synchronously before capture.
+      flushSync(() => {
+        handleLoadFromOrder(del);
+        setActiveSubTab('notes');
+      });
+      await downloadPdfFromElement({
+        elementId: 'delivery-note-print-area',
+        fileName: `delivery-note-${dnNo}.pdf`,
+        format: 'a4'
+      });
+      setDeliveryPdfStatus('✅ Delivery note downloaded.');
+    } catch (err: any) {
+      setDeliveryPdfStatus('Download failed: ' + (err?.message || 'Open the delivery note preview first so the PDF can be created.'));
     } finally {
       setTimeout(() => setDeliveryPdfStatus(null), 4000);
     }
@@ -2362,6 +2402,15 @@ Vehicle Plate Number: ${plateNumber}
                   </button>
                   <button
                     type="button"
+                    onClick={handleDownloadNote}
+                    className="bg-white/10 hover:bg-white/20 text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
+                    title="Download PDF"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={handlePrintNote}
                     className="bg-[#102d68] hover:bg-[#1b438c] text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
                     title="Print the current document without saving"
@@ -3222,21 +3271,28 @@ Vehicle Plate Number: ${plateNumber}
               <span className="text-[10px] bg-slate-200 text-slate-600 px-2.5 py-1 rounded-lg font-bold font-mono">
                 {whatsAppTarget.customerPhone ? 'Direct WA.me Ready' : 'Incomplete Phone'}
               </span>
-              <div className="grid grid-cols-2 gap-2.5 w-full sm:w-auto">
-                <button
-                  onClick={() => copyToClipboard(generateWhatsAppMessage(whatsAppTarget))}
-                  className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold py-2 px-3.5 rounded-xl text-xs transition-all cursor-pointer flex items-center space-x-1"
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>{copiedText ? 'Copied!' : 'Copy Text'}</span>
-                </button>
+              <div className="grid grid-cols-3 gap-2 w-full sm:w-auto">
                 <button
                   onClick={() => openWhatsAppLink(whatsAppTarget)}
                   disabled={!whatsAppTarget.customerPhone}
-                  className="bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold py-2 px-4 rounded-xl text-xs transition-all cursor-pointer disabled:opacity-50 flex items-center space-x-1"
+                  className="bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold h-9 px-3 rounded-lg text-[11px] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
-                  <span>Send PDF</span>
+                  <span>Send</span>
+                </button>
+                <button
+                  onClick={() => handleDownloadNoteForDelivery(whatsAppTarget)}
+                  className="bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold h-9 px-3 rounded-lg text-[11px] transition-all cursor-pointer flex items-center justify-center gap-1"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download</span>
+                </button>
+                <button
+                  onClick={() => copyToClipboard(generateWhatsAppMessage(whatsAppTarget))}
+                  className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold h-9 px-3 rounded-lg text-[11px] transition-all cursor-pointer flex items-center justify-center gap-1"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>{copiedText ? 'Copied!' : 'Copy'}</span>
                 </button>
               </div>
             </div>

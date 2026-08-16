@@ -3829,6 +3829,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               onDeleteSale={handleDeleteSale}
               rolePermissions={currentPermissions}
               products={activeProducts}
+              allTenantProducts={productsMap[activeTenant.id] || []}
+              activeBranchId={activeBranchSelection.activeBranchId}
               systemSettings={systemSettings}
               onPreloadCartForPOS={(items, backdate, options) => {
                 setPreloadedCart({ items, backdate, ...options });
