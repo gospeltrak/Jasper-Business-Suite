@@ -520,13 +520,16 @@ export default function DashboardSalesList({
   const [docZoom, setDocZoom] = useState(0.65);
   // A fixed 65% still overflows most phone screens (794px * 0.65 = 516px,
   // wider than a typical 360-430px phone), forcing horizontal scrolling.
-  // The A4 Invoice opens at a zoom fit to the actual device width instead —
-  // capped at the tablet/desktop "optimal fit" of 65% — so the whole page
-  // is visible with zero side-scrolling on any phone.
+  // Below the tablet breakpoint (matches Tailwind's md: 768px, where the
+  // canvas switches from centered to edge-to-edge), the zoom is the EXACT
+  // ratio needed to make the 794px page fill the full device width — no
+  // cap, so there is never a leftover side gap on any phone or tablet.
+  // At/above that breakpoint the page is centered on open screen, so the
+  // familiar fixed 65% "optimal fit" default is kept.
   const computeInvoiceFitZoom = () => {
     if (typeof window === 'undefined') return 0.65;
-    const availableWidth = window.innerWidth - 16; // matches the canvas's px-2 side padding
-    return Math.max(0.35, Math.min(0.65, availableWidth / 794));
+    if (window.innerWidth >= 768) return 0.65;
+    return window.innerWidth / 794;
   };
   // Same tenant-chosen brand color used by the Delivery Note template
   // (Settings → Invoice Settings → Brand Highlights Color), so the A4
@@ -3356,7 +3359,7 @@ export default function DashboardSalesList({
                 <div className="print:hidden text-center py-2">
                   <span className="text-white/20 text-[10px] font-mono select-none">A4 · Sales Invoice · {selectedSale.reference || selectedSale.id}</span>
                 </div>
-                <div className="flex justify-start md:justify-center px-2 md:px-0 pb-16 print:pb-0 print:block">
+                <div className="flex justify-center pb-16 print:pb-0 print:block">
                   <div
                     id="sales-invoice-a4-pdf-template"
                     style={{
@@ -5227,7 +5230,7 @@ export default function DashboardSalesList({
               </div>
 
               {/* Zoomed A4 page — full A4 on tablet/mobile, no cropping; horizontal scroll when narrower than the page */}
-              <div className="flex justify-start md:justify-center px-2 md:px-0 pb-16 print:pb-0 print:block">
+              <div className="flex justify-center pb-16 print:pb-0 print:block">
                 <div
                   id="sales-document-a4-pdf-template"
                   style={{
