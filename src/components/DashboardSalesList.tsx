@@ -5540,6 +5540,29 @@ export default function DashboardSalesList({
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </button>
 
+                {/* 5. A4 Invoice */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSale(mobileActionsSale);
+                    setViewA4InvoiceOpen(true);
+                    setWhatsappPhone((mobileActionsSale.customerPhone || '').replace(/[^0-9]/g, ''));
+                    setMobileActionsSale(null);
+                  }}
+                  className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 select-none">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold text-slate-800 block">A4 Invoice</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">View or print full-page invoice</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+
                 {/* 5b. Add to Delivery */}
                 {onSendToDeliveryNote && (
                   <button

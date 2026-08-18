@@ -775,30 +775,16 @@ const createVisualA4Pdf = async (source: HTMLElement) => {
   }
 };
 
-export async function createPdfFromElement({
-  elementId, fileName, format = 'a4', includeHidden = false, visual = true, branding
-}: Omit<PdfShareOptions, 'phone' | 'message'>): Promise<File> {
-  const source = document.getElementById(elementId);
-  if (!source) throw new Error('Document not found. Make sure the preview is open.');
-
-  if (format === 'a4' && visual) {
-    const visualPdf = await createVisualA4Pdf(source);
-    const cleanName = sanitizeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
-    return new File([visualPdf.output('blob')], cleanName, { type: 'application/pdf' });
-  }
-
-  const widestTable = Math.max(
-    0,
-    ...Array.from(source.querySelectorAll('tr')).map(row => row.children.length)
-  );
-  const pdf = new jsPDF({
-    orientation: format === 'a4' && !visual && widestTable > 6 ? 'landscape' : 'portrait',
-    unit: 'pt',
-    format: format === 'receipt' ? [226, 800] : 'a4',
-  });
-  const margin = format === 'receipt' ? 12 : 38;
-  const pageTop = branding && format === 'a4' ? 108 : margin;
-  const pageBottom = branding && format === 'a4' ? 58 : margin;
+// Walks the source DOM once, drawing every node onto `pdf` starting at
+// `pageTop`, and returns the final y position content ended at. Shared by
+// both the receipt two-pass sizing below and the legacy multi-page a4
+// (Reports) path, so a page's real content height is always measured with
+// the exact same layout logic that renders it.
+const renderVectorDocumentBody = (
+  pdf: jsPDF,
+  source: HTMLElement,
+  { format, margin, pageTop, pageBottom, includeHidden }: { format: 'a4' | 'receipt'; margin: number; pageTop: number; pageBottom: number; includeHidden: boolean }
+): number => {
   const pageWidth = pdf.internal.pageSize.getWidth();
   const contentWidth = pageWidth - margin * 2;
   let y = pageTop;
@@ -916,13 +902,68 @@ export async function createPdfFromElement({
     }) + (isHeading || isSectionTitle ? 6 : 2);
   });
 
+  return y;
+};
+
+export async function createPdfFromElement({
+  elementId, fileName, format = 'a4', includeHidden = false, visual = true, branding
+}: Omit<PdfShareOptions, 'phone' | 'message'>): Promise<File> {
+  const source = document.getElementById(elementId);
+  if (!source) throw new Error('Document not found. Make sure the preview is open.');
+
+  if (format === 'a4' && visual) {
+    const visualPdf = await createVisualA4Pdf(source);
+    const cleanName = sanitizeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
+    return new File([visualPdf.output('blob')], cleanName, { type: 'application/pdf' });
+  }
+
+  const cleanName = sanitizeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
+
+  if (format === 'receipt') {
+    // Real 57–58mm thermal roll width, not a full A4-derived page — matches
+    // the physical paper a POS printer would use, with no side dead space.
+    const receiptWidth = Math.round(58 * (72 / 25.4));
+    const margin = 12;
+    const pageTop = margin;
+    const pageBottom = margin;
+
+    // Pass 1: render onto an oversized page purely to measure how tall the
+    // real content is (a thermal strip has no fixed length, so a page-break
+    // must never trigger here).
+    const measurePdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [receiptWidth, 20000] });
+    const measuredY = renderVectorDocumentBody(measurePdf, source, { format, margin, pageTop, pageBottom, includeHidden });
+    if (measuredY === pageTop) {
+      throw new Error('Document has no printable data.');
+    }
+
+    // Pass 2: render again onto a page sized to exactly that content height,
+    // so the PDF ends where the receipt itself ends — no trailing blank strip.
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [receiptWidth, measuredY + pageBottom] });
+    renderVectorDocumentBody(pdf, source, { format, margin, pageTop, pageBottom, includeHidden });
+    return new File([pdf.output('blob')], cleanName, { type: 'application/pdf' });
+  }
+
+  const widestTable = Math.max(
+    0,
+    ...Array.from(source.querySelectorAll('tr')).map(row => row.children.length)
+  );
+  const pdf = new jsPDF({
+    orientation: format === 'a4' && !visual && widestTable > 6 ? 'landscape' : 'portrait',
+    unit: 'pt',
+    format: 'a4',
+  });
+  const margin = 38;
+  const pageTop = branding ? 108 : margin;
+  const pageBottom = branding ? 58 : margin;
+
+  const y = renderVectorDocumentBody(pdf, source, { format, margin, pageTop, pageBottom, includeHidden });
+
   if (y === pageTop) {
     throw new Error('Document has no printable data.');
   }
 
-  if (branding && format === 'a4') await applyBrandedReportChrome(pdf, branding);
+  if (branding) await applyBrandedReportChrome(pdf, branding);
 
-  const cleanName = sanitizeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
   return new File([pdf.output('blob')], cleanName, { type: 'application/pdf' });
 }
 
