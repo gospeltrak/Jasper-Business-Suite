@@ -3189,7 +3189,7 @@ export default function DashboardSalesList({
                 return (
                   <div key={doc.id}
                     className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-xs active:scale-[0.985] cursor-pointer"
-                    onClick={() => setViewingDocument(doc)}
+                    onClick={() => { setViewingDocument(doc); setDocZoom(computeInvoiceFitZoom()); }}
                     style={{boxShadow: '0 1px 6px rgba(0,0,0,0.06)'}}
                   >
                     {/* Top accent + type + doc number */}
@@ -3232,7 +3232,7 @@ export default function DashboardSalesList({
                         <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
                           <button
                             type="button"
-                            onClick={() => setViewingDocument(doc)}
+                            onClick={() => { setViewingDocument(doc); setDocZoom(computeInvoiceFitZoom()); }}
                             className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 border border-slate-200 bg-slate-50 text-slate-700"
                           >
                             <FileText className="w-3 h-3" />
@@ -3335,7 +3335,7 @@ export default function DashboardSalesList({
               </div>
 
               {/* A4 Canvas */}
-              <div className="flex-1 overflow-auto print:overflow-visible print:bg-white" style={{background: '#404040'}}>
+              <div className="flex-1 overflow-y-auto overflow-x-hidden print:overflow-visible print:bg-white" style={{background: '#404040'}}>
                 <div className="print:hidden text-center py-2">
                   <span className="text-white/20 text-[10px] font-mono select-none">A4 · Sales Invoice · {selectedSale.reference || selectedSale.id}</span>
                 </div>
@@ -3372,10 +3372,15 @@ export default function DashboardSalesList({
                         </div>
                       )}
                       <h2 className="text-xl font-black text-slate-900">{getBusinessDisplayName(activeTenant, systemSettings)}</h2>
-                      {activeTenant.city && <p className="text-[11px] uppercase font-bold mt-1" style={{ color: computedInvoiceColor }}>{activeTenant.city}</p>}
+                      {/* Address block stays plain black/gray, never the brand color, so it always
+                          reads as the legal business address rather than decorative branding. */}
+                      {activeTenant.city && <p className="text-[11px] text-slate-400 uppercase font-bold mt-1">{activeTenant.city}</p>}
                       {systemSettings?.business?.businessAddress && <p className="text-[11px] text-slate-500 mt-1">{systemSettings.business.businessAddress}</p>}
-                      {systemSettings?.business?.businessPhone && <p className="text-[11px] font-semibold" style={{ color: computedInvoiceColor }}>Tel: {systemSettings.business.businessPhone}</p>}
+                      {systemSettings?.business?.businessPhone && <p className="text-[11px] text-slate-500 font-semibold">Tel: {systemSettings.business.businessPhone}</p>}
                       {systemSettings?.business?.businessEmail && <p className="text-[11px] text-slate-500">{systemSettings.business.businessEmail}</p>}
+                      {/* TIN and VAT — from Invoice Settings, directly below the address */}
+                      {systemSettings?.invoiceSettings?.tinNumber && <p className="text-[11px] text-slate-500 font-mono">TIN: {systemSettings.invoiceSettings.tinNumber}</p>}
+                      {systemSettings?.invoiceSettings?.vatNumber && <p className="text-[11px] text-slate-500 font-mono">VAT: {systemSettings.invoiceSettings.vatNumber}</p>}
                     </div>
                     <div className="text-right font-mono text-xs space-y-1.5 shrink-0">
                       <div className="inline-block text-white text-sm font-black uppercase tracking-wider px-6 py-2.5 rounded-full mb-1" style={{ backgroundColor: computedInvoiceColor }}>Mauzo Ankara</div>
@@ -5227,17 +5232,18 @@ export default function DashboardSalesList({
                             className="max-h-16 max-w-[200px] object-contain rounded-xl select-none mb-3"
                           />
                         ) : (
-                          <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl mb-3">
+                          <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-xl mb-3" style={{ backgroundColor: computedInvoiceColor }}>
                             {documentBranding.name.charAt(0)}
                           </div>
                         )}
                         <h2 className="text-xl font-black text-slate-900 tracking-tight">{documentBranding.name}</h2>
                         <p className="text-[11px] text-slate-400 mt-0.5 uppercase tracking-wide font-semibold">{documentBranding.city}</p>
-                        {/* Address, phone, email — from Corporate Business Setup */}
+                        {/* Address, phone, email — from Corporate Business Setup. Kept plain black/gray,
+                            never the brand color, so it always reads as the legal business address. */}
                         {documentBranding.address && <p className="text-[11px] text-slate-500 mt-0.5">{documentBranding.address}</p>}
                         {documentBranding.phone && <p className="text-[11px] text-slate-500">Tel: {documentBranding.phone}</p>}
                         {documentBranding.email && <p className="text-[11px] text-slate-500">Email: {documentBranding.email}</p>}
-                        {/* TIN and VAT — from Company Level Settings (invoiceSettings) */}
+                        {/* TIN and VAT — from Invoice Settings, directly below the address */}
                         {systemSettings?.invoiceSettings?.tinNumber && <p className="text-[11px] text-slate-500 font-mono">TIN: {systemSettings.invoiceSettings.tinNumber}</p>}
                         {viewingDocument.hasVat && systemSettings?.invoiceSettings?.vatNumber && (
                           <p className="text-[11px] text-slate-500 font-mono">VAT: {systemSettings.invoiceSettings.vatNumber}</p>
@@ -5245,11 +5251,11 @@ export default function DashboardSalesList({
                       </div>
 
                       <div className="text-right space-y-1 font-mono text-xs shrink-0">
-                        <div className="inline-block bg-indigo-600 text-white text-sm font-black uppercase px-4 py-1.5 rounded-xl mb-2 tracking-wider">
+                        <div className="inline-block text-white text-sm font-black uppercase px-6 py-2.5 rounded-full mb-1 tracking-wider" style={{ backgroundColor: computedInvoiceColor }}>
                           {docTypeLabel}
                         </div>
-                        <p className="text-slate-400">No: <strong className="text-slate-800">{viewingDocument.documentNumber}</strong></p>
-                        <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(viewingDocument.timestamp).toLocaleDateString([], {dateStyle: 'long'})}</span></p>
+                        <p className="text-slate-400">Hapana: <strong className="text-slate-800">{viewingDocument.documentNumber}</strong></p>
+                        <p className="text-slate-400">Tarehe: <span className="text-slate-700">{new Date(viewingDocument.timestamp).toLocaleDateString([], {dateStyle: 'long'})}</span></p>
                         {viewingDocument.validUntil && <p className="text-slate-400">Valid Until: <span className="text-slate-700">{new Date(viewingDocument.validUntil).toLocaleDateString()}</span></p>}
                         <div className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-2 py-0.5 rounded-lg mt-1 ${
                           viewingDocument.status === 'pending' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
@@ -5262,36 +5268,23 @@ export default function DashboardSalesList({
                     </div>
 
                     {/* Bill To */}
-                    <div className="flex items-start justify-between gap-6 bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 font-mono">Customer</p>
-                        <p className="font-black text-slate-800 text-sm">{viewingDocument.customerName || 'Customer'}</p>
-                        {viewingDocument.customerPhone && <p className="text-xs text-slate-500 mt-0.5">{viewingDocument.customerPhone}</p>}
-                        {viewingDocument.customerAddress && <p className="text-xs text-slate-500 mt-0.5">{viewingDocument.customerAddress}</p>}
-                      </div>
-                      {viewingDocument.paymentMethod && (
-                        <div className="shrink-0 min-w-[220px] text-xs">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 text-right font-mono">Payment Details</p>
-                          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                            <span className="text-slate-400">Mode</span><strong className="text-right text-slate-700">{viewingDocument.paymentMethod}</strong>
-                            {viewingDocument.paymentAccountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{viewingDocument.paymentAccountNumber}</strong></>}
-                            {viewingDocument.paymentAccountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{viewingDocument.paymentAccountName}</strong></>}
-                            <span className="text-slate-400">Amount</span><strong className="text-right text-slate-900 font-mono">{money(viewingDocument.paymentAmount ?? totals.total)}</strong>
-                          </div>
-                        </div>
-                      )}
+                    <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 font-mono">Customer</p>
+                      <p className="font-black text-slate-900 text-base">{viewingDocument.customerName || 'Customer'}</p>
+                      {viewingDocument.customerPhone && <p className="text-xs text-slate-500 mt-1">{viewingDocument.customerPhone}</p>}
+                      {viewingDocument.customerAddress && <p className="text-xs text-slate-500 mt-0.5">{viewingDocument.customerAddress}</p>}
                     </div>
 
                     {/* Items Table */}
                     <div>
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
-                          <tr className="bg-slate-900 text-white">
+                          <tr className="text-white" style={{ backgroundColor: computedInvoiceColor }}>
                             <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] rounded-l-xl w-8">#</th>
-                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px]">Description</th>
-                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-center">Qty</th>
-                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right">Unit Price</th>
-                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right rounded-r-xl">Total</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px]">Maelezo</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-center">Idadi</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right">Kipimo Bei</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right rounded-r-xl">Jumla</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -5319,15 +5312,26 @@ export default function DashboardSalesList({
                     </div>
 
                     {/* Totals */}
-                    <div className="flex justify-end">
-                      <div className="w-72 space-y-2 font-mono text-xs">
+                    <div className="flex items-start justify-between gap-6">
+                      {viewingDocument.paymentMethod && (
+                        <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100 min-w-[200px] text-xs">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-mono">Payment Details</p>
+                          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                            <span className="text-slate-400">Mode</span><strong className="text-right text-slate-700">{viewingDocument.paymentMethod}</strong>
+                            {viewingDocument.paymentAccountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{viewingDocument.paymentAccountNumber}</strong></>}
+                            {viewingDocument.paymentAccountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{viewingDocument.paymentAccountName}</strong></>}
+                            <span className="text-slate-400">Kiasi</span><strong className="text-right text-slate-900 font-mono">{money(viewingDocument.paymentAmount ?? totals.total)}</strong>
+                          </div>
+                        </div>
+                      )}
+                      <div className="w-72 space-y-2 font-mono text-xs shrink-0 ml-auto">
                         <div className="flex justify-between text-slate-500 pb-1">
-                          <span>Subtotal</span>
+                          <span>Jumla Ndogo</span>
                           <span className="font-bold text-slate-800">{money(totals.subTotal)}</span>
                         </div>
                         {totals.discount > 0 && (
-                          <div className="flex justify-between text-amber-600 pb-1">
-                            <span>Discount</span>
+                          <div className="flex justify-between text-orange-600 pb-1">
+                            <span>Punguzo</span>
                             <span className="font-bold">-{money(totals.discount)}</span>
                           </div>
                         )}
@@ -5349,19 +5353,24 @@ export default function DashboardSalesList({
                             <span className="font-bold">{money(totals.paid)}</span>
                           </div>
                         )}
-                        <div className="flex justify-between bg-slate-900 text-white rounded-xl px-4 py-3">
-                          <span className="font-black text-sm uppercase tracking-wide">Total</span>
+                        <div className="flex justify-between text-white rounded-xl px-4 py-3" style={{ backgroundColor: computedInvoiceColor }}>
+                          <span className="font-black text-sm uppercase tracking-wide">Jumla</span>
                           <span className="font-black text-base">{money(totals.total)}</span>
                         </div>
                         <div className="flex justify-between text-slate-500 px-4">
-                          <span>Balance</span>
+                          <span>Due</span>
                           <span className="font-bold text-slate-800">{money(totals.balance)}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Signature row — Authorized Person Name (left) | Signature (right) */}
-                    <div className="border-t border-slate-100 pt-5 flex justify-end">
+                    {/* Signature row — Prepared by (left) | Authorized Sahihi (right) */}
+                    <div className="border-t border-slate-100 pt-5 flex items-end justify-between gap-6">
+                        <div className="text-left">
+                          <p className="text-[10px] text-slate-400 uppercase tracking-widest font-mono mb-1">Prepared by</p>
+                          <p className="font-black text-slate-800 text-sm">{activeStaff?.name || currentUser?.name || '—'}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{activeStaff?.role || 'Sales Associate'}</p>
+                        </div>
                         <div className="w-64 text-right">
                           {(() => {
                             const sigImg = activeStaff?.signatureImage || systemSettings?.invoiceSettings?.signatureImage;
@@ -5373,7 +5382,7 @@ export default function DashboardSalesList({
                               <div className="h-10 border-b border-slate-300 mb-1.5" />
                             );
                           })()}
-                          <p className="text-[10px] text-slate-400">Authorized Signature</p>
+                          <p className="text-[10px] text-slate-400">Authorized Sahihi</p>
                         </div>
                     </div>
 
