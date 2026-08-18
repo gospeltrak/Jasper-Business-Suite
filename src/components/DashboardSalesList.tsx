@@ -501,6 +501,16 @@ export default function DashboardSalesList({
   // Starts below 100% (matching the delivery note preview's "optimal fit")
   // so the full A4 page is visible without cropping on tablet/mobile widths.
   const [docZoom, setDocZoom] = useState(0.65);
+  // A fixed 65% still overflows most phone screens (794px * 0.65 = 516px,
+  // wider than a typical 360-430px phone), forcing horizontal scrolling.
+  // The A4 Invoice opens at a zoom fit to the actual device width instead —
+  // capped at the tablet/desktop "optimal fit" of 65% — so the whole page
+  // is visible with zero side-scrolling on any phone.
+  const computeInvoiceFitZoom = () => {
+    if (typeof window === 'undefined') return 0.65;
+    const availableWidth = window.innerWidth - 16; // matches the canvas's px-2 side padding
+    return Math.max(0.35, Math.min(0.65, availableWidth / 794));
+  };
   const [showMobileDatePicker, setShowMobileDatePicker] = useState(false); // WYSIWYG zoom level
   const [payInInputVal, setPayInInputVal] = useState<string>('');
 
@@ -1858,7 +1868,7 @@ export default function DashboardSalesList({
                                     className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                     <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" /> POS Receipt
                                   </button>
-                                  <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(true); setWhatsappPhone((sale.customerPhone||'').replace(/[^0-9]/g,'')); setActiveMenuId(null); setMenuPos(null); }}
+                                  <button onClick={() => { setSelectedSale(sale); setViewA4InvoiceOpen(true); setDocZoom(computeInvoiceFitZoom()); setWhatsappPhone((sale.customerPhone||'').replace(/[^0-9]/g,'')); setActiveMenuId(null); setMenuPos(null); }}
                                     className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                     <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" /> A4 Invoice
                                   </button>
@@ -3358,55 +3368,37 @@ export default function DashboardSalesList({
                         </div>
                       )}
                       <h2 className="text-xl font-black text-slate-900">{getBusinessDisplayName(activeTenant, systemSettings)}</h2>
-                      {activeTenant.city && <p className="text-[11px] text-slate-400 uppercase font-semibold mt-1">{activeTenant.city}</p>}
+                      {activeTenant.city && <p className="text-[11px] text-indigo-500 uppercase font-bold mt-1">{activeTenant.city}</p>}
                       {systemSettings?.business?.businessAddress && <p className="text-[11px] text-slate-500 mt-1">{systemSettings.business.businessAddress}</p>}
-                      {systemSettings?.business?.businessPhone && <p className="text-[11px] text-slate-500">Tel: {systemSettings.business.businessPhone}</p>}
+                      {systemSettings?.business?.businessPhone && <p className="text-[11px] text-indigo-500 font-semibold">Tel: {systemSettings.business.businessPhone}</p>}
                       {systemSettings?.business?.businessEmail && <p className="text-[11px] text-slate-500">{systemSettings.business.businessEmail}</p>}
                     </div>
-                    <div className="text-right font-mono text-xs space-y-1 shrink-0">
-                      <div className="inline-block bg-indigo-600 text-white text-sm font-black uppercase tracking-wider px-5 py-2 rounded-xl mb-2">Sales Invoice</div>
-                      <p className="text-slate-400">No: <strong className="text-slate-800">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</strong></p>
-                      <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
+                    <div className="text-right font-mono text-xs space-y-1.5 shrink-0">
+                      <div className="inline-block bg-indigo-600 text-white text-sm font-black uppercase tracking-wider px-6 py-2.5 rounded-full mb-1">Mauzo Ankara</div>
+                      <p className="text-slate-400">Hapana: <strong className="text-slate-800">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</strong></p>
+                      <p className="text-slate-400">Tarehe: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
                       {(() => {
                         const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
-                        const status = paid >= selectedSale.total ? 'Paid' : 'Pending';
-                        return <span className={`inline-flex mt-1 px-2 py-0.5 rounded-lg border text-[10px] font-black uppercase ${status === 'Paid' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>● {status}</span>;
+                        const isPaid = paid >= selectedSale.total;
+                        return <span className={`inline-flex items-center gap-1 mt-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>● {isPaid ? 'Imelipwa' : 'Haijalipwa'}</span>;
                       })()}
                     </div>
                   </div>
 
-                  <div className="flex items-start justify-between gap-6 bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 font-mono">Customer</p>
-                      <p className="font-black text-slate-800 text-sm">{selectedSale.customerName || 'Customer'}</p>
-                      {selectedSale.customerPhone && <p className="text-xs text-slate-500 mt-1">{selectedSale.customerPhone}</p>}
-                    </div>
-                    {(() => {
-                      const channel = findPaymentChannel(systemSettings?.paymentChannels || [], selectedSale.paymentMethod);
-                      const accountNumber = channel?.accountNumber || systemSettings?.invoiceSettings?.accountNumber;
-                      const accountName = systemSettings?.invoiceSettings?.accountName || channel?.name || channel?.provider;
-                      return (
-                        <div className="shrink-0 min-w-[220px] text-xs">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 text-right font-mono">Payment Details</p>
-                          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                            <span className="text-slate-400">Mode</span><strong className="text-right text-slate-700">{selectedSale.paymentMethod}</strong>
-                            {accountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{accountNumber}</strong></>}
-                            {accountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{accountName}</strong></>}
-                            <span className="text-slate-400">Amount</span><strong className="text-right text-slate-900 font-mono">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong>
-                          </div>
-                        </div>
-                      );
-                    })()}
+                  <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 font-mono">Invoice To</p>
+                    <p className="font-black text-slate-900 text-base">{selectedSale.customerName || 'Customer'}</p>
+                    {selectedSale.customerPhone && <p className="text-xs text-slate-500 mt-1">{selectedSale.customerPhone}</p>}
                   </div>
 
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-900 text-white">
                         <th className="py-3 px-4 rounded-l-xl w-10">#</th>
-                        <th className="py-3 px-4 uppercase text-[10px]">Description</th>
-                        <th className="py-3 px-4 uppercase text-[10px] text-center">Qty</th>
-                        <th className="py-3 px-4 uppercase text-[10px] text-right">Unit Price</th>
-                        <th className="py-3 px-4 uppercase text-[10px] text-right rounded-r-xl">Total</th>
+                        <th className="py-3 px-4 uppercase text-[10px]">Maelezo</th>
+                        <th className="py-3 px-4 uppercase text-[10px] text-center">Idadi</th>
+                        <th className="py-3 px-4 uppercase text-[10px] text-right">Kipimo Bei</th>
+                        <th className="py-3 px-4 uppercase text-[10px] text-right rounded-r-xl">Jumla</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -3422,26 +3414,57 @@ export default function DashboardSalesList({
                     </tbody>
                   </table>
 
-                  <div className="flex justify-end">
-                    <div className="w-72 space-y-2 font-mono text-xs">
+                  <div className="flex items-start justify-between gap-6">
+                    {(() => {
+                      const channel = findPaymentChannel(systemSettings?.paymentChannels || [], selectedSale.paymentMethod);
+                      const accountNumber = channel?.accountNumber || systemSettings?.invoiceSettings?.accountNumber;
+                      const accountName = systemSettings?.invoiceSettings?.accountName || channel?.name || channel?.provider;
+                      return (
+                        <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100 min-w-[200px] text-xs">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-mono">Payment Details</p>
+                          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                            <span className="text-slate-400">Mode</span><strong className="text-right text-slate-700">{selectedSale.paymentMethod}</strong>
+                            {accountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{accountNumber}</strong></>}
+                            {accountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{accountName}</strong></>}
+                            <span className="text-slate-400">Kiasi</span><strong className="text-right text-slate-900 font-mono">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    <div className="w-72 space-y-2 font-mono text-xs shrink-0">
                       {(() => {
                         const subtotal = selectedSale.items.reduce((sum, item) => sum + item.price * item.qty, 0);
                         const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
                         const balance = Math.max(0, selectedSale.total - paid);
                         return <>
-                          <div className="flex justify-between text-slate-500"><span>Subtotal</span><strong className="text-slate-800">{currency}{Math.round(subtotal).toLocaleString()}</strong></div>
-                          {(selectedSale.discount || 0) > 0 && <div className="flex justify-between text-amber-600"><span>Discount</span><strong>-{currency}{Math.round(selectedSale.discount || 0).toLocaleString()}</strong></div>}
+                          <div className="flex justify-between text-slate-500"><span>Jumla Ndogo</span><strong className="text-slate-800">{currency}{Math.round(subtotal).toLocaleString()}</strong></div>
+                          {(selectedSale.discount || 0) > 0 && <div className="flex justify-between text-orange-600"><span>Punguzo</span><strong>-{currency}{Math.round(selectedSale.discount || 0).toLocaleString()}</strong></div>}
                           {(selectedSale.vatStatus === 'vat' || (!selectedSale.vatStatus && (selectedSale.tax || 0) > 0)) && <div className="flex justify-between text-slate-500"><span>VAT / Tax</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.tax || 0).toLocaleString()}</strong></div>}
                           {(selectedSale.deliveryCost || 0) > 0 && <div className="flex justify-between text-slate-500"><span>Delivery</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.deliveryCost || 0).toLocaleString()}</strong></div>}
-                          <div className="flex justify-between bg-slate-900 text-white rounded-xl px-4 py-3"><strong className="uppercase text-sm">Total</strong><strong className="text-base">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong></div>
-                          <div className="flex justify-between text-slate-500 px-4"><span>Balance</span><strong className="text-slate-800">{currency}{Math.round(balance).toLocaleString()}</strong></div>
+                          <div className="flex justify-between bg-slate-900 text-white rounded-xl px-4 py-3"><strong className="uppercase text-sm">Jumla</strong><strong className="text-base">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong></div>
+                          <div className="flex justify-between text-slate-500 px-4"><span>Due</span><strong className="text-slate-800">{currency}{Math.round(balance).toLocaleString()}</strong></div>
                         </>;
                       })()}
                     </div>
                   </div>
 
-                  <div className="border-t border-slate-100 pt-5 flex justify-end">
-                    <div className="w-64 text-right">
+                  <div className="border-t border-slate-100 pt-5 flex items-end justify-between gap-6">
+                    {(() => {
+                      const responsibleStaff = systemSettings?.staffs?.find(staff =>
+                        staff.name.toLowerCase() === (selectedSale.cashierName || currentUser?.name || '').toLowerCase()
+                      );
+                      const preparedByName = selectedSale.cashierName || currentUser?.name || '—';
+                      const preparedByRole = responsibleStaff?.role || 'Sales Associate';
+                      return (
+                        <div className="text-left">
+                          <p className="text-[10px] text-slate-400 uppercase tracking-widest font-mono mb-1">Prepared by</p>
+                          <p className="font-black text-slate-800 text-sm">{preparedByName}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{preparedByRole}</p>
+                        </div>
+                      );
+                    })()}
+                    <div className="text-right">
                       {(() => {
                         const responsibleStaff = systemSettings?.staffs?.find(staff =>
                           staff.name.toLowerCase() === (selectedSale.cashierName || currentUser?.name || '').toLowerCase()
@@ -3451,9 +3474,9 @@ export default function DashboardSalesList({
                           <div className="h-10 mb-1.5 flex justify-end items-end">
                             <img src={signature} alt="Signature" className="max-h-10 max-w-[160px] object-contain" referrerPolicy="no-referrer" />
                           </div>
-                        ) : <div className="h-10 border-b border-slate-300 mb-1.5" />;
+                        ) : <div className="h-10 w-48 border-b border-slate-300 mb-1.5" />;
                       })()}
-                      <p className="text-[10px] text-slate-400">Authorized Signature</p>
+                      <p className="text-[10px] text-slate-400">Authorized Sahihi</p>
                     </div>
                   </div>
                   {(() => {
@@ -5546,6 +5569,7 @@ export default function DashboardSalesList({
                   onClick={() => {
                     setSelectedSale(mobileActionsSale);
                     setViewA4InvoiceOpen(true);
+                    setDocZoom(computeInvoiceFitZoom());
                     setWhatsappPhone((mobileActionsSale.customerPhone || '').replace(/[^0-9]/g, ''));
                     setMobileActionsSale(null);
                   }}
