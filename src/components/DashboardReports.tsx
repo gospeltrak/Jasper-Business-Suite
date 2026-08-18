@@ -55,7 +55,7 @@ import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } fro
 import { downloadPdfFromElement } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
 import ModernSelect from './ui/ModernSelect';
-import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
+import { getBusinessDisplayName } from '../utils/businessBranding';
 
 // Revenue helper: exclude delivery fees from product revenue calculations
 const saleProductRevenue = (s: any): number =>
@@ -117,7 +117,10 @@ export default function DashboardReports({
       visual: false,
       branding: {
         businessName: getBusinessDisplayName(activeTenant, systemSettings, userName),
-        logo: getBusinessLogo(systemSettings),
+        // Skip getBusinessLogo()'s businessLogoDark fallback here — that
+        // variant is meant for dark surfaces and can carry a baked-in dark
+        // background, which looks like a black box on this white PDF page.
+        logo: (systemSettings?.business as any)?.businessLogoLight || (systemSettings?.business as any)?.businessLogo || '',
         address: systemSettings?.business?.address || systemSettings?.company?.address || activeTenant.city,
         phone: systemSettings?.business?.phone || systemSettings?.company?.phone || '',
         email: systemSettings?.business?.email || systemSettings?.company?.email || '',
@@ -5881,25 +5884,18 @@ export default function DashboardReports({
       {/* PRINT-ONLY A4 SYSTEM PDF AUDIT STATEMENT */}
       {/* ------------------------------------------------------------- */}
       <div id="reports-a4-pdf-template" className="hidden print:block printable-area bg-white text-black p-8 max-w-4xl mx-auto font-sans leading-relaxed text-[10px] normal-case">
-        {/* Document Header */}
-        <div className="border-b-2 border-slate-905 pb-4 mb-5 flex justify-between items-start">
-          <div>
-            <span className="text-[8px] uppercase tracking-wider font-mono font-bold bg-slate-905 text-white px-2 py-0.5 rounded">
-              Official Branch Accounts Report File
-            </span>
-            <h1 className="text-xl font-bold font-sans mt-1.5 text-slate-900 uppercase">
-              {getBusinessDisplayName(activeTenant, systemSettings, userName)} Audit Ledger
-            </h1>
-            <p className="text-[9.5px] text-slate-505 font-medium font-sans mt-0.5">
-              Location: {activeTenant.city} | Branch ID: {activeTenant.id} | Base Currency: {currency}
-            </p>
-          </div>
-          <div className="text-right">
-            <span className="text-xs font-mono font-bold block text-slate-800">A4 AUDIT STATEMENT</span>
-            <span className="text-[9px] text-slate-505 font-mono block mt-1">Date: {new Date().toLocaleString()}</span>
-            <span className="text-[9px] text-slate-505 font-mono block mt-0.5">Author ID: {userName}</span>
-            <span className="text-[9px] text-slate-505 font-mono block mt-0.5">Scope Period: {startDateStr} — {endDateStr}</span>
-          </div>
+        {/* Document Header — a plain single-column block (not a 2-column flex
+            row) so the PDF's label/value row detector never mistakes it for
+            one row and mashes both columns onto the same line. The business
+            identity itself is already shown in the branded chrome above this
+            content, so this stays a short, generic report title. */}
+        <div className="border-b-2 border-slate-900 pb-4 mb-5">
+          <h1 className="text-lg font-bold font-sans text-slate-900 uppercase">
+            {REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report'}
+          </h1>
+          <p className="text-[9.5px] text-slate-500 font-medium font-sans mt-1">
+            Branch ID: {activeTenant.id} · Base Currency: {currency} · Scope: {startDateStr} to {endDateStr}
+          </p>
         </div>
 
         {/* Dynamic content wrapper based on active reportTab */}
@@ -6572,19 +6568,23 @@ export default function DashboardReports({
 
         </div>
 
-        {/* Dynamic Signature Block */}
-        <div className="hidden print:block mt-12 pt-8 border-t border-dashed border-slate-300">
-          <div className="grid grid-cols-2 gap-6 text-center text-[9px] text-slate-600 font-mono">
-            <div className="border-t border-slate-300 pt-3">
-              <p className="font-bold uppercase">Prepared By</p>
-              <p className="mt-1 font-semibold">{userName}</p>
-              <p className="text-slate-400 mt-0.5">System Operator</p>
-            </div>
-            <div className="border-t border-slate-300 pt-3">
-              <p className="font-bold uppercase">Authorized By</p>
-              <p className="mt-1 font-semibold text-slate-400">________________________</p>
-              <p className="text-slate-400 mt-0.5 font-sans">Branch Manager</p>
-            </div>
+        {/* Dynamic Signature Block — three "label | label" flex rows instead
+            of a 2-column grid. Each row is a single small unit the PDF
+            generator page-breaks together, so a lone trailing line (e.g.
+            "Branch Manager") never gets orphaned alone on its own page the
+            way per-fragment pagination of a tall grid column can do. */}
+        <div className="hidden print:block mt-12 pt-8 border-t border-dashed border-slate-300 space-y-2 text-[9px] text-slate-600 font-mono">
+          <div className="flex justify-between">
+            <span className="font-bold uppercase">Prepared By</span>
+            <span className="font-bold uppercase">Authorized By</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-semibold">{userName}</span>
+            <span className="font-semibold text-slate-400">________________________</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-400">System Operator</span>
+            <span className="text-slate-400 font-sans">Branch Manager</span>
           </div>
         </div>
 

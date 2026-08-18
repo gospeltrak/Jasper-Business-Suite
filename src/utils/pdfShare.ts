@@ -823,7 +823,12 @@ const renderVectorDocumentBody = (
       return !!cleanText(collectDirectText(el));
     });
 
-  const seenText = new Set<string>();
+  // Suppresses only an immediately-repeated line (e.g. a heading duplicated
+  // right next to itself in the DOM) — NOT every later recurrence of the
+  // same text. A global "already seen anywhere in the document" Set here
+  // would silently drop legitimate data, such as a "Paid revenue" figure
+  // that happens to numerically match an earlier "Revenue" figure.
+  let lastDrawnKey = '';
 
   nodes.forEach((el) => {
     if (el.tagName === 'TABLE') {
@@ -852,8 +857,9 @@ const renderVectorDocumentBody = (
       const children = Array.from(el.children).filter((child) => includeHidden || isElementVisible(child));
       const left = cleanText(children[0]?.textContent || '');
       const right = cleanText(children[children.length - 1]?.textContent || '');
-      if ((left || right) && `${left}|${right}` !== '' && !seenText.has(`row:${left}|${right}`)) {
-        seenText.add(`row:${left}|${right}`);
+      const rowKey = `row:${left}|${right}`;
+      if ((left || right) && `${left}|${right}` !== '' && rowKey !== lastDrawnKey) {
+        lastDrawnKey = rowKey;
         const bold = /total|balance|grand|due|paid/i.test(left);
         const fontSize = format === 'receipt' ? 7.2 : 9.2;
         y = ensurePageSpace(pdf, y, fontSize + 6, pageTop, pageBottom);
@@ -868,8 +874,8 @@ const renderVectorDocumentBody = (
     }
 
     const textValue = cleanText(collectDirectText(el));
-    if (!textValue || seenText.has(textValue)) return;
-    seenText.add(textValue);
+    if (!textValue || textValue === lastDrawnKey) return;
+    lastDrawnKey = textValue;
 
     const tag = el.tagName.toLowerCase();
     const classStr = el.className.toString();
