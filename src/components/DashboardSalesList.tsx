@@ -511,6 +511,10 @@ export default function DashboardSalesList({
     const availableWidth = window.innerWidth - 16; // matches the canvas's px-2 side padding
     return Math.max(0.35, Math.min(0.65, availableWidth / 794));
   };
+  // Same tenant-chosen brand color used by the Delivery Note template
+  // (Settings → Invoice Settings → Brand Highlights Color), so the A4
+  // Invoice's badge, table header, and totals box follow it too.
+  const computedInvoiceColor = systemSettings?.invoiceSettings?.invoiceColor || '#4f46e5';
   const [showMobileDatePicker, setShowMobileDatePicker] = useState(false); // WYSIWYG zoom level
   const [payInInputVal, setPayInInputVal] = useState<string>('');
 
@@ -3363,18 +3367,18 @@ export default function DashboardSalesList({
                           className="max-h-16 max-w-[200px] object-contain mb-3"
                         />
                       ) : (
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl font-black mb-3">
+                        <div className="w-12 h-12 rounded-2xl text-white flex items-center justify-center text-xl font-black mb-3" style={{ backgroundColor: computedInvoiceColor }}>
                           {getBusinessDisplayName(activeTenant, systemSettings).charAt(0)}
                         </div>
                       )}
                       <h2 className="text-xl font-black text-slate-900">{getBusinessDisplayName(activeTenant, systemSettings)}</h2>
-                      {activeTenant.city && <p className="text-[11px] text-indigo-500 uppercase font-bold mt-1">{activeTenant.city}</p>}
+                      {activeTenant.city && <p className="text-[11px] uppercase font-bold mt-1" style={{ color: computedInvoiceColor }}>{activeTenant.city}</p>}
                       {systemSettings?.business?.businessAddress && <p className="text-[11px] text-slate-500 mt-1">{systemSettings.business.businessAddress}</p>}
-                      {systemSettings?.business?.businessPhone && <p className="text-[11px] text-indigo-500 font-semibold">Tel: {systemSettings.business.businessPhone}</p>}
+                      {systemSettings?.business?.businessPhone && <p className="text-[11px] font-semibold" style={{ color: computedInvoiceColor }}>Tel: {systemSettings.business.businessPhone}</p>}
                       {systemSettings?.business?.businessEmail && <p className="text-[11px] text-slate-500">{systemSettings.business.businessEmail}</p>}
                     </div>
                     <div className="text-right font-mono text-xs space-y-1.5 shrink-0">
-                      <div className="inline-block bg-indigo-600 text-white text-sm font-black uppercase tracking-wider px-6 py-2.5 rounded-full mb-1">Mauzo Ankara</div>
+                      <div className="inline-block text-white text-sm font-black uppercase tracking-wider px-6 py-2.5 rounded-full mb-1" style={{ backgroundColor: computedInvoiceColor }}>Mauzo Ankara</div>
                       <p className="text-slate-400">Hapana: <strong className="text-slate-800">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</strong></p>
                       <p className="text-slate-400">Tarehe: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
                       {(() => {
@@ -3393,7 +3397,7 @@ export default function DashboardSalesList({
 
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr className="bg-slate-900 text-white">
+                      <tr className="text-white" style={{ backgroundColor: computedInvoiceColor }}>
                         <th className="py-3 px-4 rounded-l-xl w-10">#</th>
                         <th className="py-3 px-4 uppercase text-[10px]">Maelezo</th>
                         <th className="py-3 px-4 uppercase text-[10px] text-center">Idadi</th>
@@ -3442,7 +3446,7 @@ export default function DashboardSalesList({
                           {(selectedSale.discount || 0) > 0 && <div className="flex justify-between text-orange-600"><span>Punguzo</span><strong>-{currency}{Math.round(selectedSale.discount || 0).toLocaleString()}</strong></div>}
                           {(selectedSale.vatStatus === 'vat' || (!selectedSale.vatStatus && (selectedSale.tax || 0) > 0)) && <div className="flex justify-between text-slate-500"><span>VAT / Tax</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.tax || 0).toLocaleString()}</strong></div>}
                           {(selectedSale.deliveryCost || 0) > 0 && <div className="flex justify-between text-slate-500"><span>Delivery</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.deliveryCost || 0).toLocaleString()}</strong></div>}
-                          <div className="flex justify-between bg-slate-900 text-white rounded-xl px-4 py-3"><strong className="uppercase text-sm">Jumla</strong><strong className="text-base">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong></div>
+                          <div className="flex justify-between text-white rounded-xl px-4 py-3" style={{ backgroundColor: computedInvoiceColor }}><strong className="uppercase text-sm">Jumla</strong><strong className="text-base">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong></div>
                           <div className="flex justify-between text-slate-500 px-4"><span>Due</span><strong className="text-slate-800">{currency}{Math.round(balance).toLocaleString()}</strong></div>
                         </>;
                       })()}

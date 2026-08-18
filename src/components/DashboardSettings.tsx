@@ -889,7 +889,7 @@ export default function DashboardSettings({
     { id: 'company', label: 'Company Account', shortLabel: 'Company', description: 'Legal profile, tax, currency, theme', icon: Building },
     { id: 'business', label: 'Business Setup', shortLabel: 'Business', description: 'Brand, payment modes, stores', icon: Briefcase },
     { id: 'product-store', label: 'Product & Store Units', shortLabel: 'Stores', description: 'Units, product behavior, inventory bins', icon: Package },
-    { id: 'invoice-settings', label: 'Invoice & Logo', shortLabel: 'Invoice', description: 'Receipt branding and invoice fields', icon: FileText },
+    { id: 'invoice-settings', label: 'Invoice Settings', shortLabel: 'Invoice', description: 'Receipt branding and invoice fields', icon: FileText },
     { id: 'hrm', label: 'HRM Permanent Staffs', shortLabel: 'Staff', description: 'Workers, roles, salaries, signatures', icon: Users },
     { id: 'roles', label: 'Staff Roles & Access', shortLabel: 'Access', description: 'Permissions and private role presets', icon: ShieldCheck },
     { id: 'notifications', label: 'Alerts & Reports', shortLabel: 'Alerts', description: 'Notification channels and reports', icon: Bell },
@@ -2016,7 +2016,7 @@ export default function DashboardSettings({
           {activeSubTab === 'invoice-settings' && (
             <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm font-sans text-slate-800">
               <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🎨 Invoice Template & Brand Customization</h3>
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🎨 Invoice Settings</h3>
                 <p className="text-xs text-slate-500 mt-1 font-sans">
                   Customize colors, compliance credentials, bank details, and terms displayed on Quotes and Quotes to align with your brand guidelines.
                 </p>
