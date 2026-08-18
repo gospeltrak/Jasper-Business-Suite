@@ -301,6 +301,23 @@ export default function DashboardSalesList({
     return Number.isFinite(parsed) ? parsed : fallback;
   };
   const money = (value: unknown) => `${currency}${Math.round(toNumber(value)).toLocaleString()}`;
+  // Deterministic decorative barcode — same visual-only hashing approach
+  // used for printed product labels (DashboardProducts.tsx), not a real
+  // scannable symbology.
+  const receiptBarcodeDigits = (code: string) => {
+    const hash = code.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + 7;
+    return String(hash).padStart(13, '0').slice(-13);
+  };
+  const renderReceiptBarcodeBars = (code: string) => {
+    const hash = code.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + 7;
+    return Array.from({ length: 46 }, (_, i) => {
+      const isBlack = i % 2 === 0;
+      const isGuard = i < 3 || (i >= 21 && i <= 23) || i > 42;
+      const w = (hash * (i + 17)) % 10;
+      const width = isGuard ? 1.5 : w < 4 ? 1.5 : w < 7 ? 2.5 : w < 9 ? 3.8 : 5;
+      return <div key={i} style={{ height: '32px', flexShrink: 0, background: isBlack ? '#000' : 'transparent', width: `${width}px` }} />;
+    });
+  };
   const normalizeDocType = (type: SalesDocument['type'] | string): SalesDocument['type'] => {
     if (type === 'price quote invoice' || type === 'invoice') return 'proforma invoice';
     if (type === 'quotation') return 'price quote';
@@ -3522,159 +3539,171 @@ export default function DashboardSalesList({
               </div>
 
               {/* Scrollable ticket details */}
-              <div id="sales-receipt-pdf-template" className="detail-body p-6 space-y-6 font-mono text-xs select-text">
-                
-                {/* Receipt store branding block */}
-                <div className="text-center space-y-1 pb-4 border-b border-dashed border-slate-200 flex flex-col items-center">
+              <div id="sales-receipt-pdf-template" className="detail-body p-6 space-y-4 font-mono text-xs select-text bg-white text-black">
+
+                {/* Receipt store branding block — plain black ink, matching a real thermal printout */}
+                <div className="text-center space-y-1 flex flex-col items-center">
                   {(((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings)) && (
-                    <img 
-                      src={((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || undefined} 
-                      alt="Receipt Logo" 
+                    <img
+                      src={((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || undefined}
+                      alt="Receipt Logo"
                       referrerPolicy="no-referrer"
-                      className="max-h-12 max-w-[140px] object-contain rounded-lg mb-2 select-none"
+                      className="max-h-12 max-w-[140px] object-contain mb-1 select-none"
                     />
                   )}
-                  <h4 className="text-sm font-black tracking-tight text-slate-800 text-uppercase">{getBusinessDisplayName(activeTenant, systemSettings)}</h4>
-                  <p className="text-[10px] text-slate-500 uppercase">{activeTenant.city}</p>
+                  <h4 className="text-base font-black tracking-tight text-black">{getBusinessDisplayName(activeTenant, systemSettings)}</h4>
+                  {activeTenant.city && <p className="text-[11px] text-black uppercase font-semibold">{activeTenant.city}</p>}
+                  {systemSettings?.business?.businessPhone && <p className="text-[11px] text-black">Tel:{systemSettings.business.businessPhone}</p>}
                 </div>
 
-                {/* Core Docket Information details */}
-                <div className="space-y-1.5 text-[11px] text-slate-600">
+                <div className="border-t border-dashed border-slate-300" />
+
+                <h3 className="text-center text-sm font-black uppercase tracking-wide text-black">POS Receipt</h3>
+
+                {/* Core docket information */}
+                <div className="space-y-1.5 text-[11px] text-black">
                   <div className="flex justify-between">
-                    <span className="text-slate-400">RECEIPT NO</span>
-                    <span className="font-bold text-slate-800">{selectedSale.reference || `REC-${selectedSale.id.toUpperCase().slice(0, 8)}`}</span>
+                    <span>Invoice No:</span>
+                    <span className="font-semibold">{selectedSale.reference || `REC-${selectedSale.id.toUpperCase().slice(0, 8)}`}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">DATE & TIME</span>
-                    <span className="text-slate-800">{new Date(selectedSale.timestamp).toLocaleString()}</span>
+                    <span>Tarehe:</span>
+                    <span className="font-semibold">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">TELLER</span>
-                    <span className="font-bold text-slate-800 uppercase">{selectedSale.cashierName || 'Primary Teller'}</span>
+                    <span>Wakati:</span>
+                    <span className="font-semibold">{new Date(selectedSale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">STORES CHANNEL</span>
-                    <span className="font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-1 py-0.5 rounded text-[10px] uppercase">{selectedSale.paymentMethod}</span>
+                    <span>Cashier:</span>
+                    <span className="font-semibold">{selectedSale.cashierName || currentUser?.name || 'Cashier'}</span>
                   </div>
                   {selectedSale.customerName && (
-                    <div className="flex justify-between pt-1 border-t border-slate-105">
-                      <span className="text-slate-400">CLIENT</span>
-                      <span className="font-black text-slate-800 uppercase">{selectedSale.customerName}</span>
-                    </div>
-                  )}
-                  {selectedSale.customerPhone && (
                     <div className="flex justify-between">
-                      <span className="text-slate-400">CONTACT REF</span>
-                      <span className="text-slate-800">{selectedSale.customerPhone}</span>
+                      <span>Customer:</span>
+                      <span className="font-semibold">{selectedSale.customerName}</span>
                     </div>
                   )}
                 </div>
 
-                {/* Items checklist table split */}
-                <div className="space-y-2 border-t border-b border-dashed border-slate-200 py-4">
-                  <p className="text-[9.5px] uppercase font-black text-slate-500 tracking-wider">Purchased items</p>
-                  
-                  <div className="space-y-3 font-sans">
-                    {selectedSale.items.map((item, index) => {
-                      const isItemCash = item.discountType === 'cash';
-                      const priceAfterDiscount = isItemCash
-                        ? Math.max(0, item.price - item.discount)
-                        : item.price * (1 - item.discount / 100);
-                      const itemProduct = products.find(product => product.id === item.productId);
-                      return (
-                        <div key={index} className="flex justify-between items-start text-xs text-slate-705">
-                          <div className="space-y-0.5 max-w-[70%]">
-                            <p className="font-bold text-slate-800 leading-tight">{item.productName}</p>
-                            <p className="text-[10.5px] text-slate-500 font-mono">
-                              {formatSaleItemQuantity(item, itemProduct)} x {currency}{item.price.toLocaleString()}
-                              {item.discount > 0 && (
-                                <span className="text-emerald-600 font-bold ml-1">
-                                  ({isItemCash ? `${currency}${item.discount} Off` : `${item.discount}% Off`})
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                          <span className="font-mono font-bold text-slate-900 shrink-0">
-                            {currency}{Math.round(priceAfterDiscount * item.qty).toLocaleString()}
-                          </span>
-                        </div>
-                      );
-                    })}
+                <div className="border-t border-dashed border-slate-300" />
+
+                {/* Items table */}
+                <div>
+                  <div className="flex text-[10px] font-black uppercase text-black pb-1.5 border-b-2 border-black">
+                    <span className="w-5 shrink-0">#</span>
+                    <span className="flex-1">Maelezo</span>
+                    <span className="w-12 shrink-0 text-center">Qty</span>
+                    <span className="w-16 shrink-0 text-right">Bei</span>
+                    <span className="w-16 shrink-0 text-right">Jumla</span>
                   </div>
+                  {selectedSale.items.map((item, index) => {
+                    const isItemCash = item.discountType === 'cash';
+                    const priceAfterDiscount = isItemCash
+                      ? Math.max(0, item.price - item.discount)
+                      : item.price * (1 - item.discount / 100);
+                    const itemProduct = products.find(product => product.id === item.productId);
+                    return (
+                      <div key={index}>
+                        <div className="flex items-start py-2 text-[11px] text-black">
+                          <span className="w-5 shrink-0 text-slate-400">{index + 1}</span>
+                          <span className="flex-1 font-semibold pr-1">{item.productName}</span>
+                          <span className="w-12 shrink-0 text-center">{formatSaleItemQuantity(item, itemProduct)}</span>
+                          <span className="w-16 shrink-0 text-right">{currency}{Math.round(priceAfterDiscount).toLocaleString()}</span>
+                          <span className="w-16 shrink-0 text-right font-bold">{currency}{Math.round(priceAfterDiscount * item.qty).toLocaleString()}</span>
+                        </div>
+                        {index < selectedSale.items.length - 1 && <div className="border-t border-dashed border-slate-200" />}
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {/* Calculations tally */}
-                <div className="space-y-1.5 font-mono text-[11px] text-slate-700">
-                  {(() => {
-                    const isVat = selectedSale.vatStatus === 'vat' || (selectedSale.tax > 0);
-                    const taxAmt = isVat ? (selectedSale.tax || 0) : 0;
-                    const delivery = selectedSale.deliveryCost || 0;
-                    // Subtotal is total minus tax and delivery
-                    const taxableSub = selectedSale.total - taxAmt - delivery;
-                    const discVal = selectedSale.discount || 0;
-                    const hasDisc = discVal > 0;
-                    const originalSub = hasDisc 
-                      ? (selectedSale.discountType === 'cash' ? taxableSub + discVal : taxableSub / (1 - discVal / 100))
-                      : taxableSub;
-                    const discAmt = originalSub - taxableSub;
-                    return (
-                      <>
+                <div className="border-t border-dashed border-slate-300" />
+
+                {/* Totals */}
+                {(() => {
+                  const isVat = selectedSale.vatStatus === 'vat' || (selectedSale.tax > 0);
+                  const taxAmt = isVat ? (selectedSale.tax || 0) : 0;
+                  const delivery = selectedSale.deliveryCost || 0;
+                  const taxableSub = selectedSale.total - taxAmt - delivery;
+                  const discVal = selectedSale.discount || 0;
+                  const hasDisc = discVal > 0;
+                  const originalSub = hasDisc
+                    ? (selectedSale.discountType === 'cash' ? taxableSub + discVal : taxableSub / (1 - discVal / 100))
+                    : taxableSub;
+                  const discAmt = originalSub - taxableSub;
+                  const initialPaid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
+                  const extra = (installmentRecords[selectedSale.id] || []).reduce((sum, inst) => sum + inst.amount, 0);
+                  const totalPaidNow = Math.min(selectedSale.total, initialPaid + extra);
+                  const dueRemainder = Math.max(0, selectedSale.total - totalPaidNow);
+                  return (
+                    <>
+                      <div className="space-y-1.5 text-[11px] text-black">
                         <div className="flex justify-between">
-                          <span>ITEMS SUB-TOTAL</span>
-                          <span>{currency}{Math.round(originalSub).toLocaleString()}</span>
+                          <span>Jumla Ndogo</span>
+                          <span className="font-semibold">{currency}{Math.round(originalSub).toLocaleString()}</span>
                         </div>
                         {hasDisc && (
-                          <div className="flex justify-between text-emerald-700 font-bold font-mono">
-                            <span>ORDER DISCOUNT {selectedSale.discountType === 'cash' ? '' : `(${discVal}%)`}</span>
-                            <span>-{currency}{Math.round(discAmt).toLocaleString()}</span>
+                          <div className="flex justify-between">
+                            <span>Punguzo</span>
+                            <span className="font-semibold">-{currency}{Math.round(discAmt).toLocaleString()}</span>
                           </div>
                         )}
                         {isVat && (
-                          <div className="flex justify-between text-slate-500">
-                            <span>{`VAT (${Math.round(activeTenant.taxRate * 100)}%)`}</span>
-                            <span>{currency}{Math.round(taxAmt).toLocaleString()}</span>
+                          <div className="flex justify-between">
+                            <span>VAT ({Math.round(activeTenant.taxRate * 100)}%)</span>
+                            <span className="font-semibold">{currency}{Math.round(taxAmt).toLocaleString()}</span>
                           </div>
                         )}
-                      </>
-                    );
-                  })()}
-                  {selectedSale.deliveryCost !== undefined && selectedSale.deliveryCost > 0 && (
-                    <div className="flex justify-between text-indigo-700 font-bold font-mono">
-                      <span>DELIVERY CHARGES</span>
-                      <span>{currency}{Math.round(selectedSale.deliveryCost).toLocaleString()}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-bold text-slate-900 border-t border-slate-200/60 pt-2 text-[11px]">
-                    <span>TOTAL PRICE</span>
-                    <span className="font-black text-slate-900">{currency}{Math.round(selectedSale.total).toLocaleString()}</span>
-                  </div>
+                        {delivery > 0 && (
+                          <div className="flex justify-between">
+                            <span>Delivery</span>
+                            <span className="font-semibold">{currency}{Math.round(delivery).toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
 
-                  {(() => {
-                    const initialPaid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
-                    const extra = (installmentRecords[selectedSale.id] || []).reduce((sum, inst) => sum + inst.amount, 0);
-                    const totalPaidNow = Math.min(selectedSale.total, initialPaid + extra);
-                    const dueRemainder = Math.max(0, selectedSale.total - totalPaidNow);
-                    return (
-                      <>
-                        <div className="flex justify-between text-emerald-700 font-bold pt-1.5 border-t border-slate-100">
-                          <span>TOTAL AMOUNT PAID</span>
-                          <span>{currency}{Math.round(totalPaidNow).toLocaleString()}</span>
+                      <div className="border-t-2 border-black pt-1.5 flex justify-between text-sm font-black text-black">
+                        <span>Jumla</span>
+                        <span>{currency}{Math.round(selectedSale.total).toLocaleString()}</span>
+                      </div>
+                      <div className="border-t-2 border-black pt-1.5 flex justify-between text-[11px] text-black">
+                        <span>Due</span>
+                        <span className="font-semibold">{currency}{Math.round(dueRemainder).toLocaleString()}</span>
+                      </div>
+
+                      <div className="border-t border-dashed border-slate-300" />
+
+                      {/* Payment details */}
+                      <div className="space-y-1 text-[11px] text-black">
+                        <p className="font-black uppercase tracking-wide">Payment Details</p>
+                        <div className="flex justify-between">
+                          <span>Mode</span>
+                          <span className="font-semibold">{selectedSale.paymentMethod}</span>
                         </div>
-                        {dueRemainder > 0 && (
-                          <div className="flex justify-between text-rose-700 font-bold">
-                            <span>OUTSTANDING DUE</span>
-                            <span>{currency}{Math.round(dueRemainder).toLocaleString()}</span>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
+                        <div className="flex justify-between">
+                          <span>Kiasi</span>
+                          <span className="font-semibold">{currency}{Math.round(totalPaidNow).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+
+                <div className="border-t border-dashed border-slate-300" />
+
+                {/* Barcode */}
+                <div className="flex flex-col items-center gap-1 pt-1">
+                  <div className="flex items-end">
+                    {renderReceiptBarcodeBars(selectedSale.reference || selectedSale.id)}
+                  </div>
+                  <p className="text-[9px] font-bold tracking-[0.2em] text-black">{receiptBarcodeDigits(selectedSale.reference || selectedSale.id)}</p>
                 </div>
 
-                {/* Bottom footer bar codes */}
-                <div className="text-center space-y-1.5 pt-4 border-t border-dashed border-slate-200 text-slate-400">
-                  <p className="text-[9px] uppercase">Thank you for shopping with us.</p>
-                  <p className="text-[8px] text-slate-300 normal-case">Powered by Orvix</p>
+                {/* Footer */}
+                <div className="text-center space-y-1 pt-1">
+                  <p className="text-[10px] font-black text-black">Thank you for shopping with us</p>
+                  <p className="text-[9px] text-slate-400">Powered by Orvix</p>
                 </div>
 
               </div>
@@ -3693,37 +3722,37 @@ export default function DashboardSalesList({
                   />
                 </div>
 
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-4 gap-2">
                   <button
                     type="button"
                     onClick={() => shareSalePdf(selectedSale, whatsappPhone, 'receipt')}
-                    className="min-w-0 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold font-sans text-[9px] sm:text-[10px] uppercase cursor-pointer flex items-center justify-center gap-1 transition-colors"
+                    className="min-w-0 h-10 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold font-sans text-[10px] uppercase cursor-pointer flex items-center justify-center gap-1 transition-colors"
                   >
-                    <MessageSquare className="w-3 h-3" />
+                    <MessageSquare className="w-3.5 h-3.5" />
                     <span>Send</span>
                   </button>
 
                   <button
                     onClick={() => downloadReceiptPdf(selectedSale)}
-                    className="min-w-0 h-9 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded-lg font-bold font-sans text-[9px] sm:text-[10px] uppercase cursor-pointer text-indigo-700 transition-colors flex items-center justify-center gap-1"
+                    className="min-w-0 h-10 border border-slate-200 bg-white hover:bg-slate-50 rounded-xl font-bold font-sans text-[10px] uppercase cursor-pointer text-slate-700 transition-colors flex items-center justify-center gap-1"
                   >
-                    <Download className="w-3 h-3" />
+                    <Download className="w-3.5 h-3.5" />
                     <span>Download</span>
                   </button>
 
                   <button
                     onClick={simulatePrint}
-                    className="min-w-0 h-9 bg-slate-900 hover:bg-slate-800 text-white hover:text-emerald-450 border-none rounded-lg font-bold font-sans text-[9px] sm:text-[10px] uppercase cursor-pointer flex items-center justify-center gap-1 transition-colors"
+                    className="min-w-0 h-10 border border-slate-200 bg-white hover:bg-slate-50 rounded-xl font-bold font-sans text-[10px] uppercase cursor-pointer text-slate-700 transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
                     disabled={isReceiptPrinting}
                   >
                     {isReceiptPrinting ? (
                       <>
-                        <Clock className="w-3 h-3 animate-spin text-emerald-400" />
-                        <span className="text-emerald-400">Wait…</span>
+                        <Clock className="w-3.5 h-3.5 animate-spin" />
+                        <span>Wait…</span>
                       </>
                     ) : (
                       <>
-                        <Printer className="w-3 h-3 text-emerald-455" />
+                        <Printer className="w-3.5 h-3.5" />
                         <span>Print</span>
                       </>
                     )}
@@ -3731,7 +3760,7 @@ export default function DashboardSalesList({
 
                   <button
                     onClick={() => setSelectedSale(null)}
-                    className="min-w-0 h-9 border border-slate-300 hover:bg-slate-100 rounded-lg font-bold font-sans text-[9px] sm:text-[10px] uppercase cursor-pointer text-slate-600 transition-colors"
+                    className="min-w-0 h-10 border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-xl font-bold font-sans text-[10px] uppercase cursor-pointer text-slate-700 transition-colors disabled:opacity-50"
                     disabled={isReceiptPrinting}
                   >
                     Close

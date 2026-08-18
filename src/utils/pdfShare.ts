@@ -775,6 +775,67 @@ const createVisualA4Pdf = async (source: HTMLElement) => {
   }
 };
 
+// A single continuous 57–58mm thermal strip, captured as a screenshot of the
+// exact on-screen receipt markup — the downloaded/shared PDF is guaranteed to
+// look identical to the preview, the same guarantee the A4 templates already
+// have via createVisualA4Pdf, rather than a separately hand-maintained
+// text-redraw that can drift out of sync with the preview's design.
+const RECEIPT_CAPTURE_WIDTH_PX = 384;
+
+const createVisualReceiptPdf = async (source: HTMLElement) => {
+  const host = document.createElement('div');
+  host.setAttribute('aria-hidden', 'true');
+  Object.assign(host.style, {
+    position: 'fixed',
+    left: '-10000px',
+    top: '0',
+    width: `${RECEIPT_CAPTURE_WIDTH_PX}px`,
+    background: '#ffffff',
+    zIndex: '-1',
+    pointerEvents: 'none',
+  });
+
+  const clone = source.cloneNode(true) as HTMLElement;
+  clone.removeAttribute('id');
+  Object.assign(clone.style, {
+    display: 'block',
+    width: `${RECEIPT_CAPTURE_WIDTH_PX}px`,
+    height: 'auto',
+    maxHeight: 'none',
+    margin: '0',
+    transform: 'none',
+    boxShadow: 'none',
+    overflow: 'visible',
+    background: '#ffffff',
+  });
+  clone.querySelectorAll('button,[role="button"],input,textarea,select,.print\\:hidden').forEach(node => node.remove());
+  host.appendChild(clone);
+  document.body.appendChild(host);
+
+  try {
+    await waitForDocumentAssets(clone);
+    const captureOptions = {
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+      width: RECEIPT_CAPTURE_WIDTH_PX,
+      height: Math.max(200, clone.scrollHeight),
+    };
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await htmlToCanvas(clone, captureOptions);
+    } catch {
+      canvas = await htmlToCanvas(clone, { ...captureOptions, skipFonts: true });
+    }
+    const receiptWidthPt = 58 * (72 / 25.4);
+    const pageHeightPt = receiptWidthPt * (canvas.height / canvas.width);
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [receiptWidthPt, pageHeightPt] });
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.96), 'JPEG', 0, 0, receiptWidthPt, pageHeightPt, undefined, 'FAST');
+    return pdf;
+  } finally {
+    host.remove();
+  }
+};
+
 // Walks the source DOM once, drawing every node onto `pdf` starting at
 // `pageTop`, and returns the final y position content ended at. Shared by
 // both the receipt two-pass sizing below and the legacy multi-page a4
@@ -926,27 +987,13 @@ export async function createPdfFromElement({
   const cleanName = sanitizeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
 
   if (format === 'receipt') {
-    // Real 57–58mm thermal roll width, not a full A4-derived page — matches
-    // the physical paper a POS printer would use, with no side dead space.
-    const receiptWidth = Math.round(58 * (72 / 25.4));
-    const margin = 12;
-    const pageTop = margin;
-    const pageBottom = margin;
-
-    // Pass 1: render onto an oversized page purely to measure how tall the
-    // real content is (a thermal strip has no fixed length, so a page-break
-    // must never trigger here).
-    const measurePdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [receiptWidth, 20000] });
-    const measuredY = renderVectorDocumentBody(measurePdf, source, { format, margin, pageTop, pageBottom, includeHidden });
-    if (measuredY === pageTop) {
-      throw new Error('Document has no printable data.');
-    }
-
-    // Pass 2: render again onto a page sized to exactly that content height,
-    // so the PDF ends where the receipt itself ends — no trailing blank strip.
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [receiptWidth, measuredY + pageBottom] });
-    renderVectorDocumentBody(pdf, source, { format, margin, pageTop, pageBottom, includeHidden });
-    return new File([pdf.output('blob')], cleanName, { type: 'application/pdf' });
+    // Screenshot the actual receipt markup at real 57–58mm thermal roll
+    // width — guarantees the downloaded/shared PDF looks identical to the
+    // on-screen preview, the same guarantee createVisualA4Pdf gives the
+    // other document types, with height sized to exactly where the
+    // receipt's content ends (no trailing blank strip).
+    const visualPdf = await createVisualReceiptPdf(source);
+    return new File([visualPdf.output('blob')], cleanName, { type: 'application/pdf' });
   }
 
   const widestTable = Math.max(
