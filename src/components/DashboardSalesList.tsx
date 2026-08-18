@@ -498,7 +498,9 @@ export default function DashboardSalesList({
   // Modal triggers
   const [viewPaymentsOpen, setViewPaymentsOpen] = useState(false);
   const [viewA4InvoiceOpen, setViewA4InvoiceOpen] = useState(false);
-  const [docZoom, setDocZoom] = useState(1.0);
+  // Starts below 100% (matching the delivery note preview's "optimal fit")
+  // so the full A4 page is visible without cropping on tablet/mobile widths.
+  const [docZoom, setDocZoom] = useState(0.65);
   const [showMobileDatePicker, setShowMobileDatePicker] = useState(false); // WYSIWYG zoom level
   const [payInInputVal, setPayInInputVal] = useState<string>('');
 
@@ -3277,7 +3279,7 @@ export default function DashboardSalesList({
               <div className="shrink-0 bg-[#2c2c2c] border-b border-[#1a1a1a] px-3 py-2 flex items-center justify-between gap-2 print:hidden select-none">
                 <div className="flex items-center gap-2 min-w-0">
                   <button
-                    onClick={() => { setSelectedSale(null); setViewA4InvoiceOpen(false); setDocZoom(1.0); }}
+                    onClick={() => { setSelectedSale(null); setViewA4InvoiceOpen(false); setDocZoom(0.65); }}
                     className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors cursor-pointer text-white shrink-0"
                   >
                     <ChevronLeft className="w-5 h-5" />
@@ -3294,42 +3296,26 @@ export default function DashboardSalesList({
                   <button type="button" onClick={() => setDocZoom(z => Math.min(2.0, +(z + 0.1).toFixed(1)))} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-white cursor-pointer"><ZoomIn className="w-4 h-4" /></button>
                 </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    onClick={() => shareSalePdf(selectedSale, selectedSale.customerPhone, 'a4')}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer text-white"
-                    title="Send via WhatsApp"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => downloadInvoicePdf(selectedSale)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer text-white"
-                    title="Download"
-                  >
-                    <Download className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => { setSelectedSale(null); setViewA4InvoiceOpen(false); setDocZoom(1.0); }}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-red-500/70 transition-colors cursor-pointer text-white"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+                <button
+                  onClick={() => { setSelectedSale(null); setViewA4InvoiceOpen(false); setDocZoom(0.65); }}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-red-500/70 transition-colors cursor-pointer text-white shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
-              {/* ── BOTTOM ACTION BAR — mobile only; desktop/tablet use the compact toolbar above ── */}
-              <div className="sm:hidden shrink-0 bg-[#1e1e1e] border-t border-[#2a2a2a] px-3 py-2 flex items-center justify-center gap-1.5 print:hidden">
+              {/* ── BOTTOM ACTION BAR — Send / Download / Close, one row, all screen sizes ── */}
+              <div className="shrink-0 bg-[#1e1e1e] border-t border-[#2a2a2a] px-3 py-2 flex items-center justify-center gap-2 print:hidden">
                 <button onClick={() => shareSalePdf(selectedSale, selectedSale.customerPhone, 'a4')}
-                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors">
+                  className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors">
                   <MessageSquare className="w-3.5 h-3.5" /><span>Send</span>
                 </button>
                 <button onClick={() => downloadInvoicePdf(selectedSale)}
-                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
+                  className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
                   <Download className="w-3.5 h-3.5" /><span>Download</span>
                 </button>
-                <button onClick={() => { setSelectedSale(null); setViewA4InvoiceOpen(false); setDocZoom(1.0); }}
-                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white/10 hover:bg-red-500/60 text-white text-[11px] font-bold transition-colors">
+                <button onClick={() => { setSelectedSale(null); setViewA4InvoiceOpen(false); setDocZoom(0.65); }}
+                  className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-white/10 hover:bg-red-500/60 text-white text-[11px] font-bold transition-colors">
                   <X className="w-3.5 h-3.5" /><span>Close</span>
                 </button>
               </div>
@@ -3339,7 +3325,7 @@ export default function DashboardSalesList({
                 <div className="print:hidden text-center py-2">
                   <span className="text-white/20 text-[10px] font-mono select-none">A4 · Sales Invoice · {selectedSale.reference || selectedSale.id}</span>
                 </div>
-                <div className="flex justify-center pb-16 print:pb-0 print:block">
+                <div className="flex justify-start md:justify-center px-2 md:px-0 pb-16 print:pb-0 print:block">
                   <div
                     id="sales-invoice-a4-pdf-template"
                     style={{
@@ -3349,18 +3335,9 @@ export default function DashboardSalesList({
                       transformOrigin: 'top center',
                       marginBottom: docZoom < 1 ? `${(1123 * docZoom) - 1123}px` : 0,
                     }}
-                    className="bg-white shadow-2xl font-sans relative print:shadow-none print:min-h-0"
+                    className="bg-white shadow-2xl font-sans relative print:shadow-none print:min-h-0 shrink-0"
                   >
                   <style>{`
-                    @media (max-width: 820px) {
-                      #sales-invoice-a4-pdf-template {
-                        --vw: calc(100vw - 16px);
-                        --scale: calc(var(--vw) / 794);
-                        transform: scale(var(--scale)) !important;
-                        transform-origin: top center !important;
-                        margin-bottom: calc((1123px * var(--scale)) - 1123px) !important;
-                      }
-                    }
                     @media print { body * { visibility: hidden !important; } #sales-invoice-a4-pdf-template, #sales-invoice-a4-pdf-template * { visibility: visible !important; } #sales-invoice-a4-pdf-template { position: fixed !important; left: 0 !important; top: 0 !important; width: 100% !important; transform: none !important; } }
                   `}</style>
 
@@ -5079,7 +5056,7 @@ export default function DashboardSalesList({
               <div className="flex items-center gap-2 min-w-0">
                 <button
                   type="button"
-                  onClick={() => { setViewingDocument(null); setDocZoom(1.0); }}
+                  onClick={() => { setViewingDocument(null); setDocZoom(0.65); }}
                   className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors cursor-pointer text-white shrink-0"
                 >
                   <ChevronLeft className="w-5 h-5" />
@@ -5120,49 +5097,10 @@ export default function DashboardSalesList({
 
               {/* Right: actions */}
               <div className="flex items-center gap-1.5 shrink-0">
-                {/* Record as Sale */}
-                {viewingDocument.status === 'pending' && !isMixedBranchDocument(viewingDocument) && (
-                  <button
-                    type="button"
-                    onClick={() => sendDocumentToSales(viewingDocument)}
-                    className="hidden sm:flex h-8 px-3 bg-emerald-500 hover:bg-emerald-400 text-white text-[11px] font-black uppercase rounded-lg cursor-pointer transition-all items-center gap-1.5"
-                    title="Convert to Sale"
-                  >
-                    <ArrowRight className="w-3.5 h-3.5" />
-                    <span>Record as Sale</span>
-                  </button>
-                )}
-
-                {/* Send via WhatsApp */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (viewingDocument.customerPhone?.trim()) {
-                      sharePdfDocument(viewingDocument, viewingDocument.customerPhone);
-                    } else {
-                      setDocumentSendOpen(prev => !prev);
-                    }
-                  }}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer text-white"
-                  title="Send via WhatsApp"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                </button>
-
-                {/* Download */}
-                <button
-                  type="button"
-                  onClick={() => downloadPdfDocument(viewingDocument)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer text-white"
-                  title="Download"
-                >
-                  <Download className="w-4 h-4" />
-                </button>
-
                 {/* Close */}
                 <button
                   type="button"
-                  onClick={() => { setViewingDocument(null); setDocZoom(1.0); }}
+                  onClick={() => { setViewingDocument(null); setDocZoom(0.65); }}
                   className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-red-500/70 transition-colors cursor-pointer text-white"
                   title="Close"
                 >
@@ -5178,27 +5116,46 @@ export default function DashboardSalesList({
               </div>
             )}
 
-            {/* ── MOBILE ACTION BAR (below toolbar) ───────────────────────── */}
-            <div className="sm:hidden shrink-0 bg-[#363636] border-b border-[#1a1a1a] px-3 py-2 flex items-center gap-2 print:hidden">
-              <div className="flex items-center gap-1 bg-white/10 rounded-xl px-2 py-1">
-                <button type="button" onClick={() => setDocZoom(z => Math.max(0.5, +(z - 0.1).toFixed(1)))} className="w-7 h-7 flex items-center justify-center rounded-lg text-white cursor-pointer">
-                  <ZoomOut className="w-3.5 h-3.5" />
-                </button>
-                <span className="text-white/70 text-xs font-mono font-bold w-10 text-center">{Math.round(docZoom * 100)}%</span>
-                <button type="button" onClick={() => setDocZoom(z => Math.min(2.0, +(z + 0.1).toFixed(1)))} className="w-7 h-7 flex items-center justify-center rounded-lg text-white cursor-pointer">
-                  <ZoomIn className="w-3.5 h-3.5" />
-                </button>
-              </div>
+            {/* ── BOTTOM ACTION BAR — Record as Sale / Send / Download / Close, one row, all screen sizes ── */}
+            <div className="shrink-0 bg-[#1e1e1e] border-t border-[#2a2a2a] px-3 py-2 flex items-center justify-center gap-2 print:hidden">
               {viewingDocument.status === 'pending' && !isMixedBranchDocument(viewingDocument) && (
                 <button
                   type="button"
                   onClick={() => sendDocumentToSales(viewingDocument)}
-                  className="flex-1 h-8 px-3 bg-emerald-500 hover:bg-emerald-400 text-white text-[11px] font-black uppercase rounded-lg cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                  className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors"
                 >
                   <ArrowRight className="w-3.5 h-3.5" />
                   <span>Record as Sale</span>
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (viewingDocument.customerPhone?.trim()) {
+                    sharePdfDocument(viewingDocument, viewingDocument.customerPhone);
+                  } else {
+                    setDocumentSendOpen(prev => !prev);
+                  }
+                }}
+                title="Send via WhatsApp"
+                className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors"
+              >
+                <MessageSquare className="w-3.5 h-3.5" /><span>Send</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadPdfDocument(viewingDocument)}
+                className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" /><span>Download</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setViewingDocument(null); setDocZoom(0.65); }}
+                className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-white/10 hover:bg-red-500/60 text-white text-[11px] font-bold transition-colors"
+              >
+                <X className="w-3.5 h-3.5" /><span>Close</span>
+              </button>
             </div>
 
             {/* ── A4 CANVAS ───────────────────────────────────────────────── */}
@@ -5208,8 +5165,8 @@ export default function DashboardSalesList({
                 <span className="text-white/20 text-[10px] font-mono select-none">A4 · 210mm × 297mm · {viewingDocument.documentNumber}</span>
               </div>
 
-              {/* Zoomed A4 page — auto-scales on mobile to fit screen width */}
-              <div className="flex justify-center pb-16 print:pb-0 print:block">
+              {/* Zoomed A4 page — full A4 on tablet/mobile, no cropping; horizontal scroll when narrower than the page */}
+              <div className="flex justify-start md:justify-center px-2 md:px-0 pb-16 print:pb-0 print:block">
                 <div
                   id="sales-document-a4-pdf-template"
                   style={{
@@ -5219,19 +5176,9 @@ export default function DashboardSalesList({
                     transformOrigin: 'top center',
                     marginBottom: docZoom < 1 ? `${(1123 * docZoom) - 1123}px` : 0,
                   }}
-                  className="bg-white shadow-2xl font-sans relative print:shadow-none print:min-h-0"
+                  className="bg-white shadow-2xl font-sans relative print:shadow-none print:min-h-0 shrink-0"
                 >
-                  {/* Auto-fit on mobile: inject a CSS rule that scales the A4 page to viewport width */}
                   <style>{`
-                    @media (max-width: 820px) {
-                      #sales-document-a4-pdf-template {
-                        --vw: calc(100vw - 16px);
-                        --scale: calc(var(--vw) / 794);
-                        transform: scale(var(--scale)) !important;
-                        transform-origin: top center !important;
-                        margin-bottom: calc((1123px * var(--scale)) - 1123px) !important;
-                      }
-                    }
                     @media print {
                       body * { visibility: hidden !important; }
                       #sales-document-a4-pdf-template, #sales-document-a4-pdf-template * { visibility: visible !important; }
@@ -5434,27 +5381,6 @@ export default function DashboardSalesList({
               </div>
             </div>
 
-            {/* ── BOTTOM ACTION BAR — mobile only; desktop/tablet use the compact toolbar above ── */}
-            <div className="sm:hidden shrink-0 bg-[#1e1e1e] border-t border-[#2a2a2a] px-3 py-2 flex items-center justify-center gap-1.5 print:hidden">
-              {viewingDocument.status === 'pending' && !isMixedBranchDocument(viewingDocument) && (
-                <button type="button" onClick={() => { sendDocumentToSales(viewingDocument); setViewingDocument(null); }}
-                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors">
-                  <ArrowRight className="w-3.5 h-3.5" /><span>Record</span>
-                </button>
-              )}
-              <button type="button" onClick={() => { viewingDocument.customerPhone?.trim() ? sharePdfDocument(viewingDocument, viewingDocument.customerPhone) : setDocumentSendOpen(prev => !prev); }}
-                className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
-                <MessageSquare className="w-3.5 h-3.5" /><span>Send</span>
-              </button>
-              <button type="button" onClick={() => downloadPdfDocument(viewingDocument)}
-                className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors">
-                <Download className="w-3.5 h-3.5" /><span>Download</span>
-              </button>
-              <button type="button" onClick={() => { setViewingDocument(null); setDocZoom(1.0); }}
-                className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white/10 hover:bg-red-500/60 text-white text-[11px] font-bold transition-colors">
-                <X className="w-3.5 h-3.5" /><span>Close</span>
-              </button>
-            </div>
           </div>
         );
       })()}
