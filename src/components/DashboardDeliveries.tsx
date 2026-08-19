@@ -30,6 +30,7 @@ import {
 import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
 import { formatSaleItemQuantity } from '../utils/unitFormatter';
+import { buildWhatsAppLink } from '../utils/whatsapp';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
 function DeliveryMotorcycleIcon({ className, size = 18 }: { className?: string; size?: number }) {
@@ -240,6 +241,12 @@ export default function DashboardDeliveries({
   const [whatsAppTarget, setWhatsAppTarget] = useState<Delivery | null>(null);
   const [copiedText, setCopiedText] = useState(false);
   const [deliveryPdfStatus, setDeliveryPdfStatus] = useState<string | null>(null);
+
+  // "Send Note" — a plain WhatsApp text message (the dispatch note, not a
+  // PDF), sent to whichever number the user types in, not just whatever
+  // phone happens to be on file for the delivery.
+  const [sendNoteTarget, setSendNoteTarget] = useState<Delivery | null>(null);
+  const [sendNotePhone, setSendNotePhone] = useState('');
 
   // Delivery Note Creator Form States
   const [notePINo, setNotePINo] = useState(() => `PI-${Math.floor(10000 + Math.random() * 90000)}`);
@@ -1103,6 +1110,15 @@ Vehicle Plate Number: ${plateNumber}
                                 <Edit className="w-3.5 h-3.5 text-blue-400" />
                                 Edit Delivery
                               </button>
+                              {del.riderDetails && (
+                                <button
+                                  className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                  onClick={() => { setOpenQueueActionId(null); setSendNotePhone(del.customerPhone || ''); setSendNoteTarget(del); }}
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
+                                  Send Note
+                                </button>
+                              )}
                               <button
                                 className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center gap-2 cursor-pointer"
                                 onClick={() => { setOpenQueueActionId(null); setDeletingDelivery(del); }}
@@ -3295,6 +3311,72 @@ Vehicle Plate Number: ${plateNumber}
                   <span>{copiedText ? 'Copied!' : 'Copy'}</span>
                 </button>
               </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* SEND NOTE — plain WhatsApp text message (not a PDF), to a number the user types in */}
+      {sendNoteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white border rounded-2xl md:rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col relative animate-scale-up max-h-[92vh]">
+
+            <button
+              onClick={() => setSendNoteTarget(null)}
+              className="absolute top-4.5 right-4.5 p-1 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="px-6 py-5 bg-[#075e54] text-white">
+              <div className="flex items-center space-x-2.5">
+                <MessageSquare className="w-5 h-5" />
+                <h4 className="font-black text-sm tracking-wide uppercase">Send Note</h4>
+              </div>
+              <p className="text-[10px] text-emerald-100 font-sans mt-0.5">
+                Sends the dispatch note as a WhatsApp text message — not a PDF.
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1.5">WhatsApp Phone Number</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">+</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. 255712345678"
+                    value={sendNotePhone}
+                    onChange={(e) => setSendNotePhone(e.target.value.replace(/[^0-9]/g, ''))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm pl-6 pr-3 py-2.5 font-mono text-slate-800 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-[11px] text-slate-500 font-sans leading-relaxed max-h-32 overflow-y-auto whitespace-pre-wrap">
+                {generateWhatsAppMessage(sendNoteTarget)}
+              </div>
+            </div>
+
+            <div className="px-6 py-4.5 bg-slate-50 border-t border-slate-200 flex gap-2">
+              <button
+                onClick={() => setSendNoteTarget(null)}
+                className="flex-1 h-10 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  window.open(buildWhatsAppLink(generateWhatsAppMessage(sendNoteTarget), sendNotePhone), '_blank');
+                  setSendNoteTarget(null);
+                }}
+                disabled={!sendNotePhone}
+                className="flex-1 h-10 rounded-xl bg-[#25D366] hover:bg-[#20ba59] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Send</span>
+              </button>
             </div>
 
           </div>

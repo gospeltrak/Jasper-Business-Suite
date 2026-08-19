@@ -3725,37 +3725,37 @@ export default function DashboardSalesList({
                   />
                 </div>
 
-                <div className="grid grid-cols-4 gap-2">
+                <div className="flex flex-row items-stretch gap-2">
                   <button
                     type="button"
                     onClick={() => shareSalePdf(selectedSale, whatsappPhone, 'receipt')}
-                    className="min-w-0 h-10 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold font-sans text-[10px] uppercase cursor-pointer flex items-center justify-center gap-1 transition-colors"
+                    className="flex-1 min-w-0 h-10 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold font-sans text-[10px] uppercase cursor-pointer flex flex-row items-center justify-center gap-1 transition-colors"
                   >
-                    <MessageSquare className="w-3.5 h-3.5" />
+                    <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                     <span>Send</span>
                   </button>
 
                   <button
                     onClick={() => downloadReceiptPdf(selectedSale)}
-                    className="min-w-0 h-10 border border-slate-200 bg-white hover:bg-slate-50 rounded-xl font-bold font-sans text-[10px] uppercase cursor-pointer text-slate-700 transition-colors flex items-center justify-center gap-1"
+                    className="flex-1 min-w-0 h-10 border border-slate-200 bg-white hover:bg-slate-50 rounded-xl font-bold font-sans text-[10px] uppercase cursor-pointer text-slate-700 transition-colors flex flex-row items-center justify-center gap-1"
                   >
-                    <Download className="w-3.5 h-3.5" />
+                    <Download className="w-3.5 h-3.5 shrink-0" />
                     <span>Download</span>
                   </button>
 
                   <button
                     onClick={simulatePrint}
-                    className="min-w-0 h-10 border border-slate-200 bg-white hover:bg-slate-50 rounded-xl font-bold font-sans text-[10px] uppercase cursor-pointer text-slate-700 transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                    className="flex-1 min-w-0 h-10 border border-slate-200 bg-white hover:bg-slate-50 rounded-xl font-bold font-sans text-[10px] uppercase cursor-pointer text-slate-700 transition-colors flex flex-row items-center justify-center gap-1 disabled:opacity-50"
                     disabled={isReceiptPrinting}
                   >
                     {isReceiptPrinting ? (
                       <>
-                        <Clock className="w-3.5 h-3.5 animate-spin" />
+                        <Clock className="w-3.5 h-3.5 shrink-0 animate-spin" />
                         <span>Wait…</span>
                       </>
                     ) : (
                       <>
-                        <Printer className="w-3.5 h-3.5" />
+                        <Printer className="w-3.5 h-3.5 shrink-0" />
                         <span>Print</span>
                       </>
                     )}
@@ -3763,10 +3763,10 @@ export default function DashboardSalesList({
 
                   <button
                     onClick={() => setSelectedSale(null)}
-                    className="min-w-0 h-10 border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-xl font-bold font-sans text-[10px] uppercase cursor-pointer text-slate-700 transition-colors disabled:opacity-50"
+                    className="flex-1 min-w-0 h-10 border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-xl font-bold font-sans text-[10px] uppercase cursor-pointer text-slate-700 transition-colors flex flex-row items-center justify-center disabled:opacity-50"
                     disabled={isReceiptPrinting}
                   >
-                    Close
+                    <span>Close</span>
                   </button>
                 </div>
               </div>
