@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import jsPDF from 'jspdf';
 import { StaffSettings, StaffAllowance, SystemSettings, Sale, Expense, Delivery, Tenant } from '../types';
 import {
@@ -29,6 +30,7 @@ import {
   Lock,
   FileText,
   ChevronLeft,
+  ChevronRight,
   MoreVertical
 } from 'lucide-react';
 import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
@@ -310,6 +312,7 @@ export default function DashboardStaff({
   const [isRegisteringStaff, setIsRegisteringStaff] = useState(false);
   const [viewingStaffReport, setViewingStaffReport] = useState<StaffSettings | null>(null);
   const [openStaffActionId, setOpenStaffActionId] = useState<string | null>(null);
+  const [mobileActionsStaff, setMobileActionsStaff] = useState<StaffSettings | null>(null);
 
   useEffect(() => {
     setStaffList(systemSettings.staffs || []);
@@ -846,15 +849,6 @@ export default function DashboardStaff({
     </div>
   );
 
-  const renderStatus = (isOnline: boolean) => (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-black ${
-      isOnline ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'
-    }`}>
-      <span className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-      {isOnline ? 'Online' : 'Offline'}
-    </span>
-  );
-
   const renderCredentialEditor = (staff: StaffSettings, compact = false) => (
     credentialStaffId === staff.id ? (
       <div className={`rounded-2xl border border-indigo-100 bg-indigo-50/70 p-3 ${compact ? 'mt-3' : 'mt-2'}`}>
@@ -914,12 +908,10 @@ export default function DashboardStaff({
           </button>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="mt-5 grid grid-cols-2 gap-3">
           {[
             { label: 'Total staff', value: totals.totalStaff.toLocaleString(), icon: Users, color: 'text-slate-900' },
-            { label: 'Online now', value: totals.onlineStaff.toLocaleString(), icon: Activity, color: 'text-emerald-700' },
-            { label: 'Profit generated', value: `${currency}${Math.round(totals.totalProfit).toLocaleString()}`, icon: DollarSign, color: 'text-indigo-700' },
-            { label: 'Time in system', value: formatDuration(totals.totalHours), icon: Clock, color: 'text-amber-700' }
+            { label: 'Profit generated', value: `${currency}${Math.round(totals.totalProfit).toLocaleString()}`, icon: DollarSign, color: 'text-indigo-700' }
           ].map(item => (
             <div key={item.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-center justify-between gap-2">
@@ -966,7 +958,6 @@ export default function DashboardStaff({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
             <div>
               <h3 className="text-base font-black text-slate-950">Registered Staff</h3>
-              <p className="text-xs text-slate-500 mt-1">Admin can update a login ID and issue a secure Google invitation.</p>
             </div>
             <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">{staffList.length} accounts</div>
           </div>
@@ -977,7 +968,6 @@ export default function DashboardStaff({
                 <tr>
                   <th className="p-4">Staff member</th>
                   <th className="p-4">Role</th>
-                  <th className="p-4">Status</th>
                   <th className="p-4">Last login</th>
                   <th className="p-4 text-right">Actions</th>
                 </tr>
@@ -985,7 +975,7 @@ export default function DashboardStaff({
               <tbody className="divide-y divide-slate-100">
                 {staffList.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-sm font-semibold text-slate-400">No staff registered.</td>
+                    <td colSpan={4} className="p-8 text-center text-sm font-semibold text-slate-400">No staff registered.</td>
                   </tr>
                 ) : (
                   staffList.map(staff => {
@@ -1010,7 +1000,6 @@ export default function DashboardStaff({
                             {staff.role}
                           </span>
                         </td>
-                        <td className="p-4">{renderStatus(summary.isOnline)}</td>
                         <td className="p-4">
                           <div className="text-xs font-bold text-slate-700">{formatDateTime(summary.lastLogin)}</div>
                           <div className="text-[11px] text-slate-400 mt-1">{summary.device}</div>
@@ -1071,69 +1060,28 @@ export default function DashboardStaff({
               <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm font-semibold text-slate-400">No staff registered.</div>
             ) : (
               staffList.map(staff => {
-                const summary = staffSummaries.get(staff.id) || buildStaffSummary(staff);
-                const showPayStaff = payrollEnabled && canPayPayroll;
                 return (
                   <article
                     key={staff.id}
                     className="rounded-2xl bg-white p-3.5 relative overflow-hidden"
                     style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}
                   >
-                    <span
-                      className="absolute left-0 top-0 bottom-0 w-1"
-                      style={{ background: summary.isOnline ? '#22c55e' : '#cbd5e1' }}
-                    />
-                    <div className="flex items-center gap-3 pl-1.5">
+                    <div className="flex items-center gap-3">
                       {renderAvatar(staff, 'w-11 h-11')}
                       <div className="min-w-0 flex-1">
                         <h4 className="font-black text-slate-950 text-sm truncate">{staff.name}</h4>
-                        <div className="mt-0.5 flex items-center gap-2">
-                          <span className="text-[10px] font-black uppercase text-indigo-600 truncate">{staff.role}</span>
-                          {renderStatus(summary.isOnline)}
-                        </div>
+                        <span className="text-[10px] font-black uppercase text-indigo-600 truncate">{staff.role}</span>
                       </div>
-                      <div className="relative shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => setOpenStaffActionId(openStaffActionId === staff.id ? null : staff.id)}
-                          className="h-9 w-9 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 flex items-center justify-center"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                        {openStaffActionId === staff.id && (
-                          <>
-                            <div className="fixed inset-0 z-40" onClick={() => setOpenStaffActionId(null)} />
-                            <div className="absolute right-0 top-10 w-44 bg-white shadow-xl rounded-2xl border border-slate-200 py-1.5 z-50 animate-fade-in origin-top-right text-left text-xs font-bold text-slate-700 flex flex-col">
-                              <button type="button" onClick={() => { setOpenStaffActionId(null); openStaffProfile(staff); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
-                                <Eye className="w-3.5 h-3.5 text-slate-400" />
-                                View Staff
-                              </button>
-                              {showPayStaff && (
-                                <button type="button" onClick={() => { setOpenStaffActionId(null); openSalaryPayment(staff); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
-                                  <Wallet className="w-3.5 h-3.5 text-emerald-500" />
-                                  Pay Staff
-                                </button>
-                              )}
-                              <button type="button" onClick={() => { setOpenStaffActionId(null); openCredentialEditor(staff); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
-                                <KeyRound className="w-3.5 h-3.5 text-indigo-400" />
-                                Edit Staff
-                              </button>
-                              {!staff.isOwner ? (
-                                <button type="button" onClick={() => { setOpenStaffActionId(null); handleDeleteStaff(staff.id); }} className="w-full text-left px-4 py-2.5 hover:bg-rose-50 text-rose-600 flex items-center gap-2 cursor-pointer">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  Delete Staff
-                                </button>
-                              ) : (
-                                <span className="w-full text-left px-4 py-2.5 text-amber-700 flex items-center gap-2">
-                                  👑 Owner
-                                </span>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMobileActionsStaff(staff)}
+                        className="h-9 w-9 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 flex items-center justify-center shrink-0"
+                        aria-label="Staff actions"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
                     </div>
-                    <div className="pl-1.5">
+                    <div>
                       {renderCredentialEditor(staff, true)}
                     </div>
                   </article>
@@ -1380,17 +1328,13 @@ export default function DashboardStaff({
               </div>
             ) : (
               staffList.map(staff => {
-                const summary = staffSummaries.get(staff.id) || buildStaffSummary(staff);
                 return (
                   <article key={staff.id} className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       {renderAvatar(staff, 'w-11 h-11')}
                       <div className="min-w-0">
                         <h4 className="font-black text-slate-900 text-sm truncate">{staff.name}</h4>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-600 truncate">{staff.role}</span>
-                          {renderStatus(summary.isOnline)}
-                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-600 truncate">{staff.role}</span>
                       </div>
                     </div>
                     <button
@@ -1662,12 +1606,9 @@ export default function DashboardStaff({
             <div className="p-4 md:p-6 space-y-5 pb-[calc(2rem+env(safe-area-inset-bottom))]">
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_0.95fr] gap-5">
                 <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5">
-                  <div className="flex items-center justify-between gap-3 mb-4">
-                    <div>
-                      <h4 className="font-black text-slate-950">Profile Details</h4>
-                      <p className="text-xs text-slate-500 mt-1">Phone number is the staff username/login identifier.</p>
-                    </div>
-                    {renderStatus((staffSummaries.get(selectedStaff.id) || buildStaffSummary(selectedStaff)).isOnline)}
+                  <div className="mb-4">
+                    <h4 className="font-black text-slate-950">Profile Details</h4>
+                    <p className="text-xs text-slate-500 mt-1">Phone number is the staff username/login identifier.</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1865,6 +1806,125 @@ export default function DashboardStaff({
           </div>
         </div>
       )}
+
+      {/* Bottom Sheet Action Menu for Mobile/Tablet — same pattern as Sales */}
+      <AnimatePresence>
+        {mobileActionsStaff && (() => {
+          const staff = mobileActionsStaff;
+          const showPayStaff = payrollEnabled && canPayPayroll;
+          return (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileActionsStaff(null)}
+                className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+                className="fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl shadow-xl z-[120] overflow-hidden font-sans flex flex-col text-[#0f172a] border border-slate-100"
+                style={{ bottom: 'calc(var(--dashboard-bottom-nav-height, 56px) + env(safe-area-inset-bottom))', maxHeight: 'calc(85vh - var(--dashboard-bottom-nav-height, 56px) - env(safe-area-inset-bottom))' }}
+              >
+                <div className="w-full flex justify-center py-2 shrink-0">
+                  <div className="w-12 h-1 bg-slate-250 rounded-full" />
+                </div>
+
+                <div className="px-5 pb-3 pt-1 text-left shrink-0 flex items-center gap-3">
+                  {renderAvatar(staff, 'w-10 h-10')}
+                  <div className="min-w-0">
+                    <h3 className="text-base font-extrabold text-slate-800 leading-tight truncate">{staff.name}</h3>
+                    <p className="text-xs text-slate-500 mt-0.5 font-bold uppercase tracking-wide truncate">{staff.role}</p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-100 h-[1px] w-full" />
+
+                <div className="overflow-y-auto divide-y divide-slate-100 p-4 max-h-[calc(70vh-20px)] space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={() => { openStaffProfile(staff); setMobileActionsStaff(null); }}
+                    className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                  >
+                    <div className="flex items-center space-x-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 select-none">
+                        <Eye className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-slate-800 block">View Staff</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Profile, sessions and performance</span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </button>
+
+                  {showPayStaff && (
+                    <button
+                      type="button"
+                      onClick={() => { openSalaryPayment(staff); setMobileActionsStaff(null); }}
+                      className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                    >
+                      <div className="flex items-center space-x-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 select-none">
+                          <Wallet className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-bold text-slate-800 block">Pay Staff</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">Record a salary payment</span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => { openCredentialEditor(staff); setMobileActionsStaff(null); }}
+                    className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                  >
+                    <div className="flex items-center space-x-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 shrink-0 select-none">
+                        <KeyRound className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-slate-800 block">Edit Staff</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Update login and role details</span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </button>
+
+                  {!staff.isOwner ? (
+                    <button
+                      type="button"
+                      onClick={() => { handleDeleteStaff(staff.id); setMobileActionsStaff(null); }}
+                      className="w-full h-14 min-h-[52px] bg-rose-50/30 hover:bg-rose-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-rose-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold text-rose-600"
+                    >
+                      <div className="flex items-center space-x-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600 shrink-0 select-none">
+                          <Trash2 className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-black block text-rose-700">Delete Staff</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">Remove this account permanently</span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-rose-400" />
+                    </button>
+                  ) : (
+                    <div className="w-full px-3.5 py-3 rounded-2xl bg-amber-50 border border-amber-100 text-amber-700 font-black text-sm flex items-center gap-2">
+                      👑 Account Owner
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </>
+          );
+        })()}
+      </AnimatePresence>
     </div>
   );
 }
