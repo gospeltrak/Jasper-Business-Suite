@@ -240,17 +240,13 @@ const appendMergeWorkspaceKeys: WorkspaceArrayKey[] = [
   'branches',
   'branchStocks',
   'branchStaffAssignments',
-  // Sales already get a dedicated per-record merge (mergeSalesForSync,
-  // below) so a fresh edit can't be clobbered by a slightly-stale
-  // concurrent save. Expenses/deliveries/purchases had no such
-  // protection — they were overwritten as a whole array, so an edited
-  // field (e.g. a corrected expense date) could silently revert if a
-  // background sync or another open tab saved its own stale snapshot
-  // shortly after. mergeRecordsById gives them the same per-record,
-  // newest-timestamp-wins reconciliation sales already had.
-  'expenses',
-  'deliveries',
-  'purchases',
+  // NOTE: expenses/deliveries/purchases were deliberately NOT added here.
+  // mergeRecordsById is a union merge with no deletion tracking (no
+  // tombstone set), which is only safe for keys that are effectively
+  // add-only. For record types that get deleted-by-omission (an update
+  // simply no longer includes the removed record), the union merge
+  // resurrects the deleted record from mergeBase — proven by
+  // tenantWorkspace.race.test.ts's purchases out-of-order-write test.
 ];
 
 const countWorkspaceItems = (workspace: Partial<TenantWorkspace> | null | undefined): Record<WorkspaceArrayKey, number> => {
