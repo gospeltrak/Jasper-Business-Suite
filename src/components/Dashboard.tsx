@@ -1764,9 +1764,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return syncedProducts;
   };
 
-  const persistSystemSettingsNow = (updated: SystemSettings) => {
+  // Returns both the optimistically-applied settings (for callers that need
+  // the value immediately, e.g. to read back a just-saved logo) and the
+  // underlying database-write promise, so a caller that needs certainty
+  // before proceeding (e.g. closing a "staff registered" form) can await
+  // `saved` instead of assuming the fire-and-forget write already landed.
+  const persistSystemSettingsNow = (updated: SystemSettings): { settings: SystemSettings; saved: Promise<boolean> } => {
     if (blockOfflineBusinessWrite('settings changes')) {
-      return systemSettings;
+      return { settings: systemSettings, saved: Promise.resolve(false) };
     }
 
     const previousSettings = systemSettings;
@@ -1780,13 +1785,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     cloudWorkspaceLoadedRef.current = true;
     skipNextWorkspaceSaveRef.current = true;
     setSystemSettings(syncedSettings);
-    void saveTenantSettings(activeTenant.id, syncedSettings).then((saved) => {
-      if (saved || settingsSaveVersionRef.current !== saveVersion) return;
+    const saved = saveTenantSettings(activeTenant.id, syncedSettings).then((didSave) => {
+      if (didSave || settingsSaveVersionRef.current !== saveVersion) return didSave;
       setSystemSettings(previousSettings);
       setDatabaseBusinessName(String(previousSettings.business?.businessName || '').trim());
       addToast('Settings could not be saved safely. Your previous saved settings were kept.', 'error');
+      return didSave;
     });
-    return syncedSettings;
+    return { settings: syncedSettings, saved };
   };
 
   const handleUpdateActiveStocks = (updatedProducts: Product[]) => {
@@ -3925,7 +3931,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 ),
               }}
               onUpdateSettings={(updated) => {
-                persistSystemSettingsNow({
+                const { saved } = persistSystemSettingsNow({
                   ...updated,
                   staffs: replaceScopedBranchRecords(
                     systemSettings.staffs || [],
@@ -3936,6 +3942,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     activeBranchSelection,
                   ),
                 });
+                return saved;
               }}
               sales={activeSales}
               expenses={activeExpenses}
@@ -3954,7 +3961,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               systemSettings={systemSettings}
               onSaveSettings={(updated) => {
                 if (blockOfflineBusinessWrite('settings save')) return;
-                const syncedSettings = persistSystemSettingsNow(updated);
+                const { settings: syncedSettings } = persistSystemSettingsNow(updated);
                 let logoToSave = '';
                 if (syncedSettings.company?.logo) {
                   logoToSave = syncedSettings.company.logo;
