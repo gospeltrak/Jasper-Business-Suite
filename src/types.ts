@@ -569,6 +569,14 @@ export interface RolePermission {
 export interface CustomRole {
   id: string;
   name: string;
+  /**
+   * Tanzanite (multi-branch) only. Undefined/true means unrestricted — this
+   * preserves current behavior for every existing role. Only an explicit
+   * `false` restricts staff assigned this role; enforcement of that
+   * restriction is not wired up yet, this field only stores the tenant's
+   * intent for a future release to read.
+   */
+  canAccessAllBranches?: boolean;
   permissions: {
     pos: RolePermission;
     products: RolePermission;

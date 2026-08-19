@@ -342,6 +342,12 @@ export default function DashboardSettings({
     }
   };
 
+  const handleToggleBranchAccess = (roleId: string) => {
+    setCustomRolesList(prev => prev.map(r => r.id === roleId
+      ? { ...r, canAccessAllBranches: r.canAccessAllBranches === false ? true : false }
+      : r));
+  };
+
   const handleTogglePermission = (roleId: string, module: string, permissionType: 'read' | 'write' | 'edit') => {
     setCustomRolesList(prev => prev.map(r => {
       if (r.id === roleId) {
@@ -2614,6 +2620,8 @@ export default function DashboardSettings({
           {activeSubTab === 'roles' && (() => {
             const activeRole = customRolesList.find(r => r.id === selectedRoleId) || customRolesList[0] || DEFAULT_CUSTOM_ROLES[0];
             const isPreset = ['role-admin', 'role-manager', 'role-cashier', 'role-seller'].includes(activeRole.id);
+            const activePlanId = String(subscriptionStatus?.state?.planId || subscriptionStatus?.plan?.packageId || subscriptionStatus?.plan?.name || '').toLowerCase();
+            const isTanzanitePlan = activePlanId === 'tanzanite';
 
             const modulesList = [
               // Category: Sales & Cashier Till
@@ -2780,6 +2788,24 @@ export default function DashboardSettings({
                           </span>
                         )}
                       </div>
+
+                      {isTanzanitePlan && (
+                        <div className="flex items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-indigo-900">Access all branches</p>
+                            <p className="text-[11px] text-indigo-600 mt-0.5">Staff assigned this role can switch between every branch, not just the one they were registered under.</p>
+                          </div>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={activeRole.canAccessAllBranches !== false}
+                            onClick={() => handleToggleBranchAccess(activeRole.id)}
+                            className={`relative shrink-0 w-11 h-6 rounded-full border-none cursor-pointer transition-colors ${activeRole.canAccessAllBranches !== false ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                          >
+                            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${activeRole.canAccessAllBranches !== false ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </button>
+                        </div>
+                      )}
 
                       <div className="hidden xl:block overflow-x-auto rounded-xl border border-slate-200">
                         <table className="w-full text-left border-collapse text-xs">
