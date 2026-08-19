@@ -40,7 +40,20 @@ const placeContainedImage = (
     const drawX = boxX + (boxW - drawW) / 2;
     const drawY = boxY + (boxH - drawH) / 2;
 
-    pdf.addImage(src, src.includes('png') ? 'PNG' : 'JPEG', drawX, drawY, drawW, drawH, undefined, 'FAST');
+    // Format from the actual data URL MIME subtype, not a loose substring
+    // guess — a mismatch (e.g. a transparent PNG embedded as JPEG) is a
+    // known cause of jsPDF rendering the logo as pixelated noise or solid
+    // black. No compression argument (jsPDF's default) for the same
+    // reason: 'FAST' has known issues compositing PNG alpha channels,
+    // which is what produced the black-box artifact instead of the white
+    // backing rect showing through transparent pixels.
+    const mimeSubtype = (src.match(/^data:image\/([a-zA-Z0-9+.-]+);/)?.[1] || '').toLowerCase();
+    const imageFormat = mimeSubtype.includes('png') ? 'PNG'
+      : (mimeSubtype.includes('jpeg') || mimeSubtype.includes('jpg')) ? 'JPEG'
+      : mimeSubtype.includes('webp') ? 'WEBP'
+      : mimeSubtype.includes('gif') ? 'GIF'
+      : 'PNG';
+    pdf.addImage(src, imageFormat, drawX, drawY, drawW, drawH);
     return true;
   } catch {
     return false;
@@ -925,6 +938,19 @@ const renderVectorDocumentBody = (
         lastDrawnKey = rowKey;
         const bold = /total|balance|grand|due|paid/i.test(left);
         const fontSize = format === 'receipt' ? 7.2 : 9.2;
+        // The signature block ("Prepared By" / "Authorized By") is a plain
+        // flex row like any total/balance line, so without this it draws
+        // flush against whatever content happened to end right before it
+        // (e.g. a long sales table) with no visible separation. CSS margin
+        // classes on that DOM block are invisible here — this is a vector
+        // redraw, not a screenshot — so the gap has to be added explicitly.
+        if (left === 'Prepared By') {
+          y = ensurePageSpace(pdf, y, fontSize + 34, pageTop, pageBottom);
+          y += 20;
+          pdf.setDrawColor('#cbd5e1');
+          pdf.line(margin, y, margin + contentWidth, y);
+          y += 14;
+        }
         y = ensurePageSpace(pdf, y, fontSize + 6, pageTop, pageBottom);
         pdf.setFont('helvetica', bold ? 'bold' : 'normal');
         pdf.setFontSize(fontSize);

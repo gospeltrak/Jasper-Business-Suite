@@ -108,10 +108,6 @@ export default function DashboardReports({
   headerSearchQuery = '',
 }: DashboardReportsProps) {
   const currency = activeTenant.currency;
-  // Same tenant-chosen brand color used by Delivery Note / A4 Invoice /
-  // Quotation / POS Receipt (Settings → Invoice Settings → Brand
-  // Highlights Color), so reports carry the same identity.
-  const computedInvoiceColor = systemSettings?.invoiceSettings?.invoiceColor || '#4f46e5';
   const printActiveReportPdf = async () => {
     await downloadPdfFromElement({
       elementId: 'reports-a4-pdf-template',
@@ -131,7 +127,6 @@ export default function DashboardReports({
         documentTitle: REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report',
         dateRange: `${startDateStr} to ${endDateStr}`,
         generatedBy: userName,
-        brandColor: computedInvoiceColor,
       }
     });
   };
@@ -5895,7 +5890,7 @@ export default function DashboardReports({
             title is shown once, in the branded chrome badge above this
             content — this block only carries the scope meta line. */}
         <div className="border-b-2 border-slate-900 pb-4 mb-5">
-          <p className="text-[9.5px] font-medium font-sans" style={{ color: computedInvoiceColor }}>
+          <p className="text-[9.5px] font-medium font-sans text-slate-500">
             Branch Name: {activeTenant.name} · Base Currency: {currency} · Scope: {startDateStr} to {endDateStr}
           </p>
         </div>
@@ -6004,7 +5999,7 @@ export default function DashboardReports({
 
               <table className="w-full text-left font-sans">
                 <thead>
-                  <tr className="text-white font-bold text-[9px]" style={{ backgroundColor: computedInvoiceColor }}>
+                  <tr className="text-white font-bold text-[9px]" style={{ backgroundColor: '#0f172a' }}>
                     <th className="p-1.5">Ref ID</th>
                     <th className="p-1.5">Date</th>
                     <th className="p-1.5">Customer Name</th>
@@ -6017,7 +6012,7 @@ export default function DashboardReports({
                 <tbody className="divide-y divide-slate-100">
                   {recordsFilteredSales.map(sale => (
                     <tr key={sale.id}>
-                      <td className="p-1.5 font-mono font-bold" style={{ color: computedInvoiceColor }}>{sale.id}</td>
+                      <td className="p-1.5 font-mono font-bold text-slate-900">{sale.id}</td>
                       <td className="p-1.5 whitespace-nowrap font-mono text-[9px]">{new Date(sale.timestamp).toLocaleDateString()}</td>
                       <td className="p-1.5 font-bold">{sale.customerName || 'Walk-In Customer'}</td>
                       <td className="p-1.5 truncate max-w-[200px]">{sale.items.map(it => `${it.qty}x ${it.productName}`).join(', ')}</td>
@@ -6041,7 +6036,7 @@ export default function DashboardReports({
             <div className="space-y-4">
               <table className="w-full text-left font-sans">
                 <thead>
-                  <tr className="text-white font-bold" style={{ backgroundColor: computedInvoiceColor }}>
+                  <tr className="text-white font-bold" style={{ backgroundColor: '#0f172a' }}>
                     <th className="p-2">Payment Mode Channel</th>
                     <th className="p-2 text-right">Aggregate Settled ({currency})</th>
                     <th className="p-2 text-right">Proportion Weight</th>
@@ -6154,7 +6149,7 @@ export default function DashboardReports({
                 <h3 className="font-bold text-xs uppercase border-b pb-1">Primary Customer Loyalty Segment</h3>
                 <table className="w-full text-left font-sans text-[9px]">
                   <thead>
-                    <tr className="text-white font-bold" style={{ backgroundColor: computedInvoiceColor }}>
+                    <tr className="text-white font-bold" style={{ backgroundColor: '#0f172a' }}>
                       <th className="p-1.5">Registered Customer</th>
                       <th className="p-1.5 text-right">Transactions Count</th>
                       <th className="p-1.5 text-right">Accrued Spend Sum</th>
@@ -6174,7 +6169,7 @@ export default function DashboardReports({
                 <h3 className="font-bold text-xs uppercase border-b pb-1 mt-4">Branch Staff Performance Ledger</h3>
                 <table className="w-full text-left font-sans text-[9px]">
                   <thead>
-                    <tr className="text-white font-bold" style={{ backgroundColor: computedInvoiceColor }}>
+                    <tr className="text-white font-bold" style={{ backgroundColor: '#0f172a' }}>
                       <th className="p-1.5">Staff Code Name</th>
                       <th className="p-1.5 text-right">Approved Orders Ticket Volume</th>
                       <th className="p-1.5 text-right">Gross Receipts Checked-In</th>
@@ -6199,7 +6194,7 @@ export default function DashboardReports({
             <div className="space-y-4">
               <table className="w-full text-left font-sans text-[9.5px]">
                 <thead>
-                  <tr className="text-white font-bold" style={{ backgroundColor: computedInvoiceColor }}>
+                  <tr className="text-white font-bold" style={{ backgroundColor: '#0f172a' }}>
                     <th className="p-2">Expense ID</th>
                     <th className="p-2">Category</th>
                     <th className="p-2">Description</th>
@@ -6258,7 +6253,7 @@ export default function DashboardReports({
               <div className="space-y-4">
                 <table className="w-full text-left font-sans text-[9px]">
                   <thead>
-                    <tr className="text-white font-bold" style={{ backgroundColor: computedInvoiceColor }}>
+                    <tr className="text-white font-bold" style={{ backgroundColor: '#0f172a' }}>
                       <th className="p-1.5">Rank</th>
                       <th className="p-1.5">Product Name</th>
                       <th className="p-1.5">Product SKU</th>
@@ -6293,7 +6288,7 @@ export default function DashboardReports({
             <div className="space-y-4">
               <table className="w-full text-left font-sans text-[9px]">
                 <thead>
-                  <tr className="text-white font-bold" style={{ backgroundColor: computedInvoiceColor }}>
+                  <tr className="text-white font-bold" style={{ backgroundColor: '#0f172a' }}>
                     <th className="p-1.5">Product name</th>
                     <th className="p-1.5">SKU Code</th>
                     <th className="p-1.5 text-right">Unit cost</th>
@@ -6521,7 +6516,7 @@ export default function DashboardReports({
                       <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">
                           <thead>
-                            <tr className="text-white text-[10px] font-mono font-bold uppercase tracking-wider" style={{ backgroundColor: computedInvoiceColor }}>
+                            <tr className="text-white text-[10px] font-mono font-bold uppercase tracking-wider" style={{ backgroundColor: '#0f172a' }}>
                               <th className="p-3">Ref ID</th>
                               <th className="p-3">Status</th>
                               <th className="p-3">Customer</th>
