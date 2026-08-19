@@ -799,7 +799,7 @@ export default function DashboardOverview({
       </div>
 
       {/* 3. KPI CARDS ROW - desktop only, mobile uses hero above */}
-      <div className="hidden xl:grid grid-cols-2 md:grid-cols-2 xl:grid-cols-6 gap-2.5 select-none animate-fade-in">
+      <div className="hidden xl:grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-2.5 select-none animate-fade-in">
         
         {/* Card 1: Total Orders */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
