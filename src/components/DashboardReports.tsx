@@ -114,7 +114,10 @@ export default function DashboardReports({
   const printActiveReportPdf = async () => {
     await downloadPdfFromElement({
       elementId: 'reports-a4-pdf-template',
-      fileName: `${activeTenant.name.replace(/\s+/g, '-')}-${reportTab}-report-${startDateStr}-${endDateStr}.pdf`,
+      // Identified by report type only (e.g. "Sales-Performance-Report-...") —
+      // deliberately no business/tenant name in the filename, matching the
+      // report itself no longer being tied to who generated it.
+      fileName: `${(REPORT_DOCUMENT_TITLES[reportTab] || 'Business-Report').replace(/\s+/g, '-')}-${startDateStr}-${endDateStr}.pdf`,
       format: 'a4',
       includeHidden: true,
       visual: false,
@@ -6579,26 +6582,6 @@ export default function DashboardReports({
             </div>
           )}
 
-        </div>
-
-        {/* Dynamic Signature Block — three "label | label" flex rows instead
-            of a 2-column grid. Each row is a single small unit the PDF
-            generator page-breaks together, so a lone trailing line (e.g.
-            "Branch Manager") never gets orphaned alone on its own page the
-            way per-fragment pagination of a tall grid column can do. */}
-        <div className="hidden print:block mt-12 pt-8 border-t border-dashed border-slate-300 space-y-2 text-[9px] text-slate-600 font-mono">
-          <div className="flex justify-between">
-            <span className="font-bold uppercase">Prepared By</span>
-            <span className="font-bold uppercase">Authorized By</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="font-semibold">{REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report'}</span>
-            <span className="font-semibold text-slate-400">________________________</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-400"></span>
-            <span className="text-slate-400 font-sans">Branch Manager</span>
-          </div>
         </div>
 
       </div>
