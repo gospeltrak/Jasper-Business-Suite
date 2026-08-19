@@ -255,28 +255,34 @@ const normalizeSystemSettings = (
   tenant: Tenant,
   incoming?: Partial<SystemSettings> | null,
 ): SystemSettings => {
+  // A tenant that has deliberately cleared a list down to zero (e.g.
+  // removing every seed category to replace them with their own) must stay
+  // empty — falling back to `fallback` here previously meant any list that
+  // reached zero items snapped back to the generic seed defaults on the very
+  // next save, silently destroying the tenant's real configuration. The
+  // fallback now only applies when `value` itself is missing/malformed
+  // (undefined, or not an array at all), which is the only case where we
+  // don't actually know what the tenant wants.
   const normalizeNamedList = (value: unknown, fallback: string[] = []) => {
     if (!Array.isArray(value)) return fallback;
-    const normalized = value
+    return value
       .map((item: any) => {
         if (typeof item === 'string') return item.trim();
         if (!item || typeof item !== 'object') return '';
         return String(item.name || item.label || item.provider || item.value || '').trim();
       })
       .filter(Boolean);
-    return normalized.length > 0 ? normalized : fallback;
   };
   const normalizeBrandList = (
     value: unknown,
     fallback: Array<{ name: string; logo?: string }> = [],
   ) => {
     if (!Array.isArray(value)) return fallback;
-    const normalized = value
+    return value
       .map((item: any) => typeof item === 'string'
         ? { name: item.trim() }
         : { name: String(item?.name || item?.label || '').trim(), logo: item?.logo || item?.logoUrl || undefined })
       .filter((item) => item.name);
-    return normalized.length > 0 ? normalized : fallback;
   };
   const defaults = getInitialSystemSettings(tenant);
   const merged = mergeSettingsForSync(incoming, defaults);
