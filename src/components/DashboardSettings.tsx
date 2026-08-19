@@ -536,10 +536,17 @@ export default function DashboardSettings({
             setBusinessForm(nextBusinessForm);
             persistBusinessSettings(nextBusinessForm);
           } else if (target === 'business_dark') {
+            // Deliberately does NOT fall back into the general `businessLogo`
+            // field the way the light-logo branch below does. `businessLogo`
+            // is the "safe on a white background" fallback used by Reports
+            // and the Light Theme preview card — leaking a dark-theme logo
+            // (which can carry a baked-in dark/black background) into it
+            // reproduces the exact black-logo-box artifact those call sites
+            // exist to avoid. Places that do want the dark logo already read
+            // `businessLogoDark` directly (see getBusinessLogo()).
             const nextBusinessForm = {
               ...businessForm,
-              businessLogoDark: urlToUse,
-              businessLogo: businessForm.businessLogo || urlToUse
+              businessLogoDark: urlToUse
             };
             setBusinessForm(nextBusinessForm);
             persistBusinessSettings(nextBusinessForm);

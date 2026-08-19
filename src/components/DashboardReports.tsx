@@ -120,7 +120,16 @@ export default function DashboardReports({
         // Skip getBusinessLogo()'s businessLogoDark fallback here — that
         // variant is meant for dark surfaces and can carry a baked-in dark
         // background, which looks like a black box on this white PDF page.
-        logo: (systemSettings?.business as any)?.businessLogoLight || (systemSettings?.business as any)?.businessLogo || '',
+        // The `businessLogo !== businessLogoDark` check guards against
+        // tenants who uploaded a dark logo before the upload handler was
+        // fixed to stop copying it into the general businessLogo field —
+        // for them businessLogo IS the dark logo, so trusting it here would
+        // still reproduce the black box.
+        logo: (systemSettings?.business as any)?.businessLogoLight
+          || ((systemSettings?.business as any)?.businessLogo !== (systemSettings?.business as any)?.businessLogoDark
+            ? (systemSettings?.business as any)?.businessLogo
+            : '')
+          || '',
         address: systemSettings?.business?.address || systemSettings?.company?.address || activeTenant.city,
         phone: systemSettings?.business?.phone || systemSettings?.company?.phone || '',
         email: systemSettings?.business?.email || systemSettings?.company?.email || '',
