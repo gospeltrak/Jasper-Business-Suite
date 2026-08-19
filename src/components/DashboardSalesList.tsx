@@ -4758,7 +4758,7 @@ export default function DashboardSalesList({
               {/* Client details */}
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Client Details</p>
-                <div className="grid grid-cols-[minmax(0,1fr)_120px] sm:grid-cols-[minmax(0,1.1fr)_150px_minmax(0,1.5fr)] gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.6fr)] gap-2">
                   <div className="min-w-0">
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Client Name</label>
                     <input type="text" placeholder="e.g. Lipa Traders Ltd" value={newDocCustomerName}
@@ -4797,47 +4797,20 @@ export default function DashboardSalesList({
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
                   </div>
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input type="checkbox" id="newDocHasVatCheckbox" checked={newDocHasVat}
-                    onChange={e => setNewDocHasVat(e.target.checked)}
-                    className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0" />
-                  <span className="text-[12px] font-semibold text-slate-600 dark:text-slate-400">Include VAT ({Math.round(newDocTaxRate * 100)}%)</span>
-                  <span className="text-[10px] text-slate-400 hidden sm:inline">· Applied after discount</span>
-                </label>
-              </div>
-
-              <div className="rounded-xl border border-indigo-100 dark:border-indigo-900 bg-indigo-50/60 dark:bg-indigo-950/20 p-3 space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-widest">Payment Details</p>
-                  <span className="text-[9px] text-indigo-400">Amount updates automatically</span>
-                </div>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                <div className="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5">
                   <div className="min-w-0">
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Payment Mode</label>
-                    <select value={newDocPaymentMethod} onChange={e => setNewDocPaymentMethod(e.target.value)}
-                      className="w-full min-h-[42px] bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900 rounded-xl px-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer">
-                      {documentPaymentMethods.map(modeName => (
-                        <option key={modeName} value={modeName}>{modeName}</option>
-                      ))}
-                    </select>
+                    <p className="text-[12px] font-semibold text-slate-600 dark:text-slate-400">Include VAT ({Math.round(newDocTaxRate * 100)}%)</p>
+                    <p className="text-[10px] text-slate-400">Applied after discount</p>
                   </div>
-                  <div className="min-w-0">
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Account Number</label>
-                    <input type="text" value={newDocPaymentAccountNumber}
-                      onChange={e => setNewDocPaymentAccountNumber(e.target.value)} placeholder="Account / Till number"
-                      className="w-full min-h-[42px] bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900 rounded-xl px-3 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
-                  </div>
-                  <div className="min-w-0">
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Account Name</label>
-                    <input type="text" value={newDocPaymentAccountName}
-                      onChange={e => setNewDocPaymentAccountName(e.target.value)} placeholder="Account holder name"
-                      className="w-full min-h-[42px] bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900 rounded-xl px-3 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500" />
-                  </div>
-                  <div className="min-w-0">
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Amount ({currency})</label>
-                    <input type="text" readOnly value={newDocGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      className="w-full min-h-[42px] bg-indigo-100/70 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 rounded-xl px-3 text-xs font-black text-indigo-800 dark:text-indigo-200 font-mono cursor-default" />
-                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={newDocHasVat}
+                    onClick={() => setNewDocHasVat(!newDocHasVat)}
+                    className={`relative shrink-0 w-11 h-6 rounded-full border-none cursor-pointer transition-colors ${newDocHasVat ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${newDocHasVat ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </button>
                 </div>
               </div>
 
@@ -5078,6 +5051,42 @@ export default function DashboardSalesList({
                     ))}
                   </div>
               )}
+
+              {/* Payment Details — after items/totals, right before Cancel/Create */}
+              <div className="rounded-xl border border-indigo-100 dark:border-indigo-900 bg-indigo-50/60 dark:bg-indigo-950/20 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-widest">Payment Details</p>
+                  <span className="text-[9px] text-indigo-400">Amount updates automatically</span>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                  <div className="min-w-0">
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Payment Mode</label>
+                    <select value={newDocPaymentMethod} onChange={e => setNewDocPaymentMethod(e.target.value)}
+                      className="w-full min-h-[42px] bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900 rounded-xl px-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                      {documentPaymentMethods.map(modeName => (
+                        <option key={modeName} value={modeName}>{modeName}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="min-w-0">
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Account Number</label>
+                    <input type="text" value={newDocPaymentAccountNumber}
+                      onChange={e => setNewDocPaymentAccountNumber(e.target.value)} placeholder="Account / Till number"
+                      className="w-full min-h-[42px] bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900 rounded-xl px-3 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Account Name</label>
+                    <input type="text" value={newDocPaymentAccountName}
+                      onChange={e => setNewDocPaymentAccountName(e.target.value)} placeholder="Account holder name"
+                      className="w-full min-h-[42px] bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900 rounded-xl px-3 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Amount ({currency})</label>
+                    <input type="text" readOnly value={newDocGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      className="w-full min-h-[42px] bg-indigo-100/70 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 rounded-xl px-3 text-xs font-black text-indigo-800 dark:text-indigo-200 font-mono cursor-default" />
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* ── Footer ── */}

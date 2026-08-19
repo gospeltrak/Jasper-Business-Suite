@@ -870,9 +870,6 @@ Vehicle Plate Number: ${plateNumber}
                 <h3 className="text-lg sm:text-xl font-black text-slate-950 tracking-tight font-sans leading-tight">
                   Delivery Operations
                 </h3>
-                <p className="text-[11px] sm:text-sm text-slate-500 font-sans max-w-2xl mt-0.5 sm:mt-1 leading-snug sm:leading-relaxed">
-                  Dispatch orders, manage delivery notes, track riders, and reconcile logistics payments.
-                </p>
               </div>
             </div>
           </div>
