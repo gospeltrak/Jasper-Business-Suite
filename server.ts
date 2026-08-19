@@ -2045,6 +2045,31 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     return res.status(201).json({ branch: data });
   });
 
+  app.post('/api/branches/:branchId/logo', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    if (!requireMultiBranchFeature(res)) return;
+
+    const branchId = String(req.params.branchId || '');
+    if (!isUuid(branchId)) {
+      return res.status(400).json({ error: 'A valid branch ID is required.' });
+    }
+    if (req.body?.logoLightUrl != null && typeof req.body.logoLightUrl !== 'string') {
+      return res.status(400).json({ error: 'Light logo URL must be text.' });
+    }
+    if (req.body?.logoDarkUrl != null && typeof req.body.logoDarkUrl !== 'string') {
+      return res.status(400).json({ error: 'Dark logo URL must be text.' });
+    }
+
+    const { data, error } = await branchClient.rpc('update_current_tenant_branch_logo', {
+      p_branch_id: branchId,
+      p_logo_light_url: normalizeText(req.body?.logoLightUrl, 2048) || null,
+      p_logo_dark_url: normalizeText(req.body?.logoDarkUrl, 2048) || null,
+    });
+    if (error) return sendBranchRpcError(res, error);
+    return res.json({ branch: data });
+  });
+
   // Strict two-device control. A third device is rejected with a clear reason;
   // the server never silently removes a recently active device.
   app.post('/api/auth/session/start', async (req, res) => {

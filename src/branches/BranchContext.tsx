@@ -4,6 +4,7 @@ import {
   createBranch,
   loadBranchWorkspace,
   selectBranch,
+  updateBranchLogo,
 } from './branchApi';
 import type {
   BranchWorkspaceSnapshot,
@@ -22,6 +23,10 @@ interface BranchContextValue {
   chooseBranch: (branchId: string | null, scope: SelectableBranchScope) => Promise<void>;
   activatePrimary: () => Promise<void>;
   addBranch: (input: CreateBranchInput) => Promise<CreatedBranchResult>;
+  updateLogo: (
+    branchId: string,
+    logos: { logoLightUrl?: string | null; logoDarkUrl?: string | null },
+  ) => Promise<void>;
 }
 
 const BranchContext = createContext<BranchContextValue | null>(null);
@@ -160,6 +165,14 @@ export function BranchProvider({
     return created;
   }, [refresh]);
 
+  const updateLogo = useCallback(async (
+    branchId: string,
+    logos: { logoLightUrl?: string | null; logoDarkUrl?: string | null },
+  ) => {
+    await updateBranchLogo(branchId, logos);
+    await refresh();
+  }, [refresh]);
+
   const value = useMemo<BranchContextValue>(() => ({
     snapshot,
     isLoading,
@@ -170,7 +183,8 @@ export function BranchProvider({
     chooseBranch,
     activatePrimary,
     addBranch,
-  }), [snapshot, isLoading, switchingBranch, switchingToBranchName, error, refresh, chooseBranch, activatePrimary, addBranch]);
+    updateLogo,
+  }), [snapshot, isLoading, switchingBranch, switchingToBranchName, error, refresh, chooseBranch, activatePrimary, addBranch, updateLogo]);
 
   return <BranchContext.Provider value={value}>{children}</BranchContext.Provider>;
 }

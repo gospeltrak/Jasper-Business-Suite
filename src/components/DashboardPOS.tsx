@@ -8,7 +8,8 @@ import {
 } from '../utils/inventoryCosting';
 import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitFormatter';
 import { getPaymentModeName } from '../utils/paymentAccounts';
-import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
+import { getActiveBranchDisplayName, getActiveBranchLogo } from '../utils/businessBranding';
+import type { BranchSummary } from '../branches/branchTypes';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -138,6 +139,7 @@ interface DashboardPOSProps {
   userName: string;
   isOfflineMode: boolean;
   systemSettings?: SystemSettings;
+  activeBranch?: BranchSummary | null;
   preloadedCart?: {
     items: SaleItem[];
     backdate?: string;
@@ -173,6 +175,7 @@ export default function DashboardPOS({
   userName,
   isOfflineMode,
   systemSettings,
+  activeBranch,
   preloadedCart,
   onClearPreloadedCart
 }: DashboardPOSProps) {
@@ -319,18 +322,15 @@ export default function DashboardPOS({
 
   const buildReceiptPdfData = (): ReceiptData | null => {
     if (!receiptResult) return null;
-    const stores = systemSettings?.business?.registeredStores || [];
-    const activeBranch = stores[0];
-    const branchBranding = activeBranch ? systemSettings?.business?.branchBranding?.[activeBranch] : undefined;
     const rawTerms = systemSettings?.invoiceSettings?.termsAndConditions;
     const terms = Array.isArray(rawTerms) ? rawTerms : rawTerms ? String(rawTerms).split('\n').filter(Boolean) : [];
     return {
-        businessName: getBusinessDisplayName(activeTenant, systemSettings, userName),
+        businessName: getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch),
         businessAddress: systemSettings?.business?.businessAddress || activeTenant.city || undefined,
         businessPhone: systemSettings?.business?.businessPhone || undefined,
         businessEmail: systemSettings?.business?.businessEmail || undefined,
         businessCity: activeTenant.city || undefined,
-        businessLogo: branchBranding?.businessLogoLight || branchBranding?.businessLogo || getBusinessLogo(systemSettings) || undefined,
+        businessLogo: getActiveBranchLogo(systemSettings, activeBranch) || undefined,
         receiptId: receiptResult.reference || receiptResult.id,
         timestamp: receiptResult.timestamp,
         cashierName: receiptResult.cashierName || userName || undefined,
@@ -379,7 +379,7 @@ export default function DashboardPOS({
       const result = await sharePosReceiptPdf(
         receiptData,
         recipientWhatsApp,
-        `Hello ${receiptResult.customerName || 'valued customer'}, please find your receipt attached from ${getBusinessDisplayName(activeTenant, systemSettings, userName)}. Thank you for your business!`
+        `Hello ${receiptResult.customerName || 'valued customer'}, please find your receipt attached from ${getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch)}. Thank you for your business!`
       );
 
       if (result.method === 'native-share') {
@@ -2228,16 +2228,16 @@ export default function DashboardPOS({
                 {/* PHYSICAL RECEIPT GRAPHIC CONTAINER */}
                 <div id="pos-receipt-pdf-template" className="bg-white text-slate-900 p-5 rounded-3xl font-mono text-xs space-y-4 shadow-xl border-dashed border-2 border-slate-250">
                   <div className="text-center space-y-2 border-b border-dashed border-slate-200 pb-3 flex flex-col items-center">
-                    {(((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings)) && (
-                      <CachedImage 
-                        src={((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || undefined} 
-                        alt="Logo" 
-                        className="w-12 h-12 object-contain mb-1 rounded-lg border border-slate-200 p-0.5" 
+                    {getActiveBranchLogo(systemSettings, activeBranch) && (
+                      <CachedImage
+                        src={getActiveBranchLogo(systemSettings, activeBranch) || undefined}
+                        alt="Logo"
+                        className="w-12 h-12 object-contain mb-1 rounded-lg border border-slate-200 p-0.5"
                         referrerPolicy="no-referrer"
                       />
                     )}
                     <h5 className="font-bold text-sm uppercase">
-                      {getBusinessDisplayName(activeTenant, systemSettings, userName)}
+                      {getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch)}
                     </h5>
                     <p className="text-[10.5px] text-slate-500">
                       {systemSettings?.business?.businessAddress || `${activeTenant.city}, ${activeTenant.country}`}

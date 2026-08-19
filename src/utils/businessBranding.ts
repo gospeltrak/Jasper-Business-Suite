@@ -40,3 +40,42 @@ export const getBusinessLogo = (
   const business = settings?.business as any;
   return business?.businessLogoLight || business?.businessLogoDark || business?.businessLogo || '';
 };
+
+type BrandableBranch = {
+  isPhysical?: boolean;
+  businessName?: string | null;
+  logoLightUrl?: string | null;
+  logoDarkUrl?: string | null;
+};
+
+// Branch-aware variants of the two resolvers above — used by document
+// generators (POS receipt, sales documents, reports, delivery notes) so a
+// tenant operating multiple real branches gets each document branded with
+// the active branch's own name/logo instead of always the tenant-wide one.
+// `selectedBranch` comes from BranchContext's `snapshot.context.selectedBranch`;
+// the compatibility/virtual Primary Branch (isPhysical: false) and any branch
+// missing its own logo/name fall straight through to the tenant-wide value,
+// so behavior is unchanged for tenants who haven't set up real Branches yet.
+export const getActiveBranchDisplayName = (
+  tenant: Pick<Tenant, 'businessName' | 'name'>,
+  settings: Pick<SystemSettings, 'business' | 'company'> | null | undefined,
+  userName: string | undefined,
+  selectedBranch: BrandableBranch | null | undefined,
+): string => {
+  if (selectedBranch?.isPhysical) {
+    const branchName = cleanName(selectedBranch.businessName);
+    if (branchName) return branchName;
+  }
+  return getBusinessDisplayName(tenant, settings, userName);
+};
+
+export const getActiveBranchLogo = (
+  settings: Pick<SystemSettings, 'business'> | null | undefined,
+  selectedBranch: BrandableBranch | null | undefined,
+): string => {
+  if (selectedBranch?.isPhysical) {
+    const branchLogo = selectedBranch.logoLightUrl || selectedBranch.logoDarkUrl;
+    if (branchLogo) return branchLogo;
+  }
+  return getBusinessLogo(settings);
+};

@@ -55,7 +55,8 @@ import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } fro
 import { downloadPdfFromElement } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
 import ModernSelect from './ui/ModernSelect';
-import { getBusinessDisplayName } from '../utils/businessBranding';
+import { getActiveBranchDisplayName } from '../utils/businessBranding';
+import type { BranchSummary } from '../branches/branchTypes';
 
 // Revenue helper: exclude delivery fees from product revenue calculations
 const saleProductRevenue = (s: any): number =>
@@ -75,6 +76,7 @@ interface DashboardReportsProps {
   deliveries?: any[];
   systemSettings?: any;
   headerSearchQuery?: string;
+  activeBranch?: BranchSummary | null;
 }
 
 const REPORT_DOCUMENT_TITLES: Record<string, string> = {
@@ -106,6 +108,7 @@ export default function DashboardReports({
   deliveries = [],
   systemSettings,
   headerSearchQuery = '',
+  activeBranch,
 }: DashboardReportsProps) {
   const currency = activeTenant.currency;
   const printActiveReportPdf = async () => {
@@ -116,7 +119,7 @@ export default function DashboardReports({
       includeHidden: true,
       visual: false,
       branding: {
-        businessName: getBusinessDisplayName(activeTenant, systemSettings, userName),
+        businessName: getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch),
         // Skip getBusinessLogo()'s businessLogoDark fallback here — that
         // variant is meant for dark surfaces and can carry a baked-in dark
         // background, which looks like a black box on this white PDF page.
@@ -124,8 +127,11 @@ export default function DashboardReports({
         // tenants who uploaded a dark logo before the upload handler was
         // fixed to stop copying it into the general businessLogo field —
         // for them businessLogo IS the dark logo, so trusting it here would
-        // still reproduce the black box.
-        logo: (systemSettings?.business as any)?.businessLogoLight
+        // still reproduce the black box. Same reasoning applies to the real
+        // branch's own logo below: only its light/document variant is safe
+        // here, never logoDarkUrl.
+        logo: (activeBranch?.isPhysical && activeBranch?.logoLightUrl)
+          || (systemSettings?.business as any)?.businessLogoLight
           || ((systemSettings?.business as any)?.businessLogo !== (systemSettings?.business as any)?.businessLogoDark
             ? (systemSettings?.business as any)?.businessLogo
             : '')
@@ -5768,7 +5774,7 @@ export default function DashboardReports({
                 
                 {/* Brand Banner */}
                 <div className="text-center pb-3 border-b border-dashed border-slate-200">
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight font-sans leading-none">{getBusinessDisplayName(activeTenant, systemSettings, userName)}</h3>
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight font-sans leading-none">{getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch)}</h3>
                   <p className="text-[10px] text-slate-500 font-mono mt-1.5 uppercase tracking-wider">
                     {activeTenant.businessType === 'pharmacy' ? 'Clinical Pharmacy Dispensary' : activeTenant.businessType === 'restaurant' ? 'Hospitality & Diner' : 'General Merchant Office'}
                   </p>

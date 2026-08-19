@@ -331,7 +331,81 @@ function BranchCreationWizard({
   );
 }
 
-function BranchDetailsDialog({ branch, onClose }: { branch: BranchSummary; onClose: () => void }) {
+function BranchLogoUploadCard({
+  activeTenant,
+  branch,
+  variant,
+}: {
+  activeTenant: Tenant;
+  branch: BranchSummary;
+  variant: 'light' | 'dark';
+}) {
+  const { updateLogo } = useBranchContext();
+  const [isUploading, setIsUploading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const currentUrl = variant === 'light' ? branch.logoLightUrl : branch.logoDarkUrl;
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !branch.id) return;
+    setIsUploading(true);
+    setStatusMessage(null);
+    try {
+      const { uploadBranchLogo } = await import('../utils/imageStorage');
+      const uploadedUrl = await uploadBranchLogo(file, activeTenant.id, branch.id, variant);
+      if (!uploadedUrl) throw new Error('Upload failed');
+      await updateLogo(branch.id, variant === 'light'
+        ? { logoLightUrl: uploadedUrl, logoDarkUrl: branch.logoDarkUrl }
+        : { logoLightUrl: branch.logoLightUrl, logoDarkUrl: uploadedUrl });
+      setStatusMessage('Saved.');
+    } catch {
+      setStatusMessage('Upload failed. Please try again.');
+    } finally {
+      setIsUploading(false);
+      setTimeout(() => setStatusMessage(null), 4000);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!branch.id) return;
+    setIsUploading(true);
+    try {
+      await updateLogo(branch.id, variant === 'light'
+        ? { logoLightUrl: null, logoDarkUrl: branch.logoDarkUrl }
+        : { logoLightUrl: branch.logoLightUrl, logoDarkUrl: null });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className={`space-y-1.5 rounded-2xl border p-3 ${variant === 'dark' ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white'}`}>
+      <p className={`text-[10px] font-black uppercase tracking-wider ${variant === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+        {variant === 'light' ? 'Light / Documents' : 'Dark Mode'}
+      </p>
+      <div className={`flex h-14 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed ${variant === 'dark' ? 'border-slate-700 bg-slate-950' : 'border-slate-200 bg-slate-50'}`}>
+        {currentUrl
+          ? <img src={currentUrl} alt="" className="h-full w-full object-contain p-1" />
+          : <span className={`text-[10px] ${variant === 'dark' ? 'text-slate-600' : 'text-slate-400'}`}>No logo</span>}
+      </div>
+      <div className="flex items-center gap-2">
+        <label className={`inline-block cursor-pointer rounded-lg px-2.5 py-1 text-[10px] font-bold text-white ${isUploading ? 'opacity-60' : ''} ${variant === 'dark' ? 'bg-slate-700 hover:bg-slate-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
+          {isUploading ? 'Uploading…' : (currentUrl ? 'Replace' : 'Upload')}
+          <input type="file" accept="image/*" className="hidden" disabled={isUploading} onChange={handleFile} />
+        </label>
+        {currentUrl && (
+          <button type="button" onClick={handleRemove} disabled={isUploading} className="cursor-pointer border-none bg-transparent text-[10px] font-bold text-rose-500 hover:text-rose-700">
+            Remove
+          </button>
+        )}
+      </div>
+      {statusMessage && <p className="text-[10px] text-slate-400">{statusMessage}</p>}
+    </div>
+  );
+}
+
+function BranchDetailsDialog({ activeTenant, branch, onClose }: { activeTenant: Tenant; branch: BranchSummary; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[84] flex items-end justify-center bg-slate-950/50 p-0 backdrop-blur-sm md:items-center md:p-5" role="dialog" aria-modal="true" aria-labelledby="branch-details-title">
       <div className="w-full max-w-lg overflow-hidden rounded-t-[24px] border border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl dark:border-slate-700 dark:bg-slate-950 md:rounded-[22px] md:pb-0">
@@ -358,6 +432,24 @@ function BranchDetailsDialog({ branch, onClose }: { branch: BranchSummary; onClo
             </div>
           ))}
         </div>
+        {branch.isPhysical && branch.id && (
+          <div className="space-y-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
+            <div>
+              <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Branch logo</span>
+              <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                Shown on this branch&apos;s own invoices, receipts, reports, and delivery notes when it&apos;s the active branch.
+              </p>
+            </div>
+            {branch.canWrite ? (
+              <div className="grid grid-cols-2 gap-3">
+                <BranchLogoUploadCard activeTenant={activeTenant} branch={branch} variant="light" />
+                <BranchLogoUploadCard activeTenant={activeTenant} branch={branch} variant="dark" />
+              </div>
+            ) : (
+              <p className="text-xs font-semibold text-slate-400">Read-only access — branch logo cannot be changed from here.</p>
+            )}
+          </div>
+        )}
         <div className="border-t border-slate-200 bg-slate-50 px-5 py-4 text-xs font-semibold leading-5 text-slate-500 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-400">
           {branch.includesUnassignedHistoricalRecords
             ? 'Existing unassigned business records continue to resolve through this Primary Branch. No historical record has been rewritten.'
@@ -763,7 +855,7 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
 
       {showWizard ? <BranchCreationWizard activeTenant={activeTenant} onClose={() => setShowWizard(false)} /> : null}
       {actionSheetBranch ? <BranchActionsSheet branch={actionSheetBranch} onClose={() => setActionSheetBranch(null)} onViewDetails={() => { setSelectedBranch(actionSheetBranch); setActionSheetBranch(null); }} /> : null}
-      {selectedBranch ? <BranchDetailsDialog branch={selectedBranch} onClose={() => setSelectedBranch(null)} /> : null}
+      {selectedBranch ? <BranchDetailsDialog activeTenant={activeTenant} branch={selectedBranch} onClose={() => setSelectedBranch(null)} /> : null}
     </>
   );
 }

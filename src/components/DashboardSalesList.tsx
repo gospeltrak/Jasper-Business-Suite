@@ -52,7 +52,8 @@ import {
 } from 'lucide-react';
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
-import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
+import { getActiveBranchDisplayName, getActiveBranchLogo } from '../utils/businessBranding';
+import type { BranchSummary } from '../branches/branchTypes';
 import { normalizeSubscriptionPlanId } from '../utils/subscription';
 import { findPaymentChannel, getPaymentModeName } from '../utils/paymentAccounts';
 import { calculateSalesDocumentTotals } from '../utils/salesDocumentTotals';
@@ -184,6 +185,7 @@ interface DashboardSalesListProps {
   allTenantProducts?: Product[];
   /** The branch the user is currently operating the dashboard from. */
   activeBranchId?: string | null;
+  activeBranch?: BranchSummary | null;
   systemSettings?: SystemSettings;
   onPreloadCartForPOS?: (
     items: SaleItem[],
@@ -210,6 +212,7 @@ export default function DashboardSalesList({
   products = [],
   allTenantProducts,
   activeBranchId,
+  activeBranch,
   systemSettings,
   onPreloadCartForPOS,
   currentUser,
@@ -371,7 +374,7 @@ export default function DashboardSalesList({
   };
   const getInvoiceFooter = (doc?: SalesDocument) => {
     const snapshot = (doc?.brandingSnapshot || {}) as Record<string, any>;
-    const businessName = snapshot.businessName || snapshot.branchName || getBusinessDisplayName(activeTenant, systemSettings);
+    const businessName = snapshot.businessName || snapshot.branchName || getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch);
     const mainMessage = doc?.tagline || systemSettings?.invoiceSettings?.footerNote || 'Thank you for shopping with us.';
     // Fixed brand line — a configured business website is a different concept
     // from "Powered by Orvix" attribution and must not replace it here.
@@ -381,12 +384,12 @@ export default function DashboardSalesList({
   const getDocumentBranding = (doc: SalesDocument) => {
     const snapshot = (doc.brandingSnapshot || {}) as Record<string, any>;
     return {
-      name: snapshot.businessName || snapshot.branchName || getBusinessDisplayName(activeTenant, systemSettings),
+      name: snapshot.businessName || snapshot.branchName || getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch),
       city: snapshot.city || activeTenant.city || '',
       address: snapshot.address || systemSettings?.business?.businessAddress || '',
       phone: snapshot.phone || systemSettings?.business?.businessPhone || '',
       email: snapshot.email || systemSettings?.business?.businessEmail || '',
-      logo: getBusinessLogo(systemSettings) || '',
+      logo: snapshot.logo || getActiveBranchLogo(systemSettings, activeBranch) || '',
     };
   };
 
@@ -1007,7 +1010,7 @@ export default function DashboardSalesList({
         elementId: format === 'a4' ? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template',
         fileName: format === 'a4' ? buildInvoiceFileName(sale) : buildReceiptFileName(sale),
         phone: phone || sale.customerPhone,
-        message: `Hello ${sale.customerName || 'customer'}, please find attached your ${format === 'a4' ? 'sales invoice' : 'POS receipt'} PDF from ${getBusinessDisplayName(activeTenant, systemSettings)}. Thank you.`,
+        message: `Hello ${sale.customerName || 'customer'}, please find attached your ${format === 'a4' ? 'sales invoice' : 'POS receipt'} PDF from ${getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch)}. Thank you.`,
         format
       });
       setPdfShareStatus('PDF ready for WhatsApp.');
@@ -1052,7 +1055,7 @@ export default function DashboardSalesList({
 
   // Deterministic, recognizable filename using the real business and sale reference.
   const buildInvoiceFileName = (sale: Sale) => {
-    const bizName = getBusinessDisplayName(activeTenant, systemSettings).trim();
+    const bizName = getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch).trim();
     const safeBusiness = bizName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 36) || 'Business';
     const safeReference = String(sale.reference || sale.id || 'sale')
       .replace(/[^a-zA-Z0-9_-]+/g, '-')
@@ -1062,7 +1065,7 @@ export default function DashboardSalesList({
   };
 
   const buildReceiptFileName = (sale: Sale) => {
-    const bizName = getBusinessDisplayName(activeTenant, systemSettings).trim();
+    const bizName = getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch).trim();
     const safeBusiness = bizName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 36) || 'Business';
     const safeReference = String(sale.reference || sale.id || 'receipt')
       .replace(/[^a-zA-Z0-9_-]+/g, '-')
@@ -3389,19 +3392,19 @@ export default function DashboardSalesList({
                 <div className="p-8 space-y-5">
                   <div className="flex items-start justify-between gap-8">
                     <div className="min-w-0">
-                      {(((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings)) ? (
+                      {getActiveBranchLogo(systemSettings, activeBranch) ? (
                         <img
-                          src={((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || undefined}
+                          src={getActiveBranchLogo(systemSettings, activeBranch) || undefined}
                           alt="Logo"
                           referrerPolicy="no-referrer"
                           className="max-h-16 max-w-[200px] object-contain mb-3"
                         />
                       ) : (
                         <div className="w-12 h-12 rounded-2xl text-white flex items-center justify-center text-xl font-black mb-3" style={{ backgroundColor: computedInvoiceColor }}>
-                          {getBusinessDisplayName(activeTenant, systemSettings).charAt(0)}
+                          {getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch).charAt(0)}
                         </div>
                       )}
-                      <h2 className="text-xl font-black text-slate-900">{getBusinessDisplayName(activeTenant, systemSettings)}</h2>
+                      <h2 className="text-xl font-black text-slate-900">{getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch)}</h2>
                       {/* Address block stays plain black/gray, never the brand color, so it always
                           reads as the legal business address rather than decorative branding. */}
                       {activeTenant.city && <p className="text-[11px] text-slate-400 uppercase font-bold mt-1">{activeTenant.city}</p>}
@@ -3556,15 +3559,15 @@ export default function DashboardSalesList({
 
                 {/* Receipt store branding block — plain black ink, matching a real thermal printout */}
                 <div className="text-center space-y-1 flex flex-col items-center">
-                  {(((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings)) && (
+                  {getActiveBranchLogo(systemSettings, activeBranch) && (
                     <img
-                      src={((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || undefined}
+                      src={getActiveBranchLogo(systemSettings, activeBranch) || undefined}
                       alt="Receipt Logo"
                       referrerPolicy="no-referrer"
                       className="max-h-12 max-w-[140px] object-contain mb-1 select-none"
                     />
                   )}
-                  <h4 className="text-base font-black tracking-tight text-black">{getBusinessDisplayName(activeTenant, systemSettings)}</h4>
+                  <h4 className="text-base font-black tracking-tight text-black">{getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch)}</h4>
                   {activeTenant.city && <p className="text-[11px] text-black uppercase font-semibold">{activeTenant.city}</p>}
                   {systemSettings?.business?.businessPhone && <p className="text-[11px] text-black">Tel:{systemSettings.business.businessPhone}</p>}
                 </div>

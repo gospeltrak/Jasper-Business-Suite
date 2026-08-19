@@ -3714,6 +3714,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               onUpdateStocks={handleUpdateActiveStocks}
               onAddSale={handleAddSale}
               systemSettings={systemSettings}
+              activeBranch={branchContextSelectedBranch}
               preloadedCart={preloadedCart}
               onClearPreloadedCart={() => setPreloadedCart(null)}
             />
@@ -3811,6 +3812,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 || activeBranchBusinessName
                 || activeTenant.name
               }
+              activeBranch={branchContextSelectedBranch}
             />
           )}
 
@@ -3839,12 +3841,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               purchases={activePurchases}
               deliveries={activeDeliveries}
               systemSettings={systemSettings}
+              activeBranch={branchContextSelectedBranch}
             />
           )}
 
           {/* TAB ROOT: High-Fidelity Sales Receipts History list */}
           {activeTab === 'sales-list' && (
-            <DashboardSalesList 
+            <DashboardSalesList
               activeTenant={activeTenant}
               sales={activeSales}
               onUpdateSales={handleUpdateSales}
@@ -3853,6 +3856,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               products={activeProducts}
               allTenantProducts={productsMap[activeTenant.id] || []}
               activeBranchId={activeBranchSelection.activeBranchId}
+              activeBranch={branchContextSelectedBranch}
               systemSettings={systemSettings}
               onPreloadCartForPOS={(items, backdate, options) => {
                 setPreloadedCart({ items, backdate, ...options });
@@ -3895,6 +3899,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               suppliers={activeSuppliers}
               purchases={activePurchases}
               systemSettings={systemSettings}
+              activeBranch={branchContextSelectedBranch}
             />
           )}
 

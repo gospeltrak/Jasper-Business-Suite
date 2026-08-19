@@ -95,6 +95,19 @@ export const createBranch = async (input: CreateBranchInput) => {
   return response.branch;
 };
 
+export const updateBranchLogo = async (
+  branchId: string,
+  logos: { logoLightUrl?: string | null; logoDarkUrl?: string | null },
+) => {
+  const token = await getAccessToken();
+  const response = await requestBranchApi<{ branch: { id: string; logoLightUrl: string | null; logoDarkUrl: string | null } }>(
+    `/api/branches/${encodeURIComponent(branchId)}/logo`,
+    token,
+    { method: 'POST', body: JSON.stringify(logos) },
+  );
+  return response.branch;
+};
+
 export interface CrossBranchDocumentSourceBranch {
   id: string;
   branchName: string;

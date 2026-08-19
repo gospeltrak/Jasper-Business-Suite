@@ -29,7 +29,8 @@ import {
   Wallet
 } from 'lucide-react';
 import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
-import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
+import { getActiveBranchDisplayName, getActiveBranchLogo } from '../utils/businessBranding';
+import type { BranchSummary } from '../branches/branchTypes';
 import { formatSaleItemQuantity } from '../utils/unitFormatter';
 import { buildWhatsAppLink } from '../utils/whatsapp';
 
@@ -111,6 +112,7 @@ interface DashboardDeliveriesProps {
   }) => Promise<boolean> | boolean;
   onDeleteDelivery?: (deliveryId: string) => Promise<boolean>;
   activeBranchName?: string;
+  activeBranch?: BranchSummary | null;
 }
 
 export default function DashboardDeliveries({
@@ -132,7 +134,8 @@ export default function DashboardDeliveries({
   onAddExpense,
   onEditDelivery,
   onDeleteDelivery,
-  activeBranchName
+  activeBranchName,
+  activeBranch
 }: DashboardDeliveriesProps) {
   const [activeSubTab, setActiveSubTab] = useState<'queue' | 'riders' | 'notes' | 'accounting'>('queue');
   
@@ -280,9 +283,9 @@ export default function DashboardDeliveries({
   const [externalDriverLicensePlate, setExternalDriverLicensePlate] = useState('');
 
   // Dynamically computed supplier details
-  const computedLogo = ((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || '';
-  const computedLogoName = getBusinessDisplayName(activeTenant, systemSettings);
-  const computedCompanyTitle = getBusinessDisplayName(activeTenant, systemSettings);
+  const computedLogo = getActiveBranchLogo(systemSettings, activeBranch) || '';
+  const computedLogoName = getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch);
+  const computedCompanyTitle = getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch);
   const computedCompanyAddress = systemSettings?.business?.businessAddress || '';
   const computedCompanyPhone = systemSettings?.business?.businessPhone || '';
   const computedCompanyEmail = systemSettings?.business?.businessEmail || '';
@@ -826,7 +829,7 @@ Vehicle Plate Number: ${plateNumber}
         elementId: 'delivery-note-print-area',
         fileName: `delivery-note-${dnNo}.pdf`,
         phone: del.customerPhone,
-        message: `Hello ${customerName}, please find attached your delivery note PDF from ${getBusinessDisplayName(activeTenant, systemSettings)}. Thank you.`,
+        message: `Hello ${customerName}, please find attached your delivery note PDF from ${getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch)}. Thank you.`,
         format: 'a4'
       });
       setDeliveryPdfStatus('PDF ready for WhatsApp.');
