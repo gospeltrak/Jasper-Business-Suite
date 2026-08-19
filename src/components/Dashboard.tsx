@@ -49,7 +49,7 @@ import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
 import { savePendingSaleOffline } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
-import { flushPendingTenantWorkspace, loadTenantWorkspace, markTenantProductsUpdated, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
+import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantWorkspace, markTenantProductsUpdated, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
 import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
 import { attachPayloadProductTombstones, markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
@@ -698,6 +698,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       const cloudBusinessName = String(workspace.settings?.business?.businessName || '').trim();
       setDatabaseBusinessName(cloudBusinessName);
       if (Date.now() - localWorkspaceChangedAtRef.current < LOCAL_WORKSPACE_PROTECTION_MS) {
+        return;
+      }
+      // The fixed time window above assumes a save finishes quickly. If one is
+      // still queued/in-flight (slow network, several writes stacked up), a
+      // realtime payload taken before it lands would overwrite the not-yet-
+      // committed edit. Skip until this tenant's save queue is actually clear.
+      if (hasPendingTenantWorkspaceSave(activeTenant.id)) {
         return;
       }
       skipNextWorkspaceSaveRef.current = true;

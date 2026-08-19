@@ -840,6 +840,17 @@ export async function flushPendingTenantWorkspace(tenantId: string): Promise<voi
   if (queued) await queued.catch(() => false);
 }
 
+// True while a save for this tenant is still debouncing (pendingWorkspaceAutoSaves)
+// or is queued/in-flight on the network (workspaceSaveQueue). Callers that apply
+// incoming remote data (e.g. a realtime payload) should skip while this is true —
+// otherwise a write that is still in flight can complete after the remote read
+// was taken, and the remote payload (missing the not-yet-committed edit) would
+// overwrite the fresher local state.
+export function hasPendingTenantWorkspaceSave(tenantId: string): boolean {
+  if (!tenantId) return false;
+  return pendingWorkspaceAutoSaves.has(tenantId) || workspaceSaveQueue.has(tenantId);
+}
+
 // ─── Real-time subscription ─────────────────────────────────────────────────
 
 export async function subscribeToTenantWorkspace(
