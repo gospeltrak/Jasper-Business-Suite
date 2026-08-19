@@ -5891,23 +5891,17 @@ export default function DashboardReports({
       <div id="reports-a4-pdf-template" className="hidden print:block printable-area bg-white text-black p-8 max-w-4xl mx-auto font-sans leading-relaxed text-[10px] normal-case">
         {/* Document Header — a plain single-column block (not a 2-column flex
             row) so the PDF's label/value row detector never mistakes it for
-            one row and mashes both columns onto the same line. The business
-            identity itself is already shown in the branded chrome above this
-            content, so this stays a short, generic report title. */}
+            one row and mashes both columns onto the same line. The report's
+            title is shown once, in the branded chrome badge above this
+            content — this block only carries the scope meta line. */}
         <div className="border-b-2 border-slate-900 pb-4 mb-5">
-          <h1 className="text-lg font-bold font-sans text-slate-900 uppercase">
-            {REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report'}
-          </h1>
-          <p className="text-[9.5px] font-medium font-sans mt-1" style={{ color: computedInvoiceColor }}>
+          <p className="text-[9.5px] font-medium font-sans" style={{ color: computedInvoiceColor }}>
             Branch Name: {activeTenant.name} · Base Currency: {currency} · Scope: {startDateStr} to {endDateStr}
           </p>
         </div>
 
         {/* Dynamic content wrapper based on active reportTab */}
         <div className="space-y-4">
-          <h2 className="text-sm font-extrabold uppercase font-mono tracking-wider border-b pb-1.5 border-slate-200">
-            {(REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report').toUpperCase()}
-          </h2>
 
           {/* TAB: P&L SUMMARY */}
           {reportTab === 'p&l' && (
@@ -6584,11 +6578,11 @@ export default function DashboardReports({
             <span className="font-bold uppercase">Authorized By</span>
           </div>
           <div className="flex justify-between">
-            <span className="font-semibold">{userName}</span>
+            <span className="font-semibold">{REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report'}</span>
             <span className="font-semibold text-slate-400">________________________</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">System Operator</span>
+            <span className="text-slate-400"></span>
             <span className="text-slate-400 font-sans">Branch Manager</span>
           </div>
         </div>
