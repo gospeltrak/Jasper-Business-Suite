@@ -799,28 +799,28 @@ export default function DashboardOverview({
       </div>
 
       {/* 3. KPI CARDS ROW - desktop only, mobile uses hero above */}
-      <div className="hidden xl:grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6 select-none animate-fade-in">
+      <div className="hidden xl:grid grid-cols-2 md:grid-cols-2 xl:grid-cols-6 gap-2.5 select-none animate-fade-in">
         
         {/* Card 1: Total Orders */}
-        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-violet-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-indigo-100">
-              <ShoppingCart className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-tr from-indigo-500 to-violet-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-indigo-100">
+              <ShoppingCart className="w-4 h-4 text-white" />
             </div>
             <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-full border border-indigo-100/40 dark:border-indigo-800/40">
               Active Orders
             </span>
           </div>
-          <div className="mt-4 text-left">
+          <div className="mt-2.5 text-left">
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Orders</p>
-            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
+            <p className="text-base font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {filteredSales.length}
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
               {totalQtySold} items sold {timeframeLabel.toLowerCase()}
             </p>
-            <div className="mt-2 flex gap-0.5 items-end h-6">
+            <div className="mt-1.5 flex gap-0.5 items-end h-4">
               {[40,65,45,80,55,90,70].map((h,i) => (
                 <div key={i} className="flex-1 rounded-sm bg-indigo-100 dark:bg-indigo-900/30 relative overflow-hidden">
                   <div className="absolute bottom-0 left-0 right-0 bg-indigo-400 dark:bg-indigo-500 rounded-sm transition-all" style={{height: `${h}%`}} />
@@ -831,25 +831,25 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 3: Total Sales */}
-        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-gradient-to-tr from-purple-500 to-indigo-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-purple-100">
-              <Coins className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-tr from-purple-500 to-indigo-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-purple-100">
+              <Coins className="w-4 h-4 text-white" />
             </div>
             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full flex items-center gap-0.5 border border-emerald-100/40">
               <ArrowUp className="w-2.5 h-2.5 text-emerald-500" /> {timeframeLabel}
             </span>
           </div>
-          <div className="mt-4 text-left">
+          <div className="mt-2.5 text-left">
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Sales</p>
-            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
+            <p className="text-base font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {currency} {Math.round(totalRevenue).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Money earned today
             </p>
-            <div className="mt-2 flex gap-0.5 items-end h-6">
+            <div className="mt-1.5 flex gap-0.5 items-end h-4">
               {[30,50,45,70,60,85,75].map((h,i) => (
                 <div key={i} className="flex-1 rounded-sm bg-purple-100 dark:bg-purple-900/30 relative overflow-hidden">
                   <div className="absolute bottom-0 left-0 right-0 bg-purple-400 dark:bg-purple-500 rounded-sm" style={{height: `${h}%`}} />
@@ -860,18 +860,18 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 4: Purchases */}
-        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-gradient-to-tr from-teal-500 to-emerald-400 text-white rounded-xl flex items-center justify-center shadow-md shadow-teal-100">
-              <Layers className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-tr from-teal-500 to-emerald-400 text-white rounded-xl flex items-center justify-center shadow-md shadow-teal-100">
+              <Layers className="w-4 h-4 text-white" />
             </div>
             <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100/40">
               Buying
             </span>
           </div>
-          <div className="mt-4 text-left">
+          <div className="mt-2.5 text-left">
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Purchases</p>
-            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
+            <p className="text-base font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {currency} {Math.round(simulatedPurchases).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
@@ -882,18 +882,18 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 5: Expenses */}
-        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-gradient-to-tr from-blue-500 to-cyan-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-blue-100">
-              <TrendingDown className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-tr from-blue-500 to-cyan-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-blue-100">
+              <TrendingDown className="w-4 h-4 text-white" />
             </div>
             <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100/40">
               Opex Cash
             </span>
           </div>
-          <div className="mt-4 text-left">
+          <div className="mt-2.5 text-left">
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Expenses</p>
-            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
+            <p className="text-base font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {currency} {Math.round(totalExpensesAmt).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
@@ -904,18 +904,18 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 2: Cost of Goods */}
-        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-gradient-to-tr from-amber-500 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-amber-100">
-              <Receipt className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-tr from-amber-500 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-amber-100">
+              <Receipt className="w-4 h-4 text-white" />
             </div>
             <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-full border border-amber-100/40 dark:border-amber-800/40">
               Credit Dues
             </span>
           </div>
-          <div className="mt-4 text-left">
+          <div className="mt-2.5 text-left">
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Dues Owed</p>
-            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
+            <p className="text-base font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {currency} {Math.round(filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').reduce((sum:number,s:any)=>sum+(s.dueAmount||s.amountDue||0),0)).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
@@ -926,10 +926,10 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 6: Total Profit */}
-        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-gradient-to-tr from-emerald-500 to-green-400 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-100">
-              <TrendingUp className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-tr from-emerald-500 to-green-400 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-100">
+              <TrendingUp className="w-4 h-4 text-white" />
             </div>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
               netProfit >= 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-100/40' : 'text-rose-600 bg-rose-50 border-rose-100/40'
@@ -937,9 +937,9 @@ export default function DashboardOverview({
               {netProfit >= 0 ? 'Profit margin' : 'Deficit'}
             </span>
           </div>
-          <div className="mt-4 text-left">
+          <div className="mt-2.5 text-left">
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Profit</p>
-            <p className={`text-xl font-black tracking-tight mt-1 ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+            <p className={`text-base font-black tracking-tight mt-1 ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
               {currency} {Math.round(netProfit).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">

@@ -108,6 +108,10 @@ export default function DashboardReports({
   headerSearchQuery = '',
 }: DashboardReportsProps) {
   const currency = activeTenant.currency;
+  // Same tenant-chosen brand color used by Delivery Note / A4 Invoice /
+  // Quotation / POS Receipt (Settings → Invoice Settings → Brand
+  // Highlights Color), so reports carry the same identity.
+  const computedInvoiceColor = systemSettings?.invoiceSettings?.invoiceColor || '#4f46e5';
   const printActiveReportPdf = async () => {
     await downloadPdfFromElement({
       elementId: 'reports-a4-pdf-template',
@@ -127,6 +131,7 @@ export default function DashboardReports({
         documentTitle: REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report',
         dateRange: `${startDateStr} to ${endDateStr}`,
         generatedBy: userName,
+        brandColor: computedInvoiceColor,
       }
     });
   };
@@ -5893,8 +5898,8 @@ export default function DashboardReports({
           <h1 className="text-lg font-bold font-sans text-slate-900 uppercase">
             {REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report'}
           </h1>
-          <p className="text-[9.5px] text-slate-500 font-medium font-sans mt-1">
-            Branch ID: {activeTenant.id} · Base Currency: {currency} · Scope: {startDateStr} to {endDateStr}
+          <p className="text-[9.5px] font-medium font-sans mt-1" style={{ color: computedInvoiceColor }}>
+            Branch Name: {activeTenant.name} · Base Currency: {currency} · Scope: {startDateStr} to {endDateStr}
           </p>
         </div>
 
@@ -5980,37 +5985,37 @@ export default function DashboardReports({
           {/* TAB: SALES REPORT */}
           {reportTab === 'sales-report' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <div>
-                  <span className="text-[8px] text-slate-400 block font-mono uppercase">Sales count</span>
-                  <span className="font-bold text-xs">{salesReportMetrics.totalOrders} Tickets</span>
+              <div className="flex divide-x divide-slate-200 border border-slate-200 rounded-xl overflow-hidden">
+                <div className="flex-1 text-center py-3 px-2">
+                  <span className="text-[8px] text-slate-400 block font-sans uppercase tracking-wide">Sales count</span>
+                  <span className="font-bold text-xs text-slate-900 block mt-1">{salesReportMetrics.totalOrders} Tickets</span>
                 </div>
-                <div>
-                  <span className="text-[8px] text-slate-400 block font-mono uppercase">Revenue gen.</span>
-                  <span className="font-bold text-xs text-emerald-800">{currency}{Math.round(salesReportMetrics.totalRevenue).toLocaleString()}</span>
+                <div className="flex-1 text-center py-3 px-2">
+                  <span className="text-[8px] text-slate-400 block font-sans uppercase tracking-wide">Revenue gen.</span>
+                  <span className="font-bold text-xs text-slate-900 block mt-1">{currency}{Math.round(salesReportMetrics.totalRevenue).toLocaleString()}</span>
                 </div>
-                <div>
-                  <span className="text-[8px] text-emerald-600 block font-mono uppercase">Paid revenue</span>
-                  <span className="font-bold text-xs text-slate-700">{currency}{Math.round(salesReportMetrics.paidRevenue).toLocaleString()}</span>
+                <div className="flex-1 text-center py-3 px-2">
+                  <span className="text-[8px] text-slate-400 block font-sans uppercase tracking-wide">Paid revenue</span>
+                  <span className="font-bold text-xs text-slate-900 block mt-1">{currency}{Math.round(salesReportMetrics.paidRevenue).toLocaleString()}</span>
                 </div>
-                <div>
-                  <span className="text-[8px] text-amber-600 block font-mono uppercase">Unpaid credit</span>
-                  <span className="font-bold text-xs text-amber-700">{currency}{Math.round(salesReportMetrics.unpaidRevenue).toLocaleString()}</span>
+                <div className="flex-1 text-center py-3 px-2">
+                  <span className="text-[8px] text-slate-400 block font-sans uppercase tracking-wide">Unpaid credit</span>
+                  <span className="font-bold text-xs text-slate-900 block mt-1">{currency}{Math.round(salesReportMetrics.unpaidRevenue).toLocaleString()}</span>
                 </div>
-                <div className="col-span-2 md:col-span-1">
-                  <span className="text-[8px] text-indigo-600 block font-mono uppercase">Profit generated</span>
-                  <span className="font-bold text-xs text-indigo-700">{currency}{Math.round(salesReportMetrics.totalProfit).toLocaleString()}</span>
+                <div className="flex-1 text-center py-3 px-2">
+                  <span className="text-[8px] text-slate-400 block font-sans uppercase tracking-wide">Profit generated</span>
+                  <span className="font-bold text-xs text-slate-900 block mt-1">{currency}{Math.round(salesReportMetrics.totalProfit).toLocaleString()}</span>
                 </div>
               </div>
 
               <table className="w-full text-left font-sans">
                 <thead>
-                  <tr className="bg-slate-100 font-bold border-b border-slate-300 text-[9px]">
+                  <tr className="text-white font-bold text-[9px]" style={{ backgroundColor: computedInvoiceColor }}>
                     <th className="p-1.5">Ref ID</th>
                     <th className="p-1.5">Date</th>
                     <th className="p-1.5">Customer Name</th>
                     <th className="p-1.5">Items Sold</th>
-                    <th className="p-1.5 text-center">Channel</th>
+                    <th className="p-1.5 text-center">Sales type</th>
                     <th className="p-1.5 text-right">Tax</th>
                     <th className="p-1.5 text-right font-black">Gross Amt</th>
                   </tr>
@@ -6018,7 +6023,7 @@ export default function DashboardReports({
                 <tbody className="divide-y divide-slate-100">
                   {recordsFilteredSales.map(sale => (
                     <tr key={sale.id}>
-                      <td className="p-1.5 font-mono font-bold text-indigo-900">{sale.id}</td>
+                      <td className="p-1.5 font-mono font-bold" style={{ color: computedInvoiceColor }}>{sale.id}</td>
                       <td className="p-1.5 whitespace-nowrap font-mono text-[9px]">{new Date(sale.timestamp).toLocaleDateString()}</td>
                       <td className="p-1.5 font-bold">{sale.customerName || 'Walk-In Customer'}</td>
                       <td className="p-1.5 truncate max-w-[200px]">{sale.items.map(it => `${it.qty}x ${it.productName}`).join(', ')}</td>
@@ -6042,7 +6047,7 @@ export default function DashboardReports({
             <div className="space-y-4">
               <table className="w-full text-left font-sans">
                 <thead>
-                  <tr className="bg-slate-100 font-bold border-b border-slate-300">
+                  <tr className="text-white font-bold" style={{ backgroundColor: computedInvoiceColor }}>
                     <th className="p-2">Payment Mode Channel</th>
                     <th className="p-2 text-right">Aggregate Settled ({currency})</th>
                     <th className="p-2 text-right">Proportion Weight</th>
@@ -6155,7 +6160,7 @@ export default function DashboardReports({
                 <h3 className="font-bold text-xs uppercase border-b pb-1">Primary Customer Loyalty Segment</h3>
                 <table className="w-full text-left font-sans text-[9px]">
                   <thead>
-                    <tr className="bg-slate-100 font-bold border-b border-slate-300">
+                    <tr className="text-white font-bold" style={{ backgroundColor: computedInvoiceColor }}>
                       <th className="p-1.5">Registered Customer</th>
                       <th className="p-1.5 text-right">Transactions Count</th>
                       <th className="p-1.5 text-right">Accrued Spend Sum</th>
@@ -6175,7 +6180,7 @@ export default function DashboardReports({
                 <h3 className="font-bold text-xs uppercase border-b pb-1 mt-4">Branch Staff Performance Ledger</h3>
                 <table className="w-full text-left font-sans text-[9px]">
                   <thead>
-                    <tr className="bg-slate-100 font-bold border-b border-slate-300">
+                    <tr className="text-white font-bold" style={{ backgroundColor: computedInvoiceColor }}>
                       <th className="p-1.5">Staff Code Name</th>
                       <th className="p-1.5 text-right">Approved Orders Ticket Volume</th>
                       <th className="p-1.5 text-right">Gross Receipts Checked-In</th>
@@ -6200,7 +6205,7 @@ export default function DashboardReports({
             <div className="space-y-4">
               <table className="w-full text-left font-sans text-[9.5px]">
                 <thead>
-                  <tr className="bg-slate-100 font-bold border-b border-slate-300">
+                  <tr className="text-white font-bold" style={{ backgroundColor: computedInvoiceColor }}>
                     <th className="p-2">Expense ID</th>
                     <th className="p-2">Category</th>
                     <th className="p-2">Description</th>
@@ -6259,7 +6264,7 @@ export default function DashboardReports({
               <div className="space-y-4">
                 <table className="w-full text-left font-sans text-[9px]">
                   <thead>
-                    <tr className="bg-slate-100 font-bold border-b border-slate-300">
+                    <tr className="text-white font-bold" style={{ backgroundColor: computedInvoiceColor }}>
                       <th className="p-1.5">Rank</th>
                       <th className="p-1.5">Product Name</th>
                       <th className="p-1.5">Product SKU</th>
@@ -6294,7 +6299,7 @@ export default function DashboardReports({
             <div className="space-y-4">
               <table className="w-full text-left font-sans text-[9px]">
                 <thead>
-                  <tr className="bg-slate-100 font-bold border-b border-slate-300">
+                  <tr className="text-white font-bold" style={{ backgroundColor: computedInvoiceColor }}>
                     <th className="p-1.5">Product name</th>
                     <th className="p-1.5">SKU Code</th>
                     <th className="p-1.5 text-right">Unit cost</th>
@@ -6364,22 +6369,22 @@ export default function DashboardReports({
                 return (
                   <div className="space-y-6">
                     {/* Key Metrics */}
-                    <div className="mobile-tablet-kpi-grid gap-3 sm:gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(4, minmax(0, 1fr))' }}>
-                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
-                        <span className="block text-[10px] font-mono font-bold uppercase text-slate-500 tracking-wider mb-2">Total Deliveries</span>
-                        <span className="text-2xl font-black text-slate-800">{validDeliveries.length}</span>
+                    <div className="flex divide-x divide-slate-200 border border-slate-200 rounded-xl overflow-hidden">
+                      <div className="flex-1 text-center py-3 px-2">
+                        <span className="text-[8px] text-slate-400 block font-sans uppercase tracking-wide">Total Deliveries</span>
+                        <span className="font-bold text-xs text-slate-900 block mt-1">{validDeliveries.length}</span>
                       </div>
-                      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 text-center shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
-                        <span className="block text-[10px] font-mono font-bold uppercase text-indigo-600 tracking-wider mb-2">Total Delivery Revenue</span>
-                        <span className="text-2xl font-black font-mono text-indigo-900">{currency}{deliveryIncome.toLocaleString()}</span>
+                      <div className="flex-1 text-center py-3 px-2">
+                        <span className="text-[8px] text-slate-400 block font-sans uppercase tracking-wide">Total Delivery Revenue</span>
+                        <span className="font-bold text-xs text-slate-900 block mt-1">{currency}{deliveryIncome.toLocaleString()}</span>
                       </div>
-                      <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-center shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0">
-                        <span className="block text-[10px] font-mono font-bold uppercase text-rose-600 tracking-wider mb-2">Fleet Expenses</span>
-                        <span className="text-2xl font-black font-mono text-rose-900">{currency}{totalDeliveryExpenses.toLocaleString()}</span>
+                      <div className="flex-1 text-center py-3 px-2">
+                        <span className="text-[8px] text-slate-400 block font-sans uppercase tracking-wide">Fleet Expenses</span>
+                        <span className="font-bold text-xs text-slate-900 block mt-1">{currency}{totalDeliveryExpenses.toLocaleString()}</span>
                       </div>
-                      <div className={`rounded-2xl p-4 text-center border shadow-[0_8px_24px_rgba(15,23,42,0.045)] min-w-0 ${netDeliveryProfit >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
-                        <span className={`block text-[10px] font-mono font-bold uppercase tracking-wider mb-2 ${netDeliveryProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>Net Value Generated</span>
-                        <span className={`text-2xl font-black font-mono ${netDeliveryProfit >= 0 ? 'text-emerald-900' : 'text-red-900'}`}>
+                      <div className="flex-1 text-center py-3 px-2">
+                        <span className="text-[8px] text-slate-400 block font-sans uppercase tracking-wide">Net Value Generated</span>
+                        <span className="font-bold text-xs text-slate-900 block mt-1">
                           {netDeliveryProfit >= 0 ? '+' : ''}{currency}{netDeliveryProfit.toLocaleString()}
                         </span>
                       </div>
@@ -6522,7 +6527,7 @@ export default function DashboardReports({
                       <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">
                           <thead>
-                            <tr className="bg-slate-100 text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+                            <tr className="text-white text-[10px] font-mono font-bold uppercase tracking-wider" style={{ backgroundColor: computedInvoiceColor }}>
                               <th className="p-3">Ref ID</th>
                               <th className="p-3">Status</th>
                               <th className="p-3">Customer</th>

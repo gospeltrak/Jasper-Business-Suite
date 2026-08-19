@@ -457,6 +457,8 @@ type PdfShareOptions = {
     documentTitle?: string;
     dateRange?: string;
     generatedBy?: string;
+    /** Tenant's chosen brand color (Invoice Settings), hex string. */
+    brandColor?: string;
   };
 };
 
@@ -645,7 +647,7 @@ const applyBrandedReportChrome = async (
     pdf.text(branding.businessName || 'Business', identityX, 34);
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(7.5);
-    pdf.setTextColor('#64748b');
+    pdf.setTextColor(branding.brandColor || '#64748b');
     const identity = [branding.address, branding.phone, branding.email].filter(Boolean).join('  •  ');
     if (identity) pdf.text(pdf.splitTextToSize(identity, Math.max(120, pageWidth * 0.43)), identityX, 48);
 
@@ -659,7 +661,7 @@ const applyBrandedReportChrome = async (
     pdf.text(title, right - titleWidth / 2, 41.5, { align: 'center' });
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(7.5);
-    pdf.setTextColor('#64748b');
+    pdf.setTextColor(branding.brandColor || '#64748b');
     const meta = branding.dateRange || `Generated ${generatedAt}`;
     pdf.text(meta, right, 64, { align: 'right' });
     if (branding.generatedBy) pdf.text(`Prepared by ${branding.generatedBy}`, right, 76, { align: 'right' });

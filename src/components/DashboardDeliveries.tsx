@@ -25,7 +25,8 @@ import {
   Trash2,
   Edit,
   MoreVertical,
-  Eye
+  Eye,
+  Wallet
 } from 'lucide-react';
 import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
@@ -849,10 +850,10 @@ Vehicle Plate Number: ${plateNumber}
   const deliveredDeliveries = deliveries.filter(del => del.status === 'Delivered').length;
   const deliveryIncomeTotal = deliveries.reduce((sum, del) => sum + (del.deliveryCost || 0), 0);
   const deliveryStats = [
-    { label: 'Pending', value: pendingDeliveries, icon: Clock, tone: 'text-amber-800 bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200', iconTone: 'bg-amber-100 text-amber-700' },
-    { label: 'On route', value: dispatchedDeliveries, icon: Bike, tone: 'text-sky-800 bg-gradient-to-br from-sky-50 to-indigo-50 border-sky-200', iconTone: 'bg-sky-100 text-sky-700' },
-    { label: 'Delivered', value: deliveredDeliveries, icon: CheckCircle, tone: 'text-emerald-800 bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200', iconTone: 'bg-emerald-100 text-emerald-700' },
-    { label: 'Revenue', value: `${currency}${Math.round(deliveryIncomeTotal).toLocaleString()}`, icon: Printer, tone: 'text-white bg-gradient-to-br from-emerald-600 to-emerald-800 border-emerald-700', iconTone: 'bg-white/20 text-white' }
+    { label: 'Pending', value: pendingDeliveries, icon: Clock, accent: '#d97706' },
+    { label: 'On Route', value: dispatchedDeliveries, icon: Bike, accent: '#0284c7' },
+    { label: 'Delivered', value: deliveredDeliveries, icon: CheckCircle, accent: '#059669' },
+    { label: 'Revenue', value: `${currency}${Math.round(deliveryIncomeTotal).toLocaleString()}`, icon: Wallet, accent: '#4f46e5' }
   ];
 
   return (
@@ -880,17 +881,16 @@ Vehicle Plate Number: ${plateNumber}
             {deliveryStats.map((stat) => {
               const StatIcon = stat.icon;
               return (
-                <div key={stat.label} className={`relative min-w-0 overflow-hidden rounded-2xl border px-3 py-3 shadow-[0_6px_18px_rgba(15,23,42,0.08)] ${stat.tone}`} title={`${stat.label}: ${stat.value}`}>
-                  <div className="relative flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="block truncate text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-current/65 font-mono">{stat.label}</span>
-                      <span className="block mt-1.5 text-base sm:text-lg font-black font-mono tracking-tight leading-none whitespace-nowrap">{stat.value}</span>
-                    </div>
-                    <span className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${stat.iconTone}`}>
+                <div key={stat.label} className="min-w-0 bg-white border border-slate-200 rounded-2xl px-3.5 py-3 shadow-sm" title={`${stat.label}: ${stat.value}`}>
+                  <div className="flex items-center gap-2.5">
+                    <span className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${stat.accent}17`, color: stat.accent }}>
                       <StatIcon className="w-4 h-4" />
                     </span>
+                    <div className="min-w-0">
+                      <span className="block truncate text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-slate-400">{stat.label}</span>
+                      <span className="block mt-0.5 text-base sm:text-lg font-black text-slate-900 tracking-tight leading-none whitespace-nowrap">{stat.value}</span>
+                    </div>
                   </div>
-                  <span className="absolute -right-5 -bottom-7 h-16 w-16 rounded-full bg-current opacity-[0.035]" aria-hidden="true" />
                 </div>
               );
             })}
