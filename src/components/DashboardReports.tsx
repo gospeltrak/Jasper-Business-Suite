@@ -141,7 +141,11 @@ export default function DashboardReports({
         email: systemSettings?.business?.email || systemSettings?.company?.email || '',
         documentTitle: REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report',
         dateRange: `${startDateStr} to ${endDateStr}`,
-        generatedBy: userName,
+        // Deliberately no `generatedBy` — the report should read as an
+        // official document identified by its title (e.g. "Sales Performance
+        // Report"), not tied to whichever staff member happened to click
+        // download. applyBrandedReportChrome only prints a "Prepared by"
+        // line when this is set.
       }
     });
   };
